@@ -20,98 +20,77 @@ using namespace facebook::velox::dwio::common;
 
 namespace facebook::velox::text {
 
-using dwio::common::ReaderOptions; // clarify ambiguity
+using dwio::common::ReaderOptions;
 
-namespace {
+/// TODO: Add implementation
+TextRowReader::TextRowReader(
+    std::unique_ptr<RowReader> /*rowReader*/,
+    memory::MemoryPool& pool,
+    const std::shared_ptr<common::ScanSpec>& /*scanSpec*/)
+    : pool_(pool) {}
 
-class TextRowReader : public RowReader {
- public:
-  /// TODO: Add implementation
-  explicit TextRowReader(
-      std::unique_ptr<RowReader> /*rowReader*/,
-      memory::MemoryPool& pool,
-      const std::shared_ptr<common::ScanSpec>& /*scanSpec*/)
-      : pool_(pool) {}
+/// TODO: Add implementation
+int64_t TextRowReader::nextRowNumber() {
+  return 0;
+}
 
-  /// TODO: Add implementation
-  int64_t nextRowNumber() override {
-    return 0;
-  }
+/// TODO: Add implementation
+int64_t TextRowReader::nextReadSize(uint64_t /*size*/) {
+  return 0;
+}
 
-  /// TODO: Add implementation
-  int64_t nextReadSize(uint64_t /*size*/) override {
-    return 0;
-  }
+/// TODO: Add implementation
+uint64_t TextRowReader::next(
+    uint64_t /*size*/,
+    VectorPtr& /*result*/,
+    const Mutation* /*mutation*/) {
+  return 0;
+}
 
-  /// TODO: Add implementation
-  uint64_t next(
-      uint64_t /*size*/,
-      VectorPtr& /*result*/,
-      const Mutation* /*mutation*/) override {
-    return 0;
-  }
+void TextRowReader::updateRuntimeStats(RuntimeStatistics& /*stats*/) const {
+  // No-op for non-selective reader.
+  return;
+}
 
-  void updateRuntimeStats(RuntimeStatistics& /*stats*/) const override {
-    // No-op for non-selective reader.
-    return;
-  }
+void TextRowReader::resetFilterCaches() {
+  // No-op for non-selective reader.
+  return;
+}
 
-  void resetFilterCaches() override {
-    // No-op for non-selective reader.
-    return;
-  }
+std::optional<size_t> TextRowReader::estimatedRowSize() const {
+  return std::nullopt;
+}
 
-  std::optional<size_t> estimatedRowSize() const override {
-    return std::nullopt;
-  }
+TextReader::TextReader(
+    const ReaderOptions& options,
+    const std::shared_ptr<ReadFile>& readFile)
+    : options_(options), readFile_(readFile) {
+  return;
+}
 
- private:
-  std::unique_ptr<RowReader> rowReader_;
-  memory::MemoryPool& pool_;
-  std::unique_ptr<BaseVector> batch_;
-  std::shared_ptr<common::ScanSpec> scanSpec_;
-};
+std::optional<uint64_t> TextReader::numberOfRows() const {
+  return std::nullopt;
+}
 
-class TextReader : public Reader {
- public:
-  TextReader(
-      const ReaderOptions& options,
-      const std::shared_ptr<ReadFile>& readFile)
-      : options_(options), readFile_(readFile) {
-    return;
-  }
+std::unique_ptr<ColumnStatistics> TextReader::columnStatistics(
+    uint32_t /*index*/) const {
+  return nullptr;
+}
 
-  std::optional<uint64_t> numberOfRows() const override {
-    return std::nullopt;
-  }
+const RowTypePtr& TextReader::rowType() const {
+  static RowTypePtr dummy;
+  return dummy;
+}
 
-  std::unique_ptr<ColumnStatistics> columnStatistics(
-      uint32_t /*index*/) const override {
-    return nullptr;
-  }
+const std::shared_ptr<const TypeWithId>& TextReader::typeWithId() const {
+  static std::shared_ptr<const TypeWithId> dummy;
+  return dummy;
+}
 
-  const RowTypePtr& rowType() const override {
-    static RowTypePtr dummy;
-    return dummy;
-  }
-
-  const std::shared_ptr<const TypeWithId>& typeWithId() const override {
-    static std::shared_ptr<const TypeWithId> dummy;
-    return dummy;
-  }
-
-  std::unique_ptr<RowReader> createRowReader(
-      const RowReaderOptions& /*options*/) const override {
-    return nullptr;
-  }
-
- private:
-  ReaderOptions options_;
-  std::shared_ptr<ReadFile> readFile_;
-  mutable std::shared_ptr<const TypeWithId> typeWithId_;
-};
-
-} // namespace
+std::unique_ptr<RowReader> TextReader::createRowReader(
+    const RowReaderOptions& /*options*/) const {
+  return nullptr;
+}
 
 std::unique_ptr<Reader> TextReaderFactory::createReader(
     std::unique_ptr<BufferedInput> input,

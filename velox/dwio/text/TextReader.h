@@ -20,6 +20,66 @@
 
 namespace facebook::velox::text {
 
+using dwio::common::ColumnStatistics;
+using dwio::common::Mutation;
+using dwio::common::Reader;
+using dwio::common::RowReader;
+using dwio::common::RowReaderOptions;
+using dwio::common::RuntimeStatistics;
+using dwio::common::TypeWithId;
+
+using dwio::common::ReaderOptions;
+
+class TextRowReader : public RowReader {
+ public:
+  explicit TextRowReader(
+      std::unique_ptr<RowReader> rowReader,
+      memory::MemoryPool& pool,
+      const std::shared_ptr<common::ScanSpec>& scanSpec);
+
+  int64_t nextRowNumber() override;
+
+  int64_t nextReadSize(uint64_t size) override;
+
+  uint64_t next(uint64_t size, VectorPtr& result, const Mutation* mutation)
+      override;
+
+  void updateRuntimeStats(RuntimeStatistics& stats) const override;
+
+  void resetFilterCaches() override;
+
+  std::optional<size_t> estimatedRowSize() const override;
+
+ private:
+  std::unique_ptr<RowReader> rowReader_;
+  memory::MemoryPool& pool_;
+  std::unique_ptr<BaseVector> batch_;
+  std::shared_ptr<common::ScanSpec> scanSpec_;
+};
+
+class TextReader : public Reader {
+ public:
+  TextReader(
+      const ReaderOptions& options,
+      const std::shared_ptr<ReadFile>& readFile);
+
+  std::optional<uint64_t> numberOfRows() const override;
+
+  std::unique_ptr<ColumnStatistics> columnStatistics(
+      uint32_t index) const override;
+
+  const RowTypePtr& rowType() const override;
+  const std::shared_ptr<const TypeWithId>& typeWithId() const override;
+
+  std::unique_ptr<RowReader> createRowReader(
+      const RowReaderOptions& options) const override;
+
+ private:
+  ReaderOptions options_;
+  std::shared_ptr<ReadFile> readFile_;
+  mutable std::shared_ptr<const TypeWithId> typeWithId_;
+};
+
 class TextReaderFactory : public dwio::common::ReaderFactory {
  public:
   TextReaderFactory() : ReaderFactory(dwio::common::FileFormat::TEXT) {}
