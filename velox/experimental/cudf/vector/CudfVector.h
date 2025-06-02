@@ -15,13 +15,13 @@
  */
 #pragma once
 
-#include "velox/buffer/Buffer.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/TypeAliases.h"
 
 #include <cudf/table/table.hpp>
-#include <cudf/utilities/default_stream.hpp>
+
+#include <rmm/cuda_stream_view.hpp>
 
 #include <memory>
 #include <utility>
@@ -36,16 +36,7 @@ class CudfVector : public RowVector {
       TypePtr type,
       vector_size_t size,
       std::unique_ptr<cudf::table>&& table,
-      rmm::cuda_stream_view stream)
-      : RowVector(
-            pool,
-            std::move(type),
-            BufferPtr(nullptr),
-            size,
-            std::vector<VectorPtr>(),
-            std::nullopt),
-        table_{std::move(table)},
-        stream_{stream} {}
+      rmm::cuda_stream_view stream);
 
   rmm::cuda_stream_view stream() const {
     return stream_;
@@ -56,12 +47,16 @@ class CudfVector : public RowVector {
   }
 
   std::unique_ptr<cudf::table>&& release() {
+    flatSize_ = 0;
     return std::move(table_);
   }
+
+  uint64_t estimateFlatSize() const override;
 
  private:
   std::unique_ptr<cudf::table> table_;
   rmm::cuda_stream_view stream_;
+  uint64_t flatSize_;
 };
 
 using CudfVectorPtr = std::shared_ptr<CudfVector>;

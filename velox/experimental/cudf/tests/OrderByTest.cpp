@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/experimental/cudf/exec/CudfConversion.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
-#include "velox/experimental/cudf/exec/Utilities.h"
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/QueryConfig.h"
@@ -25,7 +25,6 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 #include <fmt/format.h>
-#include <re2/re2.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -317,6 +316,76 @@ TEST_F(OrderByTest, varfields) {
   createDuckDbTable(vectors);
 
   testSingleKey(vectors, "c2");
+}
+
+/// Verifies output batch rows of OrderBy
+TEST_F(OrderByTest, outputBatchRows) {
+  struct {
+    int numRowsPerBatch;
+    int preferredOutBatchBytes;
+    int maxOutBatchRows;
+    int expectedOutputVectors;
+
+    // TODO: add output size check with spilling enabled
+    std::string debugString() const {
+      return fmt::format(
+          "numRowsPerBatch:{}, preferredOutBatchBytes:{}, maxOutBatchRows:{}, expectedOutputVectors:{}",
+          numRowsPerBatch,
+          preferredOutBatchBytes,
+          maxOutBatchRows,
+          expectedOutputVectors);
+    }
+  } testSettings[] = {
+      {1024, 1, 100, 1024},
+      // estimated size per row is ~2092, set preferredOutBatchBytes to 20920,
+      // so each batch has 10 rows, so it would return 100 batches
+      {1000, 20920, 100, 100},
+      // same as above, but maxOutBatchRows is 1, so it would return 1000
+      // batches
+      {1000, 20920, 1, 1000}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    const vector_size_t batchSize = testData.numRowsPerBatch;
+    std::vector<RowVectorPtr> rowVectors;
+    auto c0 = makeFlatVector<int64_t>(
+        batchSize, [&](vector_size_t row) { return row; }, nullEvery(5));
+    auto c1 = makeFlatVector<double>(
+        batchSize, [&](vector_size_t row) { return row; }, nullEvery(11));
+    std::vector<VectorPtr> vectors;
+    vectors.push_back(c0);
+    for (int i = 0; i < 256; ++i) {
+      vectors.push_back(c1);
+    }
+    rowVectors.push_back(makeRowVector(vectors));
+    createDuckDbTable(rowVectors);
+
+    core::PlanNodeId orderById;
+    auto plan = PlanBuilder()
+                    .values(rowVectors)
+                    .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                    .capturePlanNodeId(orderById)
+                    .planNode();
+    auto queryCtx = core::QueryCtx::create(executor_.get());
+    queryCtx->testingOverrideConfigUnsafe(
+        {{core::QueryConfig::kPreferredOutputBatchBytes,
+          std::to_string(testData.preferredOutBatchBytes)},
+         {core::QueryConfig::kMaxOutputBatchRows,
+          std::to_string(testData.maxOutBatchRows)},
+         {facebook::velox::cudf_velox::CudfToVelox::kPassthroughMode,
+          "false"}});
+    CursorParameters params;
+    params.planNode = plan;
+    params.queryCtx = queryCtx;
+    auto task = assertQueryOrdered(
+        params, "SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST", {0});
+
+    EXPECT_EQ(
+        testData.expectedOutputVectors,
+        toPlanStats(task->taskStats())
+            .at(orderById + "-to-velox")
+            .outputVectors);
+  }
 }
 
 } // namespace

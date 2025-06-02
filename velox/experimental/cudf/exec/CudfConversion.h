@@ -23,8 +23,6 @@
 #include "velox/exec/Operator.h"
 #include "velox/vector/ComplexVector.h"
 
-#include <cudf/table/table.hpp>
-
 #include <deque>
 #include <memory>
 #include <vector>
@@ -68,6 +66,9 @@ class CudfFromVelox : public exec::Operator, public NvtxHelper {
 
 class CudfToVelox : public exec::Operator, public NvtxHelper {
  public:
+  static constexpr const char* kPassthroughMode =
+      "velox.cudf.to_velox.passthrough_mode";
+
   CudfToVelox(
       int32_t operatorId,
       RowTypePtr outputType,
@@ -93,6 +94,9 @@ class CudfToVelox : public exec::Operator, public NvtxHelper {
   void close() override;
 
  private:
+  bool isPassthroughMode() const;
+  std::optional<uint64_t> averageRowSize();
+  std::optional<uint64_t> averageRowSize_;
   std::deque<CudfVectorPtr> inputs_;
   bool finished_ = false;
 };

@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/experimental/cudf/exec/CudfConversion.h"
 #include "velox/experimental/cudf/exec/NvtxHelper.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 #include "velox/experimental/cudf/vector/CudfVector.h"
@@ -23,7 +25,7 @@
 #include "velox/exec/Operator.h"
 #include "velox/vector/ComplexVector.h"
 
-#include <cudf/concatenate.hpp>
+#include <cudf/copying.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/utilities/default_stream.hpp>
 
@@ -172,6 +174,11 @@ CudfToVelox::CudfToVelox(
           operatorId,
           fmt::format("[{}]", planNodeId)) {}
 
+bool CudfToVelox::isPassthroughMode() const {
+  return operatorCtx_->driverCtx()->queryConfig().get<bool>(
+      kPassthroughMode, true);
+}
+
 void CudfToVelox::addInput(RowVectorPtr input) {
   // Accumulate inputs
   if (input->size() > 0) {
@@ -181,6 +188,14 @@ void CudfToVelox::addInput(RowVectorPtr input) {
   }
 }
 
+std::optional<uint64_t> CudfToVelox::averageRowSize() {
+  if (!averageRowSize_) {
+    averageRowSize_ =
+        inputs_.front()->estimateFlatSize() / inputs_.front()->size();
+  }
+  return averageRowSize_;
+}
+
 RowVectorPtr CudfToVelox::getOutput() {
   VELOX_NVTX_OPERATOR_FUNC_RANGE();
   if (finished_ || inputs_.empty()) {
@@ -188,16 +203,97 @@ RowVectorPtr CudfToVelox::getOutput() {
     return nullptr;
   }
 
+  // Get the target batch size
+  const auto targetBatchSize = outputBatchRows(averageRowSize());
   auto stream = inputs_.front()->stream();
-  std::unique_ptr<cudf::table> tbl = inputs_.front()->release();
-  inputs_.pop_front();
 
-  VELOX_CHECK_NOT_NULL(tbl);
-  if (tbl->num_rows() == 0) {
+  // Process single input directly in these cases:
+  // 1. In passthrough mode
+  // 2. If we only have one input and it's smaller than or equal to the target
+  // batch size
+  if (isPassthroughMode() ||
+      (inputs_.size() == 1 && inputs_.front()->size() <= targetBatchSize)) {
+    std::unique_ptr<cudf::table> tbl = inputs_.front()->release();
+    inputs_.pop_front();
+
+    VELOX_CHECK_NOT_NULL(tbl);
+    if (tbl->num_rows() == 0) {
+      finished_ = noMoreInput_ && inputs_.empty();
+      return nullptr;
+    }
+    RowVectorPtr output =
+        with_arrow::toVeloxColumn(tbl->view(), pool(), "", stream);
+    stream.synchronize();
+    finished_ = noMoreInput_ && inputs_.empty();
+    output->setType(outputType_);
+    return output;
+  }
+
+  // Calculate how many tables we need to concatenate to reach the target batch
+  // size and collect them in a vector
+  std::vector<CudfVectorPtr> selectedInputs;
+  vector_size_t totalSize = 0;
+
+  while (!inputs_.empty() && totalSize < targetBatchSize) {
+    auto& input = inputs_.front();
+    if (totalSize + input->size() <= targetBatchSize) {
+      totalSize += input->size();
+      selectedInputs.push_back(std::move(input));
+      inputs_.pop_front();
+    } else {
+      // If the next input would exceed targetBatchSize,
+      // we need to split it and only take what we need
+      auto cudfTableView = input->getTableView();
+      auto partitions = std::vector<cudf::size_type>{
+          static_cast<cudf::size_type>(targetBatchSize - totalSize)};
+      auto tableSplits = cudf::split(cudfTableView, partitions);
+
+      // Create new CudfVector from the first part
+      auto firstPart = std::make_unique<cudf::table>(tableSplits[0], stream);
+      auto firstPartSize = firstPart->num_rows();
+      auto firstPartVector = std::make_shared<CudfVector>(
+          pool(), input->type(), firstPartSize, std::move(firstPart), stream);
+
+      // Create new CudfVector from the second part
+      auto secondPart = std::make_unique<cudf::table>(tableSplits[1], stream);
+      auto secondPartSize = secondPart->num_rows();
+      auto secondPartVector = std::make_shared<CudfVector>(
+          pool(), input->type(), secondPartSize, std::move(secondPart), stream);
+
+      // Replace the original input with the second part
+      input = std::move(secondPartVector);
+
+      // Add the first part to selectedInputs
+      selectedInputs.push_back(std::move(firstPartVector));
+      totalSize += firstPartSize;
+      break;
+    }
+  }
+
+  finished_ = noMoreInput_ && inputs_.empty();
+
+  // If we have no inputs to process, return nullptr
+  if (selectedInputs.empty()) {
     return nullptr;
   }
+
+  // Concatenate the selected tables on the GPU
+  std::unique_ptr<cudf::table> resultTable;
+  if (selectedInputs.size() == 1) {
+    resultTable = selectedInputs[0]->release();
+  } else {
+    resultTable = getConcatenatedTable(selectedInputs, stream);
+  }
+
+  // Convert the concatenated table to a RowVector
+  const auto size = resultTable->num_rows();
+  VELOX_CHECK_NOT_NULL(resultTable);
+  if (size == 0) {
+    return nullptr;
+  }
+
   RowVectorPtr output =
-      with_arrow::toVeloxColumn(tbl->view(), pool(), "", stream);
+      with_arrow::toVeloxColumn(resultTable->view(), pool(), "", stream);
   stream.synchronize();
   finished_ = noMoreInput_ && inputs_.empty();
   output->setType(outputType_);

@@ -15,8 +15,13 @@
  */
 
 #include "velox/experimental/cudf/exec/CudfConversion.h"
+#include "velox/experimental/cudf/exec/CudfFilterProject.h"
 #include "velox/experimental/cudf/exec/CudfHashAggregation.h"
+#include "velox/experimental/cudf/exec/CudfHashJoin.h"
+#include "velox/experimental/cudf/exec/CudfLimit.h"
+#include "velox/experimental/cudf/exec/CudfLocalPartition.h"
 #include "velox/experimental/cudf/exec/CudfOrderBy.h"
+#include "velox/experimental/cudf/exec/ExpressionEvaluator.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 
@@ -25,8 +30,10 @@
 #include "velox/exec/HashAggregation.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/HashProbe.h"
+#include "velox/exec/Limit.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/OrderBy.h"
+#include "velox/exec/TableScan.h"
 
 #include <cudf/detail/nvtx/ranges.hpp>
 
@@ -37,6 +44,7 @@
 DEFINE_bool(velox_cudf_enabled, true, "Enable cuDF-Velox acceleration");
 DEFINE_string(velox_cudf_memory_resource, "async", "Memory resource for cuDF");
 DEFINE_bool(velox_cudf_debug, false, "Enable debug printing");
+DEFINE_bool(velox_cudf_table_scan, true, "Enable cuDF table scan");
 
 namespace facebook::velox::cudf_velox {
 
@@ -82,9 +90,49 @@ bool CompileState::compile() {
     return driverFactory_.consumerNode;
   };
 
-  auto isSupportedGpuOperator = [](const exec::Operator* op) {
-    return isAnyOf<exec::OrderBy, exec::HashAggregation>(op);
+  const bool isParquetConnectorRegistered =
+      facebook::velox::connector::getAllConnectors().count("test-parquet") > 0;
+  auto isTableScanSupported =
+      [isParquetConnectorRegistered](const exec::Operator* op) {
+        return isAnyOf<exec::TableScan>(op) && isParquetConnectorRegistered &&
+            cudfTableScanEnabled();
+      };
+
+  auto isFilterProjectSupported = [](const exec::Operator* op) {
+    if (auto filterProjectOp = dynamic_cast<const exec::FilterProject*>(op)) {
+      auto info = filterProjectOp->exprsAndProjection();
+      return ExpressionEvaluator::canBeEvaluated(info.exprs->exprs());
+    }
+    return false;
   };
+
+  auto isJoinSupported = [getPlanNode](const exec::Operator* op) {
+    if (!isAnyOf<exec::HashBuild, exec::HashProbe>(op)) {
+      return false;
+    }
+    auto planNode = std::dynamic_pointer_cast<const core::HashJoinNode>(
+        getPlanNode(op->planNodeId()));
+    if (!planNode) {
+      return false;
+    }
+    if (!CudfHashJoinProbe::isSupportedJoinType(planNode->joinType())) {
+      return false;
+    }
+    return true;
+  };
+
+  auto isSupportedGpuOperator =
+      [isFilterProjectSupported, isJoinSupported, isTableScanSupported](
+          const exec::Operator* op) {
+        return isAnyOf<
+                   exec::OrderBy,
+                   exec::HashAggregation,
+                   exec::Limit,
+                   exec::LocalPartition,
+                   exec::LocalExchange>(op) ||
+            isFilterProjectSupported(op) || isJoinSupported(op) ||
+            isTableScanSupported(op);
+      };
 
   std::vector<bool> isSupportedGpuOperators(operators.size());
   std::transform(
@@ -92,13 +140,26 @@ bool CompileState::compile() {
       operators.end(),
       isSupportedGpuOperators.begin(),
       isSupportedGpuOperator);
-
-  auto acceptsGpuInput = [](const exec::Operator* op) {
-    return isAnyOf<exec::OrderBy, exec::HashAggregation>(op);
+  auto acceptsGpuInput = [isFilterProjectSupported,
+                          isJoinSupported](const exec::Operator* op) {
+    return isAnyOf<
+               exec::OrderBy,
+               exec::HashAggregation,
+               exec::Limit,
+               exec::LocalPartition>(op) ||
+        isFilterProjectSupported(op) || isJoinSupported(op);
   };
-
-  auto producesGpuOutput = [](const exec::Operator* op) {
-    return isAnyOf<exec::OrderBy, exec::HashAggregation>(op);
+  auto producesGpuOutput = [isFilterProjectSupported,
+                            isJoinSupported,
+                            isTableScanSupported](const exec::Operator* op) {
+    return isAnyOf<
+               exec::OrderBy,
+               exec::HashAggregation,
+               exec::Limit,
+               exec::LocalExchange>(op) ||
+        isFilterProjectSupported(op) ||
+        (isAnyOf<exec::HashProbe>(op) && isJoinSupported(op)) ||
+        (isTableScanSupported(op));
   };
 
   int32_t operatorsOffset = 0;
@@ -126,7 +187,34 @@ bool CompileState::compile() {
       replaceOp.back()->initialize();
     }
 
-    if (auto* orderByOp = dynamic_cast<exec::OrderBy*>(oper)) {
+    // This is used to denote if the current operator is kept or replaced.
+    auto keepOperator = 0;
+    // TableScan
+    if (isTableScanSupported(oper)) {
+      auto planNode = std::dynamic_pointer_cast<const core::TableScanNode>(
+          getPlanNode(oper->planNodeId()));
+      VELOX_CHECK(planNode != nullptr);
+      keepOperator = 1;
+    } else if (isJoinSupported(oper)) {
+      if (auto joinBuildOp = dynamic_cast<exec::HashBuild*>(oper)) {
+        auto planNode = std::dynamic_pointer_cast<const core::HashJoinNode>(
+            getPlanNode(joinBuildOp->planNodeId()));
+        VELOX_CHECK(planNode != nullptr);
+        // From-Velox (optional)
+        replaceOp.push_back(
+            std::make_unique<CudfHashJoinBuild>(id, ctx, planNode));
+        replaceOp.back()->initialize();
+      } else if (auto joinProbeOp = dynamic_cast<exec::HashProbe*>(oper)) {
+        auto planNode = std::dynamic_pointer_cast<const core::HashJoinNode>(
+            getPlanNode(joinProbeOp->planNodeId()));
+        VELOX_CHECK(planNode != nullptr);
+        // From-Velox (optional)
+        replaceOp.push_back(
+            std::make_unique<CudfHashJoinProbe>(id, ctx, planNode));
+        replaceOp.back()->initialize();
+        // To-Velox (optional)
+      }
+    } else if (auto orderByOp = dynamic_cast<exec::OrderBy*>(oper)) {
       auto id = orderByOp->operatorId();
       auto planNode = std::dynamic_pointer_cast<const core::OrderByNode>(
           getPlanNode(orderByOp->planNodeId()));
@@ -140,6 +228,34 @@ bool CompileState::compile() {
       replaceOp.push_back(
           std::make_unique<CudfHashAggregation>(id, ctx, planNode));
       replaceOp.back()->initialize();
+    } else if (isFilterProjectSupported(oper)) {
+      auto filterProjectOp = dynamic_cast<exec::FilterProject*>(oper);
+      auto info = filterProjectOp->exprsAndProjection();
+      auto& idProjections = filterProjectOp->identityProjections();
+      auto projectPlanNode = std::dynamic_pointer_cast<const core::ProjectNode>(
+          getPlanNode(filterProjectOp->planNodeId()));
+      auto filterPlanNode = std::dynamic_pointer_cast<const core::FilterNode>(
+          getPlanNode(filterProjectOp->planNodeId()));
+      // If filter only, filter node only exists.
+      // If project only, or filter and project, project node only exists.
+      VELOX_CHECK(projectPlanNode != nullptr or filterPlanNode != nullptr);
+      replaceOp.push_back(std::make_unique<CudfFilterProject>(
+          id, ctx, info, idProjections, filterPlanNode, projectPlanNode));
+      replaceOp.back()->initialize();
+    } else if (auto limitOp = dynamic_cast<exec::Limit*>(oper)) {
+      auto planNode = std::dynamic_pointer_cast<const core::LimitNode>(
+          getPlanNode(limitOp->planNodeId()));
+      VELOX_CHECK(planNode != nullptr);
+      replaceOp.push_back(std::make_unique<CudfLimit>(id, ctx, planNode));
+      replaceOp.back()->initialize();
+    } else if (
+        auto localPartitionOp = dynamic_cast<exec::LocalPartition*>(oper)) {
+      auto planNode = std::dynamic_pointer_cast<const core::LocalPartitionNode>(
+          getPlanNode(localPartitionOp->planNodeId()));
+      VELOX_CHECK(planNode != nullptr);
+      replaceOp.push_back(
+          std::make_unique<CudfLocalPartition>(id, ctx, planNode));
+      replaceOp.back()->initialize();
     }
 
     if (producesGpuOutput(oper) and
@@ -151,10 +267,10 @@ bool CompileState::compile() {
     }
 
     if (not replaceOp.empty()) {
-      operatorsOffset += replaceOp.size() - 1;
+      operatorsOffset += replaceOp.size() - 1 + keepOperator;
       [[maybe_unused]] auto replaced = driverFactory_.replaceOperators(
           driver_,
-          replacingOperatorIndex,
+          replacingOperatorIndex + keepOperator,
           replacingOperatorIndex + 1,
           std::move(replaceOp));
       replacementsMade = true;
@@ -204,6 +320,9 @@ void registerCudf(const CudfOptions& options) {
   const std::string mrMode = options.cudfMemoryResource;
   auto mr = cudf_velox::createMemoryResource(mrMode);
   cudf::set_current_device_resource(mr.get());
+
+  exec::Operator::registerOperator(
+      std::make_unique<CudfHashJoinBridgeTranslator>());
   CudfDriverAdapter cda{mr};
   exec::DriverAdapter cudfAdapter{kCudfAdapterName, {}, cda};
   exec::DriverFactory::registerAdapter(cudfAdapter);
@@ -225,6 +344,14 @@ void unregisterCudf() {
 
 bool cudfIsRegistered() {
   return isCudfRegistered;
+}
+
+bool cudfDebugEnabled() {
+  return FLAGS_velox_cudf_debug;
+}
+
+bool cudfTableScanEnabled() {
+  return FLAGS_velox_cudf_table_scan;
 }
 
 } // namespace facebook::velox::cudf_velox

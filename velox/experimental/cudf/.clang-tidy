@@ -44,11 +44,11 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.EnumConstantPrefix
     value: k
-    
+
   # Use nullptr instead of NULL or 0
   - key: modernize-use-nullptr.NullMacros
     value: 'NULL'
-    
+
   # Prefer enum class over enum
   - key: modernize-use-using.IgnoreUsingStdAllocator
-    value: 1 
+    value: 1
