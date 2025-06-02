@@ -1,0 +1,668 @@
+Metadata-Version: 2.1
+Name: cmakelang
+Version: 0.6.13
+Summary: Language tools for cmake (format, lint, etc)
+Home-page: https://github.com/cheshirekow/cmakelang
+Author: Josh Bialkowski
+Author-email: josh.bialkowski@gmail.com
+License: GPLv3
+Download-URL: https://github.com/cheshirekow/cmakelang/archive/0.6.13.tar.gz
+Keywords: cmake,format
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Requires-Dist: six (>=1.13.0)
+Provides-Extra: yaml
+Requires-Dist: pyyaml (>=5.3) ; extra == 'yaml'
+Provides-Extra: html-gen
+Requires-Dist: jinja2 (==2.10.3) ; extra == 'html-gen'
+
+============
+cmake format
+============
+
+.. image:: https://travis-ci.com/cheshirekow/cmake_format.svg?branch=master
+    :target: https://travis-ci.com/cheshirekow/cmake_format
+
+.. image:: https://readthedocs.org/projects/cmake-format/badge/?version=latest
+    :target: https://cmake-format.readthedocs.io
+
+The ``cmake-format`` project provides Quality Assurance (QA) tools
+for ``cmake``:
+
+
+* ``cmake-annotate`` can generate pretty HTML from your listfiles
+
+* ``cmake-format`` can format your listfiles nicely so that they don't
+  look like crap.
+
+* ``cmake-lint`` can check your listfiles for problems
+
+* ``ctest-to`` can parse a ctest output tree and translate it into a
+  more structured format (either JSON or XML).
+
+------------
+Installation
+------------
+
+Install from ``pypi`` using ``pip``::
+
+    pip install cmakelang
+
+Or see the `online documentation`__ for additional options.
+
+.. __: https://cmake-format.readthedocs.io/en/latest/installation.html
+
+------------
+Integrations
+------------
+
+* There is an official `vscode extension`__
+* Someone also created a `sublime plugin`__
+* You can add ``cmake-format`` to your ``pre-commit`` configuration__
+
+.. __: https://marketplace.visualstudio.com/items?itemName=cheshirekow.cmake-format
+.. __: https://packagecontrol.io/packages/CMakeFormat
+.. __: https://cmake-format.readthedocs.io/en/latest/installation.html#pre-commit
+
+-----
+Usage
+-----
+
+.. dynamic: format-usage-short-begin
+
+.. code:: text
+
+    usage:
+    cmake-format [-h]
+                 [--dump-config {yaml,json,python} | -i | -o OUTFILE_PATH]
+                 [-c CONFIG_FILE]
+                 infilepath [infilepath ...]
+
+    Parse cmake listfiles and format them nicely.
+
+    Formatting is configurable by providing a configuration file. The configuration
+    file can be in json, yaml, or python format. If no configuration file is
+    specified on the command line, cmake-format will attempt to find a suitable
+    configuration for each ``inputpath`` by checking recursively checking it's
+    parent directory up to the root of the filesystem. It will return the first
+    file it finds with a filename that matches '\.?cmake-format(.yaml|.json|.py)'.
+
+    cmake-format can spit out the default configuration for you as starting point
+    for customization. Run with `--dump-config [yaml|json|python]`.
+
+    positional arguments:
+      infilepaths
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -v, --version         show program's version number and exit
+      -l {error,warning,info,debug}, --log-level {error,warning,info,debug}
+      --dump-config [{yaml,json,python}]
+                            If specified, print the default configuration to
+                            stdout and exit
+      --dump {lex,parse,parsedb,layout,markup}
+      --no-help             When used with --dump-config, will omit helptext
+                            comments in the output
+      --no-default          When used with --dump-config, will omit any unmodified
+                            configuration value.
+      -i, --in-place
+      --check               Exit with status code 0 if formatting would not change
+                            file contents, or status code 1 if it would
+      -o OUTFILE_PATH, --outfile-path OUTFILE_PATH
+                            Where to write the formatted file. Default is stdout.
+      -c CONFIG_FILES [CONFIG_FILES ...], --config-files CONFIG_FILES [CONFIG_FILES ...]
+                            path to configuration file(s)
+
+
+.. dynamic: format-usage-short-end
+
+.. dynamic: lint-usage-short-begin
+
+.. code:: text
+
+    usage:
+    cmake-lint [-h]
+               [--dump-config {yaml,json,python} | -o OUTFILE_PATH]
+               [-c CONFIG_FILE]
+               infilepath [infilepath ...]
+
+    Check cmake listfile for lint
+
+    positional arguments:
+      infilepaths
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -v, --version         show program's version number and exit
+      -l {error,warning,info,debug}, --log-level {error,warning,info,debug}
+      --dump-config [{yaml,json,python}]
+                            If specified, print the default configuration to
+                            stdout and exit
+      -o OUTFILE_PATH, --outfile-path OUTFILE_PATH
+                            Write errors to this file. Default is stdout.
+      --no-help             When used with --dump-config, will omit helptext
+                            comments in the output
+      --no-default          When used with --dump-config, will omit any unmodified
+                            configuration value.
+      --suppress-decorations
+                            Suppress the file title decoration and summary
+                            statistics
+      -c CONFIG_FILES [CONFIG_FILES ...], --config-files CONFIG_FILES [CONFIG_FILES ...]
+                            path to configuration file(s)
+
+
+.. dynamic: lint-usage-short-end
+
+-------------
+Configuration
+-------------
+
+``cmake-format`` accepts configuration files in yaml, json, or python format.
+An example configuration file is given `in the online documentation`__.
+Providing the structure of your custom commands will help ``cmake-format`` to
+break them up in a pleasant way, and will help `cmake-lint` detect improper
+usages of them.
+
+.. __: https://cmake-format.readthedocs.io/en/latest/configuration.html
+
+An example short configuration file in python format is:
+
+.. code:: python
+
+    # -----------------------------
+    # Options effecting formatting.
+    # -----------------------------
+    with section("format"):
+
+      # How wide to allow formatted cmake files
+      line_width = 80
+
+      # How many spaces to tab for indent
+      tab_size = 2
+
+      # If true, separate flow control names from their parentheses with a space
+      separate_ctrl_name_with_space = False
+
+      # If true, separate function names from parentheses with a space
+      separate_fn_name_with_space = False
+
+      # If a statement is wrapped to more than one line, than dangle the closing
+      # parenthesis on its own line.
+      dangle_parens = False
+
+You may specify a path to one or more configuration files with the
+``--config-file`` command line option. Otherwise, ``cmake-format`` will search
+the ancestry of each ``infilepath`` looking for a configuration file to use.
+If no configuration file is found it will use sensible defaults.
+
+A automatically detected configuration files may have any name that matches
+``\.?cmake-format(.yaml|.json|.py)``.
+
+If you'd like to create a new configuration file, ``cmake-format`` can help
+by dumping out the default configuration in your preferred format. You can run
+``cmake-format --dump-config [yaml|json|python]`` to print the default
+configuration ``stdout`` and use that as a starting point.
+
+.. dynamic: features-begin
+
+-------
+Markup
+-------
+
+``cmake-format`` is for the exceptionally lazy. It will even format your
+comments for you. It will reflow your comment text to within the configured
+line width. It also understands a very limited markup format for a couple of
+common bits.
+
+**rulers**: A ruler is a line which starts with and ends with three or more
+non-alphanum or space characters::
+
+    # ---- This is a Ruler ----
+    # cmake-format will know to keep the ruler separated from the
+    # paragraphs around it. So it wont try to reflow this text as
+    # a single paragraph.
+    # ---- This is also a Ruler ---
+
+
+**list**: A list is started on the first encountered list item, which starts
+with a bullet character (``*``) followed by a space followed by some text.
+Subsequent lines will be included in the list item until the next list item
+is encountered (the bullet must be at the same indentation level). The list
+must be surrounded by a pair of empty lines. Nested lists will be formatted in
+nested text::
+
+    # here are some lists:
+    #
+    # * item 1
+    # * item 2
+    #
+    #   * subitem 1
+    #   * subitem 2
+    #
+    # * second list item 1
+    # * second list item 2
+
+**enumerations**: An enumeration is similar to a list but the bullet character
+is some integers followed by a period. New enumeration items are detected as
+long as either the first digit or the punctuation lines up in the same column
+as the previous item. ``cmake-format`` will renumber your items and align their
+labels for you::
+
+    # This is an enumeration
+    #
+    #   1. item
+    #   2. item
+    #   3. item
+
+**fences**: If you have any text which you do not want to be formatted you can
+guard it with a pair of fences. Fences are three or more tilde characters::
+
+    # ~~~
+    # This comment is fenced
+    #   and will not be formatted
+    # ~~~
+
+Note that comment fences guard reflow of *comment text*, and not cmake code.
+If you wish to prevent formatting of cmake, code, see below. In addition to
+fenced-literals, there are three other ways to preserve comment text from
+markup and/or reflow processing:
+
+* The ``--first-comment-is-literal`` configuration option will exactly preserve
+  the first comment in the file. This is intended to preserve copyright or
+  other formatted header comments.
+* The ``--literal-comment-pattern`` configuration option allows for a more
+  generic way to identify comments which should be preserved literally. This
+  configuration takes a regular expression pattern.
+* The ``--enable-markup`` configuration option globally enables comment markup
+  processing. It defaults to true so set it to false if you wish to globally
+  disable comment markup processing. Note that trailing whitespace is still
+  chomped from comments.
+
+--------------------------
+Disable Formatting Locally
+--------------------------
+
+You can locally disable and enable code formatting by using the special
+comments ``# cmake-format: off`` and ``# cmake-format: on``.
+
+-------------------
+Sort Argument Lists
+-------------------
+
+Starting with version `0.5.0`, ``cmake-format`` can sort your argument lists
+for you. If the configuration includes ``autosort=True`` (the default), it
+will replace::
+
+    add_library(foobar STATIC EXCLUDE_FROM_ALL
+                sourcefile_06.cc
+                sourcefile_03.cc
+                sourcefile_02.cc
+                sourcefile_04.cc
+                sourcefile_07.cc
+                sourcefile_01.cc
+                sourcefile_05.cc)
+
+with::
+
+    add_library(foobar STATIC EXCLUDE_FROM_ALL
+                sourcefile_01.cc
+                sourcefile_02.cc
+                sourcefile_03.cc
+                sourcefile_04.cc
+                sourcefile_05.cc
+                sourcefile_06.cc
+                sourcefile_07.cc)
+
+This is implemented for any argument lists which the parser knows are
+inherently sortable. This includes the following cmake commands:
+
+* ``add_library``
+* ``add_executable``
+
+For most other cmake commands, you can use an annotation comment to hint to
+``cmake-format`` that the argument list is sortable. For instance::
+
+    set(SOURCES
+        # cmake-format: sortable
+        bar.cc
+        baz.cc
+        foo.cc)
+
+Annotations can be given in a line-comment or a bracket comment. There is a
+long-form and a short-form for each. The acceptable formats are:
+
++-----------------+-------+------------------------------+
+| Line Comment    | long  | ``# cmake-format: <tag>``    |
++-----------------+-------+------------------------------+
+| Line Comment    | short | ``# cmf: <tag>``             |
++-----------------+-------+------------------------------+
+| Bracket Comment | long  | ``#[[cmake-format: <tag>]]`` |
++-----------------+-------+------------------------------+
+| Bracket Comment | short | ``#[[cmf: <tag>]]``          |
++-----------------+-------+------------------------------+
+
+In order to annotate a positional argument list as sortable, the acceptable
+tags are: ``sortable`` or ``sort``. For the commands listed above where
+the positinal argument lists are inherently sortable, you can locally disable
+sorting by annotating them with ``unsortable`` or ``unsort``. For example::
+
+    add_library(foobar STATIC
+                # cmake-format: unsort
+                sourcefile_03.cc
+                sourcefile_01.cc
+                sourcefile_02.cc)
+
+Note that this is only needed if your configuration has enabled ``autosort``,
+and you can globally disable sorting by making setting this configuration to
+``False``.
+
+
+---------------
+Custom Commands
+---------------
+
+Due to the fact that cmake is a macro language, `cmake-format` is, by
+necessity, a *semantic* source code formatter. In general it tries to make
+smart formatting decisions based on the meaning of arguments in an otherwise
+unstructured list of arguments in a cmake statement. `cmake-format` can
+intelligently format your custom commands, but you will need to tell it how
+to interpret your arguments.
+
+Currently, you can do this by adding your command specifications to the
+`additional_commands` configuration variables, e.g.:
+
+.. code::
+
+    # Additional FLAGS and KWARGS for custom commands
+    additional_commands = {
+      "foo": {
+        "pargs": 2,
+        "flags": ["BAR", "BAZ"],
+        "kwargs": {
+          "HEADERS": '*',
+          "SOURCES": '*',
+          "DEPENDS": '*',
+        }
+      }
+    }
+
+The format is a nested dictionary mapping statement names (dictionary keys)
+to `argument specifications`__. For the example specification above, the
+custom command would look something like this:
+
+.. code::
+
+   foo(hello world
+       HEADERS a.h b.h c.h d.h
+       SOURCES a.cc b.cc c.cc d.cc
+       DEPENDS flub buzz bizz
+       BAR BAZ)
+
+
+.. __: https://cmake-format.rtfd.io/en/latest/custom_parsers.html
+.. dynamic: features-end
+
+---------------------------------
+Reporting Issues and Getting Help
+---------------------------------
+
+If you encounter any bugs or regressions or if ``cmake-format`` doesn't behave
+in the way that you expect, please post an issue on the
+`github issue tracker`_. It is especially helpful if you can provide cmake
+listfile snippets that demonstrate any issues you encounter.
+
+.. _`github issue tracker`: https://github.com/cheshirekow/cmakelang/issues
+
+You can also join the ``#cmake-format`` channel on our `discord server`_.
+
+.. _`discord server`: https://discord.gg/NgjwyPy
+
+
+----------
+Developers
+----------
+
+If you want to hack on ``cmake-format``, please see the `documentation`__ for
+contribution rules and guidelines.
+
+.. __: https://cmake-format.rtfd.io/en/latest/contributing.html
+
+-------
+Example
+-------
+
+Will turn this:
+
+.. dynamic: example-in-begin
+
+.. code:: cmake
+
+    # The following multiple newlines should be collapsed into a single newline
+
+
+
+
+    cmake_minimum_required(VERSION 2.8.11)
+    project(cmakelang_test)
+
+    # This multiline-comment should be reflowed
+    # into a single comment
+    # on one line
+
+    # This comment should remain right before the command call.
+    # Furthermore, the command call should be formatted
+    # to a single line.
+    add_subdirectories(foo bar baz
+      foo2 bar2 baz2)
+
+    # This very long command should be wrapped
+    set(HEADERS very_long_header_name_a.h very_long_header_name_b.h very_long_header_name_c.h)
+
+    # This command should be split into one line per entry because it has a long argument list.
+    set(SOURCES source_a.cc source_b.cc source_d.cc source_e.cc source_f.cc source_g.cc source_h.cc)
+
+    # The string in this command should not be split
+    set_target_properties(foo bar baz PROPERTIES COMPILE_FLAGS "-std=c++11 -Wall -Wextra")
+
+    # This command has a very long argument and can't be aligned with the command
+    # end, so it should be moved to a new line with block indent + 1.
+    some_long_command_name("Some very long argument that really needs to be on the next line.")
+
+    # This situation is similar but the argument to a KWARG needs to be on a
+    # newline instead.
+    set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wno-sign-compare -Wno-unused-parameter -xx")
+
+    set(HEADERS header_a.h header_b.h # This comment should
+                                      # be preserved, moreover it should be split
+                                      # across two lines.
+        header_c.h header_d.h)
+
+
+    # This part of the comment should
+    # be formatted
+    # but...
+    # cmake-format: off
+    # This bunny should remain untouched:
+    # . 　 ＿　∩
+    # 　　ﾚﾍヽ| |
+    # 　　　 (・ｘ・)
+    # 　　 c( uu}
+    # cmake-format: on
+    #          while this part should
+    #          be formatted again
+
+    # This is a paragraph
+    #
+    # This is a second paragraph
+    #
+    # This is a third paragraph
+
+    # This is a comment
+    # that should be joined but
+    # TODO(josh): This todo should not be joined with the previous line.
+    # NOTE(josh): Also this should not be joined with the todo.
+
+    if(foo)
+    if(sbar)
+    # This comment is in-scope.
+    add_library(foo_bar_baz foo.cc bar.cc # this is a comment for arg2
+                                          # this is more comment for arg2, it should be joined with the first.
+        baz.cc) # This comment is part of add_library
+
+    other_command(some_long_argument some_long_argument) # this comment is very long and gets split across some lines
+
+    other_command(some_long_argument some_long_argument some_long_argument) # this comment is even longer and wouldn't make sense to pack at the end of the command so it gets it's own lines
+    endif()
+    endif()
+
+
+    # This very long command should be broken up along keyword arguments
+    foo(nonkwarg_a nonkwarg_b HEADERS a.h b.h c.h d.h e.h f.h SOURCES a.cc b.cc d.cc DEPENDS foo bar baz)
+
+    # This command uses a string with escaped quote chars
+    foo(some_arg some_arg "This is a \"string\" within a string")
+
+    # This command uses an empty string
+    foo(some_arg some_arg "")
+
+    # This command uses a multiline string
+    foo(some_arg some_arg "
+        This string is on multiple lines
+    ")
+
+    # No, I really want this to look ugly
+    # cmake-format: off
+    add_library(a b.cc
+      c.cc         d.cc
+               e.cc)
+    # cmake-format: on
+
+.. dynamic: example-in-end
+
+into this:
+
+.. dynamic: example-out-begin
+
+.. code:: cmake
+
+    # The following multiple newlines should be collapsed into a single newline
+
+    cmake_minimum_required(VERSION 2.8.11)
+    project(cmakelang_test)
+
+    # This multiline-comment should be reflowed into a single comment on one line
+
+    # This comment should remain right before the command call. Furthermore, the
+    # command call should be formatted to a single line.
+    add_subdirectories(foo bar baz foo2 bar2 baz2)
+
+    # This very long command should be wrapped
+    set(HEADERS very_long_header_name_a.h very_long_header_name_b.h
+                very_long_header_name_c.h)
+
+    # This command should be split into one line per entry because it has a long
+    # argument list.
+    set(SOURCES
+        source_a.cc
+        source_b.cc
+        source_d.cc
+        source_e.cc
+        source_f.cc
+        source_g.cc
+        source_h.cc)
+
+    # The string in this command should not be split
+    set_target_properties(foo bar baz PROPERTIES COMPILE_FLAGS
+                                                 "-std=c++11 -Wall -Wextra")
+
+    # This command has a very long argument and can't be aligned with the command
+    # end, so it should be moved to a new line with block indent + 1.
+    some_long_command_name(
+      "Some very long argument that really needs to be on the next line.")
+
+    # This situation is similar but the argument to a KWARG needs to be on a newline
+    # instead.
+    set(CMAKE_CXX_FLAGS
+        "-std=c++11 -Wall -Wno-sign-compare -Wno-unused-parameter -xx")
+
+    set(HEADERS
+        header_a.h header_b.h # This comment should be preserved, moreover it should
+                              # be split across two lines.
+        header_c.h header_d.h)
+
+    # This part of the comment should be formatted but...
+    # cmake-format: off
+    # This bunny should remain untouched:
+    # . 　 ＿　∩
+    # 　　ﾚﾍヽ| |
+    # 　　　 (・ｘ・)
+    # 　　 c( uu}
+    # cmake-format: on
+    # while this part should be formatted again
+
+    # This is a paragraph
+    #
+    # This is a second paragraph
+    #
+    # This is a third paragraph
+
+    # This is a comment that should be joined but
+    # TODO(josh): This todo should not be joined with the previous line.
+    # NOTE(josh): Also this should not be joined with the todo.
+
+    if(foo)
+      if(sbar)
+        # This comment is in-scope.
+        add_library(
+          foo_bar_baz
+          foo.cc bar.cc # this is a comment for arg2 this is more comment for arg2,
+                        # it should be joined with the first.
+          baz.cc) # This comment is part of add_library
+
+        other_command(
+          some_long_argument some_long_argument) # this comment is very long and
+                                                 # gets split across some lines
+
+        other_command(
+          some_long_argument some_long_argument some_long_argument) # this comment
+                                                                    # is even longer
+                                                                    # and wouldn't
+                                                                    # make sense to
+                                                                    # pack at the
+                                                                    # end of the
+                                                                    # command so it
+                                                                    # gets it's own
+                                                                    # lines
+      endif()
+    endif()
+
+    # This very long command should be broken up along keyword arguments
+    foo(nonkwarg_a nonkwarg_b
+        HEADERS a.h b.h c.h d.h e.h f.h
+        SOURCES a.cc b.cc d.cc
+        DEPENDS foo
+        bar baz)
+
+    # This command uses a string with escaped quote chars
+    foo(some_arg some_arg "This is a \"string\" within a string")
+
+    # This command uses an empty string
+    foo(some_arg some_arg "")
+
+    # This command uses a multiline string
+    foo(some_arg some_arg "
+        This string is on multiple lines
+    ")
+
+    # No, I really want this to look ugly
+    # cmake-format: off
+    add_library(a b.cc
+      c.cc         d.cc
+               e.cc)
+    # cmake-format: on
+
+.. dynamic: example-out-end
+
+

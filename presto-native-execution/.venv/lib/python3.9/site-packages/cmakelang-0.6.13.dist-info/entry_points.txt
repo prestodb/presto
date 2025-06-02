@@ -1,0 +1,7 @@
+[console_scripts]
+cmake-annotate = cmakelang.annotate:main
+cmake-format = cmakelang.format.__main__:main
+cmake-genparsers = cmakelang.genparsers:main
+cmake-lint = cmakelang.lint.__main__:main
+ctest-to = cmakelang.ctest_to:main
+

@@ -1,0 +1,31 @@
+body {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+div.content {
+  white-space: pre;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10pt;
+}
+
+span.cmf-COMMENT, span.cmf-BRACKET_COMMENT {
+  color: rgb(70, 70, 70);
+}
+
+span.cmf-FUNNAME {
+  color: rgb(130, 195, 238);
+}
+
+span.cmf-KEYWORD {
+  color: rgb(69, 96, 126);
+}
+
+span.cmf-NUMBER {
+  color: lightblue;
+  font-weight: bold;
+}
+
+span.cmf-QUOTED_LITERAL {
+  color: lightgreen;
+}
