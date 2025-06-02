@@ -303,6 +303,7 @@ public class FeaturesConfig
     private boolean nativeExecutionTypeRewriteEnabled;
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
+    private boolean addDistinctBelowSemiJoinBuild;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3013,5 +3014,18 @@ public class FeaturesConfig
     public boolean getAddExchangeBelowPartialAggregationOverGroupId()
     {
         return addExchangeBelowPartialAggregationOverGroupId;
+    }
+
+    @Config("optimizer.add-distinct-below-semi-join-build")
+    @ConfigDescription("Add a distinct aggregation below build side of semi join")
+    public FeaturesConfig setAddDistinctBelowSemiJoinBuild(boolean addDistinctBelowSemiJoinBuild)
+    {
+        this.addDistinctBelowSemiJoinBuild = addDistinctBelowSemiJoinBuild;
+        return this;
+    }
+
+    public boolean isAddDistinctBelowSemiJoinBuild()
+    {
+        return addDistinctBelowSemiJoinBuild;
     }
 }

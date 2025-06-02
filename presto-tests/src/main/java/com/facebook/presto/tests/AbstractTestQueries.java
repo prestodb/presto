@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD;
 import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
@@ -7989,6 +7990,56 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) SELECT b.msg.x FROM t a, t b WHERE a.msg.y = b.msg.y limit 100",
                 "values 1");
         assertQuery(enableOptimization, "select orderkey, col1 from orders cross join (select cast(col as varchar) col1 from (values 1) t(col))");
+    }
+
+    @Test
+    public void testAddDistinctForSemiJoinBuild()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, "false")
+                .build();
+        @Language("SQL") String sql = "SELECT * FROM customer c WHERE custkey in ( SELECT custkey FROM orders o WHERE o.orderdate > date('1995-01-01'))";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        sql = "SELECT * FROM customer c WHERE custkey in ( SELECT distinct custkey FROM orders o WHERE o.orderdate > date('1995-01-01'))";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        sql = "SELECT *\n" +
+                "FROM customer c\n" +
+                "WHERE c.custkey IN (\n" +
+                "  SELECT o.custkey\n" +
+                "  FROM orders o\n" +
+                "  WHERE o.totalprice > 1000\n" +
+                ")";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        sql = "SELECT c.name\n" +
+                "FROM customer c\n" +
+                "WHERE c.custkey IN (\n" +
+                "    SELECT o.custkey\n" +
+                "    FROM orders o\n" +
+                ")";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        sql = "SELECT s.name\n" +
+                "FROM supplier s\n" +
+                "WHERE s.suppkey IN (\n" +
+                "    SELECT l.suppkey\n" +
+                "    FROM lineitem l\n" +
+                ")";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        sql = "SELECT c.name FROM customer c WHERE c.custkey IN ( SELECT o.custkey FROM orders o JOIN lineitem l ON o.orderkey = l.orderkey WHERE l.partkey > 1235 )";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        sql = "SELECT p.name\n" +
+                "FROM part p\n" +
+                "WHERE p.partkey IN (\n" +
+                "    SELECT l.partkey\n" +
+                "    FROM lineitem l\n" +
+                "    JOIN orders o ON l.orderkey = o.orderkey\n" +
+                "    JOIN customer c ON o.custkey = c.custkey\n" +
+                "    JOIN nation n ON c.nationkey = n.nationkey\n" +
+                "    WHERE n.name = 'UNITED STATES'\n" +
+                ")";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
     }
 
     /**
