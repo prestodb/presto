@@ -1,6 +1,6 @@
 /* global __dirname */
 const process = require('process');
-
+const TerserPlugin = require("terser-webpack-plugin");
 const mode = process.argv.includes('-p') ? 'production' : 'development';
 
 module.exports = {
@@ -11,10 +11,19 @@ module.exports = {
     module: {
         rules: [
             {
-                test: /\.(js|jsx)$/,
+                test: /\.(?:js|jsx)$/,
                 exclude: /node_modules/,
-                use: ['babel-loader']
-            }
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: [
+                            ['@babel/preset-env', {targets: "defaults"}],
+                            ['@babel/preset-react', {runtime: "automatic"}],
+                            ['@babel/preset-flow']
+                        ],
+                    },
+                }
+            },
         ]
     },
     resolve: {
@@ -23,5 +32,18 @@ module.exports = {
     output: {
         path: __dirname + '/../dist',
         filename: '[name].js'
-    }
+    },
+    optimization: {
+        minimize: mode === 'production',
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    format: {
+                        comments: false,
+                    },
+                },
+                extractComments: false,
+            }),
+            '...'],
+    },
 };
