@@ -793,7 +793,8 @@ bool WindowFuzzer::verifyWindow(
                     expectedResult.value(),
                     plan->outputType(),
                     {resultOrError.result}),
-                "Velox and reference DB results don't match");
+                "Velox and reference DB results don't match, plan: {}",
+                plan->toString(true, true));
             LOG(INFO) << "Verified results against reference DB";
           }
         }

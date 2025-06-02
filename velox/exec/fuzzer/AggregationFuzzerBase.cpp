@@ -553,13 +553,19 @@ void AggregationFuzzerBase::testPlan(
     const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
     const velox::fuzzer::ResultOrError& expected,
     int32_t maxDrivers) {
-  auto actual = execute(
-      planWithSplits.plan,
-      planWithSplits.splits,
-      injectSpill,
-      abandonPartial,
-      maxDrivers);
-  compare(actual, customVerification, customVerifiers, expected);
+  try {
+    auto actual = execute(
+        planWithSplits.plan,
+        planWithSplits.splits,
+        injectSpill,
+        abandonPartial,
+        maxDrivers);
+    compare(actual, customVerification, customVerifiers, expected);
+  } catch (...) {
+    LOG(ERROR) << "Failed while testing plan: "
+               << planWithSplits.plan->toString(true, true);
+    throw;
+  }
 }
 
 void AggregationFuzzerBase::compare(
