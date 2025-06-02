@@ -31,6 +31,12 @@
                 <artifactId>commons-cli</artifactId>
                 <version>1.4</version>
             </dependency>
+            <!-- commons-validator and commons-beanutils rely on different versions. Pull up to the highest one -->
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>1.3.5</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
