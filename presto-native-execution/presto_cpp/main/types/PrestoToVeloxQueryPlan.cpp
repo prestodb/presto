@@ -2340,9 +2340,8 @@ void parseIndexLookupCondition(
     VELOX_CHECK_NOT_NULL(
         keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
 
-    const auto conditionColumnExpr = exprConverter.toVeloxExpr(
-        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            contains->arguments[0]));
+    const auto conditionColumnExpr =
+        exprConverter.toVeloxExpr(contains->arguments[0]);
     VELOX_CHECK(
         acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr),
         "The condition column needs to be not constant: {}",
