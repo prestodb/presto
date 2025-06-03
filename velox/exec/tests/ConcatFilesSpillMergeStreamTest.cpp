@@ -67,7 +67,7 @@ class ConcatFilesSpillMergeStreamTest : public OperatorTestBase {
 
   SpillFiles generateSortedSpillFiles(
       const std::vector<RowVectorPtr>& sortedVectors) {
-    const auto spiller = std::make_unique<NoRowContainerSpiller>(
+    const auto spiller = std::make_unique<MergeSpiller>(
         inputType_,
         std::nullopt,
         HashBitRange{},

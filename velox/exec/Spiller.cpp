@@ -386,6 +386,20 @@ NoRowContainerSpiller::NoRowContainerSpiller(
     RowTypePtr rowType,
     std::optional<SpillPartitionId> parentId,
     HashBitRange bits,
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
+    : NoRowContainerSpiller(
+          std::move(rowType),
+          parentId,
+          bits,
+          {},
+          spillConfig,
+          spillStats) {}
+
+NoRowContainerSpiller::NoRowContainerSpiller(
+    RowTypePtr rowType,
+    std::optional<SpillPartitionId> parentId,
+    HashBitRange bits,
     const std::vector<SpillSortKey>& sortingKeys,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* spillStats)
@@ -397,20 +411,6 @@ NoRowContainerSpiller::NoRowContainerSpiller(
           spillConfig->maxFileSize,
           0,
           parentId,
-          spillConfig,
-          spillStats) {}
-
-NoRowContainerSpiller::NoRowContainerSpiller(
-    RowTypePtr rowType,
-    std::optional<SpillPartitionId> parentId,
-    HashBitRange bits,
-    const common::SpillConfig* spillConfig,
-    folly::Synchronized<common::SpillStats>* spillStats)
-    : NoRowContainerSpiller(
-          std::move(rowType),
-          parentId,
-          bits,
-          {},
           spillConfig,
           spillStats) {}
 

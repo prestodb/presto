@@ -206,14 +206,6 @@ class NoRowContainerSpiller : public SpillerBase {
       RowTypePtr rowType,
       std::optional<SpillPartitionId> parentId,
       HashBitRange bits,
-      const std::vector<SpillSortKey>& sortingKeys,
-      const common::SpillConfig* spillConfig,
-      folly::Synchronized<common::SpillStats>* spillStats);
-
-  NoRowContainerSpiller(
-      RowTypePtr rowType,
-      std::optional<SpillPartitionId> parentId,
-      HashBitRange bits,
       const common::SpillConfig* spillConfig,
       folly::Synchronized<common::SpillStats>* spillStats);
 
@@ -227,6 +219,15 @@ class NoRowContainerSpiller : public SpillerBase {
     }
   }
 
+ protected:
+  NoRowContainerSpiller(
+      RowTypePtr rowType,
+      std::optional<SpillPartitionId> parentId,
+      HashBitRange bits,
+      const std::vector<SpillSortKey>& sortingKeys,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
+
  private:
   std::string type() const override {
     return std::string(kType);
@@ -235,6 +236,24 @@ class NoRowContainerSpiller : public SpillerBase {
   bool needSort() const override {
     return false;
   }
+};
+
+class MergeSpiller final : public NoRowContainerSpiller {
+ public:
+  MergeSpiller(
+      RowTypePtr rowType,
+      std::optional<SpillPartitionId> parentId,
+      HashBitRange bits,
+      const std::vector<SpillSortKey>& sortingKeys,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats)
+      : NoRowContainerSpiller(
+            std::move(rowType),
+            parentId,
+            bits,
+            sortingKeys,
+            spillConfig,
+            spillStats) {}
 };
 
 class SortInputSpiller : public SpillerBase {

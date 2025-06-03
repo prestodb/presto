@@ -61,6 +61,7 @@ add_executable(
   MemoryReclaimerTest.cpp
   MergeJoinTest.cpp
   MergeTest.cpp
+  MergerTest.cpp
   MultiFragmentTest.cpp
   NestedLoopJoinTest.cpp
   OrderByTest.cpp
