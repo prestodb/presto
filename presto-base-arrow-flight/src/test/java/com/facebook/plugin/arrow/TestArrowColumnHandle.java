@@ -17,8 +17,6 @@ import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.spi.ColumnMetadata;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
-
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -67,7 +65,7 @@ public class TestArrowColumnHandle
 
         // Then
         assertNotNull(columnMetadata, "ColumnMetadata should not be null");
-        assertEquals(columnMetadata.getName(), columnName.toLowerCase(Locale.ENGLISH), "ColumnMetadata name should match the column name");
+        assertEquals(columnMetadata.getName(), columnName, "ColumnMetadata name should match the column name");
         assertEquals(columnMetadata.getType(), IntegerType.INTEGER, "ColumnMetadata type should match the column type");
     }
 

@@ -104,7 +104,7 @@ public class DruidMetadata
     {
         DruidTableHandle druidTable = (DruidTableHandle) tableHandle;
         List<ColumnMetadata> columns = druidClient.getColumnDataType(druidTable.getTableName()).stream()
-                .map(column -> toColumnMetadata(column))
+                .map(column -> toColumnMetadata(session, column))
                 .collect(toImmutableList());
 
         return new ConnectorTableMetadata(druidTable.toSchemaTableName(), columns);
@@ -198,10 +198,10 @@ public class DruidMetadata
         return ImmutableList.of(prefix.toSchemaTableName());
     }
 
-    private static ColumnMetadata toColumnMetadata(DruidColumnInfo column)
+    private ColumnMetadata toColumnMetadata(ConnectorSession session, DruidColumnInfo column)
     {
         return ColumnMetadata.builder()
-                .setName(column.getColumnName())
+                .setName(normalizeIdentifier(session, column.getColumnName()))
                 .setType(column.getDataType().getPrestoType())
                 .build();
     }
