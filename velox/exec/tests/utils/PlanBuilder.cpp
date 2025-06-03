@@ -236,7 +236,6 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
     auto queryCtx = core::QueryCtx::create();
     exec::SimpleExpressionEvaluator evaluator(
         queryCtx.get(), planBuilder_.pool_);
-
     for (const auto& filter : subfieldFilters_) {
       auto filterExpr =
           core::Expressions::inferTypes(filter, parseType, planBuilder_.pool_);
@@ -259,6 +258,10 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
         filters[std::move(subfield)] = std::move(subfieldFilter);
       }
     }
+  }
+
+  if (filtersAsNode_) {
+    VELOX_CHECK(filters.empty());
   }
 
   core::TypedExprPtr remainingFilterExpr;
