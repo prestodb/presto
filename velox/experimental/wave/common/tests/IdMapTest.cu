@@ -16,6 +16,7 @@
 
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <iomanip>
 #include <random>
 
 #include "velox/experimental/wave/common/Cuda.h"
@@ -61,8 +62,8 @@ IdMapHolder<T> createIdMap(GpuAllocator* allocator, int capacity) {
 template <typename T>
 __global__ void
 runMakeIds(IdMap<T>* idMap, const T* values, int size, int32_t* output) {
-  int step = gridDim.x * blockDim.x;
-  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < size; i += step) {
+  auto step = gridDim.x * blockDim.x;
+  for (auto i = threadIdx.x + blockIdx.x * blockDim.x; i < size; i += step) {
     output[i] = idMap->makeId(values[i]);
   }
 }
