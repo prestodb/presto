@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
 
 import java.net.URI;
@@ -47,7 +48,7 @@ public class WeightedRoundRobinScheduler
     private static final Logger log = Logger.get(WeightedRoundRobinScheduler.class);
 
     @Override
-    public Optional<URI> getDestination(String user)
+    public Optional<URI> getDestination(RouterRequestInfo routerRequestInfo)
     {
         int serverIndex = 0;
 

@@ -24,17 +24,7 @@ public interface Scheduler
      * Schedules a query from a user to a concrete candidate. Returns the
      * URI of this candidate.
      */
-    Optional<URI> getDestination(String user);
-
-    /**
-     * Schedules a query from a user to a concrete candidate. Returns the
-     * URI of this candidate.
-     * TODO : Refactor to use a RequestInfo POJO and remove the extra getDestination variant
-     */
-    default Optional<URI> getDestination(String user, String query)
-    {
-        return Optional.empty();
-    };
+    Optional<URI> getDestination(RouterRequestInfo routerRequestInfo);
 
     /**
      * Sets the candidates with the list of URIs for scheduling.
