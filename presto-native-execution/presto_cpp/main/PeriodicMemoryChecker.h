@@ -65,7 +65,7 @@ class PeriodicMemoryChecker {
     size_t mallocBytesUsageDumpThreshold{20UL * 1024 * 1024 * 1024};
   };
 
-  explicit PeriodicMemoryChecker(Config config);
+  explicit PeriodicMemoryChecker(const Config& config);
 
   virtual ~PeriodicMemoryChecker() = default;
 
@@ -74,7 +74,7 @@ class PeriodicMemoryChecker {
   virtual void start();
 
   /// Stops the 'PeriodicMemoryChecker'.
-  void stop();
+  virtual void stop();
 
   /// Returns the last known cached 'current' system memory usage in bytes.
   int64_t cachedSystemUsedMemoryBytes() const {
