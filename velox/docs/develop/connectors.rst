@@ -35,7 +35,7 @@ Let's see how the above connector interfaces are implemented in the Hive Connect
 Hive Connector
 --------------
 The Hive Connector is used to read and write data files (Parquet, DWRF) residing on
-an external storage (S3, HDFS, GCS, Linux FS).
+an external storage. Supported external "Storage Adapters" are listed below.
 
 HiveConnectorSplit
 ~~~~~~~~~~~~~~~~~~
@@ -80,7 +80,7 @@ sources and each require a different configuration.
 Storage Adapters
 ~~~~~~~~~~~~~~~~
 Hive Connector allows reading and writing files from a variety of distributed storage systems.
-The supported storage API are S3, HDFS, GCS, Linux FS.
+The supported storage API are S3 (Amazon S3 Compatible Storage), HDFS (Hadoop Distributed File System), GCS (Google Cloud Storage), ABFS (Azure Blob File Storage), Linux File System.
 
 If file is not found when reading, `openFileForRead` API throws `VeloxRuntimeError` with `error_code::kFileNotFound`.
 This behavior is necessary to support the `ignore_missing_files` configuration property.
@@ -97,8 +97,8 @@ GCS is supported using the
 `Google Cloud Platform C++ Client Libraries <https://github.com/googleapis/google-cloud-cpp>`_. GCS supported schemes
 are `gs://`.
 
-ABS (Azure Blob Storage) is supported using the
-`Azure SDK for C++ <https://github.com/Azure/azure-sdk-for-cpp>`_ library. ABS supported schemes are `abfs(s)://`.
+ABFS is supported using the
+`Azure SDK for C++ <https://github.com/Azure/azure-sdk-for-cpp>`_ library. ABFS supported schemes are `abfs(s)://`.
 
 S3 Storage adapter using a proxy
 ********************************
