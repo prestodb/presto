@@ -9,11 +9,6 @@
             <include>README.txt</include>
         </directory>
     </fileSet>
-    <fileSet>
-        <directory>${project.build.directory}/dependency/presto-native-sidecar-plugin-${project.version}</directory>
-        <outputDirectory>plugin//presto-native-sidecar-plugin</outputDirectory>
-    </fileSet>
-
     <!-- Launcher -->
     <artifactSet to="bin">
         <artifact id="com.facebook.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
