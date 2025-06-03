@@ -142,9 +142,8 @@ class BingTileType : public BigintType {
       uint64_t tile,
       uint8_t parentZoom);
 
-  static folly::Expected<std::vector<uint64_t>, std::string> bingTileChildren(
-      uint64_t tile,
-      uint8_t childZoom);
+  static folly::Expected<std::vector<uint64_t>, std::string>
+  bingTileChildren(uint64_t tile, uint8_t childZoom, uint8_t maxZoomShift);
 
   static folly::Expected<uint64_t, std::string> bingTileFromQuadKey(
       const std::string_view& quadKey);

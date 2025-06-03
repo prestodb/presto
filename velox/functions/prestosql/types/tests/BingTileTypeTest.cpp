@@ -134,10 +134,12 @@ TEST_F(BingTileTypeTest, bingTileChildren) {
                                         uint32_t y,
                                         uint8_t zoom,
                                         uint8_t childZoom,
+                                        uint8_t maxZoomShift,
                                         std::optional<std::string> errorMsg) {
     uint64_t tile = BingTileType::bingTileCoordsToInt(x, y, zoom);
     int32_t shift = childZoom - zoom;
-    auto childrenResult = BingTileType::bingTileChildren(tile, childZoom);
+    auto childrenResult =
+        BingTileType::bingTileChildren(tile, childZoom, maxZoomShift);
     if (errorMsg.has_value()) {
       ASSERT_TRUE(childrenResult.hasError());
       ASSERT_EQ(errorMsg.value(), childrenResult.error());
@@ -167,17 +169,25 @@ TEST_F(BingTileTypeTest, bingTileChildren) {
     }
   };
 
-  testBingTileChildren(0, 0, 0, 0, std::nullopt);
-  testBingTileChildren(0, 0, 0, 1, std::nullopt);
-  testBingTileChildren(0, 0, 0, 2, std::nullopt);
-  testBingTileChildren(1, 1, 1, 2, std::nullopt);
-  testBingTileChildren(0, 127, 8, 12, std::nullopt);
-  testBingTileChildren(0, 127, 8, 8, std::nullopt);
-  testBingTileChildren((1 << 21) - 1, 1 << 20, 21, 23, std::nullopt);
-  testBingTileChildren((1 << 18) - 1, 1 << 17, 18, 23, std::nullopt);
+  testBingTileChildren(0, 0, 0, 0, 23, std::nullopt);
+  testBingTileChildren(0, 0, 0, 1, 23, std::nullopt);
+  testBingTileChildren(0, 0, 0, 2, 23, std::nullopt);
+  testBingTileChildren(1, 1, 1, 2, 23, std::nullopt);
+  testBingTileChildren(0, 127, 8, 12, 23, std::nullopt);
+  testBingTileChildren(0, 127, 8, 8, 23, std::nullopt);
+  testBingTileChildren((1 << 21) - 1, 1 << 20, 21, 23, 23, std::nullopt);
+  testBingTileChildren((1 << 18) - 1, 1 << 17, 18, 23, 23, std::nullopt);
 
-  testBingTileChildren(0, 0, 2, 1, "Child zoom 1 must be >= tile zoom 2");
-  testBingTileChildren(0, 0, 23, 24, "Child zoom 24 must be <= max zoom 23");
+  testBingTileChildren(0, 0, 2, 1, 23, "Child zoom 1 must be >= tile zoom 2");
+  testBingTileChildren(
+      0, 0, 23, 24, 23, "Child zoom 24 must be <= max zoom 23");
+  testBingTileChildren(
+      0,
+      0,
+      0,
+      6,
+      5,
+      "Difference between parent zoom (0) and child zoom (6) must be <= 5");
 }
 
 TEST_F(BingTileTypeTest, bingTileToQuadKey) {

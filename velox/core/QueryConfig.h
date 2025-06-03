@@ -515,6 +515,17 @@ class QueryConfig {
   static constexpr const char* kDebugLambdaFunctionEvaluationBatchSize =
       "debug_lambda_function_evaluation_batch_size";
 
+  /// The UDF `bing_tile_children` generates the children of a Bing tile based
+  /// on a specified target zoom level. The number of children produced is
+  /// determined by the difference between the target zoom level and the zoom
+  /// level of the input tile. This configuration limits the number of children
+  /// by capping the maximum zoom level difference, with a default value set
+  /// to 5. This cap is necessary to prevent excessively large array outputs,
+  /// which can exceed the size limits of the elements vector in the Velox array
+  /// vector.
+  static constexpr const char* kDebugBingTileChildrenMaxZoomShift =
+      "debug_bing_tile_children_max_zoom_shift";
+
   /// Temporary flag to control whether selective Nimble reader should be used
   /// in this query or not.  Will be removed after the selective Nimble reader
   /// is fully rolled out.
@@ -630,6 +641,10 @@ class QueryConfig {
 
   int32_t debugLambdaFunctionEvaluationBatchSize() const {
     return get<int32_t>(kDebugLambdaFunctionEvaluationBatchSize, 10'000);
+  }
+
+  uint8_t debugBingTileChildrenMaxZoomShift() const {
+    return get<uint8_t>(kDebugBingTileChildrenMaxZoomShift, 5);
   }
 
   uint64_t queryMaxMemoryPerNode() const {

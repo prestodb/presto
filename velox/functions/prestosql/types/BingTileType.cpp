@@ -271,7 +271,10 @@ folly::Expected<uint64_t, std::string> BingTileType::bingTileParent(
 }
 
 folly::Expected<std::vector<uint64_t>, std::string>
-BingTileType::bingTileChildren(uint64_t tile, uint8_t childZoom) {
+BingTileType::bingTileChildren(
+    uint64_t tile,
+    uint8_t childZoom,
+    uint8_t maxZoomShift) {
   uint8_t tileZoom = bingTileZoom(tile);
   if (FOLLY_UNLIKELY(tileZoom == childZoom)) {
     return std::vector<uint64_t>{tile};
@@ -291,6 +294,13 @@ BingTileType::bingTileChildren(uint64_t tile, uint8_t childZoom) {
   }
 
   uint8_t shift = childZoom - tileZoom;
+  if (shift > maxZoomShift) {
+    return folly::makeUnexpected(fmt::format(
+        "Difference between parent zoom ({}) and child zoom ({}) must be <= {}",
+        tileZoom,
+        childZoom,
+        maxZoomShift));
+  }
   uint32_t xBase = (x << shift);
   uint32_t yBase = (y << shift);
   uint32_t numChildrenPerOrdinate = 1 << shift;
