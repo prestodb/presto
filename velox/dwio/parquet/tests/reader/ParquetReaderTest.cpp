@@ -1456,7 +1456,6 @@ TEST_F(ParquetReaderTest, readFixedLenBinaryAsStringFromUuid) {
 }
 
 TEST_F(ParquetReaderTest, testV2PageWithZeroMaxDefRep) {
-  // enum_type.parquet contains 1 column (ENUM) with 3 rows.
   const std::string sample(getExampleFilePath("v2_page.parquet"));
 
   dwio::common::ReaderOptions readerOptions{leafPool_.get()};
@@ -1476,6 +1475,31 @@ TEST_F(ParquetReaderTest, testV2PageWithZeroMaxDefRep) {
 
   auto expected = makeRowVector({makeFlatVector<int64_t>({0, 1, 2, 3, 4})});
 
+  assertReadWithReaderAndExpected(
+      outputRowType, *rowReader, expected, *leafPool_);
+}
+
+TEST_F(ParquetReaderTest, readComplexTypeWithV2Page) {
+  const std::string sample(getExampleFilePath("complex_type_v2_page.parquet"));
+
+  dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 1ULL);
+
+  auto rowType = reader->typeWithId();
+  EXPECT_EQ(rowType->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(rowType->size(), 2ULL);
+
+  auto outputRowType =
+      ROW({"nums", "props"}, {ARRAY(INTEGER()), MAP(VARCHAR(), INTEGER())});
+  auto rowReaderOpts = getReaderOpts(outputRowType);
+  rowReaderOpts.setScanSpec(makeScanSpec(outputRowType));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected = makeRowVector(
+      {makeArrayVectorFromJson<int32_t>({"[4 ,5]"}),
+       makeMapVectorFromJson<std::string, int32_t>(
+           {"{\"x\": 99, \"y\": 100}"})});
   assertReadWithReaderAndExpected(
       outputRowType, *rowReader, expected, *leafPool_);
 }

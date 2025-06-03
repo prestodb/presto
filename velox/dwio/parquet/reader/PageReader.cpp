@@ -288,9 +288,15 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   }
 
   if (maxDefine_ > 0) {
-    defineDecoder_ = std::make_unique<RleBpDecoder>(
-        pageData_ + repeatLength,
-        pageData_ + repeatLength + defineLength,
+    if (maxDefine_ == 1) {
+      defineDecoder_ = std::make_unique<RleBpDecoder>(
+          pageData_ + repeatLength,
+          pageData_ + repeatLength + defineLength,
+          ::arrow::bit_util::NumRequiredBits(maxDefine_));
+    }
+    wideDefineDecoder_ = std::make_unique<RleDecoder>(
+        reinterpret_cast<const uint8_t*>(pageData_ + repeatLength),
+        defineLength,
         ::arrow::bit_util::NumRequiredBits(maxDefine_));
   }
   auto levelsSize = repeatLength + defineLength;
