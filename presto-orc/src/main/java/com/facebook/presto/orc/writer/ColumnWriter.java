@@ -73,5 +73,7 @@ public interface ColumnWriter
 
     long getRetainedBytes();
 
+    void printRetainedBytes();
+
     void reset();
 }

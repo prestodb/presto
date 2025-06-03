@@ -154,6 +154,11 @@ public class OrcSelectiveRecordReader
     // true if row number needs to be added, false otherwise
     private final boolean appendRowNumber;
 
+    private final Map<String, String> statMap;
+    private long maxRetainSize = 0;
+    private long maxStreamReaderRetainSize = 0;
+    private long maxStripeRetainSize = 0;
+
     public OrcSelectiveRecordReader(
             Map<Integer, Type> includedColumns,                 // key: hiveColumnIndex
             List<Integer> outputColumns,                        // elements are hive column indices
@@ -269,6 +274,7 @@ public class OrcSelectiveRecordReader
         requireNonNull(constantValues, "constantValues is null");
         this.constantValues = new Object[this.hiveColumnIndices.length];
         this.appendRowNumber = options.appendRowNumber();
+        this.statMap = new HashMap();
         for (int columnIndex : includedColumns.keySet()) {
             if (!isColumnPresent(columnIndex)) {
                 // Any filter not true of null on a missing column
@@ -706,6 +712,9 @@ public class OrcSelectiveRecordReader
         }
 
         localMemoryContext.setBytes(getSelfRetainedSizeInBytes());
+        maxRetainSize = Math.max(maxRetainSize, getRetainedSizeInBytes());
+        maxStreamReaderRetainSize = Math.max(maxStreamReaderRetainSize, getStreamReaderRetainedSizeInBytes());
+        maxStripeRetainSize = Math.max(maxStripeRetainSize, getCurrentStripeRetainedSizeInBytes());
 
         batchRead(batchSize);
 
@@ -917,6 +926,17 @@ public class OrcSelectiveRecordReader
             }
         }
         return OptionalInt.empty();
+    }
+
+    public Map<String, String> getStatMap()
+    {
+        statMap.put("maxRetainSize", String.valueOf(maxRetainSize));
+        statMap.put("maxStreamReaderRetainSize", String.valueOf(maxStreamReaderRetainSize));
+        statMap.put("maxStripeRetainSize", String.valueOf(maxStripeRetainSize));
+        statMap.put("READ_SMALL_RANGE_SIZE", System.getProperty("READ_SMALL_RANGE_SIZE"));
+        statMap.put("READ_LARGE_RANGE_SIZE", System.getProperty("READ_LARGE_RANGE_SIZE"));
+        statMap.put("READ_RANGE_SIZE", System.getProperty("READ_RANGE_SIZE"));
+        return statMap;
     }
 
     private final class OrcBlockLoader

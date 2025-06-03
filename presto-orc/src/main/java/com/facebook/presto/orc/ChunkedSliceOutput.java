@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -344,6 +345,7 @@ public final class ChunkedSliceOutput
     // reusing the buffers.
     private static class ChunkSupplier
     {
+        private static final Logger log = Logger.get(ChunkSupplier.class);
         private final int maxChunkSize;
 
         private final List<byte[]> bufferPool = new ArrayList<>();
@@ -363,6 +365,15 @@ public final class ChunkedSliceOutput
 
         public void reset()
         {
+            if (!bufferPool.isEmpty()) {
+                System.setProperty("CHUNKED_SLICE_OUTPUT_RESET_BUFFER", "CHUNKED_SLICE_OUTPUT_RESET_BUFFER");
+                log.info("Reset unused buffers, used %d chunks (%d bytes), unused %d chunks (%d bytes)",
+                        usedBuffers.size(),
+                        usedBuffers.stream().mapToInt(b -> b.length).sum(),
+                        bufferPool.size(),
+                        bufferPool.stream().mapToInt(b -> b.length).sum());
+                bufferPool.clear();
+            }
             bufferPool.addAll(0, usedBuffers);
             usedBuffers.clear();
         }
