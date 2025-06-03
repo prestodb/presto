@@ -41,8 +41,11 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.plugin.jdbc.GeometryUtils.getAsText;
+import static com.facebook.presto.plugin.jdbc.GeometryUtils.stGeomFromBinary;
 import static com.facebook.presto.plugin.jdbc.ReadMapping.longReadMapping;
 import static com.facebook.presto.plugin.jdbc.ReadMapping.sliceReadMapping;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -233,5 +236,10 @@ public final class StandardReadMappings
                 return Optional.of(timestampReadMapping());
         }
         return Optional.empty();
+    }
+    public static ReadMapping geometryReadMapping()
+    {
+        return sliceReadMapping(VARCHAR,
+                (resultSet, columnIndex) -> getAsText(stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex)))));
     }
 }
