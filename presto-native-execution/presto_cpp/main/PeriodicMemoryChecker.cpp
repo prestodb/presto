@@ -22,8 +22,8 @@
 #include "velox/common/time/Timer.h"
 
 namespace facebook::presto {
-PeriodicMemoryChecker::PeriodicMemoryChecker(Config config)
-    : config_(std::move(config)) {
+PeriodicMemoryChecker::PeriodicMemoryChecker(const Config& config)
+    : config_(config) {
   if (config_.systemMemPushbackEnabled) {
     VELOX_CHECK_GT(config_.systemMemLimitBytes, 0);
   }
