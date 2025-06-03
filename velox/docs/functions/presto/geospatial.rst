@@ -131,6 +131,11 @@ function you are using.
 Spatial Operations
 ------------------
 
+.. function:: ST_Boundary(geometry: Geometry) -> boundary: Geometry
+
+    Returns the closure of the combinatorial boundary of ``geometry``.
+     Empty geometry inputs result in empty output.
+
 .. function:: ST_Difference(geometry1: Geometry, geometry2: Geometry) -> difference: Geometry
 
     Returns the geometry that represents the portion of ``geometry1`` that is

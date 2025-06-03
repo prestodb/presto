@@ -349,6 +349,25 @@ struct StDifferenceFunction {
 };
 
 template <typename T>
+struct StBoundaryFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Geometry>& result, const arg_type<Geometry>& input) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(input);
+
+    std::unique_ptr<geos::geom::Geometry> outputGeometry;
+
+    GEOS_TRY(
+        result = geospatial::serializeGeometry(*geosGeometry->getBoundary());
+        , "Failed to compute geometry boundary");
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
 struct StIntersectionFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

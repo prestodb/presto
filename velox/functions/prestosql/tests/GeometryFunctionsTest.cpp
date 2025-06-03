@@ -1360,3 +1360,39 @@ TEST_F(GeometryFunctionsTest, testSimplifyGeometry) {
           "POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))"),
       "simplification tolerance must be a non-negative finite number");
 }
+
+TEST_F(GeometryFunctionsTest, testStBoundary) {
+  const auto testStBoundaryFunc = [&](const std::optional<std::string>& wkt,
+                                      const std::optional<std::string>&
+                                          expected) {
+    std::optional<bool> result = evaluateOnce<bool>(
+        "ST_Equals(ST_Boundary(ST_GeometryFromText(c0)), ST_GeometryFromText(c1))",
+        wkt,
+        expected);
+
+    if (wkt.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_TRUE(expected.has_value());
+      ASSERT_TRUE(result.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testStBoundaryFunc("POINT (1 2)", "GEOMETRYCOLLECTION EMPTY");
+  testStBoundaryFunc(
+      "MULTIPOINT (1 2, 2 4, 3 6, 4 8)", "GEOMETRYCOLLECTION EMPTY");
+  testStBoundaryFunc("LINESTRING EMPTY", "MULTIPOINT EMPTY");
+  testStBoundaryFunc("LINESTRING (8 4, 5 7)", "MULTIPOINT (8 4, 5 7)");
+  testStBoundaryFunc(
+      "LINESTRING (100 150, 50 60, 70 80, 160 170)",
+      "MULTIPOINT (100 150, 160 170)");
+  testStBoundaryFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))",
+      "MULTIPOINT (1 1, 2 4, 4 4, 5 1)");
+  testStBoundaryFunc(
+      "POLYGON ((1 1, 4 1, 1 4, 1 1))", "LINESTRING (1 1, 1 4, 4 1, 1 1)");
+  testStBoundaryFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))",
+      "MULTILINESTRING ((1 1, 1 3, 3 3, 3 1, 1 1), (0 0, 0 2, 2 2, 2 0, 0 0))");
+}
