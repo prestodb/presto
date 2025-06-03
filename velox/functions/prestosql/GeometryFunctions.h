@@ -514,6 +514,53 @@ struct StAreaFunction {
 };
 
 template <typename T>
+struct StCentroidFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Geometry>& result, const arg_type<Geometry>& input) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::deserializeGeometry(input);
+
+    auto validate = facebook::velox::functions::geospatial::validateType(
+        *geosGeometry,
+        {geos::geom::GeometryTypeId::GEOS_POINT,
+         geos::geom::GeometryTypeId::GEOS_MULTIPOINT,
+         geos::geom::GeometryTypeId::GEOS_LINESTRING,
+         geos::geom::GeometryTypeId::GEOS_MULTILINESTRING,
+         geos::geom::GeometryTypeId::GEOS_POLYGON,
+         geos::geom::GeometryTypeId::GEOS_MULTIPOLYGON},
+        "ST_Centroid");
+
+    if (!validate.ok()) {
+      return validate;
+    }
+
+    geos::geom::GeometryTypeId type = geosGeometry->getGeometryTypeId();
+    if (type == geos::geom::GeometryTypeId::GEOS_POINT) {
+      result = input;
+      return Status::OK();
+    }
+
+    if (geosGeometry->getNumPoints() == 0) {
+      GEOS_TRY(
+          {
+            geos::geom::GeometryFactory::Ptr factory =
+                geos::geom::GeometryFactory::create();
+            std::unique_ptr<geos::geom::Point> point = factory->createPoint();
+            result = geospatial::serializeGeometry(*point);
+            factory->destroyGeometry(point.release());
+          },
+          "Failed to create point geometry");
+      return Status::OK();
+    }
+
+    result = geospatial::serializeGeometry(*(geosGeometry->getCentroid()));
+    return Status::OK();
+  }
+};
+
+template <typename T>
 struct StXFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

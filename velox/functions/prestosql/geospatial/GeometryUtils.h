@@ -17,6 +17,8 @@
 #pragma once
 
 #include <geos/geom/Geometry.h>
+#include <geos/io/WKTReader.h>
+
 #include <geos/util/AssertionFailedException.h>
 #include <geos/util/UnsupportedOperationException.h>
 #include <optional>
@@ -40,6 +42,58 @@ namespace facebook::velox::functions::geospatial {
     return Status::UserError(                                    \
         fmt::format("{}: {}", user_error_message, e.what()));    \
   }
+FOLLY_ALWAYS_INLINE const
+    std::unordered_map<geos::geom::GeometryTypeId, std::string>&
+    getGeosTypeToStringIdentifier() {
+  static const geos::geom::GeometryFactory::Ptr factory =
+      geos::geom::GeometryFactory::create();
+
+  static const std::unordered_map<geos::geom::GeometryTypeId, std::string>
+      geosTypeToStringIdentifier{
+          {geos::geom::GeometryTypeId::GEOS_POINT,
+           factory->createPoint()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_LINESTRING,
+           factory->createLineString()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_LINEARRING,
+           factory->createLinearRing()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_POLYGON,
+           factory->createPolygon()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_MULTIPOINT,
+           factory->createMultiPoint()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_MULTILINESTRING,
+           factory->createMultiLineString()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_MULTIPOLYGON,
+           factory->createMultiPolygon()->getGeometryType()},
+          {geos::geom::GeometryTypeId::GEOS_GEOMETRYCOLLECTION,
+           factory->createGeometryCollection()->getGeometryType()}};
+  return geosTypeToStringIdentifier;
+};
+
+FOLLY_ALWAYS_INLINE std::vector<std::string> getGeosTypeNames(
+    const std::vector<geos::geom::GeometryTypeId>& geometryTypeIds) {
+  std::vector<std::string> geometryTypeNames;
+  geometryTypeNames.reserve(geometryTypeIds.size());
+  for (auto geometryTypeId : geometryTypeIds) {
+    geometryTypeNames.push_back(
+        getGeosTypeToStringIdentifier().at(geometryTypeId));
+  }
+  return geometryTypeNames;
+}
+
+FOLLY_ALWAYS_INLINE Status validateType(
+    const geos::geom::Geometry& geometry,
+    const std::vector<geos::geom::GeometryTypeId>& validTypes,
+    std::string callerFunctionName) {
+  geos::geom::GeometryTypeId type = geometry.getGeometryTypeId();
+  if (!std::count(validTypes.begin(), validTypes.end(), type)) {
+    return Status::UserError(fmt::format(
+        "{} only applies to {}. Input type is: {}",
+        callerFunctionName,
+        fmt::join(getGeosTypeNames(validTypes), " or "),
+        getGeosTypeToStringIdentifier().at(type)));
+  }
+  return Status::OK();
+}
 
 std::optional<std::string> geometryInvalidReason(
     const geos::geom::Geometry* geometry);

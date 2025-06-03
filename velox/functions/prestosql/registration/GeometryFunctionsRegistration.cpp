@@ -82,6 +82,8 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "simplify_geometry"}});
 
   registerFunction<StAreaFunction, double, Geometry>({{prefix + "ST_Area"}});
+  registerFunction<StCentroidFunction, Geometry, Geometry>(
+      {{prefix + "ST_Centroid"}});
   registerFunction<StXFunction, double, Geometry>({{prefix + "ST_X"}});
   registerFunction<StYFunction, double, Geometry>({{prefix + "ST_Y"}});
 }

@@ -183,6 +183,11 @@ Accessors
     returns the sum of the areas of the individual geometries. Empty geometries
     return 0.
 
+.. function:: ST_Centroid(geometry: Geometry) -> geometry: Geometry
+
+    Returns the point value that is the mathematical centroid of ``geometry``.
+    Empty geometry inputs result in empty output.
+
 .. function:: ST_X(geometry: Geometry) -> x: double
 
     Returns the ``x`` coordinate of the geometry if it is a Point.  Returns

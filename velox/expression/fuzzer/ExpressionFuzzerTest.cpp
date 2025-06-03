@@ -135,6 +135,7 @@ int main(int argc, char** argv) {
       "st_astext",
       "st_asbinary",
       "st_boundary",
+      "st_centroid",
       "st_relate",
       "st_contains",
       "st_crosses",
