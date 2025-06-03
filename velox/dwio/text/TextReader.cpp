@@ -65,28 +65,33 @@ TextReader::TextReader(
     const ReaderOptions& options,
     const std::shared_ptr<ReadFile>& readFile)
     : options_(options), readFile_(readFile) {
-  return;
+  VELOX_USER_CHECK_NOT_NULL(
+      options_.fileSchema(), "File schema for TEXT must be set.");
 }
 
+// No-op
 std::optional<uint64_t> TextReader::numberOfRows() const {
   return std::nullopt;
 }
 
+// No-op
 std::unique_ptr<ColumnStatistics> TextReader::columnStatistics(
     uint32_t /*index*/) const {
   return nullptr;
 }
 
 const RowTypePtr& TextReader::rowType() const {
-  static RowTypePtr dummy;
-  return dummy;
+  return options_.fileSchema();
 }
 
 const std::shared_ptr<const TypeWithId>& TextReader::typeWithId() const {
-  static std::shared_ptr<const TypeWithId> dummy;
-  return dummy;
+  if (!typeWithId_) {
+    typeWithId_ = TypeWithId::create(rowType());
+  }
+  return typeWithId_;
 }
 
+/// TODO: Add implementation
 std::unique_ptr<RowReader> TextReader::createRowReader(
     const RowReaderOptions& /*options*/) const {
   return nullptr;
