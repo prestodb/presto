@@ -222,7 +222,7 @@ public class ClusterManager
                 Map<URI, RemoteClusterInfo> healthyRemoteClusterInfos = Maps.filterValues(remoteClusterInfos, RemoteState::isHealthy);
                 config.getScheduler().setClusterInfos(ImmutableMap.copyOf(healthyRemoteClusterInfos));
 
-                return config.getScheduler().getDestination(requestInfo.getUser(), requestInfo.getQuery());
+                return config.getScheduler().getDestination(requestInfo.toRouterRequestInfo());
             }
             catch (Exception e) {
                 log.error("Custom Plugin Scheduler failed to schedule the query!", e);
@@ -234,7 +234,7 @@ public class ClusterManager
             config.getScheduler().setCandidateGroupName(target.get());
         }
 
-        return config.getScheduler().getDestination(requestInfo.getUser());
+        return config.getScheduler().getDestination(requestInfo.toRouterRequestInfo());
     }
 
     private Optional<String> matchGroup(RequestInfo requestInfo)

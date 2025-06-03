@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.router.cluster;
 
+import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
@@ -63,6 +64,11 @@ public class RequestInfo
     public List<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public RouterRequestInfo toRouterRequestInfo()
+    {
+        return new RouterRequestInfo(user, source, clientTags, query);
     }
 
     private static List<String> parseClientTags(HttpServletRequest servletRequest)
