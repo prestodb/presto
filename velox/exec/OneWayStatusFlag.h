@@ -27,11 +27,6 @@ class OneWayStatusFlag {
  public:
   bool check() const {
 #if defined(__x86_64__)
-    /// This flag is can only go from false to true, and must is only checked at
-    /// the end of a loop. Given that once a flag is true it can never go back
-    /// to false, we are ok to use this in a non synchronized manner to avoid
-    /// the overhead. As such we consciously exempt ourselves here from TSAN
-    /// detection.
     folly::annotate_ignore_thread_sanitizer_guard g(__FILE__, __LINE__);
     return fastStatus_ || atomicStatus_.load();
 #else
@@ -42,6 +37,7 @@ class OneWayStatusFlag {
 
   void set() {
 #if defined(__x86_64__)
+    folly::annotate_ignore_thread_sanitizer_guard g(__FILE__, __LINE__);
     if (!fastStatus_) {
       atomicStatus_.store(true);
       fastStatus_ = true;
@@ -60,6 +56,10 @@ class OneWayStatusFlag {
 
  private:
 #if defined(__x86_64__)
+  // This flag can only go from false to true, and is only checked at the end of
+  // a loop. Given that once a flag is true it can never go back to false, we
+  // are ok to use this in a non synchronized manner to avoid the overhead. As
+  // such we consciously exempt ourselves here from TSAN detection.
   bool fastStatus_{false};
 #endif
   std::atomic_bool atomicStatus_{false};
