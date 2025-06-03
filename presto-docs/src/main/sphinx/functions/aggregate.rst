@@ -472,6 +472,17 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
+.. function:: sum_if(x, y) -> [same as y]
+
+    Returns the sum of all ``y`` values for rows where ``x`` is ``TRUE``.
+    This function is equivalent to ``sum(CASE WHEN x THEN y END)``.
+
+.. function:: sum_if(x, y, d) -> [same as y]
+
+    Returns the sum of all ``y`` values for rows where ``x`` is ``TRUE``, using ``d``
+    instead of null when ``x`` is ``FALSE``. This function is equivalent to
+    ``sum(CASE WHEN x THEN y ELSE d END)``.
+
 Bitwise Aggregate Functions
 ---------------------------
 
