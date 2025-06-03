@@ -107,34 +107,22 @@ PlanBuilder& PlanBuilder::tableScan(
       .endTableScan();
 }
 
-PlanBuilder& PlanBuilder::tableScan(
+PlanBuilder& PlanBuilder::tableScanWithPushDown(
     const RowTypePtr& outputType,
-    bool hasPushDown,
     const PushdownConfig& pushdownConfig,
     const std::string& remainingFilter,
     const RowTypePtr& dataColumns,
     const std::unordered_map<
         std::string,
         std::shared_ptr<connector::ColumnHandle>>& assignments) {
-  if (hasPushDown) {
-    return TableScanBuilder(*this)
-        .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
-        .outputType(outputType)
-        .assignments(assignments)
-        .subfieldFiltersMap(pushdownConfig.subfieldFiltersMap)
-        .remainingFilter(remainingFilter)
-        .dataColumns(dataColumns)
-        .endTableScan();
-  } else {
-    return TableScanBuilder(*this)
-        .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
-        .outputType(outputType)
-        .assignments(assignments)
-        .subfieldFilters({})
-        .remainingFilter(remainingFilter)
-        .dataColumns(dataColumns)
-        .endTableScan();
-  }
+  return TableScanBuilder(*this)
+      .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
+      .outputType(outputType)
+      .assignments(assignments)
+      .subfieldFiltersMap(pushdownConfig.subfieldFiltersMap)
+      .remainingFilter(remainingFilter)
+      .dataColumns(dataColumns)
+      .endTableScan();
 }
 
 PlanBuilder& PlanBuilder::tpchTableScan(

@@ -184,9 +184,8 @@ class PlanBuilder {
   /// @param dataColumns Optional data columns that may differ from outputType.
   /// @param assignments Optional ColumnHandles.
 
-  PlanBuilder& tableScan(
+  PlanBuilder& tableScanWithPushDown(
       const RowTypePtr& outputType,
-      bool hasPushDown,
       const PushdownConfig& pushdownConfig,
       const std::string& remainingFilter = "",
       const RowTypePtr& dataColumns = nullptr,
