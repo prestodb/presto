@@ -15,7 +15,9 @@ package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.FunctionDescriptor;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.LongVariableConstraint;
@@ -58,12 +60,16 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUA
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.StandardTypes.PARAMETRIC_TYPES;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.reflect.Modifier.isPublic;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 
 public class FunctionsParserHelper
 {
@@ -254,6 +260,30 @@ public class FunctionsParserHelper
         return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 
+    public static ComplexTypeFunctionDescriptor parseFunctionDescriptor(AnnotatedElement base)
+    {
+        FunctionDescriptor descriptor = base.getAnnotation(FunctionDescriptor.class);
+        if (descriptor == null) {
+            return ComplexTypeFunctionDescriptor.DEFAULT;
+        }
+
+        int pushdownSubfieldArgIndex = descriptor.pushdownSubfieldArgIndex();
+        Optional<Integer> descriptorPushdownIndex;
+        if (pushdownSubfieldArgIndex < 0) {
+            descriptorPushdownIndex = Optional.empty();
+        }
+        else {
+            descriptorPushdownIndex = Optional.of(pushdownSubfieldArgIndex);
+        }
+
+        return new ComplexTypeFunctionDescriptor(
+                true,
+                emptyList(),
+                Optional.of(emptySet()),
+                Optional.of(ComplexTypeFunctionDescriptor::allSubfieldsRequired),
+                descriptorPushdownIndex);
+    }
+
     public static List<LongVariableConstraint> parseLongVariableConstraints(Method inputFunction)
     {
         return Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
@@ -276,5 +306,26 @@ public class FunctionsParserHelper
             specializedTypeParameters.put(specialization.name(), specialization.nativeContainerType());
         }
         return specializedTypeParameters;
+    }
+
+    public static void checkPushdownSubfieldArgIndex(Method method, Signature signature, Optional<Integer> pushdownSubfieldArgIndex)
+    {
+        if (pushdownSubfieldArgIndex.isPresent()) {
+            Map<String, TypeVariableConstraint> typeConstraintMapping = new HashMap<>();
+            for (TypeVariableConstraint constraint : signature.getTypeVariableConstraints()) {
+                typeConstraintMapping.put(constraint.getName(), constraint);
+            }
+            checkCondition(signature.getArgumentTypes().size() > pushdownSubfieldArgIndex.get(), FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has out of range pushdown subfield arg index", method);
+            String typeVariableName = signature.getArgumentTypes().get(pushdownSubfieldArgIndex.get()).toString();
+
+            // The type variable must be directly a ROW type
+            // or (it is a type alias that is not bounded by a type)
+            // or (it is a type alias that maps to a row type)
+            boolean meetsTypeConstraint = (!typeConstraintMapping.containsKey(typeVariableName) && typeVariableName.equals(com.facebook.presto.common.type.StandardTypes.ROW)) ||
+                    (typeConstraintMapping.containsKey(typeVariableName) && typeConstraintMapping.get(typeVariableName).getVariadicBound() == null && !typeConstraintMapping.get(typeVariableName).isNonDecimalNumericRequired()) ||
+                    (typeConstraintMapping.containsKey(typeVariableName) && typeConstraintMapping.get(typeVariableName).getVariadicBound().equals(com.facebook.presto.common.type.StandardTypes.ROW));
+
+            checkCondition(meetsTypeConstraint, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] does not have a struct or row type as pushdown subfield arg", method);
+        }
     }
 }
