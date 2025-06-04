@@ -64,6 +64,7 @@ class PartitionedOutputReplayerTest
     connector::hive::HiveInsertTableHandle::registerSerDe();
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -111,7 +112,7 @@ class PartitionedOutputReplayerTest
              {core::QueryConfig::kQueryTraceMaxBytes,
               std::to_string(100UL << 30)},
              {core::QueryConfig::kQueryTraceTaskRegExp, ".*"},
-             {core::QueryConfig::kQueryTraceNodeIds, capturedPlanNodeId},
+             {core::QueryConfig::kQueryTraceNodeId, capturedPlanNodeId},
              {core::QueryConfig::kMaxPartitionedOutputBufferSize,
               std::to_string(8UL << 20)},
              {core::QueryConfig::kMaxOutputBufferSize,

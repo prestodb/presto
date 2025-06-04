@@ -111,7 +111,7 @@ void Operator::maybeSetTracer() {
   }
 
   const auto nodeId = planNodeId();
-  if (traceConfig->queryNodes.count(nodeId) == 0) {
+  if (traceConfig->queryNodeId.empty() || traceConfig->queryNodeId != nodeId) {
     return;
   }
 

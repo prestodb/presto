@@ -991,10 +991,10 @@ Tracing
      - string
      -
      - The root directory to store the tracing data and metadata for a query.
-   * - query_trace_node_ids
+   * - query_trace_node_id
      - string
      -
-     - A comma-separated list of plan node ids whose input data will be trace. If it is empty, then we only trace the
+     - The plan node id whose input data will be trace. If it is empty, then we only trace the
        query metadata which includes the query plan and configs etc.
    * - query_trace_task_reg_exp
      - string

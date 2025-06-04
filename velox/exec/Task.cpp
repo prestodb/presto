@@ -3407,40 +3407,23 @@ std::optional<TraceConfig> Task::maybeMakeTraceConfig() const {
     return std::nullopt;
   }
 
-  const auto traceNodes = queryConfig.queryTraceNodeIds();
-  VELOX_USER_CHECK(!traceNodes.empty(), "Query trace nodes are not set");
+  const auto traceNodeId = queryConfig.queryTraceNodeId();
+  VELOX_USER_CHECK(!traceNodeId.empty(), "Query trace node ID are not set");
 
   const auto traceDir = trace::getTaskTraceDirectory(
       queryConfig.queryTraceDir(), queryCtx_->queryId(), taskId_);
 
-  std::vector<std::string> traceNodeIds;
-  folly::split(',', traceNodes, traceNodeIds);
-  std::unordered_set<std::string> traceNodeIdSet(
-      traceNodeIds.begin(), traceNodeIds.end());
-  VELOX_USER_CHECK_EQ(
-      traceNodeIdSet.size(),
-      traceNodeIds.size(),
-      "Duplicate trace nodes found: {}",
-      folly::join(", ", traceNodeIds));
+  VELOX_USER_CHECK_NOT_NULL(
+      core::PlanNode::findFirstNode(
+          planFragment_.planNode.get(),
+          [traceNodeId](const core::PlanNode* node) -> bool {
+            return node->id() == traceNodeId;
+          }),
+      "Trace plan node ID = {} not found from task {}",
+      traceNodeId,
+      taskId_);
 
-  bool foundTraceNode{false};
-  for (const auto& traceNodeId : traceNodeIds) {
-    if (core::PlanNode::findFirstNode(
-            planFragment_.planNode.get(),
-            [traceNodeId](const core::PlanNode* node) -> bool {
-              return node->id() == traceNodeId;
-            })) {
-      foundTraceNode = true;
-      break;
-    }
-  }
-  VELOX_USER_CHECK(
-      foundTraceNode,
-      "Trace plan nodes not found from task {}: {}",
-      taskId_,
-      folly::join(",", traceNodeIdSet));
-
-  LOG(INFO) << "Trace input for plan nodes " << traceNodes << " from task "
+  LOG(INFO) << "Trace input for plan nodes " << traceNodeId << " from task "
             << taskId_;
 
   UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB =
@@ -3448,7 +3431,7 @@ std::optional<TraceConfig> Task::maybeMakeTraceConfig() const {
         queryCtx_->updateTracedBytesAndCheckLimit(bytes);
       };
   return TraceConfig(
-      std::move(traceNodeIdSet),
+      traceNodeId,
       traceDir,
       std::move(updateAndCheckTraceLimitCB),
       queryConfig.queryTraceTaskRegExp());
@@ -3462,7 +3445,9 @@ void Task::maybeInitTrace() {
   trace::createTraceDirectory(traceConfig_->queryTraceDir);
   const auto metadataWriter = std::make_unique<trace::TaskTraceMetadataWriter>(
       traceConfig_->queryTraceDir, memory::traceMemoryPool());
-  metadataWriter->write(queryCtx_, planFragment_.planNode);
+  auto traceNode =
+      trace::getTraceNode(planFragment_.planNode, traceConfig_->queryNodeId);
+  metadataWriter->write(queryCtx_, traceNode);
 }
 
 void Task::testingVisitDrivers(const std::function<void(Driver*)>& callback) {

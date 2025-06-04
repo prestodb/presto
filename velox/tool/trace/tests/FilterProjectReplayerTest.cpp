@@ -72,6 +72,7 @@ class FilterProjectReplayerTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     connector::hive::HiveConnectorSplit::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -179,9 +180,7 @@ TEST_F(FilterProjectReplayerTest, filterProject) {
         .config(core::QueryConfig::kQueryTraceDir, traceRoot)
         .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
         .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-        .config(
-            core::QueryConfig::kQueryTraceNodeIds,
-            fmt::format("{},{}", filterNodeId_, projectNodeId_));
+        .config(core::QueryConfig::kQueryTraceNodeId, projectNodeId_);
     auto traceResult = traceBuilder.splits(tracePlanWithSplits.splits)
                            .copyResults(pool(), task);
 
@@ -216,9 +215,7 @@ TEST_F(FilterProjectReplayerTest, filterOnly) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(
-          core::QueryConfig::kQueryTraceNodeIds,
-          fmt::format("{},{}", filterNodeId_, projectNodeId_));
+      .config(core::QueryConfig::kQueryTraceNodeId, filterNodeId_);
   auto traceResult =
       traceBuilder.splits(tracePlanWithSplits.splits).copyResults(pool(), task);
 
@@ -252,9 +249,7 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(
-          core::QueryConfig::kQueryTraceNodeIds,
-          fmt::format("{},{}", filterNodeId_, projectNodeId_));
+      .config(core::QueryConfig::kQueryTraceNodeId, projectNodeId_);
   auto traceResult =
       traceBuilder.splits(tracePlanWithSplits.splits).copyResults(pool(), task);
 

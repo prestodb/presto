@@ -22,14 +22,14 @@
 namespace facebook::velox {
 
 TraceConfig::TraceConfig(
-    std::unordered_set<std::string> _queryNodeIds,
+    std::string _queryNodeId,
     std::string _queryTraceDir,
     UpdateAndCheckTraceLimitCB _updateAndCheckTraceLimitCB,
     std::string _taskRegExp)
-    : queryNodes(std::move(_queryNodeIds)),
+    : queryNodeId(std::move(_queryNodeId)),
       queryTraceDir(std::move(_queryTraceDir)),
       updateAndCheckTraceLimitCB(std::move(_updateAndCheckTraceLimitCB)),
       taskRegExp(std::move(_taskRegExp)) {
-  VELOX_CHECK(!queryNodes.empty(), "Query trace nodes cannot be empty");
+  VELOX_CHECK(!queryNodeId.empty(), "Query trace nodes cannot be empty");
 }
 } // namespace facebook::velox

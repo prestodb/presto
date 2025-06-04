@@ -67,6 +67,7 @@ class TableScanReplayerTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     connector::hive::HiveConnectorSplit::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -124,7 +125,7 @@ TEST_F(TableScanReplayerTest, runner) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
           .splits(makeHiveConnectorSplits(splitFiles))
           .copyResults(pool(), task);
 
@@ -196,7 +197,7 @@ TEST_F(TableScanReplayerTest, basic) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
           .splits(makeHiveConnectorSplits(splitFiles))
           .copyResults(pool(), task);
 
@@ -265,7 +266,7 @@ TEST_F(TableScanReplayerTest, columnPrunning) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
           .splits(makeHiveConnectorSplits(splitFiles))
           .copyResults(pool(), task);
 
@@ -328,7 +329,7 @@ TEST_F(TableScanReplayerTest, subfieldPrunning) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
           .split(split)
           .copyResults(pool(), task);
 
@@ -369,7 +370,7 @@ TEST_F(TableScanReplayerTest, concurrent) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
           .splits(makeHiveConnectorSplits(splitFiles))
           .copyResults(pool(), task);
 

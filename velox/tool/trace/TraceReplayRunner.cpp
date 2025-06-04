@@ -271,6 +271,7 @@ void TraceReplayRunner::init() {
 #endif
 
   core::PlanNode::registerSerDe();
+  velox::exec::trace::registerDummySourceSerDe();
   core::ITypedExpr::registerSerDe();
   common::Filter::registerSerDe();
   Type::registerSerDe();

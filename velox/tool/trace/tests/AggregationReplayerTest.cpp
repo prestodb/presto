@@ -72,6 +72,7 @@ class AggregationReplayerTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertTableHandle::registerSerDe();
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -262,7 +263,7 @@ TEST_F(AggregationReplayerTest, hashAggregationTest) {
               .config(core::QueryConfig::kQueryTraceDir, traceRoot)
               .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
               .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-              .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+              .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
               .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
               .copyResults(pool(), task);
 
@@ -328,7 +329,7 @@ TEST_F(AggregationReplayerTest, streamingAggregateTest) {
               .config(core::QueryConfig::kQueryTraceDir, traceRoot)
               .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
               .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-              .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+              .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
               .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
               .copyResults(pool(), task);
 

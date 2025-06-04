@@ -101,7 +101,7 @@ to the following simplified, pretty-printed JSON string (with some content remov
         "name":"HashJoinNode"
       },
       "connectorProperties":{...},
-      "queryConfig":{"query_trace_node_ids":"2", ...}
+      "queryConfig":{"query_trace_node_id":"2", ...}
     }
 
 **OperatorTraceInputWriter**
@@ -301,7 +301,7 @@ It would show something as the follows:
 
   ++++++Query configs++++++
   	query_trace_task_reg_exp: .*
-  	query_trace_node_ids: 2
+  	query_trace_node_id: 2
   	query_trace_max_bytes: 107374182400
   	query_trace_dir: /tmp/velox_test_aJqeFd/basic/traceRoot/
   	query_trace_enabled: 1

@@ -66,6 +66,7 @@ class TableWriterReplayerTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertTableHandle::registerSerDe();
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -293,7 +294,7 @@ TEST_F(TableWriterReplayerTest, runner) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId)
           .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
           .copyResults(pool(), task);
 
@@ -364,7 +365,7 @@ TEST_F(TableWriterReplayerTest, basic) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, planNodeId)
+          .config(core::QueryConfig::kQueryTraceNodeId, planNodeId)
           .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
           .copyResults(pool(), task);
   const auto traceOutputDir = TempDirectoryPath::create();
@@ -482,7 +483,7 @@ TEST_F(TableWriterReplayerTest, partitionWrite) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, tableWriteNodeId)
+      .config(core::QueryConfig::kQueryTraceNodeId, tableWriteNodeId)
       .splits(makeHiveConnectorSplits(inputFilePaths))
       .copyResults(pool(), task);
   actualPartitionDirectories =

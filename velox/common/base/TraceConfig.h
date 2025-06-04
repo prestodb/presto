@@ -39,7 +39,7 @@ using UpdateAndCheckTraceLimitCB = std::function<void(uint64_t)>;
 
 struct TraceConfig {
   /// Target query trace nodes.
-  std::unordered_set<std::string> queryNodes;
+  std::string queryNodeId;
   /// Base dir of query trace.
   std::string queryTraceDir;
   UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB;
@@ -47,7 +47,7 @@ struct TraceConfig {
   std::string taskRegExp;
 
   TraceConfig(
-      std::unordered_set<std::string> _queryNodeIds,
+      std::string _queryNodeIds,
       std::string _queryTraceDir,
       UpdateAndCheckTraceLimitCB _updateAndCheckTraceLimitCB,
       std::string _taskRegExp);

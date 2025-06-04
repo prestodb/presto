@@ -73,6 +73,7 @@ class HashJoinReplayerTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     connector::hive::HiveConnectorSplit::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -222,7 +223,7 @@ TEST_F(HashJoinReplayerTest, basic) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_);
+      .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_);
   for (const auto& [planNodeId, nodeSplits] : tracePlanWithSplits.splits) {
     traceBuilder.splits(planNodeId, nodeSplits);
   }
@@ -278,7 +279,7 @@ TEST_F(HashJoinReplayerTest, partialDriverIds) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_);
+      .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_);
   for (const auto& [planNodeId, nodeSplits] : tracePlanWithSplits.splits) {
     traceBuilder.splits(planNodeId, nodeSplits);
   }
@@ -344,7 +345,7 @@ TEST_F(HashJoinReplayerTest, runner) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_);
+      .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_);
   for (const auto& [planNodeId, nodeSplits] : tracePlanWithSplits.splits) {
     traceBuilder.splits(planNodeId, nodeSplits);
   }
@@ -447,7 +448,7 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashBuildSpill) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+      .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
       .config(core::QueryConfig::kSpillEnabled, true)
       .config(core::QueryConfig::kJoinSpillEnabled, true)
       .spillDirectory(spillDir);
@@ -528,7 +529,7 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashProbeSpill) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+      .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
       .config(core::QueryConfig::kSpillEnabled, true)
       .config(core::QueryConfig::kJoinSpillEnabled, true)
       .spillDirectory(spillDir);

@@ -461,9 +461,14 @@ class QueryConfig {
   /// Base dir of a query to store tracing data.
   static constexpr const char* kQueryTraceDir = "query_trace_dir";
 
-  /// A comma-separated list of plan node ids whose input data will be traced.
+  /// @Deprecated. Do not use. Remove once existing call sites are updated.
+  /// The plan node id whose input data will be traced.
   /// Empty string if only want to trace the query metadata.
-  static constexpr const char* kQueryTraceNodeIds = "query_trace_node_ids";
+  static constexpr const char* kQueryTraceNodeIds = "query_trace_node_id";
+
+  /// The plan node id whose input data will be traced.
+  /// Empty string if only want to trace the query metadata.
+  static constexpr const char* kQueryTraceNodeId = "query_trace_node_id";
 
   /// The max trace bytes limit. Tracing is disabled if zero.
   static constexpr const char* kQueryTraceMaxBytes = "query_trace_max_bytes";
@@ -938,9 +943,15 @@ class QueryConfig {
     return get<std::string>(kQueryTraceDir, "");
   }
 
+  /// @Deprecated. Do not use. Remove once existing call sites are updated.
   std::string queryTraceNodeIds() const {
-    // The default query trace nodes, empty by default.
-    return get<std::string>(kQueryTraceNodeIds, "");
+    // Use the new config kQueryTraceNodeId.
+    return get<std::string>(kQueryTraceNodeId, "");
+  }
+
+  std::string queryTraceNodeId() const {
+    // The default query trace node ID, empty by default.
+    return get<std::string>(kQueryTraceNodeId, "");
   }
 
   uint64_t queryTraceMaxBytes() const {

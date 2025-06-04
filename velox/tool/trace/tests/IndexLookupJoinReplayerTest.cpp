@@ -23,6 +23,7 @@
 
 #include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/exec/PartitionFunction.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -62,6 +63,7 @@ class IndexLookupJoinReplayerTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertFileNameGenerator::registerSerDe();
     connector::hive::HiveConnectorSplit::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
     connector::registerConnectorFactory(
@@ -301,7 +303,7 @@ TEST_F(IndexLookupJoinReplayerTest, test) {
           .config(core::QueryConfig::kQueryTraceDir, traceRoot)
           .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
           .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_)
           .splits(
               probeScanId,
               {Split(makeHiveConnectorSplit(sourceFilePath->getPath()))})

@@ -70,6 +70,7 @@ class TraceFileToolTest : public HiveConnectorTestBase {
     connector::hive::HiveInsertTableHandle::registerSerDe();
     connector::hive::HiveConnectorSplit::registerSerDe();
     core::PlanNode::registerSerDe();
+    velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();
   }
@@ -213,7 +214,7 @@ TEST_F(TraceFileToolTest, basic) {
       .config(core::QueryConfig::kQueryTraceDir, traceRoot)
       .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
       .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
-      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_);
+      .config(core::QueryConfig::kQueryTraceNodeId, traceNodeId_);
 
   for (const auto& [planNodeId, nodeSplits] : tracePlanWithSplits.splits) {
     traceBuilder.splits(planNodeId, nodeSplits);
