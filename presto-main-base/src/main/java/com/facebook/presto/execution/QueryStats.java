@@ -78,6 +78,16 @@ public class QueryStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
+
+    private final int totalSplits;
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
+
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
     private final DataSize userMemoryReservation;
@@ -151,6 +161,16 @@ public class QueryStats
             int runningDrivers,
             int blockedDrivers,
             int completedDrivers,
+
+            int totalNewDrivers,
+            int queuedNewDrivers,
+            int runningNewDrivers,
+            int completedNewDrivers,
+
+            int totalSplits,
+            int queuedSplits,
+            int runningSplits,
+            int completedSplits,
 
             double cumulativeUserMemory,
             double cumulativeTotalMemory,
@@ -234,6 +254,22 @@ public class QueryStats
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
+        checkArgument(totalSplits >= 0, "totalSplits is negative");
+        this.totalSplits = totalSplits;
+        checkArgument(queuedSplits >= 0, "queuedSplits is negative");
+        this.queuedSplits = queuedSplits;
+        checkArgument(runningSplits >= 0, "runningSplits is negative");
+        this.runningSplits = runningSplits;
+        checkArgument(completedSplits >= 0, "completedSplits is negative");
+        this.completedSplits = completedSplits;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         checkArgument(cumulativeTotalMemory >= 0, "cumulativeTotalMemory is negative");
@@ -314,6 +350,16 @@ public class QueryStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
+
+            @JsonProperty("totalSplits") int totalSplits,
+            @JsonProperty("queuedSplits") int queuedSplits,
+            @JsonProperty("runningSplits") int runningSplits,
+            @JsonProperty("completedSplits") int completedSplits,
+
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
@@ -386,6 +432,16 @@ public class QueryStats
                 blockedDrivers,
                 completedDrivers,
 
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
+
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
                 userMemoryReservation,
@@ -452,6 +508,16 @@ public class QueryStats
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
+        int totalNewDrivers = 0;
+        int queuedNewDrivers = 0;
+        int runningNewDrivers = 0;
+        int completedNewDrivers = 0;
+
+        int totalSplits = 0;
+        int queuedSplits = 0;
+        int runningSplits = 0;
+        int completedSplits = 0;
+
         double cumulativeUserMemory = 0;
         double cumulativeTotalMemory = 0;
         long userMemoryReservation = 0;
@@ -500,6 +566,16 @@ public class QueryStats
             runningDrivers += stageExecutionStats.getRunningDrivers();
             blockedDrivers += stageExecutionStats.getBlockedDrivers();
             completedDrivers += stageExecutionStats.getCompletedDrivers();
+
+            totalNewDrivers += stageExecutionStats.getTotalNewDrivers();
+            queuedNewDrivers += stageExecutionStats.getQueuedNewDrivers();
+            runningNewDrivers += stageExecutionStats.getRunningNewDrivers();
+            completedNewDrivers += stageExecutionStats.getCompletedNewDrivers();
+
+            totalSplits += stageExecutionStats.getTotalSplits();
+            queuedSplits += stageExecutionStats.getQueuedSplits();
+            runningSplits += stageExecutionStats.getRunningSplits();
+            completedSplits += stageExecutionStats.getCompletedSplits();
 
             cumulativeUserMemory += stageExecutionStats.getCumulativeUserMemory();
             cumulativeTotalMemory += stageExecutionStats.getCumulativeTotalMemory();
@@ -600,6 +676,16 @@ public class QueryStats
                 blockedDrivers,
                 completedDrivers,
 
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
+
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
                 succinctBytes(userMemoryReservation),
@@ -670,6 +756,14 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -876,6 +970,54 @@ public class QueryStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public int getTotalNewDrivers()
+    {
+        return totalNewDrivers;
+    }
+
+    @JsonProperty
+    public int getQueuedNewDrivers()
+    {
+        return queuedNewDrivers;
+    }
+
+    @JsonProperty
+    public int getRunningNewDrivers()
+    {
+        return runningNewDrivers;
+    }
+
+    @JsonProperty
+    public int getCompletedNewDrivers()
+    {
+        return completedNewDrivers;
+    }
+
+    @JsonProperty
+    public int getTotalSplits()
+    {
+        return totalSplits;
+    }
+
+    @JsonProperty
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    @JsonProperty
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    @JsonProperty
+    public int getCompletedSplits()
+    {
+        return completedSplits;
     }
 
     @JsonProperty

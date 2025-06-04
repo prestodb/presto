@@ -69,19 +69,51 @@ export class QueryListItem extends React.Component {
         const query = this.props.query;
         const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
+        const driverDetails = (
+            <div className="col-12 tinystat-row">
+                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
+                     <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                     {formatCount(query.progress.completedDrivers)}
+                 </span>
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
+                     <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
+                 </span>
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
+                     <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
+                     </span>
+            </div>);
+
+        const newDriverDetails = (
+            <div className="col-xs-12 tinystat-row">
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Completed drivers">
+                    <span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {query.queryStats.completedDrivers}
+                </span>
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Running drivers">
+                    <span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.runningDrivers}
+                </span>
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Queued drivers">
+                    <span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedDrivers}
+                    </span>
+            </div>);
+
         const splitDetails = (
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Completed splits">
                     <span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {query.queryStats.completedDrivers}
+                    {query.queryStats.completedSplits}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Running splits">
                     <span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.runningDrivers}
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.runningSplits}
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Queued splits">
                     <span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedDrivers}
+                    {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedSplits}
                     </span>
             </div>);
 
@@ -152,9 +184,20 @@ export class QueryListItem extends React.Component {
                                 </span>
                             </div>
                         </div>
-                        <div className="row stat-row">
-                            {splitDetails}
-                        </div>
+
+                        { query.queryStats.completedSplits ?
+                            <>
+                                <div className="row stat-row">
+                                    {newDriverDetails}
+                                </div>
+                                <div className="row stat-row">
+                                    {splitDetails}
+                                </div>
+                            </> :
+                            <div className="row stat-row">
+                                {driverDetails}
+                            </div>
+                        }
                         <div className="row stat-row">
                             {timingDetails}
                         </div>

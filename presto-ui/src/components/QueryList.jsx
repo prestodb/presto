@@ -142,19 +142,51 @@ export class QueryListItem extends React.Component {
         const humanReadableState = getHumanReadableStateFromInfo(query);
         const progressBarTitle = getProgressBarTitle(query.progress.progressPercentage, query.queryState, humanReadableState);
 
+        const driverDetails = (
+            <div className="col-12 tinystat-row">
+                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
+                     <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                     {formatCount(query.progress.completedDrivers)}
+                 </span>
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
+                     <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
+                 </span>
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
+                     <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
+                     </span>
+            </div>);
+
+        const newDriverDetails = (
+            <div className="col-12 tinystat-row">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed drivers">
+                    <span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {formatCount(query.progress.completedNewDrivers)}
+                </span>
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running drivers">
+                    <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningNewDrivers}
+                </span>
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued drivers">
+                    <span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedNewDrivers}
+                    </span>
+            </div>);
+
         const splitDetails = (
             <div className="col-12 tinystat-row">
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
-                    <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatCount(query.progress.completedDrivers)}
+                    <span className="bi bi-check-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {formatCount(query.progress.completedSplits)}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
-                    <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
+                    <span className="bi bi-play-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningSplits}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
-                    <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
+                    <span className="bi bi-pause-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedSplits}
                     </span>
             </div>);
 
@@ -236,9 +268,20 @@ export class QueryListItem extends React.Component {
                                 </span>
                             </div>
                         </div>
-                        <div className="row stat-row">
-                            {splitDetails}
-                        </div>
+
+                        { query.progress.completedSplits ?
+                            <>
+                                <div className="row stat-row">
+                                    {newDriverDetails}
+                                </div>
+                                <div className="row stat-row">
+                                    {splitDetails}
+                                </div>
+                            </> :
+                            <div className="row stat-row">
+                                {driverDetails}
+                            </div>
+                        }
                         <div className="row stat-row">
                             {timingDetails}
                         </div>

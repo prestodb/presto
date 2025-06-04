@@ -48,6 +48,12 @@ public class TestQueryProgressStats
                 OptionalDouble.of(33.33),
                 1200,
                 1100,
+                1000,
+                1200,
+                1100,
+                1000,
+                1200,
+                1100,
                 1000);
         JsonCodec<QueryProgressStats> codec = JsonCodec.jsonCodec(QueryProgressStats.class);
 

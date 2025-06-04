@@ -52,6 +52,16 @@ public class TaskStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
+
+    private final int totalSplits;
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
+
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
     private final long userMemoryReservationInBytes;
@@ -107,6 +117,14 @@ public class TaskStats
                 0L,
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 0.0,
                 0.0,
                 0L,
@@ -150,6 +168,14 @@ public class TaskStats
                 0,
                 0,
                 0L,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0.0,
@@ -199,6 +225,16 @@ public class TaskStats
             @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
+
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
+
+            @JsonProperty("totalSplits") int totalSplits,
+            @JsonProperty("queuedSplits") int queuedSplits,
+            @JsonProperty("runningSplits") int runningSplits,
+            @JsonProperty("completedSplits") int completedSplits,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
@@ -266,6 +302,30 @@ public class TaskStats
 
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
+
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
+
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
+
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
+
+        checkArgument(totalSplits >= 0, "totalSplits is negative");
+        this.totalSplits = totalSplits;
+
+        checkArgument(queuedSplits >= 0, "queuedSplits is negative");
+        this.queuedSplits = queuedSplits;
+
+        checkArgument(runningSplits >= 0, "runningSplits is negative");
+        this.runningSplits = runningSplits;
+
+        checkArgument(completedSplits >= 0, "completedSplits is negative");
+        this.completedSplits = completedSplits;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.cumulativeTotalMemory = cumulativeTotalMemory;
@@ -619,6 +679,62 @@ public class TaskStats
         return runtimeStats;
     }
 
+    @JsonProperty
+    @ThriftField(42)
+    public int getTotalSplits()
+    {
+        return totalSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(43)
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(44)
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(45)
+    public int getCompletedSplits()
+    {
+        return completedSplits;
+    }
+
+    @JsonProperty
+    @ThriftField(46)
+    public int getTotalNewDrivers()
+    {
+        return totalNewDrivers;
+    }
+
+    @JsonProperty
+    @ThriftField(47)
+    public int getQueuedNewDrivers()
+    {
+        return queuedNewDrivers;
+    }
+
+    @JsonProperty
+    @ThriftField(48)
+    public int getRunningNewDrivers()
+    {
+        return runningNewDrivers;
+    }
+
+    @JsonProperty
+    @ThriftField(49)
+    public int getCompletedNewDrivers()
+    {
+        return completedNewDrivers;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -638,6 +754,14 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
                 userMemoryReservationInBytes,
@@ -684,6 +808,14 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
                 userMemoryReservationInBytes,
