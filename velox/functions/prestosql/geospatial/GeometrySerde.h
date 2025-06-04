@@ -30,4 +30,8 @@ std::unique_ptr<geos::geom::Geometry> deserializeGeometry(
 /// GEOS_TRY macro: it will catch the exceptions that need to bubble up.
 std::string serializeGeometry(const geos::geom::Geometry& geosGeometry);
 
+/// Deserialize Velox's internal format to a geometry and get the Envelope.
+const std::unique_ptr<geos::geom::Envelope> getEnvelopeFromGeometry(
+    const StringView& geometry);
+
 } // namespace facebook::velox::functions::geospatial

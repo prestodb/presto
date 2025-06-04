@@ -86,6 +86,10 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_Centroid"}});
   registerFunction<StXFunction, double, Geometry>({{prefix + "ST_X"}});
   registerFunction<StYFunction, double, Geometry>({{prefix + "ST_Y"}});
+  registerFunction<StXMinFunction, double, Geometry>({{prefix + "ST_XMin"}});
+  registerFunction<StYMinFunction, double, Geometry>({{prefix + "ST_YMin"}});
+  registerFunction<StXMaxFunction, double, Geometry>({{prefix + "ST_XMax"}});
+  registerFunction<StYMaxFunction, double, Geometry>({{prefix + "ST_YMax"}});
 }
 
 } // namespace

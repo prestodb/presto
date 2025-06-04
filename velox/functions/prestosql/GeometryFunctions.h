@@ -17,6 +17,7 @@
 #pragma once
 
 #include <geos/geom/Coordinate.h>
+#include <geos/geom/Envelope.h>
 #include <geos/io/WKBReader.h>
 #include <geos/io/WKBWriter.h>
 #include <geos/io/WKTReader.h>
@@ -604,6 +605,66 @@ struct StYFunction {
     }
     auto coordinate = geosGeometry->getCoordinate();
     result = coordinate->y;
+    return true;
+  }
+};
+
+template <typename T>
+struct StXMinFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
+    const std::unique_ptr<geos::geom::Envelope> env =
+        geospatial::getEnvelopeFromGeometry(geometry);
+    if (env->isNull()) {
+      return false;
+    }
+    result = env->getMinX();
+    return true;
+  }
+};
+
+template <typename T>
+struct StYMinFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
+    const std::unique_ptr<geos::geom::Envelope> env =
+        geospatial::getEnvelopeFromGeometry(geometry);
+    if (env->isNull()) {
+      return false;
+    }
+    result = env->getMinY();
+    return true;
+  }
+};
+
+template <typename T>
+struct StXMaxFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
+    const std::unique_ptr<geos::geom::Envelope> env =
+        geospatial::getEnvelopeFromGeometry(geometry);
+    if (env->isNull()) {
+      return false;
+    }
+    result = env->getMaxX();
+    return true;
+  }
+};
+
+template <typename T>
+struct StYMaxFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
+    const std::unique_ptr<geos::geom::Envelope> env =
+        geospatial::getEnvelopeFromGeometry(geometry);
+    if (env->isNull()) {
+      return false;
+    }
+    result = env->getMaxY();
     return true;
   }
 };

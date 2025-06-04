@@ -200,6 +200,26 @@ Accessors
     ``null`` if the geometry is empty.  Raises an error if the geometry is
     not a Point and not empty.
 
+.. function:: ST_XMin(geometry: Geometry) -> x: double
+
+    Returns the minimum ``x`` coordinate of the geometries bounding box.
+    Returns ``null`` if the geometry is empty.
+
+.. function:: ST_YMin(geometry: Geometry) -> y: double
+
+    Returns the minimum ``y`` coordinate of the geometries bounding box.
+    Returns ``null`` if the geometry is empty.
+
+.. function:: ST_XMax(geometry: Geometry) -> x: double
+
+    Returns the maximum ``x`` coordinate of the geometries bounding box.
+    Returns ``null`` if the geometry is empty.
+
+.. function:: ST_YMax(geometry: Geometry) -> y: double
+
+    Returns the maximum ``y`` coordinate of the geometries bounding box.
+    Returns ``null`` if the geometry is empty.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

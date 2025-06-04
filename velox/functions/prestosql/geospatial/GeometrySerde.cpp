@@ -38,4 +38,12 @@ std::string serializeGeometry(const geos::geom::Geometry& geosGeometry) {
   return outputString;
 }
 
+const std::unique_ptr<geos::geom::Envelope> getEnvelopeFromGeometry(
+    const StringView& geometry) {
+  std::unique_ptr<geos::geom::Geometry> geosGeometry =
+      geospatial::deserializeGeometry(geometry);
+  return std::make_unique<geos::geom::Envelope>(
+      *geosGeometry->getEnvelopeInternal());
+}
+
 } // namespace facebook::velox::functions::geospatial

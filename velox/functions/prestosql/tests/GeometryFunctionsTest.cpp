@@ -1433,3 +1433,71 @@ TEST_F(GeometryFunctionsTest, testStCentroid) {
           std::nullopt),
       "ST_Centroid only applies to Point or MultiPoint or LineString or MultiLineString or Polygon or MultiPolygon. Input type is: GeometryCollection");
 }
+
+TEST_F(GeometryFunctionsTest, testSTMin) {
+  const auto assertPointMin = [&](const std::optional<std::string>& wkt,
+                                  const std::optional<double> expectedXMin,
+                                  const std::optional<double> expectedYMin) {
+    std::optional<double> xMin =
+        evaluateOnce<double>("ST_XMin(ST_GeometryFromText(c0))", wkt);
+    std::optional<double> yMin =
+        evaluateOnce<double>("ST_YMin(ST_GeometryFromText(c0))", wkt);
+    if (expectedXMin.has_value() && expectedYMin.has_value()) {
+      EXPECT_TRUE(xMin.has_value());
+      EXPECT_TRUE(yMin.has_value());
+      EXPECT_EQ(expectedXMin.value(), xMin.value());
+      EXPECT_EQ(expectedYMin.value(), yMin.value());
+    } else {
+      EXPECT_FALSE(xMin.has_value());
+      EXPECT_FALSE(yMin.has_value());
+    }
+  };
+
+  assertPointMin("POINT (1.5 2.5)", 1.5, 2.5);
+  assertPointMin("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 1.0, 2.0);
+  assertPointMin("LINESTRING (8 4, 5 7)", 5.0, 4.0);
+  assertPointMin("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 1.0, 1.0);
+  assertPointMin("POLYGON ((2 0, 2 1, 3 1, 2 0))", 2.0, 0.0);
+  assertPointMin(
+      "MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10, 1 10)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      1.0,
+      3.0);
+  assertPointMin(
+      "GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))", 3.0, 1.0);
+  assertPointMin(std::nullopt, std::nullopt, std::nullopt);
+  assertPointMin("POLYGON EMPTY", std::nullopt, std::nullopt);
+}
+
+TEST_F(GeometryFunctionsTest, testSTMax) {
+  const auto assertPointMax = [&](const std::optional<std::string>& wkt,
+                                  const std::optional<double> expectedXMax,
+                                  const std::optional<double> expectedYMax) {
+    std::optional<double> xMax =
+        evaluateOnce<double>("ST_XMax(ST_GeometryFromText(c0))", wkt);
+    std::optional<double> yMax =
+        evaluateOnce<double>("ST_YMax(ST_GeometryFromText(c0))", wkt);
+    if (expectedXMax.has_value() && expectedYMax.has_value()) {
+      EXPECT_TRUE(xMax.has_value());
+      EXPECT_TRUE(yMax.has_value());
+      EXPECT_EQ(expectedXMax.value(), xMax.value());
+      EXPECT_EQ(expectedYMax.value(), yMax.value());
+    } else {
+      EXPECT_FALSE(xMax.has_value());
+      EXPECT_FALSE(yMax.has_value());
+    }
+  };
+
+  assertPointMax("POINT (1.5 2.5)", 1.5, 2.5);
+  assertPointMax("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 4.0, 8.0);
+  assertPointMax("LINESTRING (8 4, 5 7)", 8.0, 7.0);
+  assertPointMax("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 5.0, 4.0);
+  assertPointMax("POLYGON ((2 0, 2 1, 3 1, 2 0))", 3.0, 1.0);
+  assertPointMax(
+      "MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10, 1 10)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      6.0,
+      10.0);
+  assertPointMax(
+      "GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))", 5.0, 4.0);
+  assertPointMax(std::nullopt, std::nullopt, std::nullopt);
+  assertPointMax("POLYGON EMPTY", std::nullopt, std::nullopt);
+}
