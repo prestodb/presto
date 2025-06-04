@@ -68,4 +68,54 @@ uint64_t ReaderBase::getMemoryUse() {
   return 0;
 }
 
+/// TODO: Add implementation
+TextReaderImpl::TextReaderImpl(
+    std::unique_ptr<velox::dwio::common::ReadFileInputStream> /*stream*/,
+    const ReaderOptions& options)
+    : options_(options) {}
+
+/// TODO: Add implementation
+common::CompressionKind TextReaderImpl::getCompression() const {
+  return common::CompressionKind::CompressionKind_NONE;
+}
+
+/// TODO: Add implementation
+uint64_t TextReaderImpl::getNumberOfRows() const {
+  return 0;
+}
+
+/// TODO: Add implementation
+std::unique_ptr<RowReader> TextReaderImpl::createRowReader() const {
+  return nullptr;
+}
+
+/// TODO: Add implementation
+std::unique_ptr<RowReader> TextReaderImpl::createRowReader(
+    const RowReaderOptions& /*options*/) const {
+  return nullptr;
+}
+
+/// TODO: Add implementation
+std::unique_ptr<RowReader> TextReaderImpl::createRowReader(
+    const RowReaderOptions& /*options*/,
+    bool /*prestoTextReader*/) const {
+  return nullptr;
+}
+
+/// TODO: Add implementation
+uint64_t TextReaderImpl::getFileLength() const {
+  return 0;
+}
+
+/// TODO: Add implementation
+const std::shared_ptr<const RowType>& TextReaderImpl::getType() const {
+  static std::shared_ptr<const RowType> dummy;
+  return dummy;
+}
+
+/// TODO: Add implementation
+uint64_t TextReaderImpl::getMemoryUse() {
+  return 0;
+}
+
 } // namespace facebook::velox::text

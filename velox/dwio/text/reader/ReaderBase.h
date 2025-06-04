@@ -76,4 +76,39 @@ class ReaderBase {
   uint64_t getMemoryUse();
 };
 
+class TextReaderImpl : public RowReader {
+ private:
+  const ReaderOptions& options_;
+
+  std::shared_ptr<FileContents> contents_;
+  std::shared_ptr<const TypeWithId> schemaWithId_;
+
+  // Usable only for testing.
+  std::shared_ptr<const RowType> internalSchema_;
+
+ public:
+  TextReaderImpl(
+      std::unique_ptr<velox::dwio::common::ReadFileInputStream> stream,
+      const ReaderOptions& options);
+
+  common::CompressionKind getCompression() const;
+
+  uint64_t getNumberOfRows() const;
+
+  std::unique_ptr<RowReader> createRowReader() const;
+
+  std::unique_ptr<RowReader> createRowReader(
+      const RowReaderOptions& options) const;
+
+  std::unique_ptr<RowReader> createRowReader(
+      const RowReaderOptions& options,
+      bool prestoTextReader) const;
+
+  uint64_t getFileLength() const;
+
+  const std::shared_ptr<const RowType>& getType() const;
+
+  uint64_t getMemoryUse();
+};
+
 } // namespace facebook::velox::text
