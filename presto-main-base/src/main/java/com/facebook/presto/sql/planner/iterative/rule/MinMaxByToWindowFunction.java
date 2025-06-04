@@ -47,6 +47,34 @@ import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+/**
+ * For queries with min_by/max_by functions on map, rewrite it with top n window functions.
+ * For example, for query `select id, max(ds), max_by(feature, ds) from t group by id`,
+ * it will be rewritten from:
+ * <pre>
+ * - Aggregation
+ *      ds_0 := max(ds)
+ *      feature_0 := max_by(feature, ds)
+ *      group by id
+ *      - scan t
+ *          ds
+ *          feature
+ *          id
+ * </pre>
+ * into:
+ * <pre>
+ *     - Filter
+ *          row_num = 1
+ *          - TopNRow
+ *              partition by id
+ *              order by ds desc
+ *              maxRowCountPerPartition = 1
+ *              - scan t
+ *                  ds
+ *                  feature
+ *                  id
+ * </pre>
+ */
 public class MinMaxByToWindowFunction
         implements Rule<AggregationNode>
 {
