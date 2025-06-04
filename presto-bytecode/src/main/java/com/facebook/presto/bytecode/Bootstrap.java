@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.gen;
-
-import com.facebook.presto.bytecode.DynamicClassLoader;
+package com.facebook.presto.bytecode;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;

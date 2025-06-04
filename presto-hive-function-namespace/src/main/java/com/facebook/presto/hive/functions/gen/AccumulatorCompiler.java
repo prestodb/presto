@@ -55,6 +55,7 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
@@ -65,7 +66,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
-import static com.facebook.presto.hive.functions.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.hive.functions.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.hive.functions.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.hive.functions.gen.SqlTypeBytecodeExpression.constantType;
