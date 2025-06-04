@@ -15,6 +15,7 @@
  */
 
 #include <fmt/format.h>
+#include <folly/Preprocessor.h>
 #include <gflags/gflags.h>
 #include <nvrtc.h>
 #include "velox/experimental/wave/common/Cuda.h"
@@ -219,14 +220,15 @@ void ensureInit() {
   // headers are included and uses compile.
   const char* sampleText =
       "Sample\n"
-      "#include <cuda/semaphore>\n"
+      "#include <stdint.h>\n"
       "__global__ void \n"
       "sampleKernel(unsigned char** bools, int** mtx, int* sizes) { \n"
       "__shared__ int32_t f;\n"
-      "typedef cuda::binary_semaphore<cuda::thread_scope_device> Mutex;\n"
       "if (threadIdx.x == 0) {\n"
-      "		     f = 1;\n"
-      "reinterpret_cast<Mutex*>(&f)->acquire();\n"
+      " f = 1;\n"
+      " while (atomicCAS(*mtx, 1, 0) != 1) {\n"
+      "  __nanosleep(1);\n"
+      " }\n"
       " assert(f == 0);\n"
       " printf(\"pfaal\"); \n"
       "  atomicAdd(&f, 1);\n"
@@ -256,6 +258,14 @@ void ensureInit() {
     waveNvrtcFlags.push_back(fmt::format(
         "--gpu-architecture=compute_{}{}", device->major, device->minor));
   }
+  waveNvrtcFlags.push_back("-DPLATFORM_CUDA");
+  // FIXME: Use FOLLY_PP_STRINGIZE_MACRO when available.
+#define PP_STRINGIZE_MACRO(x) FOLLY_PP_STRINGIZE(x)
+  waveNvrtcFlags.push_back(
+      "-DCUDA_PLATFORM_SPECIALIZATION_HEADER=" PP_STRINGIZE_MACRO(
+          CUDA_PLATFORM_SPECIALIZATION_HEADER));
+#undef PP_STRINGIZE_MACRO
+
   ::jitify::detail::detect_and_add_cuda_arch(waveNvrtcFlags);
   std::map<std::string, std::string> headers;
   if (!readSystemHeaders(headers)) {

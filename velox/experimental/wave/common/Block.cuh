@@ -47,8 +47,12 @@ template <
     typename T,
     cub::BlockScanAlgorithm Algorithm = cub::BLOCK_SCAN_RAKING,
     typename Getter>
-__device__ inline void
-boolBlockToIndices(Getter getter, T start, T* indices, void* shmem, T& size) {
+__device__ inline void boolBlockToIndices(
+    Getter getter,
+    unsigned start,
+    T* indices,
+    void* shmem,
+    T& size) {
   typedef cub::BlockScan<T, blockSize, Algorithm> BlockScanT;
 
   auto* temp = reinterpret_cast<typename BlockScanT::TempStorage*>(shmem);
@@ -78,8 +82,12 @@ inline int32_t __device__ __host__ bool256ToIndicesSize() {
 /// 8..15. The indices start at 'start' and last index + 1 is
 /// returned in 'size'.
 template <typename T, typename Getter8>
-__device__ inline void
-bool256ToIndices(Getter8 getter8, T start, T* indices, T& size, char* smem) {
+__device__ inline void bool256ToIndices(
+    Getter8 getter8,
+    unsigned start,
+    T* indices,
+    T& size,
+    char* smem) {
   using Scan = cub::WarpScan<uint16_t>;
   auto* smem16 = reinterpret_cast<uint16_t*>(smem);
   auto group = threadIdx.x / 8;

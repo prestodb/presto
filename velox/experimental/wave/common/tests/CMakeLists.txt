@@ -22,7 +22,8 @@ add_executable(
   BlockTest.cpp
   BlockTest.cu
   HashTableTest.cpp
-  HashTestUtil.cpp)
+  HashTestUtil.cpp
+  AtomicTest.cu)
 
 add_test(velox_wave_common_test velox_wave_common_test)
 set_tests_properties(velox_wave_common_test PROPERTIES LABELS cuda_driver)

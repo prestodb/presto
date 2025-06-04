@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda/atomic>
-#include <cuda/semaphore>
+#include <stdint.h>
+#include "velox/experimental/wave/common/Atomic.cuh"
 #include "velox/experimental/wave/common/BitUtil.cuh"
 #include "velox/experimental/wave/common/Hash.h"
 #include "velox/experimental/wave/common/HashTable.h"
@@ -27,21 +27,22 @@ namespace facebook::velox::wave {
 #define GPF() *(long*)0 = 0
 
 template <typename T, typename U>
-inline __device__ cuda::atomic<T, cuda::thread_scope_device>* asDeviceAtomic(
-    U* ptr) {
-  return reinterpret_cast<cuda::atomic<T, cuda::thread_scope_device>*>(ptr);
+inline __device__ Atomic<T, MemoryScope::kDevice>* asDeviceAtomic(U* ptr) {
+  return reinterpret_cast<Atomic<T, MemoryScope::kDevice>*>(ptr);
 }
 
 template <typename T>
 inline bool __device__ atomicTryLock(T* lock) {
-  return 0 ==
-      asDeviceAtomic<int32_t>(lock)->exchange(1, cuda::memory_order_consume);
+  T expected = 0;
+  return asDeviceAtomic<int32_t>(lock)
+      ->template compare_exchange<MemoryOrder::kAcquire>(expected, 1);
 }
 
 template <typename T>
 inline void __device__ atomicUnlock(T* lock) {
-  asDeviceAtomic<int32_t>(lock)->store(0, cuda::memory_order_release);
+  asDeviceAtomic<int32_t>(lock)->template store<MemoryOrder::kRelease>(0);
 }
+
 namespace detail {
 template <typename T>
 inline __device__ T* allocateFixed(AllocationRange& range, int32_t size) {
@@ -140,8 +141,8 @@ struct GpuBucket : public GpuBucketMembers {
 
   template <typename RowType>
   inline RowType* __device__ loadConsume(int32_t idx) {
-    uint64_t uptr =
-        asDeviceAtomic<uint32_t>(&data)[idx].load(cuda::memory_order_consume);
+    uint64_t uptr = asDeviceAtomic<uint32_t>(&data)[idx]
+                        .template load<MemoryOrder::kAcquire>();
     if (uptr == 0) {
       return nullptr;
     }
@@ -164,8 +165,8 @@ struct GpuBucket : public GpuBucketMembers {
     auto uptr = reinterpret_cast<uint64_t>(ptr);
     data[8 + idx] = uptr >> 32;
     // The high part must be seen if the low part is seen.
-    asDeviceAtomic<uint32_t>(&data)[idx].store(
-        uptr, cuda::memory_order_release);
+    asDeviceAtomic<uint32_t>(&data)[idx].template store<MemoryOrder::kRelease>(
+        uptr);
   }
 
   bool __device__ addNewTag(uint8_t tag, uint32_t oldTags, uint8_t tagShift) {
@@ -235,7 +236,7 @@ class GpuHashTable : public GpuHashTableBase {
       bucket = buckets + bucketIdx;
     reprobe:
       tags = asDeviceAtomic<uint32_t>(&bucket->tags)
-                 ->load(cuda::memory_order_consume);
+                 ->template load<MemoryOrder::kAcquire>();
       auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
       while (hits) {
         hitIdx = (__ffs(hits) - 1) / 8;
@@ -325,7 +326,7 @@ class GpuHashTable : public GpuHashTableBase {
       bucket = buckets + bucketIdx;
     reprobe:
       tags = asDeviceAtomic<uint32_t>(&bucket->tags)
-                 ->load(cuda::memory_order_consume);
+                 ->template load<MemoryOrder::kAcquire>();
       auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
       while (hits) {
         hitIdx = (__ffs(hits) - 1) / 8;
@@ -401,7 +402,7 @@ class GpuHashTable : public GpuHashTableBase {
             GpuBucket* bucket = buckets + bucketIdx;
           reprobe:
             uint32_t tags = asDeviceAtomic<uint32_t>(&bucket->tags)
-                                ->load(cuda::memory_order_consume);
+                                ->template load<MemoryOrder::kAcquire>();
             auto misses = __vcmpeq4(tags, 0) & 0x01010101;
             while (misses) {
               auto missShift = __ffs(misses) - 1;
@@ -436,15 +437,16 @@ class GpuHashTable : public GpuHashTableBase {
         GpuBucket* bucket = buckets + bucketIdx;
       reprobe:
         uint32_t tags = asDeviceAtomic<uint32_t>(&bucket->tags)
-                            ->load(cuda::memory_order_consume);
+                            ->template load<MemoryOrder::kAcquire>();
         auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
         while (hits) {
           auto hitIdx = (__ffs(hits) - 1) / 8;
           auto candidate = bucket->loadWithWait<RowType>(hitIdx);
           if (ops.compare(row, candidate)) {
             for (;;) {
-              auto previous = asDeviceAtomic<RowType*>(candidate->nextPtr())
-                                  ->load(cuda::memory_order_relaxed);
+              auto previous =
+                  (RowType*)asDeviceAtomic<uintptr_t>(candidate->nextPtr())
+                      ->template load<MemoryOrder::kRelaxed>();
               if ((unsigned long long)previous ==
                   atomicCAS(
                       (unsigned long long*)&candidate->next,

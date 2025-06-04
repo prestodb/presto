@@ -16,12 +16,13 @@
 
 #pragma once
 
+#include "velox/experimental/wave/common/Atomic.cuh"
 #include "velox/experimental/wave/common/HashTable.cuh"
 #include "velox/experimental/wave/common/tests/BlockTest.h"
 
 namespace facebook::velox::wave {
 
-using Mutex = cuda::binary_semaphore<cuda::thread_scope_device>;
+using Mutex = AtomicMutex<MemoryScope::kDevice>;
 
 inline void __device__ testingLock(int32_t* mtx) {
   reinterpret_cast<Mutex*>(mtx)->acquire();
@@ -35,7 +36,7 @@ void __device__ testSumNoSync(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t end = base + probe->numRows[blockIdx.x];
 
   for (auto i = base + threadIdx.x; i < end; i += blockDim.x) {
@@ -57,7 +58,7 @@ void __device__ testSumPart(
   auto deltas = keys[1];
   for (auto groupIdx = 0; groupIdx < numGroups; ++groupIdx) {
     auto groupStart = groupIdx * groupStride;
-    int32_t linear = threadIdx.x + blockIdx.x * blockDim.x;
+    auto linear = threadIdx.x + blockIdx.x * blockDim.x;
     if (linear > numParts) {
       break;
     }
@@ -78,7 +79,7 @@ void __device__ testSumMtx(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t end = base + probe->numRows[blockIdx.x];
 
   for (auto i = base + threadIdx.x; i < end; i += blockDim.x) {
@@ -93,7 +94,7 @@ void __device__ testSumAtomic(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t end = base + probe->numRows[blockIdx.x];
 
   for (auto i = base + threadIdx.x; i < end; i += blockDim.x) {
@@ -107,7 +108,7 @@ void __device__ testSumAtomicCoalesceShmem(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t lane = cub::LaneId();
   int32_t end = base + probe->numRows[blockIdx.x];
   extern __shared__ char smem[];
@@ -147,7 +148,7 @@ void __device__ testSumAtomicCoalesceShfl(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t lane = cub::LaneId();
   int32_t end = base + probe->numRows[blockIdx.x];
 
@@ -186,7 +187,7 @@ void __device__ testSumMtxCoalesce(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t lane = cub::LaneId();
   int32_t end = base + probe->numRows[blockIdx.x];
 
@@ -226,7 +227,7 @@ void __device__ testSumOrder(TestingRow* rows, HashProbe* probe) {
   auto keys = reinterpret_cast<int64_t**>(probe->keys);
   auto indices = keys[0];
   auto deltas = keys[1];
-  int32_t base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
+  auto base = probe->numRowsPerThread * blockDim.x * blockIdx.x;
   int32_t end = base + probe->numRows[blockIdx.x];
 
   for (auto i = base + threadIdx.x; i < end; i += blockDim.x) {
@@ -234,12 +235,12 @@ void __device__ testSumOrder(TestingRow* rows, HashProbe* probe) {
     int32_t waitNano = 1;
     auto d = deltas[i];
     for (;;) {
-      if (0 ==
-          asDeviceAtomic<int32_t>(&row->flags)
-              ->exchange(1, cuda::memory_order_consume)) {
+      int32_t expected = 0;
+      if (asDeviceAtomic<int32_t>(&row->flags)
+              ->template compare_exchange<MemoryOrder::kAcquire>(expected, 1)) {
         row->count += d;
         asDeviceAtomic<int32_t>(&row->flags)
-            ->store(0, cuda::memory_order_release);
+            ->template store<MemoryOrder::kRelease>(0);
         break;
       } else {
         __nanosleep(10 * waitNano);

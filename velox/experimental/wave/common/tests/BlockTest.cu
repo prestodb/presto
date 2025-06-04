@@ -32,7 +32,7 @@ using ScanAlgorithm = cub::BlockScan<int, 256, cub::BLOCK_SCAN_RAKING>;
 __global__ void
 boolToIndicesKernel(uint8_t** bools, int32_t** indices, int32_t* sizes) {
   extern __shared__ char smem[];
-  int32_t idx = blockIdx.x;
+  auto idx = blockIdx.x;
   // Start cycle timer
   uint8_t* blockBools = bools[idx];
   boolBlockToIndices<256>(
@@ -61,7 +61,7 @@ __global__ void boolToIndicesNoSharedKernel(
     int32_t** indices,
     int32_t* sizes,
     void* temp) {
-  int32_t idx = blockIdx.x;
+  auto idx = blockIdx.x;
 
   uint8_t* blockBools = bools[idx];
   char* smem = reinterpret_cast<char*>(temp) +
@@ -94,7 +94,7 @@ int32_t BlockTestStream::boolToIndicesSize() {
 __global__ void
 bool256ToIndicesKernel(uint8_t** bools, int32_t** indices, int32_t* sizes) {
   extern __shared__ char smem[];
-  int32_t idx = blockIdx.x;
+  auto idx = blockIdx.x;
   auto* bool64 = reinterpret_cast<uint64_t*>(bools[idx]);
   bool256ToIndices(
       [&](int32_t index8) { return bool64[index8]; },
@@ -122,7 +122,7 @@ __global__ void bool256ToIndicesNoSharedKernel(
     int32_t** indices,
     int32_t* sizes,
     void* temp) {
-  int32_t idx = blockIdx.x;
+  auto idx = blockIdx.x;
   auto* bool64 = reinterpret_cast<uint64_t*>(bools[idx]);
   char* smem = reinterpret_cast<char*>(temp) + blockIdx.x * 80;
   bool256ToIndices(
@@ -152,7 +152,7 @@ int32_t BlockTestStream::bool256ToIndicesSize() {
 
 __global__ void sum64(int64_t* numbers, int64_t* results) {
   extern __shared__ char smem[];
-  int32_t idx = blockIdx.x;
+  auto idx = blockIdx.x;
   blockSum<256>(
       [&]() { return numbers[idx * 256 + threadIdx.x]; }, smem, results);
   __syncthreads();
@@ -296,8 +296,8 @@ class MockGroupByOps {
   }
 
   bool __device__ compare(GpuHashTable* table, TestingRow* row, int32_t i) {
-    return asDeviceAtomic<int64_t>(&row->key)->load(
-               cuda::memory_order_consume) ==
+    return asDeviceAtomic<int64_t>(&row->key)
+               ->template load<MemoryOrder::kAcquire>() ==
         reinterpret_cast<int64_t**>(probe_->keys)[0][i];
   }
 
@@ -310,9 +310,8 @@ class MockGroupByOps {
       row->count = 0;
 
       new (&row->concatenation) ArrayAgg64();
-      asDeviceAtomic<int64_t>(&row->key)->store(
-          reinterpret_cast<int64_t**>(probe_->keys)[0][i],
-          cuda::memory_order_release);
+      asDeviceAtomic<int64_t>(&row->key)->template store<MemoryOrder::kRelease>(
+          reinterpret_cast<int64_t**>(probe_->keys)[0][i]);
     }
     return row;
   }
@@ -396,7 +395,7 @@ void __global__ __launch_bounds__(1024) hashTestKernel(
   switch (mode) {
     case BlockTestStream::HashCase::kGroup: {
       MockGroupByOps ops(probe);
-      int32_t begin = blockIdx.x * probe->numRowsPerThread * blockDim.x;
+      auto begin = blockIdx.x * probe->numRowsPerThread * blockDim.x;
       int32_t end = begin + probe->numRows[blockIdx.x];
 
       for (auto i = begin + threadIdx.x; i < end; i += blockDim.x) {
