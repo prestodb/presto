@@ -21,7 +21,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -31,10 +30,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Immutable
 @ThriftStruct
@@ -50,13 +47,13 @@ public class OperatorStats
     private final long totalDrivers;
 
     private final long isBlockedCalls;
-    private final Duration isBlockedWall;
-    private final Duration isBlockedCpu;
+    private final long isBlockedWallInNanos;
+    private final long isBlockedCpuInNanos;
     private final long isBlockedAllocationInBytes;
 
     private final long addInputCalls;
-    private final Duration addInputWall;
-    private final Duration addInputCpu;
+    private final long addInputWallInNanos;
+    private final long addInputCpuInNanos;
     private final long addInputAllocationInBytes;
     private final long rawInputDataSizeInBytes;
     private final long rawInputPositions;
@@ -65,20 +62,20 @@ public class OperatorStats
     private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
-    private final Duration getOutputWall;
-    private final Duration getOutputCpu;
+    private final long getOutputWallInNanos;
+    private final long getOutputCpuInNanos;
     private final long getOutputAllocationInBytes;
     private final long outputDataSizeInBytes;
     private final long outputPositions;
 
     private final long physicalWrittenDataSizeInBytes;
 
-    private final Duration additionalCpu;
-    private final Duration blockedWall;
+    private final long additionalCpuInNanos;
+    private final long blockedWallInNanos;
 
     private final long finishCalls;
-    private final Duration finishWall;
-    private final Duration finishCpu;
+    private final long finishWallInNanos;
+    private final long finishCpuInNanos;
     private final long finishAllocationInBytes;
 
     private final long userMemoryReservationInBytes;
@@ -118,13 +115,13 @@ public class OperatorStats
             @JsonProperty("totalDrivers") long totalDrivers,
 
             @JsonProperty("isBlockedCalls") long isBlockedCalls,
-            @JsonProperty("isBlockedWall") Duration isBlockedWall,
-            @JsonProperty("isBlockedCpu") Duration isBlockedCpu,
+            @JsonProperty("isBlockedWallInNanos") long isBlockedWallInNanos,
+            @JsonProperty("isBlockedCpuInNanos") long isBlockedCpuInNanos,
             @JsonProperty("isBlockedAllocationInBytes") long isBlockedAllocationInBytes,
 
             @JsonProperty("addInputCalls") long addInputCalls,
-            @JsonProperty("addInputWall") Duration addInputWall,
-            @JsonProperty("addInputCpu") Duration addInputCpu,
+            @JsonProperty("addInputWallInNanos") long addInputWallInNanos,
+            @JsonProperty("addInputCpuInNanos") long addInputCpuInNanos,
             @JsonProperty("addInputAllocationInBytes") long addInputAllocationInBytes,
             @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -133,20 +130,20 @@ public class OperatorStats
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
 
             @JsonProperty("getOutputCalls") long getOutputCalls,
-            @JsonProperty("getOutputWall") Duration getOutputWall,
-            @JsonProperty("getOutputCpu") Duration getOutputCpu,
+            @JsonProperty("getOutputWallInNanos") long getOutputWallInNanos,
+            @JsonProperty("getOutputCpuInNanos") long getOutputCpuInNanos,
             @JsonProperty("getOutputAllocationInBytes") long getOutputAllocationInBytes,
             @JsonProperty("outputDataSizeInBytes") long outputDataSizeInBytes,
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("physicalWrittenDataSizeInBytes") long physicalWrittenDataSizeInBytes,
 
-            @JsonProperty("additionalCpu") Duration additionalCpu,
-            @JsonProperty("blockedWall") Duration blockedWall,
+            @JsonProperty("additionalCpuInNanos") long additionalCpuInNanos,
+            @JsonProperty("blockedWallInNanos") long blockedWallInNanos,
 
             @JsonProperty("finishCalls") long finishCalls,
-            @JsonProperty("finishWall") Duration finishWall,
-            @JsonProperty("finishCpu") Duration finishCpu,
+            @JsonProperty("finishWallInNanos") long finishWallInNanos,
+            @JsonProperty("finishCpuInNanos") long finishCpuInNanos,
             @JsonProperty("finishAllocationInBytes") long finishAllocationInBytes,
 
             @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
@@ -181,14 +178,14 @@ public class OperatorStats
         this.totalDrivers = totalDrivers;
 
         this.isBlockedCalls = isBlockedCalls;
-        this.isBlockedWall = requireNonNull(isBlockedWall, "isBlockedWall is null");
-        this.isBlockedCpu = requireNonNull(isBlockedCpu, "isBlockedCpu is null");
+        this.isBlockedWallInNanos = requireNonNull(isBlockedWallInNanos, "isBlockedWallInNanos is null");
+        this.isBlockedCpuInNanos = requireNonNull(isBlockedCpuInNanos, "isBlockedCpuInNanos is null");
         checkArgument(isBlockedAllocationInBytes >= 0, "isBlockedAllocationInBytes is negative");
         this.isBlockedAllocationInBytes = isBlockedAllocationInBytes;
 
         this.addInputCalls = addInputCalls;
-        this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
-        this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
+        this.addInputWallInNanos = requireNonNull(addInputWallInNanos, "addInputWallInNanos is null");
+        this.addInputCpuInNanos = requireNonNull(addInputCpuInNanos, "addInputCpuInNanos is null");
         checkArgument(addInputAllocationInBytes >= 0, "addInputAllocationInBytes is negative");
         this.addInputAllocationInBytes = addInputAllocationInBytes;
         checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
@@ -202,8 +199,8 @@ public class OperatorStats
         this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
-        this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
-        this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
+        this.getOutputWallInNanos = requireNonNull(getOutputWallInNanos, "getOutputWallInNanos is null");
+        this.getOutputCpuInNanos = requireNonNull(getOutputCpuInNanos, "getOutputCpuInNanos is null");
         checkArgument(getOutputAllocationInBytes >= 0, "getOutputAllocationInBytes is negative");
         this.getOutputAllocationInBytes = getOutputAllocationInBytes;
 
@@ -215,12 +212,12 @@ public class OperatorStats
 
         checkArgument(physicalWrittenDataSizeInBytes >= 0, "writtenDataSizeInBytes is negative");
         this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
-        this.additionalCpu = requireNonNull(additionalCpu, "additionalCpu is negative");
-        this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
+        this.additionalCpuInNanos = requireNonNull(additionalCpuInNanos, "additionalCpuInNanos is negative");
+        this.blockedWallInNanos = requireNonNull(blockedWallInNanos, "blockedWallInNanos is null");
 
         this.finishCalls = finishCalls;
-        this.finishWall = requireNonNull(finishWall, "finishWall is null");
-        this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
+        this.finishWallInNanos = requireNonNull(finishWallInNanos, "finishWallInNanos is null");
+        this.finishCpuInNanos = requireNonNull(finishCpuInNanos, "finishCpuInNanos is null");
         checkArgument(finishAllocationInBytes >= 0, "finishAllocationInBytes is negative");
         this.finishAllocationInBytes = finishAllocationInBytes;
         checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
@@ -263,13 +260,13 @@ public class OperatorStats
             long totalDrivers,
 
             long isBlockedCalls,
-            Duration isBlockedWall,
-            Duration isBlockedCpu,
+            long isBlockedWallInNanos,
+            long isBlockedCpuInNanos,
             long isBlockedAllocationInBytes,
 
             long addInputCalls,
-            Duration addInputWall,
-            Duration addInputCpu,
+            long addInputWallInNanos,
+            long addInputCpuInNanos,
             long addInputAllocationInBytes,
             long rawInputDataSizeInBytes,
             long rawInputPositions,
@@ -278,20 +275,20 @@ public class OperatorStats
             double sumSquaredInputPositions,
 
             long getOutputCalls,
-            Duration getOutputWall,
-            Duration getOutputCpu,
+            long getOutputWallInNanos,
+            long getOutputCpuInNanos,
             long getOutputAllocationInBytes,
             long outputDataSizeInBytes,
             long outputPositions,
 
             long physicalWrittenDataSizeInBytes,
 
-            Duration additionalCpu,
-            Duration blockedWall,
+            long additionalCpuInNanos,
+            long blockedWallInNanos,
 
             long finishCalls,
-            Duration finishWall,
-            Duration finishCpu,
+            long finishWallInNanos,
+            long finishCpuInNanos,
             long finishAllocationInBytes,
 
             long userMemoryReservationInBytes,
@@ -326,14 +323,14 @@ public class OperatorStats
         this.totalDrivers = totalDrivers;
 
         this.isBlockedCalls = isBlockedCalls;
-        this.isBlockedWall = requireNonNull(isBlockedWall, "isBlockedWall is null");
-        this.isBlockedCpu = requireNonNull(isBlockedCpu, "isBlockedCpu is null");
+        this.isBlockedWallInNanos = requireNonNull(isBlockedWallInNanos, "isBlockedWallInNanos is null");
+        this.isBlockedCpuInNanos = requireNonNull(isBlockedCpuInNanos, "isBlockedCpuInNanos is null");
         checkArgument(isBlockedAllocationInBytes >= 0, "isBlockedAllocation is negative");
         this.isBlockedAllocationInBytes = isBlockedAllocationInBytes;
 
         this.addInputCalls = addInputCalls;
-        this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
-        this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
+        this.addInputWallInNanos = requireNonNull(addInputWallInNanos, "addInputWallInNanos is null");
+        this.addInputCpuInNanos = requireNonNull(addInputCpuInNanos, "addInputCpuInNanos is null");
         checkArgument(addInputAllocationInBytes >= 0, "addInputAllocation is negative");
         this.addInputAllocationInBytes = addInputAllocationInBytes;
         checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSize is negative");
@@ -348,8 +345,8 @@ public class OperatorStats
         this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
-        this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
-        this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
+        this.getOutputWallInNanos = requireNonNull(getOutputWallInNanos, "getOutputWallInNanos is null");
+        this.getOutputCpuInNanos = requireNonNull(getOutputCpuInNanos, "getOutputCpuInNanos is null");
         checkArgument(getOutputAllocationInBytes >= 0, "getOutputAllocation is negative");
         this.getOutputAllocationInBytes = getOutputAllocationInBytes;
         checkArgument(outputDataSizeInBytes >= 0, "outputDataSize is negative");
@@ -359,12 +356,12 @@ public class OperatorStats
 
         checkArgument(physicalWrittenDataSizeInBytes >= 0, "writtenDataSize is negative");
         this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
-        this.additionalCpu = requireNonNull(additionalCpu, "additionalCpu is null");
-        this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
+        this.additionalCpuInNanos = requireNonNull(additionalCpuInNanos, "additionalCpuInNanos is null");
+        this.blockedWallInNanos = requireNonNull(blockedWallInNanos, "blockedWallInNanos is null");
 
         this.finishCalls = finishCalls;
-        this.finishWall = requireNonNull(finishWall, "finishWall is null");
-        this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
+        this.finishWallInNanos = requireNonNull(finishWallInNanos, "finishWallInNanos is null");
+        this.finishCpuInNanos = requireNonNull(finishCpuInNanos, "finishCpuInNanos is null");
         checkArgument(finishAllocationInBytes >= 0, "finishAllocation is negative");
         this.finishAllocationInBytes = finishAllocationInBytes;
         checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservation is negative");
@@ -454,19 +451,7 @@ public class OperatorStats
         return addInputCalls;
     }
 
-    @JsonProperty
-    @ThriftField(9)
-    public Duration getAddInputWall()
-    {
-        return addInputWall;
-    }
-
-    @JsonProperty
-    @ThriftField(10)
-    public Duration getAddInputCpu()
-    {
-        return addInputCpu;
-    }
+    // fields 9 and 10 are retired fields
 
     @JsonProperty
     @ThriftField(11)
@@ -517,19 +502,7 @@ public class OperatorStats
         return getOutputCalls;
     }
 
-    @JsonProperty
-    @ThriftField(18)
-    public Duration getGetOutputWall()
-    {
-        return getOutputWall;
-    }
-
-    @JsonProperty
-    @ThriftField(19)
-    public Duration getGetOutputCpu()
-    {
-        return getOutputCpu;
-    }
+    // fields 18 and 19 are retired fields
 
     @JsonProperty
     @ThriftField(20)
@@ -559,19 +532,7 @@ public class OperatorStats
         return physicalWrittenDataSizeInBytes;
     }
 
-    @JsonProperty
-    @ThriftField(24)
-    public Duration getAdditionalCpu()
-    {
-        return additionalCpu;
-    }
-
-    @JsonProperty
-    @ThriftField(25)
-    public Duration getBlockedWall()
-    {
-        return blockedWall;
-    }
+    // fields 24 and 25 are retired fields
 
     @JsonProperty
     @ThriftField(26)
@@ -580,19 +541,7 @@ public class OperatorStats
         return finishCalls;
     }
 
-    @JsonProperty
-    @ThriftField(27)
-    public Duration getFinishWall()
-    {
-        return finishWall;
-    }
-
-    @JsonProperty
-    @ThriftField(28)
-    public Duration getFinishCpu()
-    {
-        return finishCpu;
-    }
+    // fields 27 and 28 are retired fields
 
     @JsonProperty
     @ThriftField(29)
@@ -722,25 +671,83 @@ public class OperatorStats
         return isBlockedCalls;
     }
 
-    @JsonProperty
-    @ThriftField(46)
-    public Duration getIsBlockedWall()
-    {
-        return isBlockedWall;
-    }
-
-    @JsonProperty
-    @ThriftField(47)
-    public Duration getIsBlockedCpu()
-    {
-        return isBlockedCpu;
-    }
+    // fields 46 and 47 are retired fields
 
     @JsonProperty
     @ThriftField(48)
     public long getIsBlockedAllocationInBytes()
     {
         return isBlockedAllocationInBytes;
+    }
+
+    @JsonProperty
+    @ThriftField(49)
+    public long getAddInputWallInNanos()
+    {
+        return addInputWallInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(50)
+    public long getAddInputCpuInNanos()
+    {
+        return addInputCpuInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(51)
+    public long getGetOutputWallInNanos()
+    {
+        return getOutputWallInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(52)
+    public long getGetOutputCpuInNanos()
+    {
+        return getOutputCpuInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(53)
+    public long getAdditionalCpuInNanos()
+    {
+        return additionalCpuInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(54)
+    public long getBlockedWallInNanos()
+    {
+        return blockedWallInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(55)
+    public long getFinishWallInNanos()
+    {
+        return finishWallInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(56)
+    public long getFinishCpuInNanos()
+    {
+        return finishCpuInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(57)
+    public long getIsBlockedWallInNanos()
+    {
+        return isBlockedWallInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(58)
+    public long getIsBlockedCpuInNanos()
+    {
+        return isBlockedCpuInNanos;
     }
 
     public static Optional<OperatorStats> merge(List<OperatorStats> operators)
@@ -764,13 +771,13 @@ public class OperatorStats
         long totalDrivers = 0;
 
         long isBlockedCalls = 0;
-        long isBlockedWall = 0;
-        long isBlockedCpu = 0;
+        long isBlockedWallInNanos = 0;
+        long isBlockedCpuInNanos = 0;
         long isBlockedAllocation = 0;
 
         long addInputCalls = 0;
-        long addInputWall = 0;
-        long addInputCpu = 0;
+        long addInputWallInNanos = 0;
+        long addInputCpuInNanos = 0;
         double addInputAllocation = 0;
         double rawInputDataSize = 0;
         long rawInputPositions = 0;
@@ -779,20 +786,20 @@ public class OperatorStats
         double sumSquaredInputPositions = 0.0;
 
         long getOutputCalls = 0;
-        long getOutputWall = 0;
-        long getOutputCpu = 0;
+        long getOutputWallInNanos = 0;
+        long getOutputCpuInNanos = 0;
         double getOutputAllocation = 0;
         double outputDataSize = 0;
         long outputPositions = 0;
 
         double physicalWrittenDataSize = 0;
 
-        long additionalCpu = 0;
-        long blockedWall = 0;
+        long additionalCpuInNanos = 0;
+        long blockedWallInNanos = 0;
 
         long finishCalls = 0;
-        long finishWall = 0;
-        long finishCpu = 0;
+        long finishWallInNanos = 0;
+        long finishCpuInNanos = 0;
         long finishAllocation = 0;
 
         double memoryReservation = 0;
@@ -823,13 +830,13 @@ public class OperatorStats
             totalDrivers += operator.totalDrivers;
 
             isBlockedCalls += operator.getGetOutputCalls();
-            isBlockedWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
-            isBlockedCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
+            isBlockedWallInNanos += operator.getGetOutputWallInNanos();
+            isBlockedCpuInNanos += operator.getGetOutputCpuInNanos();
             isBlockedAllocation += operator.getIsBlockedAllocationInBytes();
 
             addInputCalls += operator.getAddInputCalls();
-            addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
-            addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
+            addInputWallInNanos += operator.getAddInputWallInNanos();
+            addInputCpuInNanos += operator.getAddInputCpuInNanos();
             addInputAllocation += operator.getAddInputAllocationInBytes();
             rawInputDataSize += operator.getRawInputDataSizeInBytes();
             rawInputPositions += operator.getRawInputPositions();
@@ -838,8 +845,8 @@ public class OperatorStats
             sumSquaredInputPositions += operator.getSumSquaredInputPositions();
 
             getOutputCalls += operator.getGetOutputCalls();
-            getOutputWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
-            getOutputCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
+            getOutputWallInNanos += operator.getGetOutputWallInNanos();
+            getOutputCpuInNanos += operator.getGetOutputCpuInNanos();
             getOutputAllocation += operator.getGetOutputAllocationInBytes();
             outputDataSize += operator.getOutputDataSizeInBytes();
             outputPositions += operator.getOutputPositions();
@@ -847,12 +854,12 @@ public class OperatorStats
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSizeInBytes();
 
             finishCalls += operator.getFinishCalls();
-            finishWall += operator.getFinishWall().roundTo(NANOSECONDS);
-            finishCpu += operator.getFinishCpu().roundTo(NANOSECONDS);
+            finishWallInNanos += operator.getFinishWallInNanos();
+            finishCpuInNanos += operator.getFinishCpuInNanos();
             finishAllocation += operator.getFinishAllocationInBytes();
 
-            additionalCpu += operator.getAdditionalCpu().roundTo(NANOSECONDS);
-            blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
+            additionalCpuInNanos += operator.getAdditionalCpuInNanos();
+            blockedWallInNanos += operator.getBlockedWallInNanos();
 
             memoryReservation += operator.getUserMemoryReservationInBytes();
             revocableMemoryReservation += operator.getRevocableMemoryReservationInBytes();
@@ -898,13 +905,13 @@ public class OperatorStats
                 totalDrivers,
 
                 isBlockedCalls,
-                succinctNanos(isBlockedWall),
-                succinctNanos(isBlockedCpu),
+                isBlockedWallInNanos,
+                isBlockedCpuInNanos,
                 isBlockedAllocation,
 
                 addInputCalls,
-                succinctNanos(addInputWall),
-                succinctNanos(addInputCpu),
+                addInputWallInNanos,
+                addInputCpuInNanos,
                 (long) addInputAllocation,
                 (long) rawInputDataSize,
                 rawInputPositions,
@@ -913,20 +920,20 @@ public class OperatorStats
                 sumSquaredInputPositions,
 
                 getOutputCalls,
-                succinctNanos(getOutputWall),
-                succinctNanos(getOutputCpu),
+                getOutputWallInNanos,
+                getOutputCpuInNanos,
                 (long) getOutputAllocation,
                 (long) outputDataSize,
                 outputPositions,
 
                 (long) physicalWrittenDataSize,
 
-                succinctNanos(additionalCpu),
-                succinctNanos(blockedWall),
+                additionalCpuInNanos,
+                blockedWallInNanos,
 
                 finishCalls,
-                succinctNanos(finishWall),
-                succinctNanos(finishCpu),
+                finishWallInNanos,
+                finishCpuInNanos,
                 finishAllocation,
 
                 (long) memoryReservation,
@@ -980,12 +987,12 @@ public class OperatorStats
                 operatorType,
                 totalDrivers,
                 isBlockedCalls,
-                isBlockedWall,
-                isBlockedCpu,
+                isBlockedWallInNanos,
+                isBlockedCpuInNanos,
                 isBlockedAllocationInBytes,
                 addInputCalls,
-                addInputWall,
-                addInputCpu,
+                addInputWallInNanos,
+                addInputCpuInNanos,
                 addInputAllocationInBytes,
                 rawInputDataSizeInBytes,
                 rawInputPositions,
@@ -993,17 +1000,17 @@ public class OperatorStats
                 inputPositions,
                 sumSquaredInputPositions,
                 getOutputCalls,
-                getOutputWall,
-                getOutputCpu,
+                getOutputWallInNanos,
+                getOutputCpuInNanos,
                 getOutputAllocationInBytes,
                 outputDataSizeInBytes,
                 outputPositions,
                 physicalWrittenDataSizeInBytes,
-                additionalCpu,
-                blockedWall,
+                additionalCpuInNanos,
+                blockedWallInNanos,
                 finishCalls,
-                finishWall,
-                finishCpu,
+                finishWallInNanos,
+                finishCpuInNanos,
                 finishAllocationInBytes,
                 userMemoryReservationInBytes,
                 revocableMemoryReservationInBytes,
