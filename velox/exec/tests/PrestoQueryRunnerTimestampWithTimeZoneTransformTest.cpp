@@ -48,9 +48,9 @@ class PrestoQueryRunnerTimestampWithTimeZoneTransformTest
   void test(const VectorPtr& vector) {
     const auto colName = "col";
     const auto input =
-        makeRowVector({colName}, {transformIntermediateOnlyType(vector)});
+        makeRowVector({colName}, {transformIntermediateTypes(vector)});
 
-    auto expr = getIntermediateOnlyTypeProjectionExpr(
+    auto expr = getProjectionsToIntermediateTypes(
         vector->type(),
         std::make_shared<core::FieldAccessExpr>(
             colName,
@@ -66,8 +66,9 @@ class PrestoQueryRunnerTimestampWithTimeZoneTransformTest
 
   void testDictionary(const VectorPtr& base) {
     // Wrap in a dictionary without nulls.
-    test(BaseVector::wrapInDictionary(
-        nullptr, makeIndicesInReverse(100), 100, base));
+    auto dict = BaseVector::wrapInDictionary(
+        nullptr, makeIndicesInReverse(100), 100, base);
+    test(dict);
     // Wrap in a dictionary with some nulls.
     test(BaseVector::wrapInDictionary(
         makeNulls(100, [](vector_size_t row) { return row % 10 == 0; }),
@@ -145,8 +146,8 @@ TEST_F(
     transformIntermediateOnlyTypeTimestampWithTimeZoneArray) {
   auto elements = fuzzTimestampWithTimeZone(0, 0.1, 1000);
   auto size = 100;
-  std::vector<vector_size_t> offsets(size + 1);
-  for (int i = 0; i < size + 1; i++) {
+  std::vector<vector_size_t> offsets;
+  for (int i = 0; i < size; i++) {
     offsets.push_back(i * 10);
   }
   // Test array vector no nulls.
@@ -177,8 +178,8 @@ TEST_F(
   auto keys = fuzzTimestampWithTimeZone(0, 0, 1000);
   auto values = fuzzTimestampWithTimeZone(1, 0.1, 1000);
   auto size = 100;
-  std::vector<vector_size_t> offsets(size + 1);
-  for (int i = 0; i < size + 1; i++) {
+  std::vector<vector_size_t> offsets;
+  for (int i = 0; i < size; i++) {
     offsets.push_back(i * 10);
   }
   // Test map vector no nulls.

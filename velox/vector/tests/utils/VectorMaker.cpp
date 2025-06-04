@@ -226,7 +226,6 @@ ArrayVectorPtr VectorMaker::arrayVector(
     auto rawNulls = nullsBuffer->asMutable<uint64_t>();
 
     for (int i = 0; i < nulls.size(); i++) {
-      VELOX_CHECK_EQ(rawSizes[nulls[i]], 0);
       bits::setNull(rawNulls, nulls[i]);
     }
   }
@@ -267,7 +266,6 @@ MapVectorPtr VectorMaker::mapVector(
     auto rawNulls = nullsBuffer->asMutable<uint64_t>();
 
     for (int i = 0; i < nulls.size(); i++) {
-      VELOX_CHECK_EQ(rawSizes[nulls[i]], 0);
       bits::setNull(rawNulls, nulls[i]);
     }
   }

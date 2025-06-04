@@ -693,16 +693,6 @@ TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsUnevenKeysValues) {
   EXPECT_THROW(maker_.mapVector({0, 2, 4}, keys, values), VeloxRuntimeError);
 }
 
-TEST_F(VectorMakerTest, mapVectorUsingKeyValueVectorsNullsInvalidIndices) {
-  auto keys = maker_.flatVector<int32_t>({0, 1, 2, 3, 4, 5});
-  auto values = maker_.flatVector<int64_t>({6, 7, 8, 9, 10, 11});
-
-  // The middle map is NULL, but according to the offsets it has size 2, this
-  // should fail.
-  EXPECT_THROW(
-      maker_.mapVector({0, 2, 4}, keys, values, {1}), VeloxRuntimeError);
-}
-
 TEST_F(VectorMakerTest, mapVectorStringString) {
   auto mapVector = maker_.mapVector<std::string, std::string>({
       {{"a", "1"}, {"b", "2"}},

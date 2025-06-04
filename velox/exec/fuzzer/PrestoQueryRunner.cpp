@@ -222,10 +222,10 @@ PrestoQueryRunner::inputProjections(
     // unchanged and the projection is just an identity mapping.
     if (isIntermediateOnlyType(childType)) {
       for (int batchIndex = 0; batchIndex < input.size(); batchIndex++) {
-        children[batchIndex].push_back(transformIntermediateOnlyType(
-            input[batchIndex]->childAt(childIndex)));
+        children[batchIndex].push_back(
+            transformIntermediateTypes(input[batchIndex]->childAt(childIndex)));
       }
-      projections.push_back(getIntermediateOnlyTypeProjectionExpr(
+      projections.push_back(getProjectionsToIntermediateTypes(
           childType,
           std::make_shared<core::FieldAccessExpr>(
               names[childIndex], names[childIndex]),
