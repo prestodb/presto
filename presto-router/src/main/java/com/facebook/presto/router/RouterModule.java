@@ -72,7 +72,7 @@ public class RouterModule
         binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(RouterConfig.class);
 
-        webUIBinder(binder, "/ui/router", "webapp-router").withWelcomeFile(INDEX_HTML);
+        webUIBinder(binder, "/ui", "webapp-router").withWelcomeFile(INDEX_HTML);
 
         if (customSchedulerManager.isPresent()) {
             binder.bind(CustomSchedulerManager.class).toInstance(customSchedulerManager.get());
