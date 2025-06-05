@@ -6,18 +6,18 @@ Release 0.293
 ==============
 
 * Fix ROLLBACK statement to ensure it successfully aborts non-auto commit transactions corrupted by failed statements. `#23247 <https://github.com/prestodb/presto/pull/23247>`_
+* Improve performance as introducing Thrift serialization. `#25079 <https://github.com/prestodb/presto/pull/25079>`_
+* Improve performance of ``ORDER BY`` queries on single node execution. `#25022 <https://github.com/prestodb/presto/pull/25022>`_
 * Add authentication capabilities to Presto router. `#24407 <https://github.com/prestodb/presto/pull/24407>`_
 * Add coordinator health checks to Presto router. `#24449 <https://github.com/prestodb/presto/pull/24449>`_
 * Add support for custom scheduler plugin. `#24439 <https://github.com/prestodb/presto/pull/24439>`_
 * Add DDL SQL support for ``SHOW CREATE SCHEMA``. `#24356 <https://github.com/prestodb/presto/pull/24356>`_
 * Add ``longest_common_prefix`` string function. `#24891 <https://github.com/prestodb/presto/pull/24891>`_
-* Improve communication between coordinator and worker with thrift serde. `#25079 <https://github.com/prestodb/presto/pull/25079>`_
-* Improve performance of ``ORDER BY`` queries on single node execution. `#25022 <https://github.com/prestodb/presto/pull/25022>`_
 * Add support for row filtering and column masking in access control. `#24277 <https://github.com/prestodb/presto/pull/24277>`_
 * Add security-related headers to the static resources served from the Presto Router UI, including: ``Content-Security-Policy``, ``X-Content-Type-Options``. See reference docs `Content-Security-Policy <https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP>`_ and  `X-Content-Type-Options <https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)>`_. `#25165 <https://github.com/prestodb/presto/pull/25165>`_
 * Add support for SSL/TLS encryption for HMS. `#24745 <https://github.com/prestodb/presto/pull/24745>`_
 * Add support for the procedure ``<catalog-name>.system.invalidate_manifest_file_cache()`` for ManifestFile cache invalidation in Iceberg. `#24831 <https://github.com/prestodb/presto/pull/24831>`_
-* Add support for JSON type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
+* Add support for `JSON <https://prestodb.io/docs/current/language/types.html#json>`_ type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
 * Add support for GEOMETRY type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
 * Add a display for number of queued queries for each Resource Group subgroup in the UI. `#24830 <https://github.com/prestodb/presto/pull/24830>`_
 
@@ -55,7 +55,7 @@ _______________
 Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix issue with PartitionAndSerialize re-using only keys from the first batch of data. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
-* Add runtime metrics collection for S3 Filesystem. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
+* Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
 * Add supported for sort in PartitionAndSerialize operator. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
 * Add session property ``native_request_data_sizes_max_wait_sec`` for the maximum wait time for exchange long poll requests in seconds. `#24918 <https://github.com/prestodb/presto/pull/24918>`_
 * Add session property ``native_streaming_aggregation_eager_flush`` to control if streaming aggregation should flush its output rows as quickly as it can. `#24947 <https://github.com/prestodb/presto/pull/24947>`_
@@ -63,11 +63,12 @@ ______________________________________
 * Replace using native functions with Java functions for creating failure functions when native execution is enabled. `#24792 <https://github.com/prestodb/presto/pull/24792>`_
 * Remove worker configuration property ``register-test-functions``. `#24853 <https://github.com/prestodb/presto/pull/24853>`_
 
+
 Router Changes
 ______________
 
 * Add support for custom scheduler plugin to the Presto router. `#24439 <https://github.com/prestodb/presto/pull/24439>`_
-* Fix Router Round robin scheduler candidate cluster index, by adding group specific index. `#24580 <https://github.com/prestodb/presto/pull/24580>`_
+* Fix Round Round robin scheduler candidate cluster index, by adding group specific index. `#24580 <https://github.com/prestodb/presto/pull/24580>`_
 * Add authentication capabilities to Presto router. `#24407 <https://github.com/prestodb/presto/pull/24407>`_
 * Add coordinator health checks to Presto router. `#24449 <https://github.com/prestodb/presto/pull/24449>`_
 * Add counter JMX metrics to Presto router. `#24449 <https://github.com/prestodb/presto/pull/24449>`_
