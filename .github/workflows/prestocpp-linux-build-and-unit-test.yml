@@ -8,10 +8,15 @@ on:
       - 'presto-native-sidecar-plugin/**'
       - '.github/workflows/prestocpp-linux-build-and-unit-test.yml'
   push:
-    branches:
-      - master
     paths-ignore:
       - 'presto-docs/**'
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
 
 jobs:
   prestocpp-linux-build-for-test:

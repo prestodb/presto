@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'presto-docs/**'
+  push:
+    paths:
+      - 'presto-docs/**'
 
 env:
   # An envar that signals to tests we are executing in the CI environment
@@ -14,6 +17,13 @@ env:
   MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
   RETRY: .github/bin/retry
 
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,9 +33,6 @@ jobs:
         modules:
           - ":presto-docs"
     timeout-minutes: 80
-    concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:

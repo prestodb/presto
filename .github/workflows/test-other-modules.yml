@@ -2,6 +2,7 @@ name: test other modules
 
 on:
   pull_request:
+  push:
 
 env:
   # An envar that signals to tests we are executing in the CI environment
@@ -11,6 +12,13 @@ env:
   MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
   MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
   RETRY: .github/bin/retry
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
 
 jobs:
   changes:
@@ -22,7 +30,9 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
+    - uses: "actions/checkout@v4"
+      with:
+        submodules: "recursive"
     - uses: dorny/paths-filter@v2
       id: filter
       with:
@@ -37,9 +47,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     timeout-minutes: 60
-    concurrency:
-      group: ${{ github.workflow }}-test-other-modules-${{ github.event.pull_request.number }}-${{ matrix.java }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         if: needs.changes.outputs.codechange == 'true'

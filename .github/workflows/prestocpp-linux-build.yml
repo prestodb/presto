@@ -27,6 +27,38 @@ on:
       - 'presto-iceberg/src/main/java/com/facebook/presto/iceberg/**'
       # tpch
       - 'presto-tpch/src/main/java/com/facebook/presto/tpch/**'
+  push:
+    paths:
+      - 'presto-native-execution/**'
+      - '.github/workflows/prestocpp-linux-build.yml'
+      # Build also changes to files that can change the protocol and are referenced in the protocol yaml:
+      # protocol_core
+      - 'presto-spi/src/main/java/com/facebook/presto/spi/**'
+      - 'presto-common/src/main/java/com/facebook/presto/**'
+      - 'presto-main/src/main/java/com/facebook/presto/**'
+      - 'presto-client/src/main/java/com/facebook/presto/client/**'
+      - 'presto-spark-base/src/main/java/com/facebook/presto/spark/execution/**'
+      - 'presto-native-sidecar-plugin/src/main/java/com/facebook/presto/sidecar/nativechecker/**'
+      - 'presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/**'
+      - 'presto-hdfs-core/src/main/java/com/facebook/presto/hive/**'
+      - 'presto-verifier/src/main/java/com/facebook/presto/verifier/framework/**'
+      # arrow-flight
+      - 'presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/**'
+      # hive
+      - 'presto-hive-metastore/src/main/java/com/facebook/presto/hive/**'
+      - 'presto-hive-common/src/main/java/com/facebook/presto/hive/**'
+      - 'presto-hive/src/main/java/com/facebook/presto/hive/**'
+      # iceberg
+      - 'presto-iceberg/src/main/java/com/facebook/presto/iceberg/**'
+      # tpch
+      - 'presto-tpch/src/main/java/com/facebook/presto/tpch/**'
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
 
 jobs:
   prestocpp-linux-build-engine:

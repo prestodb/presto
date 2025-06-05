@@ -2,6 +2,7 @@ name: maven checks
 
 on:
   pull_request:
+  push:
 
 env:
   # An envar that signals to tests we are executing in the CI environment
@@ -9,6 +10,13 @@ env:
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
   RETRY: .github/bin/retry
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
 
 jobs:
   maven-checks:
@@ -18,9 +26,6 @@ jobs:
         java: [ 8.0.442, 17.0.13 ]
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    concurrency:
-      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}-${{ matrix.java }}
-      cancel-in-progress: true
     steps:
       - name: Free Disk Space
         run: |

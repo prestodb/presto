@@ -6,6 +6,17 @@ on:
     paths:
       - 'presto-native-execution/**'
       - '.github/workflows/prestocpp-format-and-header-check.yml'
+  push:
+    paths:
+      - 'presto-native-execution/**'
+      - '.github/workflows/prestocpp-format-and-header-check.yml'
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
 
 jobs:
   prestocpp-format-and-header-check:

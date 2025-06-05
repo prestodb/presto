@@ -4,6 +4,9 @@ on:
   pull_request:
     paths-ignore:
       - 'presto-docs/**'
+  push:
+    paths-ignore:
+      - 'presto-docs/**'
 
 env:
   CONTINUOUS_INTEGRATION: true
@@ -12,6 +15,13 @@ env:
   MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
   MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
   RETRY: .github/bin/retry
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
+  # checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
 
 jobs:
   arrowflight-java-tests:
@@ -24,9 +34,6 @@ jobs:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
 
     timeout-minutes: 80
-    concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
-      cancel-in-progress: true
 
     steps:
       # Checkout the code only if there are changes in the relevant files
@@ -148,9 +155,6 @@ jobs:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
 
     timeout-minutes: 80
-    concurrency:
-      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
