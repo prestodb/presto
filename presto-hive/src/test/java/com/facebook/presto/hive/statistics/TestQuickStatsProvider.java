@@ -14,11 +14,16 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.presto.hive.DirectoryLister;
+import com.facebook.presto.hive.HadoopDirectoryLister;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveDirectoryContext;
+import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.TestingExtendedHiveMetastore;
+import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
@@ -26,6 +31,7 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
@@ -36,11 +42,21 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.mapred.InputFormat;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,19 +66,37 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_BACKGROUND_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_INLINE_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.SKIP_EMPTY_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
+import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
+import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.statistics.PartitionQuickStats.convertToPartitionStatistics;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Resources.getResource;
+import static java.nio.file.Files.copy;
+import static java.nio.file.Files.createDirectory;
+import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.newBufferedWriter;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -71,6 +105,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.shaded.com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -119,6 +154,7 @@ public class TestQuickStatsProvider
     private MetastoreContext metastoreContext;
     private PartitionQuickStats mockPartitionQuickStats;
     private PartitionStatistics expectedPartitionStats;
+    private ColumnQuickStats<Integer> mockIntegerColumnStats;
 
     private static ConnectorSession getSession(String inlineBuildTimeout, String backgroundBuildTimeout)
     {
@@ -186,7 +222,7 @@ public class TestQuickStatsProvider
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         hdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
 
-        ColumnQuickStats<Integer> mockIntegerColumnStats = new ColumnQuickStats<>("column", Integer.class);
+        mockIntegerColumnStats = new ColumnQuickStats<>("column", Integer.class);
         mockIntegerColumnStats.setMinValue(Integer.MIN_VALUE);
         mockIntegerColumnStats.setMaxValue(Integer.MAX_VALUE);
         mockIntegerColumnStats.addToRowCount(4242L);
@@ -395,5 +431,111 @@ public class TestQuickStatsProvider
                         }
                     });
         }
+    }
+
+    @Test
+    public void testFollowSymlinkFile()
+            throws IOException
+    {
+        java.nio.file.Path testTempDir = createTempDirectory("test");
+        java.nio.file.Path symlinkFileDir = testTempDir.resolve("symlink");
+        java.nio.file.Path tableDir1 = testTempDir.resolve("table_1");
+        java.nio.file.Path tableDir2 = testTempDir.resolve("table_2");
+        createDirectory(symlinkFileDir);
+        createDirectory(tableDir1);
+        createDirectory(tableDir2);
+
+        // Copy a parquet file from resources to the test/table temp dir
+        String fileName1 = "data_1.parquet";
+        String fileName2 = "data_2.parquet";
+        URL resourceUrl1 = getResource("quick_stats/tpcds_store_sales_sf_point_01/20230706_110621_00007_4uxkh_10e94cd0-1f67-4440-afd0-75cd328ea570");
+        URL resourceUrl2 = getResource("quick_stats/tpcds_store_sales_sf_point_01/20230706_110621_00007_4uxkh_12b3ec73-4952-4df7-9987-2beb20cd5953");
+        assertNotNull(resourceUrl1);
+        assertNotNull(resourceUrl2);
+
+        java.nio.file.Path targetFilePath1 = tableDir1.resolve(fileName1);
+        java.nio.file.Path targetFilePath2 = tableDir2.resolve(fileName2);
+
+        try (InputStream in = resourceUrl1.openStream()) {
+            copy(in, targetFilePath1, REPLACE_EXISTING);
+        }
+        try (InputStream in = resourceUrl2.openStream()) {
+            copy(in, targetFilePath2, REPLACE_EXISTING);
+        }
+
+        // Create the symlink manifest pointing to data.parquet
+        java.nio.file.Path manifestFilePath = createFile(symlinkFileDir.resolve("manifest"));
+        try (BufferedWriter writer = newBufferedWriter(manifestFilePath, CREATE, TRUNCATE_EXISTING)) {
+            writer.write("file:" + tableDir1 + "/" + fileName1);
+            writer.newLine();
+            writer.write("file:" + tableDir2 + "/" + fileName2);
+        }
+
+        String symlinkTableName = "symlink_table";
+        Table symlinkTable = new Table(
+                Optional.of("catalogName"),
+                TEST_SCHEMA,
+                symlinkTableName,
+                "owner",
+                EXTERNAL_TABLE,
+                Storage.builder()
+                        .setStorageFormat(StorageFormat.create(ParquetHiveSerDe.class.getName(), SymlinkTextInputFormat.class.getName(), HiveIgnoreKeyTextOutputFormat.class.getName()))
+                        .setLocation(symlinkFileDir.toString())
+                        .build(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
+
+        metastoreMock.createTable(metastoreContext, symlinkTable, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()), ImmutableList.of());
+
+        DirectoryLister directoryLister = new HadoopDirectoryLister();
+
+        QuickStatsBuilder quickStatsBuilder = (session1, metastore, table, metastoreContext, partitionId, files) -> {
+            List<HiveFileInfo> fileInfoList = ImmutableList.copyOf(files);
+            assertEquals(fileInfoList.size(), 2);
+            for (HiveFileInfo hiveFileInfo : fileInfoList) {
+                assertTrue(hiveFileInfo.getPath().equals("file:" + targetFilePath1) || hiveFileInfo.getPath().equals("file:" + targetFilePath2));
+            }
+            return new PartitionQuickStats(UNPARTITIONED_ID.getPartitionName(), ImmutableList.of(mockIntegerColumnStats), fileInfoList.size());
+        };
+
+        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryLister, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(quickStatsBuilder));
+
+        SchemaTableName table = new SchemaTableName(TEST_SCHEMA, symlinkTableName);
+
+        Table resolvedTable = metastoreMock.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
+        Path symlinkTablePath = new Path(resolvedTable.getStorage().getLocation());
+        HdfsContext hdfsContext = new HdfsContext(SESSION, table.getSchemaName(), table.getTableName(), UNPARTITIONED_ID.getPartitionName(), false);
+        ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, symlinkTablePath);
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(RECURSE, isUseListDirectoryCache(SESSION),
+                isSkipEmptyFilesEnabled(SESSION), hdfsContext.getIdentity(), buildDirectoryContextProperties(SESSION), SESSION.getRuntimeStats());
+
+        // Test directoryLister finds the manifest file in the table dir
+        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, resolvedTable, symlinkTablePath, Optional.empty(), new NamenodeStats(), hiveDirectoryContext);
+        ImmutableList<HiveFileInfo> fileInfoList = ImmutableList.copyOf(fileInfoIterator);
+
+        assertEquals(fileInfoList.size(), 1);
+        assertEquals(fileInfoList.get(0).getPath(), "file:" + manifestFilePath);
+        assertEquals(fileInfoList.get(0).getParent(), "file:" + symlinkFileDir);
+
+        // Test that the input format is correct
+        InputFormat<?, ?> inputFormat = getInputFormat(
+                hdfsEnvironment.getConfiguration(hdfsContext, symlinkTablePath),
+                resolvedTable.getStorage().getStorageFormat().getInputFormat(),
+                resolvedTable.getStorage().getStorageFormat().getSerDe(),
+                false);
+
+        assertTrue(inputFormat instanceof SymlinkTextInputFormat);
+
+        // Test entire getQuickStats and ensure file count matches fileList size in buildQuickStats
+        PartitionStatistics quickStats = quickStatsProvider.getQuickStats(SESSION, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+
+        assertTrue(quickStats.getBasicStatistics().getFileCount().isPresent());
+        assertEquals(quickStats.getBasicStatistics().getFileCount().getAsLong(), 2L);
+
+        deleteRecursively(testTempDir, ALLOW_INSECURE);
     }
 }
