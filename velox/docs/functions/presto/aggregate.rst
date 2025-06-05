@@ -709,11 +709,13 @@ Statistical Aggregate Functions
 Noisy Aggregate Functions
 -------------------------
 
-.. function:: noisy_count_if_gaussian(col, noise_scale) -> bigint
+.. function:: noisy_count_if_gaussian(col, noise_scale[, random_seed]) -> bigint
 
     Counts the ``TRUE`` values in ``col`` and then adds a normally distributed random double
     value with 0 mean and standard deviation of ``noise_scale`` to the true count.
     The noisy count is post-processed to be non-negative and rounded to bigint.
+
+    If provided, ``random_seed`` is used to seed the random number generator. Otherwise, noise is drawn from a secure random.
 
     ::
 
@@ -723,6 +725,7 @@ Noisy Aggregate Functions
     .. note::
 
         Unlike :func:`!count_if`, this function returns ``NULL`` when the (true) count is 0.
+
 
 Miscellaneous
 -------------
