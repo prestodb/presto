@@ -17,9 +17,9 @@ cmake_minimum_required(VERSION 3.28)
 velox_set_source(fastfloat)
 velox_resolve_dependency(fastfloat CONFIG REQUIRED)
 
-set(VELOX_FOLLY_BUILD_VERSION v2025.04.28.00)
+set(VELOX_FOLLY_BUILD_VERSION v2025.05.26.00)
 set(VELOX_FOLLY_BUILD_SHA256_CHECKSUM
-    ccbb7eac662023f9f5beba94e51350d527f33d8a7a036eb5e3d8a5cf1b49d3bc)
+    786bc20da29c85268b1f142e00c598a33f7d8a4ad9f625bfcb42f1e0761438c1)
 set(VELOX_FOLLY_SOURCE_URL
     "https://github.com/facebook/folly/releases/download/${VELOX_FOLLY_BUILD_VERSION}/folly-${VELOX_FOLLY_BUILD_VERSION}.tar.gz"
 )
