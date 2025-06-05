@@ -32,7 +32,7 @@ _______________
 * Fix returning incorrect results from the "second" UDF when a timestamp is in a time zone with an offset that is at the granularity of seconds. `#25090 <https://github.com/prestodb/presto/pull/25090>`_
 * Fix the issue of sensitive data such as passwords and access keys being exposed in logs by redacting sensitive field values. `#24886 <https://github.com/prestodb/presto/pull/24886>`_
 * Fix loading Redis HBO provider loading. `#24835 <https://github.com/prestodb/presto/pull/24835>`_
-* Improve memory usage of readers of nested type columns. `#24912 <https://github.com/prestodb/presto/pull/24912>`_
+* Improve memory usage of readers of complex type columns. `#24912 <https://github.com/prestodb/presto/pull/24912>`_
 * Improve ACL check by moving checkQueryIntegrity from Dispatch phase to Analyzer phase. `#24927 <https://github.com/prestodb/presto/pull/24927>`_
 * Improve performance as introducing Thrift serialization. `#25079 <https://github.com/prestodb/presto/pull/25079>`_ and `#25020 <https://github.com/prestodb/presto/pull/25020>`_
 * Improve performance of operator stats reporting. `#24921 <https://github.com/prestodb/presto/pull/24921>`_
