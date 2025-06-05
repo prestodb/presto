@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.hive.avro.PrestoAvroSerDe;
+import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
@@ -46,6 +47,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.CharStreams;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
@@ -91,10 +93,12 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -102,9 +106,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1310,5 +1317,21 @@ public final class HiveUtil
             directoryContextProperties.put(PRESTO_CLIENT_TAGS, join(CLIENT_TAGS_DELIMITER, session.getClientTags()));
         }
         return directoryContextProperties.build();
+    }
+
+    public static List<Path> readSymlinkPaths(ExtendedFileSystem fileSystem, Iterator<HiveFileInfo> manifestFileInfos)
+            throws IOException
+    {
+        List<Path> targets = new ArrayList<>();
+        while (manifestFileInfos.hasNext()) {
+            HiveFileInfo symlink = manifestFileInfos.next();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(new Path(symlink.getPath())), StandardCharsets.UTF_8))) {
+                CharStreams.readLines(reader).stream()
+                        .map(Path::new)
+                        .forEach(targets::add);
+            }
+        }
+        return targets;
     }
 }
