@@ -89,6 +89,10 @@ class Filter : public velox::ISerializable {
     return kind_;
   }
 
+  bool nullAllowed() const {
+    return nullAllowed_;
+  }
+
   /// Return a copy of this filter. If nullAllowed is set, modified the
   /// nullAllowed flag in the copy to match.
   virtual std::unique_ptr<Filter> clone(
@@ -1955,10 +1959,6 @@ class TimestampRange : public Filter {
     return upper_;
   }
 
-  bool nullAllowed() const {
-    return nullAllowed_;
-  }
-
   bool testingEquals(const Filter& other) const final;
 
  private:
@@ -2164,6 +2164,8 @@ class MultiRange final : public Filter {
   bool testDouble(double value) const final;
 
   bool testFloat(float value) const final;
+
+  bool testInt128(const int128_t& value) const final;
 
   bool testBytes(const char* value, int32_t length) const final;
 

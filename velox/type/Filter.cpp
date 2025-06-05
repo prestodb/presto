@@ -1489,6 +1489,15 @@ bool MultiRange::testFloat(float value) const {
   return false;
 }
 
+bool MultiRange::testInt128(const int128_t& value) const {
+  for (const auto& filter : filters_) {
+    if (filter->testInt128(value)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool MultiRange::testBytes(const char* value, int32_t length) const {
   for (const auto& filter : filters_) {
     if (filter->testBytes(value, length)) {

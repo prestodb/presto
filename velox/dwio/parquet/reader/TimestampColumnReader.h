@@ -176,6 +176,29 @@ class TimestampColumnReader : public IntegerColumnReader {
               common::TimestampRange,
               ExtractValues,
               isDense>(newRange, this, rows, extractValues));
+    } else if (auto* multiRange = dynamic_cast<common::MultiRange*>(filter)) {
+      std::vector<std::unique_ptr<common::Filter>> filters;
+      filters.reserve(multiRange->filters().size());
+      for (const auto& filter : multiRange->filters()) {
+        if (auto* range = dynamic_cast<common::TimestampRange*>(filter.get())) {
+          filters.emplace_back(std::make_unique<ParquetTimestampRange<T>>(
+              range->lower(),
+              range->upper(),
+              range->nullAllowed(),
+              filePrecision_));
+        } else {
+          filters.emplace_back(filter->clone(range->nullAllowed()));
+        }
+      }
+      auto newMultiRange =
+          common::MultiRange(std::move(filters), multiRange->nullAllowed());
+      this->readWithVisitor(
+          rows,
+          dwio::common::ColumnVisitor<
+              int128_t,
+              common::MultiRange,
+              ExtractValues,
+              isDense>(newMultiRange, this, rows, extractValues));
     } else {
       this->readWithVisitor(
           rows,

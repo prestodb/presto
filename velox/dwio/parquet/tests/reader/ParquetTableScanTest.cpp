@@ -293,6 +293,11 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
         {},
         "t == TIMESTAMP '2022-12-23 03:56:01'",
         "SELECT t from tmp where t == TIMESTAMP '2022-12-23 03:56:01'");
+    assertSelectWithFilter(
+        {"t"},
+        {},
+        "not(eq(t, TIMESTAMP '2000-09-12 22:36:29'))",
+        "SELECT t from tmp where t != TIMESTAMP '2000-09-12 22:36:29'");
   }
 
  private:
