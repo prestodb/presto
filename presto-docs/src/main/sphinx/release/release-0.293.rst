@@ -61,11 +61,9 @@ _______________
 * Remove unused line of code from router module. `#25150 <https://github.com/prestodb/presto/pull/25150>`_
 * Change checkQueryIntegrity function signature in AccessControl interface to pass in view definitions as params. `#24955 <https://github.com/prestodb/presto/pull/24955>`_
 * Upgrade commons-compress version to 1.26.2 across the codebase to address `CVE-2021-35517 <https://github.com/advisories/GHSA-xqfj-vm6h-2x34>`_, `CVE-2021-35516 <https://github.com/advisories/GHSA-crv7-7245-f45f>`_, `CVE-2021-36090 <https://github.com/advisories/GHSA-mc84-pj99-q6hh>`_, `CVE-2021-35515 <https://github.com/advisories/GHSA-7hfm-57qf-j43q>`_, and `CVE-2024-25710 <https://github.com/advisories/GHSA-4g9r-vxhx-9pgx>`_. `#25106 <https://github.com/prestodb/presto/pull/25106>`_
-* Upgrade kotlin-stdlib-jdk8 to 1.9.25. `#24971 <https://github.com/prestodb/presto/pull/24971>`_
 * Upgrade netty version to 4.1.119.Final. `#24971 <https://github.com/prestodb/presto/pull/24971>`_
 * Upgrade okio-jvm version to 3.9.1. `#24971 <https://github.com/prestodb/presto/pull/24971>`_
 * Upgrade slf4j version to 1.7.36. `#24971 <https://github.com/prestodb/presto/pull/24971>`_
-* Upgrade snappy-java version at 1.1.10.4 across the codebase to address `CVE-2023-43642 <https://github.com/advisories/GHSA-55g7-9cwv-5qfv>`_. `#25106 <https://github.com/prestodb/presto/pull/25106>`_
 
 
 Prestissimo (Native Execution) Changes
@@ -92,6 +90,8 @@ ________________
 * Upgrade plexus-utils to version 3.6.0 in response to `CVE-2017-1000487 <https://nvd.nist.gov/vuln/detail/cve-2017-1000487>`_. `#24665 <https://github.com/prestodb/presto/pull/24665>`_
 * Upgrade zookeeper to 3.9.3 to fix security vulnerability in presto-accumulo, presto-delta, presto-hive, presto-kafka, and presto-hudi  in response to `CVE-2023-44981 <https://nvd.nist.gov/vuln/detail/cve-2023-44981>`_. `#24403 <https://github.com/prestodb/presto/pull/24403>`_
 * Upgrade MySQL to 9.2.0 to fix `CVE-2023-22102 <https://github.com/advisories/GHSA-m6vm-37g8-gqvh>`_. `#24754 <https://github.com/prestodb/presto/pull/24754>`_
+* Upgrade kotlin-stdlib-jdk8 to 1.9.25. `#24971 <https://github.com/prestodb/presto/pull/24971>`_
+* Upgrade snappy-java version at 1.1.10.4 across the codebase to address `CVE-2023-43642 <https://github.com/advisories/GHSA-55g7-9cwv-5qfv>`_. `#25106 <https://github.com/prestodb/presto/pull/25106>`_
 
 Delta Lake Connector Changes
 ____________________________
@@ -135,7 +135,7 @@ _______________________
 
 SQL Server Connector Changes
 ____________________________
-* Note: Starting from this version, the driver sets the encrypt property to ``true`` by default. To connect to a non-SSL SQL Server instance, you must set ``encrypt=false`` in your connection configuration to avoid connectivity issues. This is a breaking change for existing connections. `#24686 <https://github.com/prestodb/presto/pull/24686>`_
+* The driver sets the encrypt property to ``true`` by default. To connect to a non-SSL SQL Server instance, you must set ``encrypt=false`` in your connection configuration to avoid connectivity issues. This is a breaking change for existing connections. `#24686 <https://github.com/prestodb/presto/pull/24686>`_
 * Upgrade SQL Server driver to version 12.8.1 to support NTLM authentication. See :ref:`connector/sqlserver:authentication`. `#24686 <https://github.com/prestodb/presto/pull/24686>`_
 
 
