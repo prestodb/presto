@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static java.time.Duration.ofMillis;
+import static java.time.Duration.ofNanos;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
 
@@ -85,10 +86,10 @@ public class SplitMonitor
                             Optional.ofNullable(ofEpochMilli(driverStats.getStartTimeInMillis())),
                             Optional.ofNullable(ofEpochMilli(driverStats.getEndTimeInMillis())),
                             new SplitStatistics(
-                                    ofMillis(driverStats.getTotalCpuTime().toMillis()),
-                                    ofMillis(driverStats.getElapsedTime().toMillis()),
-                                    ofMillis(driverStats.getQueuedTime().toMillis()),
-                                    ofMillis(driverStats.getRawInputReadTime().toMillis()),
+                                    ofNanos(driverStats.getTotalCpuTimeInNanos()),
+                                    ofNanos(driverStats.getElapsedTimeInNanos()),
+                                    ofNanos(driverStats.getQueuedTimeInNanos()),
+                                    ofNanos(driverStats.getRawInputReadTimeInNanos()),
                                     driverStats.getRawInputPositions(),
                                     driverStats.getRawInputDataSizeInBytes(),
                                     timeToStart,
