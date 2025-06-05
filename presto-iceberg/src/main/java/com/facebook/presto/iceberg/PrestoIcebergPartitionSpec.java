@@ -26,13 +26,13 @@ public class PrestoIcebergPartitionSpec
 {
     private final int specId;
     private final PrestoIcebergSchema schema;
-    private final List<String> fields;
+    private final List<IcebergPartitionField> fields;
 
     @JsonCreator
     public PrestoIcebergPartitionSpec(
             @JsonProperty("specId") int specId,
             @JsonProperty("schema") PrestoIcebergSchema schema,
-            @JsonProperty("fields") List<String> fields)
+            @JsonProperty("fields") List<IcebergPartitionField> fields)
     {
         this.specId = specId;
         this.schema = requireNonNull(schema, "schema is null");
@@ -52,7 +52,7 @@ public class PrestoIcebergPartitionSpec
     }
 
     @JsonProperty
-    public List<String> getFields()
+    public List<IcebergPartitionField> getFields()
     {
         return fields;
     }
