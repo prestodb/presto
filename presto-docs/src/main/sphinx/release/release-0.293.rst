@@ -56,7 +56,7 @@ Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix serialization in batch shuffle to use appropriate sorting keys for each buffer. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
 * Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
-* Add supported for sort in PartitionAndSerialize operator. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
+* Add support for sorted serialization in batch shuffle. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
 * Add session property ``native_request_data_sizes_max_wait_sec`` for the maximum wait time for exchange long poll requests in seconds. `#24918 <https://github.com/prestodb/presto/pull/24918>`_
 * Add session property ``native_streaming_aggregation_eager_flush`` to control if streaming aggregation should flush its output rows as quickly as it can. `#24947 <https://github.com/prestodb/presto/pull/24947>`_
 * Add session property ``native_debug_memory_pool_name_regex`` to trace allocations of memory pools matching the regex. `#24833 <https://github.com/prestodb/presto/pull/24833>`_
