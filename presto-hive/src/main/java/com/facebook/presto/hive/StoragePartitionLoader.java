@@ -29,7 +29,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.ListMultimap;
-import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -41,10 +40,7 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
@@ -78,6 +74,7 @@ import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getTargetPathsHiveFileInfos;
 import static com.facebook.presto.hive.HiveUtil.isHudiParquetInputFormat;
+import static com.facebook.presto.hive.HiveUtil.readSymlinkPaths;
 import static com.facebook.presto.hive.HiveUtil.shouldUseFileSplitsFromInputFormat;
 import static com.facebook.presto.hive.HiveWriterFactory.getBucketNumber;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.FAIL;
@@ -260,7 +257,7 @@ public class StoragePartitionLoader
 
         List<HiveFileInfo> targetPathsHiveFileInfos = getTargetPathsHiveFileInfos(
                 path,
-                partition,
+                partition.getPartition(),
                 targetParent,
                 currentTargetPaths,
                 hiveDirectoryContext,
@@ -730,7 +727,6 @@ public class StoragePartitionLoader
     private List<Path> getTargetPathsFromSymlink(ExtendedFileSystem fileSystem, Path symlinkDir, Optional<Partition> partition)
     {
         try {
-            List<Path> targets = new ArrayList<>();
             HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(
                     IGNORED,
                     isUseListDirectoryCache(session),
@@ -738,16 +734,8 @@ public class StoragePartitionLoader
                     hdfsContext.getIdentity(),
                     buildDirectoryContextProperties(session),
                     session.getRuntimeStats());
-            List<HiveFileInfo> manifestFileInfos = ImmutableList.copyOf(directoryLister.list(fileSystem, table, symlinkDir, partition, namenodeStats, hiveDirectoryContext));
-
-            for (HiveFileInfo symlink : manifestFileInfos) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(new Path(symlink.getPath())), StandardCharsets.UTF_8))) {
-                    CharStreams.readLines(reader).stream()
-                            .map(Path::new)
-                            .forEach(targets::add);
-                }
-            }
-            return targets;
+            Iterator<HiveFileInfo> manifestFileInfos = directoryLister.list(fileSystem, table, symlinkDir, partition, namenodeStats, hiveDirectoryContext);
+            return readSymlinkPaths(fileSystem, manifestFileInfos);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_BAD_DATA, "Error parsing symlinks from: " + symlinkDir, e);
