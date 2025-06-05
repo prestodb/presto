@@ -34,6 +34,29 @@ import static com.facebook.presto.spi.plan.AggregationNode.isDistinct;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 
+/**
+ * Add a distinct aggregation under the build side of semi join, for example:
+ * Rewrite query from
+ * <pre>
+ *     - SemiJoin
+ *          l.col in r.col
+ *          - scan l
+ *              col
+ *          - scan r
+ *              col
+ * </pre>
+ * into
+ * <pre>
+ *     - SemiJoin
+ *          l.col in r.col
+ *          - scan l
+ *              col
+ *          - Aggregate
+ *              group by r.col
+ *              - scan r
+ *                  col
+ * </pre>
+ */
 public class AddDistinctForSemiJoinBuild
         implements Rule<SemiJoinNode>
 {
