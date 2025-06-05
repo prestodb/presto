@@ -296,8 +296,8 @@ class MockGroupByOps {
   }
 
   bool __device__ compare(GpuHashTable* table, TestingRow* row, int32_t i) {
-    return asDeviceAtomic<int64_t>(&row->key)
-               ->template load<MemoryOrder::kAcquire>() ==
+    return asDeviceAtomic<int64_t>(&row->key)->load(
+               cuda::memory_order_consume) ==
         reinterpret_cast<int64_t**>(probe_->keys)[0][i];
   }
 
@@ -310,8 +310,9 @@ class MockGroupByOps {
       row->count = 0;
 
       new (&row->concatenation) ArrayAgg64();
-      asDeviceAtomic<int64_t>(&row->key)->template store<MemoryOrder::kRelease>(
-          reinterpret_cast<int64_t**>(probe_->keys)[0][i]);
+      asDeviceAtomic<int64_t>(&row->key)->store(
+          reinterpret_cast<int64_t**>(probe_->keys)[0][i],
+          cuda::memory_order_release);
     }
     return row;
   }

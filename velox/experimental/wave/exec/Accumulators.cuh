@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuda/atomic>
 #include "velox/experimental/wave/common/Scan.cuh"
 
 namespace facebook::velox::wave {

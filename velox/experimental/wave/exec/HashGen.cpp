@@ -93,7 +93,7 @@ void makeCompareLambda(
   auto& out = state.generated();
   out << "  [&](HashRow" << id << "* row) -> bool {\n";
   if (nullableKeys) {
-    out << "   keyNulls = asDeviceAtomic<uint32_t>(&row->nulls0)->template load<MemoryOrder::kAcquire>();\n";
+    out << "   keyNulls = asDeviceAtomic<uint32_t>(&row->nulls0)->load(cuda::memory_order_consume);\n";
     VELOX_CHECK_LE(keys.size(), 32);
   }
   for (auto i = 0; i < keys.size(); ++i) {
@@ -154,7 +154,7 @@ void makeInitGroupRow(
     out << fmt::format("   row->nulls{} = 0;\n", i / 32);
   }
   out << fmt::format(
-      "  asDeviceAtomic<uint32_t>(&row->nulls0)->template store<MemoryOrder::kRelease>(keyNulls = {});\n",
+      "  asDeviceAtomic<uint32_t>(&row->nulls0)->store(keyNulls = {}, cuda::memory_order_release);\n",
       initRowNullFlags(state, 0, keys.size(), keys));
   out << "}\n";
 }

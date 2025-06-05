@@ -145,7 +145,6 @@ class HashTableTest : public testing::Test {
       reference, rows, run.numDistinct, title, expectCorrect, nextFlags);
 
   const char* jitMtxCoa =
-      "#include \"velox/experimental/wave/common/Atomic.cuh\"\n"
       "#include \"velox/experimental/wave/common/HashTable.cuh\"\n"
       "\n"
       "namespace facebook::velox::wave {\n"
@@ -180,7 +179,7 @@ class HashTableTest : public testing::Test {
       "  // flags for updating the row. E.g. probed flag, marker for exclusive write.\n"
       "  int32_t flags{0};\n"
       "};\n"
-      "using Mutex = AtomicMutex<MemoryScope::kDevice>;\n"
+      "using Mutex = cuda::binary_semaphore<cuda::thread_scope_device>;\n"
       "inline void __device__ testingLock(int32_t* mtx) {\n"
       "  reinterpret_cast<Mutex*>(mtx)->acquire();\n"
       "}\n"
