@@ -38,6 +38,7 @@ public class BaseJdbcConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
+    private boolean partialPredicatePushDown;
 
     @NotNull
     public String getConnectionUrl()
@@ -140,6 +141,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setlistSchemasIgnoredSchemas(String listSchemasIgnoredSchemas)
     {
         this.listSchemasIgnoredSchemas = ImmutableSet.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(listSchemasIgnoredSchemas.toLowerCase(ENGLISH)));
+        return this;
+    }
+
+    public boolean isPartialPredicatePushDown()
+    {
+        return partialPredicatePushDown;
+    }
+
+    @Config("partial-predicate-push-down")
+    public BaseJdbcConfig setPartialPredicatePushDown(boolean partialPredicatePushDown)
+    {
+        this.partialPredicatePushDown = partialPredicatePushDown;
         return this;
     }
 }
