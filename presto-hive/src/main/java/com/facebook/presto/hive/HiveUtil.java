@@ -30,6 +30,7 @@ import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.pagefile.PageInputFormat;
@@ -92,10 +93,12 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.Nullable;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -171,6 +174,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
+import static com.google.common.io.CharStreams.readLines;
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -1343,9 +1347,25 @@ public final class HiveUtil
         return directoryContextProperties.build();
     }
 
+    public static List<Path> readSymlinkPaths(ExtendedFileSystem fileSystem, Iterator<HiveFileInfo> manifestFileInfos)
+            throws IOException
+    {
+        ImmutableList.Builder<Path> targets = ImmutableList.builder();
+        while (manifestFileInfos.hasNext()) {
+            HiveFileInfo symlink = manifestFileInfos.next();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(new Path(symlink.getPath())), UTF_8))) {
+                readLines(reader).stream()
+                        .map(Path::new)
+                        .forEach(targets::add);
+            }
+        }
+        return targets.build();
+    }
+
     public static List<HiveFileInfo> getTargetPathsHiveFileInfos(
             Path path,
-            HivePartitionMetadata partition,
+            Optional<Partition> partition,
             Path targetParent,
             List<Path> currentTargetPaths,
             HiveDirectoryContext hiveDirectoryContext,
@@ -1402,7 +1422,7 @@ public final class HiveUtil
     }
 
     private static Map<String, HiveFileInfo> getTargetParentHiveFileInfoMap(
-            HivePartitionMetadata partition,
+            Optional<Partition> partition,
             Path targetParent,
             HiveDirectoryContext hiveDirectoryContext,
             ExtendedFileSystem targetFilesystem,
@@ -1411,7 +1431,7 @@ public final class HiveUtil
             NamenodeStats namenodeStats)
     {
         Map<String, HiveFileInfo> targetParentHiveFileInfos = new HashMap<>();
-        Iterator<HiveFileInfo> hiveFileInfoIterator = directoryLister.list(targetFilesystem, table, targetParent, partition.getPartition(), namenodeStats, hiveDirectoryContext);
+        Iterator<HiveFileInfo> hiveFileInfoIterator = directoryLister.list(targetFilesystem, table, targetParent, partition, namenodeStats, hiveDirectoryContext);
 
         // We will use the path without the scheme and authority since the manifest file may contain entries both with and without them
         hiveFileInfoIterator.forEachRemaining(hiveFileInfo -> targetParentHiveFileInfos.put(

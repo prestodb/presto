@@ -32,8 +32,10 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Stopwatch;
 import com.google.common.cache.Cache;
@@ -41,6 +43,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.mapred.InputFormat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -61,8 +65,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsBackgroundBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsInlineBuildTimeout;
@@ -70,6 +76,9 @@ import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
+import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveUtil.getTargetPathsHiveFileInfos;
+import static com.facebook.presto.hive.HiveUtil.readSymlinkPaths;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
@@ -323,15 +332,18 @@ public class QuickStatsProvider
         Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
         Optional<Partition> partition;
         Path path;
+        StorageFormat storageFormat;
         if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
             partition = Optional.empty();
             path = new Path(resolvedTable.getStorage().getLocation());
+            storageFormat = resolvedTable.getStorage().getStorageFormat();
         }
         else {
             partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
                     ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId);
             checkState(partition.isPresent(), "getPartitionsByNames returned no partitions for partition with name [%s]", partitionId);
             path = new Path(partition.get().getStorage().getLocation());
+            storageFormat = partition.get().getStorage().getStorageFormat();
         }
 
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName(), partitionId, false);
@@ -346,6 +358,37 @@ public class QuickStatsProvider
         }
 
         Iterator<HiveFileInfo> fileList = directoryLister.list(fs, resolvedTable, path, partition, nameNodeStats, hiveDirectoryContext);
+
+        InputFormat<?, ?> inputFormat = getInputFormat(hdfsEnvironment.getConfiguration(hdfsContext, path), storageFormat.getInputFormat(), storageFormat.getSerDe(), false);
+        if (inputFormat instanceof SymlinkTextInputFormat) {
+            // For symlinks, follow the paths in the manifest file and create a new iterator of the target files
+            try {
+                List<Path> targetPaths = readSymlinkPaths(fs, fileList);
+
+                Map<Path, List<Path>> parentToTargets = targetPaths.stream().collect(Collectors.groupingBy(Path::getParent));
+
+                ImmutableList.Builder<HiveFileInfo> targetFileInfoList = ImmutableList.builder();
+
+                for (Map.Entry<Path, List<Path>> entry : parentToTargets.entrySet()) {
+                    targetFileInfoList.addAll(getTargetPathsHiveFileInfos(
+                            path,
+                            partition,
+                            entry.getKey(),
+                            entry.getValue(),
+                            hiveDirectoryContext,
+                            fs,
+                            directoryLister,
+                            resolvedTable,
+                            nameNodeStats,
+                            session));
+                }
+
+                fileList = targetFileInfoList.build().iterator();
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_BAD_DATA, "Error parsing symlinks", e);
+            }
+        }
 
         PartitionQuickStats partitionQuickStats = PartitionQuickStats.EMPTY;
         Stopwatch buildStopwatch = Stopwatch.createStarted();
