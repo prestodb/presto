@@ -941,6 +941,16 @@ bool ArrayVectorBase::hasOverlappingRanges(
   return false;
 }
 
+void ArrayVectorBase::ensureNullRowsEmpty() {
+  if (!rawNulls_) {
+    return;
+  }
+  auto* offsets = offsets_->asMutable<vector_size_t>();
+  auto* sizes = sizes_->asMutable<vector_size_t>();
+  bits::forEachUnsetBit(
+      rawNulls_, 0, size(), [&](auto i) { offsets[i] = sizes[i] = 0; });
+}
+
 void ArrayVectorBase::validateArrayVectorBase(
     const VectorValidateOptions& options,
     vector_size_t minChildVectorSize) const {

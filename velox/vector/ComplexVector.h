@@ -382,6 +382,11 @@ struct ArrayVectorBase : BaseVector {
       const vector_size_t* sizes,
       std::vector<vector_size_t>& indices);
 
+  /// Ensure the offsets and sizes of null rows are all 0.  It's caller's
+  /// responsibility to make sure the vector as well as offsets and sizes
+  /// buffers are mutable (e.g. singly referenced).
+  void ensureNullRowsEmpty();
+
  protected:
   ArrayVectorBase(
       velox::memory::MemoryPool* pool,

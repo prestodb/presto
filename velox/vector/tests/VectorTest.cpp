@@ -3883,6 +3883,27 @@ TEST_F(VectorTest, mapUpdateDictionary) {
   test::assertEqualVectors(expected, actual);
 }
 
+TEST_F(VectorTest, ensureNullRowsEmpty) {
+  constexpr int kSize = 10;
+  ArrayVector vector(
+      pool(),
+      ARRAY(BIGINT()),
+      makeNulls(kSize, nullEvery(3)),
+      kSize,
+      makeIndices(kSize, [](auto i) { return i; }),
+      makeIndices(kSize, [](auto) { return 1; }),
+      makeFlatVector<int64_t>(kSize, [](auto i) { return i; }));
+  ASSERT_EQ(vector.sizeAt(3), 1);
+  ASSERT_EQ(vector.offsetAt(3), 3);
+  vector.ensureNullRowsEmpty();
+  for (int i = 0; i < kSize; ++i) {
+    if (vector.isNullAt(i)) {
+      ASSERT_EQ(vector.sizeAt(i), 0);
+      ASSERT_EQ(vector.offsetAt(i), 0);
+    }
+  }
+}
+
 TEST_F(VectorTest, pushDictionaryToRowVectorLeaves) {
   auto iota = makeFlatVector<int64_t>(10, folly::identity);
   auto output = RowVector::pushDictionaryToRowVectorLeaves(iota);
