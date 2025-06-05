@@ -55,6 +55,8 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.Descriptor;
+import com.facebook.presto.sql.tree.DescriptorField;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
@@ -64,6 +66,8 @@ import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.EmptyTableTreatment;
+import com.facebook.presto.sql.tree.EmptyTableTreatment.Treatment;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -169,6 +173,9 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableElement;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -212,6 +219,8 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
@@ -1487,6 +1496,129 @@ class AstBuilder
     public Node visitLateral(SqlBaseParser.LateralContext context)
     {
         return new Lateral(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitTableFunctionInvocation(SqlBaseParser.TableFunctionInvocationContext context)
+    {
+        return visit(context.tableFunctionCall());
+    }
+
+    @Override
+    public Node visitTableFunctionCall(SqlBaseParser.TableFunctionCallContext context)
+    {
+        QualifiedName name = getQualifiedName(context.qualifiedName());
+        List<TableFunctionArgument> arguments = visit(context.tableFunctionArgument(), TableFunctionArgument.class);
+        List<List<QualifiedName>> copartitioning = ImmutableList.of();
+        if (context.COPARTITION() != null) {
+            copartitioning = context.copartitionTables().stream()
+                    .map(tablesList -> tablesList.qualifiedName().stream()
+                            .map(this::getQualifiedName)
+                            .collect(toImmutableList()))
+                    .collect(toImmutableList());
+        }
+
+        return new TableFunctionInvocation(getLocation(context), name, arguments, copartitioning);
+    }
+
+    @Override
+    public Node visitTableFunctionArgument(SqlBaseParser.TableFunctionArgumentContext context)
+    {
+        Optional<Identifier> name = visitIfPresent(context.identifier(), Identifier.class);
+        Node value;
+        if (context.tableArgument() != null) {
+            value = visit(context.tableArgument());
+        }
+        else if (context.descriptorArgument() != null) {
+            value = visit(context.descriptorArgument());
+        }
+        else {
+            value = visit(context.expression());
+        }
+
+        return new TableFunctionArgument(getLocation(context), name, value);
+    }
+
+    @Override
+    public Node visitTableArgument(SqlBaseParser.TableArgumentContext context)
+    {
+        Relation table = (Relation) visit(context.tableArgumentRelation());
+
+        Optional<List<Expression>> partitionBy = Optional.empty();
+        if (context.PARTITION() != null) {
+            partitionBy = Optional.of(visit(context.expression(), Expression.class));
+        }
+
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+        }
+
+        Optional<EmptyTableTreatment> emptyTableTreatment = Optional.empty();
+        if (context.PRUNE() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.PRUNE()), Treatment.PRUNE));
+        }
+        else if (context.KEEP() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.KEEP()), Treatment.KEEP));
+        }
+
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, emptyTableTreatment);
+    }
+
+    @Override
+    public Node visitTableArgumentTable(SqlBaseParser.TableArgumentTableContext context)
+    {
+        Relation relation = new Table(getLocation(context.TABLE()), getQualifiedName(context.qualifiedName()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            if (context.AS() == null) {
+                validateArgumentAlias(alias, context.identifier());
+            }
+            List<Identifier> columnNames = null;
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitTableArgumentQuery(SqlBaseParser.TableArgumentQueryContext context)
+    {
+        Relation relation = new TableSubquery(getLocation(context.TABLE()), (Query) visit(context.query()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            if (context.AS() == null) {
+                validateArgumentAlias(alias, context.identifier());
+            }
+            List<Identifier> columnNames = null;
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitDescriptorArgument(SqlBaseParser.DescriptorArgumentContext context)
+    {
+        if (context.NULL() != null) {
+            return nullDescriptorArgument(getLocation(context));
+        }
+        List<DescriptorField> fields = visit(context.descriptorField(), DescriptorField.class);
+        return descriptorArgument(getLocation(context), new Descriptor(getLocation(context.DESCRIPTOR()), fields));
+    }
+
+    @Override
+    public Node visitDescriptorField(SqlBaseParser.DescriptorFieldContext context)
+    {
+        return new DescriptorField(getLocation(context), (Identifier) visit(context.identifier()), Optional.ofNullable(context.type()).map(this::getType));
     }
 
     @Override
@@ -2809,5 +2941,15 @@ class AstBuilder
     private static ParsingException parseError(String message, ParserRuleContext context)
     {
         return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
+    }
+
+    private static void validateArgumentAlias(Identifier alias, ParserRuleContext context)
+    {
+        check(
+                alias.isDelimited() || !alias.getValue().equalsIgnoreCase("COPARTITION"),
+                "The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.",
+                context);
     }
 }
