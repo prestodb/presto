@@ -19,18 +19,27 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestRepartitionQueries;
 import org.testng.annotations.Parameters;
 
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static java.lang.Boolean.parseBoolean;
+
 public class TestRepartitionQueries
         extends AbstractTestRepartitionQueries
 {
-    @Parameters("storageFormat")
+    @Parameters({"storageFormat", "sidecarEnabled"})
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        boolean sidecar = parseBoolean(System.getProperty("sidecarEnabled"));
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(System.getProperty("storageFormat"))
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
+                .setCoordinatorSidecarEnabled(sidecar)
                 .build();
+        if (sidecar) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
+        return queryRunner;
     }
 
     @Parameters("storageFormat")
