@@ -16,6 +16,7 @@ package com.facebook.presto.router;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.router.cluster.ClusterManager;
+import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
 import com.facebook.presto.router.cluster.ForClusterManager;
@@ -73,6 +74,8 @@ public class RouterModule
         configBinder(binder).bindConfig(RouterConfig.class);
 
         webUIBinder(binder, "/ui", "webapp-router").withWelcomeFile(INDEX_HTML);
+        webUIBinder(binder, "/ui/vendor", "webapp/vendor");
+        webUIBinder(binder, "/ui/assets", "webapp/assets");
 
         if (customSchedulerManager.isPresent()) {
             binder.bind(CustomSchedulerManager.class).toInstance(customSchedulerManager.get());

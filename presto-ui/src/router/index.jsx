@@ -1,7 +1,7 @@
 import React from "react";
-import {ClusterHUD} from "./components/ClusterHUD";
-import {QueryList} from "./components/QueryList";
-import {PageTitle} from "./components/PageTitle";
+import {ClusterHUD} from "./ClusterHUD";
+import {QueryList} from "./QueryList";
+import {PageTitle} from "./PageTitle";
 
 import { createRoot } from 'react-dom/client';
 const container = document.getElementById('title');
