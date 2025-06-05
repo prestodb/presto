@@ -111,7 +111,8 @@ public class QueryBuilder
             List<JdbcColumnHandle> columns,
             Map<String, String> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<JdbcExpression> additionalPredicate)
+            Optional<JdbcExpression> additionalPredicate,
+            Optional<String> tableAlias)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -121,7 +122,7 @@ public class QueryBuilder
             buildFromClause(sql, joinPushdownTables);
         }
         else {
-            buildFromClause(catalog, schema, table, sql);
+            buildFromClause(catalog, schema, table, sql, tableAlias);
         }
 
         ImmutableList.Builder<TypeAndValue> accumulatorBuilder = ImmutableList.builder();
@@ -143,7 +144,7 @@ public class QueryBuilder
         sql.append(addColumns(columns, columnExpressions));
     }
 
-    private void buildFromClause(String catalog, String schema, String table, StringBuilder sql)
+    private void buildFromClause(String catalog, String schema, String table, StringBuilder sql, Optional<String> tableAlias)
     {
         sql.append(" FROM ");
         if (!isNullOrEmpty(catalog)) {
@@ -152,7 +153,13 @@ public class QueryBuilder
         if (!isNullOrEmpty(schema)) {
             sql.append(quote(schema)).append('.');
         }
-        sql.append(quote(table));
+        if (tableAlias.isPresent()) {
+            String alias = tableAlias.get();
+            sql.append(quote(table)).append(" ").append(quote(alias));
+        }
+        else {
+            sql.append(quote(table));
+        }
     }
 
     private void buildWhereClause(List<String> clauses, StringBuilder sql)
@@ -244,6 +251,23 @@ public class QueryBuilder
             throws SQLException
     {
         return buildSql(client, session, connection, catalog, schema, table, joinPushdownTables, columns, ImmutableMap.of(), tupleDomain, additionalPredicate);
+    }
+
+    public PreparedStatement buildSql(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<ConnectorTableHandle> joinPushdownTables,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<JdbcExpression> additionalPredicate)
+            throws SQLException
+    {
+        return buildSql(client, session, connection, catalog, schema, table, joinPushdownTables, columns, columnExpressions, tupleDomain, additionalPredicate, Optional.empty());
     }
 
     private String addColumns(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
