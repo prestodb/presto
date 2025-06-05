@@ -1443,6 +1443,7 @@
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
                 <version>5.13.0</version>
+                <scope>compile</scope>
             </dependency>
 
             <dependency>
