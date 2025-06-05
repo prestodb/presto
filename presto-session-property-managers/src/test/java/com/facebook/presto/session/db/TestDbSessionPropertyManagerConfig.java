@@ -11,36 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.db;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestFileSessionPropertyManagerConfig
+public class TestDbSessionPropertyManagerConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(FileSessionPropertyManagerConfig.class)
-                .setConfigFile(null));
+        assertRecordedDefaults(recordDefaults(DbSessionPropertyManagerConfig.class)
+                .setConfigDbUrl(null)
+                .setUsername(null)
+                .setPassword(null)
+                .setSpecsRefreshPeriod(new Duration(10, SECONDS)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("session-property-manager.config-file", "/test.json")
+                .put("session-property-manager.db.url", "foo")
+                .put("session-property-manager.db.username", "bar")
+                .put("session-property-manager.db.password", "pass")
+                .put("session-property-manager.db.refresh-period", "50s")
                 .build();
 
-        FileSessionPropertyManagerConfig expected = new FileSessionPropertyManagerConfig()
-                .setConfigFile(new File("/test.json"));
+        DbSessionPropertyManagerConfig expected = new DbSessionPropertyManagerConfig()
+                .setConfigDbUrl("foo")
+                .setUsername("bar")
+                .setPassword("pass")
+                .setSpecsRefreshPeriod(new Duration(50, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }
