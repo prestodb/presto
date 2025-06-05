@@ -15,7 +15,7 @@ namespace facebook::presto::protocol {
 
 struct Lifespan {
   bool isgroup = false;
-  long groupid = 0;
+  int groupid = 0;
 
   bool operator<(const Lifespan& o) const {
     return groupid < o.groupid;

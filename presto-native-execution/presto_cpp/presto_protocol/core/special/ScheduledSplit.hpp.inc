@@ -14,7 +14,7 @@
 namespace facebook::presto::protocol {
 
 struct ScheduledSplit {
-  long sequenceId = {};
+  int64_t sequenceId = {};
   PlanNodeId planNodeId = {}; // dependency
   Split split = {};
 

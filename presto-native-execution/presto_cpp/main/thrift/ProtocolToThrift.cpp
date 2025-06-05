@@ -13,662 +13,1633 @@
  * limitations under the License.
  */
 
+// This file is generated DO NOT EDIT @generated
+
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 
 namespace facebook::presto::thrift {
 
-  // Primitive types
-  void toThrift(const std::string& proto, std::string& thrift) {
-    thrift = proto;
-  }
-  void toThrift(const bool& proto, bool& thrift) {
-    thrift = proto;
-  }
-  void toThrift(const int32_t& proto, int32_t& thrift) {
-    thrift = proto;
-  }
-  void toThrift(const int64_t& proto, int64_t& thrift) {
-    thrift = proto;
-  }
-  void toThrift(const double& proto, double& thrift) {
-    thrift = proto;
-  }
-  void toThrift(const facebook::presto::protocol::Duration& duration, double& thrift) {
-    thrift = duration.getValue(facebook::presto::protocol::TimeUnit::MILLISECONDS);
-  }
+// These could be covered by a more general template but this way only
+// conversions to supported Thrift data types can be generated.
+void toThrift(const std::string& proto, std::string& thrift) {
+  thrift = proto;
+}
+void toThrift(const bool& proto, bool& thrift) {
+  thrift = proto;
+}
+void toThrift(const int16_t& proto, int16_t& thrift) {
+  thrift = proto;
+}
+void toThrift(const int32_t& proto, int32_t& thrift) {
+  thrift = proto;
+}
+void toThrift(const int64_t& proto, int64_t& thrift) {
+  thrift = proto;
+}
+void toThrift(const double& proto, double& thrift) {
+  thrift = proto;
+}
+void toThrift(
+    const facebook::presto::protocol::Duration& duration,
+    double& thrift) {
+  thrift =
+      duration.getValue(facebook::presto::protocol::TimeUnit::MILLISECONDS);
+}
+void toThrift(
+    const facebook::presto::protocol::DataSize& dataSize,
+    double& thrift) {
+  thrift = dataSize.getValue(facebook::presto::protocol::DataUnit::BYTE);
+}
 
-  // Templates
-  template <typename E, typename C>
-  void toThrift(const E& protoEnum, C& thriftEnum) {
-    thriftEnum = static_cast<C>(static_cast<int>(protoEnum));
+template <typename P, typename T>
+void toThrift(const std::shared_ptr<P>& proto, std::shared_ptr<T>& thrift) {
+  if (proto) {
+    thrift = std::make_shared<T>();
+    toThrift(*proto, *thrift);
   }
+}
 
-  template <typename P, typename T>
-  void toThrift(const std::shared_ptr<P>& proto, std::shared_ptr<T>& thrift) {
-    if (proto) {
-      thrift = std::make_shared<T>();
-      toThrift(*proto, *thrift);
-    }
+template <typename P, typename T>
+void toThrift(const std::shared_ptr<P>& proto, T& thrift) {
+  if (proto) {
+    toThrift(*proto, thrift);
   }
+}
 
-  template <typename V, typename S>
-  void toThrift(const std::vector<V>& protoVector, std::set<S>& thriftSet) {
-    S toItem;
-    for (const auto& fromItem : protoVector) {
-      toThrift(fromItem, toItem);
-      thriftSet.insert(std::move(toItem));
-    }
+template <typename V, typename S>
+void toThrift(const std::vector<V>& v, std::set<S>& s) {
+  S toItem;
+  for (const auto& fromItem : v) {
+    toThrift(fromItem, toItem);
+    s.insert(std::move(toItem));
   }
+}
 
-  template <typename P, typename T>
-  void toThrift(const std::vector<P>& protoVector, std::vector<T>& thriftVector) {
-    thriftVector.reserve(protoVector.size());
-    T toItem;
-    for (const auto& fromItem : protoVector) {
-      toThrift(fromItem, toItem);
-      thriftVector.emplace_back(std::move(toItem));
-    }
+template <typename P, typename T>
+void toThrift(const std::vector<P>& p, std::vector<T>& t) {
+  t.reserve(p.size());
+  T toItem;
+  for (const auto& fromItem : p) {
+    toThrift(fromItem, toItem);
+    t.emplace_back(std::move(toItem));
   }
+}
 
-  template <typename K1, typename V1, typename K2, typename V2>
-  void toThrift(const std::map<K1, V1>& protoMap, std::map<K2, V2>& thriftMap) {
-    K2 toKey;
-    V2 toValue;
-    for (const auto& [fromKey, fromValue] : protoMap) {
-      toThrift(fromKey, toKey);
-      toThrift(fromValue, toValue);
-      thriftMap.emplace(std::move(toKey), std::move(toValue));
-    }
+template <typename K1, typename V1, typename K2, typename V2>
+void toThrift(const std::map<K1, V1>& protoMap, std::map<K2, V2>& thriftMap) {
+  K2 toKey;
+  V2 toValue;
+  for (const auto& [fromKey, fromValue] : protoMap) {
+    toThrift(fromKey, toKey);
+    toThrift(fromValue, toValue);
+    thriftMap.emplace(std::move(toKey), std::move(toValue));
   }
+}
 
-  template <typename P, typename T>
-  void toThrift(const std::shared_ptr<P>& proto, apache::thrift::optional_field_ref<T> thrift) {
-    if (proto) {
-      thrift.ensure();
-      toThrift(*proto, apache::thrift::can_throw(*thrift));
-    }
+template <typename P, typename T>
+void toThrift(
+    const std::shared_ptr<P>& proto,
+    apache::thrift::optional_field_ref<T> thrift) {
+  if (proto) {
+    thrift.ensure();
+    toThrift(*proto, apache::thrift::can_throw(*thrift));
   }
+}
 
-  // TaskStatus types
-  void toThrift(const facebook::presto::protocol::TaskStatus& taskStatus, thrift::TaskStatus& thriftTaskStatus) {
-    toThrift(taskStatus.taskInstanceIdLeastSignificantBits, *thriftTaskStatus.taskInstanceIdLeastSignificantBits_ref());
-    toThrift(taskStatus.taskInstanceIdMostSignificantBits, *thriftTaskStatus.taskInstanceIdMostSignificantBits_ref());
-    toThrift(taskStatus.version, *thriftTaskStatus.version_ref());
-    toThrift(taskStatus.state, *thriftTaskStatus.state_ref());
-    toThrift(taskStatus.self, *thriftTaskStatus.selfUri_ref());
-    toThrift(taskStatus.completedDriverGroups, *thriftTaskStatus.completedDriverGroups_ref());
-    toThrift(taskStatus.failures, *thriftTaskStatus.failures_ref());
-    toThrift(taskStatus.queuedPartitionedDrivers, *thriftTaskStatus.queuedPartitionedDrivers_ref());
-    toThrift(taskStatus.runningPartitionedDrivers, *thriftTaskStatus.runningPartitionedDrivers_ref());
-    toThrift(taskStatus.outputBufferUtilization, *thriftTaskStatus.outputBufferUtilization_ref());
-    toThrift(taskStatus.outputBufferOverutilized, *thriftTaskStatus.outputBufferOverutilized_ref());
-    toThrift(taskStatus.physicalWrittenDataSizeInBytes, *thriftTaskStatus.physicalWrittenDataSizeInBytes_ref());
-    toThrift(taskStatus.memoryReservationInBytes, *thriftTaskStatus.memoryReservationInBytes_ref());
-    toThrift(taskStatus.systemMemoryReservationInBytes, *thriftTaskStatus.systemMemoryReservationInBytes_ref());
-    toThrift(taskStatus.peakNodeTotalMemoryReservationInBytes, *thriftTaskStatus.peakNodeTotalMemoryReservationInBytes_ref());
-    toThrift(taskStatus.fullGcCount, *thriftTaskStatus.fullGcCount_ref());
-    toThrift(taskStatus.fullGcTimeInMillis, *thriftTaskStatus.fullGcTimeInMillis_ref());
-    toThrift(taskStatus.totalCpuTimeInNanos, *thriftTaskStatus.totalCpuTimeInNanos_ref());
-    toThrift(taskStatus.taskAgeInMillis, *thriftTaskStatus.taskAgeInMillis_ref());
-    toThrift(taskStatus.queuedPartitionedSplitsWeight, *thriftTaskStatus.queuedPartitionedSplitsWeight_ref());
-    toThrift(taskStatus.runningPartitionedSplitsWeight, *thriftTaskStatus.runningPartitionedSplitsWeight_ref());
-  }
+void fromThrift(const std::string& thrift, std::string& proto) {
+  proto = thrift;
+}
+void fromThrift(const bool& thrift, bool& proto) {
+  proto = thrift;
+}
+void fromThrift(const int16_t& thrift, int16_t& proto) {
+  proto = thrift;
+}
+void fromThrift(const int32_t& thrift, int32_t& proto) {
+  proto = thrift;
+}
+void fromThrift(const int64_t& thrift, int64_t& proto) {
+  proto = thrift;
+}
+void fromThrift(const double& thrift, double& proto) {
+  proto = thrift;
+}
 
-  void toThrift(const facebook::presto::protocol::Lifespan& lifespan, thrift::Lifespan& thriftLifeSpan) {
-    toThrift(lifespan.isgroup, *thriftLifeSpan.grouped_ref());
-    toThrift(lifespan.groupid, *thriftLifeSpan.groupId_ref());
-  }
+void fromThrift(
+    const double& thrift,
+    facebook::presto::protocol::Duration& duration) {
+  duration = facebook::presto::protocol::Duration(
+      thrift, facebook::presto::protocol::TimeUnit::MILLISECONDS);
+}
 
-  void toThrift(const facebook::presto::protocol::ExecutionFailureInfo& executionFailureInfo, thrift::ExecutionFailureInfo& thriftExecutionFailureInfo) {
-    toThrift(executionFailureInfo.type, *thriftExecutionFailureInfo.type_ref());
-    toThrift(executionFailureInfo.message, *thriftExecutionFailureInfo.message_ref());
-    toThrift(executionFailureInfo.cause, thriftExecutionFailureInfo.cause_ref());
-    toThrift(executionFailureInfo.suppressed, *thriftExecutionFailureInfo.suppressed_ref());
-    toThrift(executionFailureInfo.stack, *thriftExecutionFailureInfo.stack_ref());
-    toThrift(executionFailureInfo.errorLocation, *thriftExecutionFailureInfo.errorLocation_ref());
-    toThrift(executionFailureInfo.errorCode, *thriftExecutionFailureInfo.errorCode_ref());
-    toThrift(executionFailureInfo.remoteHost, *thriftExecutionFailureInfo.remoteHost_ref());
-    toThrift(executionFailureInfo.errorCause, *thriftExecutionFailureInfo.errorCause_ref());
-  }
+void fromThrift(
+    const double& thrift,
+    facebook::presto::protocol::DataSize& dataSize) {
+  dataSize = facebook::presto::protocol::DataSize(
+      thrift, facebook::presto::protocol::DataUnit::BYTE);
+}
 
-  void toThrift(const facebook::presto::protocol::ErrorLocation& errorLocation, thrift::ErrorLocation& thriftErrorLocation) {
-    toThrift(errorLocation.lineNumber, *thriftErrorLocation.lineNumber_ref());
-    toThrift(errorLocation.columnNumber, *thriftErrorLocation.columnNumber_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::ErrorCode& errorCode, thrift::ErrorCode& thriftErrorCode) {
-    toThrift(errorCode.code, *thriftErrorCode.code_ref());
-    toThrift(errorCode.name, *thriftErrorCode.name_ref());
-    toThrift(errorCode.type, *thriftErrorCode.type_ref());
-    toThrift(errorCode.retriable, *thriftErrorCode.retriable_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::HostAddress& hostAddress, thrift::HostAddress& thriftHostAddress) {
-    std::vector<std::string> parts;
-    folly::split(":", hostAddress, parts);
-    if (parts.size() == 2) {
-      thriftHostAddress.host_ref() = parts[0];
-      thriftHostAddress.port_ref() = std::stoi(parts[1]);
-    }
-  }
-
-  // TaskInfo types
-  void toThrift(const facebook::presto::protocol::TaskInfo& taskInfo, thrift::TaskInfo& thriftTaskInfo) {
-    toThrift(taskInfo.taskId, *thriftTaskInfo.taskId_ref());
-    toThrift(taskInfo.taskStatus, *thriftTaskInfo.taskStatus_ref());
-    toThrift(taskInfo.lastHeartbeatInMillis, *thriftTaskInfo.lastHeartbeatInMillis_ref());
-    toThrift(taskInfo.outputBuffers, *thriftTaskInfo.outputBuffers_ref());
-    toThrift(taskInfo.noMoreSplits, *thriftTaskInfo.noMoreSplits_ref());
-    toThrift(taskInfo.stats, *thriftTaskInfo.stats_ref());
-    toThrift(taskInfo.needsPlan, *thriftTaskInfo.needsPlan_ref());
-    toThrift(taskInfo.metadataUpdates, *thriftTaskInfo.metadataUpdates_ref());
-    toThrift(taskInfo.nodeId, *thriftTaskInfo.nodeId_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::MetadataUpdates& metadataUpdates, thrift::MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper) {
-    toThrift(metadataUpdates, *thriftMetadataUpdatesWrapper.metadataUpdates_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::MetadataUpdates& metadataUpdates, std::string& thriftMetadataUpdates) {
-    json jsonMetadataUpdates = metadataUpdates;
-    std::string str = jsonMetadataUpdates.dump();
-    toThrift(str, thriftMetadataUpdates);
-  }
-
-  void toThrift(const facebook::presto::protocol::TaskId& taskId, thrift::TaskId& thriftTaskId) {
-    std::vector<std::string> parts;
-    folly::split(".", taskId, parts);
-    if (parts.size() == 5) {
-      thriftTaskId.stageExecutionId_ref()->stageId_ref()->queryId_ref() = parts[0];
-      thriftTaskId.stageExecutionId_ref()->stageId_ref()->id_ref() = std::stoi(parts[1]);
-      thriftTaskId.stageExecutionId_ref()->id_ref() = std::stoi(parts[2]);
-      thriftTaskId.id_ref() = std::stoi(parts[3]);
-      thriftTaskId.attemptNumber_ref() = std::stoi(parts[4]);
-    }
-  }
-
-  void toThrift(const facebook::presto::protocol::OutputBufferInfo& outputBufferInfo, thrift::OutputBufferInfo& thriftOutputBufferInfo) {
-    toThrift(outputBufferInfo.type, *thriftOutputBufferInfo.type_ref());
-    toThrift(outputBufferInfo.state, *thriftOutputBufferInfo.state_ref());
-    toThrift(outputBufferInfo.canAddBuffers, *thriftOutputBufferInfo.canAddBuffers_ref());
-    toThrift(outputBufferInfo.canAddPages, *thriftOutputBufferInfo.canAddPages_ref());
-    toThrift(outputBufferInfo.totalBufferedBytes, *thriftOutputBufferInfo.totalBufferedBytes_ref());
-    toThrift(outputBufferInfo.totalBufferedPages, *thriftOutputBufferInfo.totalBufferedPages_ref());
-    toThrift(outputBufferInfo.totalRowsSent, *thriftOutputBufferInfo.totalRowsSent_ref());
-    toThrift(outputBufferInfo.totalPagesSent, *thriftOutputBufferInfo.totalPagesSent_ref());
-    toThrift(outputBufferInfo.buffers, *thriftOutputBufferInfo.buffers_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::BufferInfo& bufferInfo, thrift::BufferInfo& thriftBufferInfo) {
-    toThrift(std::stoi(bufferInfo.bufferId), *thriftBufferInfo.bufferId_ref()->id());
-    toThrift(bufferInfo.finished, *thriftBufferInfo.finished_ref());
-    toThrift(bufferInfo.bufferedPages, *thriftBufferInfo.bufferedPages_ref());
-    toThrift(bufferInfo.pagesSent, *thriftBufferInfo.pagesSent_ref());
-    toThrift(bufferInfo.pageBufferInfo, *thriftBufferInfo.pageBufferInfo_ref());
-  }
-  
-  void toThrift(const facebook::presto::protocol::PageBufferInfo& pageBufferInfo, thrift::PageBufferInfo& thriftPageBufferInfo) {
-    toThrift(pageBufferInfo.partition, *thriftPageBufferInfo.partition_ref());
-    toThrift(pageBufferInfo.bufferedPages, *thriftPageBufferInfo.bufferedPages_ref());
-    toThrift(pageBufferInfo.bufferedBytes, *thriftPageBufferInfo.bufferedBytes_ref());
-    toThrift(pageBufferInfo.rowsAdded, *thriftPageBufferInfo.rowsAdded_ref());
-    toThrift(pageBufferInfo.pagesAdded, *thriftPageBufferInfo.pagesAdded_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::TaskStats& taskStats, thrift::TaskStats& thriftTaskStats) {
-    toThrift(taskStats.createTimeInMillis, *thriftTaskStats.createTimeInMillis_ref());
-    toThrift(taskStats.firstStartTimeInMillis, *thriftTaskStats.firstStartTimeInMillis_ref());
-    toThrift(taskStats.lastStartTimeInMillis, *thriftTaskStats.lastStartTimeInMillis_ref());
-    toThrift(taskStats.lastEndTimeInMillis, *thriftTaskStats.lastEndTimeInMillis_ref());
-    toThrift(taskStats.endTimeInMillis, *thriftTaskStats.endTimeInMillis_ref());
-    toThrift(taskStats.elapsedTimeInNanos, *thriftTaskStats.elapsedTimeInNanos_ref());
-    toThrift(taskStats.queuedTimeInNanos, *thriftTaskStats.queuedTimeInNanos_ref());
-    toThrift(taskStats.totalDrivers, *thriftTaskStats.totalDrivers_ref());
-    toThrift(taskStats.queuedDrivers, *thriftTaskStats.queuedDrivers_ref());
-    toThrift(taskStats.runningDrivers, *thriftTaskStats.runningDrivers_ref());
-    toThrift(taskStats.blockedDrivers, *thriftTaskStats.blockedDrivers_ref());
-    toThrift(taskStats.completedDrivers, *thriftTaskStats.completedDrivers_ref());
-    toThrift(taskStats.cumulativeUserMemory, *thriftTaskStats.cumulativeUserMemory_ref());
-    toThrift(taskStats.cumulativeTotalMemory, *thriftTaskStats.cumulativeTotalMemory_ref());
-    toThrift(taskStats.userMemoryReservationInBytes, *thriftTaskStats.userMemoryReservationInBytes_ref());
-    toThrift(taskStats.revocableMemoryReservationInBytes, *thriftTaskStats.revocableMemoryReservationInBytes_ref());
-    toThrift(taskStats.systemMemoryReservationInBytes, *thriftTaskStats.systemMemoryReservationInBytes_ref());
-    toThrift(taskStats.peakUserMemoryInBytes, *thriftTaskStats.peakUserMemoryInBytes_ref());
-    toThrift(taskStats.peakTotalMemoryInBytes, *thriftTaskStats.peakTotalMemoryInBytes_ref());
-    toThrift(taskStats.peakNodeTotalMemoryInBytes, *thriftTaskStats.peakNodeTotalMemoryInBytes_ref());
-    toThrift(taskStats.totalScheduledTimeInNanos, *thriftTaskStats.totalScheduledTimeInNanos_ref());
-    toThrift(taskStats.totalCpuTimeInNanos, *thriftTaskStats.totalCpuTimeInNanos_ref());
-    toThrift(taskStats.totalBlockedTimeInNanos, *thriftTaskStats.totalBlockedTimeInNanos_ref());
-    toThrift(taskStats.fullyBlocked, *thriftTaskStats.fullyBlocked_ref());
-    toThrift(taskStats.blockedReasons, *thriftTaskStats.blockedReasons_ref());
-    toThrift(taskStats.totalAllocationInBytes, *thriftTaskStats.totalAllocationInBytes_ref());
-    toThrift(taskStats.rawInputDataSizeInBytes, *thriftTaskStats.rawInputDataSizeInBytes_ref());
-    toThrift(taskStats.rawInputPositions, *thriftTaskStats.rawInputPositions_ref());
-    toThrift(taskStats.processedInputDataSizeInBytes, *thriftTaskStats.processedInputDataSizeInBytes_ref());
-    toThrift(taskStats.processedInputPositions, *thriftTaskStats.processedInputPositions_ref());
-    toThrift(taskStats.outputDataSizeInBytes, *thriftTaskStats.outputDataSizeInBytes_ref());
-    toThrift(taskStats.outputPositions, *thriftTaskStats.outputPositions_ref());
-    toThrift(taskStats.physicalWrittenDataSizeInBytes, *thriftTaskStats.physicalWrittenDataSizeInBytes_ref());
-    toThrift(taskStats.pipelines, *thriftTaskStats.pipelines_ref());
-    toThrift(taskStats.queuedPartitionedDrivers, *thriftTaskStats.queuedPartitionedDrivers_ref());
-    toThrift(taskStats.queuedPartitionedSplitsWeight, *thriftTaskStats.queuedPartitionedSplitsWeight_ref());
-    toThrift(taskStats.runningPartitionedDrivers, *thriftTaskStats.runningPartitionedDrivers_ref());
-    toThrift(taskStats.runningPartitionedSplitsWeight, *thriftTaskStats.runningPartitionedSplitsWeight_ref());
-    toThrift(taskStats.fullGcCount, *thriftTaskStats.fullGcCount_ref());
-    toThrift(taskStats.fullGcTimeInMillis, *thriftTaskStats.fullGcTimeInMillis_ref());
-    toThrift(taskStats.runtimeStats, *thriftTaskStats.runtimeStats_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::RuntimeStats& runtimeStats, thrift::RuntimeStats& thriftRuntimeStats) {
-    toThrift(runtimeStats, *thriftRuntimeStats.metrics_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::RuntimeMetric& runtimeMetric, thrift::RuntimeMetric& thriftRuntimeMetric) {
-    toThrift(runtimeMetric.name, *thriftRuntimeMetric.name_ref());
-    toThrift(runtimeMetric.unit, *thriftRuntimeMetric.unit_ref());
-    toThrift(runtimeMetric.sum, *thriftRuntimeMetric.sum_ref());
-    toThrift(runtimeMetric.count, *thriftRuntimeMetric.count_ref());
-    toThrift(runtimeMetric.max, *thriftRuntimeMetric.max_ref());
-    toThrift(runtimeMetric.min, *thriftRuntimeMetric.min_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::PipelineStats& pipelineStats, thrift::PipelineStats& thriftPipelineStats) {
-    toThrift(pipelineStats.pipelineId, *thriftPipelineStats.pipelineId_ref());
-    toThrift(pipelineStats.firstStartTimeInMillis, *thriftPipelineStats.firstStartTimeInMillis_ref());
-    toThrift(pipelineStats.lastStartTimeInMillis, *thriftPipelineStats.lastStartTimeInMillis_ref());
-    toThrift(pipelineStats.lastEndTimeInMillis, *thriftPipelineStats.lastEndTimeInMillis_ref());
-    toThrift(pipelineStats.inputPipeline, *thriftPipelineStats.inputPipeline_ref());
-    toThrift(pipelineStats.outputPipeline, *thriftPipelineStats.outputPipeline_ref());
-    toThrift(pipelineStats.totalDrivers, *thriftPipelineStats.totalDrivers_ref());
-    toThrift(pipelineStats.queuedDrivers, *thriftPipelineStats.queuedDrivers_ref());
-    toThrift(pipelineStats.queuedPartitionedDrivers, *thriftPipelineStats.queuedPartitionedDrivers_ref());
-    toThrift(pipelineStats.queuedPartitionedSplitsWeight, *thriftPipelineStats.queuedPartitionedSplitsWeight_ref());
-    toThrift(pipelineStats.runningDrivers, *thriftPipelineStats.runningDrivers_ref());
-    toThrift(pipelineStats.runningPartitionedDrivers, *thriftPipelineStats.runningPartitionedDrivers_ref());
-    toThrift(pipelineStats.runningPartitionedSplitsWeight, *thriftPipelineStats.runningPartitionedSplitsWeight_ref());
-    toThrift(pipelineStats.blockedDrivers, *thriftPipelineStats.blockedDrivers_ref());
-    toThrift(pipelineStats.completedDrivers, *thriftPipelineStats.completedDrivers_ref());
-    toThrift(pipelineStats.userMemoryReservationInBytes, *thriftPipelineStats.userMemoryReservationInBytes_ref());
-    toThrift(pipelineStats.revocableMemoryReservationInBytes, *thriftPipelineStats.revocableMemoryReservationInBytes_ref());
-    toThrift(pipelineStats.systemMemoryReservationInBytes, *thriftPipelineStats.systemMemoryReservationInBytes_ref());
-    toThrift(pipelineStats.queuedTime, *thriftPipelineStats.queuedTime_ref());
-    toThrift(pipelineStats.elapsedTime, *thriftPipelineStats.elapsedTime_ref());
-    toThrift(pipelineStats.totalScheduledTimeInNanos, *thriftPipelineStats.totalScheduledTimeInNanos_ref());
-    toThrift(pipelineStats.totalCpuTimeInNanos, *thriftPipelineStats.totalCpuTimeInNanos_ref());
-    toThrift(pipelineStats.totalBlockedTimeInNanos, *thriftPipelineStats.totalBlockedTimeInNanos_ref());
-    toThrift(pipelineStats.fullyBlocked, *thriftPipelineStats.fullyBlocked_ref());
-    toThrift(pipelineStats.blockedReasons, *thriftPipelineStats.blockedReasons_ref());
-    toThrift(pipelineStats.totalAllocationInBytes, *thriftPipelineStats.totalAllocationInBytes_ref());
-    toThrift(pipelineStats.rawInputDataSizeInBytes, *thriftPipelineStats.rawInputDataSizeInBytes_ref());
-    toThrift(pipelineStats.rawInputPositions, *thriftPipelineStats.rawInputPositions_ref());
-    toThrift(pipelineStats.processedInputDataSizeInBytes, *thriftPipelineStats.processedInputDataSizeInBytes_ref());
-    toThrift(pipelineStats.processedInputPositions, *thriftPipelineStats.processedInputPositions_ref());
-    toThrift(pipelineStats.outputDataSizeInBytes, *thriftPipelineStats.outputDataSizeInBytes_ref());
-    toThrift(pipelineStats.outputPositions, *thriftPipelineStats.outputPositions_ref());
-    toThrift(pipelineStats.physicalWrittenDataSizeInBytes, *thriftPipelineStats.physicalWrittenDataSizeInBytes_ref());
-    toThrift(pipelineStats.operatorSummaries, *thriftPipelineStats.operatorSummaries_ref());
-    toThrift(pipelineStats.drivers, *thriftPipelineStats.drivers_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::DistributionSnapshot& distributionSnapshot, thrift::DistributionSnapshot& thriftDistributionSnapshot) {
-    toThrift(distributionSnapshot.maxError, *thriftDistributionSnapshot.maxError_ref());
-    toThrift(distributionSnapshot.count, *thriftDistributionSnapshot.count_ref());
-    toThrift(distributionSnapshot.total, *thriftDistributionSnapshot.total_ref());
-    toThrift(distributionSnapshot.p01, *thriftDistributionSnapshot.p01_ref());
-    toThrift(distributionSnapshot.p05, *thriftDistributionSnapshot.p05_ref());
-    toThrift(distributionSnapshot.p10, *thriftDistributionSnapshot.p10_ref());
-    toThrift(distributionSnapshot.p25, *thriftDistributionSnapshot.p25_ref());
-    toThrift(distributionSnapshot.p50, *thriftDistributionSnapshot.p50_ref());
-    toThrift(distributionSnapshot.p75, *thriftDistributionSnapshot.p75_ref());
-    toThrift(distributionSnapshot.p90, *thriftDistributionSnapshot.p90_ref());
-    toThrift(distributionSnapshot.p95, *thriftDistributionSnapshot.p95_ref());
-    toThrift(distributionSnapshot.p99, *thriftDistributionSnapshot.p99_ref());
-    toThrift(distributionSnapshot.min, *thriftDistributionSnapshot.min_ref());
-    toThrift(distributionSnapshot.max, *thriftDistributionSnapshot.max_ref());
-    toThrift(distributionSnapshot.avg, *thriftDistributionSnapshot.avg_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::PlanNodeId& planNodeId, thrift::PlanNodeId& thriftPlanNodeId) {
-    toThrift(planNodeId, *thriftPlanNodeId.id_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::OperatorStats& operatorStats, thrift::OperatorStats& thriftOperatorStats) {
-    toThrift(operatorStats.stageId, *thriftOperatorStats.stageId_ref());
-    toThrift(operatorStats.stageExecutionId, *thriftOperatorStats.stageExecutionId_ref());
-    toThrift(operatorStats.pipelineId, *thriftOperatorStats.pipelineId_ref());
-    toThrift(operatorStats.operatorId, *thriftOperatorStats.operatorId_ref());
-    toThrift(operatorStats.planNodeId, *thriftOperatorStats.planNodeId_ref());
-    toThrift(operatorStats.operatorType, *thriftOperatorStats.operatorType_ref());
-    toThrift(operatorStats.totalDrivers, *thriftOperatorStats.totalDrivers_ref());
-    toThrift(operatorStats.isBlockedCalls, *thriftOperatorStats.isBlockedCalls_ref());
-    toThrift(operatorStats.isBlockedWall, *thriftOperatorStats.isBlockedWall_ref());
-    toThrift(operatorStats.isBlockedCpu, *thriftOperatorStats.isBlockedCpu_ref());
-    toThrift(operatorStats.isBlockedAllocationInBytes, *thriftOperatorStats.isBlockedAllocationInBytes_ref());
-    toThrift(operatorStats.addInputCalls, *thriftOperatorStats.addInputCalls_ref());
-    toThrift(operatorStats.addInputWall, *thriftOperatorStats.addInputWall_ref());
-    toThrift(operatorStats.addInputCpu, *thriftOperatorStats.addInputCpu_ref());
-    toThrift(operatorStats.addInputAllocationInBytes, *thriftOperatorStats.addInputAllocationInBytes_ref());
-    toThrift(operatorStats.rawInputDataSizeInBytes, *thriftOperatorStats.rawInputDataSizeInBytes_ref());
-    toThrift(operatorStats.rawInputPositions, *thriftOperatorStats.rawInputPositions_ref());
-    toThrift(operatorStats.inputDataSizeInBytes, *thriftOperatorStats.inputDataSizeInBytes_ref());
-    toThrift(operatorStats.inputPositions, *thriftOperatorStats.inputPositions_ref());
-    toThrift(operatorStats.sumSquaredInputPositions, *thriftOperatorStats.sumSquaredInputPositions_ref());
-    toThrift(operatorStats.getOutputCalls, *thriftOperatorStats.getOutputCalls_ref());
-    toThrift(operatorStats.getOutputWall, *thriftOperatorStats.getOutputWall_ref());
-    toThrift(operatorStats.getOutputCpu, *thriftOperatorStats.getOutputCpu_ref());
-    toThrift(operatorStats.getOutputAllocationInBytes, *thriftOperatorStats.getOutputAllocationInBytes_ref());
-    toThrift(operatorStats.outputDataSizeInBytes, *thriftOperatorStats.outputDataSizeInBytes_ref());
-    toThrift(operatorStats.outputPositions, *thriftOperatorStats.outputPositions_ref());
-    toThrift(operatorStats.physicalWrittenDataSizeInBytes, *thriftOperatorStats.physicalWrittenDataSizeInBytes_ref());
-    toThrift(operatorStats.additionalCpu, *thriftOperatorStats.additionalCpu_ref());
-    toThrift(operatorStats.blockedWall, *thriftOperatorStats.blockedWall_ref());
-    toThrift(operatorStats.finishCalls, *thriftOperatorStats.finishCalls_ref());
-    toThrift(operatorStats.finishWall, *thriftOperatorStats.finishWall_ref());
-    toThrift(operatorStats.finishCpu, *thriftOperatorStats.finishCpu_ref());
-    toThrift(operatorStats.finishAllocationInBytes, *thriftOperatorStats.finishAllocationInBytes_ref());
-    toThrift(operatorStats.userMemoryReservationInBytes, *thriftOperatorStats.userMemoryReservationInBytes_ref());
-    toThrift(operatorStats.revocableMemoryReservationInBytes, *thriftOperatorStats.revocableMemoryReservationInBytes_ref());
-    toThrift(operatorStats.systemMemoryReservationInBytes, *thriftOperatorStats.systemMemoryReservationInBytes_ref());
-    toThrift(operatorStats.peakUserMemoryReservationInBytes, *thriftOperatorStats.peakUserMemoryReservationInBytes_ref());
-    toThrift(operatorStats.peakSystemMemoryReservationInBytes, *thriftOperatorStats.peakSystemMemoryReservationInBytes_ref());
-    toThrift(operatorStats.peakTotalMemoryReservationInBytes, *thriftOperatorStats.peakTotalMemoryReservationInBytes_ref());
-    toThrift(operatorStats.spilledDataSizeInBytes, *thriftOperatorStats.spilledDataSizeInBytes_ref());
-    toThrift(operatorStats.blockedReason, thriftOperatorStats.blockedReason_ref());
-    // OperatorInfoUnion infoUnion (OperatorInfo is empty on cpp)
-    toThrift(operatorStats.runtimeStats, *thriftOperatorStats.runtimeStats_ref());
-    toThrift(operatorStats.dynamicFilterStats, *thriftOperatorStats.dynamicFilterStats_ref());
-    toThrift(operatorStats.nullJoinBuildKeyCount, *thriftOperatorStats.nullJoinBuildKeyCount_ref());
-    toThrift(operatorStats.joinBuildKeyCount, *thriftOperatorStats.joinBuildKeyCount_ref());
-    toThrift(operatorStats.nullJoinProbeKeyCount, *thriftOperatorStats.nullJoinProbeKeyCount_ref());
-    toThrift(operatorStats.joinProbeKeyCount, *thriftOperatorStats.joinProbeKeyCount_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::DriverStats& driverStats, thrift::DriverStats& thriftDriverStats) {
-    toThrift(driverStats.lifespan, *thriftDriverStats.lifespan_ref());
-    toThrift(driverStats.createTimeInMillis, *thriftDriverStats.createTimeInMillis_ref());
-    toThrift(driverStats.startTimeInMillis, *thriftDriverStats.startTimeInMillis_ref());
-    toThrift(driverStats.endTimeInMillis, *thriftDriverStats.endTimeInMillis_ref());
-    toThrift(driverStats.queuedTime, *thriftDriverStats.queuedTime_ref());
-    toThrift(driverStats.elapsedTime, *thriftDriverStats.elapsedTime_ref());
-    toThrift(driverStats.userMemoryReservationInBytes, *thriftDriverStats.userMemoryReservationInBytes_ref());
-    toThrift(driverStats.revocableMemoryReservationInBytes, *thriftDriverStats.revocableMemoryReservationInBytes_ref());
-    toThrift(driverStats.systemMemoryReservationInBytes, *thriftDriverStats.systemMemoryReservationInBytes_ref());
-    toThrift(driverStats.totalScheduledTime, *thriftDriverStats.totalScheduledTime_ref());
-    toThrift(driverStats.totalCpuTime, *thriftDriverStats.totalCpuTime_ref());
-    toThrift(driverStats.totalBlockedTime, *thriftDriverStats.totalBlockedTime_ref());
-    toThrift(driverStats.fullyBlocked, *thriftDriverStats.fullyBlocked_ref());
-    toThrift(driverStats.blockedReasons, *thriftDriverStats.blockedReasons_ref());
-    toThrift(driverStats.totalAllocationInBytes, *thriftDriverStats.totalAllocationInBytes_ref());
-    toThrift(driverStats.rawInputDataSizeInBytes, *thriftDriverStats.rawInputDataSizeInBytes_ref());
-    toThrift(driverStats.rawInputReadTime, *thriftDriverStats.rawInputReadTime_ref());
-    toThrift(driverStats.rawInputPositions, *thriftDriverStats.rawInputPositions_ref());
-    toThrift(driverStats.processedInputDataSizeInBytes, *thriftDriverStats.processedInputDataSizeInBytes_ref());
-    toThrift(driverStats.processedInputPositions, *thriftDriverStats.processedInputPositions_ref());
-    toThrift(driverStats.outputDataSizeInBytes, *thriftDriverStats.outputDataSizeInBytes_ref());
-    toThrift(driverStats.outputPositions, *thriftDriverStats.outputPositions_ref());
-    toThrift(driverStats.physicalWrittenDataSizeInBytes, *thriftDriverStats.physicalWrittenDataSizeInBytes_ref());
-    toThrift(driverStats.operatorStats, *thriftDriverStats.operatorStats_ref());
-  }
-
-  void toThrift(const facebook::presto::protocol::DynamicFilterStats& dynamicFilterStats, thrift::DynamicFilterStats& thriftDynamicFilterStats) {
-    toThrift(dynamicFilterStats.producerNodeIds, *thriftDynamicFilterStats.producerNodeIds_ref());
-  }
-
-  // TaskUpdateRequest types
-  void fromThrift(const std::string& thrift, std::string& proto) {
-    proto = thrift;
-  }
-  void fromThrift(const bool& thrift, bool& proto) {
-    proto = thrift;
-  }
-  void fromThrift(const int32_t& thrift, int32_t& proto) {
-    proto = thrift;
-  }
-  void fromThrift(const int64_t& thrift, int64_t& proto) {
-    proto = thrift;
-  }
-  void fromThrift(const double& thrift, double& proto) {
-    proto = thrift;
-  }
-
-  void fromThrift(const double& thrift, facebook::presto::protocol::Duration& duration) {
-    duration = facebook::presto::protocol::Duration(thrift, facebook::presto::protocol::TimeUnit::MILLISECONDS);
-  }
-
-  void fromThrift(const double& thrift, facebook::presto::protocol::DataSize& dataSize) {
-    dataSize = facebook::presto::protocol::DataSize(thrift, facebook::presto::protocol::DataUnit::BYTE);
-  }
-
-  template <typename E, typename C>
-  void fromThrift(const E& thriftEnum, C& protoEnum) {
-    protoEnum = static_cast<C>(static_cast<int>(thriftEnum));
-  }
-
-  template <typename P, typename T>
-  void fromThrift(const apache::thrift::optional_field_ref<T>& thrift, std::shared_ptr<P>& proto) {
-    if (thrift.has_value()) {
-      proto = std::make_shared<P>();
-      fromThrift(*thrift, *proto);
-    }
-  }
-
-  template <typename P, typename T>
-  void fromThrift(const T& thrift, std::shared_ptr<P>& proto) {
+template <typename P, typename T>
+void fromThrift(
+    const apache::thrift::optional_field_ref<T>& thrift,
+    std::shared_ptr<P>& proto) {
+  if (thrift.has_value()) {
     proto = std::make_shared<P>();
-    fromThrift(thrift, *proto);
+    fromThrift(*thrift, *proto);
   }
+}
 
-  template <typename P, typename T>
-  void fromThrift(const std::shared_ptr<P>& thrift, std::shared_ptr<T>& proto) {
-    if (thrift) {
-      proto = std::make_shared<T>();
-      fromThrift(*thrift, *proto);
-    }
+template <typename P, typename T>
+void fromThrift(const T& thrift, std::shared_ptr<P>& proto) {
+  proto = std::make_shared<P>();
+  fromThrift(thrift, *proto);
+}
+
+template <typename P, typename T>
+void fromThrift(const std::shared_ptr<P>& thrift, std::shared_ptr<T>& proto) {
+  if (thrift) {
+    proto = std::make_shared<T>();
+    fromThrift(*thrift, *proto);
   }
+}
 
-  template <typename V, typename S>
-  void fromThrift(const std::set<S>& thriftSet, std::vector<V>& protoVector) {
-    protoVector.reserve(thriftSet.size());
-    V toItem;
-    for (const auto& fromItem : thriftSet) {
-      fromThrift(fromItem, toItem);
-      protoVector.emplace_back(std::move(toItem));
-    }
+template <typename V, typename S>
+void fromThrift(const std::set<S>& thrift, std::vector<V>& proto) {
+  proto.reserve(thrift.size());
+  V toItem;
+  for (const auto& fromItem : thrift) {
+    fromThrift(fromItem, toItem);
+    proto.emplace_back(std::move(toItem));
   }
+}
 
-  template <typename P, typename T>
-  void fromThrift(const std::vector<P>& thriftVector, std::vector<T>& protoVector) {
-    protoVector.reserve(thriftVector.size());
-    T toItem;
-    for (const auto& fromItem : thriftVector) {
-      fromThrift(fromItem, toItem);
-      protoVector.emplace_back(std::move(toItem));
-    }
+template <typename P, typename T>
+void fromThrift(const std::vector<P>& thrift, std::vector<T>& proto) {
+  proto.reserve(thrift.size());
+  T toItem;
+  for (const auto& fromItem : thrift) {
+    fromThrift(fromItem, toItem);
+    proto.emplace_back(std::move(toItem));
   }
+}
 
-  template <typename K1, typename V1, typename K2, typename V2>
-  void fromThrift(const std::map<K1, V1>& thriftMap, std::map<K2, V2>& protoMap) {
-    K2 toKey;
-    V2 toValue;
-    for (const auto& [fromKey, fromValue] : thriftMap) {
-      fromThrift(fromKey, toKey);
-      fromThrift(fromValue, toValue);
-      protoMap.emplace(std::move(toKey), std::move(toValue));
-    }
+template <typename K1, typename V1, typename K2, typename V2>
+void fromThrift(const std::map<K1, V1>& thriftMap, std::map<K2, V2>& protoMap) {
+  K2 toKey;
+  V2 toValue;
+  for (const auto& [fromKey, fromValue] : thriftMap) {
+    fromThrift(fromKey, toKey);
+    fromThrift(fromValue, toValue);
+    protoMap.emplace(std::move(toKey), std::move(toValue));
   }
+}
 
-  void fromThrift(const thrift::TaskUpdateRequest& thriftTaskUpdateRequest, facebook::presto::protocol::TaskUpdateRequest& taskUpdateRequest) {
-    fromThrift(*thriftTaskUpdateRequest.session_ref(), taskUpdateRequest.session);
-    fromThrift(*thriftTaskUpdateRequest.extraCredentials_ref(), taskUpdateRequest.extraCredentials);
-    fromThrift(thriftTaskUpdateRequest.fragment_ref(), taskUpdateRequest.fragment);
-    fromThrift(*thriftTaskUpdateRequest.sources_ref(), taskUpdateRequest.sources);
-    fromThrift(*thriftTaskUpdateRequest.outputIds_ref(), taskUpdateRequest.outputIds);
-    fromThrift(thriftTaskUpdateRequest.tableWriteInfo_ref(), taskUpdateRequest.tableWriteInfo);
+void toThrift(
+    const facebook::presto::protocol::TaskState& proto,
+    TaskState& thrift) {
+  thrift = (TaskState)(static_cast<int>(proto));
+}
+void fromThrift(
+    const TaskState& thrift,
+    facebook::presto::protocol::TaskState& proto) {
+  proto = (facebook::presto::protocol::TaskState)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::ErrorType& proto,
+    ErrorType& thrift) {
+  thrift = (ErrorType)(static_cast<int>(proto));
+}
+void fromThrift(
+    const ErrorType& thrift,
+    facebook::presto::protocol::ErrorType& proto) {
+  proto = (facebook::presto::protocol::ErrorType)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::ErrorCause& proto,
+    ErrorCause& thrift) {
+  thrift = (ErrorCause)(static_cast<int>(proto));
+}
+void fromThrift(
+    const ErrorCause& thrift,
+    facebook::presto::protocol::ErrorCause& proto) {
+  proto = (facebook::presto::protocol::ErrorCause)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::BufferState& proto,
+    BufferState& thrift) {
+  thrift = (BufferState)(static_cast<int>(proto));
+}
+void fromThrift(
+    const BufferState& thrift,
+    facebook::presto::protocol::BufferState& proto) {
+  proto = (facebook::presto::protocol::BufferState)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::BlockedReason& proto,
+    BlockedReason& thrift) {
+  thrift = (BlockedReason)(static_cast<int>(proto));
+}
+void fromThrift(
+    const BlockedReason& thrift,
+    facebook::presto::protocol::BlockedReason& proto) {
+  proto = (facebook::presto::protocol::BlockedReason)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::RuntimeUnit& proto,
+    RuntimeUnit& thrift) {
+  thrift = (RuntimeUnit)(static_cast<int>(proto));
+}
+void fromThrift(
+    const RuntimeUnit& thrift,
+    facebook::presto::protocol::RuntimeUnit& proto) {
+  proto = (facebook::presto::protocol::RuntimeUnit)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::JoinType& proto,
+    JoinType& thrift) {
+  thrift = (JoinType)(static_cast<int>(proto));
+}
+void fromThrift(
+    const JoinType& thrift,
+    facebook::presto::protocol::JoinType& proto) {
+  proto = (facebook::presto::protocol::JoinType)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::SelectedRoleType& proto,
+    Type& thrift) {
+  thrift = (Type)(static_cast<int>(proto));
+}
+void fromThrift(
+    const Type& thrift,
+    facebook::presto::protocol::SelectedRoleType& proto) {
+  proto =
+      (facebook::presto::protocol::SelectedRoleType)(static_cast<int>(thrift));
+}
+void toThrift(
+    const facebook::presto::protocol::Determinism& proto,
+    Determinism& thrift) {
+  thrift = (Determinism)(static_cast<int>(proto));
+}
+void fromThrift(
+    const Determinism& thrift,
+    facebook::presto::protocol::Determinism& proto) {
+  proto = (facebook::presto::protocol::Determinism)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::NullCallClause& proto,
+    NullCallClause& thrift) {
+  thrift = (NullCallClause)(static_cast<int>(proto));
+}
+void fromThrift(
+    const NullCallClause& thrift,
+    facebook::presto::protocol::NullCallClause& proto) {
+  proto =
+      (facebook::presto::protocol::NullCallClause)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::FunctionKind& proto,
+    FunctionKind& thrift) {
+  thrift = (FunctionKind)(static_cast<int>(proto));
+}
+void fromThrift(
+    const FunctionKind& thrift,
+    facebook::presto::protocol::FunctionKind& proto) {
+  proto = (facebook::presto::protocol::FunctionKind)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::BufferType& proto,
+    BufferType& thrift) {
+  thrift = (BufferType)(static_cast<int>(proto));
+}
+void fromThrift(
+    const BufferType& thrift,
+    facebook::presto::protocol::BufferType& proto) {
+  proto = (facebook::presto::protocol::BufferType)(static_cast<int>(thrift));
+}
+
+void toThrift(
+    const facebook::presto::protocol::Split& split,
+    SplitWrapper& thriftSplitWrapper) {
+  toThrift(split, *thriftSplitWrapper.split_ref());
+}
+void toThrift(
+    const facebook::presto::protocol::Split& split,
+    std::string& thriftSplit) {
+  json jsonSplit = split;
+  std::string str = jsonSplit.dump();
+  toThrift(str, thriftSplit);
+}
+void fromThrift(
+    const SplitWrapper& thriftSplitWrapper,
+    facebook::presto::protocol::Split& split) {
+  fromThrift(*thriftSplitWrapper.split_ref(), split);
+}
+void fromThrift(
+    const std::string& thriftSplit,
+    facebook::presto::protocol::Split& split) {
+  json j = json::parse(thriftSplit);
+  split = j;
+}
+void toThrift(
+    const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
+    TableWriteInfoWrapper& thriftTableWriteInfoWrapper) {
+  toThrift(tableWriteInfo, *thriftTableWriteInfoWrapper.tableWriteInfo_ref());
+}
+void toThrift(
+    const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
+    std::string& thriftTableWriteInfo) {
+  json jsonTableWriteInfo = tableWriteInfo;
+  std::string str = jsonTableWriteInfo.dump();
+  toThrift(str, thriftTableWriteInfo);
+}
+void fromThrift(
+    const TableWriteInfoWrapper& thriftTableWriteInfoWrapper,
+    facebook::presto::protocol::TableWriteInfo& tableWriteInfo) {
+  fromThrift(*thriftTableWriteInfoWrapper.tableWriteInfo_ref(), tableWriteInfo);
+}
+void fromThrift(
+    const std::string& thriftTableWriteInfo,
+    facebook::presto::protocol::TableWriteInfo& tableWriteInfo) {
+  json j = json::parse(thriftTableWriteInfo);
+  tableWriteInfo = j;
+}
+void toThrift(
+    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
+    MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper) {
+  toThrift(
+      metadataUpdates, *thriftMetadataUpdatesWrapper.metadataUpdates_ref());
+}
+void toThrift(
+    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
+    std::string& thriftMetadataUpdates) {
+  json jsonMetadataUpdates = metadataUpdates;
+  std::string str = jsonMetadataUpdates.dump();
+  toThrift(str, thriftMetadataUpdates);
+}
+void fromThrift(
+    const MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper,
+    facebook::presto::protocol::MetadataUpdates& metadataUpdates) {
+  fromThrift(
+      *thriftMetadataUpdatesWrapper.metadataUpdates_ref(), metadataUpdates);
+}
+void fromThrift(
+    const std::string& thriftMetadataUpdates,
+    facebook::presto::protocol::MetadataUpdates& metadataUpdates) {
+  json j = json::parse(thriftMetadataUpdates);
+  metadataUpdates = j;
+}
+void toThrift(
+    const facebook::presto::protocol::Lifespan& proto,
+    Lifespan& thrift) {
+  toThrift(proto.isgroup, *thrift.grouped_ref());
+  toThrift(proto.groupid, *thrift.groupId_ref());
+}
+void fromThrift(
+    const Lifespan& thrift,
+    facebook::presto::protocol::Lifespan& proto) {
+  fromThrift(*thrift.grouped_ref(), proto.isgroup);
+  fromThrift(*thrift.groupId_ref(), proto.groupid);
+}
+
+void toThrift(
+    const facebook::presto::protocol::ErrorLocation& proto,
+    ErrorLocation& thrift) {
+  toThrift(proto.lineNumber, *thrift.lineNumber_ref());
+  toThrift(proto.columnNumber, *thrift.columnNumber_ref());
+}
+void fromThrift(
+    const ErrorLocation& thrift,
+    facebook::presto::protocol::ErrorLocation& proto) {
+  fromThrift(*thrift.lineNumber_ref(), proto.lineNumber);
+  fromThrift(*thrift.columnNumber_ref(), proto.columnNumber);
+}
+
+void toThrift(
+    const facebook::presto::protocol::HostAddress& proto,
+    HostAddress& thrift) {
+  std::vector<std::string> parts;
+  folly::split(":", proto, parts);
+  if (parts.size() == 2) {
+    thrift.host_ref() = parts[0];
+    thrift.port_ref() = std::stoi(parts[1]);
   }
+}
+void fromThrift(
+    const HostAddress& thrift,
+    facebook::presto::protocol::HostAddress& proto) {
+  std::string hostAddressStr =
+      *thrift.host_ref() + "." + std::to_string(*thrift.port_ref());
+  fromThrift(hostAddressStr, proto);
+}
+void toThrift(
+    const facebook::presto::protocol::OutputBufferId& proto,
+    OutputBufferId& thrift) {
+  toThrift(std::stoi(proto), *thrift.id_ref());
+}
+void fromThrift(
+    const OutputBufferId& thrift,
+    facebook::presto::protocol::OutputBufferId& proto) {
+  fromThrift(std::to_string(*thrift.id_ref()), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::PageBufferInfo& proto,
+    PageBufferInfo& thrift) {
+  toThrift(proto.partition, *thrift.partition_ref());
+  toThrift(proto.bufferedPages, *thrift.bufferedPages_ref());
+  toThrift(proto.bufferedBytes, *thrift.bufferedBytes_ref());
+  toThrift(proto.rowsAdded, *thrift.rowsAdded_ref());
+  toThrift(proto.pagesAdded, *thrift.pagesAdded_ref());
+}
+void fromThrift(
+    const PageBufferInfo& thrift,
+    facebook::presto::protocol::PageBufferInfo& proto) {
+  fromThrift(*thrift.partition_ref(), proto.partition);
+  fromThrift(*thrift.bufferedPages_ref(), proto.bufferedPages);
+  fromThrift(*thrift.bufferedBytes_ref(), proto.bufferedBytes);
+  fromThrift(*thrift.rowsAdded_ref(), proto.rowsAdded);
+  fromThrift(*thrift.pagesAdded_ref(), proto.pagesAdded);
+}
 
-  void fromThrift(const thrift::SessionRepresentation& thriftSessionRepresentation, facebook::presto::protocol::SessionRepresentation& sessionRepresentation) {
-    fromThrift(*thriftSessionRepresentation.queryId_ref(), sessionRepresentation.queryId);
-    fromThrift(thriftSessionRepresentation.transactionId_ref(), sessionRepresentation.transactionId);
-    fromThrift(*thriftSessionRepresentation.clientTransactionSupport_ref(), sessionRepresentation.clientTransactionSupport);
-    fromThrift(*thriftSessionRepresentation.user_ref(), sessionRepresentation.user);
-    fromThrift(thriftSessionRepresentation.principal_ref(), sessionRepresentation.principal);
-    fromThrift(thriftSessionRepresentation.source_ref(), sessionRepresentation.source);
-    fromThrift(thriftSessionRepresentation.catalog_ref(), sessionRepresentation.catalog);
-    fromThrift(thriftSessionRepresentation.schema_ref(), sessionRepresentation.schema);
-    fromThrift(thriftSessionRepresentation.traceToken_ref(), sessionRepresentation.traceToken);
-    fromThrift(*thriftSessionRepresentation.timeZoneKey_ref(), sessionRepresentation.timeZoneKey);
-    fromThrift(*thriftSessionRepresentation.locale_ref(), sessionRepresentation.locale);
-    fromThrift(thriftSessionRepresentation.remoteUserAddress_ref(), sessionRepresentation.remoteUserAddress);
-    fromThrift(thriftSessionRepresentation.userAgent_ref(), sessionRepresentation.userAgent);
-    fromThrift(thriftSessionRepresentation.clientInfo_ref(), sessionRepresentation.clientInfo);
-    fromThrift(*thriftSessionRepresentation.clientTags_ref(), sessionRepresentation.clientTags);
-    fromThrift(*thriftSessionRepresentation.resourceEstimates_ref(), sessionRepresentation.resourceEstimates);
-    fromThrift(*thriftSessionRepresentation.startTime_ref(), sessionRepresentation.startTime);
-    fromThrift(*thriftSessionRepresentation.systemProperties_ref(), sessionRepresentation.systemProperties);
-    fromThrift(*thriftSessionRepresentation.catalogProperties_ref(), sessionRepresentation.catalogProperties);
-    fromThrift(*thriftSessionRepresentation.unprocessedCatalogProperties_ref(), sessionRepresentation.unprocessedCatalogProperties);
-    fromThrift(*thriftSessionRepresentation.roles_ref(), sessionRepresentation.roles);
-    fromThrift(*thriftSessionRepresentation.preparedStatements_ref(), sessionRepresentation.preparedStatements);
-    fromThrift(*thriftSessionRepresentation.sessionFunctions_ref(), sessionRepresentation.sessionFunctions);
+void toThrift(
+    const facebook::presto::protocol::PlanNodeId& proto,
+    PlanNodeId& thrift) {
+  toThrift(proto, *thrift.id_ref());
+}
+void fromThrift(
+    const PlanNodeId& thrift,
+    facebook::presto::protocol::PlanNodeId& proto) {
+  fromThrift(*thrift.id_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::DistributionSnapshot& proto,
+    DistributionSnapshot& thrift) {
+  toThrift(proto.maxError, *thrift.maxError_ref());
+  toThrift(proto.count, *thrift.count_ref());
+  toThrift(proto.total, *thrift.total_ref());
+  toThrift(proto.p01, *thrift.p01_ref());
+  toThrift(proto.p05, *thrift.p05_ref());
+  toThrift(proto.p10, *thrift.p10_ref());
+  toThrift(proto.p25, *thrift.p25_ref());
+  toThrift(proto.p50, *thrift.p50_ref());
+  toThrift(proto.p75, *thrift.p75_ref());
+  toThrift(proto.p90, *thrift.p90_ref());
+  toThrift(proto.p95, *thrift.p95_ref());
+  toThrift(proto.p99, *thrift.p99_ref());
+  toThrift(proto.min, *thrift.min_ref());
+  toThrift(proto.max, *thrift.max_ref());
+  toThrift(proto.avg, *thrift.avg_ref());
+}
+void fromThrift(
+    const DistributionSnapshot& thrift,
+    facebook::presto::protocol::DistributionSnapshot& proto) {
+  fromThrift(*thrift.maxError_ref(), proto.maxError);
+  fromThrift(*thrift.count_ref(), proto.count);
+  fromThrift(*thrift.total_ref(), proto.total);
+  fromThrift(*thrift.p01_ref(), proto.p01);
+  fromThrift(*thrift.p05_ref(), proto.p05);
+  fromThrift(*thrift.p10_ref(), proto.p10);
+  fromThrift(*thrift.p25_ref(), proto.p25);
+  fromThrift(*thrift.p50_ref(), proto.p50);
+  fromThrift(*thrift.p75_ref(), proto.p75);
+  fromThrift(*thrift.p90_ref(), proto.p90);
+  fromThrift(*thrift.p95_ref(), proto.p95);
+  fromThrift(*thrift.p99_ref(), proto.p99);
+  fromThrift(*thrift.min_ref(), proto.min);
+  fromThrift(*thrift.max_ref(), proto.max);
+  fromThrift(*thrift.avg_ref(), proto.avg);
+}
+
+void toThrift(
+    const facebook::presto::protocol::RuntimeStats& proto,
+    RuntimeStats& thrift) {
+  toThrift(proto, *thrift.metrics_ref());
+}
+void fromThrift(
+    const RuntimeStats& thrift,
+    facebook::presto::protocol::RuntimeStats& proto) {
+  fromThrift(*thrift.metrics_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::DynamicFilterStats& proto,
+    DynamicFilterStats& thrift) {
+  toThrift(proto.producerNodeIds, *thrift.producerNodeIds_ref());
+}
+void fromThrift(
+    const DynamicFilterStats& thrift,
+    facebook::presto::protocol::DynamicFilterStats& proto) {
+  fromThrift(*thrift.producerNodeIds_ref(), proto.producerNodeIds);
+}
+
+void toThrift(
+    const facebook::presto::protocol::DriverStats& proto,
+    DriverStats& thrift) {
+  toThrift(proto.lifespan, *thrift.lifespan_ref());
+  toThrift(proto.createTimeInMillis, *thrift.createTimeInMillis_ref());
+  toThrift(proto.startTimeInMillis, *thrift.startTimeInMillis_ref());
+  toThrift(proto.endTimeInMillis, *thrift.endTimeInMillis_ref());
+  toThrift(proto.queuedTime, *thrift.queuedTime_ref());
+  toThrift(proto.elapsedTime, *thrift.elapsedTime_ref());
+  toThrift(
+      proto.userMemoryReservationInBytes,
+      *thrift.userMemoryReservationInBytes_ref());
+  toThrift(
+      proto.revocableMemoryReservationInBytes,
+      *thrift.revocableMemoryReservationInBytes_ref());
+  toThrift(
+      proto.systemMemoryReservationInBytes,
+      *thrift.systemMemoryReservationInBytes_ref());
+  toThrift(proto.totalScheduledTime, *thrift.totalScheduledTime_ref());
+  toThrift(proto.totalCpuTime, *thrift.totalCpuTime_ref());
+  toThrift(proto.totalBlockedTime, *thrift.totalBlockedTime_ref());
+  toThrift(proto.fullyBlocked, *thrift.fullyBlocked_ref());
+  toThrift(proto.blockedReasons, *thrift.blockedReasons_ref());
+  toThrift(proto.totalAllocationInBytes, *thrift.totalAllocationInBytes_ref());
+  toThrift(
+      proto.rawInputDataSizeInBytes, *thrift.rawInputDataSizeInBytes_ref());
+  toThrift(proto.rawInputReadTime, *thrift.rawInputReadTime_ref());
+  toThrift(proto.rawInputPositions, *thrift.rawInputPositions_ref());
+  toThrift(
+      proto.processedInputDataSizeInBytes,
+      *thrift.processedInputDataSizeInBytes_ref());
+  toThrift(
+      proto.processedInputPositions, *thrift.processedInputPositions_ref());
+  toThrift(proto.outputDataSizeInBytes, *thrift.outputDataSizeInBytes_ref());
+  toThrift(proto.outputPositions, *thrift.outputPositions_ref());
+  toThrift(
+      proto.physicalWrittenDataSizeInBytes,
+      *thrift.physicalWrittenDataSizeInBytes_ref());
+  toThrift(proto.operatorStats, *thrift.operatorStats_ref());
+}
+void fromThrift(
+    const DriverStats& thrift,
+    facebook::presto::protocol::DriverStats& proto) {
+  fromThrift(*thrift.lifespan_ref(), proto.lifespan);
+  fromThrift(*thrift.createTimeInMillis_ref(), proto.createTimeInMillis);
+  fromThrift(*thrift.startTimeInMillis_ref(), proto.startTimeInMillis);
+  fromThrift(*thrift.endTimeInMillis_ref(), proto.endTimeInMillis);
+  fromThrift(*thrift.queuedTime_ref(), proto.queuedTime);
+  fromThrift(*thrift.elapsedTime_ref(), proto.elapsedTime);
+  fromThrift(
+      *thrift.userMemoryReservationInBytes_ref(),
+      proto.userMemoryReservationInBytes);
+  fromThrift(
+      *thrift.revocableMemoryReservationInBytes_ref(),
+      proto.revocableMemoryReservationInBytes);
+  fromThrift(
+      *thrift.systemMemoryReservationInBytes_ref(),
+      proto.systemMemoryReservationInBytes);
+  fromThrift(*thrift.totalScheduledTime_ref(), proto.totalScheduledTime);
+  fromThrift(*thrift.totalCpuTime_ref(), proto.totalCpuTime);
+  fromThrift(*thrift.totalBlockedTime_ref(), proto.totalBlockedTime);
+  fromThrift(*thrift.fullyBlocked_ref(), proto.fullyBlocked);
+  fromThrift(*thrift.blockedReasons_ref(), proto.blockedReasons);
+  fromThrift(
+      *thrift.totalAllocationInBytes_ref(), proto.totalAllocationInBytes);
+  fromThrift(
+      *thrift.rawInputDataSizeInBytes_ref(), proto.rawInputDataSizeInBytes);
+  fromThrift(*thrift.rawInputReadTime_ref(), proto.rawInputReadTime);
+  fromThrift(*thrift.rawInputPositions_ref(), proto.rawInputPositions);
+  fromThrift(
+      *thrift.processedInputDataSizeInBytes_ref(),
+      proto.processedInputDataSizeInBytes);
+  fromThrift(
+      *thrift.processedInputPositions_ref(), proto.processedInputPositions);
+  fromThrift(*thrift.outputDataSizeInBytes_ref(), proto.outputDataSizeInBytes);
+  fromThrift(*thrift.outputPositions_ref(), proto.outputPositions);
+  fromThrift(
+      *thrift.physicalWrittenDataSizeInBytes_ref(),
+      proto.physicalWrittenDataSizeInBytes);
+  fromThrift(*thrift.operatorStats_ref(), proto.operatorStats);
+}
+
+void toThrift(
+    const facebook::presto::protocol::TransactionId& proto,
+    TransactionId& thrift) {
+  toThrift(proto, *thrift.uuid_ref());
+}
+void fromThrift(
+    const TransactionId& thrift,
+    facebook::presto::protocol::TransactionId& proto) {
+  fromThrift(*thrift.uuid_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::TimeZoneKey& proto,
+    TimeZoneKey& thrift) {
+  toThrift(proto, *thrift.key_ref());
+}
+void fromThrift(
+    const TimeZoneKey& thrift,
+    facebook::presto::protocol::TimeZoneKey& proto) {
+  fromThrift(*thrift.key_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::ResourceEstimates& proto,
+    ResourceEstimates& thrift) {
+  toThrift(proto.executionTime, thrift.executionTime_ref());
+  toThrift(proto.cpuTime, thrift.cpuTime_ref());
+  toThrift(proto.peakMemory, thrift.peakMemory_ref());
+  toThrift(proto.peakTaskMemory, thrift.peakTaskMemory_ref());
+}
+void fromThrift(
+    const ResourceEstimates& thrift,
+    facebook::presto::protocol::ResourceEstimates& proto) {
+  fromThrift(thrift.executionTime_ref(), proto.executionTime);
+  fromThrift(thrift.cpuTime_ref(), proto.cpuTime);
+  fromThrift(thrift.peakMemory_ref(), proto.peakMemory);
+  fromThrift(thrift.peakTaskMemory_ref(), proto.peakTaskMemory);
+}
+
+void toThrift(
+    const facebook::presto::protocol::ConnectorId& proto,
+    ConnectorId& thrift) {
+  toThrift(proto, *thrift.catalogName_ref());
+}
+void fromThrift(
+    const ConnectorId& thrift,
+    facebook::presto::protocol::ConnectorId& proto) {
+  fromThrift(*thrift.catalogName_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::SqlFunctionId& proto,
+    SqlFunctionId& thrift) {
+  toThrift(proto, *thrift.signature_ref());
+}
+void fromThrift(
+    const SqlFunctionId& thrift,
+    facebook::presto::protocol::SqlFunctionId& proto) {
+  fromThrift(*thrift.signature_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::TypeSignature& proto,
+    TypeSignature& thrift) {
+  toThrift(proto, *thrift.signature_ref());
+}
+void fromThrift(
+    const TypeSignature& thrift,
+    facebook::presto::protocol::TypeSignature& proto) {
+  fromThrift(*thrift.signature_ref(), proto);
+}
+void toThrift(
+    const facebook::presto::protocol::Language& proto,
+    Language& thrift) {
+  toThrift(proto.language, *thrift.language_ref());
+}
+void fromThrift(
+    const Language& thrift,
+    facebook::presto::protocol::Language& proto) {
+  fromThrift(*thrift.language_ref(), proto.language);
+}
+
+void toThrift(
+    const facebook::presto::protocol::QualifiedObjectName& proto,
+    QualifiedObjectName& thrift) {
+  std::vector<std::string> parts;
+  folly::split(".", proto, parts);
+  if (parts.size() == 3) {
+    thrift.catalogName_ref() = parts[0];
+    thrift.schemaName_ref() = parts[1];
+    thrift.objectName_ref() = parts[2];
   }
+}
+void fromThrift(
+    const QualifiedObjectName& thrift,
+    facebook::presto::protocol::QualifiedObjectName& proto) {
+  std::string qualifiedObjectNameStr = *thrift.catalogName_ref() + "." +
+      *thrift.schemaName_ref() + "." + *thrift.objectName_ref();
+  fromThrift(qualifiedObjectNameStr, proto);
+}
+void toThrift(
+    const facebook::presto::protocol::TypeVariableConstraint& proto,
+    TypeVariableConstraint& thrift) {
+  toThrift(proto.name, *thrift.name_ref());
+  toThrift(proto.comparableRequired, *thrift.comparableRequired_ref());
+  toThrift(proto.orderableRequired, *thrift.orderableRequired_ref());
+  toThrift(proto.variadicBound, *thrift.variadicBound_ref());
+  toThrift(
+      proto.nonDecimalNumericRequired, *thrift.nonDecimalNumericRequired_ref());
+}
+void fromThrift(
+    const TypeVariableConstraint& thrift,
+    facebook::presto::protocol::TypeVariableConstraint& proto) {
+  fromThrift(*thrift.name_ref(), proto.name);
+  fromThrift(*thrift.comparableRequired_ref(), proto.comparableRequired);
+  fromThrift(*thrift.orderableRequired_ref(), proto.orderableRequired);
+  fromThrift(*thrift.variadicBound_ref(), proto.variadicBound);
+  fromThrift(
+      *thrift.nonDecimalNumericRequired_ref(), proto.nonDecimalNumericRequired);
+}
 
-  void fromThrift(const thrift::ConnectorId& thriftConnectorId, facebook::presto::protocol::ConnectorId& connectorId) {
-    fromThrift(*thriftConnectorId.catalogName_ref(), connectorId);
+void toThrift(
+    const facebook::presto::protocol::LongVariableConstraint& proto,
+    LongVariableConstraint& thrift) {
+  toThrift(proto.name, *thrift.name_ref());
+  toThrift(proto.expression, *thrift.expression_ref());
+}
+void fromThrift(
+    const LongVariableConstraint& thrift,
+    facebook::presto::protocol::LongVariableConstraint& proto) {
+  fromThrift(*thrift.name_ref(), proto.name);
+  fromThrift(*thrift.expression_ref(), proto.expression);
+}
+
+void toThrift(
+    const facebook::presto::protocol::TaskSource& proto,
+    TaskSource& thrift) {
+  toThrift(proto.planNodeId, *thrift.planNodeId_ref());
+  toThrift(proto.splits, *thrift.splits_ref());
+  toThrift(
+      proto.noMoreSplitsForLifespan, *thrift.noMoreSplitsForLifespan_ref());
+  toThrift(proto.noMoreSplits, *thrift.noMoreSplits_ref());
+}
+void fromThrift(
+    const TaskSource& thrift,
+    facebook::presto::protocol::TaskSource& proto) {
+  fromThrift(*thrift.planNodeId_ref(), proto.planNodeId);
+  fromThrift(*thrift.splits_ref(), proto.splits);
+  fromThrift(
+      *thrift.noMoreSplitsForLifespan_ref(), proto.noMoreSplitsForLifespan);
+  fromThrift(*thrift.noMoreSplits_ref(), proto.noMoreSplits);
+}
+
+void toThrift(
+    const facebook::presto::protocol::ScheduledSplit& proto,
+    ScheduledSplit& thrift) {
+  toThrift(proto.sequenceId, *thrift.sequenceId_ref());
+  toThrift(proto.planNodeId, *thrift.planNodeId_ref());
+  toThrift(proto.split, *thrift.split_ref());
+}
+void fromThrift(
+    const ScheduledSplit& thrift,
+    facebook::presto::protocol::ScheduledSplit& proto) {
+  fromThrift(*thrift.sequenceId_ref(), proto.sequenceId);
+  fromThrift(*thrift.planNodeId_ref(), proto.planNodeId);
+  fromThrift(*thrift.split_ref(), proto.split);
+}
+
+void toThrift(
+    const facebook::presto::protocol::TaskStatus& proto,
+    TaskStatus& thrift) {
+  toThrift(
+      proto.taskInstanceIdLeastSignificantBits,
+      *thrift.taskInstanceIdLeastSignificantBits_ref());
+  toThrift(
+      proto.taskInstanceIdMostSignificantBits,
+      *thrift.taskInstanceIdMostSignificantBits_ref());
+  toThrift(proto.version, *thrift.version_ref());
+  toThrift(proto.state, *thrift.state_ref());
+  toThrift(proto.self, *thrift.selfUri_ref());
+  toThrift(proto.completedDriverGroups, *thrift.completedDriverGroups_ref());
+  toThrift(proto.failures, *thrift.failures_ref());
+  toThrift(
+      proto.queuedPartitionedDrivers, *thrift.queuedPartitionedDrivers_ref());
+  toThrift(
+      proto.runningPartitionedDrivers, *thrift.runningPartitionedDrivers_ref());
+  toThrift(
+      proto.outputBufferUtilization, *thrift.outputBufferUtilization_ref());
+  toThrift(
+      proto.outputBufferOverutilized, *thrift.outputBufferOverutilized_ref());
+  toThrift(
+      proto.physicalWrittenDataSizeInBytes,
+      *thrift.physicalWrittenDataSizeInBytes_ref());
+  toThrift(
+      proto.memoryReservationInBytes, *thrift.memoryReservationInBytes_ref());
+  toThrift(
+      proto.systemMemoryReservationInBytes,
+      *thrift.systemMemoryReservationInBytes_ref());
+  toThrift(proto.fullGcCount, *thrift.fullGcCount_ref());
+  toThrift(proto.fullGcTimeInMillis, *thrift.fullGcTimeInMillis_ref());
+  toThrift(
+      proto.peakNodeTotalMemoryReservationInBytes,
+      *thrift.peakNodeTotalMemoryReservationInBytes_ref());
+  toThrift(proto.totalCpuTimeInNanos, *thrift.totalCpuTimeInNanos_ref());
+  toThrift(proto.taskAgeInMillis, *thrift.taskAgeInMillis_ref());
+  toThrift(
+      proto.queuedPartitionedSplitsWeight,
+      *thrift.queuedPartitionedSplitsWeight_ref());
+  toThrift(
+      proto.runningPartitionedSplitsWeight,
+      *thrift.runningPartitionedSplitsWeight_ref());
+}
+void fromThrift(
+    const TaskStatus& thrift,
+    facebook::presto::protocol::TaskStatus& proto) {
+  fromThrift(
+      *thrift.taskInstanceIdLeastSignificantBits_ref(),
+      proto.taskInstanceIdLeastSignificantBits);
+  fromThrift(
+      *thrift.taskInstanceIdMostSignificantBits_ref(),
+      proto.taskInstanceIdMostSignificantBits);
+  fromThrift(*thrift.version_ref(), proto.version);
+  fromThrift(*thrift.state_ref(), proto.state);
+  fromThrift(*thrift.selfUri_ref(), proto.self);
+  fromThrift(*thrift.completedDriverGroups_ref(), proto.completedDriverGroups);
+  fromThrift(*thrift.failures_ref(), proto.failures);
+  fromThrift(
+      *thrift.queuedPartitionedDrivers_ref(), proto.queuedPartitionedDrivers);
+  fromThrift(
+      *thrift.runningPartitionedDrivers_ref(), proto.runningPartitionedDrivers);
+  fromThrift(
+      *thrift.outputBufferUtilization_ref(), proto.outputBufferUtilization);
+  fromThrift(
+      *thrift.outputBufferOverutilized_ref(), proto.outputBufferOverutilized);
+  fromThrift(
+      *thrift.physicalWrittenDataSizeInBytes_ref(),
+      proto.physicalWrittenDataSizeInBytes);
+  fromThrift(
+      *thrift.memoryReservationInBytes_ref(), proto.memoryReservationInBytes);
+  fromThrift(
+      *thrift.systemMemoryReservationInBytes_ref(),
+      proto.systemMemoryReservationInBytes);
+  fromThrift(*thrift.fullGcCount_ref(), proto.fullGcCount);
+  fromThrift(*thrift.fullGcTimeInMillis_ref(), proto.fullGcTimeInMillis);
+  fromThrift(
+      *thrift.peakNodeTotalMemoryReservationInBytes_ref(),
+      proto.peakNodeTotalMemoryReservationInBytes);
+  fromThrift(*thrift.totalCpuTimeInNanos_ref(), proto.totalCpuTimeInNanos);
+  fromThrift(*thrift.taskAgeInMillis_ref(), proto.taskAgeInMillis);
+  fromThrift(
+      *thrift.queuedPartitionedSplitsWeight_ref(),
+      proto.queuedPartitionedSplitsWeight);
+  fromThrift(
+      *thrift.runningPartitionedSplitsWeight_ref(),
+      proto.runningPartitionedSplitsWeight);
+}
+
+void toThrift(
+    const facebook::presto::protocol::ErrorCode& proto,
+    ErrorCode& thrift) {
+  toThrift(proto.code, *thrift.code_ref());
+  toThrift(proto.name, *thrift.name_ref());
+  toThrift(proto.type, *thrift.type_ref());
+  toThrift(proto.retriable, *thrift.retriable_ref());
+}
+void fromThrift(
+    const ErrorCode& thrift,
+    facebook::presto::protocol::ErrorCode& proto) {
+  fromThrift(*thrift.code_ref(), proto.code);
+  fromThrift(*thrift.name_ref(), proto.name);
+  fromThrift(*thrift.type_ref(), proto.type);
+  fromThrift(*thrift.retriable_ref(), proto.retriable);
+}
+
+void toThrift(
+    const facebook::presto::protocol::OutputBufferInfo& proto,
+    OutputBufferInfo& thrift) {
+  toThrift(proto.type, *thrift.type_ref());
+  toThrift(proto.state, *thrift.state_ref());
+  toThrift(proto.buffers, *thrift.buffers_ref());
+  toThrift(proto.canAddBuffers, *thrift.canAddBuffers_ref());
+  toThrift(proto.canAddPages, *thrift.canAddPages_ref());
+  toThrift(proto.totalBufferedBytes, *thrift.totalBufferedBytes_ref());
+  toThrift(proto.totalBufferedPages, *thrift.totalBufferedPages_ref());
+  toThrift(proto.totalRowsSent, *thrift.totalRowsSent_ref());
+  toThrift(proto.totalPagesSent, *thrift.totalPagesSent_ref());
+}
+void fromThrift(
+    const OutputBufferInfo& thrift,
+    facebook::presto::protocol::OutputBufferInfo& proto) {
+  fromThrift(*thrift.type_ref(), proto.type);
+  fromThrift(*thrift.state_ref(), proto.state);
+  fromThrift(*thrift.buffers_ref(), proto.buffers);
+  fromThrift(*thrift.canAddBuffers_ref(), proto.canAddBuffers);
+  fromThrift(*thrift.canAddPages_ref(), proto.canAddPages);
+  fromThrift(*thrift.totalBufferedBytes_ref(), proto.totalBufferedBytes);
+  fromThrift(*thrift.totalBufferedPages_ref(), proto.totalBufferedPages);
+  fromThrift(*thrift.totalRowsSent_ref(), proto.totalRowsSent);
+  fromThrift(*thrift.totalPagesSent_ref(), proto.totalPagesSent);
+}
+
+void toThrift(
+    const facebook::presto::protocol::BufferInfo& proto,
+    BufferInfo& thrift) {
+  toThrift(proto.bufferId, *thrift.bufferId_ref());
+  toThrift(proto.finished, *thrift.finished_ref());
+  toThrift(proto.bufferedPages, *thrift.bufferedPages_ref());
+  toThrift(proto.pagesSent, *thrift.pagesSent_ref());
+  toThrift(proto.pageBufferInfo, *thrift.pageBufferInfo_ref());
+}
+void fromThrift(
+    const BufferInfo& thrift,
+    facebook::presto::protocol::BufferInfo& proto) {
+  fromThrift(*thrift.bufferId_ref(), proto.bufferId);
+  fromThrift(*thrift.finished_ref(), proto.finished);
+  fromThrift(*thrift.bufferedPages_ref(), proto.bufferedPages);
+  fromThrift(*thrift.pagesSent_ref(), proto.pagesSent);
+  fromThrift(*thrift.pageBufferInfo_ref(), proto.pageBufferInfo);
+}
+
+void toThrift(
+    const facebook::presto::protocol::TaskStats& proto,
+    TaskStats& thrift) {
+  toThrift(proto.createTimeInMillis, *thrift.createTimeInMillis_ref());
+  toThrift(proto.firstStartTimeInMillis, *thrift.firstStartTimeInMillis_ref());
+  toThrift(proto.lastStartTimeInMillis, *thrift.lastStartTimeInMillis_ref());
+  toThrift(proto.lastEndTimeInMillis, *thrift.lastEndTimeInMillis_ref());
+  toThrift(proto.endTimeInMillis, *thrift.endTimeInMillis_ref());
+  toThrift(proto.elapsedTimeInNanos, *thrift.elapsedTimeInNanos_ref());
+  toThrift(proto.queuedTimeInNanos, *thrift.queuedTimeInNanos_ref());
+  toThrift(proto.totalDrivers, *thrift.totalDrivers_ref());
+  toThrift(proto.queuedDrivers, *thrift.queuedDrivers_ref());
+  toThrift(proto.runningDrivers, *thrift.runningDrivers_ref());
+  toThrift(proto.blockedDrivers, *thrift.blockedDrivers_ref());
+  toThrift(proto.completedDrivers, *thrift.completedDrivers_ref());
+  toThrift(proto.cumulativeUserMemory, *thrift.cumulativeUserMemory_ref());
+  toThrift(proto.cumulativeTotalMemory, *thrift.cumulativeTotalMemory_ref());
+  toThrift(
+      proto.userMemoryReservationInBytes,
+      *thrift.userMemoryReservationInBytes_ref());
+  toThrift(
+      proto.revocableMemoryReservationInBytes,
+      *thrift.revocableMemoryReservationInBytes_ref());
+  toThrift(
+      proto.systemMemoryReservationInBytes,
+      *thrift.systemMemoryReservationInBytes_ref());
+  toThrift(proto.peakUserMemoryInBytes, *thrift.peakUserMemoryInBytes_ref());
+  toThrift(proto.peakTotalMemoryInBytes, *thrift.peakTotalMemoryInBytes_ref());
+  toThrift(
+      proto.peakNodeTotalMemoryInBytes,
+      *thrift.peakNodeTotalMemoryInBytes_ref());
+  toThrift(
+      proto.totalScheduledTimeInNanos, *thrift.totalScheduledTimeInNanos_ref());
+  toThrift(proto.totalCpuTimeInNanos, *thrift.totalCpuTimeInNanos_ref());
+  toThrift(
+      proto.totalBlockedTimeInNanos, *thrift.totalBlockedTimeInNanos_ref());
+  toThrift(proto.fullyBlocked, *thrift.fullyBlocked_ref());
+  toThrift(proto.blockedReasons, *thrift.blockedReasons_ref());
+  toThrift(proto.totalAllocationInBytes, *thrift.totalAllocationInBytes_ref());
+  toThrift(
+      proto.rawInputDataSizeInBytes, *thrift.rawInputDataSizeInBytes_ref());
+  toThrift(proto.rawInputPositions, *thrift.rawInputPositions_ref());
+  toThrift(
+      proto.processedInputDataSizeInBytes,
+      *thrift.processedInputDataSizeInBytes_ref());
+  toThrift(
+      proto.processedInputPositions, *thrift.processedInputPositions_ref());
+  toThrift(proto.outputDataSizeInBytes, *thrift.outputDataSizeInBytes_ref());
+  toThrift(proto.outputPositions, *thrift.outputPositions_ref());
+  toThrift(
+      proto.physicalWrittenDataSizeInBytes,
+      *thrift.physicalWrittenDataSizeInBytes_ref());
+  toThrift(proto.pipelines, *thrift.pipelines_ref());
+  toThrift(
+      proto.queuedPartitionedDrivers, *thrift.queuedPartitionedDrivers_ref());
+  toThrift(
+      proto.queuedPartitionedSplitsWeight,
+      *thrift.queuedPartitionedSplitsWeight_ref());
+  toThrift(
+      proto.runningPartitionedDrivers, *thrift.runningPartitionedDrivers_ref());
+  toThrift(
+      proto.runningPartitionedSplitsWeight,
+      *thrift.runningPartitionedSplitsWeight_ref());
+  toThrift(proto.fullGcCount, *thrift.fullGcCount_ref());
+  toThrift(proto.fullGcTimeInMillis, *thrift.fullGcTimeInMillis_ref());
+  toThrift(proto.runtimeStats, *thrift.runtimeStats_ref());
+}
+void fromThrift(
+    const TaskStats& thrift,
+    facebook::presto::protocol::TaskStats& proto) {
+  fromThrift(*thrift.createTimeInMillis_ref(), proto.createTimeInMillis);
+  fromThrift(
+      *thrift.firstStartTimeInMillis_ref(), proto.firstStartTimeInMillis);
+  fromThrift(*thrift.lastStartTimeInMillis_ref(), proto.lastStartTimeInMillis);
+  fromThrift(*thrift.lastEndTimeInMillis_ref(), proto.lastEndTimeInMillis);
+  fromThrift(*thrift.endTimeInMillis_ref(), proto.endTimeInMillis);
+  fromThrift(*thrift.elapsedTimeInNanos_ref(), proto.elapsedTimeInNanos);
+  fromThrift(*thrift.queuedTimeInNanos_ref(), proto.queuedTimeInNanos);
+  fromThrift(*thrift.totalDrivers_ref(), proto.totalDrivers);
+  fromThrift(*thrift.queuedDrivers_ref(), proto.queuedDrivers);
+  fromThrift(*thrift.runningDrivers_ref(), proto.runningDrivers);
+  fromThrift(*thrift.blockedDrivers_ref(), proto.blockedDrivers);
+  fromThrift(*thrift.completedDrivers_ref(), proto.completedDrivers);
+  fromThrift(*thrift.cumulativeUserMemory_ref(), proto.cumulativeUserMemory);
+  fromThrift(*thrift.cumulativeTotalMemory_ref(), proto.cumulativeTotalMemory);
+  fromThrift(
+      *thrift.userMemoryReservationInBytes_ref(),
+      proto.userMemoryReservationInBytes);
+  fromThrift(
+      *thrift.revocableMemoryReservationInBytes_ref(),
+      proto.revocableMemoryReservationInBytes);
+  fromThrift(
+      *thrift.systemMemoryReservationInBytes_ref(),
+      proto.systemMemoryReservationInBytes);
+  fromThrift(*thrift.peakUserMemoryInBytes_ref(), proto.peakUserMemoryInBytes);
+  fromThrift(
+      *thrift.peakTotalMemoryInBytes_ref(), proto.peakTotalMemoryInBytes);
+  fromThrift(
+      *thrift.peakNodeTotalMemoryInBytes_ref(),
+      proto.peakNodeTotalMemoryInBytes);
+  fromThrift(
+      *thrift.totalScheduledTimeInNanos_ref(), proto.totalScheduledTimeInNanos);
+  fromThrift(*thrift.totalCpuTimeInNanos_ref(), proto.totalCpuTimeInNanos);
+  fromThrift(
+      *thrift.totalBlockedTimeInNanos_ref(), proto.totalBlockedTimeInNanos);
+  fromThrift(*thrift.fullyBlocked_ref(), proto.fullyBlocked);
+  fromThrift(*thrift.blockedReasons_ref(), proto.blockedReasons);
+  fromThrift(
+      *thrift.totalAllocationInBytes_ref(), proto.totalAllocationInBytes);
+  fromThrift(
+      *thrift.rawInputDataSizeInBytes_ref(), proto.rawInputDataSizeInBytes);
+  fromThrift(*thrift.rawInputPositions_ref(), proto.rawInputPositions);
+  fromThrift(
+      *thrift.processedInputDataSizeInBytes_ref(),
+      proto.processedInputDataSizeInBytes);
+  fromThrift(
+      *thrift.processedInputPositions_ref(), proto.processedInputPositions);
+  fromThrift(*thrift.outputDataSizeInBytes_ref(), proto.outputDataSizeInBytes);
+  fromThrift(*thrift.outputPositions_ref(), proto.outputPositions);
+  fromThrift(
+      *thrift.physicalWrittenDataSizeInBytes_ref(),
+      proto.physicalWrittenDataSizeInBytes);
+  fromThrift(*thrift.pipelines_ref(), proto.pipelines);
+  fromThrift(
+      *thrift.queuedPartitionedDrivers_ref(), proto.queuedPartitionedDrivers);
+  fromThrift(
+      *thrift.queuedPartitionedSplitsWeight_ref(),
+      proto.queuedPartitionedSplitsWeight);
+  fromThrift(
+      *thrift.runningPartitionedDrivers_ref(), proto.runningPartitionedDrivers);
+  fromThrift(
+      *thrift.runningPartitionedSplitsWeight_ref(),
+      proto.runningPartitionedSplitsWeight);
+  fromThrift(*thrift.fullGcCount_ref(), proto.fullGcCount);
+  fromThrift(*thrift.fullGcTimeInMillis_ref(), proto.fullGcTimeInMillis);
+  fromThrift(*thrift.runtimeStats_ref(), proto.runtimeStats);
+}
+
+void toThrift(
+    const facebook::presto::protocol::PipelineStats& proto,
+    PipelineStats& thrift) {
+  toThrift(proto.pipelineId, *thrift.pipelineId_ref());
+  toThrift(proto.firstStartTimeInMillis, *thrift.firstStartTimeInMillis_ref());
+  toThrift(proto.lastStartTimeInMillis, *thrift.lastStartTimeInMillis_ref());
+  toThrift(proto.lastEndTimeInMillis, *thrift.lastEndTimeInMillis_ref());
+  toThrift(proto.inputPipeline, *thrift.inputPipeline_ref());
+  toThrift(proto.outputPipeline, *thrift.outputPipeline_ref());
+  toThrift(proto.totalDrivers, *thrift.totalDrivers_ref());
+  toThrift(proto.queuedDrivers, *thrift.queuedDrivers_ref());
+  toThrift(
+      proto.queuedPartitionedDrivers, *thrift.queuedPartitionedDrivers_ref());
+  toThrift(
+      proto.queuedPartitionedSplitsWeight,
+      *thrift.queuedPartitionedSplitsWeight_ref());
+  toThrift(proto.runningDrivers, *thrift.runningDrivers_ref());
+  toThrift(
+      proto.runningPartitionedDrivers, *thrift.runningPartitionedDrivers_ref());
+  toThrift(
+      proto.runningPartitionedSplitsWeight,
+      *thrift.runningPartitionedSplitsWeight_ref());
+  toThrift(proto.blockedDrivers, *thrift.blockedDrivers_ref());
+  toThrift(proto.completedDrivers, *thrift.completedDrivers_ref());
+  toThrift(
+      proto.userMemoryReservationInBytes,
+      *thrift.userMemoryReservationInBytes_ref());
+  toThrift(
+      proto.revocableMemoryReservationInBytes,
+      *thrift.revocableMemoryReservationInBytes_ref());
+  toThrift(
+      proto.systemMemoryReservationInBytes,
+      *thrift.systemMemoryReservationInBytes_ref());
+  toThrift(proto.queuedTime, *thrift.queuedTime_ref());
+  toThrift(proto.elapsedTime, *thrift.elapsedTime_ref());
+  toThrift(
+      proto.totalScheduledTimeInNanos, *thrift.totalScheduledTimeInNanos_ref());
+  toThrift(proto.totalCpuTimeInNanos, *thrift.totalCpuTimeInNanos_ref());
+  toThrift(
+      proto.totalBlockedTimeInNanos, *thrift.totalBlockedTimeInNanos_ref());
+  toThrift(proto.fullyBlocked, *thrift.fullyBlocked_ref());
+  toThrift(proto.blockedReasons, *thrift.blockedReasons_ref());
+  toThrift(proto.totalAllocationInBytes, *thrift.totalAllocationInBytes_ref());
+  toThrift(
+      proto.rawInputDataSizeInBytes, *thrift.rawInputDataSizeInBytes_ref());
+  toThrift(proto.rawInputPositions, *thrift.rawInputPositions_ref());
+  toThrift(
+      proto.processedInputDataSizeInBytes,
+      *thrift.processedInputDataSizeInBytes_ref());
+  toThrift(
+      proto.processedInputPositions, *thrift.processedInputPositions_ref());
+  toThrift(proto.outputDataSizeInBytes, *thrift.outputDataSizeInBytes_ref());
+  toThrift(proto.outputPositions, *thrift.outputPositions_ref());
+  toThrift(
+      proto.physicalWrittenDataSizeInBytes,
+      *thrift.physicalWrittenDataSizeInBytes_ref());
+  toThrift(proto.operatorSummaries, *thrift.operatorSummaries_ref());
+  toThrift(proto.drivers, *thrift.drivers_ref());
+}
+void fromThrift(
+    const PipelineStats& thrift,
+    facebook::presto::protocol::PipelineStats& proto) {
+  fromThrift(*thrift.pipelineId_ref(), proto.pipelineId);
+  fromThrift(
+      *thrift.firstStartTimeInMillis_ref(), proto.firstStartTimeInMillis);
+  fromThrift(*thrift.lastStartTimeInMillis_ref(), proto.lastStartTimeInMillis);
+  fromThrift(*thrift.lastEndTimeInMillis_ref(), proto.lastEndTimeInMillis);
+  fromThrift(*thrift.inputPipeline_ref(), proto.inputPipeline);
+  fromThrift(*thrift.outputPipeline_ref(), proto.outputPipeline);
+  fromThrift(*thrift.totalDrivers_ref(), proto.totalDrivers);
+  fromThrift(*thrift.queuedDrivers_ref(), proto.queuedDrivers);
+  fromThrift(
+      *thrift.queuedPartitionedDrivers_ref(), proto.queuedPartitionedDrivers);
+  fromThrift(
+      *thrift.queuedPartitionedSplitsWeight_ref(),
+      proto.queuedPartitionedSplitsWeight);
+  fromThrift(*thrift.runningDrivers_ref(), proto.runningDrivers);
+  fromThrift(
+      *thrift.runningPartitionedDrivers_ref(), proto.runningPartitionedDrivers);
+  fromThrift(
+      *thrift.runningPartitionedSplitsWeight_ref(),
+      proto.runningPartitionedSplitsWeight);
+  fromThrift(*thrift.blockedDrivers_ref(), proto.blockedDrivers);
+  fromThrift(*thrift.completedDrivers_ref(), proto.completedDrivers);
+  fromThrift(
+      *thrift.userMemoryReservationInBytes_ref(),
+      proto.userMemoryReservationInBytes);
+  fromThrift(
+      *thrift.revocableMemoryReservationInBytes_ref(),
+      proto.revocableMemoryReservationInBytes);
+  fromThrift(
+      *thrift.systemMemoryReservationInBytes_ref(),
+      proto.systemMemoryReservationInBytes);
+  fromThrift(*thrift.queuedTime_ref(), proto.queuedTime);
+  fromThrift(*thrift.elapsedTime_ref(), proto.elapsedTime);
+  fromThrift(
+      *thrift.totalScheduledTimeInNanos_ref(), proto.totalScheduledTimeInNanos);
+  fromThrift(*thrift.totalCpuTimeInNanos_ref(), proto.totalCpuTimeInNanos);
+  fromThrift(
+      *thrift.totalBlockedTimeInNanos_ref(), proto.totalBlockedTimeInNanos);
+  fromThrift(*thrift.fullyBlocked_ref(), proto.fullyBlocked);
+  fromThrift(*thrift.blockedReasons_ref(), proto.blockedReasons);
+  fromThrift(
+      *thrift.totalAllocationInBytes_ref(), proto.totalAllocationInBytes);
+  fromThrift(
+      *thrift.rawInputDataSizeInBytes_ref(), proto.rawInputDataSizeInBytes);
+  fromThrift(*thrift.rawInputPositions_ref(), proto.rawInputPositions);
+  fromThrift(
+      *thrift.processedInputDataSizeInBytes_ref(),
+      proto.processedInputDataSizeInBytes);
+  fromThrift(
+      *thrift.processedInputPositions_ref(), proto.processedInputPositions);
+  fromThrift(*thrift.outputDataSizeInBytes_ref(), proto.outputDataSizeInBytes);
+  fromThrift(*thrift.outputPositions_ref(), proto.outputPositions);
+  fromThrift(
+      *thrift.physicalWrittenDataSizeInBytes_ref(),
+      proto.physicalWrittenDataSizeInBytes);
+  fromThrift(*thrift.operatorSummaries_ref(), proto.operatorSummaries);
+  fromThrift(*thrift.drivers_ref(), proto.drivers);
+}
+
+void toThrift(
+    const facebook::presto::protocol::RuntimeMetric& proto,
+    RuntimeMetric& thrift) {
+  toThrift(proto.name, *thrift.name_ref());
+  toThrift(proto.sum, *thrift.sum_ref());
+  toThrift(proto.count, *thrift.count_ref());
+  toThrift(proto.max, *thrift.max_ref());
+  toThrift(proto.min, *thrift.min_ref());
+  toThrift(proto.unit, *thrift.unit_ref());
+}
+void fromThrift(
+    const RuntimeMetric& thrift,
+    facebook::presto::protocol::RuntimeMetric& proto) {
+  fromThrift(*thrift.name_ref(), proto.name);
+  fromThrift(*thrift.sum_ref(), proto.sum);
+  fromThrift(*thrift.count_ref(), proto.count);
+  fromThrift(*thrift.max_ref(), proto.max);
+  fromThrift(*thrift.min_ref(), proto.min);
+  fromThrift(*thrift.unit_ref(), proto.unit);
+}
+
+void toThrift(
+    const facebook::presto::protocol::SessionRepresentation& proto,
+    SessionRepresentation& thrift) {
+  toThrift(proto.queryId, *thrift.queryId_ref());
+  toThrift(proto.transactionId, thrift.transactionId_ref());
+  toThrift(
+      proto.clientTransactionSupport, *thrift.clientTransactionSupport_ref());
+  toThrift(proto.user, *thrift.user_ref());
+  toThrift(proto.principal, thrift.principal_ref());
+  toThrift(proto.source, thrift.source_ref());
+  toThrift(proto.catalog, thrift.catalog_ref());
+  toThrift(proto.schema, thrift.schema_ref());
+  toThrift(proto.traceToken, thrift.traceToken_ref());
+  toThrift(proto.timeZoneKey, *thrift.timeZoneKey_ref());
+  toThrift(proto.locale, *thrift.locale_ref());
+  toThrift(proto.remoteUserAddress, thrift.remoteUserAddress_ref());
+  toThrift(proto.userAgent, thrift.userAgent_ref());
+  toThrift(proto.clientInfo, thrift.clientInfo_ref());
+  toThrift(proto.clientTags, *thrift.clientTags_ref());
+  toThrift(proto.resourceEstimates, *thrift.resourceEstimates_ref());
+  toThrift(proto.startTime, *thrift.startTime_ref());
+  toThrift(proto.systemProperties, *thrift.systemProperties_ref());
+  toThrift(proto.catalogProperties, *thrift.catalogProperties_ref());
+  toThrift(
+      proto.unprocessedCatalogProperties,
+      *thrift.unprocessedCatalogProperties_ref());
+  toThrift(proto.roles, *thrift.roles_ref());
+  toThrift(proto.preparedStatements, *thrift.preparedStatements_ref());
+  toThrift(proto.sessionFunctions, *thrift.sessionFunctions_ref());
+}
+void fromThrift(
+    const SessionRepresentation& thrift,
+    facebook::presto::protocol::SessionRepresentation& proto) {
+  fromThrift(*thrift.queryId_ref(), proto.queryId);
+  fromThrift(thrift.transactionId_ref(), proto.transactionId);
+  fromThrift(
+      *thrift.clientTransactionSupport_ref(), proto.clientTransactionSupport);
+  fromThrift(*thrift.user_ref(), proto.user);
+  fromThrift(thrift.principal_ref(), proto.principal);
+  fromThrift(thrift.source_ref(), proto.source);
+  fromThrift(thrift.catalog_ref(), proto.catalog);
+  fromThrift(thrift.schema_ref(), proto.schema);
+  fromThrift(thrift.traceToken_ref(), proto.traceToken);
+  fromThrift(*thrift.timeZoneKey_ref(), proto.timeZoneKey);
+  fromThrift(*thrift.locale_ref(), proto.locale);
+  fromThrift(thrift.remoteUserAddress_ref(), proto.remoteUserAddress);
+  fromThrift(thrift.userAgent_ref(), proto.userAgent);
+  fromThrift(thrift.clientInfo_ref(), proto.clientInfo);
+  fromThrift(*thrift.clientTags_ref(), proto.clientTags);
+  fromThrift(*thrift.resourceEstimates_ref(), proto.resourceEstimates);
+  fromThrift(*thrift.startTime_ref(), proto.startTime);
+  fromThrift(*thrift.systemProperties_ref(), proto.systemProperties);
+  fromThrift(*thrift.catalogProperties_ref(), proto.catalogProperties);
+  fromThrift(
+      *thrift.unprocessedCatalogProperties_ref(),
+      proto.unprocessedCatalogProperties);
+  fromThrift(*thrift.roles_ref(), proto.roles);
+  fromThrift(*thrift.preparedStatements_ref(), proto.preparedStatements);
+  fromThrift(*thrift.sessionFunctions_ref(), proto.sessionFunctions);
+}
+
+void toThrift(
+    const facebook::presto::protocol::SelectedRole& proto,
+    SelectedRole& thrift) {
+  toThrift(proto.type, *thrift.type_ref());
+  toThrift(proto.role, thrift.role_ref());
+}
+void fromThrift(
+    const SelectedRole& thrift,
+    facebook::presto::protocol::SelectedRole& proto) {
+  fromThrift(*thrift.type_ref(), proto.type);
+  fromThrift(thrift.role_ref(), proto.role);
+}
+
+void toThrift(
+    const facebook::presto::protocol::Parameter& proto,
+    Parameter& thrift) {
+  toThrift(proto.name, *thrift.name_ref());
+  toThrift(proto.type, *thrift.type_ref());
+}
+void fromThrift(
+    const Parameter& thrift,
+    facebook::presto::protocol::Parameter& proto) {
+  fromThrift(*thrift.name_ref(), proto.name);
+  fromThrift(*thrift.type_ref(), proto.type);
+}
+
+void toThrift(
+    const facebook::presto::protocol::RoutineCharacteristics& proto,
+    RoutineCharacteristics& thrift) {
+  toThrift(proto.language, *thrift.language_ref());
+  toThrift(proto.determinism, *thrift.determinism_ref());
+  toThrift(proto.nullCallClause, *thrift.nullCallClause_ref());
+}
+void fromThrift(
+    const RoutineCharacteristics& thrift,
+    facebook::presto::protocol::RoutineCharacteristics& proto) {
+  fromThrift(*thrift.language_ref(), proto.language);
+  fromThrift(*thrift.determinism_ref(), proto.determinism);
+  fromThrift(*thrift.nullCallClause_ref(), proto.nullCallClause);
+}
+
+void toThrift(
+    const facebook::presto::protocol::Signature& proto,
+    Signature& thrift) {
+  toThrift(proto.name, *thrift.name_ref());
+  toThrift(proto.kind, *thrift.kind_ref());
+  toThrift(proto.returnType, *thrift.returnType_ref());
+  toThrift(proto.argumentTypes, *thrift.argumentTypes_ref());
+  toThrift(proto.variableArity, *thrift.variableArity_ref());
+  toThrift(
+      proto.typeVariableConstraints, *thrift.typeVariableConstraints_ref());
+  toThrift(
+      proto.longVariableConstraints, *thrift.longVariableConstraints_ref());
+}
+void fromThrift(
+    const Signature& thrift,
+    facebook::presto::protocol::Signature& proto) {
+  fromThrift(*thrift.name_ref(), proto.name);
+  fromThrift(*thrift.kind_ref(), proto.kind);
+  fromThrift(*thrift.returnType_ref(), proto.returnType);
+  fromThrift(*thrift.argumentTypes_ref(), proto.argumentTypes);
+  fromThrift(*thrift.variableArity_ref(), proto.variableArity);
+  fromThrift(
+      *thrift.typeVariableConstraints_ref(), proto.typeVariableConstraints);
+  fromThrift(
+      *thrift.longVariableConstraints_ref(), proto.longVariableConstraints);
+}
+
+void toThrift(
+    const facebook::presto::protocol::OutputBuffers& proto,
+    OutputBuffers& thrift) {
+  toThrift(proto.type, *thrift.type_ref());
+  toThrift(proto.version, *thrift.version_ref());
+  toThrift(proto.noMoreBufferIds, *thrift.noMoreBufferIds_ref());
+  toThrift(proto.buffers, *thrift.buffers_ref());
+}
+void fromThrift(
+    const OutputBuffers& thrift,
+    facebook::presto::protocol::OutputBuffers& proto) {
+  fromThrift(*thrift.type_ref(), proto.type);
+  fromThrift(*thrift.version_ref(), proto.version);
+  fromThrift(*thrift.noMoreBufferIds_ref(), proto.noMoreBufferIds);
+  fromThrift(*thrift.buffers_ref(), proto.buffers);
+}
+
+void toThrift(
+    const facebook::presto::protocol::TaskUpdateRequest& proto,
+    TaskUpdateRequest& thrift) {
+  toThrift(proto.session, *thrift.session_ref());
+  toThrift(proto.extraCredentials, *thrift.extraCredentials_ref());
+  toThrift(proto.fragment, thrift.fragment_ref());
+  toThrift(proto.sources, *thrift.sources_ref());
+  toThrift(proto.outputIds, *thrift.outputIds_ref());
+  toThrift(proto.tableWriteInfo, thrift.tableWriteInfo_ref());
+}
+void fromThrift(
+    const TaskUpdateRequest& thrift,
+    facebook::presto::protocol::TaskUpdateRequest& proto) {
+  fromThrift(*thrift.session_ref(), proto.session);
+  fromThrift(*thrift.extraCredentials_ref(), proto.extraCredentials);
+  fromThrift(thrift.fragment_ref(), proto.fragment);
+  fromThrift(*thrift.sources_ref(), proto.sources);
+  fromThrift(*thrift.outputIds_ref(), proto.outputIds);
+  fromThrift(thrift.tableWriteInfo_ref(), proto.tableWriteInfo);
+}
+
+void toThrift(
+    const facebook::presto::protocol::ExecutionFailureInfo& proto,
+    ExecutionFailureInfo& thrift) {
+  toThrift(proto.type, *thrift.type_ref());
+  toThrift(proto.message, *thrift.message_ref());
+  toThrift(proto.cause, thrift.cause_ref());
+  toThrift(proto.suppressed, *thrift.suppressed_ref());
+  toThrift(proto.stack, *thrift.stack_ref());
+  toThrift(proto.errorLocation, *thrift.errorLocation_ref());
+  toThrift(proto.errorCode, *thrift.errorCode_ref());
+  toThrift(proto.remoteHost, *thrift.remoteHost_ref());
+  toThrift(proto.errorCause, *thrift.errorCause_ref());
+}
+void fromThrift(
+    const ExecutionFailureInfo& thrift,
+    facebook::presto::protocol::ExecutionFailureInfo& proto) {
+  fromThrift(*thrift.type_ref(), proto.type);
+  fromThrift(*thrift.message_ref(), proto.message);
+  fromThrift(thrift.cause_ref(), proto.cause);
+  fromThrift(*thrift.suppressed_ref(), proto.suppressed);
+  fromThrift(*thrift.stack_ref(), proto.stack);
+  fromThrift(*thrift.errorLocation_ref(), proto.errorLocation);
+  fromThrift(*thrift.errorCode_ref(), proto.errorCode);
+  fromThrift(*thrift.remoteHost_ref(), proto.remoteHost);
+  fromThrift(*thrift.errorCause_ref(), proto.errorCause);
+}
+
+void toThrift(const facebook::presto::protocol::TaskId& proto, TaskId& thrift) {
+  std::vector<std::string> parts;
+  folly::split(".", proto, parts);
+  if (parts.size() == 5) {
+    thrift.stageExecutionId_ref()->stageId_ref()->queryId_ref() = parts[0];
+    thrift.stageExecutionId_ref()->stageId_ref()->id_ref() =
+        std::stoi(parts[1]);
+    thrift.stageExecutionId_ref()->id_ref() = std::stoi(parts[2]);
+    thrift.id_ref() = std::stoi(parts[3]);
+    thrift.attemptNumber_ref() = std::stoi(parts[4]);
   }
+}
+void fromThrift(
+    const TaskId& thrift,
+    facebook::presto::protocol::TaskId& proto) {
+  std::string taskIdStr =
+      *thrift.stageExecutionId_ref()->stageId_ref()->queryId_ref() + "." +
+      std::to_string(*thrift.stageExecutionId_ref()->stageId_ref()->id_ref()) +
+      "." + std::to_string(*thrift.stageExecutionId_ref()->id_ref()) + "." +
+      std::to_string(*thrift.id_ref()) + "." +
+      std::to_string(*thrift.attemptNumber_ref());
+  fromThrift(taskIdStr, proto);
+}
+void toThrift(
+    const facebook::presto::protocol::OperatorInfo& proto,
+    OperatorInfoUnion& thrift) {}
+void fromThrift(
+    const OperatorInfoUnion& thrift,
+    facebook::presto::protocol::OperatorInfo& proto) {}
+void toThrift(
+    const facebook::presto::protocol::SqlInvokedFunction& proto,
+    SqlInvokedFunction& thrift) {
+  toThrift(proto.parameters, *thrift.parameters_ref());
+  toThrift(proto.description, *thrift.description_ref());
+  toThrift(proto.routineCharacteristics, *thrift.routineCharacteristics_ref());
+  toThrift(proto.body, *thrift.body_ref());
+  toThrift(proto.variableArity, *thrift.variableArity_ref());
+  toThrift(proto.signature, *thrift.signature_ref());
+  toThrift(proto.functionId, *thrift.functionId_ref());
+}
+void fromThrift(
+    const SqlInvokedFunction& thrift,
+    facebook::presto::protocol::SqlInvokedFunction& proto) {
+  fromThrift(*thrift.parameters_ref(), proto.parameters);
+  fromThrift(*thrift.description_ref(), proto.description);
+  fromThrift(
+      *thrift.routineCharacteristics_ref(), proto.routineCharacteristics);
+  fromThrift(*thrift.body_ref(), proto.body);
+  fromThrift(*thrift.variableArity_ref(), proto.variableArity);
+  fromThrift(*thrift.signature_ref(), proto.signature);
+  fromThrift(*thrift.functionId_ref(), proto.functionId);
+}
 
-  void fromThrift(const thrift::QualifiedObjectName& thriftQualifiedObjectName, facebook::presto::protocol::QualifiedObjectName& qualifiedObjectName) {
-    std::string qualifiedObjectNameStr = 
-      *thriftQualifiedObjectName.catalogName_ref() + "." + 
-      *thriftQualifiedObjectName.schemaName_ref() + "." + 
-      *thriftQualifiedObjectName.objectName_ref();
-    fromThrift(qualifiedObjectNameStr, qualifiedObjectName);
-  }
+void toThrift(
+    const facebook::presto::protocol::TaskInfo& proto,
+    TaskInfo& thrift) {
+  toThrift(proto.taskId, *thrift.taskId_ref());
+  toThrift(proto.taskStatus, *thrift.taskStatus_ref());
+  toThrift(proto.lastHeartbeatInMillis, *thrift.lastHeartbeatInMillis_ref());
+  toThrift(proto.outputBuffers, *thrift.outputBuffers_ref());
+  toThrift(proto.noMoreSplits, *thrift.noMoreSplits_ref());
+  toThrift(proto.stats, *thrift.stats_ref());
+  toThrift(proto.needsPlan, *thrift.needsPlan_ref());
+  toThrift(proto.metadataUpdates, *thrift.metadataUpdates_ref());
+  toThrift(proto.nodeId, *thrift.nodeId_ref());
+}
+void fromThrift(
+    const TaskInfo& thrift,
+    facebook::presto::protocol::TaskInfo& proto) {
+  fromThrift(*thrift.taskId_ref(), proto.taskId);
+  fromThrift(*thrift.taskStatus_ref(), proto.taskStatus);
+  fromThrift(*thrift.lastHeartbeatInMillis_ref(), proto.lastHeartbeatInMillis);
+  fromThrift(*thrift.outputBuffers_ref(), proto.outputBuffers);
+  fromThrift(*thrift.noMoreSplits_ref(), proto.noMoreSplits);
+  fromThrift(*thrift.stats_ref(), proto.stats);
+  fromThrift(*thrift.needsPlan_ref(), proto.needsPlan);
+  fromThrift(*thrift.metadataUpdates_ref(), proto.metadataUpdates);
+  fromThrift(*thrift.nodeId_ref(), proto.nodeId);
+}
 
-  void fromThrift(const thrift::SelectedRole& thriftSelectedRole, facebook::presto::protocol::SelectedRole& selectedRole) {
-    fromThrift(*thriftSelectedRole.type_ref(), selectedRole.type);
-    fromThrift(thriftSelectedRole.role_ref(), selectedRole.role);
-  }
+void toThrift(
+    const facebook::presto::protocol::OperatorStats& proto,
+    OperatorStats& thrift) {
+  toThrift(proto.stageId, *thrift.stageId_ref());
+  toThrift(proto.stageExecutionId, *thrift.stageExecutionId_ref());
+  toThrift(proto.pipelineId, *thrift.pipelineId_ref());
+  toThrift(proto.operatorId, *thrift.operatorId_ref());
+  toThrift(proto.planNodeId, *thrift.planNodeId_ref());
+  toThrift(proto.operatorType, *thrift.operatorType_ref());
+  toThrift(proto.totalDrivers, *thrift.totalDrivers_ref());
+  toThrift(proto.addInputCalls, *thrift.addInputCalls_ref());
+  toThrift(proto.addInputWall, *thrift.addInputWall_ref());
+  toThrift(proto.addInputCpu, *thrift.addInputCpu_ref());
+  toThrift(
+      proto.addInputAllocationInBytes, *thrift.addInputAllocationInBytes_ref());
+  toThrift(
+      proto.rawInputDataSizeInBytes, *thrift.rawInputDataSizeInBytes_ref());
+  toThrift(proto.rawInputPositions, *thrift.rawInputPositions_ref());
+  toThrift(proto.inputDataSizeInBytes, *thrift.inputDataSizeInBytes_ref());
+  toThrift(proto.inputPositions, *thrift.inputPositions_ref());
+  toThrift(
+      proto.sumSquaredInputPositions, *thrift.sumSquaredInputPositions_ref());
+  toThrift(proto.getOutputCalls, *thrift.getOutputCalls_ref());
+  toThrift(proto.getOutputWall, *thrift.getOutputWall_ref());
+  toThrift(proto.getOutputCpu, *thrift.getOutputCpu_ref());
+  toThrift(
+      proto.getOutputAllocationInBytes,
+      *thrift.getOutputAllocationInBytes_ref());
+  toThrift(proto.outputDataSizeInBytes, *thrift.outputDataSizeInBytes_ref());
+  toThrift(proto.outputPositions, *thrift.outputPositions_ref());
+  toThrift(
+      proto.physicalWrittenDataSizeInBytes,
+      *thrift.physicalWrittenDataSizeInBytes_ref());
+  toThrift(proto.additionalCpu, *thrift.additionalCpu_ref());
+  toThrift(proto.blockedWall, *thrift.blockedWall_ref());
+  toThrift(proto.finishCalls, *thrift.finishCalls_ref());
+  toThrift(proto.finishWall, *thrift.finishWall_ref());
+  toThrift(proto.finishCpu, *thrift.finishCpu_ref());
+  toThrift(
+      proto.finishAllocationInBytes, *thrift.finishAllocationInBytes_ref());
+  toThrift(
+      proto.userMemoryReservationInBytes,
+      *thrift.userMemoryReservationInBytes_ref());
+  toThrift(
+      proto.revocableMemoryReservationInBytes,
+      *thrift.revocableMemoryReservationInBytes_ref());
+  toThrift(
+      proto.systemMemoryReservationInBytes,
+      *thrift.systemMemoryReservationInBytes_ref());
+  toThrift(
+      proto.peakUserMemoryReservationInBytes,
+      *thrift.peakUserMemoryReservationInBytes_ref());
+  toThrift(
+      proto.peakSystemMemoryReservationInBytes,
+      *thrift.peakSystemMemoryReservationInBytes_ref());
+  toThrift(
+      proto.peakTotalMemoryReservationInBytes,
+      *thrift.peakTotalMemoryReservationInBytes_ref());
+  toThrift(proto.spilledDataSizeInBytes, *thrift.spilledDataSizeInBytes_ref());
+  toThrift(proto.runtimeStats, *thrift.runtimeStats_ref());
+  toThrift(proto.blockedReason, thrift.blockedReason_ref());
+  toThrift(proto.info, *thrift.infoUnion_ref());
+  toThrift(proto.nullJoinBuildKeyCount, *thrift.nullJoinBuildKeyCount_ref());
+  toThrift(proto.joinBuildKeyCount, *thrift.joinBuildKeyCount_ref());
+  toThrift(proto.nullJoinProbeKeyCount, *thrift.nullJoinProbeKeyCount_ref());
+  toThrift(proto.joinProbeKeyCount, *thrift.joinProbeKeyCount_ref());
+  toThrift(proto.dynamicFilterStats, *thrift.dynamicFilterStats_ref());
+  toThrift(proto.isBlockedCalls, *thrift.isBlockedCalls_ref());
+  toThrift(proto.isBlockedWall, *thrift.isBlockedWall_ref());
+  toThrift(proto.isBlockedCpu, *thrift.isBlockedCpu_ref());
+  toThrift(
+      proto.isBlockedAllocationInBytes,
+      *thrift.isBlockedAllocationInBytes_ref());
+}
+void fromThrift(
+    const OperatorStats& thrift,
+    facebook::presto::protocol::OperatorStats& proto) {
+  fromThrift(*thrift.stageId_ref(), proto.stageId);
+  fromThrift(*thrift.stageExecutionId_ref(), proto.stageExecutionId);
+  fromThrift(*thrift.pipelineId_ref(), proto.pipelineId);
+  fromThrift(*thrift.operatorId_ref(), proto.operatorId);
+  fromThrift(*thrift.planNodeId_ref(), proto.planNodeId);
+  fromThrift(*thrift.operatorType_ref(), proto.operatorType);
+  fromThrift(*thrift.totalDrivers_ref(), proto.totalDrivers);
+  fromThrift(*thrift.addInputCalls_ref(), proto.addInputCalls);
+  fromThrift(*thrift.addInputWall_ref(), proto.addInputWall);
+  fromThrift(*thrift.addInputCpu_ref(), proto.addInputCpu);
+  fromThrift(
+      *thrift.addInputAllocationInBytes_ref(), proto.addInputAllocationInBytes);
+  fromThrift(
+      *thrift.rawInputDataSizeInBytes_ref(), proto.rawInputDataSizeInBytes);
+  fromThrift(*thrift.rawInputPositions_ref(), proto.rawInputPositions);
+  fromThrift(*thrift.inputDataSizeInBytes_ref(), proto.inputDataSizeInBytes);
+  fromThrift(*thrift.inputPositions_ref(), proto.inputPositions);
+  fromThrift(
+      *thrift.sumSquaredInputPositions_ref(), proto.sumSquaredInputPositions);
+  fromThrift(*thrift.getOutputCalls_ref(), proto.getOutputCalls);
+  fromThrift(*thrift.getOutputWall_ref(), proto.getOutputWall);
+  fromThrift(*thrift.getOutputCpu_ref(), proto.getOutputCpu);
+  fromThrift(
+      *thrift.getOutputAllocationInBytes_ref(),
+      proto.getOutputAllocationInBytes);
+  fromThrift(*thrift.outputDataSizeInBytes_ref(), proto.outputDataSizeInBytes);
+  fromThrift(*thrift.outputPositions_ref(), proto.outputPositions);
+  fromThrift(
+      *thrift.physicalWrittenDataSizeInBytes_ref(),
+      proto.physicalWrittenDataSizeInBytes);
+  fromThrift(*thrift.additionalCpu_ref(), proto.additionalCpu);
+  fromThrift(*thrift.blockedWall_ref(), proto.blockedWall);
+  fromThrift(*thrift.finishCalls_ref(), proto.finishCalls);
+  fromThrift(*thrift.finishWall_ref(), proto.finishWall);
+  fromThrift(*thrift.finishCpu_ref(), proto.finishCpu);
+  fromThrift(
+      *thrift.finishAllocationInBytes_ref(), proto.finishAllocationInBytes);
+  fromThrift(
+      *thrift.userMemoryReservationInBytes_ref(),
+      proto.userMemoryReservationInBytes);
+  fromThrift(
+      *thrift.revocableMemoryReservationInBytes_ref(),
+      proto.revocableMemoryReservationInBytes);
+  fromThrift(
+      *thrift.systemMemoryReservationInBytes_ref(),
+      proto.systemMemoryReservationInBytes);
+  fromThrift(
+      *thrift.peakUserMemoryReservationInBytes_ref(),
+      proto.peakUserMemoryReservationInBytes);
+  fromThrift(
+      *thrift.peakSystemMemoryReservationInBytes_ref(),
+      proto.peakSystemMemoryReservationInBytes);
+  fromThrift(
+      *thrift.peakTotalMemoryReservationInBytes_ref(),
+      proto.peakTotalMemoryReservationInBytes);
+  fromThrift(
+      *thrift.spilledDataSizeInBytes_ref(), proto.spilledDataSizeInBytes);
+  fromThrift(*thrift.runtimeStats_ref(), proto.runtimeStats);
+  fromThrift(thrift.blockedReason_ref(), proto.blockedReason);
+  fromThrift(*thrift.infoUnion_ref(), proto.info);
+  fromThrift(*thrift.nullJoinBuildKeyCount_ref(), proto.nullJoinBuildKeyCount);
+  fromThrift(*thrift.joinBuildKeyCount_ref(), proto.joinBuildKeyCount);
+  fromThrift(*thrift.nullJoinProbeKeyCount_ref(), proto.nullJoinProbeKeyCount);
+  fromThrift(*thrift.joinProbeKeyCount_ref(), proto.joinProbeKeyCount);
+  fromThrift(*thrift.dynamicFilterStats_ref(), proto.dynamicFilterStats);
+  fromThrift(*thrift.isBlockedCalls_ref(), proto.isBlockedCalls);
+  fromThrift(*thrift.isBlockedWall_ref(), proto.isBlockedWall);
+  fromThrift(*thrift.isBlockedCpu_ref(), proto.isBlockedCpu);
+  fromThrift(
+      *thrift.isBlockedAllocationInBytes_ref(),
+      proto.isBlockedAllocationInBytes);
+}
 
-  void fromThrift(const thrift::TransactionId& thriftTransactionId, facebook::presto::protocol::TransactionId& transactionId) {
-    fromThrift(*thriftTransactionId.uuid_ref(), transactionId);
-  }
-
-  void fromThrift(const thrift::TimeZoneKey& thriftTimeZoneKey, facebook::presto::protocol::TimeZoneKey& timeZoneKey) {
-    fromThrift(*thriftTimeZoneKey.key_ref(), timeZoneKey);
-  }
-
-  void fromThrift(const thrift::ResourceEstimates& thriftResourceEstimates, facebook::presto::protocol::ResourceEstimates& resourceEstimates) {
-    fromThrift(thriftResourceEstimates.executionTime_ref(), resourceEstimates.executionTime);
-    fromThrift(thriftResourceEstimates.cpuTime_ref(), resourceEstimates.cpuTime);
-    fromThrift(thriftResourceEstimates.peakMemory_ref(), resourceEstimates.peakMemory);
-    fromThrift(thriftResourceEstimates.peakTaskMemory_ref(), resourceEstimates.peakTaskMemory);
-  }
-
-  void fromThrift(const thrift::TaskSource& thriftTaskSource, facebook::presto::protocol::TaskSource& taskSource) {
-    fromThrift(*thriftTaskSource.planNodeId_ref(), taskSource.planNodeId);
-    fromThrift(*thriftTaskSource.splits_ref(), taskSource.splits);
-    fromThrift(*thriftTaskSource.noMoreSplitsForLifespan_ref(), taskSource.noMoreSplitsForLifespan);
-    fromThrift(*thriftTaskSource.noMoreSplits_ref(), taskSource.noMoreSplits);
-  }
-
-  void fromThrift(const thrift::ScheduledSplit& thriftScheduledSplit, facebook::presto::protocol::ScheduledSplit& scheduledSplit) {
-    fromThrift(*thriftScheduledSplit.sequenceId_ref(), scheduledSplit.sequenceId);
-    fromThrift(*thriftScheduledSplit.planNodeId_ref(), scheduledSplit.planNodeId);
-    fromThrift(*thriftScheduledSplit.split_ref(), scheduledSplit.split);
-  }
-
-  void fromThrift(const thrift::OutputBuffers& thriftOutputBuffers, facebook::presto::protocol::OutputBuffers& outputBuffers) {
-    fromThrift(*thriftOutputBuffers.type_ref(), outputBuffers.type);
-    fromThrift(*thriftOutputBuffers.version_ref(), outputBuffers.version);
-    fromThrift(*thriftOutputBuffers.noMoreBufferIds_ref(), outputBuffers.noMoreBufferIds);
-    fromThrift(*thriftOutputBuffers.buffers_ref(), outputBuffers.buffers);
-  }
-
-  void fromThrift(const thrift::PlanNodeId& thriftPlanNodeId, facebook::presto::protocol::PlanNodeId& planNodeId) {
-    fromThrift(*thriftPlanNodeId.id_ref(), planNodeId);
-  }
-
-  void fromThrift(const thrift::Lifespan& thriftLifeSpan, facebook::presto::protocol::Lifespan& lifespan) {
-    fromThrift(*thriftLifeSpan.grouped_ref(), lifespan.isgroup);
-    fromThrift(*thriftLifeSpan.groupId_ref(), lifespan.groupid);
-  }
-
-  void fromThrift(const thrift::OutputBufferId& thriftOutputBufferId, facebook::presto::protocol::OutputBufferId& outputBufferId) {
-    fromThrift(std::to_string(*thriftOutputBufferId.id_ref()), outputBufferId);
-  }
-
-  void fromThrift(const thrift::SqlFunctionId& thriftSqlFunctionId, facebook::presto::protocol::SqlFunctionId& sqlFunctionId) {
-    fromThrift(*thriftSqlFunctionId.signature_ref(), sqlFunctionId);
-  }
-
-  void fromThrift(const thrift::RoutineCharacteristics& thriftRoutineCharacteristics, facebook::presto::protocol::RoutineCharacteristics& routineCharacteristics) {
-    fromThrift(*thriftRoutineCharacteristics.language_ref(), routineCharacteristics.language);
-    fromThrift(*thriftRoutineCharacteristics.determinism_ref(), routineCharacteristics.determinism);
-    fromThrift(*thriftRoutineCharacteristics.nullCallClause_ref(), routineCharacteristics.nullCallClause);
-  }
-
-  void fromThrift(const thrift::Parameter& thriftParameter, facebook::presto::protocol::Parameter& parameter) {
-    fromThrift(*thriftParameter.name_ref(), parameter.name);
-    fromThrift(*thriftParameter.type_ref(), parameter.type);
-  }
-
-  void fromThrift(const thrift::SqlInvokedFunction& thriftSqlInvokedFunction, facebook::presto::protocol::SqlInvokedFunction& sqlInvokedFunction) {
-    fromThrift(*thriftSqlInvokedFunction.parameters_ref(), sqlInvokedFunction.parameters);
-    fromThrift(*thriftSqlInvokedFunction.description_ref(), sqlInvokedFunction.description);
-    fromThrift(*thriftSqlInvokedFunction.routineCharacteristics_ref(), sqlInvokedFunction.routineCharacteristics);
-    fromThrift(*thriftSqlInvokedFunction.body_ref(), sqlInvokedFunction.body);
-    fromThrift(*thriftSqlInvokedFunction.signature_ref(), sqlInvokedFunction.signature);
-    fromThrift(*thriftSqlInvokedFunction.variableArity_ref(), sqlInvokedFunction.variableArity);
-    fromThrift(*thriftSqlInvokedFunction.functionId_ref(), sqlInvokedFunction.functionId);
-  }
-
-  void fromThrift(const thrift::Language& thriftLanguage, facebook::presto::protocol::Language& language) {
-    fromThrift(*thriftLanguage.language_ref(), language.language);
-  }
-
-  void fromThrift(const thrift::TypeVariableConstraint& thriftTypeVariableConstraint, facebook::presto::protocol::TypeVariableConstraint& typeVariableConstraint) {
-    fromThrift(*thriftTypeVariableConstraint.name_ref(), typeVariableConstraint.name);
-    fromThrift(*thriftTypeVariableConstraint.comparableRequired_ref(), typeVariableConstraint.comparableRequired);
-    fromThrift(*thriftTypeVariableConstraint.orderableRequired_ref(), typeVariableConstraint.orderableRequired);
-    fromThrift(*thriftTypeVariableConstraint.variadicBound_ref(), typeVariableConstraint.variadicBound);
-    fromThrift(*thriftTypeVariableConstraint.nonDecimalNumericRequired_ref(), typeVariableConstraint.nonDecimalNumericRequired);
-  }
-
-  void fromThrift(const thrift::LongVariableConstraint& thriftLongVariableConstraint, facebook::presto::protocol::LongVariableConstraint& longVariableConstraint) {
-    fromThrift(*thriftLongVariableConstraint.name_ref(), longVariableConstraint.name);
-    fromThrift(*thriftLongVariableConstraint.expression_ref(), longVariableConstraint.expression);
-  }
-
-  void fromThrift(const thrift::Signature& thriftSignature, facebook::presto::protocol::Signature& signature) {
-    fromThrift(*thriftSignature.name_ref(), signature.name);
-    fromThrift(*thriftSignature.kind_ref(), signature.kind);
-    fromThrift(*thriftSignature.returnType_ref(), signature.returnType);
-    fromThrift(*thriftSignature.argumentTypes_ref(), signature.argumentTypes);
-    fromThrift(*thriftSignature.variableArity_ref(), signature.variableArity);
-    fromThrift(*thriftSignature.typeVariableConstraints_ref(), signature.typeVariableConstraints);
-    fromThrift(*thriftSignature.longVariableConstraints_ref(), signature.longVariableConstraints);
-  }
-
-  void fromThrift(const thrift::TypeSignature& thriftTypeSignature, facebook::presto::protocol::TypeSignature& typeSignature) {
-    fromThrift(*thriftTypeSignature.signature(), typeSignature);
-  }
-
-  void fromThrift(const thrift::TableWriteInfoWrapper& thriftTableWriteInfoWrapper, facebook::presto::protocol::TableWriteInfo& tableWriteInfo) {
-    fromThrift(*thriftTableWriteInfoWrapper.tableWriteInfo_ref(), tableWriteInfo);
-  }
-
-  void fromThrift(const std::string& thriftTableWriteInfo, facebook::presto::protocol::TableWriteInfo& tableWriteInfo) {
-    json j = json::parse(thriftTableWriteInfo);
-    tableWriteInfo = j;
-  }
-
-  void fromThrift(const thrift::SplitWrapper& thriftSplitWrapper, facebook::presto::protocol::Split& split) {
-    fromThrift(*thriftSplitWrapper.split_ref(), split);
-  }
-
-  void fromThrift(const std::string& thriftSplit, facebook::presto::protocol::Split& split) {
-    json j = json::parse(thriftSplit);
-    split = j;
-  }
-
-} // namespace facebook::presto
+} // namespace facebook::presto::thrift
