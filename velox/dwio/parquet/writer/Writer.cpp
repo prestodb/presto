@@ -164,6 +164,9 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
     properties =
         properties->data_page_version(arrow::ParquetDataPageVersion::V1);
   }
+  if (options.createdBy.has_value()) {
+    properties = properties->created_by(options.createdBy.value());
+  }
   return properties->build();
 }
 
@@ -302,6 +305,15 @@ std::optional<int64_t> getParquetBatchSize(
     }
   } catch (const folly::ConversionError& e) {
     VELOX_USER_FAIL("Invalid parquet writer batch size: {}", e.what());
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string> getParquetCreatedBy(
+    const config::ConfigBase& config,
+    const char* configKey) {
+  if (config.get<std::string>(configKey).has_value()) {
+    return config.get<std::string>(configKey).value();
   }
   return std::nullopt;
 }
@@ -577,6 +589,11 @@ void WriterOptions::processConfigs(
         ? getParquetBatchSize(session, kParquetSessionWriteBatchSize)
         : getParquetBatchSize(
               connectorConfig, kParquetHiveConnectorWriteBatchSize);
+  }
+
+  if (!createdBy) {
+    createdBy =
+        getParquetCreatedBy(connectorConfig, kParquetHiveConnectorCreatedBy);
   }
 }
 

@@ -36,6 +36,8 @@
 
 // Define the parquet created by version.
 #define CREATED_BY_VERSION "parquet-cpp-velox"
+// Velox has no versioning yet. Set default 0.0.0.
+#define VELOX_VERSION "0.0.0"
 
 namespace facebook::velox::parquet::arrow {
 
@@ -326,8 +328,7 @@ class PARQUET_EXPORT WriterProperties {
           version_(ParquetVersion::PARQUET_2_6),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(
-              std::string("parquet-mr version 2.6.0 (build ") +
-              DEFAULT_CREATED_BY + ")"),
+              DEFAULT_CREATED_BY + std::string(" version ") + VELOX_VERSION),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false) {}
     virtual ~Builder() {}

@@ -428,6 +428,9 @@ TEST(Metadata, TestAddKeyValueMetadata) {
   }
   // Verify keys that were added after file writer was closed are not present.
   EXPECT_FALSE(reader->fileMetaData().keyValueMetadataContains("test_key_4"));
+  ASSERT_EQ(
+      CREATED_BY_VERSION + std::string(" version ") + VELOX_VERSION,
+      reader->fileMetaData().createdBy());
 }
 
 // TODO: disabled as they require Arrow parquet data dir.
@@ -502,10 +505,12 @@ TEST(Metadata, TestSortingColumns) {
     sortingColumns.push_back(sortingColumn);
   }
 
+  auto createdBy = CREATED_BY_VERSION + std::string(" version 1.0");
   auto sink = CreateOutputStream();
   auto writerProps = WriterProperties::Builder()
                          .disable_dictionary()
                          ->set_sorting_columns(sortingColumns)
+                         ->created_by(createdBy)
                          ->build();
 
   EXPECT_EQ(sortingColumns, writerProps->sorting_columns());
@@ -537,6 +542,7 @@ TEST(Metadata, TestSortingColumns) {
   EXPECT_EQ(sortingColumns[0].column_idx, rowGroup.sortingColumnIdx(0));
   EXPECT_EQ(sortingColumns[0].descending, rowGroup.sortingColumnDescending(0));
   EXPECT_EQ(sortingColumns[0].nulls_first, rowGroup.sortingColumnNullsFirst(0));
+  ASSERT_EQ(createdBy, reader->fileMetaData().createdBy());
 }
 
 TEST(ApplicationVersion, Basics) {

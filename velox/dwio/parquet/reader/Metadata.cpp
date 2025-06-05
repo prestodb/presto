@@ -359,4 +359,8 @@ std::string FileMetaDataPtr::keyValueMetadataValue(
   VELOX_FAIL(fmt::format("Input key {} is not in the key value metadata", key));
 }
 
+std::string FileMetaDataPtr::createdBy() const {
+  return thriftFileMetaDataPtr(ptr_)->created_by;
+}
+
 } // namespace facebook::velox::parquet
