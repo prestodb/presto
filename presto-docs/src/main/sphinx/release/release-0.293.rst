@@ -32,10 +32,10 @@ _______________
 * Fix returning incorrect results from the "second" UDF when a timestamp is in a time zone with an offset that is at the granularity of seconds. `#25090 <https://github.com/prestodb/presto/pull/25090>`_
 * Fix the issue of sensitive data such as passwords and access keys being exposed in logs by redacting sensitive field values. `#24886 <https://github.com/prestodb/presto/pull/24886>`_
 * Fix loading Redis HBO provider loading. `#24835 <https://github.com/prestodb/presto/pull/24835>`_
-* Improve memory usage in reader with nested readers by resetting all nested readers. `#24912 <https://github.com/prestodb/presto/pull/24912>`_
+* Improve memory usage of readers of nested type columns. `#24912 <https://github.com/prestodb/presto/pull/24912>`_
 * Improve ACL check by moving checkQueryIntegrity from Dispatch phase to Analyzer phase. `#24927 <https://github.com/prestodb/presto/pull/24927>`_
 * Improve performance as introducing Thrift serialization. `#25079 <https://github.com/prestodb/presto/pull/25079>`_ and `#25020 <https://github.com/prestodb/presto/pull/25020>`_
-* Improve how we merge multiple operator stats together. `#24921 <https://github.com/prestodb/presto/pull/24921>`_
+* Improve performance of operator stats reporting. `#24921 <https://github.com/prestodb/presto/pull/24921>`_
 * Improve performance of ``ORDER BY`` queries on single node execution. `#25022 <https://github.com/prestodb/presto/pull/25022>`_
 * Improve query plans by converting table scans without data to empty values nodes. `#25155 <https://github.com/prestodb/presto/pull/25155>`_
 * Improve performance of ``LOJ + IS NULL`` queries by adding distinct on right side of semi-join for it. `#24884 <https://github.com/prestodb/presto/pull/24884>`_
@@ -54,7 +54,7 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
-* Fix issue with PartitionAndSerialize re-using only keys from the first batch of data. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
+* Fix serialization in batch shuffle to use appropriate sorting keys for each buffer. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
 * Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
 * Add supported for sort in PartitionAndSerialize operator. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
 * Add session property ``native_request_data_sizes_max_wait_sec`` for the maximum wait time for exchange long poll requests in seconds. `#24918 <https://github.com/prestodb/presto/pull/24918>`_
@@ -133,8 +133,7 @@ _______________________
 
 SQL Server Connector Changes
 ____________________________
-* The driver sets the encrypt property to ``true`` by default. To connect to a non-SSL SQL Server instance, you must set ``encrypt=false`` in your connection configuration to avoid connectivity issues. This is a breaking change for existing connections. `#24686 <https://github.com/prestodb/presto/pull/24686>`_
-* Upgrade SQL Server driver to version 12.8.1 to support NTLM authentication. See :ref:`connector/sqlserver:authentication`. `#24686 <https://github.com/prestodb/presto/pull/24686>`_
+* Upgrade SQL Server driver to version 12.8.1 to support NTLM authentication. See :ref:`connector/sqlserver:authentication`. This is a breaking change for existing connections, as the driver sets the encrypt property to ``true`` by default. To connect to a non-SSL SQL Server instance, you must set ``encrypt=false`` in your connection configuration to avoid connectivity issues.  `#24686 <https://github.com/prestodb/presto/pull/24686>`_
 
 Documentation Changes
 _____________________
