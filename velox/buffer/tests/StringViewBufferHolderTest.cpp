@@ -208,4 +208,25 @@ TEST_F(StringViewBufferHolderTest, buffersCopy) {
   EXPECT_NE(&buffers, &firstMoved);
 }
 
+TEST_F(StringViewBufferHolderTest, addOwnedBuffer) {
+  auto holder = makeHolder();
+  ASSERT_EQ(0, holder.buffers().size());
+  auto buffer = AlignedBuffer::allocate<char>(10, pool_.get());
+  holder.addOwnedBuffer(std::move(buffer));
+  ASSERT_EQ(1, holder.buffers().size());
+  ASSERT_EQ(1, holder.moveBuffers().size());
+}
+
+TEST_F(StringViewBufferHolderTest, addOwnedBufferThrowsForWrongPool) {
+  auto holder = makeHolder();
+  ASSERT_EQ(0, holder.buffers().size());
+  auto buffer = AlignedBuffer::allocate<char>(10, pool_.get());
+  holder.addOwnedBuffer(std::move(buffer));
+
+  auto newPool = memory::memoryManager()->addLeafPool();
+  ASSERT_THROW(
+      holder.addOwnedBuffer(AlignedBuffer::allocate<char>(10, newPool.get())),
+      VeloxException);
+}
+
 } // namespace facebook::velox

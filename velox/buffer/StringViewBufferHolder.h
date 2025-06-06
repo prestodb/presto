@@ -72,6 +72,17 @@ class StringViewBufferHolder {
     return stringBuffers_;
   }
 
+  /// Add a buffer to the list of buffers. This is used to allow bulk addition
+  /// of values with fewer overall buffers vs adding a value at a time via
+  /// getOwnedValue. The buffer must be allocated on the same underlying memory
+  /// pool.
+  void addOwnedBuffer(BufferPtr&& inBuffer) {
+    VELOX_CHECK(
+        inBuffer->pool() == pool_,
+        "Buffer must be allocated on same memory pool");
+    stringBuffers_.push_back(std::move(inBuffer));
+  }
+
  private:
   StringView getOwnedStringView(StringView stringView);
   StringView getOwnedStringView(const char* data, int32_t size);
