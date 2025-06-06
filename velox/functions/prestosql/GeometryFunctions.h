@@ -117,6 +117,10 @@ struct StAsBinaryFunction {
 
 template <typename T>
 struct StPointFunction {
+  StPointFunction() {
+    factory_ = geos::geom::GeometryFactory::create();
+  }
+
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE Status call(
@@ -129,16 +133,16 @@ struct StPointFunction {
     }
     GEOS_TRY(
         {
-          geos::geom::GeometryFactory::Ptr factory =
-              geos::geom::GeometryFactory::create();
-          geos::geom::Point* point =
-              factory->createPoint(geos::geom::Coordinate(x, y));
+          auto point = std::unique_ptr<geos::geom::Point>(
+              factory_->createPoint(geos::geom::Coordinate(x, y)));
           result = geospatial::serializeGeometry(*point);
-          factory->destroyGeometry(point);
         },
         "Failed to create point geometry");
     return Status::OK();
   }
+
+ private:
+  geos::geom::GeometryFactory::Ptr factory_;
 };
 
 // Predicates
