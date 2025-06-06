@@ -45,6 +45,7 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/caching/SsdCache.h"
+#include "velox/common/dynamic_registry/DynamicLibraryLoader.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
@@ -369,6 +370,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerDynamicFunctions();
 
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
@@ -1632,6 +1634,34 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::registerDynamicFunctions() {
+  std::error_code
+      ec; // For using the non-throwing overloads of functions below.
+  auto systemConfig = SystemConfig::instance();
+  fs::path pluginDir;
+  if (systemConfig->pluginDir().empty()) {
+    pluginDir = std::filesystem::current_path().append("plugin");
+  } else {
+    pluginDir = systemConfig->pluginDir();
+  }
+  if (!fs::is_directory(pluginDir, ec)) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Plugin directory path: " << pluginDir
+        << " is invalid. Dynamic libraries will not be loaded on this run.";
+    return;
+  }
+  PRESTO_STARTUP_LOG(INFO) << "Loading dynamic libraries from: " << pluginDir;
+  // If it is a valid directory, traverse and call dynamic function loader.
+  if (fs::is_directory(pluginDir, ec)) {
+    using directory_iterator = std::filesystem::directory_iterator;
+    for (const auto& dirEntry : directory_iterator(pluginDir)) {
+      if (dirEntry.path().extension().string() == SHARED_LIB_SUFFIX) {
+        velox::loadDynamicLibrary(dirEntry.path().c_str());
+      }
+    }
+  }
 }
 
 } // namespace facebook::presto
