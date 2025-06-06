@@ -228,7 +228,7 @@ public class PrestoLdapCliTests
         ldapTruststorePassword = "wrong_password";
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
         assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("Keystore was tampered with, or password was incorrect"));
+                assertThat(line).contains("Error setting up SSL: keystore password was incorrect"));
         skipAfterTestWithContext();
     }
 
