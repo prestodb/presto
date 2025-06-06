@@ -296,6 +296,7 @@ public class FeaturesConfig
     private boolean innerJoinPushdownEnabled;
     private boolean inEqualityJoinPushdownEnabled;
     private boolean rewriteMinMaxByToTopNEnabled;
+    private boolean broadcastSemiJoinForDelete = true;
 
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
@@ -2921,6 +2922,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteMinMaxByToTopNEnabled(boolean rewriteMinMaxByToTopNEnabled)
     {
         this.rewriteMinMaxByToTopNEnabled = rewriteMinMaxByToTopNEnabled;
+        return this;
+    }
+
+    public boolean isBroadcastSemiJoinForDelete()
+    {
+        return broadcastSemiJoinForDelete;
+    }
+
+    @Config("optimizer.broadcast-semi-join-for-delete")
+    @ConfigDescription("Enforce broadcast semi join in delete queries")
+    public FeaturesConfig setBroadcastSemiJoinForDelete(boolean broadcastSemiJoinForDelete)
+    {
+        this.broadcastSemiJoinForDelete = broadcastSemiJoinForDelete;
         return this;
     }
 
