@@ -51,13 +51,9 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
-<<<<<<< HEAD
-* Fix serialization in batch shuffle to use appropriate sorting keys for each buffer. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
-* Add type rewrite support for native execution. This feature can be enabled by ``native-execution-type-rewrite-enabled`` configuration property and ``native_execution_type_rewrite_enabled`` session property. `#24916 <https://github.com/prestodb/presto/pull/24916>`_
-=======
 * Improve batch shuffle performance by doing sorted serialization. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
 * Improve batch shuffle sorted serialization by using appropriate sorting key values for each buffer. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
->>>>>>> 8ffc3dbd97 (Fix user facing release notes)
+* Add type rewrite support for native execution. This feature can be enabled by ``native-execution-type-rewrite-enabled`` configuration property and ``native_execution_type_rewrite_enabled`` session property. `#24916 <https://github.com/prestodb/presto/pull/24916>`_
 * Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
 * Add session property ``native_request_data_sizes_max_wait_sec`` for the maximum wait time for exchange long poll requests in seconds. `#24918 <https://github.com/prestodb/presto/pull/24918>`_
 * Add session property ``native_streaming_aggregation_eager_flush`` to control if streaming aggregation should flush its output rows as quickly as it can. `#24947 <https://github.com/prestodb/presto/pull/24947>`_
