@@ -279,6 +279,7 @@ bool canTrace(const std::string& operatorType) {
       "HashBuild",
       "HashProbe",
       "IndexLookupJoin",
+      "Unnest",
       "PartialAggregation",
       "PartitionedOutput",
       "TableScan",

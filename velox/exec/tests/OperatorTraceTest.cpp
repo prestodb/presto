@@ -1128,6 +1128,7 @@ TEST_F(OperatorTraceTest, canTrace) {
       {"HashBuild", true},
       {"HashProbe", true},
       {"IndexLookupJoin", true},
+      {"Unnest", true},
       {"RowNumber", false},
       {"OrderBy", false},
       {"PartialAggregation", true},
