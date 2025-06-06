@@ -259,6 +259,7 @@ public class TestFeaturesConfig
                 .setAddExchangeBelowPartialAggregationOverGroupId(false)
                 .setAddDistinctBelowSemiJoinBuild(false)
                 .setInnerJoinPushdownEnabled(false)
+                .setBroadcastSemiJoinForDelete(true)
                 .setInEqualityJoinPushdownEnabled(false)
                 .setRewriteMinMaxByToTopNEnabled(false)
                 .setPrestoSparkExecutionEnvironment(false));
@@ -459,6 +460,7 @@ public class TestFeaturesConfig
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("optimizer.inner-join-pushdown-enabled", "true")
+                .put("optimizer.broadcast-semi-join-for-delete", "false")
                 .put("optimizer.inequality-join-pushdown-enabled", "true")
                 .put("optimizer.rewrite-minBy-maxBy-to-topN-enabled", "true")
                 .put("presto-spark-execution-environment", "true")
@@ -674,6 +676,7 @@ public class TestFeaturesConfig
                 .setAddExchangeBelowPartialAggregationOverGroupId(true)
                 .setAddDistinctBelowSemiJoinBuild(true)
                 .setInEqualityJoinPushdownEnabled(true)
+                .setBroadcastSemiJoinForDelete(false)
                 .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
                 .setPrestoSparkExecutionEnvironment(true);

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
+import static com.facebook.presto.SystemSessionProperties.isBroadcastSemiJoinForDeleteEnabled;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static java.util.Objects.requireNonNull;
 
@@ -32,10 +33,13 @@ public class ReplicateSemiJoinInDelete
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        requireNonNull(plan, "plan is null");
-        Rewriter rewriter = new Rewriter();
-        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
-        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
+        if (isBroadcastSemiJoinForDeleteEnabled(session)) {
+            requireNonNull(plan, "plan is null");
+            Rewriter rewriter = new Rewriter();
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
+        }
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter

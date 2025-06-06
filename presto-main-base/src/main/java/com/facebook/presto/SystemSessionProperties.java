@@ -328,6 +328,7 @@ public final class SystemSessionProperties
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
+    public static final String BROADCAST_SEMI_JOIN_FOR_DELETE = "broadcast_semi_join_for_delete";
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
     public static final String ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID = "add_exchange_below_partial_aggregation_over_group_id";
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
@@ -1895,6 +1896,10 @@ public final class SystemSessionProperties
                         "Configure which expression optimizer to use",
                         featuresConfig.getExpressionOptimizerName(),
                         false),
+                booleanProperty(BROADCAST_SEMI_JOIN_FOR_DELETE,
+                        "Enforce broadcast join for semi join in delete",
+                        featuresConfig.isBroadcastSemiJoinForDelete(),
+                        false),
                 booleanProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID,
                         "Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance",
                         featuresConfig.getAddExchangeBelowPartialAggregationOverGroupId(),
@@ -3236,6 +3241,11 @@ public final class SystemSessionProperties
     public static String getExpressionOptimizerName(Session session)
     {
         return session.getSystemProperty(EXPRESSION_OPTIMIZER_NAME, String.class);
+    }
+
+    public static boolean isBroadcastSemiJoinForDeleteEnabled(Session session)
+    {
+        return session.getSystemProperty(BROADCAST_SEMI_JOIN_FOR_DELETE, Boolean.class);
     }
 
     public static boolean isEnabledAddExchangeBelowGroupId(Session session)
