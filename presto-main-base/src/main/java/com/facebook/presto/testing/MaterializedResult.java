@@ -35,6 +35,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -97,7 +98,7 @@ public class MaterializedResult
     private final List<Type> types;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
-    private final Optional<String> updateType;
+    private final Optional<UpdateInfo> updateType;
     private final OptionalLong updateCount;
     private final List<PrestoWarning> warnings;
 
@@ -111,7 +112,7 @@ public class MaterializedResult
             List<? extends Type> types,
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
-            Optional<String> updateType,
+            Optional<UpdateInfo> updateType,
             OptionalLong updateCount,
             List<PrestoWarning> warnings)
     {
@@ -155,7 +156,7 @@ public class MaterializedResult
         return resetSessionProperties;
     }
 
-    public Optional<String> getUpdateType()
+    public Optional<UpdateInfo> getUpdateType()
     {
         return updateType;
     }
