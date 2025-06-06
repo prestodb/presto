@@ -92,12 +92,13 @@ class MockTask : public std::enable_shared_from_this<MockTask> {
 
   class MemoryReclaimer : public memory::MemoryReclaimer {
    public:
-    MemoryReclaimer(const std::shared_ptr<MockTask>& task)
-        : memory::MemoryReclaimer(0), task_(task) {}
+    MemoryReclaimer(const std::shared_ptr<MockTask>& task, int32_t priority)
+        : memory::MemoryReclaimer(priority), task_(task) {}
 
     static std::unique_ptr<MemoryReclaimer> create(
-        const std::shared_ptr<MockTask>& task) {
-      return std::make_unique<MemoryReclaimer>(task);
+        const std::shared_ptr<MockTask>& task,
+        int32_t priority) {
+      return std::make_unique<MemoryReclaimer>(task, priority);
     }
 
     void abort(MemoryPool* pool, const std::exception_ptr& error) override {
@@ -113,16 +114,12 @@ class MockTask : public std::enable_shared_from_this<MockTask> {
     std::weak_ptr<MockTask> task_;
   };
 
-  void initTaskPool(
-      MemoryManager* manager,
-      uint64_t capacity,
-      uint32_t taskPriority = 0) {
+  void
+  initTaskPool(MemoryManager* manager, uint64_t capacity, int32_t priority) {
     root_ = manager->addRootPool(
         fmt::format("RootPool-{}", poolId_++),
         capacity,
-        MemoryReclaimer::create(shared_from_this()),
-        std::nullopt,
-        taskPriority);
+        MemoryReclaimer::create(shared_from_this(), priority));
   }
 
   MemoryPool* pool() const {
@@ -516,9 +513,9 @@ class MockSharedArbitrationTest : public testing::Test {
 
   std::shared_ptr<MockTask> addTask(
       int64_t capacity = kMaxMemory,
-      uint32_t taskPriority = 0) {
+      int32_t priority = 0) {
     auto task = std::make_shared<MockTask>();
-    task->initTaskPool(manager_.get(), capacity, taskPriority);
+    task->initTaskPool(manager_.get(), capacity, priority);
     return task;
   }
 
@@ -2095,7 +2092,7 @@ TEST_F(MockSharedArbitrationTest, globalArbitrationSmallParticipantLargeGrow) {
       "Memory pool aborted to reclaim used memory");
 }
 
-TEST_F(MockSharedArbitrationTest, globalArbitrationWithMemoryPoolPriority) {
+TEST_F(MockSharedArbitrationTest, globalArbitrationWithPriority) {
   // This test tests global arbitration takes into consideration query priority
   // attempting to grow capacity when selecting abort partitipants.
   const int64_t memoryCapacity = 512 << 20;
@@ -2119,21 +2116,17 @@ TEST_F(MockSharedArbitrationTest, globalArbitrationWithMemoryPoolPriority) {
       5 * 60 * 1'000'000'000UL,
       true);
 
-  // task0 is normal priority with 256MB capacity with initial allocation of
-  // 256MB
-  auto task0 = addTask(memoryCapacity / 2, 100);
+  auto task0 = addTask(384 << 20, 1);
   auto* op0 = task0->addMemoryOp(false);
-  op0->allocate(memoryCapacity / 2);
+  op0->allocate(384 << 20);
 
-  // task1 is low priority with 256MB capacity with initial allocation of 256MB
-  auto task1 = addTask(memoryCapacity / 2, 10);
-  auto* op1 = task1->addMemoryOp(true);
-  op1->allocate(memoryCapacity / 2);
+  auto task1 = addTask(64 << 20, 1);
+  auto* op1 = task1->addMemoryOp(false);
+  op1->allocate(64 << 20);
 
-  // task2 is normal priority in lower bucket has 256MB capacity with 0
-  // allocation
-  auto task2 = addTask(memoryCapacity / 2, 999);
-  auto* op2 = task2->addMemoryOp(true);
+  auto task2 = addTask(64 << 20, 2);
+  auto* op2 = task2->addMemoryOp(false);
+  op2->allocate(64 << 20);
 
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
   auto statsWriter = std::make_unique<TestRuntimeStatWriter>(runtimeStats);
@@ -2142,24 +2135,20 @@ TEST_F(MockSharedArbitrationTest, globalArbitrationWithMemoryPoolPriority) {
   // At this point, memory pool is full
   ASSERT_EQ(manager_->capacity(), manager_->getTotalBytes());
 
-  // Next allocation should succeed with side effect of lowest priority
-  // query getting killed.
-  op2->allocate(memoryCapacity / 2);
-
-  ASSERT_EQ(
-      runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].count, 1);
-  ASSERT_GT(runtimeStats[SharedArbitrator::kMemoryArbitrationWallNanos].sum, 0);
-  ASSERT_EQ(
-      runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].count, 1);
-  ASSERT_EQ(runtimeStats[SharedArbitrator::kGlobalArbitrationWaitCount].sum, 1);
-  ASSERT_EQ(runtimeStats[SharedArbitrator::kLocalArbitrationCount].count, 0);
-
-  // task1 gets aborted since its lowest priority compared to task0
-  // task2 is younger in same bucket but survives due to priority.
+  arbitrator_->shrinkCapacity(64 << 20, false, true);
   ASSERT_TRUE(task0->error() == nullptr);
-  ASSERT_TRUE(task1->error() != nullptr);
-  ASSERT_TRUE(task2->error() == nullptr);
+  ASSERT_TRUE(task1->error() == nullptr);
+  VELOX_ASSERT_THROW(
+      std::rethrow_exception(task2->error()),
+      "Memory pool aborted to reclaim used memory");
 
+  arbitrator_->shrinkCapacity(64 << 20, false, true);
+  VELOX_ASSERT_THROW(
+      std::rethrow_exception(task0->error()),
+      "Memory pool aborted to reclaim used memory");
+  ASSERT_TRUE(task1->error() == nullptr);
+
+  arbitrator_->shrinkCapacity(64 << 20, false, true);
   VELOX_ASSERT_THROW(
       std::rethrow_exception(task1->error()),
       "Memory pool aborted to reclaim used memory");

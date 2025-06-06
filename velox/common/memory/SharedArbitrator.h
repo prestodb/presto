@@ -483,6 +483,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // abort if there is no eligible one.
   uint64_t reclaimUsedMemoryByAbort(bool force);
 
+  // Sorts 'candidates' based on participant's reclaimer priority in descending
+  // order, putting lower priority ones (with higher priority value) first, and
+  // high priority ones (with lower priority value) later.
+  static std::vector<std::vector<ArbitrationCandidate>>
+  sortAndGroupCandidatesByPriority(
+      std::vector<ArbitrationCandidate>&& candidates);
+
   // Finds the participant victim to abort to free used memory based on the
   // participant's memory capacity and age. The function returns std::nullopt if
   // there is no eligible candidate. If 'force' is true, it picks up the

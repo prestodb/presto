@@ -331,8 +331,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
     const std::string& name,
     int64_t maxCapacity,
     std::unique_ptr<MemoryReclaimer> reclaimer,
-    const std::optional<MemoryPool::DebugOptions>& poolDebugOpts,
-    uint32_t poolPriority) {
+    const std::optional<MemoryPool::DebugOptions>& poolDebugOpts) {
   std::string poolName = name;
   if (poolName.empty()) {
     static std::atomic<int64_t> poolId{0};
@@ -346,7 +345,6 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
   options.getPreferredSize = getPreferredSize_;
   options.debugOptions = poolDebugOpts;
-  options.poolPriority = poolPriority;
 
   auto pool = createRootPool(poolName, reclaimer, options);
   if (!disableMemoryPoolTracking_) {

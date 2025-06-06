@@ -337,8 +337,7 @@ class MemoryManager {
       int64_t maxCapacity = kMaxMemory,
       std::unique_ptr<MemoryReclaimer> reclaimer = nullptr,
       const std::optional<MemoryPool::DebugOptions>& poolDebugOpts =
-          std::nullopt,
-      uint32_t poolPriority = 0);
+          std::nullopt);
 
   /// Creates a leaf memory pool for direct memory allocation use with specified
   /// 'name'. If 'name' is missing, the memory manager generates a default name

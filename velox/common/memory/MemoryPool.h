@@ -152,11 +152,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
     /// If non-empty, enables debug mode for the created memory pool.
     std::optional<DebugOptions> debugOptions{std::nullopt};
-
-    /// Sets the priority of the memory pool. The priority is used for
-    /// determining which pools to abort when the system is out of memory.
-    /// higher poolPriority value respresents higher priority and vice-versa.
-    uint32_t poolPriority{0};
   };
 
   /// Constructs a named memory pool with specified 'name', 'parent' and 'kind'.
@@ -300,11 +295,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// memory pool object.  Must be a power of two.
   virtual uint16_t alignment() const {
     return alignment_;
-  }
-
-  /// Returns the priority of this pool.
-  uint32_t poolPriority() const {
-    return poolPriority_;
   }
 
   /// Resource governing methods used to track and limit the memory usage
@@ -556,7 +546,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   const bool trackUsage_;
   const bool threadSafe_;
   const std::optional<DebugOptions> debugOptions_;
-  const uint32_t poolPriority_;
   const bool coreOnAllocationFailureEnabled_;
   std::function<size_t(size_t)> getPreferredSize_;
 

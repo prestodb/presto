@@ -173,11 +173,6 @@ class ArbitrationParticipant
     return config_->minCapacity;
   }
 
-  /// Returns the priority of the underlying query memory pool.
-  uint32_t poolPriority() const {
-    return poolPriority_;
-  }
-
   /// Returns the duration of this arbitration participant since its creation.
   uint64_t durationNs() const {
     const auto now = getCurrentTimeNano();
@@ -349,7 +344,6 @@ class ArbitrationParticipant
   const Config* const config_;
   const uint64_t maxCapacity_;
   const uint64_t createTimeNs_;
-  const uint32_t poolPriority_;
 
   mutable std::mutex stateLock_;
   bool aborted_{false};
