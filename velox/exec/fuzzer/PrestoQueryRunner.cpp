@@ -32,6 +32,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunnerToSqlPlanNodeVisitor.h"
 #include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/functions/prestosql/types/GeometryType.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -191,7 +192,8 @@ const std::vector<TypePtr>& PrestoQueryRunner::supportedScalarTypes() const {
 
 // static
 bool PrestoQueryRunner::isSupportedDwrfType(const TypePtr& type) {
-  if (type->isDate() || type->isIntervalDayTime() || type->isUnKnown()) {
+  if (type->isDate() || type->isIntervalDayTime() || type->isUnKnown() ||
+      isGeometryType(type)) {
     return false;
   }
 
