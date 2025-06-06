@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -32,6 +33,8 @@ public enum IcebergMetadataColumn
 {
     FILE_PATH(MetadataColumns.FILE_PATH.fieldId(), "$path", VARCHAR, PRIMITIVE),
     DATA_SEQUENCE_NUMBER(Integer.MAX_VALUE - 1001, "$data_sequence_number", BIGINT, PRIMITIVE),
+    IS_DELETED(MetadataColumns.IS_DELETED.fieldId(), "$deleted", BOOLEAN, PRIMITIVE),
+    DELETE_FILE_PATH(MetadataColumns.DELETE_FILE_PATH.fieldId(), "$delete_file_path", VARCHAR, PRIMITIVE),
     /**
      * Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
      * Inner type for row is not known until runtime.
