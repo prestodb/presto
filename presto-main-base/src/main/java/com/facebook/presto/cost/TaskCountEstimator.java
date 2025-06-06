@@ -17,8 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Set;
 import java.util.function.IntSupplier;

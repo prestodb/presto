@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.security.auth.module.Krb5LoginModule;
-import io.airlift.units.Duration;
 import okhttp3.Authenticator;
 import okhttp3.Interceptor;
 import okhttp3.Request;
@@ -28,7 +29,6 @@ import org.ietf.jgss.GSSException;
 import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.Oid;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;

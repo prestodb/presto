@@ -31,8 +31,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;

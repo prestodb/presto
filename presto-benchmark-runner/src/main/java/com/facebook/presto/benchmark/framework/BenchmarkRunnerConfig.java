@@ -17,8 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 import java.util.Set;
