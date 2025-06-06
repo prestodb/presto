@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.type.DateTimeEncoding;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
@@ -41,13 +42,13 @@ import io.delta.kernel.types.MapType;
 import io.delta.kernel.types.ShortType;
 import io.delta.kernel.types.StringType;
 import io.delta.kernel.types.StructType;
+import io.delta.kernel.types.TimestampNTZType;
 import io.delta.kernel.types.TimestampType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
@@ -65,7 +66,9 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -78,6 +81,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 
 /**
  * Contains utility methods to convert Delta data types (and data values) to Presto data types (and data values)
@@ -181,7 +185,10 @@ public class DeltaTypeUtils
             }
             if (type.equals(TIMESTAMP)) {
                 // Delta partition serialized value contains up to the second precision
-                return Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000;
+                return Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(UTC) * 1_000;
+            }
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                return DateTimeEncoding.packDateTimeWithZone((Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(UTC) * 1_000), UTC_KEY);
             }
             throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
                     format("Unsupported data type '%s' for partition column %s", type, columnName));
@@ -231,6 +238,9 @@ public class DeltaTypeUtils
             return createUnboundedVarcharType();
         }
         else if (deltaType instanceof TimestampType) {
+            return TIMESTAMP_WITH_TIME_ZONE;
+        }
+        else if (deltaType instanceof TimestampNTZType) {
             return TIMESTAMP;
         }
 
