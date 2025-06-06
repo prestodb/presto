@@ -4986,7 +4986,7 @@ TEST_F(ExprTest, disabledeferredLazyLoading) {
 
 TEST_F(ExprTest, evaluateConstantExpression) {
   auto eval = [&](const std::string& sql) {
-    auto expr = parseExpression(sql, ROW({}));
+    auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
     return exec::evaluateConstantExpression(expr, pool());
   };
 
@@ -4995,6 +4995,37 @@ TEST_F(ExprTest, evaluateConstantExpression) {
   assertEqualVectors(
       eval("transform(array[1, 2, 3], x -> (x * 2))"),
       makeArrayVectorFromJson<int64_t>({"[2, 4, 6]"}));
+
+  assertEqualVectors(
+      eval("transform(array[1, 2, 3], x -> (x * (3 - 1)))"),
+      makeArrayVectorFromJson<int64_t>({"[2, 4, 6]"}));
+
+  assertEqualVectors(
+      eval("transform(array[1, 2, 3], x -> 2)"),
+      makeArrayVectorFromJson<int64_t>({"[2, 2, 2]"}));
+
+  assertEqualVectors(
+      eval(
+          "try(coalesce(array_min_by(array[1, 2, 3], x -> x / 0), 0::INTEGER))"),
+      makeNullConstant(TypeKind::INTEGER, 1));
+
+  auto tryEval = [&](const std::string& sql) {
+    auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
+    return exec::tryEvaluateConstantExpression(expr, pool());
+  };
+
+  VELOX_ASSERT_THROW(eval("a + 1"), "Expression is not constant-foldable");
+  ASSERT_TRUE(tryEval("a + 1") == nullptr);
+
+  VELOX_ASSERT_THROW(
+      eval("rand() + 1.0"), "Expression is not constant-foldable");
+  ASSERT_TRUE(tryEval("rand() + 1.0") == nullptr);
+
+  VELOX_ASSERT_THROW(
+      eval("transform(array[1, 2, 3], x -> (x * 2) + a)"),
+      "Expression is not constant-foldable");
+  ASSERT_TRUE(
+      tryEval("transform(array[1, 2, 3], x -> (x * 2) + a)") == nullptr);
 }
 
 TEST_F(ExprTest, peelingOnDeterministicFunctionInNonDeterministicExpr) {

@@ -836,9 +836,17 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<core::TypedExprPtr>&& source,
     core::ExecCtx* execCtx);
 
-/// Evaluates an expression that doesn't depend on any inputs and returns the
-/// result as single-row vector.
+/// Evaluates a deterministic expression that doesn't depend on any inputs and
+/// returns the result as single-row vector. Throws if expression is
+/// non-deterministic or has dependencies.
 VectorPtr evaluateConstantExpression(
+    const core::TypedExprPtr& expr,
+    memory::MemoryPool* pool);
+
+/// Evaluates a deterministic expression that doesn't depend on any inputs and
+/// returns the result as single-row vector. Returns nullptr if the expression
+/// is non-deterministic or has dependencies.
+VectorPtr tryEvaluateConstantExpression(
     const core::TypedExprPtr& expr,
     memory::MemoryPool* pool);
 

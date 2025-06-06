@@ -1192,20 +1192,36 @@ void Expr::evalWithMemo(
   VectorPtr base;
   distinctFields_[0]->evalSpecialForm(rows, context, base);
 
+  // evalWithNulls may throw an exception. If this happens during constant
+  // folding, the exception is suppressed and the Expr object may be reused.
+  // Hence, it is important to update state in way that ensure "valid" state in
+  // case of exceptions.
+  //
+  // Also, note that the same expression running on same data may pass or may
+  // fail depending on whether it runs under TRY or not.
+  //
+  // An example expression that triggers these edge cases:
+  //
+  //    try(coalesce(array_min_by(array[1, 2, 3], x -> x / 0), 0::INTEGER))
+
   if (base.get() != baseOfDictionaryRawPtr_ ||
       baseOfDictionaryWeakPtr_.expired()) {
     baseOfDictionaryRepeats_ = 0;
-    baseOfDictionaryWeakPtr_ = base;
-    baseOfDictionaryRawPtr_ = base.get();
+    baseOfDictionaryWeakPtr_.reset();
+    baseOfDictionaryRawPtr_ = nullptr;
     context.releaseVector(baseOfDictionary_);
     context.releaseVector(dictionaryCache_);
+
     evalWithNulls(rows, context, result);
+    baseOfDictionaryWeakPtr_ = base;
+    baseOfDictionaryRawPtr_ = base.get();
     return;
   }
-  ++baseOfDictionaryRepeats_;
 
-  if (baseOfDictionaryRepeats_ == 1) {
+  if (baseOfDictionaryRepeats_ == 0) {
     evalWithNulls(rows, context, result);
+
+    ++baseOfDictionaryRepeats_;
     baseOfDictionary_ = base;
     dictionaryCache_ = result;
     if (!cachedDictionaryIndices_) {
@@ -1216,6 +1232,8 @@ void Expr::evalWithMemo(
     context.deselectErrors(*cachedDictionaryIndices_);
     return;
   }
+
+  ++baseOfDictionaryRepeats_;
 
   if (cachedDictionaryIndices_) {
     LocalSelectivityVector cachedHolder(context, rows);
@@ -1242,31 +1260,34 @@ void Expr::evalWithMemo(
 
     evalWithNulls(*uncached, context, result);
     context.deselectErrors(*uncached);
-    context.exprSet()->addToMemo(this);
-    auto newCacheSize = uncached->end();
 
-    // dictionaryCache_ is valid only for cachedDictionaryIndices_. Hence, a
-    // safe call to BaseVector::ensureWritable must include all the rows not
-    // covered by cachedDictionaryIndices_. If BaseVector::ensureWritable is
-    // called only for a subset of rows not covered by
-    // cachedDictionaryIndices_, it will attempt to copy rows that are not
-    // valid leading to a crash.
-    LocalSelectivityVector allUncached(context, dictionaryCache_->size());
-    allUncached.get()->setAll();
-    allUncached.get()->deselect(*cachedDictionaryIndices_);
-    context.ensureWritable(*allUncached.get(), type(), dictionaryCache_);
+    if (uncached->hasSelections()) {
+      context.exprSet()->addToMemo(this);
+      auto newCacheSize = uncached->end();
 
-    if (cachedDictionaryIndices_->size() < newCacheSize) {
-      cachedDictionaryIndices_->resize(newCacheSize, false);
+      // dictionaryCache_ is valid only for cachedDictionaryIndices_. Hence, a
+      // safe call to BaseVector::ensureWritable must include all the rows not
+      // covered by cachedDictionaryIndices_. If BaseVector::ensureWritable is
+      // called only for a subset of rows not covered by
+      // cachedDictionaryIndices_, it will attempt to copy rows that are not
+      // valid leading to a crash.
+      LocalSelectivityVector allUncached(context, dictionaryCache_->size());
+      allUncached.get()->setAll();
+      allUncached.get()->deselect(*cachedDictionaryIndices_);
+      context.ensureWritable(*allUncached.get(), type(), dictionaryCache_);
+
+      if (cachedDictionaryIndices_->size() < newCacheSize) {
+        cachedDictionaryIndices_->resize(newCacheSize, false);
+      }
+
+      cachedDictionaryIndices_->select(*uncached);
+
+      // Resize the dictionaryCache_ to accommodate all the necessary rows.
+      if (dictionaryCache_->size() < uncached->end()) {
+        dictionaryCache_->resize(uncached->end());
+      }
+      dictionaryCache_->copy(result.get(), *uncached, nullptr);
     }
-
-    cachedDictionaryIndices_->select(*uncached);
-
-    // Resize the dictionaryCache_ to accommodate all the necessary rows.
-    if (dictionaryCache_->size() < uncached->end()) {
-      dictionaryCache_->resize(uncached->end());
-    }
-    dictionaryCache_->copy(result.get(), *uncached, nullptr);
   }
   context.releaseVector(base);
 }
@@ -1660,12 +1681,8 @@ bool Expr::isConstant() const {
   if (!isDeterministic()) {
     return false;
   }
-  for (auto& input : inputs_) {
-    if (!input->is<ConstantExpr>()) {
-      return false;
-    }
-  }
-  return true;
+
+  return distinctFields_.empty();
 }
 
 namespace {
@@ -2022,17 +2039,30 @@ core::ExecCtx* SimpleExpressionEvaluator::ensureExecCtx() {
 VectorPtr evaluateConstantExpression(
     const core::TypedExprPtr& expr,
     memory::MemoryPool* pool) {
+  auto result = tryEvaluateConstantExpression(expr, pool);
+  VELOX_USER_CHECK_NOT_NULL(
+      result, "Expression is not constant-foldable: {}", expr->toString());
+  return result;
+}
+
+VectorPtr tryEvaluateConstantExpression(
+    const core::TypedExprPtr& expr,
+    memory::MemoryPool* pool) {
   auto data = BaseVector::create<RowVector>(ROW({}), 1, pool);
 
   auto queryCtx = velox::core::QueryCtx::create();
   velox::core::ExecCtx execCtx{pool, queryCtx.get()};
   velox::exec::ExprSet exprSet({expr}, &execCtx);
-  velox::exec::EvalCtx evalCtx(&execCtx, &exprSet, data.get());
 
-  velox::SelectivityVector singleRow(1);
-  std::vector<velox::VectorPtr> results(1);
-  exprSet.eval(singleRow, evalCtx, results);
-  return results.at(0);
+  if (exprSet.expr(0)->is<ConstantExpr>()) {
+    velox::exec::EvalCtx evalCtx(&execCtx, &exprSet, data.get());
+    velox::SelectivityVector singleRow(1);
+    std::vector<velox::VectorPtr> results(1);
+    exprSet.eval(singleRow, evalCtx, results);
+    return results.at(0);
+  }
+
+  return nullptr;
 }
 
 } // namespace facebook::velox::exec
