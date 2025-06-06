@@ -14,7 +14,11 @@
 package com.facebook.presto.iceberg.delete;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public interface RowPredicate
@@ -42,5 +46,34 @@ public interface RowPredicate
             return page;
         }
         return page.getPositions(retained, 0, retainedCount);
+    }
+
+    default Page markPage(Page page, int deletedDelegateColumnId)
+    {
+        int positionCount = page.getPositionCount();
+
+        boolean allSameValues = true;
+        Boolean firstValue = null;
+        BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            boolean deleted = !test(page, position);
+            if (firstValue == null) {
+                firstValue = deleted;
+            }
+            if (deleted != firstValue) {
+                allSameValues = false;
+            }
+            BOOLEAN.writeBoolean(blockBuilder, deleted);
+        }
+
+        Block block;
+        if (allSameValues) {
+            block = RunLengthEncodedBlock.create(BOOLEAN, firstValue != null ? firstValue : false, positionCount);
+        }
+        else {
+            block = blockBuilder.build();
+        }
+
+        return page.replaceColumn(deletedDelegateColumnId, block);
     }
 }

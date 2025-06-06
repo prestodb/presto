@@ -2016,6 +2016,20 @@ public abstract class IcebergDistributedTestBase
         testDataSequenceNumberHiddenColumn();
     }
 
+    @Test
+    public void testDeletedHiddenColumn()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_deleted");
+        assertUpdate("CREATE TABLE test_deleted AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_deleted SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        assertQuery("SELECT \"$deleted\" FROM test_deleted", format("VALUES %s, %s", "false", "false"));
+
+        assertUpdate("DELETE FROM test_deleted WHERE regionkey=1", 1);
+        assertEquals(computeActual("SELECT * FROM test_deleted").getRowCount(), 1);
+        assertQuery("SELECT \"$deleted\" FROM test_deleted ORDER BY \"$deleted\"", format("VALUES %s, %s", "false", "true"));
+    }
+
     @DataProvider(name = "pushdownFilterEnabled")
     public Object[][] pushdownFilterEnabledProvider()
     {

@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.RowPredicate;
@@ -42,6 +43,8 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -64,6 +67,7 @@ public class IcebergUpdateablePageSource
     private final Supplier<IcebergDeletePageSink> deleteSinkSupplier;
     private IcebergDeletePageSink positionDeleteSink;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
+    private final boolean hasIsDeletedColumn;
 
     private final List<IcebergColumnHandle> columns;
     /**
@@ -107,6 +111,7 @@ public class IcebergUpdateablePageSource
         // information for deletes
         this.deleteSinkSupplier = deleteSinkSupplier;
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
+        this.hasIsDeletedColumn = columns.contains(IS_DELETED_COLUMN_HANDLE);
         // information for updates
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
@@ -191,7 +196,17 @@ public class IcebergUpdateablePageSource
             }
 
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
-            if (deleteFilterPredicate.isPresent()) {
+            if (hasIsDeletedColumn) {
+                if (deleteFilterPredicate.isPresent()) {
+                    // Instead of filtering rows, we mark whether the row is deleted in the $deleted column
+                    dataPage = deleteFilterPredicate.get().markPage(dataPage, getDeletedDelegateColumnId());
+                }
+                else {
+                    Block allFalseBlock = RunLengthEncodedBlock.create(BOOLEAN, false, dataPage.getPositionCount());
+                    dataPage = dataPage.replaceColumn(getDeletedDelegateColumnId(), allFalseBlock);
+                }
+            }
+            else if (deleteFilterPredicate.isPresent()) {
                 dataPage = deleteFilterPredicate.get().filterPage(dataPage);
             }
 
@@ -309,6 +324,18 @@ public class IcebergUpdateablePageSource
         }
 
         return new Page(page.getPositionCount(), fullPage);
+    }
+
+    private int getDeletedDelegateColumnId()
+    {
+        int deletedOutputColumnId = 0;
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).isDeletedColumn()) {
+                deletedOutputColumnId = i;
+                break;
+            }
+        }
+        return outputColumnToDelegateMapping[deletedOutputColumnId];
     }
 
     @Override
