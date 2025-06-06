@@ -41,13 +41,8 @@ _______________
 * Improve performance of ``LOJ + IS NULL`` queries by adding distinct on right side of semi-join for it. `#24884 <https://github.com/prestodb/presto/pull/24884>`_
 * Add DDL SQL support for ``SHOW CREATE SCHEMA``. `#24356 <https://github.com/prestodb/presto/pull/24356>`_
 * Add configuration property ``hive.metastore.catalog.name`` to pass catalog names to the metastore, enabling catalog-based schema management and filtering. `#24235 <https://github.com/prestodb/presto/pull/24235>`_
-<<<<<<< HEAD
-* Add view definitions from Analyzer phase to perform full integrity check on query credentials. `#24955 <https://github.com/prestodb/presto/pull/24955>`_
 * Add :func:`cosine_similarity(x, y) -> double()` for array arguments. `#25056 <https://github.com/prestodb/presto/pull/25056>`_
-=======
 * Add type rewrite support for native execution. This feature can be enabled by ``native-execution-type-rewrite-enabled`` configuration property and ``native_execution_type_rewrite_enabled`` session property. `#24916 <https://github.com/prestodb/presto/pull/24916>`_
-* Add ``cosine_similarity`` function for array arguments. `#25056 <https://github.com/prestodb/presto/pull/25056>`_
->>>>>>> 8ffc3dbd97 (Fix user facing release notes)
 * Add session property ``query.client-timeout`` to configure how long a query can run without contact from the client application, such as the CLI, before it is abandoned. `#25210 <https://github.com/prestodb/presto/pull/25210>`_
 * Add ``longest_common_prefix`` string function. `#24891 <https://github.com/prestodb/presto/pull/24891>`_
 * Replace ``exchange.compression-enabled``,  ``fragment-result-cache.block-encoding-compression-enabled``, ``experimental.spill-compression-enabled`` with ``exchange.compression-codec``, ``fragment-result-cache.block-encoding-compression-codec`` to enable compression codec configurations. Supported codecs include GZIP, LZ4, LZO, SNAPPY, ZLIB and ZSTD. `#24670 <https://github.com/prestodb/presto/pull/24670>`_
