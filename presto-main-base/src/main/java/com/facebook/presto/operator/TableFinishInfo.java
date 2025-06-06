@@ -21,7 +21,6 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 
@@ -39,10 +38,10 @@ public class TableFinishInfo
 
     private final String serializedConnectorOutputMetadata;
     private final boolean jsonLengthLimitExceeded;
-    private final Duration statisticsWallTime;
-    private final Duration statisticsCpuTime;
+    private final long statisticsWallTimeInMillis;
+    private final long statisticsCpuTimeInMillis;
 
-    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata, Duration statisticsWallTime, Duration statisticsCpuTime)
+    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata, long statisticsWallTimeInMillis, long statisticsCpuTimeInMillis)
     {
         String serializedConnectorOutputMetadata = null;
         boolean jsonLengthLimitExceeded = false;
@@ -59,8 +58,8 @@ public class TableFinishInfo
         }
         this.serializedConnectorOutputMetadata = serializedConnectorOutputMetadata;
         this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
-        this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
-        this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
+        this.statisticsWallTimeInMillis = requireNonNull(statisticsWallTimeInMillis, "statisticsWallTimeInMillis is null");
+        this.statisticsCpuTimeInMillis = requireNonNull(statisticsCpuTimeInMillis, "statisticsCpuTimeInMillis is null");
     }
 
     @JsonCreator
@@ -68,13 +67,13 @@ public class TableFinishInfo
     public TableFinishInfo(
             @JsonProperty("serializedConnectorOutputMetadata") String serializedConnectorOutputMetadata,
             @JsonProperty("jsonLengthLimitExceeded") boolean jsonLengthLimitExceeded,
-            @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
-            @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
+            @JsonProperty("statisticsWallTimeInMillis") long statisticsWallTimeInMillis,
+            @JsonProperty("statisticsCpuTimeInMillis") long statisticsCpuTimeInMillis)
     {
         this.serializedConnectorOutputMetadata = serializedConnectorOutputMetadata;
         this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
-        this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
-        this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
+        this.statisticsWallTimeInMillis = requireNonNull(statisticsWallTimeInMillis, "statisticsWallTimeInMillis is null");
+        this.statisticsCpuTimeInMillis = requireNonNull(statisticsCpuTimeInMillis, "statisticsCpuTimeInMillis is null");
     }
 
     @JsonProperty
@@ -93,16 +92,16 @@ public class TableFinishInfo
 
     @JsonProperty
     @ThriftField(3)
-    public Duration getStatisticsWallTime()
+    public long getStatisticsWallTimeInMillis()
     {
-        return statisticsWallTime;
+        return statisticsWallTimeInMillis;
     }
 
     @JsonProperty
     @ThriftField(4)
-    public Duration getStatisticsCpuTime()
+    public long getStatisticsCpuTimeInMillis()
     {
-        return statisticsCpuTime;
+        return statisticsCpuTimeInMillis;
     }
 
     @Override
