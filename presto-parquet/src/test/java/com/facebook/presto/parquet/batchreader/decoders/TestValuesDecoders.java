@@ -327,7 +327,7 @@ public abstract class TestValuesDecoders
         int outputOffset = 0;
         while (inputOffset < valueCount) {
             int readBatchSize = min(batchSize, valueCount - inputOffset);
-            decoder.readNext(actualValues, outputOffset, readBatchSize, Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
+            decoder.readNext(actualValues, outputOffset, readBatchSize, Optional.of(DateTimeZone.forID("UTC")));
 
             for (int i = 0; i < readBatchSize; i++) {
                 assertEquals(actualValues[outputOffset + i], (long) expectedValues.get(inputOffset + i));
@@ -568,7 +568,7 @@ public abstract class TestValuesDecoders
             expectedValues.add(dictionary.get(dictionaryId));
         }
 
-        TimestampDictionary tsDictionary = new TimestampDictionary(new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY), Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
+        TimestampDictionary tsDictionary = new TimestampDictionary(new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY), Optional.of(DateTimeZone.forID("UTC")));
 
         timestampBatchReadWithSkipHelper(valueCount, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
         timestampBatchReadWithSkipHelper(29, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
