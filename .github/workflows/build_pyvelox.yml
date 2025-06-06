@@ -81,6 +81,7 @@ jobs:
         run: |
             export INSTALL_PREFIX="$GITHUB_WORKSPACE/dependencies"
             echo "CMAKE_PREFIX_PATH=$INSTALL_PREFIX" >> $GITHUB_ENV
+            echo "INSTALL_PREFIX=$INSTALL_PREFIX" >> $GITHUB_ENV
             echo "DYLD_LIBRARY_PATH=$INSTALL_PREFIX/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
 
             source scripts/setup-macos.sh

@@ -39,7 +39,7 @@ export OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
 export CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
-MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 simdjson snappy xz zstd"
+MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 simdjson snappy xz xxhash zstd"
 MACOS_BUILD_DEPS="ninja cmake"
 
 SUDO="${SUDO:-""}"
