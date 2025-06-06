@@ -592,6 +592,14 @@ void OperatorStats::add(const OperatorStats& other) {
     }
   }
 
+  for (const auto& [name, exprStats] : other.expressionStats) {
+    if (UNLIKELY(expressionStats.count(name) == 0)) {
+      expressionStats.insert(std::make_pair(name, exprStats));
+    } else {
+      expressionStats.at(name).add(exprStats);
+    }
+  }
+
   numDrivers += other.numDrivers;
   spilledInputBytes += other.spilledInputBytes;
   spilledBytes += other.spilledBytes;
@@ -628,6 +636,7 @@ void OperatorStats::clear() {
   memoryStats.clear();
 
   runtimeStats.clear();
+  expressionStats.clear();
 
   numDrivers = 0;
   spilledInputBytes = 0;

@@ -25,6 +25,7 @@
 #include "velox/core/Expressions.h"
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/EvalCtx.h"
+#include "velox/expression/ExprStats.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/Subfield.h"
 #include "velox/vector/SimpleVector.h"
@@ -34,38 +35,6 @@ namespace facebook::velox::exec {
 class ExprSet;
 class FieldReference;
 class VectorFunction;
-
-struct ExprStats {
-  /// Requires QueryConfig.exprTrackCpuUsage() to be 'true'.
-  CpuWallTiming timing;
-
-  /// Number of processed rows.
-  uint64_t numProcessedRows{0};
-
-  /// Number of processed vectors / batches. Allows to compute average batch
-  /// size.
-  uint64_t numProcessedVectors{0};
-
-  /// Whether default-null behavior of an expression resulted in skipping
-  /// evaluation of rows.
-  bool defaultNullRowsSkipped{false};
-
-  void add(const ExprStats& other) {
-    timing.add(other.timing);
-    numProcessedRows += other.numProcessedRows;
-    numProcessedVectors += other.numProcessedVectors;
-    defaultNullRowsSkipped |= other.defaultNullRowsSkipped;
-  }
-
-  std::string toString() const {
-    return fmt::format(
-        "timing: {}, numProcessedRows: {}, numProcessedVectors: {}, defaultNullRowsSkipped: {}",
-        timing.toString(),
-        numProcessedRows,
-        numProcessedVectors,
-        defaultNullRowsSkipped ? "true" : "false");
-  }
-};
 
 /// Maintains a set of rows for evaluation and removes rows with
 /// nulls or errors as needed. Helps to avoid copying SelectivityVector in cases

@@ -17,6 +17,7 @@
 
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/common/time/CpuWallTimer.h"
+#include "velox/expression/ExprStats.h"
 
 namespace facebook::velox::exec {
 
@@ -180,6 +181,11 @@ struct OperatorStats {
   int64_t numNullKeys{0};
 
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
+
+  // A map of expression name to its respective stats.
+  // These are only populated when a copy of the stats is returned via
+  // Operator::stats(bool) API.
+  std::unordered_map<std::string, ExprStats> expressionStats;
 
   int numDrivers = 0;
 

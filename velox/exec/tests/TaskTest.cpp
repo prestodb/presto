@@ -3144,4 +3144,75 @@ TEST_F(TaskTest, testTerminateDuringBarrierWithUnion) {
   ASSERT_EQ(task->taskStats().numBarriers, 1);
   ASSERT_EQ(task->taskStats().numFinishedSplits, 3);
 }
+
+TEST_F(TaskTest, expressionStatsInBetweenBarriers) {
+  // Verify that expression stats are collected in between barriers and at the
+  // end.
+  const int numRows{10};
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
+  });
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {data});
+
+  core::PlanNodeId scanId;
+  core::PlanNodeId projectNodeId;
+  auto plan = PlanBuilder()
+                  .tableScan(asRowType(data->type()))
+                  .capturePlanNodeId(scanId)
+                  .project({"c0 + 1"})
+                  .capturePlanNodeId(projectNodeId)
+                  .planFragment();
+
+  auto queryCtx = core::QueryCtx::create();
+  queryCtx->testingOverrideConfigUnsafe(
+      {{core::QueryConfig::kMaxOutputBatchRows, "10"},
+       {core::QueryConfig::kOperatorTrackExpressionStats, "true"}});
+  const auto task = Task::create(
+      "expressionStatsInBetweenBarriers",
+      plan,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kSerial);
+  ASSERT_TRUE(!task->underBarrier());
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  auto barrierFuture = task->requestBarrier();
+  ASSERT_TRUE(task->underBarrier());
+  RowVectorPtr result;
+  do {
+    ContinueFuture dummyFuture{ContinueFuture::makeEmpty()};
+    result = task->next(&dummyFuture);
+    ASSERT_FALSE(dummyFuture.valid());
+  } while (result != nullptr);
+  auto taskStats = task->taskStats();
+  ASSERT_EQ(taskStats.numBarriers, 1);
+  ASSERT_EQ(taskStats.numFinishedSplits, 1);
+  auto verifyExpressionStats = [nodeId = projectNodeId](
+                                   const TaskStats& taskStats,
+                                   uint64_t expectedNumProcessedRows) {
+    ASSERT_EQ(taskStats.pipelineStats.size(), 1);
+    ASSERT_EQ(taskStats.pipelineStats[0].operatorStats.size(), 2);
+    auto& projectStats = taskStats.pipelineStats[0].operatorStats[1];
+    ASSERT_EQ(projectStats.planNodeId, nodeId);
+    auto& expressionStats = projectStats.expressionStats;
+    auto it = expressionStats.find("plus");
+    ASSERT_TRUE(it != expressionStats.end());
+    ASSERT_EQ(it->second.numProcessedRows, expectedNumProcessedRows);
+  };
+  verifyExpressionStats(taskStats, 10);
+  ASSERT_TRUE(barrierFuture.isReady());
+  barrierFuture.wait();
+  task->addSplit(
+      scanId, exec::Split(makeHiveConnectorSplit(filePath->getPath())));
+  task->noMoreSplits(scanId);
+  do {
+    result = task->next();
+  } while (result != nullptr);
+  VELOX_CHECK(waitForTaskCompletion(task.get()));
+  taskStats = task->taskStats();
+  ASSERT_EQ(taskStats.numFinishedSplits, 2);
+  verifyExpressionStats(taskStats, 20);
+}
+
 } // namespace facebook::velox::exec::test

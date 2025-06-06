@@ -18,6 +18,7 @@
 #include <folly/dynamic.h>
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/exec/Operator.h"
+#include "velox/expression/ExprStats.h"
 
 namespace facebook::velox::exec {
 struct TaskStats;
@@ -141,6 +142,9 @@ struct PlanNodeStats {
 
   /// Total spilled files.
   uint32_t spilledFiles{0};
+
+  /// A map of expression name to its respective stats.
+  std::unordered_map<std::string, ExprStats> expressionStats;
 
   /// Add stats for a single operator instance.
   void add(const OperatorStats& stats);

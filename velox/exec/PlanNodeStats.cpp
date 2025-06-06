@@ -131,6 +131,14 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
     }
   }
 
+  for (const auto& [name, exprStats] : stats.expressionStats) {
+    if (UNLIKELY(this->expressionStats.count(name) == 0)) {
+      this->expressionStats.insert(std::make_pair(name, exprStats));
+    } else {
+      this->expressionStats.at(name).add(exprStats);
+    }
+  }
+
   // Populating number of drivers for plan nodes with multiple operators is not
   // useful. Each operator could have been executed in different pipelines with
   // different number of drivers.
