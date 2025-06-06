@@ -33,7 +33,7 @@ _______________
 * Fix returning incorrect results from the :func:`second(x) -> bigint()` UDF when a timestamp is in a time zone with an offset that is at the granularity of seconds. `#25090 <https://github.com/prestodb/presto/pull/25090>`_
 * Fix issue with loading Redis HBO provider. `#24835 <https://github.com/prestodb/presto/pull/24835>`_
 * Improve memory usage of readers of complex type columns. `#24912 <https://github.com/prestodb/presto/pull/24912>`_
-* Improve ACL check by moving checkQueryIntegrity from Dispatch phase to Analyzer phase. `#24927 <https://github.com/prestodb/presto/pull/24927>`_
+* Improve the efficacy of ACL checks by delaying them until after SQL view processing. `#24955 <https://github.com/prestodb/presto/pull/24955>`_ and `#24927 <https://github.com/prestodb/presto/pull/24927>`_
 * Improve coordinator performance by introducing Thrift serialization. `#25079 <https://github.com/prestodb/presto/pull/25079>`_ and `#25020 <https://github.com/prestodb/presto/pull/25020>`_
 * Improve performance of operator stats reporting. `#24921 <https://github.com/prestodb/presto/pull/24921>`_
 * Improve performance of ``ORDER BY`` queries on single node execution. `#25022 <https://github.com/prestodb/presto/pull/25022>`_
@@ -41,21 +41,29 @@ _______________
 * Improve performance of ``LOJ + IS NULL`` queries by adding distinct on right side of semi-join for it. `#24884 <https://github.com/prestodb/presto/pull/24884>`_
 * Add DDL SQL support for ``SHOW CREATE SCHEMA``. `#24356 <https://github.com/prestodb/presto/pull/24356>`_
 * Add configuration property ``hive.metastore.catalog.name`` to pass catalog names to the metastore, enabling catalog-based schema management and filtering. `#24235 <https://github.com/prestodb/presto/pull/24235>`_
+<<<<<<< HEAD
 * Add view definitions from Analyzer phase to perform full integrity check on query credentials. `#24955 <https://github.com/prestodb/presto/pull/24955>`_
 * Add :func:`cosine_similarity(x, y) -> double()` for array arguments. `#25056 <https://github.com/prestodb/presto/pull/25056>`_
+=======
+* Add type rewrite support for native execution. This feature can be enabled by ``native-execution-type-rewrite-enabled`` configuration property and ``native_execution_type_rewrite_enabled`` session property. `#24916 <https://github.com/prestodb/presto/pull/24916>`_
+* Add ``cosine_similarity`` function for array arguments. `#25056 <https://github.com/prestodb/presto/pull/25056>`_
+>>>>>>> 8ffc3dbd97 (Fix user facing release notes)
 * Add session property ``query.client-timeout`` to configure how long a query can run without contact from the client application, such as the CLI, before it is abandoned. `#25210 <https://github.com/prestodb/presto/pull/25210>`_
 * Add ``longest_common_prefix`` string function. `#24891 <https://github.com/prestodb/presto/pull/24891>`_
 * Replace ``exchange.compression-enabled``,  ``fragment-result-cache.block-encoding-compression-enabled``, ``experimental.spill-compression-enabled`` with ``exchange.compression-codec``, ``fragment-result-cache.block-encoding-compression-codec`` to enable compression codec configurations. Supported codecs include GZIP, LZ4, LZO, SNAPPY, ZLIB and ZSTD. `#24670 <https://github.com/prestodb/presto/pull/24670>`_
 * Replace dependency from PostgreSQL to redshift-jdbc42 to address `CVE-2024-1597 <https://github.com/advisories/GHSA-24rp-q3w6-vc56>`_, `CVE-2022-31197 <https://github.com/advisories/GHSA-r38f-c4h4-hqq2>`_, and `CVE-2020-13692 <https://github.com/advisories/GHSA-88cc-g835-76rp>`_. `#25106 <https://github.com/prestodb/presto/pull/25106>`_
-* Change checkQueryIntegrity function signature in AccessControl interface to pass in view definitions as params. `#24955 <https://github.com/prestodb/presto/pull/24955>`_
 * Upgrade netty version to 4.1.119.Final. `#24971 <https://github.com/prestodb/presto/pull/24971>`_
 
 Prestissimo (Native Execution) Changes
 ______________________________________
+<<<<<<< HEAD
 * Fix serialization in batch shuffle to use appropriate sorting keys for each buffer. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
 * Add type rewrite support for native execution. This feature can be enabled by ``native-execution-type-rewrite-enabled`` configuration property and ``native_execution_type_rewrite_enabled`` session property. `#24916 <https://github.com/prestodb/presto/pull/24916>`_
+=======
+* Improve batch shuffle performance by doing sorted serialization. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
+* Improve batch shuffle sorted serialization by using appropriate sorting key values for each buffer. `#25015 <https://github.com/prestodb/presto/pull/25015>`_
+>>>>>>> 8ffc3dbd97 (Fix user facing release notes)
 * Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
-* Add support for sorted serialization in batch shuffle. `#24953 <https://github.com/prestodb/presto/pull/24953>`_
 * Add session property ``native_request_data_sizes_max_wait_sec`` for the maximum wait time for exchange long poll requests in seconds. `#24918 <https://github.com/prestodb/presto/pull/24918>`_
 * Add session property ``native_streaming_aggregation_eager_flush`` to control if streaming aggregation should flush its output rows as quickly as it can. `#24947 <https://github.com/prestodb/presto/pull/24947>`_
 * Add session property ``native_debug_memory_pool_name_regex`` to trace allocations of memory pools matching the regex. `#24833 <https://github.com/prestodb/presto/pull/24833>`_
