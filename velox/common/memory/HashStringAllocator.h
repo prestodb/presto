@@ -685,7 +685,7 @@ struct StlAllocator {
 
   explicit StlAllocator(HashStringAllocator* allocator)
       : allocator_{allocator} {
-    VELOX_CHECK(allocator);
+    VELOX_CHECK_NOT_NULL(allocator);
   }
 
   template <class U>
@@ -722,7 +722,7 @@ struct StlAllocator {
   }
 
  private:
-  HashStringAllocator* allocator_;
+  HashStringAllocator* const allocator_;
 };
 
 /// An allocator backed by HashStringAllocator that guaratees a configurable
@@ -833,7 +833,7 @@ struct AlignedStlAllocator {
     return reinterpret_cast<T*>(alignedPtr);
   }
 
-  HashStringAllocator* allocator_;
+  HashStringAllocator* const allocator_;
   const bool poolAligned_;
 };
 
