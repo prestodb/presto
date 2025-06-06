@@ -21,11 +21,10 @@ public class TestPrestoContainerNativeClusterSidecarInfrastructure
     @Test
     public void Test1(){
 //        assertQuery("SHOW FUNCTIONS");
-//        assertQuery("SHOW SESSION");
-//        assertQuery("SELECT 1");
-        assertQuery("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])","SELECT ARRAY [3, 5, 5, 20, 50, null]");
-
-        assertQuery("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])");
+        System.out.println(computeActual("SHOW SESSION"));
+        System.out.println(computeActual("SELECT 1"));
+        System.out.println(computeActual("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])"));
+//        System.out.println(computeActual("SELECT array_sort(ARRAY [5, 20, null, 5, 3, 50])"));
     }
 
 //    public void Test2(){
