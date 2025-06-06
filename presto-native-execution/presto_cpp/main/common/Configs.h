@@ -140,6 +140,10 @@ class ConfigBase {
     return config_->rawConfigsCopy();
   }
 
+  std::string file_path() const {
+    return filePath_;
+  }
+
   virtual ~ConfigBase() = default;
 
  protected:
@@ -739,7 +743,7 @@ class SystemConfig : public ConfigBase {
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
-    "exchange.http-client.request-data-sizes-max-wait-sec"};
+      "exchange.http-client.request-data-sizes-max-wait-sec"};
 
   SystemConfig();
 
