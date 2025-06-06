@@ -796,5 +796,25 @@ TEST_F(SqrtTest, sqrt) {
   EXPECT_TRUE(std::isnan(sqrt(-1).value()));
 }
 
+class CbrtTest : public SparkFunctionBaseTest {
+ protected:
+  std::optional<double> cbrt(std::optional<double> a) {
+    return evaluateOnce<double>("cbrt(c0)", a);
+  }
+};
+
+TEST_F(CbrtTest, cbrt) {
+  const double kInf = std::numeric_limits<double>::infinity();
+  const double kNan = std::numeric_limits<double>::quiet_NaN();
+
+  EXPECT_EQ(cbrt(std::nullopt), std::nullopt);
+  EXPECT_EQ(cbrt(8), 2.0);
+  EXPECT_EQ(cbrt(-8), -2.0);
+  EXPECT_EQ(cbrt(0), 0.0);
+  EXPECT_EQ(cbrt(kInf), kInf);
+  EXPECT_EQ(cbrt(-kInf), -kInf);
+  EXPECT_TRUE(std::isnan(cbrt(kNan).value()));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

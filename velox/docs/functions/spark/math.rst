@@ -203,6 +203,10 @@ Mathematical Functions
 
     Returns the square root of ``x``.
 
+.. spark:function:: cbrt(x) -> double
+
+    Returns the cube root of ``x``.
+
 .. spark:function:: multiply(x, y) -> [same as x]
 
     Returns the result of multiplying x by y. The types of x and y must be the same.
