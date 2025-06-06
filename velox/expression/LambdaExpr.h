@@ -49,6 +49,10 @@ class LambdaExpr : public SpecialForm {
       EvalCtx& context,
       VectorPtr& result) override;
 
+  const ExprPtr& body() const {
+    return body_;
+  }
+
  protected:
   void computeDistinctFields() override;
 

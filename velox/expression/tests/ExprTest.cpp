@@ -5026,6 +5026,28 @@ TEST_F(ExprTest, evaluateConstantExpression) {
       "Expression is not constant-foldable");
   ASSERT_TRUE(
       tryEval("transform(array[1, 2, 3], x -> (x * 2) + a)") == nullptr);
+
+  VELOX_ASSERT_THROW(
+      eval("transform(array[1, 2, 3], x -> x + rand())"),
+      "Expression is not constant-foldable");
+  ASSERT_TRUE(tryEval("transform(array[1, 2, 3], x -> x + rand())") == nullptr);
+}
+
+TEST_F(ExprTest, isDeterministic) {
+  auto isDeterministic = [&](const std::string& sql) {
+    SCOPED_TRACE(sql);
+    auto exprSet = compileExpression(sql, ROW({"c0"}, {ARRAY(DOUBLE())}));
+    return exprSet->expr(0)->isDeterministic();
+  };
+
+  EXPECT_TRUE(isDeterministic("cardinality(c0) + 5"));
+  EXPECT_TRUE(isDeterministic("transform(c0, x -> x + 5.0)"));
+  EXPECT_TRUE(isDeterministic("filter(c0, x -> (x < 5.0))"));
+
+  EXPECT_FALSE(isDeterministic("rand()"));
+  EXPECT_FALSE(isDeterministic("c0[1] + rand()"));
+  EXPECT_FALSE(isDeterministic("transform(c0, x -> x + rand())"));
+  EXPECT_FALSE(isDeterministic("filter(c0, x -> (x < rand()))"));
 }
 
 TEST_F(ExprTest, peelingOnDeterministicFunctionInNonDeterministicExpr) {

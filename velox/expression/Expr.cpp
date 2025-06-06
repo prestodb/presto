@@ -29,6 +29,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/FieldReference.h"
+#include "velox/expression/LambdaExpr.h"
 #include "velox/expression/PeeledEncoding.h"
 #include "velox/expression/ScopedVarSetter.h"
 #include "velox/expression/VectorFunction.h"
@@ -234,7 +235,11 @@ void Expr::computeMetadata() {
   // a special form, and all its inputs are also deterministic.
   deterministic_ = isCurrentFunctionDeterministic();
   for (auto& input : inputs_) {
-    deterministic_ &= input->deterministic_;
+    if (auto* lambda = input->as<LambdaExpr>()) {
+      deterministic_ &= lambda->body()->isDeterministic();
+    } else {
+      deterministic_ &= input->deterministic_;
+    }
   }
 
   // (2) Compute distinctFields_ and multiplyReferencedFields_.
