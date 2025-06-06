@@ -22,7 +22,10 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.util.StructLikeSet;
 import org.apache.iceberg.util.StructProjection;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.iceberg.IcebergUtil.schemaFromHandles;
 import static java.util.Objects.requireNonNull;
@@ -32,11 +35,14 @@ public final class EqualityDeleteFilter
 {
     private final Schema schema;
     private final StructLikeSet deleteSet;
+    @Nullable
+    private final String deleteFilePath;
 
-    private EqualityDeleteFilter(Schema schema, StructLikeSet deleteSet)
+    private EqualityDeleteFilter(Schema schema, StructLikeSet deleteSet, @Nullable String deleteFilePath)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.deleteSet = requireNonNull(deleteSet, "deleteSet is null");
+        this.deleteFilePath = deleteFilePath;
     }
 
     @Override
@@ -55,7 +61,13 @@ public final class EqualityDeleteFilter
         };
     }
 
-    public static DeleteFilter readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, Schema tableSchema)
+    @Override
+    public Optional<String> getDeleteFilePath()
+    {
+        return Optional.ofNullable(deleteFilePath);
+    }
+
+    public static DeleteFilter readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, String deleteFilePath)
     {
         Type[] types = columns.stream()
                 .map(IcebergColumnHandle::getType)
@@ -75,6 +87,6 @@ public final class EqualityDeleteFilter
             }
         }
 
-        return new EqualityDeleteFilter(deleteSchema, deleteSet);
+        return new EqualityDeleteFilter(deleteSchema, deleteSet, deleteFilePath);
     }
 }

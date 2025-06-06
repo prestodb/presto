@@ -2046,6 +2046,60 @@ public abstract class IcebergDistributedTestBase
         testDataSequenceNumberHiddenColumn();
     }
 
+    @Test
+    public void testDeletedHiddenColumn()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_deleted");
+        assertUpdate("CREATE TABLE test_deleted AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_deleted SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        assertQuery("SELECT \"$deleted\" FROM test_deleted", format("VALUES %s, %s", "false", "false"));
+
+        assertUpdate("DELETE FROM test_deleted WHERE regionkey=1", 1);
+        assertEquals(computeActual("SELECT * FROM test_deleted").getRowCount(), 1);
+        assertQuery("SELECT \"$deleted\" FROM test_deleted ORDER BY \"$deleted\"", format("VALUES %s, %s", "false", "true"));
+    }
+
+    @Test
+    public void testDeleteFilePathHiddenColumn()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_delete_file_path");
+        assertUpdate("CREATE TABLE test_delete_file_path AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_delete_file_path SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        assertQuery("SELECT \"$delete_file_path\" FROM test_delete_file_path", format("VALUES %s, %s", "NULL", "NULL"));
+
+        assertUpdate("DELETE FROM test_delete_file_path WHERE regionkey=1", 1);
+        assertEquals(computeActual("SELECT * FROM test_delete_file_path").getRowCount(), 1);
+        assertEquals(computeActual("SELECT \"$delete_file_path\" FROM test_delete_file_path").getRowCount(), 2);
+
+        assertUpdate("DELETE FROM test_delete_file_path WHERE regionkey=0", 1);
+        computeActual("SELECT \"$delete_file_path\" FROM test_delete_file_path").getMaterializedRows().forEach(row -> {
+            assertEquals(row.getFieldCount(), 1);
+            assertNotNull(row.getField(0));
+        });
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithDeletedHiddenColumn(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, data varchar) WITH (\"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        Table icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("id", 1));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'b'), (2, 'a'), (3, 'a')", 3);
+
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, 'b'), (2, 'a'), (3, 'a')");
+
+        assertQuery(session, "SELECT \"$deleted\", * FROM " + tableName,
+                "VALUES (true, 1, 'a'), (false, 1, 'b'), (false, 2, 'a'), (false, 3, 'a')");
+    }
+
     @DataProvider(name = "pushdownFilterEnabled")
     public Object[][] pushdownFilterEnabledProvider()
     {
