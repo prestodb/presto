@@ -15,6 +15,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
+        <enable.docker.build.coordinator>false</enable.docker.build.coordinator>
+        <enable.docker.build.worker>false</enable.docker.build.worker>
     </properties>
 
     <dependencies>
@@ -354,14 +356,16 @@
         </profile>
         <profile>
             <id>docker-build</id>
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-server</artifactId>
-                    <version>${project.version}</version>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-server</artifactId>
+                        <version>${project.version}</version>
+                        <scope>runtime</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
             <build>
                 <plugins>
                     <plugin>
@@ -401,51 +405,13 @@
                         <version>0.45.1</version>
                         <executions>
                             <execution>
-                                <id>coordinator</id>
-                                <phase>install</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                                <configuration>
-                                    <images>
-                                        <image>
-                                            <name>presto-coordinator:latest</name>
-                                            <build>
-                                                <dockerFile>${project.parent.basedir}/docker/Dockerfile</dockerFile>
-                                                <contextDir>${project.parent.basedir}/docker</contextDir>
-                                                <args>
-                                                    <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
-                                                </args>
-                                            </build>
-                                        </image>
-                                    </images>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>dependency</id>
-                                <phase>install</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                                <configuration>
-                                    <images>
-                                        <image>
-                                            <name>presto-native-dependency:latest</name>
-                                            <build>
-                                                <dockerFile>${project.basedir}/scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile</dockerFile>
-                                                <contextDir>${project.basedir}</contextDir>
-                                            </build>
-                                        </image>
-                                    </images>
-                                </configuration>
-                            </execution>
-                            <execution>
                                 <id>worker</id>
                                 <phase>install</phase>
                                 <goals>
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${enable.docker.build.coordinator}</skip>
                                     <images>
                                         <image>
                                             <name>presto-worker:latest</name>
@@ -454,13 +420,47 @@
                                                 <contextDir>${project.basedir}</contextDir>
                                                 <args>
                                                     <BUILD_TYPE>Release</BUILD_TYPE>
-                                                    <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
+                                                    <DEPENDENCY_IMAGE>prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84</DEPENDENCY_IMAGE>
                                                     <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_TESTING=OFF</EXTRA_CMAKE_FLAGS>
                                                     <NUM_THREADS>2</NUM_THREADS>
                                                     <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
                                                     <OSNAME>ubuntu</OSNAME>
                                                 </args>
+                                                <buildx>
+                                                  <!-- There's no current way to just enable BuildKit with a simple option in the docker-maven-plugin config -->
+                                                  <!-- We can force the use of buildx/BuildKit by configuring one of the buildx-only docker features exposed by the plugin -->
+                                                  <secret>
+                                                    <envs>
+                                                      <!-- Setting a dummy build secret that is never used. Using DOCKER_BUILDKIT env var since it doesn't carry sensitive info -->
+                                                      <emptysecret>DOCKER_BUILDKIT</emptysecret>
+                                                    </envs>
+                                                  </secret>
+                                                </buildx>
                                                 <imagePullPolicy>IfNotPresent</imagePullPolicy>
+                                            </build>
+                                        </image>
+                                    </images>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>coordinator</id>
+                                <phase>install</phase>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                                <configuration>
+                                    <skip>${enable.docker.build.worker}</skip>
+                                    <images>
+                                        <image>
+                                            <name>presto-coordinator:latest</name>
+                                            <build>
+                                                <dockerFile>${project.parent.basedir}/docker/Dockerfile</dockerFile>
+                                                <contextDir>${project.parent.basedir}/docker</contextDir>
+                                                <args>
+                                                    <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
+                                                    <PRESTO_PKG>presto-server-${project.version}.tar.gz</PRESTO_PKG>
+                                                    <PRESTO_CLI>presto-cli-${project.version}-executable.jar</PRESTO_CLI>
+                                                </args>
                                             </build>
                                         </image>
                                     </images>
