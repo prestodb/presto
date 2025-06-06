@@ -182,6 +182,7 @@ public class TestPage
         Page newPage = page.replaceColumn(1, newBlock);
 
         assertEquals(newPage.getChannelCount(), 3);
+        assertEquals(newPage.getPositionCount(), entries);
         assertEquals(newPage.getBlock(1).getLong(0), 0);
         assertEquals(newPage.getBlock(1).getLong(1), -1);
     }

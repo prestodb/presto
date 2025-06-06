@@ -471,7 +471,7 @@ public final class Page
 
         Block[] newBlocks = Arrays.copyOf(blocks, blocks.length);
         newBlocks[channelIndex] = column;
-        return Page.wrapBlocksWithoutCopy(newBlocks.length, newBlocks);
+        return Page.wrapBlocksWithoutCopy(positionCount, newBlocks);
     }
 
     private static class DictionaryBlockIndexes
