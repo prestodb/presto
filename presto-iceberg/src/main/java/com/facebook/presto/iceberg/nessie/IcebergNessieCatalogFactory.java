@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.nessie;
 
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
@@ -43,9 +44,10 @@ public class IcebergNessieCatalogFactory
             IcebergNessieConfig catalogConfig,
             IcebergCatalogName catalogName,
             S3ConfigurationUpdater s3ConfigurationUpdater,
-            GcsConfigurationInitializer gcsConfigurationInitialize)
+            GcsConfigurationInitializer gcsConfigurationInitialize,
+            AzureConfigurationInitializer azureConfigurationInitialize)
     {
-        super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize);
+        super(config, catalogName, s3ConfigurationUpdater, gcsConfigurationInitialize, azureConfigurationInitialize);
         this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
     }
 

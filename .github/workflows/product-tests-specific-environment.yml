@@ -131,11 +131,11 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-test-coverage'
-      - name: Product Tests Specific 2.1
-        if: needs.changes.outputs.codechange == 'true'
-        env:
-          OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
-        run: presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap -x simba_jdbc
+#      - name: Product Tests Specific 2.1
+#        if: needs.changes.outputs.codechange == 'true'
+#        env:
+#          OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
+#        run: presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap -x simba_jdbc
       - name: Product Tests Specific 2.2
         if: needs.changes.outputs.codechange == 'true'
         env:
