@@ -1009,3 +1009,8 @@ Tracing
      - integer
      - 0
      - The max trace bytes limit. Tracing is disabled if zero.
+   * - query_trace_dry_run
+     - boolean
+     - false
+     - If true, we only collect the input trace for a given operator but without the actual
+       execution. This is used for crash debugging.

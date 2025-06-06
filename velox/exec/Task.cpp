@@ -3434,7 +3434,8 @@ std::optional<TraceConfig> Task::maybeMakeTraceConfig() const {
       traceNodeId,
       traceDir,
       std::move(updateAndCheckTraceLimitCB),
-      queryConfig.queryTraceTaskRegExp());
+      queryConfig.queryTraceTaskRegExp(),
+      queryConfig.queryTraceDryRun());
 }
 
 void Task::maybeInitTrace() {

@@ -283,6 +283,12 @@ class Operator : public BaseRuntimeStatWriter {
   /// build side is empty.
   virtual bool isFinished() = 0;
 
+  /// True if the operator is in dry run mode which is only used by input
+  /// trace collection for crash debugging.
+  bool dryRun() const {
+    return dryRun_;
+  }
+
   /// Traces input batch of the operator.
   virtual void traceInput(const RowVectorPtr&);
 
@@ -631,6 +637,8 @@ class Operator : public BaseRuntimeStatWriter {
   /// Contains the disk spilling related configs if spilling is enabled (e.g.
   /// the fs dir path to store spill files), otherwise null.
   const std::optional<common::SpillConfig> spillConfig_;
+
+  const bool dryRun_;
 
   bool initialized_{false};
 

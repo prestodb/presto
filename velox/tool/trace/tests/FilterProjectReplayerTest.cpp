@@ -65,6 +65,7 @@ class FilterProjectReplayerTest : public HiveConnectorTestBase {
     }
     Type::registerSerDe();
     common::Filter::registerSerDe();
+    connector::ConnectorTableHandle::registerSerDe();
     connector::hive::HiveTableHandle::registerSerDe();
     connector::hive::LocationHandle::registerSerDe();
     connector::hive::HiveColumnHandle::registerSerDe();
@@ -315,5 +316,40 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
                          executor_.get())
                          .run();
   ASSERT_EQ(emptyResult->size(), 0);
+}
+
+TEST_F(FilterProjectReplayerTest, dryRun) {
+  const auto planWithSplits = createPlan(PlanMode::FilterOnly);
+  AssertQueryBuilder builder(planWithSplits.plan);
+  std::shared_ptr<Task> task;
+  auto result = builder.splits(planWithSplits.splits).copyResults(pool(), task);
+  ASSERT_EQ(result->size(), 1780);
+
+  const auto traceRoot = fmt::format("{}/{}", testDir_->getPath(), "filter");
+  const auto tracePlanWithSplits = createPlan(PlanMode::FilterOnly);
+  std::shared_ptr<Task> taskWithTrace;
+  AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
+  traceBuilder.maxDrivers(4)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+      .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeId, filterNodeId_)
+      .config(core::QueryConfig::kQueryTraceDryRun, true);
+  auto traceResult = traceBuilder.splits(tracePlanWithSplits.splits)
+                         .copyResults(pool(), taskWithTrace);
+  ASSERT_EQ(traceResult->size(), 0);
+
+  auto replayingResult = FilterProjectReplayer(
+                             traceRoot,
+                             taskWithTrace->queryCtx()->queryId(),
+                             taskWithTrace->taskId(),
+                             filterNodeId_,
+                             "FilterProject",
+                             "",
+                             0,
+                             executor_.get())
+                             .run();
+  assertEqualResults({result}, {replayingResult});
 }
 } // namespace facebook::velox::tool::trace::test

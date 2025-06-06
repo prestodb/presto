@@ -88,6 +88,9 @@ Operator::Operator(
           operatorType)),
       outputType_(std::move(outputType)),
       spillConfig_(std::move(spillConfig)),
+      dryRun_(
+          operatorCtx_->driverCtx()->traceConfig().has_value() &&
+          operatorCtx_->driverCtx()->traceConfig()->dryRun),
       stats_(OperatorStats{
           operatorId,
           driverCtx->pipelineId,

@@ -25,11 +25,13 @@ TraceConfig::TraceConfig(
     std::string _queryNodeId,
     std::string _queryTraceDir,
     UpdateAndCheckTraceLimitCB _updateAndCheckTraceLimitCB,
-    std::string _taskRegExp)
+    std::string _taskRegExp,
+    bool _dryRun)
     : queryNodeId(std::move(_queryNodeId)),
       queryTraceDir(std::move(_queryTraceDir)),
       updateAndCheckTraceLimitCB(std::move(_updateAndCheckTraceLimitCB)),
-      taskRegExp(std::move(_taskRegExp)) {
+      taskRegExp(std::move(_taskRegExp)),
+      dryRun(_dryRun) {
   VELOX_CHECK(!queryNodeId.empty(), "Query trace nodes cannot be empty");
 }
 } // namespace facebook::velox

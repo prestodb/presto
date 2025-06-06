@@ -478,6 +478,10 @@ class QueryConfig {
   static constexpr const char* kQueryTraceTaskRegExp =
       "query_trace_task_reg_exp";
 
+  /// If true, we only collect the input trace for a given operator but without
+  /// the actual execution.
+  static constexpr const char* kQueryTraceDryRun = "query_trace_dry_run";
+
   /// Config used to create operator trace directory. This config is provided to
   /// underlying file system and the config is free form. The form should be
   /// defined by the underlying file system.
@@ -961,6 +965,10 @@ class QueryConfig {
   std::string queryTraceTaskRegExp() const {
     // The default query trace task regexp, empty by default.
     return get<std::string>(kQueryTraceTaskRegExp, "");
+  }
+
+  bool queryTraceDryRun() const {
+    return get<bool>(kQueryTraceDryRun, false);
   }
 
   std::string opTraceDirectoryCreateConfig() const {

@@ -4036,8 +4036,16 @@ class UnnestNode : public PlanNode {
     return unnestVariables_;
   }
 
+  const std::vector<std::string>& unnestNames() const {
+    return unnestNames_;
+  }
+
   bool withOrdinality() const {
     return ordinalityName_.has_value();
+  }
+
+  const std::optional<std::string>& ordinalityName() const {
+    return ordinalityName_;
   }
 
   std::string_view name() const override {

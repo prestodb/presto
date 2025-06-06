@@ -482,6 +482,12 @@ bool Driver::checkUnderArbitration(ContinueFuture* future) {
 }
 
 namespace {
+inline void addInput(Operator* op, const RowVectorPtr& input) {
+  if (FOLLY_LIKELY(!op->dryRun())) {
+    op->addInput(input);
+  }
+}
+
 inline void getOutput(Operator* op, RowVectorPtr& result) {
   result = op->getOutput();
   if (FOLLY_UNLIKELY(op->shouldDropOutput())) {
@@ -641,7 +647,7 @@ StopReason Driver::runInternal(
                         nextOp);
 
                     CALL_OPERATOR(
-                        nextOp->addInput(intermediateResult),
+                        addInput(nextOp, intermediateResult),
                         nextOp,
                         curOperatorId_ + 1,
                         kOpMethodAddInput);
