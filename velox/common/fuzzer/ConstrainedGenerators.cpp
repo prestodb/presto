@@ -49,13 +49,21 @@ folly::json::serialization_opts getSerializationOptions(
   folly::json::serialization_opts opts;
   opts.allow_non_string_keys = true;
   opts.allow_nan_inf = true;
+  opts.sort_keys = true;
   if (makeRandomVariation) {
     opts.convert_int_keys = rand<bool>(rng);
     opts.pretty_formatting = rand<bool>(rng);
     opts.pretty_formatting_indent_width = rand<uint32_t>(rng, 0, 4);
     opts.encode_non_ascii = rand<bool>(rng);
-    opts.sort_keys = rand<bool>(rng);
     opts.skip_invalid_utf8 = rand<bool>(rng);
+
+    // With 50% chance, sort object keys in reverse order.
+    if (rand<bool>(rng)) {
+      opts.sort_keys_by = [](folly::dynamic const& left,
+                             folly::dynamic const& right) {
+        return right < left;
+      };
+    }
   }
   return opts;
 }
