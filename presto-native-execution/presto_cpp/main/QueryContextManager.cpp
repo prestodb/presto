@@ -47,15 +47,15 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kSpillFileCreateConfig,
            std::string(SystemConfig::kSpillerFileCreateConfig)},
           {core::QueryConfig::kSpillEnabled,
-          std::string(SystemConfig::kSpillEnabled)},
+           std::string(SystemConfig::kSpillEnabled)},
           {core::QueryConfig::kJoinSpillEnabled,
-          std::string(SystemConfig::kJoinSpillEnabled)},
+           std::string(SystemConfig::kJoinSpillEnabled)},
           {core::QueryConfig::kOrderBySpillEnabled,
-          std::string(SystemConfig::kOrderBySpillEnabled)},
+           std::string(SystemConfig::kOrderBySpillEnabled)},
           {core::QueryConfig::kAggregationSpillEnabled,
-          std::string(SystemConfig::kAggregationSpillEnabled)},
+           std::string(SystemConfig::kAggregationSpillEnabled)},
           {core::QueryConfig::kRequestDataSizesMaxWaitSec,
-          std::string(SystemConfig::kRequestDataSizesMaxWaitSec)}};
+           std::string(SystemConfig::kRequestDataSizesMaxWaitSec)}};
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;
@@ -85,8 +85,7 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
         taskUpdateRequest.extraCredentials.begin(),
         taskUpdateRequest.extraCredentials.end());
     connectorConfig.insert({"user", taskUpdateRequest.session.user});
-    connectorConfigs.insert(
-        {entry.first, connectorConfig});
+    connectorConfigs.insert({entry.first, connectorConfig});
   }
 
   return connectorConfigs;
