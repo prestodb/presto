@@ -16,8 +16,11 @@ package com.facebook.presto.iceberg.delete;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DeleteFilter
 {
     RowPredicate createPredicate(List<IcebergColumnHandle> columns);
+
+    Optional<String> getDeleteFilePath();
 }
