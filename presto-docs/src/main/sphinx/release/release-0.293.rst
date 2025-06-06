@@ -6,7 +6,7 @@ Release 0.293
 ==============
 
 * Fix ROLLBACK statement to ensure it successfully aborts non-auto commit transactions corrupted by failed statements. `#23247 <https://github.com/prestodb/presto/pull/23247>`_
-* Improve coordinator performance by introducing Thrift serialization. `#25079 <https://github.com/prestodb/presto/pull/25079>`_
+* Improve coordinator performance by introducing Thrift serialization. `#25079 <https://github.com/prestodb/presto/pull/25079>`_ and `#25020 <https://github.com/prestodb/presto/pull/25020>`_
 * Improve performance of ``ORDER BY`` queries on single node execution. `#25022 <https://github.com/prestodb/presto/pull/25022>`_
 * Add authentication capabilities to Presto router. `#24407 <https://github.com/prestodb/presto/pull/24407>`_
 * Add coordinator health checks to Presto router. `#24449 <https://github.com/prestodb/presto/pull/24449>`_
@@ -20,6 +20,7 @@ Release 0.293
 * Add support for `JSON <https://prestodb.io/docs/current/language/types.html#json>`_ type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
 * Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
 * Add a display for number of queued and running queries for each Resource Group subgroup in the UI. `#24830 <https://github.com/prestodb/presto/pull/24830>`_
+* Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
 
 **Details**
 ===========
@@ -39,10 +40,9 @@ _______________
 * Improve query plans by converting table scans without data to empty values nodes. `#25155 <https://github.com/prestodb/presto/pull/25155>`_
 * Improve performance of ``LOJ + IS NULL`` queries by adding distinct on right side of semi-join for it. `#24884 <https://github.com/prestodb/presto/pull/24884>`_
 * Add DDL SQL support for ``SHOW CREATE SCHEMA``. `#24356 <https://github.com/prestodb/presto/pull/24356>`_
-* Add `runtime metrics collection for S3 Filesystem <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_. `#24554 <https://github.com/prestodb/presto/pull/24554>`_
 * Add configuration property ``hive.metastore.catalog.name`` to pass catalog names to the metastore, enabling catalog-based schema management and filtering. `#24235 <https://github.com/prestodb/presto/pull/24235>`_
 * Add view definitions from Analyzer phase to perform full integrity check on query credentials. `#24955 <https://github.com/prestodb/presto/pull/24955>`_
-* Add func:`cosine_similarity` for array arguments. `#25056 <https://github.com/prestodb/presto/pull/25056>`_
+* Add :func:`cosine_similarity(x, y) -> double()` for array arguments. `#25056 <https://github.com/prestodb/presto/pull/25056>`_
 * Add session property ``query.client-timeout`` to configure how long a query can run without contact from the client application, such as the CLI, before it is abandoned. `#25210 <https://github.com/prestodb/presto/pull/25210>`_
 * Add ``longest_common_prefix`` string function. `#24891 <https://github.com/prestodb/presto/pull/24891>`_
 * Replace ``exchange.compression-enabled``,  ``fragment-result-cache.block-encoding-compression-enabled``, ``experimental.spill-compression-enabled`` with ``exchange.compression-codec``, ``fragment-result-cache.block-encoding-compression-codec`` to enable compression codec configurations. Supported codecs include GZIP, LZ4, LZO, SNAPPY, ZLIB and ZSTD. `#24670 <https://github.com/prestodb/presto/pull/24670>`_
