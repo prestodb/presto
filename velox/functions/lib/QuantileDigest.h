@@ -19,6 +19,7 @@
 #include <folly/Bits.h>
 
 #include "velox/common/base/CheckedArithmetic.h"
+#include "velox/common/base/Doubles.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Portability.h"
 #include "velox/common/memory/HashStringAllocator.h"
@@ -552,7 +553,7 @@ void QuantileDigest<T, Allocator>::add(T value, double weight) {
 
   VELOX_USER_CHECK_LT(
       weightedCount_,
-      std::numeric_limits<int64_t>::max(),
+      kMaxDoubleBelowInt64Max,
       "Weighted count in digest is too large: {}",
       weightedCount_);
   if (needsCompression ||
