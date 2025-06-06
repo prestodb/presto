@@ -132,7 +132,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
+            <groupId>com.facebook.airlift.resolver</groupId>
             <artifactId>resolver</artifactId>
         </dependency>
 
@@ -273,8 +273,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.sonatype.aether</groupId>
-            <artifactId>aether-api</artifactId>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-api</artifactId>
         </dependency>
 
         <dependency>
