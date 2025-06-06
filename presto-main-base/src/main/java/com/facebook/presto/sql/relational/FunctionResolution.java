@@ -335,6 +335,24 @@ public final class FunctionResolution
     }
 
     @Override
+    public boolean isArbitraryFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("arbitrary")));
+    }
+
+    @Override
+    public FunctionHandle arbitraryFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("arbitrary", ImmutableList.of());
+    }
+
+    @Override
+    public FunctionHandle arbitraryFunction(Type valueType)
+    {
+        return functionAndTypeResolver.lookupFunction("arbitrary", fromTypes(valueType));
+    }
+
+    @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("max")));
