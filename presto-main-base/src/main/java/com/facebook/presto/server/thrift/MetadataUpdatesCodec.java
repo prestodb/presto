@@ -47,7 +47,7 @@ public class MetadataUpdatesCodec
     }
 
     @CodecThriftType
-    public static ThriftType getThriftType()
+    public static ThriftType getThriftType(ThriftCatalog catalog)
     {
         return SYNTHETIC_STRUCT_TYPE;
     }

@@ -27,6 +27,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.connector.ConnectorSpecificCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
@@ -96,7 +97,8 @@ public class HiveConnector
             ConnectorPlanOptimizerProvider planOptimizerProvider,
             ConnectorMetadataUpdaterProvider metadataUpdaterProvider,
             ConnectorTypeSerdeProvider connectorTypeSerdeProvider,
-            ClassLoader classLoader)
+            ClassLoader classLoader,
+            ConnectorSpecificCodecProvider connectorSpecificCodecProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");

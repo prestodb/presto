@@ -61,7 +61,7 @@ public class CustomCodecUtils
                         referencedType)),
                 Optional.empty());
         return new ThriftStructMetadata(
-                originalType.getSimpleName() + "Wrapper",
+                originalType.getSimpleName(),
                 ImmutableMap.of(),
                 originalType, null,
                 ThriftStructMetadata.MetadataType.STRUCT,
