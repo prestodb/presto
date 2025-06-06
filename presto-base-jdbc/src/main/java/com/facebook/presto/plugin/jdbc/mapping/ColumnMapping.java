@@ -29,6 +29,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/*
+ * JDBC based connectors can control how data should be read from a ResultSet via ReadMapping definitions. But writing was
+ * hard-coded in JdbcPageSink#appendColumn. This class provides the control to define how data should be written back to
+ * data source by introducing WriteFunctions.
+ */
 public final class ColumnMapping
 {
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
