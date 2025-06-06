@@ -78,6 +78,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
     public static final String NATIVE_STREAMING_AGGREGATION_MIN_OUTPUT_BATCH_ROWS = "native_streaming_aggregation_min_output_batch_rows";
     public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
+    public static final String NATIVE_DEBUG_LAMBDA_FUNCTION_EVALUATION_BATCH_SIZE = "native_debug_lambda_function_evaluation_batch_size";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -350,7 +351,18 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC,
                         "Maximum wait time for exchange long poll requests in seconds.",
                         10,
-                        !nativeExecution));
+                        !nativeExecution)),
+                integerProperty(
+                        NATIVE_DEBUG_LAMBDA_FUNCTION_EVALUATION_BATCH_SIZE,
+                        "Some lambda functions over arrays and maps are evaluated in batches of " +
+                                "the underlying elements that comprise the arrays/maps. This is done " +
+                                "to make the batch size manageable as array vectors can have thousands " +
+                                "of elements each and hit scaling limits as implementations typically " +
+                                "expect BaseVectors to be a couple of thousand entries. This lets us tune " +
+                                "those batch sizes. Setting this to zero will set an unlimited batch size. " +
+                                "Default is 10,000",
+                        10000,
+                        !nativeExecution);
     }
 
     @Override
