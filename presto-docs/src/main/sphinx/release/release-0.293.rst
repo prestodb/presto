@@ -18,7 +18,7 @@ Release 0.293
 * Add support for SSL/TLS encryption for HMS. `#24745 <https://github.com/prestodb/presto/pull/24745>`_
 * Add support for the procedure ``<catalog-name>.system.invalidate_manifest_file_cache()`` for ManifestFile cache invalidation in Iceberg. `#24831 <https://github.com/prestodb/presto/pull/24831>`_
 * Add support for `JSON <https://prestodb.io/docs/current/language/types.html#json>`_ type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
-* Add support for GEOMETRY type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
+* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
 * Add a display for number of queued queries for each Resource Group subgroup in the UI. `#24830 <https://github.com/prestodb/presto/pull/24830>`_
 
 **Details**
@@ -125,11 +125,11 @@ _______________________
 
 MongoDB Connector Changes
 _________________________
-* Add support for JSON type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
+* Add support for `JSON <https://prestodb.io/docs/current/language/types.html#json>`_ type in MongoDB. `#25089 <https://github.com/prestodb/presto/pull/25089>`_
 
 MySQL Connector Changes
 _______________________
-* Add support for GEOMETRY type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
+* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the MySQL connector. `#24996 <https://github.com/prestodb/presto/pull/24996>`_
 
 SQL Server Connector Changes
 ____________________________
