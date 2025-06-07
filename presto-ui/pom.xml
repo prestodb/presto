@@ -21,6 +21,10 @@
                 <directory>${project.build.directory}/webapp</directory>
                 <targetPath>webapp</targetPath>
             </resource>
+            <resource>
+                <directory>${project.build.directory}/webapp-router</directory>
+                <targetPath>webapp-router</targetPath>
+            </resource>
         </resources>
 
         <pluginManagement>
