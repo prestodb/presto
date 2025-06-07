@@ -57,7 +57,6 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
-import static com.facebook.presto.bytecode.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
@@ -70,6 +69,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invoke
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.countInputChannels;
+import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
