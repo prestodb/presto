@@ -51,6 +51,7 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +72,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getMaxBucketsForGro
 import static com.facebook.presto.hive.HiveSessionProperties.getMinBucketCountToNotIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOptimizeParsingOfPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.isParallelParsingOfPartitionValuesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
@@ -180,7 +182,7 @@ public class HivePartitionManager
                 ConcurrentLinkedQueue<HivePartition> result = new ConcurrentLinkedQueue<>();
                 List<ListenableFuture<?>> futures = new ArrayList<>();
                 try {
-                    partitionNameBatches.forEach(batch -> futures.add(executorService.submit(() -> result.addAll(getPartitionListFromPartitionNames(batch, tableName, partitionColumns, partitionTypes, constraint)))));
+                    partitionNameBatches.forEach(batch -> futures.add(executorService.submit(() -> result.addAll(getPartitionListFromPartitionNames(batch, tableName, partitionColumns, partitionTypes, constraint, session)))));
                     Futures.transform(Futures.allAsList(futures), input -> result, directExecutor()).get();
                     return Arrays.asList(result.toArray(new HivePartition[0]));
                 }
@@ -188,7 +190,7 @@ public class HivePartitionManager
                     log.error(e, "Parallel parsing of partition values failed");
                 }
             }
-            return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint);
+            return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint, session);
         }
     }
 
@@ -197,14 +199,67 @@ public class HivePartitionManager
             SchemaTableName tableName,
             List<HiveColumnHandle> partitionColumns,
             List<Type> partitionTypes,
-            Constraint<ColumnHandle> constraint)
+            Constraint<ColumnHandle> constraint,
+            ConnectorSession session)
     {
-        return partitionNames.stream()
-                // Apply extra filters which could not be done by getFilteredPartitionNames
-                .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableList());
+        if (isOptimizeParsingOfPartitionValues(session) && partitionNames.size() >= PARTITION_NAMES_BATCH_SIZE) {
+            List<HivePartition> partitionList = partitionNames.stream()
+                    .map(partitionNameWithVersion -> parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionTypes, timeZone))
+                    .collect(toImmutableList());
+
+            Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
+            List<HiveColumnHandle> usedPartitionColumnsInDomain = partitionColumns.stream().filter(x -> domains.containsKey(x)).collect(toImmutableList());
+            partitionList = partitionList.stream().filter(
+                    partition -> {
+                        for (HiveColumnHandle column : usedPartitionColumnsInDomain) {
+                            NullableValue value = partition.getKeys().get(column);
+                            Domain allowedDomain = domains.get(column);
+                            if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }).collect(toImmutableList());
+
+            if (!constraint.predicate().isPresent()) {
+                return partitionList;
+            }
+            Optional<List<ColumnHandle>> predicateInputs = constraint.getPredicateInputs();
+            if (!predicateInputs.isPresent()) {
+                return partitionList.stream().filter(x -> constraint.predicate().get().test(x.getKeys())).collect(toList());
+            }
+            List<ColumnHandle> usedPartitionColumnsInPredicate = partitionColumns.stream().filter(x -> predicateInputs.get().contains(x)).collect(toList());
+            if (usedPartitionColumnsInPredicate.size() == partitionColumns.size()) {
+                return partitionList.stream().filter(x -> constraint.predicate().get().test(x.getKeys())).collect(toList());
+            }
+
+            ImmutableList.Builder<HivePartition> resultBuilder = ImmutableList.builder();
+            Map<List<NullableValue>, Boolean> cacheResult = new HashMap<>();
+            for (HivePartition partition : partitionList) {
+                List<NullableValue> partitionValues = usedPartitionColumnsInPredicate.stream().map(x -> partition.getKeys().get(x)).collect(toList());
+                if (cacheResult.containsKey(partitionValues)) {
+                    if (cacheResult.get(partitionValues)) {
+                        resultBuilder.add(partition);
+                    }
+                }
+                else {
+                    boolean match = constraint.predicate().get().test(partition.getKeys());
+                    cacheResult.put(partitionValues, match);
+                    if (match) {
+                        resultBuilder.add(partition);
+                    }
+                }
+            }
+            return resultBuilder.build();
+        }
+        else {
+            return partitionNames.stream()
+                    // Apply extra filters which could not be done by getFilteredPartitionNames
+                    .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+        }
     }
 
     private Map<Column, Domain> createPartitionPredicates(
