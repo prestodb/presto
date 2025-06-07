@@ -1587,6 +1587,31 @@ public class TestLogicalPlanner
                                                                 any(
                                                                         tableScan("nation", ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
+
+        Session enableOffsetWithConcurrency = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .setSystemProperty("task_concurrency", "2") // task_concurrency > 1 required to add possible local exchanges that fail this test for incorrect AddLocalExchanges
+                .build();
+
+        assertPlanWithSession("SELECT totalprice FROM orders ORDER BY totalprice OFFSET 1 LIMIT 512",
+                enableOffsetWithConcurrency,
+                false,
+                any(
+                        strictProject(
+                                ImmutableMap.of("totalprice", new ExpressionMatcher("totalprice")),
+                                limit(
+                                        512,
+                                        filter(
+                                                "row_num > BIGINT '1'",
+                                                rowNumber(
+                                                        pattern -> pattern
+                                                                .partitionBy(ImmutableList.of()),
+                                                        anyTree(
+                                                                sort(
+                                                                        ImmutableList.of(sort("totalprice", ASCENDING, LAST)),
+                                                                        any(
+                                                                                tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))
+                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))));
     }
 
     private Session noJoinReordering()
