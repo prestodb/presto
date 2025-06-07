@@ -19,11 +19,11 @@ It works as follows:
 How to run
 ----------
 
-Use velox_memory_arbitration_fuzzer_test binary to run this fuzzer:
+Use velox_memory_arbitration_fuzzer binary to run this fuzzer:
 
 ::
 
-    velox/exec/tests/velox_memory_arbitration_fuzzer_test --seed 123 --duration_sec 60
+    velox/exec/tests/velox_memory_arbitration_fuzzer --seed 123 --duration_sec 60
 
 By default, the fuzzer will go through 10 iterations. Use --steps
 or --duration-sec flag to run fuzzer for longer. Use --seed to

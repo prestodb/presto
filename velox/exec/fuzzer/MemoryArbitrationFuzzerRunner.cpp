@@ -16,13 +16,16 @@
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
-#include <gtest/gtest.h>
 #include <unordered_set>
+
+#include "velox/common/file/tests/FaultyFileSystem.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
-#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
-#include "velox/exec/fuzzer/MemoryArbitrationFuzzerRunner.h"
+#include "velox/exec/fuzzer/MemoryArbitrationFuzzer.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
@@ -39,13 +42,17 @@ DEFINE_int64(
 using namespace facebook::velox::exec;
 
 int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-
   // Calls common init functions in the necessary order, initializing
-  // singletons, installing proper signal handlers for better debugging
+  // singletons, installing proper signal handlers for a better debugging
   // experience, and initialize glog and gflags.
   folly::Init init(&argc, &argv);
   test::setupMemory(FLAGS_allocator_capacity, FLAGS_arbitrator_capacity);
-  const size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  return test::MemoryArbitrationFuzzerRunner::run(initialSeed);
+  const size_t seed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
+
+  facebook::velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  facebook::velox::filesystems::registerLocalFileSystem();
+  facebook::velox::tests::utils::registerFaultyFileSystem();
+  facebook::velox::functions::prestosql::registerAllScalarFunctions();
+  facebook::velox::aggregate::prestosql::registerAllAggregateFunctions();
+  memoryArbitrationFuzzer(seed);
 }

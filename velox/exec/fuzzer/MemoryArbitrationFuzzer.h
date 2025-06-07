@@ -17,6 +17,6 @@
 
 #include <cstddef>
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 void memoryArbitrationFuzzer(size_t seed);
 }

@@ -338,7 +338,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: memory_arbitration_fuzzer
-          path: velox/_build/debug/velox/exec/tests/velox_memory_arbitration_fuzzer_test
+          path: velox/_build/debug/velox/exec/fuzzer/velox_memory_arbitration_fuzzer
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload row number fuzzer
@@ -931,15 +931,15 @@ jobs:
 
       - name: Run Memory Arbitration Fuzzer
         run: |
-          mkdir -p /tmp/memory_arbitration_fuzzer_test/logs/
-          chmod -R 777 /tmp/memory_arbitration_fuzzer_test
-          chmod +x velox_memory_arbitration_fuzzer_test
-          ./velox_memory_arbitration_fuzzer_test \
+          mkdir -p /tmp/memory_arbitration_fuzzer/logs/
+          chmod -R 777 /tmp/memory_arbitration_fuzzer
+          chmod +x velox_memory_arbitration_fuzzer
+          ./velox_memory_arbitration_fuzzer \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
-                --log_dir=/tmp/memory_arbitration_fuzzer_test/logs \
+                --log_dir=/tmp/memory_arbitration_fuzzer/logs \
             && echo -e "\n\Memory arbitration fuzzer run finished successfully."
 
       - name: Archive memory arbitration production artifacts
