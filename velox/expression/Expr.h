@@ -806,18 +806,17 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
     core::ExecCtx* execCtx);
 
 /// Evaluates a deterministic expression that doesn't depend on any inputs and
-/// returns the result as single-row vector. Throws if expression is
-/// non-deterministic or has dependencies.
-VectorPtr evaluateConstantExpression(
-    const core::TypedExprPtr& expr,
-    memory::MemoryPool* pool);
-
-/// Evaluates a deterministic expression that doesn't depend on any inputs and
 /// returns the result as single-row vector. Returns nullptr if the expression
 /// is non-deterministic or has dependencies.
+///
+/// By default, propagates failures that occur during evaluation of the
+/// expression. For example, evaluating 5 / 0 throws "division by zero". If
+/// 'suppressEvaluationFailures' is true, these failures are swallowed and the
+/// caller receives a nullptr result.
 VectorPtr tryEvaluateConstantExpression(
     const core::TypedExprPtr& expr,
-    memory::MemoryPool* pool);
+    memory::MemoryPool* pool,
+    bool suppressEvaluationFailures = false);
 
 /// Returns a string representation of the expression trees annotated with
 /// runtime statistics. Expected to be called after calling ExprSet::eval one or

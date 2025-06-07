@@ -4987,7 +4987,13 @@ TEST_F(ExprTest, disabledeferredLazyLoading) {
 TEST_F(ExprTest, evaluateConstantExpression) {
   auto eval = [&](const std::string& sql) {
     auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
-    return exec::evaluateConstantExpression(expr, pool());
+    return exec::tryEvaluateConstantExpression(expr, pool());
+  };
+
+  auto evalNoThrow = [&](const std::string& sql) {
+    auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
+    return exec::tryEvaluateConstantExpression(
+        expr, pool(), true /* supressEvaluationFailures */);
   };
 
   assertEqualVectors(eval("1 + 2"), makeConstant<int64_t>(3, 1));
@@ -5009,28 +5015,23 @@ TEST_F(ExprTest, evaluateConstantExpression) {
           "try(coalesce(array_min_by(array[1, 2, 3], x -> x / 0), 0::INTEGER))"),
       makeNullConstant(TypeKind::INTEGER, 1));
 
-  auto tryEval = [&](const std::string& sql) {
-    auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
-    return exec::tryEvaluateConstantExpression(expr, pool());
-  };
+  EXPECT_TRUE(eval("a + 1") == nullptr);
 
-  VELOX_ASSERT_THROW(eval("a + 1"), "Expression is not constant-foldable");
-  ASSERT_TRUE(tryEval("a + 1") == nullptr);
+  EXPECT_TRUE(eval("rand() + 1.0") == nullptr);
 
-  VELOX_ASSERT_THROW(
-      eval("rand() + 1.0"), "Expression is not constant-foldable");
-  ASSERT_TRUE(tryEval("rand() + 1.0") == nullptr);
+  EXPECT_TRUE(eval("transform(array[1, 2, 3], x -> (x * 2) + a)") == nullptr);
 
-  VELOX_ASSERT_THROW(
-      eval("transform(array[1, 2, 3], x -> (x * 2) + a)"),
-      "Expression is not constant-foldable");
-  ASSERT_TRUE(
-      tryEval("transform(array[1, 2, 3], x -> (x * 2) + a)") == nullptr);
+  EXPECT_TRUE(eval("transform(array[1, 2, 3], x -> x + rand())") == nullptr);
+
+  VELOX_ASSERT_THROW(eval("5 / 0"), "division by zero");
+  EXPECT_TRUE(evalNoThrow("5 / 0") == nullptr);
+
+  VELOX_ASSERT_THROW(eval("1 + 5 / 0"), "division by zero");
+  EXPECT_TRUE(evalNoThrow("1 + 5 / 0") == nullptr);
 
   VELOX_ASSERT_THROW(
-      eval("transform(array[1, 2, 3], x -> x + rand())"),
-      "Expression is not constant-foldable");
-  ASSERT_TRUE(tryEval("transform(array[1, 2, 3], x -> x + rand())") == nullptr);
+      eval("transform(array[1, 2, 3], x -> x / 0)"), "division by zero");
+  EXPECT_TRUE(evalNoThrow("transform(array[1, 2, 3], x -> x / 0)") == nullptr);
 }
 
 TEST_F(ExprTest, isDeterministic) {

@@ -1683,11 +1683,7 @@ void Expr::appendInputsSql(
 }
 
 bool Expr::isConstant() const {
-  if (!isDeterministic()) {
-    return false;
-  }
-
-  return distinctFields_.empty();
+  return isDeterministic() && distinctFields_.empty();
 }
 
 namespace {
@@ -2041,25 +2037,25 @@ core::ExecCtx* SimpleExpressionEvaluator::ensureExecCtx() {
   return execCtx_.get();
 }
 
-VectorPtr evaluateConstantExpression(
-    const core::TypedExprPtr& expr,
-    memory::MemoryPool* pool) {
-  auto result = tryEvaluateConstantExpression(expr, pool);
-  VELOX_USER_CHECK_NOT_NULL(
-      result, "Expression is not constant-foldable: {}", expr->toString());
-  return result;
-}
-
 VectorPtr tryEvaluateConstantExpression(
     const core::TypedExprPtr& expr,
-    memory::MemoryPool* pool) {
-  auto data = BaseVector::create<RowVector>(ROW({}), 1, pool);
-
+    memory::MemoryPool* pool,
+    bool suppressEvaluationFailures) {
   auto queryCtx = velox::core::QueryCtx::create();
   velox::core::ExecCtx execCtx{pool, queryCtx.get()};
   velox::exec::ExprSet exprSet({expr}, &execCtx);
 
-  if (exprSet.expr(0)->is<ConstantExpr>()) {
+  // The construction of ExprSet involves compiling and constant folding the
+  // expression. If constant folding succeeded, then we get a ConstantExpr.
+  // Constant folding may fail because expression is not constant-foldable or if
+  // an error happened during evaluation (5 / 0 fails with "division by zero").
+  // If constant folding didn't succeed, but suppressEvaluationFailures is
+  // false, we need to re-evaluate the expression to propagate the failure.
+  const bool doEvaluate = exprSet.expr(0)->is<ConstantExpr>() ||
+      (!suppressEvaluationFailures && exprSet.expr(0)->isConstant());
+
+  if (doEvaluate) {
+    auto data = BaseVector::create<RowVector>(ROW({}), 1, pool);
     velox::exec::EvalCtx evalCtx(&execCtx, &exprSet, data.get());
     velox::SelectivityVector singleRow(1);
     std::vector<velox::VectorPtr> results(1);
