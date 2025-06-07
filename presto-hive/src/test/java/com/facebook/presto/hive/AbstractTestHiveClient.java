@@ -1067,7 +1067,8 @@ public abstract class AbstractTestHiveClient
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
                 encryptionInformationProvider,
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                ImmutableList.of());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveClientConfig, metastoreClientConfig),
                 hdfsEnvironment,

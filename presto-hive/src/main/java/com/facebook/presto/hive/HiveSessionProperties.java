@@ -17,6 +17,7 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -134,6 +135,7 @@ public final class HiveSessionProperties
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
     public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
+    public static final String WRITE_FORMATS = "write_formats";
 
     public static final String NATIVE_STATS_BASED_FILTER_REORDER_DISABLED = "native_stats_based_filter_reorder_disabled";
 
@@ -660,6 +662,11 @@ public final class HiveSessionProperties
                         NATIVE_STATS_BASED_FILTER_REORDER_DISABLED,
                         "Native Execution only. Disable stats based filter reordering.",
                         false,
+                        true),
+                stringProperty(
+                        WRITE_FORMATS,
+                        "File formats supported for write operation.",
+                        hiveClientConfig.getWriteFormats(),
                         true));
     }
 
@@ -1147,5 +1154,11 @@ public final class HiveSessionProperties
     public static boolean isLegacyTimestampBucketing(ConnectorSession session)
     {
         return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
+    }
+
+    public static List<String> getWriteFormats(ConnectorSession session)
+    {
+        String formats = session.getProperty(WRITE_FORMATS, String.class);
+        return (formats == null) ? ImmutableList.of() : Splitter.on(',').trimResults().omitEmptyStrings().splitToList(formats);
     }
 }

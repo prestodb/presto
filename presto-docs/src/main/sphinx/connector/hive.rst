@@ -208,6 +208,18 @@ Property Name                                      Description                  
  ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
 
  ``hive.metastore.catalog.name``                   Specifies the catalog name to be passed to the metastore.
+
+ ``hive.read-formats``                             Comma separated list of file formats supported for reads
+                                                   from tables. This config can be used to fail-fast at the
+                                                   coordinator for unsupported file readers in Presto C++.
+                                                   When this config is not set, the default behavior is to
+                                                   support all registered file readers.
+
+ ``hive.write-formats``                            Comma separated list of file formats supported for writes
+                                                   to tables. This config can be used to fail-fast at the
+                                                   coordinator for unsupported file writers in Presto C++.
+                                                   When this config is not set, the default behavior is to
+                                                   support all registered file writers.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
