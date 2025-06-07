@@ -26,10 +26,8 @@ import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
-import static com.facebook.presto.iceberg.PartitionFields.parsePartitionField;
-import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.PartitionFields.buildPartitionField;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 public class TestPartitionFields
@@ -60,7 +58,6 @@ public class TestPartitionFields
     {
         assertEquals(expected.fields().size(), 1);
         assertEquals(parseField(value), expected);
-        assertEquals(getOnlyElement(toPartitionFields(expected)), value);
     }
 
     private static void assertInvalid(String value, String message)
@@ -75,7 +72,7 @@ public class TestPartitionFields
 
     private static PartitionSpec parseField(String value)
     {
-        return partitionSpec(builder -> parsePartitionField(builder, value));
+        return partitionSpec(builder -> buildPartitionField(builder, value));
     }
 
     private static PartitionSpec partitionSpec(Consumer<PartitionSpec.Builder> consumer)
