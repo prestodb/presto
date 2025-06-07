@@ -91,4 +91,5 @@ jobs:
             !presto-iceberg,
             !presto-singlestore,
             !presto-native-sidecar-plugin,
-            !presto-base-arrow-flight'
+            !presto-base-arrow-flight,
+            !presto-plan-checker-router-plugin'

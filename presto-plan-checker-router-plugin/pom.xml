@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
+        <version>0.294-SNAPSHOT</version>
+    </parent>
+
+    <groupId>com.facebook.presto.router</groupId>
+    <artifactId>presto-plan-checker-router-plugin</artifactId>
+    <version>0.294-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>presto-plan-checker-router-plugin</name>
+    <description>Presto plan checker router plugin</description>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvm.additional-arguments>-Xms4g -Xmx4g</air.test.jvm.additional-arguments>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>stats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <!-- Presto SPI -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- test dependencies-->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpcds</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-execution</artifactId>
+            <scope>test</scope>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-execution</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-sidecar-plugin</artifactId>
+            <scope>test</scope>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-sidecar-plugin</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <!-- Build configurations -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check-spi-dependencies</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>provision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Disable git-commit-id-plugin plugin to allow for running tests without
+            a git checkout -->
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>org.apache.avro.data/Json.avsc</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>com.esotericsoftware.kryo.*</ignoredClassPattern>
+                        <ignoredClassPattern>com.esotericsoftware.minlog.Log</ignoredClassPattern>
+                        <ignoredClassPattern>com.esotericsoftware.reflectasm.*</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
+                        <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <systemPropertyVariables>
+                        <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
