@@ -26,8 +26,8 @@ import io.airlift.slice.Slice;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.facebook.presto.bytecode.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.hive.functions.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression
