@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
-import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestEngineOnlyQueries;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Parameters;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -26,8 +24,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.Optional;
 
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.parseBoolean;
 
@@ -38,46 +36,33 @@ public class TestDistributedEngineOnlyQueries
     private static final String timeTypeUnsupportedErrorWithSidecar = "^Unknown type time.*";
     private String timeTypeUnsupportedError = timeTypeUnsupportedErrorWithoutSidecar;
 
-    @Parameters({"storageFormat", "sidecarEnabled"})
+    private String storageFormat;
+    private boolean sidecarEnabled;
+
+    @BeforeClass
+    @Override
+    public void init()
+            throws Exception
+    {
+        storageFormat = System.getProperty("storageFormat", "PARQUET");
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init();
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        boolean sidecar = parseBoolean(System.getProperty("sidecarEnabled"));
-        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(System.getProperty("storageFormat"))
-                .setAddStorageFormatToPath(true)
-                .setUseThrift(true)
-                .setCoordinatorSidecarEnabled(sidecar)
-                .build();
-        if (sidecar) {
+        if (sidecarEnabled) {
             timeTypeUnsupportedError = timeTypeUnsupportedErrorWithSidecar;
-            setupNativeSidecarPlugin(queryRunner);
         }
-        return queryRunner;
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled, Optional.empty());
     }
 
-    @Parameters("storageFormat")
     @Override
     protected void createTables()
     {
-        try {
-            String storageFormat = System.getProperty("storageFormat");
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                    .setStorageFormat(storageFormat)
-                    .setAddStorageFormatToPath(true)
-                    .build();
-            if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
-            }
-            else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
-            }
-            javaQueryRunner.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        NativeTestsUtils.createTables(storageFormat);
     }
 
     /// TIME datatype is not supported in Prestissimo. See issue: https://github.com/prestodb/presto/issues/18844.

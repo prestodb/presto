@@ -14,17 +14,14 @@
 package com.facebook.presto.nativetests;
 
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestRepartitionQueries;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Optional;
 
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static java.lang.Boolean.parseBoolean;
 
-public class TestRepartitionQueriesWithSmallPages
-        extends AbstractTestRepartitionQueries
+public class TestAggregations
+        extends AbstractTestAggregationsNative
 {
     private String storageFormat;
     private boolean sidecarEnabled;
@@ -36,16 +33,14 @@ public class TestRepartitionQueriesWithSmallPages
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init(storageFormat, sidecarEnabled);
         super.init();
     }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled,
-                Optional.of(nativeHiveQueryRunnerBuilder().setExtraProperties(
-                        // Use small SerializedPages to force flushing
-                        ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"))));
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled, Optional.empty());
     }
 
     @Override
