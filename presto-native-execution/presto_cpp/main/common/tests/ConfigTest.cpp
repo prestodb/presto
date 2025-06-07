@@ -212,6 +212,11 @@ TEST_F(ConfigTest, optionalNodeConfigs) {
   init(config, {{std::string(NodeConfig::kNodeIp), "127.0.0.1"}});
   ASSERT_EQ(
       config.nodeInternalAddress([]() { return "0.0.0.0"; }), "127.0.0.1");
+
+  // make sure "node.kNodePrometheusExecutorThreads" works too
+  init(config, {{std::string(NodeConfig::kNodePrometheusExecutorThreads), "4"}});
+  ASSERT_EQ(
+      config.prometheusExecutorThreads(), 4);
 }
 
 TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
