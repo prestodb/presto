@@ -1850,7 +1850,8 @@ public class ThriftHiveMetastore
                             new HiveObjectRef(TABLE, databaseName, tableName, null, null),
                             grantee.getName(),
                             fromPrestoPrincipalType(grantee.getType()),
-                            privilegeGrantInfo));
+                            privilegeGrantInfo,
+                            null)); // TODO: Add support for authorizers in Presto
         }
         return new PrivilegeBag(privilegeBagBuilder.build());
     }

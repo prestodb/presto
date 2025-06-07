@@ -26,12 +26,12 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -68,12 +68,13 @@ public class TimestampBatchStreamReader
     private LongInputStream nanosStream;
 
     private boolean rowGroupOpen;
-    private final DecodeTimestampOptions decodeTimestampOptions;
+    private final boolean enableMicroPrecision;
+    private DecodeTimestampOptions decodeTimestampOptions;
 
-    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
+    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, boolean enableMicroPrecision)
             throws OrcCorruptionException
     {
-        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
+        this.enableMicroPrecision = enableMicroPrecision;
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
@@ -191,8 +192,10 @@ public class TimestampBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
     {
+        decodeTimestampOptions = new DecodeTimestampOptions(timezone, enableMicroPrecision);
+
         presentStreamSource = getBooleanMissingStreamSource();
         secondsStreamSource = getLongMissingStreamSource();
         nanosStreamSource = getLongMissingStreamSource();

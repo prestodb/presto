@@ -54,6 +54,7 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -83,6 +84,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.DETAILED;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
@@ -124,6 +126,9 @@ public class OrcWriteValidation
     // keeps all flat map value nodes
     private final Set<Integer> flattenedValueNodes;
 
+    private final OrcEncoding orcEncoding;
+    private final ZoneId timezone;
+
     // all values passed into this constructor are collected by the writer
     private OrcWriteValidation(
             List<Integer> version,
@@ -137,7 +142,9 @@ public class OrcWriteValidation
             List<ColumnStatistics> fileStatistics,
             int stringStatisticsLimitInBytes,
             Set<Integer> flattenedNodes,
-            List<OrcType> orcTypes)
+            List<OrcType> orcTypes,
+            OrcEncoding orcEncoding,
+            ZoneId timezone)
     {
         this.version = version;
         this.compression = compression;
@@ -152,6 +159,8 @@ public class OrcWriteValidation
         this.flattenedKeyToMapNodes = getFlattenedKeyToMapNodes(flattenedNodes, orcTypes);
         this.flattenedValueNodes = getFlattenedValueNodes(flattenedNodes, orcTypes);
         this.flattenedMapToValueNodes = getFlattenedMapToValueNodes(flattenedNodes, orcTypes);
+        this.orcEncoding = orcEncoding;
+        this.timezone = timezone;
     }
 
     public List<Integer> getVersion()
@@ -182,13 +191,39 @@ public class OrcWriteValidation
     public void validateMetadata(OrcDataSourceId orcDataSourceId, Map<String, Slice> actualMetadata)
             throws OrcCorruptionException
     {
-        // Filter out metadata value statically added by the DWRF writer
-        Map<String, Slice> filteredMetadata = actualMetadata.entrySet().stream()
-                .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        if (isDwrf()) {
+            // Filter out metadata value statically added by the DWRF writer
+            actualMetadata = actualMetadata.entrySet().stream()
+                    .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        }
 
-        if (!metadata.equals(filteredMetadata)) {
+        if (!metadata.equals(actualMetadata)) {
             throw new OrcCorruptionException(orcDataSourceId, "Unexpected metadata");
+        }
+    }
+
+    public OrcEncoding getOrcEncoding()
+    {
+        return orcEncoding;
+    }
+
+    public boolean isDwrf()
+    {
+        return orcEncoding == DWRF;
+    }
+
+    public ZoneId getTimezone()
+    {
+        return timezone;
+    }
+
+    public void validateTimeZone(OrcDataSourceId orcDataSourceId, ZoneId actualTimezone)
+            throws OrcCorruptionException
+    {
+        // DWRF does not store the writer timezone
+        if (!isDwrf() && !timezone.equals(actualTimezone)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected timezone");
         }
     }
 
@@ -209,7 +244,7 @@ public class OrcWriteValidation
         requireNonNull(actualStripes, "actualStripes is null");
         requireNonNull(actualStripeStatistics, "actualStripeStatistics is null");
 
-        if (actualStripeStatistics.isEmpty()) {
+        if (isDwrf()) {
             // DWRF does not have stripe statistics
             return;
         }
@@ -525,6 +560,8 @@ public class OrcWriteValidation
             expectedStringStatistics = new StringStatistics(
                     minStringTruncateToValidRange(expectedStringStatistics.getMin(), HiveWriterVersion.ORC_HIVE_8732),
                     maxStringTruncateToValidRange(expectedStringStatistics.getMax(), HiveWriterVersion.ORC_HIVE_8732),
+                    expectedStringStatistics.isLowerBoundSet(),
+                    expectedStringStatistics.isUpperBoundSet(),
                     expectedStringStatistics.getSum());
         }
         StringStatistics actualStringStatistics = actualColumnStatistics.getStringStatistics();
@@ -972,11 +1009,14 @@ public class OrcWriteValidation
         private long retainedSize = INSTANCE_SIZE;
         private Set<Integer> flattenedNodes;
         private List<OrcType> orcTypes;
+        private final OrcEncoding orcEncoding;
+        private ZoneId timezone;
 
-        public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, List<Type> types)
+        public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, List<Type> types, OrcEncoding orcEncoding)
         {
             this.validationMode = validationMode;
             this.checksum = new WriteChecksumBuilder(types);
+            this.orcEncoding = orcEncoding;
         }
 
         public long getRetainedSize()
@@ -1065,6 +1105,11 @@ public class OrcWriteValidation
             this.orcTypes = orcTypes;
         }
 
+        public void setTimezone(ZoneId timezone)
+        {
+            this.timezone = timezone;
+        }
+
         public OrcWriteValidation build()
         {
             return new OrcWriteValidation(
@@ -1079,7 +1124,9 @@ public class OrcWriteValidation
                     fileStatistics,
                     stringStatisticsLimitInBytes,
                     flattenedNodes,
-                    orcTypes);
+                    orcTypes,
+                    orcEncoding,
+                    timezone);
         }
     }
 }

@@ -19,6 +19,9 @@ import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.io.api.Binary;
+import org.joda.time.DateTimeZone;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
@@ -37,7 +40,7 @@ public class BinaryColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
