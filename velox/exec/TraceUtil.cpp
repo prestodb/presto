@@ -421,6 +421,18 @@ core::PlanNodePtr getTraceNode(
             tableWriteNode->sources().front()->outputType()));
   }
 
+  if (const auto* unnestNode =
+          dynamic_cast<const core::UnnestNode*>(traceNode)) {
+    return std::make_shared<core::UnnestNode>(
+        nodeId,
+        unnestNode->replicateVariables(),
+        unnestNode->unnestVariables(),
+        unnestNode->unnestNames(),
+        unnestNode->ordinalityName(),
+        std::make_shared<DummySourceNode>(
+            unnestNode->sources().front()->outputType()));
+  }
+
   VELOX_UNSUPPORTED(
       fmt::format("Unsupported trace node: {}", traceNode->name()));
 }

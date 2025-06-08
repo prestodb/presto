@@ -4040,12 +4040,12 @@ class UnnestNode : public PlanNode {
     return unnestNames_;
   }
 
-  bool withOrdinality() const {
-    return ordinalityName_.has_value();
-  }
-
   const std::optional<std::string>& ordinalityName() const {
     return ordinalityName_;
+  }
+
+  bool withOrdinality() const {
+    return ordinalityName_.has_value();
   }
 
   std::string_view name() const override {

@@ -49,6 +49,7 @@
 #include "velox/tool/trace/PartitionedOutputReplayer.h"
 #include "velox/tool/trace/TableScanReplayer.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
+#include "velox/tool/trace/UnnestReplayer.h"
 #include "velox/type/Type.h"
 
 #ifdef VELOX_ENABLE_PARQUET
@@ -402,6 +403,16 @@ TraceReplayRunner::createReplayer() const {
         cpuExecutor_.get());
   } else if (traceNodeName == "IndexLookupJoin") {
     replayer = std::make_unique<tool::trace::IndexLookupJoinReplayer>(
+        FLAGS_root_dir,
+        FLAGS_query_id,
+        FLAGS_task_id,
+        FLAGS_node_id,
+        traceNodeName,
+        FLAGS_driver_ids,
+        queryCapacityBytes,
+        cpuExecutor_.get());
+  } else if (traceNodeName == "Unnest") {
+    replayer = std::make_unique<tool::trace::UnnestReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,
         FLAGS_task_id,

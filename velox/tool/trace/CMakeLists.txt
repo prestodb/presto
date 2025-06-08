@@ -23,7 +23,8 @@ add_library(
   TableScanReplayer.cpp
   TableWriterReplayer.cpp
   TraceReplayRunner.cpp
-  TraceReplayTaskRunner.cpp)
+  TraceReplayTaskRunner.cpp
+  UnnestReplayer.cpp)
 
 target_link_libraries(
   velox_query_trace_replayer_base
