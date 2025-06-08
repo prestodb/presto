@@ -681,7 +681,7 @@ TEST_P(UnnestTest, barrier) {
     const int numExpectedOutputVectors =
         bits::divRoundUp(numRowsPerSplit * 3, testData.numOutputRows) *
         numSplits;
-    auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
+    auto task = AssertQueryBuilder(plan)
                     .config(core::QueryConfig::kSparkPartitionId, "0")
                     .config(
                         core::QueryConfig::kMaxSplitPreloadPerDriver,
@@ -704,6 +704,64 @@ TEST_P(UnnestTest, barrier) {
     ASSERT_EQ(
         exec::toPlanStats(taskStats).at(unnestPlanNodeId).outputVectors,
         numExpectedOutputVectors);
+  }
+}
+
+TEST_P(UnnestTest, spiltOutput) {
+  std::vector<RowVectorPtr> vectors;
+  const auto numBatches = 5;
+  const auto inputBatchSize = 2048;
+  for (int32_t i = 0; i < 5; ++i) {
+    auto vector = makeRowVector({
+        makeFlatVector<int64_t>(inputBatchSize, [](auto row) { return row; }),
+    });
+    vectors.push_back(vector);
+  }
+  createDuckDbTable(vectors);
+
+  // Unnest 1K rows into 3K rows.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId unnestPlanNodeId;
+  const auto plan = PlanBuilder(planNodeIdGenerator)
+                        .values(vectors)
+                        .project({"sequence(1, 3) as s"})
+                        .unnest({}, {"s"})
+                        .capturePlanNodeId(unnestPlanNodeId)
+                        .planNode();
+
+  const auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>(
+          numBatches * 3 * inputBatchSize,
+          [](auto row) { return 1 + row % 3; }),
+  });
+
+  struct {
+    bool produceSingleOutput;
+    int expectedNumOutputExectors;
+
+    std::string toString() const {
+      return fmt::format(
+          "produceSingleOutput {}, expectedNumOutputExectors {}",
+          produceSingleOutput,
+          expectedNumOutputExectors);
+    }
+  } testSettings[] = {
+      {true, numBatches},
+      {false, bits::divRoundUp(inputBatchSize * 3, GetParam()) * numBatches}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.toString());
+    auto task = AssertQueryBuilder(plan)
+                    .config(
+                        core::QueryConfig::kPreferredOutputBatchRows,
+                        std::to_string(GetParam()))
+                    .config(
+                        core::QueryConfig::kUnnestSplitOutput,
+                        testData.produceSingleOutput ? "false" : "true")
+                    .assertResults(expectedResult);
+    const auto taskStats = task->taskStats();
+    ASSERT_EQ(
+        exec::toPlanStats(taskStats).at(unnestPlanNodeId).outputVectors,
+        testData.expectedNumOutputExectors);
   }
 }
 

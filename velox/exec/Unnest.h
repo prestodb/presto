@@ -136,6 +136,7 @@ class Unnest : public Operator {
 
   // The maximum number of output batch rows.
   const uint32_t maxOutputSize_;
+
   BufferPtr maxSizes_;
   vector_size_t* rawMaxSizes_{nullptr};
 

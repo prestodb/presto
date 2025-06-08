@@ -42,7 +42,10 @@ Unnest::Unnest(
           unnestNode->id(),
           "Unnest"),
       withOrdinality_(unnestNode->withOrdinality()),
-      maxOutputSize_(outputBatchRows()) {
+      maxOutputSize_(
+          driverCtx->queryConfig().unnestSplitOutput()
+              ? outputBatchRows()
+              : std::numeric_limits<uint32_t>::max()) {
   const auto& inputType = unnestNode->sources()[0]->outputType();
   const auto& unnestVariables = unnestNode->unnestVariables();
   for (const auto& variable : unnestVariables) {

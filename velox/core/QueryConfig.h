@@ -633,6 +633,11 @@ class QueryConfig {
   static constexpr const char* kOperatorTrackExpressionStats =
       "operator_track_expression_stats";
 
+  /// If this is true, then the unnest operator might split output for each
+  /// input batch based on the output batch size control. Otherwise, it produces
+  /// a single output for each input batch.
+  static constexpr const char* kUnnestSplitOutput = "unnest_split_output";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -1151,6 +1156,10 @@ class QueryConfig {
 
   bool operatorTrackExpressionStats() const {
     return get<bool>(kOperatorTrackExpressionStats, false);
+  }
+
+  bool unnestSplitOutput() const {
+    return get<bool>(kUnnestSplitOutput, true);
   }
 
   template <typename T>
