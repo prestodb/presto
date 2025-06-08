@@ -812,7 +812,6 @@ void SharedArbitrator::growCapacity(ArbitrationOperation& op) {
   }
 
   checkIfAborted(op);
-  checkIfTimeout(op);
 
   RETURN_IF_TRUE(maybeGrowFromSelf(op));
 
@@ -832,6 +831,9 @@ void SharedArbitrator::growCapacity(ArbitrationOperation& op) {
               succinctBytes(participantConfig_.minReclaimBytes)),
           op.participant()->pool());
     }
+
+    checkIfTimeout(op);
+
     // After failing to acquire enough free capacity to fulfil this capacity
     // growth request, we will try to reclaim from the participant itself before
     // failing this operation. We only do this if global memory arbitration is

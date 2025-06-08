@@ -3122,7 +3122,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, localArbitrationTimeout) {
   op->allocate(memoryCapacity / 2);
 
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::ArbitrationParticipant::reclaim",
+      "facebook::velox::memory::SharedArbitrator::growCapacity",
       std::function<void(const ArbitrationParticipant*)>(
           ([&](const ArbitrationParticipant* /*unused*/) {
             std::this_thread::sleep_for(std::chrono::seconds(2)); // NOLINT
@@ -3136,8 +3136,8 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, localArbitrationTimeout) {
         testing::HasSubstr("Memory arbitration timed out on memory pool"));
   }
 
-  // Reclaim happened before timeout check.
-  ASSERT_EQ(task->capacity(), 0);
+  // Timeout check happened before reclaim.
+  ASSERT_EQ(task->capacity(), memoryCapacity / 2);
 }
 
 DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, reclaimLockTimeout) {
