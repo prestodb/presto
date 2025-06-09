@@ -69,9 +69,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions, List<X509Certificate> certificates)
     {
-        delegate().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions);
+        delegate().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions, certificates);
     }
 
     @Override
