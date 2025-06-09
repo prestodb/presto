@@ -66,7 +66,7 @@ public class TestJdbcMetadata
         database = new TestingDatabase();
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, new BaseJdbcConfig());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -261,7 +261,7 @@ public class TestJdbcMetadata
             assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
         }
 
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true, new BaseJdbcConfig());
         metadata.dropTable(SESSION, tableHandle);
 
         try {

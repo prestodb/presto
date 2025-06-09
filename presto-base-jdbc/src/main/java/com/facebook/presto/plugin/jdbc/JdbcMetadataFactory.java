@@ -22,18 +22,20 @@ public class JdbcMetadataFactory
     private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
+    private final BaseJdbcConfig baseJdbcConfig;
 
     @Inject
-    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config, BaseJdbcConfig baseJdbcConfig)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
+        this.baseJdbcConfig = requireNonNull(baseJdbcConfig, "baseJdbcConfig is null");
     }
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable);
+        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, baseJdbcConfig);
     }
 }
