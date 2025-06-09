@@ -438,3 +438,20 @@ String Functions
     Returns string with all characters changed to uppercase. ::
 
         SELECT upper('SparkSql'); -- SPARKSQL
+
+.. spark:function:: varchar_type_write_side_check(string, limit) -> varchar
+
+    Removes trailing space characters (ASCII 32) that exceed the length ``limit`` from the end of input ``string``. ``limit`` is the maximum length of characters that can be allowed.
+    Throws exception when ``string`` still exceeds ``limit`` after trimming trailing spaces or when ``limit`` is not greater than 0.
+    Empty strings are returned as-is since they always satisfy any length ``limit`` greater than 0.
+    Note: This function is not directly callable in Spark SQL, but internally used for length check when writing string type columns. ::
+
+        -- Function call examples (this function is not directly callable in Spark SQL).
+        varchar_type_write_side_check("abc", 3) -- "abc"
+        varchar_type_write_side_check("abc   ", 3) -- "abc"
+        varchar_type_write_side_check("abcd", 3) -- VeloxUserError: "Exceeds allowed length limitation: '3'"
+        varchar_type_write_side_check("中国", 3) -- "中国"
+        varchar_type_write_side_check("中文中国", 3) -- VeloxUserError: "Exceeds allowed length limitation: '3'"
+        varchar_type_write_side_check("   ", 0) -- VeloxUserError: "The length limit must be greater than 0."
+        varchar_type_write_side_check("", 3) -- ""
+

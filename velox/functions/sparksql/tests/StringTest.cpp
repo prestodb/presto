@@ -1055,5 +1055,6 @@ TEST_F(StringTest, empty2Null) {
   EXPECT_EQ(empty2Null(""), std::nullopt);
   EXPECT_EQ(empty2Null("abc"), "abc");
 }
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

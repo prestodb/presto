@@ -17,6 +17,7 @@ velox_add_library(
   velox_functions_spark_impl
   ArrayGetFunction.cpp
   ArraySort.cpp
+  CharVarcharUtils.cpp
   Comparisons.cpp
   ConcatWs.cpp
   DecimalArithmetic.cpp
