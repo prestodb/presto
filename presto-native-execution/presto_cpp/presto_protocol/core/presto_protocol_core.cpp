@@ -87,6 +87,8 @@ const char* const PRESTO_BUFFER_COMPLETE_HEADER = "X-Presto-Buffer-Complete";
 const char* const PRESTO_GET_DATA_SIZE_HEADER = "X-Presto-Get-Data-Size";
 const char* const PRESTO_BUFFER_REMAINING_BYTES_HEADER =
     "X-Presto-Buffer-Remaining-Bytes";
+const char* const PRESTO_BUFFER_REMAINING_FROM_SPILL_HEADER =
+    "X-Presto-Buffer-Remaining-From-Spill";
 
 const char* const PRESTO_MAX_WAIT_DEFAULT = "2s";
 const char* const PRESTO_MAX_SIZE_DEFAULT = "4096 B";
