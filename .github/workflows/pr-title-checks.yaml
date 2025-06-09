@@ -1,0 +1,30 @@
+name: "pr-title-checks"
+
+on:
+  pull_request_target:
+    # NOTE: Workflows triggered by this event give the workflow access to secrets and grant the
+    # `GITHUB_TOKEN` read/write repository access by default. So we need to ensure:
+    # - This workflow doesn't inadvertently check out, build, or execute untrusted code from the
+    #   pull request triggered by this event.
+    # - Each job has `permissions` set to only those necessary.
+    types: ["edited", "opened", "reopened"]
+    branches: ["release-0.293-clp-connector"]
+
+permissions: {}
+
+concurrency:
+  group: "${{github.workflow}}-${{github.ref}}"
+
+  # Cancel in-progress jobs for efficiency
+  cancel-in-progress: true
+
+jobs:
+  conventional-commits:
+    permissions:
+      # For amannn/action-semantic-pull-request
+      pull-requests: "read"
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "amannn/action-semantic-pull-request@v5"
+        env:
+          GITHUB_TOKEN: "${{secrets.GITHUB_TOKEN}}"
