@@ -109,5 +109,6 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   // end.
   VELOX_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
   VELOX_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
+  VELOX_FRIEND_TEST(PrometheusReporterTest, testConcurrentReporting);
 };
 } // namespace facebook::presto::prometheus
