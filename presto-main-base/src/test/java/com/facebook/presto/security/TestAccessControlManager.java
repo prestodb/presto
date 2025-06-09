@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -188,7 +189,8 @@ public class TestAccessControlManager
                 context,
                 testQuery,
                 viewDefinitions,
-                materializedViewDefinitions);
+                materializedViewDefinitions,
+                ImmutableList.of());
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
         assertEquals(accessControlFactory.getCheckedQuery(), testQuery);
@@ -207,7 +209,8 @@ public class TestAccessControlManager
                         context,
                         testQuery,
                         viewDefinitions,
-                        materializedViewDefinitions));
+                        materializedViewDefinitions,
+                        ImmutableList.of()));
     }
 
     @Test
@@ -306,7 +309,7 @@ public class TestAccessControlManager
                     }
 
                     @Override
-                    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap)
+                    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap, List<X509Certificate> certificates)
                     {
                     }
 
@@ -420,7 +423,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+                public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions, List<X509Certificate> certificates)
                 {
                     if (!query.equals(identity.getExtraCredentials().get(QUERY_TOKEN_FIELD))) {
                         denyQueryIntegrityCheck();
