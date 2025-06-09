@@ -92,6 +92,8 @@ void registerAccessors(const std::string& prefix) {
   registerFunction<StYMaxFunction, double, Geometry>({{prefix + "ST_YMax"}});
   registerFunction<StGeometryTypeFunction, Varchar, Geometry>(
       {{prefix + "ST_GeometryType"}});
+  registerFunction<StDistanceFunction, double, Geometry, Geometry>(
+      {{prefix + "ST_Distance"}});
 }
 
 } // namespace

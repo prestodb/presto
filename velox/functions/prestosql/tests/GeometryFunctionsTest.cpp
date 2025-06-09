@@ -1540,3 +1540,55 @@ TEST_F(GeometryFunctionsTest, testStGeometryType) {
       "GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1))))",
       "GeometryCollection");
 }
+
+TEST_F(GeometryFunctionsTest, testStDistance) {
+  const auto testStDistanceFunc = [&](const std::optional<std::string>& wkt1,
+                                      const std::optional<std::string>& wkt2,
+                                      const std::optional<double>& expected =
+                                          std::nullopt) {
+    std::optional<double> result = evaluateOnce<double>(
+        "ST_Distance(ST_GeometryFromText(c0), ST_GeometryFromText(c1))",
+        wkt1,
+        wkt2);
+
+    if (wkt1.has_value() && wkt2.has_value()) {
+      if (expected.has_value()) {
+        ASSERT_TRUE(result.has_value());
+        ASSERT_EQ(result.value(), expected.value());
+      } else {
+        ASSERT_FALSE(result.has_value());
+      }
+    } else {
+      ASSERT_FALSE(expected.has_value());
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testStDistanceFunc("POINT (50 100)", "POINT (150 150)", 111.80339887498948);
+  testStDistanceFunc("MULTIPOINT (50 100, 50 200)", "POINT (50 100)", 0.0);
+  testStDistanceFunc(
+      "LINESTRING (50 100, 50 200)",
+      "LINESTRING (10 10, 20 20)",
+      85.44003745317531);
+  testStDistanceFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))",
+      "LINESTRING (10 20, 20 50)'))",
+      17.08800749063506);
+  testStDistanceFunc(
+      "POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))",
+      "POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))",
+      1.4142135623730951);
+  testStDistanceFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))",
+      "POLYGON ((10 100, 30 10, 30 100, 10 100))",
+      27.892651361962706);
+
+  testStDistanceFunc("POINT EMPTY", "POINT (150 150)");
+  testStDistanceFunc("MULTIPOINT EMPTY", "POINT (50 100)");
+  testStDistanceFunc("LINESTRING EMPTY", "LINESTRING (10 10, 20 20)");
+  testStDistanceFunc("MULTILINESTRING EMPTY", "LINESTRING (10 20, 20 50)'))");
+  testStDistanceFunc("POLYGON EMPTY", "POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))");
+  testStDistanceFunc(
+      "MULTIPOLYGON EMPTY", "POLYGON ((10 100, 30 10, 30 100, 10 100))");
+  testStDistanceFunc(std::nullopt, "POINT (50 100)");
+}

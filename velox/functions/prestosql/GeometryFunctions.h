@@ -727,4 +727,35 @@ struct StGeometryTypeFunction {
   }
 };
 
+template <typename T>
+struct StDistanceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<Geometry>& geometry1,
+      const arg_type<Geometry>& geometry2) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry1 =
+        geospatial::deserializeGeometry(geometry1);
+    std::unique_ptr<geos::geom::Geometry> geosGeometry2 =
+        geospatial::deserializeGeometry(geometry2);
+
+    if (geosGeometry1->getSRID() != geosGeometry2->getSRID()) {
+      VELOX_USER_FAIL(fmt::format(
+          "Input geometries must have the same spatial reference, found {} and {}",
+          geosGeometry1->getSRID(),
+          geosGeometry2->getSRID()));
+    }
+
+    if (geosGeometry1->isEmpty() || geosGeometry2->isEmpty()) {
+      return false;
+    }
+
+    GEOS_RETHROW(result = geosGeometry1->distance(geosGeometry2.get());
+                 , "Failed to calculate geometry distance");
+
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions

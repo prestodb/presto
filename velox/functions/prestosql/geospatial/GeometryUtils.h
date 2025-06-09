@@ -42,6 +42,20 @@ namespace facebook::velox::functions::geospatial {
     return Status::UserError(                                    \
         fmt::format("{}: {}", user_error_message, e.what()));    \
   }
+
+/// Utility macro used to wrap GEOS library calls in a try-catch block,
+/// throwing a velox::Status with error message if an exception is caught.
+#define GEOS_RETHROW(func, user_error_message)                             \
+  try {                                                                    \
+    func                                                                   \
+  } catch (const geos::util::UnsupportedOperationException& e) {           \
+    VELOX_USER_FAIL(fmt::format("Internal geometry error: {}", e.what())); \
+  } catch (const geos::util::AssertionFailedException& e) {                \
+    VELOX_FAIL(fmt::format("Internal geometry error: {}", e.what()));      \
+  } catch (const geos::util::GEOSException& e) {                           \
+    VELOX_FAIL(fmt::format("{}: {}", user_error_message, e.what()));       \
+  }
+
 FOLLY_ALWAYS_INLINE const
     std::unordered_map<geos::geom::GeometryTypeId, std::string>&
     getGeosTypeToStringIdentifier() {
