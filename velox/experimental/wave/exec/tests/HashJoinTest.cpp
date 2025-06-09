@@ -124,3 +124,66 @@ TEST_F(HashJoinTest, manyHits) {
           "SELECT t_k1, t_k2, t_data, u_k1, u_k2, u_data FROM t, u WHERE t_k1 = u_k1 AND t_k2 = u_k2")
       .run();
 }
+
+TEST_F(HashJoinTest, DISABLED_twoKeysLeft) {
+  probeType_ = ROW({"t_k1", "t_k2", "t_data"}, {BIGINT(), BIGINT(), BIGINT()});
+  buildType_ = ROW({"u_k1", "u_k2", "u_data"}, {BIGINT(), BIGINT(), BIGINT()});
+
+  auto build = makeRowVector(
+      {"u_k1", "u_k2", "u_data"},
+      {makeFlatVector<int64_t>(1000, [&](auto r) { return r; }),
+       makeFlatVector<int64_t>(1000, [&](auto r) { return r; }),
+       makeFlatVector<int64_t>(1000, [&](auto r) { return r; })});
+  auto probe = makeRowVector(
+      {"t_k1", "t_k2", "t_data"},
+      {makeFlatVector<int64_t>(1000, [&](auto r) { return r + 100; }),
+       makeFlatVector<int64_t>(1000, [&](auto r) { return r + 100; }),
+       makeFlatVector<int64_t>(1000, [&](auto r) { return r + 2; })});
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(1)
+      .probeType(probeType_)
+      .probeKeys({"t_k1", "t_k2"})
+      .probeVectors({probe})
+      .joinType(core::JoinType::kLeft)
+      .buildType(buildType_)
+      .buildKeys({"u_k1", "u_k2"})
+      .buildVectors({build})
+      .injectSpill(false)
+      .referenceQuery(
+          "SELECT t_k1, t_k2, t_data, u_k1, u_k2, u_data FROM t LEFT JOIN u ON t_k1 = u_k1 AND t_k2 = u_k2")
+      .run();
+}
+
+TEST_F(HashJoinTest, DISABLED_manyHitsLeft) {
+  probeType_ = ROW({"t_k1", "t_k2", "t_data"}, {BIGINT(), BIGINT(), BIGINT()});
+  buildType_ = ROW({"u_k1", "u_k2", "u_data"}, {BIGINT(), BIGINT(), BIGINT()});
+
+  int32_t numRepeats = 20;
+  auto build = makeRowVector(
+      {"u_k1", "u_k2", "u_data"},
+      {makeFlatVector<int64_t>(
+           15000, [&](auto r) { return (r / numRepeats) * 9; }),
+       makeFlatVector<int64_t>(
+           15000, [&](auto r) { return (r / numRepeats) * 9; }),
+       makeFlatVector<int64_t>(15000, [&](auto r) { return r; })});
+  auto probe = makeRowVector(
+      {"t_k1", "t_k2", "t_data"},
+      {makeFlatVector<int64_t>(1000, [&](auto r) { return r * 3; }),
+       makeFlatVector<int64_t>(1000, [&](auto r) { return r * 3; }),
+       makeFlatVector<int64_t>(1000, [&](auto r) { return r; })});
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(1)
+      .probeType(probeType_)
+      .probeKeys({"t_k1", "t_k2"})
+      .probeVectors({probe})
+      .joinType(core::JoinType::kLeft)
+      .buildType(buildType_)
+      .buildKeys({"u_k1", "u_k2"})
+      .buildVectors({build})
+      .injectSpill(false)
+      .referenceQuery(
+          "SELECT t_k1, t_k2, t_data, u_k1, u_k2, u_data FROM t LEFT JOIN u ON t_k1 = u_k1 AND t_k2 = u_k2")
+      .run();
+}
