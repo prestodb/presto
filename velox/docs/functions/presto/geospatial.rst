@@ -188,6 +188,10 @@ Accessors
     Returns the point value that is the mathematical centroid of ``geometry``.
     Empty geometry inputs result in empty output.
 
+.. function:: ST_GeometryType(geometry: Geometry) -> type: varchar
+
+    Returns the type of the geometry.
+
 .. function:: ST_X(geometry: Geometry) -> x: double
 
     Returns the ``x`` coordinate of the geometry if it is a Point.  Returns

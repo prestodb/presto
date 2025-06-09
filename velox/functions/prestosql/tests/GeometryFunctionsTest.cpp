@@ -1502,3 +1502,41 @@ TEST_F(GeometryFunctionsTest, testSTMax) {
   assertPointMax(std::nullopt, std::nullopt, std::nullopt);
   assertPointMax("POLYGON EMPTY", std::nullopt, std::nullopt);
 }
+
+TEST_F(GeometryFunctionsTest, testStGeometryType) {
+  const auto testStGeometryTypeFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_GeometryType(ST_GeometryFromText(c0))", wkt);
+
+        if (wkt.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_TRUE(expected.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStGeometryTypeFunc("POINT EMPTY", "Point");
+  testStGeometryTypeFunc("POINT (3 5)", "Point");
+  testStGeometryTypeFunc("LINESTRING EMPTY", "LineString");
+  testStGeometryTypeFunc("LINESTRING (1 1, 2 2, 3 3)", "LineString");
+  testStGeometryTypeFunc("LINEARRING EMPTY", "LineString");
+  testStGeometryTypeFunc("POLYGON EMPTY", "Polygon");
+  testStGeometryTypeFunc("POLYGON ((1 1, 4 1, 1 4, 1 1))", "Polygon");
+  testStGeometryTypeFunc("MULTIPOINT EMPTY", "MultiPoint");
+  testStGeometryTypeFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", "MultiPoint");
+  testStGeometryTypeFunc("MULTILINESTRING EMPTY", "MultiLineString");
+  testStGeometryTypeFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", "MultiLineString");
+  testStGeometryTypeFunc("MULTIPOLYGON EMPTY", "MultiPolygon");
+  testStGeometryTypeFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      "MultiPolygon");
+  testStGeometryTypeFunc("GEOMETRYCOLLECTION EMPTY", "GeometryCollection");
+  testStGeometryTypeFunc(
+      "GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1))))",
+      "GeometryCollection");
+}
