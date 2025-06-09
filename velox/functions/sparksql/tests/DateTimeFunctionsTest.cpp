@@ -1261,5 +1261,31 @@ TEST_F(DateTimeFunctionsTest, dateTrunc) {
       Timestamp(978336000, 0),
       dateTrunc("year", Timestamp(998'474'645, 321'001'234)));
 }
+
+TEST_F(DateTimeFunctionsTest, trunc) {
+  const auto trunc = [&](std::optional<int32_t> date,
+                         const std::string& format) {
+    return evaluateOnce<int32_t>(
+        fmt::format("trunc(c0, '{}')", format), DATE(), date);
+  };
+
+  // Date(0) is 1970-01-01.
+  EXPECT_EQ(std::nullopt, trunc(0, ""));
+  EXPECT_EQ(std::nullopt, trunc(0, "day"));
+  EXPECT_EQ(std::nullopt, trunc(0, "hour"));
+  EXPECT_EQ(std::nullopt, trunc(0, "minute"));
+  EXPECT_EQ(std::nullopt, trunc(0, "second"));
+  EXPECT_EQ(std::nullopt, trunc(0, "millisecond"));
+  EXPECT_EQ(std::nullopt, trunc(0, "microsecond"));
+
+  // Date(19576) is 2023-08-07, which is Monday, should return Monday.
+  EXPECT_EQ(19576, trunc(19576, "week"));
+  // Date(19579) is 2023-08-10, Thur, should return Monday.
+  EXPECT_EQ(19576, trunc(19579, "week"));
+  // Date(18297) is 2020-02-05.
+  EXPECT_EQ(18293, trunc(18297, "month"));
+  EXPECT_EQ(18262, trunc(18297, "quarter"));
+  EXPECT_EQ(18262, trunc(18297, "year"));
+}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

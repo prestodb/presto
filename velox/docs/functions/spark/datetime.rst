@@ -310,6 +310,26 @@ These functions support TIMESTAMP and DATE input types.
 
         SELECT to_utc_timestamp('2015-07-24 00:00:00', 'America/Los_Angeles'); -- '2015-07-24 07:00:00'
 
+.. spark:function:: trunc(date, fmt) -> date
+
+    Returns ``date`` truncated to the unit specified by the format model ``fmt``.
+    Returns NULL if ``fmt`` is invalid.
+
+    ``fmt`` is case insensitive and must be one of the following:
+        * "YEAR", "YYYY", "YY" - truncate to the first date of the year that the ``date`` falls in
+        * "QUARTER" - truncate to the first date of the quarter that the ``date`` falls in
+        * "MONTH", "MM", "MON" - truncate to the first date of the month that the ``date`` falls in
+        * "WEEK" - truncate to the Monday of the week that the ``date`` falls in
+
+    ::
+
+        SELECT trunc('2019-08-04', 'week'); -- 2019-07-29
+        SELECT trunc('2019-08-04', 'quarter'); -- 2019-07-01
+        SELECT trunc('2009-02-12', 'MM'); -- 2009-02-01
+        SELECT trunc('2015-10-27', 'YEAR'); -- 2015-01-01
+        SELECT trunc('2015-10-27', ''); -- NULL
+        SELECT trunc('2015-10-27', 'day'); -- NULL
+
 .. spark:function:: unix_date(date) -> integer
 
     Returns the number of days since 1970-01-01. ::
