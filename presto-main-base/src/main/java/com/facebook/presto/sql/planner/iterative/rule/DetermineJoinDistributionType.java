@@ -46,6 +46,7 @@ import static com.facebook.presto.SystemSessionProperties.confidenceBasedBroadca
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinFlippingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled;
 import static com.facebook.presto.SystemSessionProperties.treatLowConfidenceZeroEstimationAsUnknownEnabled;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
@@ -133,7 +134,9 @@ public class DetermineJoinDistributionType
         List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
 
         addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context);
-        addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
+        if (isSizeBasedJoinFlippingEnabled(context.getSession())) {
+            addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
+        }
 
         if (isBelowMaxBroadcastSize(joinNode, context) && isBelowMaxBroadcastSize(joinNode.flipChildren(), context) && !mustPartition(joinNode) && confidenceBasedBroadcastEnabled(context.getSession())) {
             Optional<JoinNode> result = confidenceBasedBroadcast(joinNode, context);
@@ -173,6 +176,7 @@ public class DetermineJoinDistributionType
     private JoinNode getSizeBasedJoin(JoinNode joinNode, Context context)
     {
         boolean isRightSideSmall = isBelowBroadcastLimit(joinNode.getRight(), context);
+        boolean joinFlipEnabled = isSizeBasedJoinFlippingEnabled(context.getSession());
         if (isRightSideSmall && !mustPartition(joinNode)) {
             // choose right join side with small source tables as replicated build side
             return joinNode.withDistributionType(REPLICATED);
@@ -180,7 +184,7 @@ public class DetermineJoinDistributionType
 
         boolean isLeftSideSmall = isBelowBroadcastLimit(joinNode.getLeft(), context);
         JoinNode flippedJoin = joinNode.flipChildren();
-        if (isLeftSideSmall && !mustPartition(flippedJoin)) {
+        if (joinFlipEnabled && isLeftSideSmall && !mustPartition(flippedJoin)) {
             // choose join left side with small source tables as replicated build side
             return flippedJoin.withDistributionType(REPLICATED);
         }
@@ -190,7 +194,7 @@ public class DetermineJoinDistributionType
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (isLeftSideSmall) {
+        if (joinFlipEnabled && isLeftSideSmall) {
             // left side is small enough, but must be partitioned
             return flippedJoin.withDistributionType(PARTITIONED);
         }
@@ -206,7 +210,7 @@ public class DetermineJoinDistributionType
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (isSmallerThanThreshold(joinNode.getLeft(), joinNode.getRight(), context) && !mustReplicate(flippedJoin, context)) {
+        if (joinFlipEnabled && isSmallerThanThreshold(joinNode.getLeft(), joinNode.getRight(), context) && !mustReplicate(flippedJoin, context)) {
             return flippedJoin.withDistributionType(PARTITIONED);
         }
 

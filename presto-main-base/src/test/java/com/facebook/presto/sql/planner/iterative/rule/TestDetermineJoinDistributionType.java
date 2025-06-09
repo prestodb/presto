@@ -29,6 +29,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
@@ -41,11 +42,13 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_BROADCAST_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.SIZE_BASED_JOIN_FLIPPING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -70,6 +73,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistri
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.getFirstKnownOutputSizeInBytes;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static java.lang.Double.NaN;
+import static java.util.function.Function.identity;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -747,12 +751,11 @@ public class TestDetermineJoinDistributionType
                         values(ImmutableMap.of("A1", 0))));
     }
 
-    @Test
-    public void testFlipAndReplicateWhenOneTableMuchSmallerAndJoinCardinalityUnknown()
+    private void testFlipAndReplicateWhenOneTableMuchSmallerAndJoinCardinalityUnknown(Function<RuleAssert, RuleAssert> with, PlanMatchPattern pattern)
     {
         int aRows = 100;
         int bRows = 10_000;
-        assertDetermineJoinDistributionType()
+        with.apply(assertDetermineJoinDistributionType())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -772,13 +775,31 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(pattern);
+    }
+
+    @Test
+    public void testFlipAndReplicateWhenOneTableMuchSmallerAndJoinCardinalityUnknown()
+    {
+        testFlipAndReplicateWhenOneTableMuchSmallerAndJoinCardinalityUnknown(identity(), join(
+                INNER,
+                ImmutableList.of(equiJoinClause("B1", "A1")),
+                Optional.empty(),
+                Optional.of(REPLICATED),
+                values(ImmutableMap.of("B1", 0)),
+                values(ImmutableMap.of("A1", 0))));
+    }
+
+    @Test
+    public void testDontFlipWhenOneTableMuchSmallerAndJoinCardinalityUnknown()
+    {
+        testFlipAndReplicateWhenOneTableMuchSmallerAndJoinCardinalityUnknown(rule -> rule.setSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, "false"), join(
+                INNER,
+                ImmutableList.of(equiJoinClause("A1", "B1")),
+                Optional.empty(),
+                Optional.of(PARTITIONED),
+                values(ImmutableMap.of("A1", 0)),
+                values(ImmutableMap.of("B1", 0))));
     }
 
     @Test
@@ -975,12 +996,11 @@ public class TestDetermineJoinDistributionType
                         values(ImmutableMap.of("B1", 0))));
     }
 
-    @Test
-    public void testFlipAndReplicateRightOuterJoin()
+    private void testFlipAndReplicateRightOuterJoin(Function<RuleAssert, RuleAssert> with, PlanMatchPattern pattern)
     {
         int aRows = 10;
         int bRows = 1_000_000;
-        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
+        with.apply(assertDetermineJoinDistributionType(new CostComparator(75, 10, 15)))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -998,21 +1018,38 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        LEFT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(pattern);
     }
 
     @Test
-    public void testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown()
+    public void testFlipAndReplicateRightOuterJoin()
+    {
+        testFlipAndReplicateRightOuterJoin(identity(), join(
+                LEFT,
+                ImmutableList.of(equiJoinClause("A1", "B1")),
+                Optional.empty(),
+                Optional.of(REPLICATED),
+                values(ImmutableMap.of("A1", 0)),
+                values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testDontFlipAndReplicateRightOuterJoin()
+    {
+        testFlipAndReplicateRightOuterJoin(rule -> rule.setSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, "false"), join(
+                RIGHT,
+                ImmutableList.of(equiJoinClause("A1", "B1")),
+                Optional.empty(),
+                Optional.of(PARTITIONED),
+                values(ImmutableMap.of("A1", 0)),
+                values(ImmutableMap.of("B1", 0))));
+    }
+
+    private void testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown(Function<RuleAssert, RuleAssert> with, PlanMatchPattern pattern)
     {
         int aRows = 10;
         int bRows = 1_000_000;
-        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
+        with.apply(assertDetermineJoinDistributionType(new CostComparator(75, 10, 15)))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
@@ -1032,13 +1069,31 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        LEFT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(pattern);
+    }
+
+    @Test
+    public void testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown()
+    {
+        testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown(identity(), join(
+                LEFT,
+                ImmutableList.of(equiJoinClause("A1", "B1")),
+                Optional.empty(),
+                Optional.of(REPLICATED),
+                values(ImmutableMap.of("A1", 0)),
+                values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testDontFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown()
+    {
+        testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown(rule -> rule.setSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, "false"), join(
+                RIGHT,
+                ImmutableList.of(equiJoinClause("A1", "B1")),
+                Optional.empty(),
+                Optional.of(PARTITIONED),
+                values(ImmutableMap.of("A1", 0)),
+                values(ImmutableMap.of("B1", 0))));
     }
 
     @Test
@@ -1283,6 +1338,33 @@ public class TestDetermineJoinDistributionType
                         Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         filter("true", values(ImmutableMap.of("B1", 0)))));
+
+        // when flipping is disabled, it shouldn't flip sides of the join
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, "false")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("filterB", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bSourceStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            LEFT,
+                            p.filter(new PlanNodeId("filterB"), TRUE_CONSTANT, p.values(new PlanNodeId("valuesB"), bRows, b1)),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        filter("true", values(ImmutableMap.of("B1", 0))),
+                        values(ImmutableMap.of("A1", 0))));
     }
 
     @Test
@@ -1332,6 +1414,32 @@ public class TestDetermineJoinDistributionType
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
+        // don't flip if the config is disabled
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN, "true")
+                .setSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, "false")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", bStatsEstimate)
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
 
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
@@ -1716,6 +1824,35 @@ public class TestDetermineJoinDistributionType
                         Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         filter("true", values(ImmutableMap.of("B1", 0)))));
+        // make sure config ensures sides don't get flipped
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .setSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, "false")
+                .overrideStats("valuesA", aStatsEstimate)
+                .overrideStats("valuesB", bStatsEstimate)
+                .overrideStats("filterB", PlanNodeStatsEstimate.unknown()) // unestimated term to trigger size based join ordering
+                .on(p -> {
+                    VariableReferenceExpression a1 = p.variable("A1", variableType);
+                    VariableReferenceExpression b1 = p.variable("B1", variableType);
+                    return p.join(
+                            INNER,
+                            p.filter(
+                                    new PlanNodeId("filterB"),
+                                    TRUE_CONSTANT,
+                                    p.values(new PlanNodeId("valuesB"), bRows, b1)),
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            ImmutableList.of(new EquiJoinClause(b1, a1)),
+                            ImmutableList.of(b1, a1),
+                            Optional.empty());
+                })
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        filter("true", values(ImmutableMap.of("B1", 0))),
+                        values(ImmutableMap.of("A1", 0))));
 
         // Use REPLICATED join type for cross join
         assertDetermineJoinDistributionType()
