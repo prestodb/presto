@@ -15,6 +15,7 @@
  */
 #include "velox/expression/SpecialFormRegistry.h"
 #include "velox/functions/lib/Re2Functions.h"
+#include "velox/functions/lib/UpperLower.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/prestosql/URLFunctions.h"
 #include "velox/functions/sparksql/ConcatWs.h"
@@ -27,8 +28,6 @@
 namespace facebook::velox::functions {
 void registerSparkStringFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, prefix + "reverse");
 }
 
@@ -149,6 +148,19 @@ void registerStringFunctions(const std::string& prefix) {
       ConcatWsCallToSpecialForm::kConcatWs,
       std::make_unique<ConcatWsCallToSpecialForm>());
   registerFunction<LuhnCheckFunction, bool, Varchar>({prefix + "luhn_check"});
+
+  using SparkUpperFunction =
+      UpperLowerTemplateFunction</*isLower=*/false, /*forSpark=*/true>;
+  using SparkLowerFunction =
+      UpperLowerTemplateFunction</*isLower=*/true, /*forSpark=*/true>;
+  exec::registerVectorFunction(
+      prefix + "upper",
+      SparkUpperFunction::signatures(),
+      std::make_unique<SparkUpperFunction>());
+  exec::registerVectorFunction(
+      prefix + "lower",
+      SparkLowerFunction::signatures(),
+      std::make_unique<SparkLowerFunction>());
 }
 } // namespace sparksql
 } // namespace facebook::velox::functions

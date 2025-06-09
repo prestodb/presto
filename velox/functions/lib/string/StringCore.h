@@ -172,6 +172,7 @@ FOLLY_ALWAYS_INLINE size_t upperUnicode(
 /// large enough for the results outputLength refers to the number of bytes
 /// available in the output buffer, and inputLength is the number of bytes in
 /// the input string
+template <bool forSpark>
 FOLLY_ALWAYS_INLINE size_t lowerUnicode(
     char* output,
     size_t outputLength,
@@ -194,6 +195,18 @@ FOLLY_ALWAYS_INLINE size_t lowerUnicode(
     }
 
     inputIdx += size;
+
+    if constexpr (forSpark) {
+      // Handle Turkish-specific case for İ (U+0130).
+      if (UNLIKELY(nextCodePoint == 0x0130)) {
+        // Map to i̇ (U+0069 U+0307).
+        output[outputIdx++] = 0x69;
+        output[outputIdx++] = 0xCC;
+        output[outputIdx++] = 0x87;
+        continue;
+      }
+    }
+
     auto lowerCodePoint = utf8proc_tolower(nextCodePoint);
 
     assert(

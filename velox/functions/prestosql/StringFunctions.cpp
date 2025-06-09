@@ -27,76 +27,6 @@ namespace facebook::velox::functions {
 using namespace stringCore;
 
 namespace {
-/**
- * Upper and Lower functions have a fast path for ascii where the functions
- * can be applied in place.
- * */
-template <bool isLower /*instantiate for upper or lower*/>
-class UpperLowerTemplateFunction : public exec::VectorFunction {
- private:
-  /// String encoding wrappable function
-  template <bool isAscii>
-  struct ApplyInternal {
-    static void apply(
-        const SelectivityVector& rows,
-        const DecodedVector* decodedInput,
-        FlatVector<StringView>* results) {
-      rows.applyToSelected([&](int row) {
-        auto proxy = exec::StringWriter(results, row);
-        if constexpr (isLower) {
-          stringImpl::lower<isAscii>(
-              proxy, decodedInput->valueAt<StringView>(row));
-        } else {
-          stringImpl::upper<isAscii>(
-              proxy, decodedInput->valueAt<StringView>(row));
-        }
-        proxy.finalize();
-      });
-    }
-  };
-
- public:
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
-      exec::EvalCtx& context,
-      VectorPtr& result) const override {
-    VELOX_CHECK(args.size() == 1);
-    VELOX_CHECK(args[0]->typeKind() == TypeKind::VARCHAR);
-
-    // Read content before calling prepare results
-    BaseVector* inputStringsVector = args[0].get();
-    exec::LocalDecodedVector inputHolder(context, *inputStringsVector, rows);
-    auto decodedInput = inputHolder.get();
-
-    auto ascii = isAscii(inputStringsVector, rows);
-
-    // Not in place path.
-    VectorPtr emptyVectorPtr;
-    prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
-    auto* resultFlatVector = result->as<FlatVector<StringView>>();
-
-    StringEncodingTemplateWrapper<ApplyInternal>::apply(
-        ascii, rows, decodedInput, resultFlatVector);
-  }
-
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // varchar -> varchar
-    return {exec::FunctionSignatureBuilder()
-                .returnType("varchar")
-                .argumentType("varchar")
-                .build()};
-  }
-
-  bool ensureStringEncodingSetAtAllInputs() const override {
-    return true;
-  }
-
-  bool propagateStringEncodingFromAllInputs() const override {
-    return true;
-  }
-};
 
 /**
  * concat(string1, ..., stringN) → varchar
@@ -386,16 +316,6 @@ class Replace : public exec::VectorFunction {
   }
 };
 } // namespace
-
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_upper,
-    UpperLowerTemplateFunction<false /*isLower*/>::signatures(),
-    std::make_unique<UpperLowerTemplateFunction<false /*isLower*/>>());
-
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_lower,
-    UpperLowerTemplateFunction<true /*isLower*/>::signatures(),
-    std::make_unique<UpperLowerTemplateFunction<true /*isLower*/>>());
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION_WITH_METADATA(
     udf_concat,
