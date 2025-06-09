@@ -1903,6 +1903,9 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
   ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientResultProcessTime), 0);
   ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientLookupResultSize), 0);
   ASSERT_EQ(runtimeStats.count(IndexLookupJoin::kClientLookupResultRawSize), 0);
+  ASSERT_EQ(
+      runtimeStats.count(IndexLookupJoin::kClientNumLazyDecodedResultBatches),
+      0);
   ASSERT_THAT(
       operatorStats.toString(true, true),
       testing::MatchesRegex(".*Runtime stats.*connectorLookupWallNanos:.*"));

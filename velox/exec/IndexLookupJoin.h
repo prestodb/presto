@@ -77,6 +77,9 @@ class IndexLookupJoin : public Operator {
   /// the raw data received from the remote storage lookup.
   static inline const std::string kClientLookupResultSize{
       "clientLookupResultSize"};
+  /// The number of lazy decoded result batches.
+  static inline const std::string kClientNumLazyDecodedResultBatches{
+      "clientNumLazyDecodedResultBatches"};
 
  private:
   using LookupResultIter = connector::IndexSource::LookupResultIterator;

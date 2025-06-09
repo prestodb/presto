@@ -189,6 +189,9 @@ These stats are reported only by IndexLookupJoin operator
      - bytes
      - The byte size of the result data in velox vectors that are decoded from the raw data
        received from the remote storage lookup.
+   * - clientNumLazyDecodedResultBatches
+     -
+     - The number of lazy decoded result batches returned from the storage client.
 
 Spilling
 --------
