@@ -576,7 +576,7 @@ struct StXFunction {
         geospatial::deserializeGeometry(geometry);
     if (geosGeometry->getGeometryTypeId() !=
         geos::geom::GeometryTypeId::GEOS_POINT) {
-      throw Status::UserError(fmt::format(
+      VELOX_USER_FAIL(fmt::format(
           "ST_X requires a Point geometry, found {}",
           geosGeometry->getGeometryType()));
     }
@@ -600,7 +600,7 @@ struct StYFunction {
         geospatial::deserializeGeometry(geometry);
     if (geosGeometry->getGeometryTypeId() !=
         geos::geom::GeometryTypeId::GEOS_POINT) {
-      throw Status::UserError(fmt::format(
+      VELOX_USER_FAIL(fmt::format(
           "ST_Y requires a Point geometry, found {}",
           geosGeometry->getGeometryType()));
     }
