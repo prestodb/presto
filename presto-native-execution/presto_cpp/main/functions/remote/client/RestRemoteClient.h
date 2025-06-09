@@ -28,6 +28,8 @@ class RestRemoteClient {
       std::vector<std::string> serializedInputTypes,
       const PrestoRemoteFunctionsMetadata& metadata);
 
+  ~RestRemoteClient();
+
   void applyRemote(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -43,6 +45,9 @@ class RestRemoteClient {
   PrestoRemoteFunctionsMetadata metadata_;
   std::unique_ptr<VectorSerde> serde_;
   std::string url_;
+  std::unique_ptr<folly::ScopedEventBaseThread> evbThread_;
+  std::shared_ptr<http::HttpClient> httpClient_;
+  std::shared_ptr<memory::MemoryPool> memPool_;
 
   const std::chrono::milliseconds requestTimeoutMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(

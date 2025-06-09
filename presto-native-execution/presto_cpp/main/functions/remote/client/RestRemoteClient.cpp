@@ -48,7 +48,31 @@ RestRemoteClient::RestRemoteClient(
       serdeFormat_(metadata.serdeFormat),
       metadata_(metadata),
       serde_(velox::functions::getSerde(serdeFormat_)),
-      url_(url) {}
+      url_(url) {
+  folly::Uri uri(url_);
+  memPool_ = memory::MemoryManager::getInstance()->addLeafPool();
+  proxygen::Endpoint endpoint(uri.host(), uri.port(), uri.scheme() == "https");
+  folly::SocketAddress addr(uri.host().c_str(), uri.port(), true);
+
+  evbThread_ = std::make_unique<folly::ScopedEventBaseThread>("rest-client");
+  httpClient_ = std::make_shared<http::HttpClient>(
+      evbThread_->getEventBase(),
+      nullptr,
+      endpoint,
+      addr,
+      requestTimeoutMs,
+      connectTimeoutMs,
+      memPool_,
+      nullptr);
+}
+
+RestRemoteClient::~RestRemoteClient() {
+  if (httpClient_) {
+    evbThread_->getEventBase()->runInEventBaseThreadAndWait(
+        [client = std::move(httpClient_)]() mutable { client.reset(); });
+  }
+  evbThread_.reset();
+}
 
 void RestRemoteClient::applyRemote(
     const SelectivityVector& rows,
@@ -90,7 +114,6 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
   try {
     folly::Uri uri(url_);
     const std::string contentType = getContentType(serdeFormat);
-
     auto message = std::make_unique<proxygen::HTTPMessage>();
     message->setMethod(proxygen::HTTPMethod::POST);
     message->setURL(uri.path());
@@ -101,34 +124,8 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
     requestPayload->coalesce();
     std::string requestBody = requestPayload->moveToFbString().toStdString();
 
-    // Create a new HttpClient per request for thread safety
-    auto memPool = memory::MemoryManager::getInstance()->addLeafPool();
-    proxygen::Endpoint endpoint(
-        uri.host(), uri.port(), uri.scheme() == "https");
-    folly::SocketAddress addr(uri.host().c_str(), uri.port(), true);
-
-    auto evbThread =
-        std::make_unique<folly::ScopedEventBaseThread>("rest-client");
-    auto httpClient = std::make_shared<http::HttpClient>(
-        evbThread->getEventBase(),
-        nullptr,
-        endpoint,
-        addr,
-        requestTimeoutMs,
-        connectTimeoutMs,
-        memPool,
-        nullptr);
-
-    auto sendFuture = httpClient->sendRequest(*message, requestBody);
+    auto sendFuture = httpClient_->sendRequest(*message, requestBody);
     sendFuture.wait();
-
-    // Explicitly destroy httpClient inside the event base thread
-    if (httpClient) {
-      evbThread->getEventBase()->runInEventBaseThreadAndWait(
-          [client = std::move(httpClient)]() mutable { client.reset(); });
-    }
-
-    evbThread.reset();
 
     VELOX_CHECK(
         sendFuture.hasValue(),
