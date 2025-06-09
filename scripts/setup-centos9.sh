@@ -86,7 +86,20 @@ function install_gflags {
 
 function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
-  dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+  local arch=$(uname -m)
+  local repo_url
+
+  if [[ "$arch" == "x86_64" ]]; then
+    repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
+  elif [[ "$arch" == "aarch64" ]]; then
+    # Using SBSA (Server Base System Architecture) repository for ARM64 servers
+    repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel9/sbsa/cuda-rhel9.repo"
+  else
+    echo "Unsupported architecture: $arch" >&2
+    return 1
+  fi
+
+  dnf config-manager --add-repo "$repo_url"
   local dashed="$(echo $1 | tr '.' '-')"
   dnf install -y \
     cuda-compat-$dashed \

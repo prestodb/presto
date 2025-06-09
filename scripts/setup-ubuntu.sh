@@ -156,12 +156,37 @@ function install_conda {
 
 function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
+  local arch=$(uname -m)
+  local os_ver
+
+  if [[ ${VERSION} =~ "24.04" ]]; then
+    os_ver="ubuntu2404"
+  elif [[ ${VERSION} =~ "22.04" ]]; then
+    os_ver="ubuntu2204"
+  elif [[ ${VERSION} =~ "20.04" ]]; then
+    os_ver="ubuntu2004"
+  else
+    echo "Unsupported Ubuntu version: ${VERSION}" >&2
+    return 1
+  fi
+
+  local cuda_repo
+  if [[ "$arch" == "x86_64" ]]; then
+    cuda_repo="${os_ver}/x86_64"
+  elif [[ "$arch" == "aarch64" ]]; then
+    cuda_repo="${os_ver}/sbsa"
+  else
+    echo "Unsupported architecture: $arch" >&2
+    return 1
+  fi
+
   if ! dpkg -l cuda-keyring 1>/dev/null; then
-    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+    wget https://developer.download.nvidia.com/compute/cuda/repos/${cuda_repo}/cuda-keyring_1.1-1_all.deb
     $SUDO dpkg -i cuda-keyring_1.1-1_all.deb
     rm cuda-keyring_1.1-1_all.deb
     $SUDO apt update
   fi
+
   local dashed="$(echo $1 | tr '.' '-')"
   $SUDO apt install -y \
     cuda-compat-$dashed \
