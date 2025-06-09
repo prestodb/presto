@@ -462,7 +462,7 @@ final class ShowQueriesRewrite
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
             if (node.getType() == SCHEMA) {
-                CatalogSchemaName catalogSchemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()));
+                CatalogSchemaName catalogSchemaName = createCatalogSchemaName(session, node, Optional.of(node.getName()), metadata);
                 if (!metadataResolver.schemaExists(catalogSchemaName)) {
                     throw new SemanticException(MISSING_SCHEMA, node, "Schema '%s' does not exist", catalogSchemaName);
                 }
