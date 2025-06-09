@@ -254,6 +254,9 @@ void SelectiveListColumnReader::read(
   makeNestedRowSet(activeRows, rows.back());
   if (child_ && !nestedRows_.empty()) {
     child_->read(child_->readOffset(), nestedRows_, nullptr);
+    nestedRowsAllSelected_ = nestedRowsAllSelected_ &&
+        nestedRows_.size() == child_->outputRows().size();
+    nestedRows_ = child_->outputRows();
   }
   numValues_ = activeRows.size();
   readOffset_ = offset + rows.back() + 1;
@@ -338,6 +341,9 @@ void SelectiveMapColumnReader::read(
     nestedRows_ = keyReader_->outputRows();
     if (!nestedRows_.empty()) {
       elementReader_->read(elementReader_->readOffset(), nestedRows_, nullptr);
+      nestedRowsAllSelected_ = nestedRowsAllSelected_ &&
+          nestedRows_.size() == elementReader_->outputRows().size();
+      nestedRows_ = elementReader_->outputRows();
     }
   }
   numValues_ = activeRows.size();
