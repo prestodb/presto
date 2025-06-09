@@ -215,6 +215,7 @@
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
+        <module>presto-plan-checker-router-plugin</module>
     </modules>
 
     <dependencyManagement>
