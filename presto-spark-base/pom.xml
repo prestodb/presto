@@ -206,9 +206,14 @@
             <scope>test</scope>
         </dependency>
 
+<!--        <dependency>-->
+<!--            <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--            <artifactId>hadoop-apache2</artifactId>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hadoop-apache2</artifactId>
             <scope>test</scope>
         </dependency>
 

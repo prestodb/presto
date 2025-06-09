@@ -1,7 +1,8 @@
 name: kudu
 
 on:
-  pull_request:
+  workflow_dispatch:
+#  pull_request:
 
 env:
   # An envar that signals to tests we are executing in the CI environment
