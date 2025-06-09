@@ -340,7 +340,7 @@ public class TestEventListener
         private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
         private ImmutableList.Builder<QueryCompletedEvent> queryCompletedEvents;
         private ImmutableList.Builder<SplitCompletedEvent> splitCompletedEvents;
-        private QueryProgressEvent queryProgressEvent;
+        private volatile QueryProgressEvent queryProgressEvent;
 
         private CountDownLatch eventsLatch;
 
