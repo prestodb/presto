@@ -23,18 +23,20 @@ public class RouterRequestInfo
     private final Optional<String> source;
     private final List<String> clientTags;
     private final String query;
+    private final Object servletRequest;
 
     public RouterRequestInfo(String user)
     {
-        this(user, Optional.empty(), Collections.emptyList(), "");
+        this(user, Optional.empty(), Collections.emptyList(), "", null);
     }
 
-    public RouterRequestInfo(String user, Optional<String> source, List<String> clientTags, String query)
+    public RouterRequestInfo(String user, Optional<String> source, List<String> clientTags, String query, Object servletRequest)
     {
         this.user = user;
         this.source = source;
         this.clientTags = clientTags;
         this.query = query;
+        this.servletRequest = servletRequest;
     }
 
     public String getUser()
@@ -55,5 +57,10 @@ public class RouterRequestInfo
     public List<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Object getServletRequest()
+    {
+        return servletRequest;
     }
 }

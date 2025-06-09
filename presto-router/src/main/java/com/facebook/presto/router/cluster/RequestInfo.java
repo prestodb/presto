@@ -37,9 +37,11 @@ public class RequestInfo
     private final Optional<String> source;
     private final List<String> clientTags;
     private final String query;
+    private final HttpServletRequest servletRequest;
 
     public RequestInfo(HttpServletRequest servletRequest, String query)
     {
+        this.servletRequest = requireNonNull(servletRequest, "servletRequest is null");
         this.user = parseHeader(servletRequest, PRESTO_USER);
         this.source = Optional.ofNullable(parseHeader(servletRequest, PRESTO_SOURCE));
         this.clientTags = requireNonNull(parseClientTags(servletRequest), "clientTags is null");
@@ -68,7 +70,7 @@ public class RequestInfo
 
     public RouterRequestInfo toRouterRequestInfo()
     {
-        return new RouterRequestInfo(user, source, clientTags, query);
+        return new RouterRequestInfo(user, source, clientTags, query, servletRequest);
     }
 
     private static List<String> parseClientTags(HttpServletRequest servletRequest)
