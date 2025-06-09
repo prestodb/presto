@@ -42,6 +42,8 @@ jobs:
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -50,20 +52,22 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          # Allows to install arbitrary cuda-version whithout needing to update
-          # docker container before. It simplifies testing new/different versions
-          if ! yum list installed cuda-nvcc-$(echo ${CUDA_VERSION} | tr '.' '-') 1>/dev/null; then
-            source scripts/setup-centos9.sh
-            install_cuda ${CUDA_VERSION}
-          fi
+          if git diff --name-only HEAD^1 HEAD | grep -q "scripts/setup-"; then
+            # Overwrite old setup scripts with changed versions
+            cp scripts/setup-* /
 
-      - name: Install Minio
-        run: |
-          MINIO_BINARY="minio-2022-05-26"
-          if [ ! -f /usr/local/bin/${MINIO_BINARY} ]; then
-            wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z -O ${MINIO_BINARY}
-            chmod +x ./${MINIO_BINARY}
-            mv ./${MINIO_BINARY} /usr/local/bin/
+            mkdir /tmp/build
+            cd /tmp/build 
+            source /opt/rh/gcc-toolset-12/enable
+            # install basic deps
+            bash /setup-centos9.sh
+
+            source /setup-centos9.sh
+            install_adapters
+            install_cuda $CUDA_VERSION
+            
+            cd /
+            rm -rf /tmp/build # cleanup to avoid issues with disk space
           fi
 
       - uses: assignUser/stash/restore@v1
