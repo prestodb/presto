@@ -24,7 +24,19 @@ import redis.clients.jedis.JedisPoolConfig;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.Map;
 
 import static java.lang.Math.toIntExact;
@@ -37,6 +49,14 @@ public class RedisJedisManager
 {
     private static final Logger log = Logger.get(RedisJedisManager.class);
 
+    private static final String TLS_PROTOCOL = "TLS";
+
+    private static final int JDIS_TIMEOUT = 2000;
+
+    private static final int JDIS_MIN_IDLE = 1;
+
+    private static final int JDIS_MAX_IDLE = 5;
+
     private final LoadingCache<HostAddress, JedisPool> jedisPoolCache;
 
     private final RedisConnectorConfig redisConnectorConfig;
@@ -48,7 +68,7 @@ public class RedisJedisManager
             NodeManager nodeManager)
     {
         this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
-        this.jedisPoolCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
+        this.jedisPoolCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createJedisPool));
         this.jedisPoolConfig = new JedisPoolConfig();
     }
 
@@ -76,14 +96,117 @@ public class RedisJedisManager
         return jedisPoolCache.getUnchecked(host);
     }
 
-    private JedisPool createConsumer(HostAddress host)
+    /**
+     * Creates a new JedisPool for the specified host.
+     * Chooses between TLS or non-TLS configuration based on redisConnectorConfig.
+     */
+    private JedisPool createJedisPool(HostAddress host)
     {
-        log.info("Creating new JedisPool for %s", host);
-        return new JedisPool(jedisPoolConfig,
+        if (redisConnectorConfig.isTlsEnabled()) {
+            SSLContext sslContext = createSslContext(loadTrustStore());
+            return createTlsJedisPool(host, sslContext);
+        }
+        else {
+            return createNonTlsJedisPool(host);
+        }
+    }
+
+    /**
+     * Creates SSLContext initialized with the given truststore.
+     */
+    private SSLContext createSslContext(KeyStore trustStore)
+    {
+        if (trustStore == null) {
+            throw new IllegalStateException("Truststore must not be null for TLS connections");
+        }
+
+        try {
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(trustStore);
+
+            SSLContext sslContext = SSLContext.getInstance(TLS_PROTOCOL);
+            sslContext.init(null, tmf.getTrustManagers(), null);
+
+            return sslContext;
+        }
+        catch (NoSuchAlgorithmException | KeyStoreException | KeyManagementException e) {
+            throw new RuntimeException("Failed to initialize SSLContext", e);
+        }
+    }
+
+    private JedisPool createNonTlsJedisPool(HostAddress host)
+    {
+        log.debug("Creating new non-TLS JedisPool for %s", host);
+        return new JedisPool(
+                jedisPoolConfig,
                 host.getHostText(),
                 host.getPort(),
                 toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
+                JDIS_TIMEOUT, // SoTimeout
+                JDIS_TIMEOUT, // ConnectionTimeout
+                redisConnectorConfig.getRedisUser(),
                 redisConnectorConfig.getRedisPassword(),
-                redisConnectorConfig.getRedisDataBaseIndex());
+                redisConnectorConfig.getRedisDataBaseIndex(),
+                null, // clientName
+                false, // ssl
+                null, // sslSocketFactory
+                null, // sslParameters
+                null); // hostnameVerifier
+    }
+
+    private JedisPoolConfig createTlsPoolConfig()
+    {
+        JedisPoolConfig config = new JedisPoolConfig();
+        config.setMinIdle(JDIS_MIN_IDLE);
+        config.setMaxTotal(JDIS_MAX_IDLE);
+        return config;
+    }
+
+    /**
+     * Loads the truststore containing Redis server certificate.
+     * Returns null if truststore path is not configured.
+     */
+    private KeyStore loadTrustStore()
+    {
+        if (redisConnectorConfig.getTruststorePath() == null) {
+            log.info("No truststore path configured, skipping TLS truststore loading");
+            return null;
+        }
+
+        try {
+            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            try (InputStream in = Files.newInputStream(redisConnectorConfig.getTruststorePath().toPath())) {
+                trustStore.load(null, null);
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                X509Certificate cert = (X509Certificate) cf.generateCertificate(in);
+                trustStore.setCertificateEntry("redis-server", cert);
+            }
+            log.info("Loaded truststore from %s", redisConnectorConfig.getTruststorePath());
+            return trustStore;
+        }
+        catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException e) {
+            throw new RuntimeException("Failed to load truststore", e);
+        }
+    }
+
+    private JedisPool createTlsJedisPool(HostAddress host, SSLContext sslContext)
+    {
+        JedisPoolConfig poolConfig = createTlsPoolConfig();
+        log.debug("Creating new SSL enabled TLS JedisPool for %s", host);
+        return new JedisPool(
+                poolConfig,
+                host.getHostText(),
+                host.getPort(),
+                toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
+                JDIS_TIMEOUT,
+                JDIS_TIMEOUT,
+                redisConnectorConfig.getRedisUser(),
+                redisConnectorConfig.getRedisPassword(),
+                redisConnectorConfig.getRedisDataBaseIndex(),
+                null,
+                true,
+                sslContext.getSocketFactory(),
+                null,
+                null);
     }
 }
