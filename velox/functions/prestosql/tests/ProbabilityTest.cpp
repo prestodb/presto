@@ -102,6 +102,7 @@ class ProbabilityTest : public functions::test::FunctionBaseTest {
         0.0);
     EXPECT_EQ(binomialCDF<ValueType>(10, 0.1, -2), 0.0);
     EXPECT_EQ(binomialCDF<ValueType>(25, 0.5, -100), 0.0);
+    EXPECT_EQ(binomialCDF<ValueType>(2, 0.1, 3), 1.0);
 
     // Invalid inputs
     VELOX_ASSERT_THROW(

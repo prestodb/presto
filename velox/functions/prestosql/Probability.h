@@ -97,6 +97,11 @@ struct BinomialCDFFunction {
       return;
     }
 
+    if (value >= numOfTrials) {
+      result = 1.0;
+      return;
+    }
+
     boost::math::binomial_distribution<> dist(numOfTrials, successProb);
     result = boost::math::cdf(dist, value);
   }
