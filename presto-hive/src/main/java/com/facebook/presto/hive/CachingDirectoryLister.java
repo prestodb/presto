@@ -142,6 +142,12 @@ public class CachingDirectoryLister
         };
     }
 
+    public boolean isPathCached(Path path)
+    {
+        ValueHolder value = Optional.ofNullable(cache.getIfPresent(path.toString())).orElse(null);
+        return value != null;
+    }
+
     public void invalidateDirectoryListCache(Optional<String> directoryPath)
     {
         if (directoryPath.isPresent()) {
