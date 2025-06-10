@@ -157,7 +157,7 @@ def main() -> int:
     result = generate_tpch_data(**vars(args))
 
     logging.info(
-        f"Written {result.row_count} records to {result.file_count} output files at '{result.output_path}'" # pyre-ignore
+        f"Written {result.row_count} records to {result.file_count} output files at '{result.output_path}'"  # pyre-ignore
     )
 
     return 0 if result else 1

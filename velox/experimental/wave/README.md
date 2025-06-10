@@ -17,17 +17,16 @@ limitations under the License.
 # CMake: Use Base Functions
 
 > [!IMPORTANT]  Please use `target_link_libraries` and `add_library`
-> instead of the `velox_*` functions when adding or linking to targets 
+> instead of the `velox_*` functions when adding or linking to targets
 > within wave/ and label tests with `cuda_driver`.
 
 The `wave` GPU component links against the CUDA driver in several targets.
 They can be built on machines without the actual driver installed, this
 requires the relevant 'stub' packages to be installed (see setup scripts).
 
-Any library that statically links against the stubs **can not** run on a 
-machine without an actual CUDA driver installed (like our CI). 
-For this reason we need to use the base functions to create standalone 
+Any library that statically links against the stubs **can not** run on a
+machine without an actual CUDA driver installed (like our CI).
+For this reason we need to use the base functions to create standalone
 libraries for wave to avoid linking statically against the stubs when
 building the monolithic library and label any tests with 'cuda_driver'
 to allow excluding them from ctest on machines without the driver.
-

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +17,6 @@
 from typing import Iterator, Optional
 
 from pyvelox.vector import Vector
-
 
 class LocalRunner:
     def __init__(self, PlanNode) -> None: ...

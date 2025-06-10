@@ -17,23 +17,23 @@ name: Breeze Linux Build
 on:
   push:
     branches:
-      - "main"
+      - main
     paths:
-      - "velox/experimental/breeze/**"
-      - "velox/external/perfetto/**"
-      - "CMake/**"
-      - "scripts/setup-ubuntu.sh"
-      - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/breeze.yml"
+      - velox/experimental/breeze/**
+      - velox/external/perfetto/**
+      - CMake/**
+      - scripts/setup-ubuntu.sh
+      - scripts/setup-helper-functions.sh
+      - .github/workflows/breeze.yml
 
   pull_request:
     paths:
-      - "velox/experimental/breeze/**"
-      - "velox/external/perfetto/**"
-      - "CMake/**"
-      - "scripts/setup-ubuntu.sh"
-      - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/breeze.yml"
+      - velox/experimental/breeze/**
+      - velox/external/perfetto/**
+      - CMake/**
+      - scripts/setup-ubuntu.sh
+      - scripts/setup-helper-functions.sh
+      - .github/workflows/breeze.yml
 
 permissions:
   contents: read
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-22.04
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
-    name: "Ubuntu debug"
+    name: Ubuntu debug
     defaults:
       run:
         shell: bash
@@ -57,6 +57,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: velox
+          persist-credentials: false
 
       - name: Install Dependencies
         run: |
@@ -82,9 +83,9 @@ jobs:
     runs-on: 4-core-ubuntu-gpu-t4
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
-    name: "Ubuntu GPU debug"
+    name: Ubuntu GPU debug
     env:
-      CUDA_VERSION: "12.2"
+      CUDA_VERSION: '12.2'
     defaults:
       run:
         shell: bash
@@ -94,6 +95,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: velox
+          persist-credentials: false
 
       - name: Install Dependencies
         run: |

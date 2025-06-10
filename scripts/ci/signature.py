@@ -146,7 +146,7 @@ def diff_signatures(base_signatures, contender_signatures, error_path=""):
         if "repetition_change" in delta:
             error_message = ""
             for rep_change in delta["repetition_change"]:
-                error_message += f"""'{rep_change.get_root_key()}{rep_change.t1}' is repeated {rep_change.repetition['new_repeat']} times.\n"""
+                error_message += f"""'{rep_change.get_root_key()}{rep_change.t1}' is repeated {rep_change.repetition["new_repeat"]} times.\n"""
             show_error(error_message, error_path)
             exit_status = 1
 

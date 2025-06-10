@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,15 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-set -e
-set -x
-
-export DEBIAN_FRONTEND=noninteractive
-apt update
-apt install --no-install-recommends -y clang-format-18 python3-pip git make ssh
-pip3 install --break-system-packages cmake==3.28.3 cmake_format black pyyaml regex
-pip3 cache purge
-apt purge --auto-remove -y python3-pip
-update-alternatives --install /usr/bin/clang-format clang-format "$(command -v clang-format-18)" 18
-apt clean
+match_type: doublestar
+exclude:
+  - '**/.clang-format'
+  - '**/.clang-tidy'
+formatter:
+  type: basic
+  retain_line_breaks_single: true
+  scan_folded_as_literal: true
+  indent: 2

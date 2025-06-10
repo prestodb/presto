@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,11 +15,10 @@
 # pyre-unsafe
 
 from enum import Enum
-from typing import List, Dict, Type, Optional
+from typing import Optional
 
 from pyvelox.file import File
 from pyvelox.type import Type
-
 
 class JoinType(Enum):
     INNER = 1
@@ -41,11 +38,11 @@ class PlanBuilder:
     def table_scan(
         self,
         output_schema: Type,
-        aliases: Dict[str, str] = {},
-        subfields: Dict[str, List[int]] = {},
+        aliases: dict[str, str] = {},
+        subfields: dict[str, list[int]] = {},
         row_index: str = "",
         connector_id: str = "prism",
-        input_files: List[File] = [],
+        input_files: list[File] = [],
     ) -> PlanBuilder: ...
     def tpch_gen(
         self,
@@ -53,7 +50,7 @@ class PlanBuilder:
         columns: list[str] = [],
         scale_factor: int = 1,
         num_parts: int = 1,
-        connector_id: str = "tpch"
+        connector_id: str = "tpch",
     ) -> PlanBuilder: ...
     def table_write(
         self,

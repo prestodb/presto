@@ -14,7 +14,7 @@
 
 name: Fuzzer Report
 description: Report an issue with the fuzzer or found through fuzzing.
-labels: ["bug", "fuzzer-found", "fuzzer"]
+labels: [bug, fuzzer-found, fuzzer]
 body:
   - type: markdown
     attributes:
@@ -26,7 +26,7 @@ body:
     attributes:
       label: Description
       description: Please describe the issue.
-      placeholder: "[Expected behavior] and [actual behavior]."
+      placeholder: '[Expected behavior] and [actual behavior].'
     validations:
       required: true
   - type: textarea

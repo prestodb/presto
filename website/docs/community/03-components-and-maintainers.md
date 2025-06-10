@@ -14,7 +14,7 @@ and codebase.
 Maintainership status is *lagging*, not *leading*, and it is only acquired
 through active participation and demonstration of skills and domain-specific
 knowledge. All individuals listed in this page are expected to uphold
-[Velox’s mission, design philosophy, and principles](./design-philosophy). 
+[Velox’s mission, design philosophy, and principles](./design-philosophy).
 
 ## Project Leadership Council - PLC
 
@@ -35,7 +35,7 @@ developer documentation.
 Before working on a new feature or optimization, please review our
 [CONTRIBUTING.md](https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md)
 guide and initiate a discussion on Github with the people listed as
-maintainers of that component. 
+maintainers of that component.
 
 ### Vectors, Types, Arrow Bindings:
 

@@ -81,7 +81,7 @@ def get_retry_name(args, file_name):
     path = _normalize_path(file_name)
     try:
         parent_path = path.relative_to(_normalize_path(args.contender_path))
-    except:
+    except Exception:
         parent_path = path.relative_to(_normalize_path(args.baseline_path))
     return str(parent_path.parent)
 
@@ -455,8 +455,7 @@ def parse_args():
     parser_run.add_argument(
         "--binary_filter",
         default=None,
-        help="Filter applied to binary names. "
-        "By default execute all binaries found.",
+        help="Filter applied to binary names. By default execute all binaries found.",
     )
     parser_run.add_argument(
         "--bm_filter",

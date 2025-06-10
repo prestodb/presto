@@ -24,46 +24,46 @@ format:
   separate_ctrl_name_with_space: false
   separate_fn_name_with_space: false
   dangle_parens: false
-  command_case: "canonical"
-  keyword_case: "unchanged"
+  command_case: canonical
+  keyword_case: unchanged
   always_wrap:
     - set_target_properties
     - target_sources
     - target_link_libraries
 
 parse:
-  # We define these for our custom 
+  # We define these for our custom
   # functions so they get formatted correctly
   additional_commands:
     velox_add_library:
       pargs:
         nargs: 1+
         flags:
-        - OBJECT
-        - STATIC
-        - SHARED
-        - INTERFACE
+          - OBJECT
+          - STATIC
+          - SHARED
+          - INTERFACE
       kwargs: {}
 
     velox_base_add_library:
       pargs:
         nargs: 1+
         flags:
-        - OBJECT
-        - STATIC
-        - SHARED
-        - INTERFACE
+          - OBJECT
+          - STATIC
+          - SHARED
+          - INTERFACE
       kwargs: {}
 
     velox_compile_definitions:
-      pargs: 1 
+      pargs: 1
       kwargs:
         PRIVATE: '*'
         PUBLIC: '*'
         INTERFACE: '*'
 
     velox_include_directories:
-      pargs: '1+'
+      pargs: 1+
       flags:
         - SYSTEM
         - BEFORE
@@ -74,11 +74,10 @@ parse:
         INTERFACE: '*'
 
     velox_link_libraries:
-      pargs: '1+'
+      pargs: 1+
       kwargs:
         PRIVATE: '*'
         PUBLIC: '*'
         INTERFACE: '*'
-        
 markup:
   first_comment_is_literal: true

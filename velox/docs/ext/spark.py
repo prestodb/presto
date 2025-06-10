@@ -653,7 +653,7 @@ class SparkFunction(SparkObject):
                 text = _("%s() (in module %s)") % (name, modname)
                 self.indexnode["entries"].append(("single", text, node_id, "", None))
             else:
-                text = f'{pairindextypes["builtin"]}; {name}()'
+                text = f"{pairindextypes['builtin']}; {name}()"
                 self.indexnode["entries"].append(("pair", text, node_id, "", None))
 
     def get_index_text(self, modname: str, name_cls: tuple[str, str]) -> str | None:

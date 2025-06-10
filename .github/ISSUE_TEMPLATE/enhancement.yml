@@ -14,7 +14,7 @@
 
 name: Enhancement
 description: Raise a potential enhancement.
-labels: ["enhancement"]
+labels: [enhancement]
 body:
   - type: markdown
     attributes:

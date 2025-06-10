@@ -32,9 +32,9 @@ Binary Functions
 
 .. spark:function:: might_contain(bloomFilter, value) -> boolean
 
-   Returns TRUE if ``bloomFilter`` might contain ``value``. 
+   Returns TRUE if ``bloomFilter`` might contain ``value``.
 
-   ``bloomFilter`` is a VARBINARY computed using ::spark:function::`bloom_filter_agg` aggregate function. 
+   ``bloomFilter`` is a VARBINARY computed using ::spark:function::`bloom_filter_agg` aggregate function.
    ``value`` is a BIGINT.
 
 .. spark:function:: sha1(x) -> varchar

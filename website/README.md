@@ -31,4 +31,4 @@ Velox's website is automatically deployed using
 the files under *velox/website* is submitted, a live preview link is generated
 by Netlify. The link is posted in the pull request as a comment by the Netlify
 bot. When the pull request is merged, the changes are automatically deployed to
-the website by Netlify. 
+the website by Netlify.

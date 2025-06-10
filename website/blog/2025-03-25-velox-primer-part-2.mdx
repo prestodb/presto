@@ -33,9 +33,9 @@ distributed query plan with three query fragments will be created:
 divides its output according to a hash of *l_partkey*.
 2. The second fragment reads the output from the first fragment and updates a
 hash table from *l_partkey* containing the number of times the particular value
-of *l_partkey* has been seen (the count(*) aggregate function implementation). 
+of *l_partkey* has been seen (the count(*) aggregate function implementation).
 3. The final fragment then reads the content of the hash tables, once the
-second fragment has received all the rows from the first fragment. 
+second fragment has received all the rows from the first fragment.
 
 <figure>
     <img src="/img/velox-primer-part2-1.png" height= "70%" width="70%"/>
@@ -71,7 +71,7 @@ In Prestissimo, the message that sets up a Task in a worker is called *Task
 Update*. A Task Update has the following information: the plan, configuration
 settings, and an optional list of splits. Splits are further qualified by what
 plan node they are intended for, and whether more splits for the recipient plan
-node and split group will be coming.  
+node and split group will be coming.
 
 Since split generation involves enumerating files from storage (so they may
 take a while), Presto allows splits to be sent to workers asynchronously, such
@@ -109,13 +109,13 @@ operator tree where each node consumes the output of its child operators, and
 returns output to the parent operator. The root node is typically a
 PartitionedOutputNode or a TableWriteNode. The leaf nodes are either
 TableScanNode, ExchangeNode or ValuesNode (used for query literals). The full
-set of Velox PlanNode can be found at velox/core/PlanNode.h. 
+set of Velox PlanNode can be found at velox/core/PlanNode.h.
 
 The PlanNodes mostly correspond to Operators. PlanNodes are not executable as
 such; they are only a structure describing how to make Drivers and Operators,
 which do the actual execution. If the tree of nodes has a single branch, then
 the plan is a single pipeline. If it has nodes with more than one child
-(input), then the second input of the node becomes a separate pipeline.  
+(input), then the second input of the node becomes a separate pipeline.
 
 `Task::start()` creates the DriverFactories, which then create the Drivers. To
 start execution, the Drivers are queued on a thread pool executor. The main
@@ -151,7 +151,7 @@ that no more splits will be coming. In this case TableScan would be at the end.
 Finally, if a Split is available, TableScan interprets it. Given a TableHandle
 specification provided as part of the plan (list of columns and filters), the
 Connector (as specified in the Split) makes a DataSource. The DataSource
-handles the details of IO and file and table formats. 
+handles the details of IO and file and table formats.
 
 The DataSource is then given the split. After this, DataSource::next() can be
 called repeatedly to get vectors (batches) of output from the file/section of

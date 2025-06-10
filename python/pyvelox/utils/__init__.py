@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .data_generator import generate_tpch_data
+from .data_generator import generate_tpch_data as generate_tpch_data

@@ -17,23 +17,21 @@ name: macOS Build
 on:
   push:
     paths:
-      - "velox/**"
-      - "!velox/docs/**"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "third_party/**"
-      - "scripts/setup-macos.sh"
-      - ".github/workflows/macos.yml"
+      - velox/**
+      - '!velox/docs/**'
+      - CMakeLists.txt
+      - CMake/**
+      - scripts/setup-macos.sh
+      - .github/workflows/macos.yml
 
   pull_request:
     paths:
-      - "velox/**"
-      - "!velox/docs/**"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "third_party/**"
-      - "scripts/setup-macos.sh"
-      - ".github/workflows/macos.yml"
+      - velox/**
+      - '!velox/docs/**'
+      - CMakeLists.txt
+      - CMake/**
+      - scripts/setup-macos.sh
+      - .github/workflows/macos.yml
 
 permissions:
   contents: read
@@ -45,7 +43,7 @@ concurrency:
 jobs:
   macos-build:
     if: ${{ github.repository == 'facebookincubator/velox' }}
-    name: "${{ matrix.os }}"
+    name: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -54,19 +52,20 @@ jobs:
         os: [macos-13, macos-14]
     runs-on: ${{ matrix.os }}
     env:
-      CCACHE_DIR: '${{ github.workspace }}/ccache'
+      CCACHE_DIR: ${{ github.workspace }}/ccache
       # The arm runners have only 7GB RAM
-      BUILD_TYPE: "${{ matrix.os ==  'macos-14' && 'Release' || 'Debug' }}"
-      INSTALL_PREFIX: "/tmp/deps-install"
+      BUILD_TYPE: ${{ matrix.os ==  'macos-14' && 'Release' || 'Debug' }}
+      INSTALL_PREFIX: /tmp/deps-install
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          persist-credentials: false
+
       - name: Install Dependencies
         env:
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
-          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 'TRUE'
+          CMAKE_POLICY_VERSION_MINIMUM: '3.5'
         run: |
           source scripts/setup-macos.sh
           install_build_prerequisites
@@ -79,35 +78,35 @@ jobs:
           pipx install --force cmake==3.31
 
       - name: Cache ccache
-        uses: assignUser/stash/restore@v1
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: '${{ env.CCACHE_DIR }}'
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-macos-1-${{ matrix.os }}
 
       - name: Configure Build
         env:
           fmt_SOURCE: BUNDLED #brew fmt11 is not supported
-          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+          CMAKE_POLICY_VERSION_MINIMUM: '3.5'
         run: |
-            ccache -sz -M 5Gi
-            cmake \
-                -B _build/$BUILD_TYPE \
-                -GNinja \
-                -DTREAT_WARNINGS_AS_ERRORS=1 \
-                -DENABLE_ALL_WARNINGS=1 \
-                -DVELOX_ENABLE_PARQUET=ON \
-                -DVELOX_MONO_LIBRARY=ON \
-                -DVELOX_BUILD_SHARED=ON \
-                -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          ccache -sz -M 5Gi
+          cmake \
+              -B _build/$BUILD_TYPE \
+              -GNinja \
+              -DTREAT_WARNINGS_AS_ERRORS=1 \
+              -DENABLE_ALL_WARNINGS=1 \
+              -DVELOX_ENABLE_PARQUET=ON \
+              -DVELOX_MONO_LIBRARY=ON \
+              -DVELOX_BUILD_SHARED=ON \
+              -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
       - name: Build
         run: |
-            cmake --build _build/$BUILD_TYPE -j $NJOBS
-            ccache -s
+          cmake --build _build/$BUILD_TYPE -j $NJOBS
+          ccache -s
 
-      - uses: assignUser/stash/save@v1
+      - uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: '${{ env.CCACHE_DIR }}'
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-macos-1-${{ matrix.os }}
 
       - name: Run Tests

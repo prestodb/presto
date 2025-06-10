@@ -27,7 +27,7 @@ export default function HomepageFeatures() {
           ))}
         </div>
         <div className="row">
-    
+
         </div>
       </div>
     </section>

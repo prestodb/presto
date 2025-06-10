@@ -10,7 +10,7 @@ This product includes software from the QT project (BSD, 3-clause).
 This product includes software from HowardHinnant's date library (MIT License).
 * https://github.com/HowardHinnant/date/tree/master
 
-This product includes software from the The Arrow project. 
+This product includes software from the Arrow project.
 * https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/arrow/io/hdfs_internal.h
 * https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/arrow/io/hdfs_internal.cc
 Which contain the following NOTICE file:

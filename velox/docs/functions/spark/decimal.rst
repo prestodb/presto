@@ -160,12 +160,12 @@ Decimal Special Forms
 
     Returns ``decimal`` rounded to a new scale using HALF_UP rounding mode. In HALF_UP rounding, the digit 5 is rounded up.
     ``scale`` is the new scale to be rounded to. It is 0 by default, and integer in [INT_MIN, INT_MAX] is allowed to be its value.
-    When the absolute value of scale exceeds the maximum precision of long decimal (38), the round logic is equivalent to the case where it is 38 as we cannot exceed the maximum precision. 
+    When the absolute value of scale exceeds the maximum precision of long decimal (38), the round logic is equivalent to the case where it is 38 as we cannot exceed the maximum precision.
     The result precision and scale are decided with the precision and scale of input ``decimal`` and ``scale``.
     After rounding we may need one more digit in the integral part.
-    
+
     ::
-        
+
         SELECT (round(cast (9.9 as decimal(2, 1)), 0)); -- decimal 10
         SELECT (round(cast (99 as decimal(2, 0)), -1)); -- decimal 100
 

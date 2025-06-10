@@ -4,7 +4,7 @@ Bitwise Functions
 
 .. spark:function:: bitwise_and(x, y) -> [same as input]
 
-    Returns the bitwise AND of ``x`` and ``y`` in 2's complement representation. 
+    Returns the bitwise AND of ``x`` and ``y`` in 2's complement representation.
     Corresponds to Spark's operator ``&``.
     Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.
 

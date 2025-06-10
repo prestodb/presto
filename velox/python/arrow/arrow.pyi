@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +13,6 @@
 # limitations under the License.
 
 # pyre-unsafe
-
-from typing import List
 
 from pyvelox.vector import Vector
 from pyarrow import Array

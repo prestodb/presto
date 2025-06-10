@@ -316,7 +316,7 @@ constructor within the Project operation.
    * - names
      - A list of new column names.
 
-ExpandNode is typically used to compute GROUPING SETS, CUBE, ROLLUP and COUNT DISTINCT.   
+ExpandNode is typically used to compute GROUPING SETS, CUBE, ROLLUP and COUNT DISTINCT.
 
 To illustrate how ExpandNode works lets examine the following SQL query:
 
@@ -347,7 +347,7 @@ After the computation by the ExpandNode, each row will generate 3 rows of data. 
 
 .. code-block::
 
-  l_suppkey l_orderkey l_partkey grouping_id_0 
+  l_suppkey l_orderkey l_partkey grouping_id_0
   93        1          673       0
   93        1          null      1
   93        null       null      3
@@ -389,15 +389,15 @@ For example, if the input rows are:
 .. code-block::
 
   l_suppkey l_partkey
-  93        673     
-  75        674      
+  93        673
+  75        674
   38        22
 
 After the computation by the ExpandNode, each row will generate 2 rows of data. So there will be a total of 6 rows:
 
 .. code-block::
 
-  l_suppkey l_partkey grouping_id_0 
+  l_suppkey l_partkey grouping_id_0
   93        null      1
   null      673       2
   75        null      1
@@ -409,7 +409,7 @@ Aggregation operator that follows, groups these rows by (l_suppkey, l_partkey, g
 
 .. code-block::
 
-  l_suppkey l_partkey grouping_id_0 
+  l_suppkey l_partkey grouping_id_0
   93        null      1
   75        null      1
   38        null      1

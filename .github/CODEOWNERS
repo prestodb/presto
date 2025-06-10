@@ -16,7 +16,7 @@
 # request a review from owners on PRs with changes to matching files.
 # We currently do not enforce these reviews as required so it's only a tool
 # for more granular notifications at the moment. For example component maintainers
-# can set a rule so that they are pinged on changes to the sections of the 
+# can set a rule so that they are pinged on changes to the sections of the
 # codebase that are relevant for their component.
 
 # Only users that have write access to the repo can be added as owners.
@@ -29,7 +29,7 @@ CMake/ @assignUser @majetideepak
 scripts/ @assignUser @majetideepak
 .github/ @assignUser @majetideepak
 
-# Breeze 
+# Breeze
 velox/experimental/breeze @dreveman
 
 # cuDF
@@ -45,4 +45,4 @@ velox/connectors/hive/storage_adapters/ @majetideepak
 velox/connectors/ @majetideepak
 
 # Caching
-velox/common/caching/ @majetideepak 
+velox/common/caching/ @majetideepak

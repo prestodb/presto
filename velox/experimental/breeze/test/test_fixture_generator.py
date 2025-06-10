@@ -34,7 +34,7 @@ import io
 import subprocess
 
 
-AUTOGEN_HEADER = f"""/*
+AUTOGEN_HEADER = """/*
  * This file is auto-generated from test_fixture_generator.py
  * DO NOT EDIT!
  */
@@ -263,7 +263,7 @@ class HipTestFixture(TestFixtureGen):
             {preamble}
             {self.launcher_fn}<{thread_count}{maybe_add_shared_mem}>(
                 {block_count},
-                &kernels::{method['spelling']}{kernel_template_args}{kernel_args}
+                &kernels::{method["spelling"]}{kernel_template_args}{kernel_args}
             );
             {postamble}"""
 
@@ -414,7 +414,7 @@ class SyclTestFixture(HipTestFixture):
         lambda_params = ", ".join(lambda_params)
         lambda_fn = f"""\
             [{size_arg}]({lambda_params}){{
-                kernels::{method['spelling']}{kernel_template_args}({inner_kernel_args});
+                kernels::{method["spelling"]}{kernel_template_args}({inner_kernel_args});
             }}\
         """
         return f"""
@@ -430,7 +430,7 @@ class OpenclTestFixture(TestFixtureGen):
         self.launcher_fn = "OpenCLTestDispatch"
 
     def includes(self, fixture_name):
-        return f"""
+        return """
             #include <memory>
 
             #include "test/platforms/opencl_test.h"
@@ -541,7 +541,7 @@ class MetalTestFixture(OpenclTestFixture):
         self.launcher_fn = "MetalTestDispatch"
 
     def includes(self, fixture_name):
-        return f"""
+        return """
             #include <memory>
 
             #include "test/platforms/metal_test.h"

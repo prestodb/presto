@@ -55,7 +55,7 @@ class TestPyVeloxPlanBuidler(unittest.TestCase):
 
         self.assertEqual(
             str(filter_node),
-            "-- Filter[2]\n" "  -- Project[1]\n" "    -- TableScan[0]\n",
+            "-- Filter[2]\n  -- Project[1]\n    -- TableScan[0]\n",
         )
 
     def test_multiple_plan_builders(self):

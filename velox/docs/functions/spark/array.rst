@@ -262,7 +262,7 @@ Array Functions
 
 .. spark:function:: shuffle(array(E), seed) -> array(E)
 
-    Generates a random permutation of the given ``array`` using a seed derived 
+    Generates a random permutation of the given ``array`` using a seed derived
     from the parameter ``seed`` and the configuration `spark.partition_id`.
     ``seed`` must be constant. ::
 

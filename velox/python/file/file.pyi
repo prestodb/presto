@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +15,6 @@
 # pyre-unsafe
 
 from pyvelox.type import Type
-
 
 class File:
     def __init__(self, path: str, format_str: str) -> None: ...

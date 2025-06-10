@@ -267,15 +267,17 @@ if(NOT TARGET sodium)
 endif()
 
 set_target_properties(
-  sodium PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${sodium_INCLUDE_DIR}"
-                    IMPORTED_LINK_INTERFACE_LANGUAGES "C")
+  sodium
+  PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${sodium_INCLUDE_DIR}"
+             IMPORTED_LINK_INTERFACE_LANGUAGES "C")
 
 if(sodium_USE_STATIC_LIBS)
   set_target_properties(
     sodium
-    PROPERTIES INTERFACE_COMPILE_DEFINITIONS "SODIUM_STATIC"
-               IMPORTED_LOCATION "${sodium_LIBRARY_RELEASE}"
-               IMPORTED_LOCATION_DEBUG "${sodium_LIBRARY_DEBUG}")
+    PROPERTIES
+      INTERFACE_COMPILE_DEFINITIONS "SODIUM_STATIC"
+      IMPORTED_LOCATION "${sodium_LIBRARY_RELEASE}"
+      IMPORTED_LOCATION_DEBUG "${sodium_LIBRARY_DEBUG}")
 else()
   if(UNIX)
     set_target_properties(
@@ -292,9 +294,10 @@ else()
     if(NOT (sodium_DLL_RELEASE MATCHES ".*-NOTFOUND"))
       set_target_properties(
         sodium
-        PROPERTIES IMPORTED_LOCATION_RELWITHDEBINFO "${sodium_DLL_RELEASE}"
-                   IMPORTED_LOCATION_MINSIZEREL "${sodium_DLL_RELEASE}"
-                   IMPORTED_LOCATION_RELEASE "${sodium_DLL_RELEASE}")
+        PROPERTIES
+          IMPORTED_LOCATION_RELWITHDEBINFO "${sodium_DLL_RELEASE}"
+          IMPORTED_LOCATION_MINSIZEREL "${sodium_DLL_RELEASE}"
+          IMPORTED_LOCATION_RELEASE "${sodium_DLL_RELEASE}")
     endif()
   endif()
 endif()

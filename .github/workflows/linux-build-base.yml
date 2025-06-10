@@ -18,7 +18,7 @@ on:
   workflow_call:
     inputs:
       use-clang:
-        description: 'Use Clang to compile the project.'
+        description: Use Clang to compile the project.
         default: false
         required: false
         type: boolean
@@ -34,16 +34,17 @@ jobs:
       run:
         shell: bash
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CCACHE_DIR: ${{ github.workspace }}/ccache
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       GTest_SOURCE: BUNDLED
       cudf_SOURCE: BUNDLED
-      CUDA_VERSION: "12.8"
+      CUDA_VERSION: '12.8'
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2 
+          fetch-depth: 2
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -57,7 +58,7 @@ jobs:
             cp scripts/setup-* /
 
             mkdir /tmp/build
-            cd /tmp/build 
+            cd /tmp/build
             source /opt/rh/gcc-toolset-12/enable
             # install basic deps
             bash /setup-centos9.sh
@@ -65,27 +66,27 @@ jobs:
             source /setup-centos9.sh
             install_adapters
             install_cuda $CUDA_VERSION
-            
+
             cd /
             rm -rf /tmp/build # cleanup to avoid issues with disk space
           fi
 
-      - uses: assignUser/stash/restore@v1
+      - uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: '${{ env.CCACHE_DIR }}'
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-linux-adapters-${{ inputs.use-clang && 'clang' || 'gcc' }}
 
-      - name: "Zero Ccache Statistics"
+      - name: Zero Ccache Statistics
         run: |
           ccache -sz
 
       - name: Make Release Build
         env:
-          MAKEFLAGS: 'NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4'
+          MAKEFLAGS: NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4
           CUDA_ARCHITECTURES: 70
           CUDA_COMPILER: /usr/local/cuda-${CUDA_VERSION}/bin/nvcc
           # Set compiler to GCC 12
-          CUDA_FLAGS: "-ccbin /opt/rh/gcc-toolset-12/root/usr/bin"
+          CUDA_FLAGS: -ccbin /opt/rh/gcc-toolset-12/root/usr/bin
         run: |
           EXTRA_CMAKE_FLAGS=(
             "-DVELOX_ENABLE_BENCHMARKS=ON"
@@ -109,16 +110,16 @@ jobs:
       - name: Ccache after
         run: ccache -s
 
-      - uses: assignUser/stash/save@v1
+      - uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: '${{ env.CCACHE_DIR }}'
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-linux-adapters-${{ inputs.use-clang && 'clang' || 'gcc' }}
 
       - name: Run Tests
         # Some of the adapters dependencies are in the 'adapters' conda env
         shell: mamba run --no-capture-output -n adapters /usr/bin/bash -e {0}
         env:
-          LIBHDFS3_CONF: "${{ github.workspace }}/scripts/hdfs-client.xml"
+          LIBHDFS3_CONF: ${{ github.workspace }}/scripts/hdfs-client.xml
         working-directory: _build/release
         run: |
           export CLASSPATH=`/usr/local/hadoop/bin/hdfs classpath --glob`
@@ -128,10 +129,10 @@ jobs:
     runs-on: 8-core-ubuntu-22.04
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
-    name: "Ubuntu debug with resolve_dependency"
+    name: Ubuntu debug with resolve_dependency
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache"
-      USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      USE_CLANG: ${{ inputs.use-clang && 'true' || 'false' }}
     defaults:
       run:
         shell: bash
@@ -139,19 +140,20 @@ jobs:
     steps:
 
       - name: Get Ccache Stash
-        uses: assignUser/stash/restore@v1
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: '${{ env.CCACHE_DIR }}'
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-ubuntu-debug-default-${{ inputs.use-clang && 'clang' || 'gcc' }}
 
       - name: Ensure Stash Dirs Exists
         working-directory: ${{ github.workspace }}
         run: |
-          mkdir -p '${{ env.CCACHE_DIR }}'
+          mkdir -p "$CCACHE_DIR"
 
       - uses: actions/checkout@v4
         with:
           path: velox
+          persist-credentials: false
 
       - name: Install Dependencies
         run: |
@@ -165,8 +167,8 @@ jobs:
         env:
           VELOX_DEPENDENCY_SOURCE: BUNDLED
           ICU_SOURCE: SYSTEM
-          MAKEFLAGS: "NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=3"
-          EXTRA_CMAKE_FLAGS: "-DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_EXAMPLES=ON"
+          MAKEFLAGS: NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=3
+          EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_EXAMPLES=ON
         run: |
           if [[ "${USE_CLANG}" = "true" ]]; then export CC=/usr/bin/clang-15; export CXX=/usr/bin/clang++-15; fi
           make debug
@@ -175,9 +177,9 @@ jobs:
         run: |
           ccache -vs
 
-      - uses: assignUser/stash/save@v1
+      - uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: '${{ env.CCACHE_DIR }}'
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-ubuntu-debug-default-${{ inputs.use-clang && 'clang' || 'gcc' }}
 
       - name: Run Tests

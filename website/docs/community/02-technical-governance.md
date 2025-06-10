@@ -213,7 +213,7 @@ opened for discussion. Components maintainers are responsible for participating
 in the discussion, reviewing, providing feedback, and eventually approving the
 changes. If disputes are made over the change, component maintainers are
 responsible for settling the issue, or ultimately escalating to the PLC in case
-they cannot reach consensus. 
+they cannot reach consensus.
 
 ### Re-Scope Project Components
 
@@ -236,7 +236,7 @@ project. Except as described below, all code contributions to the project must
 be made using the Apache 2.0 License available here:
 
 [https://www.apache.org/licenses/LICENSE-2.0
-](https://www.apache.org/licenses/LICENSE-2.0) (the "Project License"). 
+](https://www.apache.org/licenses/LICENSE-2.0) (the "Project License").
 
 All outbound code will be made available under the Project License. The
 maintainers may approve the use of an alternative open license or licenses for
@@ -249,7 +249,7 @@ start?**
 The Velox [contributing
 guide](https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md)
 provides guidelines on how new community members can get involved in the
-project. 
+project.
 
 **Q: Is it possible for an external contributor to become a maintainer and be
 granted responsibilities over parts of the codebase?**
@@ -266,7 +266,7 @@ individuals, and membership in these groups is based on merit in the community.
 **Q: How do I contribute code to the project?**
 If the change is relatively minor, a pull request on GitHub can be opened up
 immediately for review by the project maintainers. For larger changes, please
-open an Issue to make a proposal to discuss prior. Please also see the 
+open an Issue to make a proposal to discuss prior. Please also see the
 [Velox Contributor Guide](https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md)
 for contribution guidelines.
 

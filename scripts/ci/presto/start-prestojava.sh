@@ -16,4 +16,3 @@
 set -e
 
 "$PRESTO_HOME"/bin/launcher --pid-file=/tmp/pidfile  run
-

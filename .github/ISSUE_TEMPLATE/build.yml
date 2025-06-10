@@ -14,7 +14,7 @@
 
 name: Build problem
 description: Report an issue when building Velox.
-labels: ["build", "triage"]
+labels: [build, triage]
 body:
   - type: markdown
     attributes:
@@ -26,7 +26,7 @@ body:
     attributes:
       label: Problem description
       description: Please describe the problem.
-      value: "Please describe how you were trying to build velox and what issue occured"
+      value: Please describe how you were trying to build velox and what issue occured
     validations:
       required: true
   - type: textarea

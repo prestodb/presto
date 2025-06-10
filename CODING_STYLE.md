@@ -7,34 +7,50 @@ future.
 
 ## Code Formatting, Headers, and Licenses
 
-Our Makefile contains targets to help highlight and fix format, header or
-license issues. These targets are shortcuts for calling `./scripts/check.py`.
+We use [pre-commit](https://pre-commit.com) to manage the installation and
+execution of a number of code quality checks, called hooks.
 
-Use `make header-fix` to apply our open source license headers to new files.
-Use `make format-fix` to identify and fix formatting issues using clang-format.
+### Installation
 
-Formatting issues found on the changed lines in the current commit can be
-displayed using `make format-check`.  These issues can be fixed by using `make
-format-fix`. This command will apply formatting changes to modified lines in
-the current commit.
+The recommended way to install pre-commit is through either
+[`pipx`](https://pipx.pypa.io/stable/) or the newer
+[`uv tool`](https://docs.astral.sh/uv/guides/tools/). Once you have
+pre-commit available in your environment, you can enable running checks on
+each commit by running `pre-commit install` in the root of the repository.
 
-Header issues found on the changed files in the current commit can be displayed
-using `make header-check`. These issues can be fixed by using `make header-fix`.
-This will apply license header updates to the files in the current commit.
+> [!TIP]
+> This will take a few minutes the first time you run it, as `pre-commit` will
+set up the environment for each hook by installing the required tool and
+its dependencies in a separate environment to ensure reproducibility of the
+check results.
 
-An entire directory tree of files can be formatted and have license headers
-added using the `tree` variant of the format commands:
 
-```
-    ./scripts/check.py format tree
-    ./scripts/check.py format tree --fix
+The hooks are defined in `.pre-commit-config.yaml`.
 
-    ./scripts/check.py header tree
-    ./scripts/check.py header tree --fix
-```
+After the setup is complete, each time you `git commit`, the hooks will be run
+and potential changes applied to your *staged* files. Any unstaged files will
+be stashed while the hooks run. If any changes occurred, the commit will *not*
+succeed. The same happens when you `git push` but applies to all files that are being
+pushed into the repository.
 
-All the available formatting commands can be displayed by using
-`./scripts/check.py help`.
+You will have to review and stage the changed files and commit again.
+
+To manually run one specific hook, use `pre-commit run <hookid>`, for example
+`pre-commit run clang-format`. You can find the `hookid` in `.pre-commit-config.yaml`.
+
+By design, `pre-commit` will only be run on the files that are part of the commit
+or push. If you want to run the checks on all files (including unstaged files), you can
+run `pre-commit run --all-files`.
+
+The `clang-tidy` hook will *not* be run automatically as it takes a long time and
+requires CMake to be run first to create `compile_commands.json`.
+It can be run explicitly via `pre-commit run --hook-stage=manual`.
+
+If you need to *temporarily* skip the checks, you can use the git flag `--no-verify`.
+
+> [!Important]
+> We also run the hooks as part of our CI, which will flag any issues introduced by
+skipping the checks.
 
 ## C++ Style
 

@@ -28,4 +28,3 @@ RUN mkdir build && ( cd build && bash /setup-manylinux.sh ) && rm -rf build && \
         dnf clean all
 
 ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
-

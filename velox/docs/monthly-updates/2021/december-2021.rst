@@ -35,4 +35,4 @@ Aditi Pandit, Alex Hornby, Amit Dutta, Andres Suarez, Andrew Gallagher,
 Chao Chen, Cheng Su, Deepak Majeti, Huameng Jiang, Jack Qiao, Kevin Wilfong,
 Krishna Pai, Laith Sakka, Marc Fisher, Masha Basmanova, Michael Shang,
 Naresh Kumar, Orri Erling, Pedro Eugenio Rocha Pedreira, Sergey Pershin,
-Wei He, Wei Zheng, Xavier Deguillard, Yating Zhou, Yuan Chao Chou, Zhenyuan Zhao 
+Wei He, Wei Zheng, Xavier Deguillard, Yating Zhou, Yuan Chao Chou, Zhenyuan Zhao

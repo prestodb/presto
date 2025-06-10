@@ -17,33 +17,31 @@ name: Linux Build using GCC
 on:
   push:
     branches:
-      - "main"
+      - main
     paths:
-      - "velox/**"
-      - "!velox/docs/**"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "third_party/**"
-      - "scripts/setup-ubuntu.sh"
-      - "scripts/setup-common.sh"
-      - "scripts/setup-versions.sh"
-      - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/linux-build.yml"
-      - ".github/workflows/linux-build-base.yml"
+      - velox/**
+      - '!velox/docs/**'
+      - CMakeLists.txt
+      - CMake/**
+      - scripts/setup-ubuntu.sh
+      - scripts/setup-common.sh
+      - scripts/setup-versions.sh
+      - scripts/setup-helper-functions.sh
+      - .github/workflows/linux-build.yml
+      - .github/workflows/linux-build-base.yml
 
   pull_request:
     paths:
-      - "velox/**"
-      - "!velox/docs/**"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "third_party/**"
-      - "scripts/setup-common.sh"
-      - "scripts/setup-versions.sh"
-      - "scripts/setup-ubuntu.sh"
-      - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/linux-build.yml"
-      - ".github/workflows/linux-build-base.yml"
+      - velox/**
+      - '!velox/docs/**'
+      - CMakeLists.txt
+      - CMake/**
+      - scripts/setup-ubuntu.sh
+      - scripts/setup-common.sh
+      - scripts/setup-versions.sh
+      - scripts/setup-helper-functions.sh
+      - .github/workflows/linux-build.yml
+      - .github/workflows/linux-build-base.yml
 
 permissions:
   contents: read

@@ -222,7 +222,7 @@ searchable_table(
 
 ::::
 
-### Debug 
+### Debug
 :::: {layout="[[50, 50],[50, 50]]" }
 
 ::: {}
@@ -320,7 +320,7 @@ searchable_table(
 :::
 
 ::: {}
-```{r sizes-release} 
+```{r sizes-release}
 searchable_table(
   object_sizes_static, "release", "static",
   "Size", "Binary Sizes - Static"
@@ -331,7 +331,7 @@ searchable_table(
 
 ::::
 
-### Debug 
+### Debug
 :::: {layout="[50, 50]" }
 
 ::: {}
@@ -353,4 +353,3 @@ searchable_table(
 :::
 
 ::::
-

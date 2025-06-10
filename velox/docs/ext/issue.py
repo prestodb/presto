@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # noinspection PyUnresolvedReferences
-from docutils import nodes, utils
+from docutils import nodes
 
 
 # noinspection PyDefaultArgument,PyUnusedLocal

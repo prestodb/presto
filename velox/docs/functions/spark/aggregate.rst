@@ -26,7 +26,7 @@ General Aggregate Functions
     Creates bloom filter from input hashes and returns it serialized into VARBINARY.
     The caller is expected to apply xxhash64 function to input data before calling bloom_filter_agg.
 
-    For example, 
+    For example,
         bloom_filter_agg(xxhash64(x), 100, 1024)
     In Spark implementation, ``estimatedNumItems`` and ``numBits`` are used to decide the number of hash functions and bloom filter capacity.
     In Velox implementation, ``estimatedNumItems`` is not used.
@@ -48,7 +48,7 @@ General Aggregate Functions
     But Spark allows for changing the defaults while Velox does not.
 
 .. spark:function:: bloom_filter_agg(hash) -> varbinary
-    
+
     A version of ``bloom_filter_agg`` that use the value of spark.bloom_filter.max_num_bits configuration property as ``numBits``.
 
     ``hash`` cannot be null.
@@ -162,11 +162,11 @@ General Aggregate Functions
     Returns the most frequent value for the values within ``x``.
     NULL values are ignored. If all the values are NULL, or
     there are 0 rows, returns NULL.
-    If multiple values have the same greatest frequency, the 
+    If multiple values have the same greatest frequency, the
     return value could be any one of them.
 
     Example::
-    
+
         SELECT mode(x)
         FROM (
             VALUES

@@ -27,7 +27,7 @@ Comparison Functions
     Returns true if x is equal to y. Supports all scalar and complex types. The
     types of x and y must be the same. Corresponds to Spark's operators ``=`` and ``==``.
     Returns NULL for any NULL input, but nested nulls are compared as values. ::
-    
+
         SELECT equalto(null, null); -- null
         SELECT equalto(null, ARRAY[1]); -- null
         SELECT equalto(ARRAY[1, null], ARRAY[1, null]); -- true
@@ -44,7 +44,7 @@ Comparison Functions
 
 .. spark:function:: greatest(value1, value2, ..., valueN) -> [same as input]
 
-    Returns the largest of the provided values ignoring nulls. Supports all scalar types. 
+    Returns the largest of the provided values ignoring nulls. Supports all scalar types.
     The types of all arguments must be the same. ::
 
         SELECT greatest(10, 9, 2, 4, 3); -- 10

@@ -15,7 +15,7 @@ to be copy-pasted into velox/docs/functions.rst file.
 
 Generates coverage map using all Presto functions. The output to be copy-pasted
 into velox/docs/functions/presto/coverage.rst file. The functions appear in alphabetical order.
-Before generating the coverage map for all Presto functions, please ensure that the data 
+Before generating the coverage map for all Presto functions, please ensure that the data
 files at velox/functions/prestosql/coverage/data/ contain all the Presto functions. To
 generate a list of all Presto functions, please run ```SHOW FUNCTIONS``` in Presto.
 

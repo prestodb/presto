@@ -14,7 +14,7 @@
 
 name: Bug Report
 description: Report a bug or unexpected behavior.
-labels: ["bug", "triage"]
+labels: [bug, triage]
 body:
   - type: markdown
     attributes:
@@ -26,7 +26,7 @@ body:
     attributes:
       label: Bug description
       description: Please describe the issue and the expected behavior.
-      value: "[Expected behavior] and [actual behavior]."
+      value: '[Expected behavior] and [actual behavior].'
     validations:
       required: true
   - type: textarea

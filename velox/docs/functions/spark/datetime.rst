@@ -448,4 +448,3 @@ returned for invalid format; otherwise, exception is thrown. ::
         SELECT from_unixtime(100, '!@#$%^&*'); -- throws exception) (for Joda date formatter)
         SELECT get_timestamp('1970-01-01', '!@#$%^&*'); -- NULL (parsing error) (for Simple date formatter)
         SELECT get_timestamp('1970-01-01', '!@#$%^&*'); -- throws exception) (for Joda date formatter)
-

@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "Ubuntu Benchmark"
+name: Ubuntu Benchmark
 
 on:
   pull_request:
     paths:
-      - '.github/workflows/benchmark.yml'
-      - 'scripts/ci/benchmark-requirements.txt'
-      - 'scripts/ci/setup-ubuntu.sh'
+      - .github/workflows/benchmark.yml
+      - scripts/ci/benchmark-requirements.txt
+      - scripts/setup-ubuntu.sh
 
   push:
     branches: [main]
@@ -40,58 +40,51 @@ jobs:
     if: github.repository == 'facebookincubator/velox'
     runs-on: 8-core-ubuntu-22.04
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
-      BINARY_DIR: "${{ github.workspace }}/benchmarks/"
-      CONTENDER_OUTPUT_PATH: "${{ github.workspace }}/benchmark-results/contender/"
-      INSTALL_PREFIX: "${{ github.workspace }}/dependencies"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      BINARY_DIR: ${{ github.workspace }}/benchmarks/
+      CONTENDER_OUTPUT_PATH: ${{ github.workspace }}/benchmark-results/contender/
+      INSTALL_PREFIX: ${{ github.workspace }}/dependencies
     steps:
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          path: 'velox'
-          submodules: 'recursive'
+          path: velox
+
           persist-credentials: false
 
       - name: Restore Dependencies
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         id: restore-deps
         with:
-          path: "${{ env.INSTALL_PREFIX }}"
+          path: ${{ env.INSTALL_PREFIX }}
           key: dependencies-benchmark-${{ hashFiles('velox/scripts/setup-ubuntu.sh') }}
 
       - name: Install apt dependencies
         run: |
-            source velox/scripts/setup-ubuntu.sh
-            install_apt_deps
+          source velox/scripts/setup-ubuntu.sh
+          install_apt_deps
 
       - name: Install compiled dependencies
         if: ${{ steps.restore-deps.outputs.cache-hit != 'true' }}
         env:
-          CCACHE_DISABLE: "true"
+          CCACHE_DISABLE: 'true'
         run: |
-            source velox/scripts/setup-ubuntu.sh
-            run_and_time install_fmt
-            run_and_time install_protobuf
-            run_and_time install_boost
-            run_and_time install_fast_float
-            run_and_time install_folly
-            run_and_time install_stemmer
-            run_and_time install_thrift
-            run_and_time install_arrow
-
-      # Folly is built with a new flag that the cache may not have. Ensure velox build and folly have
-      # used the correct flags (disabled the coroutines)
-      - name: 'TEMP: Force folly rebuild and update cache'
-        run: |
-            source velox/scripts/setup-ubuntu.sh
-            run_and_time install_folly
+          source velox/scripts/setup-ubuntu.sh
+          run_and_time install_fmt
+          run_and_time install_protobuf
+          run_and_time install_boost
+          run_and_time install_fast_float
+          run_and_time install_folly
+          run_and_time install_stemmer
+          run_and_time install_thrift
+          run_and_time install_arrow
 
       - name: Save Dependencies
         if: ${{ steps.restore-deps.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: "${{ env.INSTALL_PREFIX }}"
+          path: ${{ env.INSTALL_PREFIX }}
           key: dependencies-benchmark-${{ hashFiles('velox/scripts/setup-ubuntu.sh') }}
 
       - name: Restore ccache
@@ -99,7 +92,7 @@ jobs:
         id: restore-cache
         with:
           clean: true
-          path: "ccache"
+          path: ccache
           key: ccache-benchmark
 
       - name: Clear CCache Statistics
@@ -109,10 +102,10 @@ jobs:
       - name: Build Contender Benchmarks
         working-directory: velox
         run: |
-            n_cores=$(nproc)
-            make benchmarks-basic-build NUM_THREADS=$n_cores MAX_HIGH_MEM_JOBS=$n_cores MAX_LINK_JOBS=$n_cores
-            mkdir -p  ${BINARY_DIR}/contender/
-            cp -r --verbose _build/release/velox/benchmarks/basic/*  ${BINARY_DIR}/contender/
+          n_cores=$(nproc)
+          make benchmarks-basic-build NUM_THREADS=$n_cores MAX_HIGH_MEM_JOBS=$n_cores MAX_LINK_JOBS=$n_cores
+          mkdir -p  ${BINARY_DIR}/contender/
+          cp -r --verbose _build/release/velox/benchmarks/basic/*  ${BINARY_DIR}/contender/
 
       - name: CCache after
         run: |
@@ -121,7 +114,7 @@ jobs:
       - name: Save ccache"
         uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: "ccache"
+          path: ccache
           key: ccache-benchmark
 
       - name: Install benchmark dependencies
@@ -129,16 +122,16 @@ jobs:
           python3 -m pip install -r velox/scripts/ci/benchmark-requirements.txt
 
       - name: Run Benchmarks - Contender
-        working-directory: 'velox'
+        working-directory: velox
         run: |
-            make benchmarks-basic-run \
-                EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/contender/ --output_path ${CONTENDER_OUTPUT_PATH}"
+          make benchmarks-basic-run \
+              EXTRA_BENCHMARK_FLAGS="--binary_path ${BINARY_DIR}/contender/ --output_path ${CONTENDER_OUTPUT_PATH}"
 
       - name: Upload result artifact
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          path: "benchmark-results"
-          name: "benchmark-results"
+          path: benchmark-results
+          name: benchmark-results
           retention-days: 5
 
   upload:
@@ -150,80 +143,80 @@ jobs:
       statuses: write
     steps:
 
-    - name: Download artifacts
-      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
-      with:
-        merge-multiple: true
-        path: /tmp/artifacts/
+      - name: Download artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          merge-multiple: true
+          path: /tmp/artifacts/
 
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      with:
-        path: velox
-        persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: velox
+          persist-credentials: false
 
-    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-      with:
-        python-version: '3.10'
-        cache: 'pip'
-        cache-dependency-path: "velox/scripts/*"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.10'
+          cache: pip
+          cache-dependency-path: velox/scripts/*
 
-    - name: Install dependencies
-      run: pip install -r velox/scripts/ci/benchmark-requirements.txt
+      - name: Install dependencies
+        run: pip install -r velox/scripts/ci/benchmark-requirements.txt
 
-    - name: Upload results
-      env:
-        CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
-        CONBENCH_MACHINE_INFO_NAME: "GitHub-runner-8-core"
-        CONBENCH_EMAIL: "${{ secrets.CONBENCH_EMAIL }}"
-        CONBENCH_PASSWORD: "${{ secrets.CONBENCH_PASSWORD }}"
-        CONBENCH_PROJECT_REPOSITORY: "${{ github.repository }}"
-        CONBENCH_PROJECT_COMMIT: "${{ github.sha }}"
-        RUN_ID: "GHA-${{ github.run_id }}-${{ github.run_attempt }}"
-      run: |
-        ./velox/scripts/ci/benchmark-runner.py upload \
-          --run_id "$RUN_ID" \
-          --sha "$CONBENCH_PROJECT_COMMIT" \
-          --output_dir "/tmp/artifacts/contender/"
+      - name: Upload results
+        env:
+          CONBENCH_URL: https://velox-conbench.voltrondata.run/
+          CONBENCH_MACHINE_INFO_NAME: GitHub-runner-8-core
+          CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
+          CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASSWORD }}
+          CONBENCH_PROJECT_REPOSITORY: ${{ github.repository }}
+          CONBENCH_PROJECT_COMMIT: ${{ github.sha }}
+          RUN_ID: GHA-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          ./velox/scripts/ci/benchmark-runner.py upload \
+            --run_id "$RUN_ID" \
+            --sha "$CONBENCH_PROJECT_COMMIT" \
+            --output_dir "/tmp/artifacts/contender/"
 
-    - name: Check the status of the upload
-      # Status functions like failure() only work in `if:`
-      if: failure()
-      id: status
-      run: echo "failed=true" >> $GITHUB_OUTPUT
+      - name: Check the status of the upload
+        # Status functions like failure() only work in `if:`
+        if: failure()
+        id: status
+        run: echo "failed=true" >> $GITHUB_OUTPUT
 
-    - name: Create a GitHub Status on the contender commit (whether the upload was successful)
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-      if: ${{ !cancelled() && steps.extract.conclusion != 'failure' }}
-      with:
-        script: |
-          let url = 'https://github.com/${{github.repository}}/actions/runs/${{ github.run_id }}'
-          let state = 'success'
-          let description = 'Result upload succeeded!'
+      - name: Create a GitHub Status on the contender commit (whether the upload was successful)
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        if: ${{ !cancelled() && steps.extract.conclusion != 'failure' }}
+        with:
+          script: |
+            let url = 'https://github.com/${{github.repository}}/actions/runs/${{ github.run_id }}'
+            let state = 'success'
+            let description = 'Result upload succeeded!'
 
-          if(${{ steps.status.outputs.failed == 'true' && true || false }}) {
-            state = 'failure'
-            description = 'Result upload failed!'
-          }
+            if(${{ steps.status.outputs.failed == 'true' && true || false }}) {
+              state = 'failure'
+              description = 'Result upload failed!'
+            }
 
-          github.rest.repos.createCommitStatus({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            sha: context.sha,
-            state: state,
-            target_url: url,
-            description: description,
-            context: 'Benchmark Result Upload'
-          })
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: state,
+              target_url: url,
+              description: description,
+              context: 'Benchmark Result Upload'
+            })
 
-    - name: Create a GitHub Check benchmark report on the merged PR
-      env:
-        CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
-        GITHUB_APP_ID: "${{ secrets.GH_APP_ID }}"
-        GITHUB_APP_PRIVATE_KEY: "${{ secrets.GH_APP_PRIVATE_KEY }}"
-        COMMIT_MESSAGE: "${{ github.event.head_commit.message }}"
-        CONTENDER_SHA: "${{ github.sha }}"
-      run: |
-        ./velox/scripts/ci/benchmark-alert.py \
-          --contender-sha "$CONTENDER_SHA" \
-          --merge-commit-message "$COMMIT_MESSAGE" \
-          --z-score-threshold 50
+      - name: Create a GitHub Check benchmark report on the merged PR
+        env:
+          CONBENCH_URL: https://velox-conbench.voltrondata.run/
+          GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          CONTENDER_SHA: ${{ github.sha }}
+        run: |
+          ./velox/scripts/ci/benchmark-alert.py \
+            --contender-sha "$CONTENDER_SHA" \
+            --merge-commit-message "$COMMIT_MESSAGE" \
+            --z-score-threshold 50

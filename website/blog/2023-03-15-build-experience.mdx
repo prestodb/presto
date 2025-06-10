@@ -6,13 +6,13 @@ tags: [tech-blog, packaging]
 ---
 
 
-When Velox was open sourced in August 2021, it was not nearly as easily usable and portable as it is today. In order for Velox to become the unified execution engine blurring the boundaries for data analytics and ML, we needed Velox to be easy to build and package on multiple platforms, and support a wide range of hardware architectures. If we are supporting all these platforms, we also need to ensure that Velox remains fast and regressions are caught early.  
+When Velox was open sourced in August 2021, it was not nearly as easily usable and portable as it is today. In order for Velox to become the unified execution engine blurring the boundaries for data analytics and ML, we needed Velox to be easy to build and package on multiple platforms, and support a wide range of hardware architectures. If we are supporting all these platforms, we also need to ensure that Velox remains fast and regressions are caught early.
 
 To improve the Velox experience for users and community developers, Velox has partnered with Voltron Data to help make Velox more accessible and user-friendly. In this blog post, we will examine the challenges we faced, the improvements that have already been made, and the ones yet to come.
 
 ## Enhancements & Improvements
 
-Velox was a product of the mono repo and required installation of dependencies on the system via a script. Any change in the state of the host system could cause a build failure and introduce version conflicts of dependencies. Fixing these challenges was a big focus to help the Velox Community and we worked in collaboration with the Voltron Data Team. We wanted to improve the overall Velox user experience by making Velox easy to consume across a wide range of platforms to accelerate its adoption. 
+Velox was a product of the mono repo and required installation of dependencies on the system via a script. Any change in the state of the host system could cause a build failure and introduce version conflicts of dependencies. Fixing these challenges was a big focus to help the Velox Community and we worked in collaboration with the Voltron Data Team. We wanted to improve the overall Velox user experience by making Velox easy to consume across a wide range of platforms to accelerate its adoption.
 
 We choose hermetic builds as a solution to the aforementioned problems, as they provide a number of benefits. Hermetic builds[^1] improve reproducibility by providing isolation from the state of the host machine and produce the same result for any given commit in the Velox repository. This requires precise dependency management.
 

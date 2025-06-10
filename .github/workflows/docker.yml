@@ -16,7 +16,6 @@ name: Build & Push Docker Images
 on:
   pull_request:
     paths:
-      - scripts/docker/*.dockfile
       - scripts/docker/*.dockerfile
       - scripts/setup-*.sh
       - .github/workflows/docker.yml
@@ -24,7 +23,6 @@ on:
   push:
     branches: [main]
     paths:
-      - scripts/docker/*.dockfile
       - scripts/docker/*.dockerfile
       - scripts/setup-*.sh
       - .github/workflows/docker.yml
@@ -35,90 +33,90 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   linux:
-    name: "Build and Push ${{ matrix.name }}"
+    name: Build and Push ${{ matrix.name }}
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Check
-            file: "scripts/docker/check-container.dockfile"
-            tags: "ghcr.io/facebookincubator/velox-dev:check"
           - name: Centos 9
-            file: "scripts/docker/centos.dockerfile"
-            tags: "ghcr.io/facebookincubator/velox-dev:centos9"
-          - name: Pyvelox 
-            file: "scripts/docker/pyvelox.dockerfile"
-            tags: "ghcr.io/facebookincubator/velox-dev:pyvelox"
+            file: scripts/docker/centos.dockerfile
+            tags: ghcr.io/facebookincubator/velox-dev:centos9
+          - name: Pyvelox
+            file: scripts/docker/pyvelox.dockerfile
+            tags: ghcr.io/facebookincubator/velox-dev:pyvelox
           - name: Dev
-            file: "scripts/docker/ubuntu-22.04-cpp.dockerfile"
-            args: ""
-            tags: "ghcr.io/facebookincubator/velox-dev:ubuntu-22.04"
+            file: scripts/docker/ubuntu-22.04-cpp.dockerfile
+            args: ''
+            tags: ghcr.io/facebookincubator/velox-dev:ubuntu-22.04
 
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       - name: Build and Push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         with:
-          file: "${{ matrix.file }}"
-          build-args: "${{ matrix.args }}"
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.args }}
           push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: "${{ matrix.tags }}"
+          tags: ${{ matrix.tags }}
 
   linux-needs:
-    name: "Build and Push ${{ matrix.name }}"
+    name: Build and Push ${{ matrix.name }}
     needs: linux
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: Adapters
-            file: "scripts/docker/adapters.dockerfile"
-            tags: "ghcr.io/facebookincubator/velox-dev:adapters"
+            file: scripts/docker/adapters.dockerfile
+            tags: ghcr.io/facebookincubator/velox-dev:adapters
           - name: Presto Java
-            file: "scripts/docker/prestojava-container.dockerfile"
-            args: "PRESTO_VERSION=0.290"
-            tags: "ghcr.io/facebookincubator/velox-dev:presto-java"
+            file: scripts/docker/prestojava-container.dockerfile
+            args: PRESTO_VERSION=0.290
+            tags: ghcr.io/facebookincubator/velox-dev:presto-java
           - name: Spark server
-            file: "scripts/docker/spark-container.dockerfile"
-            args: "SPARK_VERSION=3.5.1"
-            tags: "ghcr.io/facebookincubator/velox-dev:spark-server"
+            file: scripts/docker/spark-container.dockerfile
+            args: SPARK_VERSION=3.5.1
+            tags: ghcr.io/facebookincubator/velox-dev:spark-server
 
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       - name: Build and Push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.17.0
         with:
-          file: "${{ matrix.file }}"
-          build-args: "${{ matrix.args }}"
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.args }}
           push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: "${{ matrix.tags }}"
+          tags: ${{ matrix.tags }}

@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .legacy import *
-from .legacy import __version__
+from .legacy import *  # noqa: F403
+from .legacy import __version__ as __version__

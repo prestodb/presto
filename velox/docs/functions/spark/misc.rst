@@ -4,7 +4,7 @@ Miscellaneous Functions
 
 .. spark:function:: at_least_n_non_nulls(n, value1, value2, ..., valueN) -> bool
 
-    Returns true if there are at least ``n`` non-null and non-NaN values, 
+    Returns true if there are at least ``n`` non-null and non-NaN values,
     or false otherwise. ``value1, value2, ..., valueN`` are evaluated lazily.
     If ``n`` non-null and non-NaN values are found, the function will stop
     evaluating the remaining arguments. If ``n <= 0``, the result is true. null

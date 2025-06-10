@@ -283,4 +283,3 @@ TableScan operator shows how many rows were processed by pushing down aggregatio
 .. code-block::
 
     loadedToValueHook          sum: 50000, count: 5, min: 10000, max: 10000
-

@@ -128,7 +128,7 @@ function KeyFeatures() {
             <img src={useBaseUrl('img/icon-reusability.png')} alt="Reusability Icon" />
             <h3>Reusability</h3>
             <p>
-              Features and runtime optimizations available in Velox are developed and maintained once, reducing engineering duplication and promoting reusability. 
+              Features and runtime optimizations available in Velox are developed and maintained once, reducing engineering duplication and promoting reusability.
             </p>
           </div>
         </div>

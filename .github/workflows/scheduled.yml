@@ -12,60 +12,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "Fuzzer Jobs"
+name: Fuzzer Jobs
 
 on:
   pull_request:
     paths:
-      - "velox/**"
-      - "!velox/docs/**"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "third_party/**"
-      - "scripts/setup-ubuntu.sh"
-      - "scripts/setup-common.sh"
-      - "scripts/setup-versions.sh"
-      - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/scheduled.yml"
-      - "setup.py"
+      - velox/**
+      - '!velox/docs/**'
+      - CMakeLists.txt
+      - CMake/**
+      - scripts/setup-ubuntu.sh
+      - scripts/setup-common.sh
+      - scripts/setup-versions.sh
+      - scripts/setup-helper-functions.sh
+      - .github/workflows/scheduled.yml
+      - pyproject.toml
 
   push:
     branches:
-      - "main"
+      - main
     paths:
-      - "velox/**"
-      - "!velox/docs/**"
-      - "CMakeLists.txt"
-      - "CMake/**"
-      - "third_party/**"
-      - "scripts/setup-ubuntu.sh"
-      - "scripts/setup-common.sh"
-      - "scripts/setup-versions.sh"
-      - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/scheduled.yml"
+      - velox/**
+      - '!velox/docs/**'
+      - CMakeLists.txt
+      - CMake/**
+      - scripts/setup-ubuntu.sh
+      - scripts/setup-common.sh
+      - scripts/setup-versions.sh
+      - scripts/setup-helper-functions.sh
+      - .github/workflows/scheduled.yml
+      - pyproject.toml
 
   schedule:
-    - cron: '0 3 * * *'
+    - cron: 0 3 * * *
 
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Ref to checkout out'
-        default: 'main'
+        description: Ref to checkout out
+        default: main
       numThreads:
-        description: 'Number of threads'
+        description: Number of threads
         default: 16
       maxHighMemJobs:
-        description: 'Number of high memory jobs'
+        description: Number of high memory jobs
         default: 8
       maxLinkJobs:
-        description: 'Maximum number of link jobs'
+        description: Maximum number of link jobs
         default: 4
       extraCMakeFlags:
-        description: 'Additional CMake flags'
+        description: Additional CMake flags
         default: ''
       duration:
-        description: 'Duration of fuzzer run in seconds'
+        description: Duration of fuzzer run in seconds
         default: 1800
 
 defaults:
@@ -84,9 +83,9 @@ concurrency:
 
 env:
   # Run for 15 minute on PRs
-  DURATION: "${{ inputs.duration || ( github.event_name != 'schedule' && 900 || 1800 )}}"
+  DURATION: ${{ inputs.duration || ( github.event_name != 'schedule' && 900 || 1800 )}}
   # minimize artifact duration for PRs, keep them a bit longer for nightly runs
-  RETENTION: "${{ github.event_name == 'pull_request' && 1 || 3 }}"
+  RETENTION: ${{ github.event_name == 'pull_request' && 1 || 3 }}
 
 jobs:
   compile:
@@ -97,12 +96,12 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:centos9
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache"
-      NUM_THREADS: "${{ inputs.numThreads || 16 }}"
-      MAX_HIGH_MEM_JOBS: "${{ inputs.maxHighMemJobs || 8 }}"
-      MAX_LINK_JOBS: "${{ inputs.maxLinkJobs || 4 }}"
-      SKBUILD_BUILD_DIR: "_build/debug"
-      PYVELOX_LEGACY_ONLY: "ON"
+      CCACHE_DIR: ${{ github.workspace }}/ccache
+      NUM_THREADS: ${{ inputs.numThreads || 16 }}
+      MAX_HIGH_MEM_JOBS: ${{ inputs.maxHighMemJobs || 8 }}
+      MAX_LINK_JOBS: ${{ inputs.maxLinkJobs || 4 }}
+      SKBUILD_BUILD_DIR: _build/debug
+      PYVELOX_LEGACY_ONLY: 'ON'
 
     defaults:
       run:
@@ -134,22 +133,22 @@ jobs:
           echo "head_main=$head_main" >> $GITHUB_OUTPUT
 
       - name: Get Function Signature Stash
-        uses: assignUser/stash/restore@v1
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         id: get-sig
         with:
           path: /tmp/signatures
           key: function-signatures-${{ steps.get-head.outputs.head_main || github.sha }}
 
       - name: Restore ccache
-        uses: assignUser/stash/restore@v1
+        uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: "${{ env.CCACHE_DIR }}"
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-fuzzer-centos
 
       - name: Fix git permissions
         working-directory: ${{ github.workspace }}
-          # Usually actions/checkout does this but as we run in a container
-          # it doesn't work
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
         run: |
           git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
           git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox_main
@@ -162,10 +161,11 @@ jobs:
 
       - name: Checkout Main
         if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.get-head.outputs.head_main || 'main' }}
           path: velox_main
+          persist-credentials: false
 
       - name: Build PyVelox
         if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
@@ -185,17 +185,17 @@ jobs:
 
       - name: Save Function Signature Stash
         if: ${{ github.event_name == 'pull_request' && steps.get-sig.outputs.stash-hit != 'true' }}
-        uses: assignUser/stash/save@v1
+        uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: /tmp/signatures
           key: function-signatures-${{ steps.get-head.outputs.head_main }}
 
       - name: Checkout Contender
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Zero Ccache Statistics
         run: |
@@ -214,7 +214,6 @@ jobs:
           source .venv/bin/activate
           make debug
 
-
       - name: Ccache after
         run: ccache -s
 
@@ -222,9 +221,9 @@ jobs:
         # see https://github.com/actions/upload-artifact/issues/543
         continue-on-error: true
         if: ${{ github.event_name != 'schedule' }}
-        uses: assignUser/stash/save@v1
+        uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: "${{ env.CCACHE_DIR }}"
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-fuzzer-centos
 
       - name: Build PyVelox
@@ -246,11 +245,11 @@ jobs:
 
       - name: Upload Signature Artifacts
         if: ${{ github.event_name != 'schedule' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: signatures
           path: /tmp/signatures
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Prepare signatures
         working-directory: /tmp/signatures
@@ -266,101 +265,101 @@ jobs:
 
       - name: Save Function Signature Stash
         if: ${{ github.event_name == 'push' }}
-        uses: assignUser/stash/save@v1
+        uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: /tmp/signatures
           key: function-signatures-${{ github.sha }}
 
       - name: Upload presto fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto
           path: velox/_build/debug/velox/expression/fuzzer/velox_expression_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload spark expression fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: spark_expression_fuzzer
           path: velox/_build/debug/velox/expression/fuzzer/spark_expression_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload spark aggregation fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: spark_aggregation_fuzzer
           path: velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload aggregation fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: aggregation
           path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload join fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: join
           path: velox/_build/debug/velox/exec/fuzzer/velox_join_fuzzer
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload exchange fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: exchange
           path: velox/_build/debug//velox/exec/fuzzer/velox_exchange_fuzzer
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload window fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: window
           path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_window_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload cache fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cache_fuzzer
           path: velox/_build/debug/velox/exec/fuzzer/velox_cache_fuzzer
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload table evolution fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: table_evolution_fuzzer
           path: velox/_build/debug/velox/exec/tests/velox_table_evolution_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload memory arbitration fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: memory_arbitration_fuzzer
           path: velox/_build/debug/velox/exec/fuzzer/velox_memory_arbitration_fuzzer
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload row number fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: row_number
           path: velox/_build/debug//velox/exec/fuzzer/velox_row_number_fuzzer
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload topn row number fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: topn_row_number
           path: velox/_build/debug//velox/exec/fuzzer/velox_topn_row_number_fuzzer
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
       - name: Upload writer fuzzer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: writer
           path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_writer_fuzzer_test
-          retention-days: "${{ env.RETENTION }}"
+          retention-days: ${{ env.RETENTION }}
 
   presto-fuzzer-run:
     name: Presto Fuzzer
@@ -370,8 +369,7 @@ jobs:
     needs: compile
     timeout-minutes: 120
     steps:
-
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         if: github.event_name == 'pull_request'
         id: changes
         with:
@@ -386,12 +384,11 @@ jobs:
       - name: Set presto specific fuzzer duration
         env:
           # Run for 30 minutes instead of 15, when files relevant to presto are touched
-          pr_duration: "${{ steps.changes.outputs.presto == 'true' && 1800 || 900 }}"
+          pr_duration: ${{ steps.changes.outputs.presto == 'true' && 1800 || 900 }}
           # Run for 60 minutes if its a scheduled run
-          other_duration: "${{ inputs.duration || (github.event_name == 'push' && 1800 || 3600) }}"
-          is_pr: "${{ github.event_name == 'pull_request' }}"
+          other_duration: ${{ inputs.duration || (github.event_name == 'push' && 1800 || 3600) }}
+          is_pr: ${{ github.event_name == 'pull_request' }}
         run: |
-
           if [ "$is_pr" == "true" ]; then
             duration=$pr_duration
           else
@@ -401,7 +398,7 @@ jobs:
           echo "DURATION=$duration" >> $GITHUB_ENV
 
       - name: Download presto fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: presto
 
@@ -432,7 +429,7 @@ jobs:
 
       - name: Archive production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-fuzzer-failure-artifacts
           path: |
@@ -448,12 +445,12 @@ jobs:
     steps:
 
       - name: Download presto expression fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: presto
 
       - name: Download Signatures
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: signatures
           path: /tmp/signatures
@@ -487,7 +484,7 @@ jobs:
 
       - name: Archive Spark expression production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-bias-fuzzer-failure-artifacts
           path: |
@@ -502,7 +499,7 @@ jobs:
     steps:
 
       - name: Download spark aggregation fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: spark_aggregation_fuzzer
 
@@ -524,7 +521,7 @@ jobs:
 
       - name: Archive Spark aggregate production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: spark-agg-fuzzer-failure-artifacts
           path: |
@@ -540,12 +537,12 @@ jobs:
     steps:
 
       - name: Download spark expression fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: spark_expression_fuzzer
 
       - name: Download Signatures
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: signatures
           path: /tmp/signatures
@@ -570,7 +567,7 @@ jobs:
 
       - name: Archive Spark expression production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: spark-fuzzer-failure-artifacts
           path: |
@@ -586,7 +583,7 @@ jobs:
     steps:
 
       - name: Download spark expression fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: spark_expression_fuzzer
 
@@ -615,7 +612,7 @@ jobs:
 
       - name: Archive Spark expression production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: spark-fuzzer-failure-artifacts
           path: |
@@ -628,24 +625,24 @@ jobs:
     needs: compile
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
     steps:
 
       - name: Download join fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: join
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
-          # Usually actions/checkout does this but as we run in a container
+        # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
 
@@ -676,7 +673,7 @@ jobs:
 
       - name: Archive join production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-sot-join-fuzzer-failure-artifacts
           path: |
@@ -692,7 +689,7 @@ jobs:
     steps:
 
       - name: Download exchange fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: exchange
 
@@ -715,11 +712,11 @@ jobs:
 
       - name: Archive Exchange production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-            name: exchange-fuzzer-failure-artifacts
-            path: |
-              /tmp/exchange_fuzzer_repro
+          name: exchange-fuzzer-failure-artifacts
+          path: |
+            /tmp/exchange_fuzzer_repro
 
   presto-java-row-number-fuzzer-run:
     name: RowNumber Fuzzer
@@ -728,22 +725,22 @@ jobs:
     needs: compile
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
 
     steps:
 
       - name: Download row number fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: row_number
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -777,11 +774,11 @@ jobs:
 
       - name: Archive row number production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-            name: row-fuzzer-failure-artifacts
-            path: |
-              /tmp/row_fuzzer_repro
+          name: row-fuzzer-failure-artifacts
+          path: |
+            /tmp/row_fuzzer_repro
 
   presto-java-topn-row-number-fuzzer-run:
     name: TopNRowNumber Fuzzer
@@ -790,22 +787,22 @@ jobs:
     needs: compile
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
 
     steps:
 
       - name: Download topn row number fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: topn_row_number
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -840,7 +837,7 @@ jobs:
 
       - name: Archive topn row number production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: topn-row-fuzzer-failure-artifacts
           path: |
@@ -857,7 +854,7 @@ jobs:
     steps:
 
       - name: Download cache fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: cache_fuzzer
 
@@ -876,11 +873,11 @@ jobs:
 
       - name: Archive Cache production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-            name: cache-fuzzer-logs
-            path: |
-              /tmp/cache_fuzzer
+          name: cache-fuzzer-logs
+          path: |
+            /tmp/cache_fuzzer
 
   table-evolution-fuzzer-run:
     name: Table Evolution Fuzzer
@@ -891,7 +888,7 @@ jobs:
     steps:
 
       - name: Download table evolution fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: table_evolution_fuzzer
 
@@ -910,11 +907,11 @@ jobs:
 
       - name: Archive table evolution production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-            name: table-evolution-fuzzer-test-logs
-            path: |
-              /tmp/table_evolution_fuzzer_test
+          name: table-evolution-fuzzer-test-logs
+          path: |
+            /tmp/table_evolution_fuzzer_test
 
   memory-arbitration-fuzzer-run:
     name: Memory Arbitration Fuzzer
@@ -925,7 +922,7 @@ jobs:
     steps:
 
       - name: Download memory arbitration fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: memory_arbitration_fuzzer
 
@@ -944,11 +941,11 @@ jobs:
 
       - name: Archive memory arbitration production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-            name: memory-arbitration-fuzzer-test-logs
-            path: |
-              /tmp/memory_arbitration_fuzzer_test
+          name: memory-arbitration-fuzzer-test-logs
+          path: |
+            /tmp/memory_arbitration_fuzzer_test
 
   presto-java-aggregation-fuzzer-run:
     name: Aggregation Fuzzer with Presto as source of truth
@@ -957,29 +954,28 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
     steps:
 
       - name: Download aggregation fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: aggregation
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
-          # Usually actions/checkout does this but as we run in a container
+        # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
 
-
-      - name: "Run Aggregate Fuzzer"
+      - name: Run Aggregate Fuzzer
         run: |
           cd  velox
           cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
@@ -1007,13 +1003,12 @@ jobs:
 
       - name: Archive aggregate production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-sot-aggregate-fuzzer-failure-artifacts
           path: |
             /tmp/aggregate_fuzzer_repro
             /tmp/server.log
-
 
   presto-java-only-bias-function-expression-fuzzer-run:
     name: Biased Expression Fuzzer with Only Added/Updated Functions and Presto as source of truth
@@ -1023,21 +1018,21 @@ jobs:
     timeout-minutes: 120
     if: ${{ needs.compile.outputs.presto_bias  == 'true' }}
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
     steps:
 
       - name: Download presto expression fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: presto
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -1045,7 +1040,7 @@ jobs:
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
 
       - name: Download Signatures
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: signatures
           path: /tmp/signatures
@@ -1098,7 +1093,7 @@ jobs:
           && echo -e "\n\nPresto Fuzzer run finished successfully."
       - name: Archive Presto only-bias-function expression fuzzer production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-only-bias-function-fuzzer-failure-artifacts
           path: |
@@ -1112,21 +1107,21 @@ jobs:
     timeout-minutes: 120
     if: ${{ needs.compile.outputs.presto_aggregate_bias  == 'true' }}
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
     steps:
 
       - name: Download aggregation fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: aggregation
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -1134,12 +1129,12 @@ jobs:
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
 
       - name: Download Signatures
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: signatures
           path: /tmp/signatures
 
-      - name: "Run Bias Aggregate Fuzzer"
+      - name: Run Bias Aggregate Fuzzer
         run: |
           cd  velox
           cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
@@ -1172,7 +1167,7 @@ jobs:
 
       - name: Archive bias aggregate production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-bias-sot-aggregate-fuzzer-failure-artifacts
           path: |
@@ -1186,7 +1181,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Signatures
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: signatures
           path: /tmp/signatures
@@ -1210,29 +1205,28 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
     steps:
 
       - name: Download window fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: window
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
-          # Usually actions/checkout does this but as we run in a container
+        # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
 
-
-      - name: "Run Window Fuzzer"
+      - name: Run Window Fuzzer
         run: |
           cd  velox
           cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
@@ -1261,7 +1255,7 @@ jobs:
 
       - name: Archive window production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-sot-window-fuzzer-failure-artifacts
           path: |
@@ -1275,28 +1269,28 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache/"
-      LINUX_DISTRO: "centos"
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
     steps:
 
       - name: Download writer fuzzer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: writer
 
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
 
-      - name: "Run Writer Fuzzer"
+      - name: Run Writer Fuzzer
         run: |
           cd  velox
           cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
@@ -1327,7 +1321,7 @@ jobs:
 
       - name: Archive writer production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: presto-sot-writer-fuzzer-failure-artifacts
           path: |

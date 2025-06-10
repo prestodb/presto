@@ -118,9 +118,9 @@ Push-Down into Table Scan
 HashAggregation operator supports pushing down aggregations into table scan.
 Pushdown is enabled when all of the following conditions are met:
 
-* the aggregation function takes a single argument, 
-* the argument is a column read directly from the table without any transformations, 
-* that column is not used anywhere else in the query. 
+* the aggregation function takes a single argument,
+* the argument is a column read directly from the table without any transformations,
+* that column is not used anywhere else in the query.
 
 For example, pushdown is possible in the following query:
 
@@ -134,9 +134,9 @@ enabled in the following query:
 
 .. code-block:: sql
 
-    SELECT a, sum(b) 
-    FROM t 
-    WHERE a > 100 
+    SELECT a, sum(b)
+    FROM t
+    WHERE a > 100
     GROUP BY 1
 
 In these queries, TableScan operator produces "b" column as a LazyVector
@@ -294,7 +294,7 @@ After receiving at least abandon_partial_aggregation_min_rows input rows, the
 operator checks the percentage of input rows that are unique, e.g. compares
 number of groups with number of input rows. If percentage of unique rows
 exceeds abandon_partial_aggregation_min_pct, the operator abandons partial
-aggregation. 
+aggregation.
 
 It is not possible to simply stop aggregating inputs and pass these as is to
 shuffle and final aggregation because final aggregation expects data type that

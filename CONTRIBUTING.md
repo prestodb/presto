@@ -4,7 +4,7 @@ Welcome! Thank you for your interest in the Velox project. Before starting to
 contribute, please take a moment to review the guidelines outlined below.
 
 Contributions are not just about code. Contributing code is great, but that’s
-probably not the best place to start. There are many ways in which people can 
+probably not the best place to start. There are many ways in which people can
 make contributions to the project and community.
 
 ## Code of Conduct
@@ -34,28 +34,28 @@ found here](https://velox-lib.io/docs/community/components-and-maintainers).
 ## Documentation
 
 Help the community understand how to use the Velox library by proposing
-additions to our [docs](https://facebookincubator.github.io/velox/index.html) or pointing 
+additions to our [docs](https://facebookincubator.github.io/velox/index.html) or pointing
 out outdated or missing pieces.
 
 ## Bug Reports
 
 Found a bug? Help us by filing an issue on GitHub.
 
-Ensure the bug was not already reported by searching 
+Ensure the bug was not already reported by searching
 [GitHub Issues](https://github.com/facebookincubator/velox/issues). If you're
 unable to find an open issue addressing the problem, open a new one. Be sure to
 include a title and clear description, as much relevant information as
 possible, and a code sample or an executable test case demonstrating the
 expected behavior.
 
-Meta has a [bounty program](https://www.facebook.com/whitehat/) for the safe disclosure 
-of security bugs. In those cases, please go through the process outlined on that page 
+Meta has a [bounty program](https://www.facebook.com/whitehat/) for the safe disclosure
+of security bugs. In those cases, please go through the process outlined on that page
 and do not file a public issue.
 
 ## Code Contribution Process
 
-The code contribution process is designed to reduce the burden on reviewers and 
-maintainers, allowing them to provide more timely feedback and keeping the 
+The code contribution process is designed to reduce the burden on reviewers and
+maintainers, allowing them to provide more timely feedback and keeping the
 amount of rework from contributors to a minimum.
 
 We encourage new contributors to start with bug fixes and small features so you
@@ -105,11 +105,11 @@ The contribution process is outlined below:
    reviewer(s) by name, stating the comments have been addressed. This is the best
    way to ensure that the reviewer is notified that the code is ready to be reviewed
    again.
-   * As a PR author, please do not "Resolve Conversation" when review comments are 
+   * As a PR author, please do not "Resolve Conversation" when review comments are
    addressed. Instead, wait for the reviewer to verify the comment has been
    addressed and resolve the conversation.
 
-7. Iterate on this process until your changes are reviewed and accepted by a 
+7. Iterate on this process until your changes are reviewed and accepted by a
    maintainer. At this point, a Meta employee will be notified to merge your PR,
    due to tooling limitations.
 
@@ -193,35 +193,35 @@ write great commit messages:
 When submitting code contributions to Velox, make sure to adhere to the
 following best practices:
 
-1. **Coding Style**: Review and strictly follow our coding style document, 
+1. **Coding Style**: Review and strictly follow our coding style document,
    available in [`CODING_STYLE.md`](CODING_STYLE.md).
-   * Velox favors consistency over personal preference. If there are 
-   technical reasons why a specific guideline should not be followed, 
+   * Velox favors consistency over personal preference. If there are
+   technical reasons why a specific guideline should not be followed,
    please start a separate discussion with the community to update the
    coding style document first.
-   * If you are simply updating code that did not comply with the coding 
-   style, please do so in a standalone PR isolated from other logic changes. 
+   * If you are simply updating code that did not comply with the coding
+   style, please do so in a standalone PR isolated from other logic changes.
 
 2. **Small Incremental Changes**: If the change is large, work with the maintainers
    on a plan to break and submit it as smaller (yet atomic) parts.
-   * [Research indicates](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/) 
-   that engineers can only effectively review up to 
-   400 lines of code at a time. The human brain can only process so much information 
+   * [Research indicates](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/)
+   that engineers can only effectively review up to
+   400 lines of code at a time. The human brain can only process so much information
    at a time; beyond that threshold the ability to find bugs and other flaws
    decreases.
-   * As larger PRs usually take longer to review and iterate, they 
-   tend to slow down the software development process. As much as possible, 
-   split your work into smaller changes. 
+   * As larger PRs usually take longer to review and iterate, they
+   tend to slow down the software development process. As much as possible,
+   split your work into smaller changes.
 
 3. **Unit tests**: With rare exceptions, every PR should contain unit tests
    covering the logic added/modified.
    * Unit tests protect our codebase from regressions, promote less coupled
    APIs, and provide an executable form of documentation that’s useful for
    new engineers reasoning about the codebase.
-   * Good unit tests are fast, isolated, repeatable, and exercise all APIs 
+   * Good unit tests are fast, isolated, repeatable, and exercise all APIs
    including their edge cases.
    * The lack of existing tests is not a good reason not to add tests to
-   your PR. If a component or API does not have a corresponding 
+   your PR. If a component or API does not have a corresponding
    unit test suite, please consider improving the codebase by first adding a
    new unit test suite to ensure the existing behavior is correct.
 
@@ -232,9 +232,9 @@ following best practices:
    obvious and remove obscurity.
    * As a guideline, every file, class, member variable, and member function
    that is not a getter/setter should be documented.
-   * As much as possible, try to avoid functions with very large bodies. In the 
-   (rare) cases where large code blocks are needed, a good practice is to group 
-   smaller blocks of related code, and precede them with a blank line and a 
+   * As much as possible, try to avoid functions with very large bodies. In the
+   (rare) cases where large code blocks are needed, a good practice is to group
+   smaller blocks of related code, and precede them with a blank line and a
    high-level comment explaining what the block does.
 
 5. **Benchmarks**: Add micro-benchmarks to support your claims.
@@ -242,8 +242,8 @@ following best practices:
    efficiency trade-offs.
 
 6. **APIs**: Carefully design APIs.
-   * As a library, Velox APIs should be intentional. External API should only 
-   be deliberately created. 
+   * As a library, Velox APIs should be intentional. External API should only
+   be deliberately created.
    * As a rule of thumb, components should be deep and encapsulate as much
    complexity as possible, and APIs should be narrow, minimizing dependencies
    across components and preventing implementation details from leaking through
@@ -261,20 +261,20 @@ with a benchmark.
 
 2. Use the following template for the PR title: Add xxx [Presto|Spark] function (replace xxx with the function name).
    * Ensure the PR description contains a link to the function documentation
-   from Presto or Spark docs. 
+   from Presto or Spark docs.
    * Describe the function semantics and edge cases clearly.
 
-3. Use Presto or Spark to check the function semantics. 
+3. Use Presto or Spark to check the function semantics.
    * When implementing a Spark function, check the function semantics using Spark 3.5 with ANSI OFF.
    * Try different edge cases to check whether the function returns null, or
-   throws, etc. 
+   throws, etc.
    * Make sure to replicate the exact semantics.
 
-4. Add tests exercising common inputs, all possible signatures and corner cases. 
-   * Make sure the test cases are concise and easily readable. 
+4. Add tests exercising common inputs, all possible signatures and corner cases.
+   * Make sure the test cases are concise and easily readable.
 
-5. Make sure that obvious inefficiencies are addressed. 
-   * If appropriate, provide micro-benchmarks to support your claims with data. 
+5. Make sure that obvious inefficiencies are addressed.
+   * If appropriate, provide micro-benchmarks to support your claims with data.
 
 4. Add documentation for the new function to an .rst file under velox/docs/functions directory.
    * Functions in documentation are listed in alphabetical order. Make sure to

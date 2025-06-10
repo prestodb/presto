@@ -188,13 +188,13 @@ class TestVeloxVector(unittest.TestCase):
             self.assertEqual(expected_firstElements[i], elements[i])
 
         with self.assertRaises(TypeError):
-            a = pv.from_list([[[1, 2], [3, 4]], [[1.1], [2.3]]])
+            _a = pv.from_list([[[1, 2], [3, 4]], [[1.1], [2.3]]])
 
         with self.assertRaises(ValueError):
-            v = pv.from_list([[None], [None, None, None]])
+            _v = pv.from_list([[None], [None, None, None]])
 
         with self.assertRaises(TypeError):
-            a = pv.from_list([[[1, 2], [3, 4]], [["hello"], ["world"]]])
+            _a = pv.from_list([[[1, 2], [3, 4]], [["hello"], ["world"]]])
 
     def test_to_string(self):
         self.assertEqual(
@@ -271,8 +271,8 @@ class TestVeloxVector(unittest.TestCase):
         bigger_than_int32 = pv.from_list([1 << 33])
         self.assertEqual(bigger_than_int32[0], 1 << 33)
         with self.assertRaises(RuntimeError):
-            bigger_than_int64 = pv.from_list([1 << 63])
-        smaller_than_int64 = pv.from_list([(1 << 62) + (1 << 62) - 1])
+            _bigger_than_int64 = pv.from_list([1 << 63])
+        _smaller_than_int64 = pv.from_list([(1 << 62) + (1 << 62) - 1])
 
     def test_type(self):
         ints = pv.from_list([1, 2, None])
@@ -334,7 +334,7 @@ class TestVeloxVector(unittest.TestCase):
             self.assertEqual(b[i], i + 2)
 
         with self.assertRaises(NotImplementedError):
-            c = a.slice(2, 6, 2)
+            _c = a.slice(2, 6, 2)
 
         d = a[3:6]
         self.assertEqual(len(d), 3)
@@ -342,7 +342,7 @@ class TestVeloxVector(unittest.TestCase):
             self.assertEqual(d[i], i + 3)
 
         with self.assertRaises(NotImplementedError):
-            e = a[3:8:3]
+            _e = a[3:8:3]
 
     def test_export_to_arrow(self):
         test_cases = [

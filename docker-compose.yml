@@ -28,7 +28,7 @@ services:
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       VELOX_DEPENDENCY_SOURCE: BUNDLED # Build dependencies from source
-      CCACHE_DIR: "/velox/.ccache"
+      CCACHE_DIR: /velox/.ccache
     volumes:
       - .:/velox:delegated
     command: scripts/docker/docker-command.sh
@@ -51,9 +51,10 @@ services:
         image: ghcr.io/facebookincubator/velox-dev:centos9
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: "/velox/.ccache"
-      EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_PARQUET=ON
-                         -DVELOX_ENABLE_S3=ON
+      CCACHE_DIR: /velox/.ccache
+      EXTRA_CMAKE_FLAGS: >
+        -DVELOX_ENABLE_PARQUET=ON
+        -DVELOX_ENABLE_S3=ON
     volumes:
       - .:/velox:delegated
     working_dir: /velox
@@ -77,9 +78,10 @@ services:
         image: ghcr.io/facebookincubator/velox-dev:centos9
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: "/velox/.ccache"
-      EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_PARQUET=ON
-                         -DVELOX_ENABLE_S3=ON
+      CCACHE_DIR: /velox/.ccache
+      EXTRA_CMAKE_FLAGS: >
+        -DVELOX_ENABLE_PARQUET=ON
+        -DVELOX_ENABLE_S3=ON
     privileged: true
     deploy:
       resources:
@@ -92,7 +94,6 @@ services:
       - .:/velox:delegated
     working_dir: /velox
     command: /velox/scripts/docker/docker-command.sh
-
 
   centos-cpp:
     # Usage:
@@ -109,19 +110,19 @@ services:
         image: quay.io/centos/centos:stream9
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: "/velox/.ccache"
+      CCACHE_DIR: /velox/.ccache
     volumes:
       - .:/velox:delegated
     working_dir: /velox
     command: /velox/scripts/docker/docker-command.sh
 
   presto-java:
-  # Usage:
-  #   docker-compose pull presto-java or docker-compose build presto-java
-  #   docker-compose run --rm presto-java
-  #   or
-  #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm presto-java
-  #   to set the number of threads used during compilation
+    # Usage:
+    #   docker-compose pull presto-java or docker-compose build presto-java
+    #   docker-compose run --rm presto-java
+    #   or
+    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm presto-java
+    #   to set the number of threads used during compilation
     image: ghcr.io/facebookincubator/velox-dev:presto-java
     build:
       args:
@@ -130,19 +131,19 @@ services:
       dockerfile: scripts/docker/prestojava-container.dockerfile
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: "/velox/.ccache"
+      CCACHE_DIR: /velox/.ccache
     volumes:
       - .:/velox:delegated
     working_dir: /velox
     command: /velox/scripts/docker/docker-command.sh
 
   spark-server:
-  # Usage:
-  #   docker-compose pull spark-server or docker-compose build spark-server
-  #   docker-compose run --rm spark-server
-  #   or
-  #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm spark-server
-  #   to set the number of threads used during compilation
+    # Usage:
+    #   docker-compose pull spark-server or docker-compose build spark-server
+    #   docker-compose run --rm spark-server
+    #   or
+    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm spark-server
+    #   to set the number of threads used during compilation
     image: ghcr.io/facebookincubator/velox-dev:spark-server
     build:
       args:
@@ -151,7 +152,7 @@ services:
       dockerfile: scripts/docker/spark-container.dockerfile
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: "/velox/.ccache"
+      CCACHE_DIR: /velox/.ccache
     volumes:
       - .:/velox:delegated
     working_dir: /velox

@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import argparse
-from itertools import groupby
 import json
 import regex
 import sys

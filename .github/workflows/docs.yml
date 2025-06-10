@@ -17,13 +17,13 @@ name: Update Documentation
 on:
   push:
     paths:
-      - "velox/docs/**"
-      - ".github/workflows/docs.yml"
+      - velox/docs/**
+      - .github/workflows/docs.yml
 
   pull_request:
     paths:
-      - "velox/docs/**"
-      - ".github/workflows/docs.yml"
+      - velox/docs/**
+      - .github/workflows/docs.yml
 
 permissions:
   contents: write
@@ -38,15 +38,15 @@ jobs:
     runs-on: 8-core-ubuntu
     container: ghcr.io/facebookincubator/velox-dev:centos9
     env:
-      CCACHE_DIR: "/tmp/ccache"
+      CCACHE_DIR: /tmp/ccache
     steps:
 
-      - name: "Restore ccache"
+      - name: Restore ccache
         if: false
         uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4
         id: restore-cache
         with:
-          path: "${{ env.CCACHE_DIR }}"
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-wheels-8-core-ubuntu
 
       - name: Checkout
@@ -67,15 +67,15 @@ jobs:
           which uv
           make python-venv
           which uv
-          uv pip install -r scripts/docs-requirements.txt 
-          
+          uv pip install -r scripts/docs-requirements.txt
+
           # Install pyvelox to generate it's docs
           make python-build
 
-      - name: "Save ccache"
+      - name: Save ccache
         uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
-          path: "${{ env.CCACHE_DIR }}"
+          path: ${{ env.CCACHE_DIR }}
           key: ccache-wheels-8-core-ubuntu
 
       - name: Build Documentation

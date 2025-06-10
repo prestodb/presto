@@ -28,7 +28,9 @@ class attrdict(dict):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Update license headers")
-    parser.add_argument("--header", default="license.header", help="header file")
+    parser.add_argument(
+        "--header", default="scripts/checks/license.header", help="header file"
+    )
     parser.add_argument(
         "--extra",
         default=80,

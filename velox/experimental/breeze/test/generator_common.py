@@ -71,8 +71,8 @@ else:
 if libclang_python:
     sys.path.append(libclang_python)
 
-import clang.cindex
-from clang.cindex import CursorKind
+import clang.cindex  # noqa E402
+from clang.cindex import CursorKind  # noqa E402
 
 if libclang_path:
     clang.cindex.Config.set_library_path(libclang_path)
