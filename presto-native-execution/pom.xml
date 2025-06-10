@@ -69,6 +69,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-teradata-functions</artifactId>
             <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
