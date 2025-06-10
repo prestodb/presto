@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-CA"
+reviews:
+  profile: "assertive"
+  poem: false
