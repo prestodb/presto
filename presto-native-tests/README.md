@@ -8,7 +8,8 @@ The following command can be used to run all tests in this module:
 ```
 mvn test 
     -pl 'presto-native-tests' 
-    -DstorageFormat="PARQUET"
+    -DstorageFormat=PARQUET
+    -DsidecarEnabled=true
     -Dtest="com.facebook.presto.nativetests.Test*" 
     -Duser.timezone=America/Bahia_Banderas 
     -DPRESTO_SERVER=${PRESTO_HOME}/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server 
@@ -17,7 +18,12 @@ mvn test
 Update the following JVM arguments:
 1. `PRESTO_SERVER`: Points to the Presto C++ worker binary, `presto_server`. 
 2. `storageFormat`: File format of TPC-H tables used in tests, `DWRF` and 
-`PARQUET` formats are supported. 
+`PARQUET` formats are supported. This argument is optional and test tables
+are created in `PARQUET` format by default.
+3. `sidecarEnabled`: Indicates whether the native sidecar plugin should be
+installed on the coordinator and the workers configured as sidecars in the
+native query runner used for tests. This argument is optional and sidecar
+is enabled by default.
 
 ## Adding new tests
 
