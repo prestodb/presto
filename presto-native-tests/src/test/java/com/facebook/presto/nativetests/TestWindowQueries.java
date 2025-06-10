@@ -13,19 +13,16 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
-import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestWindowQueries;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Parameters;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.Boolean.parseBoolean;
@@ -35,45 +32,29 @@ public class TestWindowQueries
 {
     private static final String frameTypeDiffersError = ".*Window frame of type RANGE does not match types of the ORDER BY and frame column.*";
 
-    @Parameters({"storageFormat", "sidecarEnabled"})
+    private String storageFormat;
+    private boolean sidecarEnabled;
+
+    @BeforeClass
     @Override
-    protected QueryRunner createQueryRunner()
+    public void init()
             throws Exception
     {
-        boolean sidecar = parseBoolean(System.getProperty("sidecarEnabled"));
-        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(System.getProperty("storageFormat"))
-                .setAddStorageFormatToPath(true)
-                .setUseThrift(true)
-                .setCoordinatorSidecarEnabled(sidecar)
-                .build();
-        if (sidecar) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
-        return queryRunner;
+        storageFormat = System.getProperty("storageFormat", "PARQUET");
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init();
     }
 
-    @Parameters("storageFormat")
+    @Override
+    protected QueryRunner createQueryRunner() throws Exception
+    {
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
+    }
+
     @Override
     protected void createTables()
     {
-        try {
-            String storageFormat = System.getProperty("storageFormat");
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                    .setStorageFormat(storageFormat)
-                    .setAddStorageFormatToPath(true)
-                    .build();
-            if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
-            }
-            else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
-            }
-            javaQueryRunner.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        NativeTestsUtils.createTables(storageFormat);
     }
 
     /// Queries in this test fail because GROUPS mode in Window frame is not supported in Prestissimo. See issue:
@@ -257,7 +238,6 @@ public class TestWindowQueries
     // Todo: Refactor this test case when support for varchar(N) is added in native execution.
     // The return types do not match on the native query runner : types=[varchar, bigint] and the java query runner:  types=[varchar(3), bigint].
     @Override
-    @Parameters("sidecarEnabled")
     @Test
     public void testWindowFunctionWithGroupBy()
     {
@@ -267,7 +247,7 @@ public class TestWindowQueries
 
         MaterializedResult actual = computeActual(sql);
         MaterializedResult expected;
-        if (parseBoolean(System.getProperty("sidecarEnabled"))) {
+        if (sidecarEnabled) {
             expected = resultBuilder(getSession(), createUnboundedVarcharType(), BIGINT)
                     .row("foo", 1L)
                     .build();
