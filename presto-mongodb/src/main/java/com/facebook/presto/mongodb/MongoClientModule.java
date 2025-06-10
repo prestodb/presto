@@ -14,6 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.plugin.base.security.SslContextProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -45,13 +46,11 @@ public class MongoClientModule
     {
         requireNonNull(config, "config is null");
 
-        MongoClientOptions.Builder options = MongoClientOptions.builder();
-
-        options.connectionsPerHost(config.getConnectionsPerHost())
+        MongoClientOptions.Builder options = MongoClientOptions.builder()
+                .connectionsPerHost(config.getConnectionsPerHost())
                 .connectTimeout(config.getConnectionTimeout())
                 .socketTimeout(config.getSocketTimeout())
                 .socketKeepAlive(config.getSocketKeepAlive())
-                .sslEnabled(config.getSslEnabled())
                 .maxWaitTime(config.getMaxWaitTime())
                 .minConnectionsPerHost(config.getMinConnectionsPerHost())
                 .writeConcern(config.getWriteConcern().getWriteConcern());
@@ -60,18 +59,38 @@ public class MongoClientModule
             options.requiredReplicaSetName(config.getRequiredReplicaSetName());
         }
 
+        configureReadPreference(options, config);
+        configureSsl(options, config);
+
+        MongoClient client = new MongoClient(config.getSeeds(), config.getCredentials(), options.build());
+
+        return new MongoSession(typeManager, client, config);
+    }
+
+    private static void configureReadPreference(MongoClientOptions.Builder options, MongoClientConfig config)
+    {
         if (config.getReadPreferenceTags().isEmpty()) {
             options.readPreference(config.getReadPreference().getReadPreference());
         }
         else {
             options.readPreference(config.getReadPreference().getReadPreferenceWithTags(config.getReadPreferenceTags()));
         }
+    }
 
-        MongoClient client = new MongoClient(config.getSeeds(), config.getCredentials(), options.build());
+    private static void configureSsl(MongoClientOptions.Builder options, MongoClientConfig config)
+    {
+        if (config.isTlsEnabled()) {
+            SslContextProvider sslContextProvider = new SslContextProvider(
+                    config.getKeystorePath(),
+                    config.getKeystorePassword(),
+                    config.getTruststorePath(),
+                    config.getTruststorePassword());
 
-        return new MongoSession(
-                typeManager,
-                client,
-                config);
+            sslContextProvider.buildSslContext()
+                    .ifPresent(sslContext -> {
+                        options.sslContext(sslContext);
+                        options.sslEnabled(true);
+                    });
+        }
     }
 }
