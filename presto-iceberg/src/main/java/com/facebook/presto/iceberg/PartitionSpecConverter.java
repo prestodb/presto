@@ -16,8 +16,8 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 
-import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
-import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.PartitionFields.parseIcebergPartitionFields;
+import static com.facebook.presto.iceberg.PartitionFields.toIcebergPartitionFields;
 import static com.facebook.presto.iceberg.SchemaConverter.toIcebergSchema;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 
@@ -30,12 +30,12 @@ public class PartitionSpecConverter
         return new PrestoIcebergPartitionSpec(
                 spec.specId(),
                 toPrestoSchema(spec.schema(), typeManager),
-                toPartitionFields(spec));
+                toIcebergPartitionFields(spec));
     }
 
     public static PartitionSpec toIcebergPartitionSpec(PrestoIcebergPartitionSpec spec)
     {
-        return parsePartitionFields(
+        return parseIcebergPartitionFields(
                 toIcebergSchema(spec.getSchema()),
                 spec.getFields(),
                 spec.getSpecId());
