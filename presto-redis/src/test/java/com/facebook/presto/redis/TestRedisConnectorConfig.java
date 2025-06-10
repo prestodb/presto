@@ -26,6 +26,9 @@ public class TestRedisConnectorConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(RedisConnectorConfig.class)
+                .setRedisUser(null)
+                .setTlsEnabled(false)
+                .setTruststore(null)
                 .setNodes("")
                 .setDefaultSchema("default")
                 .setTableNames("")
@@ -53,6 +56,9 @@ public class TestRedisConnectorConfig
                 .put("redis.hide-internal-columns", "false")
                 .put("redis.connect-timeout", "10s")
                 .put("redis.database-index", "5")
+                .put("redis.user", "nobody")
+                .put("redis.tls.enabled", "true")
+                .put("redis.tls.trustStore", "/dev/null")
                 .put("redis.password", "secret")
                 .build();
 
@@ -65,6 +71,9 @@ public class TestRedisConnectorConfig
                 .setRedisScanCount(20)
                 .setRedisConnectTimeout("10s")
                 .setRedisDataBaseIndex(5)
+                .setRedisUser("nobody")
+                .setTlsEnabled(true)
+                .setTruststore(new File("/dev/null"))
                 .setRedisPassword("secret")
                 .setRedisKeyDelimiter(",")
                 .setKeyPrefixSchemaTable(true);
