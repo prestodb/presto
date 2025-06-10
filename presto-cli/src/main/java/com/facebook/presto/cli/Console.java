@@ -142,9 +142,7 @@ public class Console
                 Optional.ofNullable(clientOptions.krb5KeytabPath),
                 Optional.ofNullable(clientOptions.krb5CredentialCachePath),
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
-                !clientOptions.disableRedirects,
-                clientOptions.externalAuthentication,
-                clientOptions.externalAuthenticationRedirectHandler)) {
+                !clientOptions.disableRedirects)) {
             if (hasQuery) {
                 return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors);
             }
