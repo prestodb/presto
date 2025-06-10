@@ -552,7 +552,8 @@ public class TestHiveSplitManager
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                ImmutableList.of());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
                 "ds",
@@ -700,7 +701,8 @@ public class TestHiveSplitManager
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
                 encryptionInformationProvider,
-                new HivePartitionSkippabilityChecker());
+                new HivePartitionSkippabilityChecker(),
+                ImmutableList.of());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
                 "ds",

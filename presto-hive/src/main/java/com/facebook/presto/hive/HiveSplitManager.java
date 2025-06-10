@@ -151,6 +151,7 @@ public class HiveSplitManager
     private final CacheQuotaRequirementProvider cacheQuotaRequirementProvider;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final PartitionSkippabilityChecker partitionSkippabilityChecker;
+    private final List<String> readFormats;
 
     @Inject
     public HiveSplitManager(
@@ -181,7 +182,8 @@ public class HiveSplitManager
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 cacheQuotaRequirementProvider,
                 encryptionInformationProvider,
-                partitionSkippabilityChecker);
+                partitionSkippabilityChecker,
+                hiveClientConfig.getReadFormats());
     }
 
     public HiveSplitManager(
@@ -200,7 +202,8 @@ public class HiveSplitManager
             boolean recursiveDfsWalkerEnabled,
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            PartitionSkippabilityChecker partitionSkippabilityChecker)
+            PartitionSkippabilityChecker partitionSkippabilityChecker,
+            List<String> readFormats)
     {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -219,6 +222,7 @@ public class HiveSplitManager
         this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.partitionSkippabilityChecker = requireNonNull(partitionSkippabilityChecker, "partitionSkippabilityChecker is null");
+        this.readFormats = requireNonNull(readFormats, "readFormats is null");
     }
 
     @Override
@@ -249,6 +253,20 @@ public class HiveSplitManager
                 session.getWarningCollector(),
                 session.getRuntimeStats());
         Table table = layout.getTable(metastore, metastoreContext);
+
+        if (!readFormats.isEmpty()) {
+            StorageFormat storageFormat = table.getStorage().getStorageFormat();
+            Optional<HiveStorageFormat> hiveStorageFormat = getHiveStorageFormat(storageFormat);
+            if (hiveStorageFormat.isPresent()) {
+                if (!readFormats.contains(hiveStorageFormat.get().toString())) {
+                    throw new HiveNotReadableException(tableName, Optional.empty(),
+                            format("File format %s not supported for read operation.", hiveStorageFormat.get().toString()));
+                }
+            }
+            else {
+                throw new HiveNotReadableException(tableName, Optional.empty(), "Storage format is null.");
+            }
+        }
 
         if (!isOfflineDataDebugModeEnabled(session)) {
             // verify table is not marked as non-readable
