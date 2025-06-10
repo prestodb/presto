@@ -21,7 +21,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-
         </dependency>
 
         <dependency>
@@ -54,11 +53,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
@@ -106,6 +100,11 @@
             <artifactId>okio-jvm</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+        </dependency>
+
         <!-- pull up to the version used in okio-jvm to avoid conlict with okhttp-* -->
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
@@ -118,6 +117,12 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-testng-services</artifactId>

@@ -14,24 +14,24 @@
 package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.airlift.log.Logger;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.CookieParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Cookie;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.CookieParam;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Cookie;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriBuilder;
 
 import static com.facebook.presto.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getSchemeUriBuilder;
+import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.TEXT_HTML;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 @Path(OAuth2CallbackResource.CALLBACK_ENDPOINT)
 public class OAuth2CallbackResource

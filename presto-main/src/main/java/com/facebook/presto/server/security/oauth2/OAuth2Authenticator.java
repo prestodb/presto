@@ -17,11 +17,11 @@ import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.inject.Inject;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.security.Principal;

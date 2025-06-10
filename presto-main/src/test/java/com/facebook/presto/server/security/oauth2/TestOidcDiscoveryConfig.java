@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;

@@ -16,12 +16,12 @@ package com.facebook.presto.server.security.oauth2;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.validation.constraints.NotEmpty;
 
 import javax.crypto.SecretKey;
-import javax.validation.constraints.NotEmpty;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.HOURS;

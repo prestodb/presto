@@ -29,6 +29,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.HttpHeaders;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
 import okhttp3.HttpUrl;
@@ -46,11 +50,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.utility.MountableFile;
 
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.HttpHeaders;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
@@ -62,10 +61,10 @@ import static com.facebook.presto.client.OkHttpUtil.setupInsecureSsl;
 import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 public class TestingHydraIdentityProvider
         implements Closeable
@@ -229,7 +228,14 @@ public class TestingHydraIdentityProvider
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet(), ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+        return new TestingHttpServer(
+                httpServerInfo,
+                nodeInfo,
+                config,
+                new AcceptAllLoginsAndConsentsServlet(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private class AcceptAllLoginsAndConsentsServlet

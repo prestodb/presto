@@ -49,19 +49,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.OkHttpUtil.setupInsecureSsl;
 import static com.facebook.presto.server.security.oauth2.JwtUtil.newJwtBuilder;
 import static com.facebook.presto.server.security.oauth2.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
-import static io.airlift.units.Duration.nanosSince;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
+import static jakarta.ws.rs.core.HttpHeaders.LOCATION;
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.SEE_OTHER;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
-import static javax.ws.rs.core.HttpHeaders.LOCATION;
-import static javax.ws.rs.core.Response.Status.OK;
-import static javax.ws.rs.core.Response.Status.SEE_OTHER;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 import static org.testng.Assert.assertEquals;
@@ -104,7 +104,7 @@ public abstract class BaseOAuth2AuthenticationFilterTest
     {
         long start = System.nanoTime();
         while (server.refreshNodes().getActiveNodes().size() < 1) {
-            assertLessThan(nanosSince(start), new io.airlift.units.Duration(10, SECONDS));
+            assertLessThan(nanosSince(start), new com.facebook.airlift.units.Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
         }
     }
@@ -123,7 +123,7 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         // Due to problems with the Presto OSS project related to the AuthenticationFilter we have to run Presto behind a Proxy and terminate SSL at the proxy.
         simpleProxy = new SimpleProxyServer(server.getHttpBaseUrl());
         MILLISECONDS.sleep(1000);
-        proxyURI = simpleProxy.getHttpsBaseUrl();
+        proxyURI = URI.create("https://127.0.0.1:" + simpleProxy.getHttpsBaseUrl().getPort());
         uiUri = proxyURI.resolve("/");
 
         hydraIdP.createClient(
@@ -131,13 +131,13 @@ public abstract class BaseOAuth2AuthenticationFilterTest
                 PRESTO_CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
                 ImmutableList.of(PRESTO_AUDIENCE, ADDITIONAL_AUDIENCE),
-                simpleProxy.getHttpsBaseUrl() + "/oauth2/callback");
+                proxyURI + "/oauth2/callback");
         hydraIdP.createClient(
                 TRUSTED_CLIENT_ID,
                 TRUSTED_CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
                 ImmutableList.of(TRUSTED_CLIENT_ID),
-                simpleProxy.getHttpsBaseUrl() + "/oauth2/callback");
+                proxyURI + "/oauth2/callback");
         hydraIdP.createClient(
                 UNTRUSTED_CLIENT_ID,
                 UNTRUSTED_CLIENT_SECRET,
@@ -146,7 +146,8 @@ public abstract class BaseOAuth2AuthenticationFilterTest
                 "https://untrusted.com/callback");
     }
 
-    protected abstract ImmutableMap<String, String> getOAuth2Config(String idpUrl);
+    protected abstract ImmutableMap<String, String> getOAuth2Config(String idpUrl)
+            throws IOException;
 
     protected abstract TestingHydraIdentityProvider getHydraIdp()
             throws Exception;
@@ -312,6 +313,7 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         assertThat(cookie.getMaxAge()).isLessThanOrEqualTo(TTL_ACCESS_TOKEN_IN_SECONDS.getSeconds());
         validateAccessToken(cookie.getValue());
     }
+
     protected void validateAccessToken(String cookieValue)
     {
         Request request = new Request.Builder().url("https://localhost:" + hydraIdP.getAuthPort() + "/userinfo").addHeader(AUTHORIZATION, "Bearer " + cookieValue).build();
@@ -352,13 +354,14 @@ public abstract class BaseOAuth2AuthenticationFilterTest
             @Override
             public List<Cookie> loadForRequest(HttpUrl url)
             {
-                return ImmutableList.of(new Cookie.Builder()
+                Cookie cookie = new Cookie.Builder()
                             .domain(proxyURI.getHost())
                             .path("/")
                             .name(OAUTH2_COOKIE)
                             .value(cookieValue)
                             .secure()
-                            .build());
+                            .build();
+                return ImmutableList.of(cookie);
             }
         });
         return httpClientBuilder.build();
