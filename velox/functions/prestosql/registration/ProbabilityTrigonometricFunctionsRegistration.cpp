@@ -89,6 +89,8 @@ void registerProbTrigFunctions(const std::string& prefix) {
       double>({prefix + "inverse_binomial_cdf"});
   registerFunction<InversePoissonCDFFunction, int32_t, double, double>(
       {prefix + "inverse_poisson_cdf"});
+  registerFunction<InverseFCDFFunction, double, double, double, double>(
+      {prefix + "inverse_f_cdf"});
 }
 
 } // namespace

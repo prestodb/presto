@@ -375,6 +375,12 @@ Probability Functions: inverse_cdf
     The mean must be a real value and the scale must be a positive real value (both of type DOUBLE).
     The probability ``p`` must lie on the interval [0, 1].
 
+.. function:: inverse_f_cdf(df1, df2, p) -> double
+
+    Compute the inverse of the Fisher F cdf with a given ``df1`` (numerator degrees of freedom) and ``df2`` (denominator degrees of freedom) parameters
+    for the cumulative probability (p): P(N < n). The numerator and denominator df parameters must be positive real numbers.
+    The probability ``p`` must lie on the interval [0, 1].
+
 ====================================
 Statistical Functions
 ====================================

@@ -270,6 +270,7 @@ int main(int argc, char** argv) {
         "inverse_gamma_cdf", // https://github.com/facebookincubator/velox/issues/12918
         "inverse_binomial_cdf", // https://github.com/facebookincubator/velox/issues/12981
         "inverse_poisson_cdf", // https://github.com/facebookincubator/velox/issues/12982
+        "inverse_f_cdf", // https://github.com/facebookincubator/velox/issues/13715
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
