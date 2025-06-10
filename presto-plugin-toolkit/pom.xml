@@ -121,5 +121,14 @@
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starburstdata</groupId>
+            <artifactId>starburst-spotify-docker-client</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
