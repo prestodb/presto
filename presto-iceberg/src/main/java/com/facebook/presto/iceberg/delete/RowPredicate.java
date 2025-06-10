@@ -48,18 +48,16 @@ public interface RowPredicate
         return page.getPositions(retained, 0, retainedCount);
     }
 
-    default Page markPage(Page page, int deletedDelegateColumnId)
+    default Page markDeleted(Page page, int deletedDelegateColumnId)
     {
         int positionCount = page.getPositionCount();
 
         boolean allSameValues = true;
-        Boolean firstValue = null;
+        boolean firstValue = !test(page, 0);
         BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(positionCount);
-        for (int position = 0; position < positionCount; position++) {
+        BOOLEAN.writeBoolean(blockBuilder, firstValue);
+        for (int position = 1; position < positionCount; position++) {
             boolean deleted = !test(page, position);
-            if (firstValue == null) {
-                firstValue = deleted;
-            }
             if (deleted != firstValue) {
                 allSameValues = false;
             }
@@ -68,7 +66,7 @@ public interface RowPredicate
 
         Block block;
         if (allSameValues) {
-            block = RunLengthEncodedBlock.create(BOOLEAN, firstValue != null ? firstValue : false, positionCount);
+            block = RunLengthEncodedBlock.create(BOOLEAN, firstValue, positionCount);
         }
         else {
             block = blockBuilder.build();

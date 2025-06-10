@@ -34,6 +34,7 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
 import static com.facebook.presto.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
@@ -53,6 +54,8 @@ public class IcebergColumnHandle
     public static final ColumnMetadata DATA_SEQUENCE_NUMBER_COLUMN_METADATA = getColumnMetadata(DATA_SEQUENCE_NUMBER);
     public static final IcebergColumnHandle IS_DELETED_COLUMN_HANDLE = getIcebergColumnHandle(IS_DELETED);
     public static final ColumnMetadata IS_DELETED_COLUMN_METADATA = getColumnMetadata(IS_DELETED);
+    public static final IcebergColumnHandle DELETE_FILE_PATH_COLUMN_HANDLE = getIcebergColumnHandle(DELETE_FILE_PATH);
+    public static final ColumnMetadata DELETE_FILE_PATH_COLUMN_METADATA = getColumnMetadata(DELETE_FILE_PATH);
 
     private final ColumnIdentity columnIdentity;
     private final Type type;
@@ -186,6 +189,11 @@ public class IcebergColumnHandle
     public boolean isDeletedColumn()
     {
         return getColumnIdentity().getId() == IS_DELETED.getId();
+    }
+
+    public boolean isDeleteFilePathColumn()
+    {
+        return getColumnIdentity().getId() == DELETE_FILE_PATH.getId();
     }
 
     public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)
