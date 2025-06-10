@@ -14,6 +14,7 @@
 package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -40,6 +41,7 @@ import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
 import com.nimbusds.oauth2.sdk.auth.Secret;
+import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
@@ -50,23 +52,27 @@ import com.nimbusds.oauth2.sdk.token.Tokens;
 import com.nimbusds.openid.connect.sdk.AuthenticationRequest;
 import com.nimbusds.openid.connect.sdk.Nonce;
 import com.nimbusds.openid.connect.sdk.OIDCTokenResponse;
+import com.nimbusds.openid.connect.sdk.UserInfoErrorResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
+import com.nimbusds.openid.connect.sdk.UserInfoSuccessResponse;
 import com.nimbusds.openid.connect.sdk.claims.AccessTokenHash;
 import com.nimbusds.openid.connect.sdk.claims.IDTokenClaimsSet;
 import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.nimbusds.openid.connect.sdk.validators.AccessTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
-import io.airlift.units.Duration;
+import net.minidev.json.JSONObject;
 
 import javax.inject.Inject;
 
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -74,6 +80,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
 import static com.nimbusds.oauth2.sdk.ResponseType.CODE;
@@ -372,7 +379,7 @@ public class NimbusOAuth2Client
     private Optional<JWTClaimsSet> queryUserInfo(String accessToken)
     {
         try {
-            UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), UserInfoResponse::parse);
+            UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), this::parse);
             if (!response.indicatesSuccess()) {
                 LOG.error("Received bad response from userinfo endpoint: " + response.toErrorResponse().getErrorObject());
                 return Optional.empty();
@@ -383,6 +390,51 @@ public class NimbusOAuth2Client
             LOG.error(e, "Received bad response from userinfo endpoint");
             return Optional.empty();
         }
+    }
+
+    // Using this parsing method for our /userinfo response from the IdP in order to allow for different principal
+    // fields as defined, and in the absence of the `sub` claim. This is a "hack" solution to alter the claims
+    // present in the response before calling the parser provided by the oidc sdk, which fails hard if the
+    // `sub` claim is missing. Note we also have to offload audience verification to this method since it
+    // is not handled in the library
+    public UserInfoResponse parse(HTTPResponse httpResponse)
+            throws ParseException
+    {
+        JSONObject body = httpResponse.getContentAsJSONObject();
+
+        String principal = (String) body.get(principalField);
+        if (principal == null) {
+            throw new ParseException(String.format("/userinfo response missing principal field %s", principalField));
+        }
+
+        if (!principalField.equals("sub") && body.get("sub") == null) {
+            body.put("sub", principal);
+            httpResponse.setBody(body.toJSONString());
+        }
+
+        Object audClaim = body.get("aud");
+        List<String> audiences;
+
+        if (audClaim instanceof String) {
+            audiences = List.of((String) audClaim);
+        }
+        else if (audClaim instanceof List<?>) {
+            audiences = ((List<?>) audClaim).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(toImmutableList());
+        }
+        else {
+            throw new ParseException("Unsupported or missing 'aud' claim type in /userinfo response");
+        }
+
+        if (!(audiences.contains(clientId.getValue()) || !Collections.disjoint(audiences, accessTokenAudiences))) {
+            throw new ParseException("Invalid audience in /userinfo response");
+        }
+
+        return (httpResponse.getStatusCode() == 200)
+                ? UserInfoSuccessResponse.parse(httpResponse)
+                : UserInfoErrorResponse.parse(httpResponse);
     }
 
     private Optional<JWTClaimsSet> parseAccessToken(String accessToken)

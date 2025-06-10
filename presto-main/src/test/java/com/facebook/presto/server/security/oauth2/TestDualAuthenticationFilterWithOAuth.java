@@ -37,16 +37,17 @@ import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.OkHttpUtil.setupInsecureSsl;
 import static com.facebook.presto.server.security.oauth2.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
-import static io.airlift.units.Duration.nanosSince;
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
+import static java.io.File.createTempFile;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.ws.rs.core.Response.Status.OK;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDualAuthenticationFilterWithOAuth
@@ -57,10 +58,6 @@ public class TestDualAuthenticationFilterWithOAuth
     private static final String PRESTO_AUDIENCE = PRESTO_CLIENT_ID;
     private static final String ADDITIONAL_AUDIENCE = "https://external-service.com";
     protected static final String TRUSTED_CLIENT_ID = "trusted-client";
-    protected static final String TRUSTED_CLIENT_SECRET = "trusted-secret";
-    private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
-    private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
-    private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
 
     private final Logging logging = Logging.initialize();
     protected final OkHttpClient httpClient;
@@ -69,7 +66,6 @@ public class TestDualAuthenticationFilterWithOAuth
     private TestingPrestoServer server;
 
     private SimpleProxyServer simpleProxy;
-    private URI uiUri;
 
     private URI proxyURI;
 
@@ -86,12 +82,13 @@ public class TestDualAuthenticationFilterWithOAuth
     {
         long start = System.nanoTime();
         while (server.refreshNodes().getActiveNodes().size() < 1) {
-            assertLessThan(nanosSince(start), new io.airlift.units.Duration(10, SECONDS));
+            assertLessThan(nanosSince(start), new com.facebook.airlift.units.Duration(10, SECONDS));
             MILLISECONDS.sleep(10);
         }
     }
 
     protected ImmutableMap<String, String> getConfig(String idpUrl)
+            throws IOException
     {
         return ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.allow-forwarded-https", "true")
@@ -106,6 +103,7 @@ public class TestDualAuthenticationFilterWithOAuth
                 .put("http-server.authentication.oauth2.max-clock-skew", "0s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .build();
     }
@@ -124,8 +122,7 @@ public class TestDualAuthenticationFilterWithOAuth
         // Due to problems with the Presto OSS project related to the AuthenticationFilter we have to run Presto behind a Proxy and terminate SSL at the proxy.
         simpleProxy = new SimpleProxyServer(server.getHttpBaseUrl());
         MILLISECONDS.sleep(1000);
-        proxyURI = simpleProxy.getHttpsBaseUrl();
-        uiUri = proxyURI.resolve("/");
+        proxyURI = URI.create("https://127.0.0.1:" + simpleProxy.getHttpsBaseUrl().getPort());
 
         hydraIdP.createClient(
                 PRESTO_CLIENT_ID,

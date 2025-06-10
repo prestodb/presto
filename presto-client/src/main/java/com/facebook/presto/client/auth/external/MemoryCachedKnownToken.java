@@ -67,7 +67,7 @@ public class MemoryCachedKnownToken
     public void setupToken(Supplier<Optional<Token>> tokenSource)
     {
         // Try to lock and generate new token. If some other thread (Connection) has
-        // already obtained writeLock and is generating new token, then skipp this
+        // already obtained writeLock and is generating new token, then skip this
         // to block on getToken()
         if (writeLock.tryLock()) {
             try {

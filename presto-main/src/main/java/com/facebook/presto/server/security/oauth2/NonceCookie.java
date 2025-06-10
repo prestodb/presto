@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
+import jakarta.ws.rs.core.Cookie;
+import jakarta.ws.rs.core.NewCookie;
 import org.apache.commons.lang3.StringUtils;
-
-import javax.ws.rs.core.Cookie;
-import javax.ws.rs.core.NewCookie;
 
 import java.time.Instant;
 import java.util.Date;
@@ -24,8 +23,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static com.google.common.base.Predicates.not;
-import static javax.ws.rs.core.Cookie.DEFAULT_VERSION;
-import static javax.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
+import static jakarta.ws.rs.core.Cookie.DEFAULT_VERSION;
+import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 
 public final class NonceCookie
 {
@@ -49,16 +48,15 @@ public final class NonceCookie
                 true);
     }
 
-    public static javax.servlet.http.Cookie createServletCookie(String nonce, Instant tokenExpiration)
+    public static jakarta.servlet.http.Cookie createServletCookie(String nonce, Instant tokenExpiration)
     {
         return toServletCookie(create(nonce, tokenExpiration));
     }
 
-    public static javax.servlet.http.Cookie toServletCookie(NewCookie cookie)
+    public static jakarta.servlet.http.Cookie toServletCookie(NewCookie cookie)
     {
-        javax.servlet.http.Cookie servletCookie = new javax.servlet.http.Cookie(cookie.getName(), cookie.getValue());
+        jakarta.servlet.http.Cookie servletCookie = new jakarta.servlet.http.Cookie(cookie.getName(), cookie.getValue());
         servletCookie.setPath(cookie.getPath());
-        servletCookie.setVersion(cookie.getVersion());
         servletCookie.setMaxAge(cookie.getMaxAge());
         servletCookie.setSecure(cookie.isSecure());
         servletCookie.setHttpOnly(cookie.isHttpOnly());

@@ -16,11 +16,16 @@ package com.facebook.presto.server.security.oauth2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 
+import java.io.IOException;
+
+import static java.io.File.createTempFile;
+
 public class TestOAuth2AuthenticationFilterWithOpaque
         extends BaseOAuth2AuthenticationFilterTest
 {
     @Override
     protected ImmutableMap<String, String> getOAuth2Config(String idpUrl)
+            throws IOException
     {
         return ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.allow-forwarded-https", "true")
@@ -38,6 +43,7 @@ public class TestOAuth2AuthenticationFilterWithOpaque
                 .put("http-server.authentication.oauth2.max-clock-skew", "0s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .build();
     }

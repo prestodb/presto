@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.nio.charset.StandardCharsets;

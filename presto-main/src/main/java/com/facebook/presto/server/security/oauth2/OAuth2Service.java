@@ -17,13 +17,13 @@ import com.facebook.airlift.log.Logger;
 import com.google.common.io.Resources;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriBuilder;
 
 import java.io.IOException;
 import java.net.URI;
@@ -44,12 +44,12 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
-import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 
 public class OAuth2Service
 {
@@ -87,8 +87,8 @@ public class OAuth2Service
         this.client = requireNonNull(client, "client is null");
         requireNonNull(oauth2Config, "oauth2Config is null");
 
-        this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
-        this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
+        this.successHtml = Resources.toString(Resources.getResource(getClass(), "/webapp/oauth2/success.html"), UTF_8);
+        this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/webapp/oauth2/failure.html"), UTF_8);
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "failure.html does not contain the replacement text");
 
         this.challengeTimeout = Duration.ofMillis(oauth2Config.getChallengeTimeout().toMillis());
