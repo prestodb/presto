@@ -48,6 +48,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
                 .setUseThrift(true)
                 .setAddStorageFormatToPath(true)
                 .setEnableRuntimeMetricsCollection(true)
+                .setEnablePrometheusHistogramMetricsCollection(true)
                 .setEnableSsdCache(true)
                 .build();
     }

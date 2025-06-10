@@ -87,6 +87,8 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
     return std::make_unique<PrometheusStatsReporter>(labels);
   }
 
+  static bool enablePrometheusHistogramMetricCollection;
+
  private:
   std::shared_ptr<PrometheusImpl> impl_;
   // A map of labels assigned to each metric which helps in filtering at client
