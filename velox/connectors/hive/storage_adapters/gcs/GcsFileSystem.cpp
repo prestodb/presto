@@ -436,8 +436,68 @@ std::string GcsFileSystem::name() const {
   return "GCS";
 }
 
-void GcsFileSystem::rename(std::string_view, std::string_view, bool) {
-  VELOX_UNSUPPORTED("rename for GCS not implemented");
+void GcsFileSystem::rename(
+    std::string_view originPath,
+    std::string_view newPath,
+    bool overwrite) {
+  if (!isGcsFile(originPath)) {
+    VELOX_FAIL(kGcsInvalidPath, originPath);
+  }
+
+  if (!isGcsFile(newPath)) {
+    VELOX_FAIL(kGcsInvalidPath, newPath);
+  }
+
+  std::string originBucket;
+  std::string originObject;
+  const auto originFile = gcsPath(originPath);
+  setBucketAndKeyFromGcsPath(originFile, originBucket, originObject);
+
+  std::string newBucket;
+  std::string newObject;
+  const auto newFile = gcsPath(newPath);
+  setBucketAndKeyFromGcsPath(newFile, newBucket, newObject);
+
+  if (!overwrite) {
+    auto objects = list(newPath);
+    if (std::find(objects.begin(), objects.end(), newObject) != objects.end()) {
+      VELOX_USER_FAIL(
+          "Failed to rename object {} to {} with as {} exists.",
+          originObject,
+          newObject,
+          newObject);
+      return;
+    }
+  }
+
+  // Copy the object to the new name.
+  auto copyStats = impl_->getClient()->CopyObject(
+      originBucket, originObject, newBucket, newObject);
+  if (!copyStats.ok()) {
+    checkGcsStatus(
+        copyStats.status(),
+        fmt::format(
+            "Failed to rename for GCS object {}/{}",
+            originBucket,
+            originObject),
+        originBucket,
+        originObject);
+  }
+
+  // Delete the original object.
+  auto delStatus = impl_->getClient()->DeleteObject(originBucket, originObject);
+  if (!delStatus.ok()) {
+    checkGcsStatus(
+        delStatus,
+        fmt::format(
+            "Failed to delete for GCS object {}/{} after copy when renaming. And the copied object is at {}/{}",
+            originBucket,
+            originObject,
+            newBucket,
+            newObject),
+        originBucket,
+        originObject);
+  }
 }
 
 void GcsFileSystem::mkdir(
