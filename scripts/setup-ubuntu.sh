@@ -126,7 +126,6 @@ function install_velox_deps_from_apt {
     libre2-dev \
     libsnappy-dev \
     libsodium-dev \
-    liblzo2-dev \
     libelf-dev \
     libdwarf-dev \
     bison \

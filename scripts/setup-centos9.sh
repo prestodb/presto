@@ -147,7 +147,6 @@ function install_velox_deps {
   run_and_time install_conda
   run_and_time install_gflags
   run_and_time install_glog
-  run_and_time install_lzo
   run_and_time install_snappy
   run_and_time install_boost
   run_and_time install_protobuf

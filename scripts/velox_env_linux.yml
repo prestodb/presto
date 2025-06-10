@@ -58,7 +58,6 @@ dependencies:
   - libtool
   - libunwind
   - lz4-c
-  - lzo
   - openssl=1.1
   - re2
   - simdjson

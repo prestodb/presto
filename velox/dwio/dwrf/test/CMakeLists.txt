@@ -60,7 +60,6 @@ target_link_libraries(
   Folly::folly
   glog::glog
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -76,7 +75,6 @@ target_link_libraries(
   velox_link_libs
   Folly::folly
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -90,7 +88,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -104,7 +101,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -120,7 +116,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -179,7 +174,6 @@ target_link_libraries(
   velox_link_libs
   Folly::folly
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -193,7 +187,6 @@ target_link_libraries(
   velox_link_libs
   Folly::folly
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -208,7 +201,6 @@ target_link_libraries(
   velox_link_libs
   Folly::folly
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -238,7 +230,6 @@ target_link_libraries(
   velox_link_libs
   Folly::folly
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -279,7 +270,6 @@ target_link_libraries(
   velox_link_libs
   Folly::folly
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -293,7 +283,6 @@ target_link_libraries(
   Folly::folly
   glog::glog
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -397,7 +386,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -413,7 +401,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -438,7 +425,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -454,7 +440,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -469,7 +454,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -486,7 +470,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -503,7 +486,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -517,7 +499,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -533,7 +514,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -548,7 +528,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
@@ -588,7 +567,6 @@ target_link_libraries(
   Folly::folly
   fmt::fmt
   lz4::lz4
-  lzo2::lzo2
   zstd::zstd
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})

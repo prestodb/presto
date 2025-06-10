@@ -18,7 +18,6 @@ by Velox. See details on bundling below.
 | libsodium         | default         | No       |
 | lz4               | default         | No       |
 | snappy            | default         | No       |
-| lzo               | default         | No       |
 | xz                | default         | No       |
 | zstd              | default         | No       |
 | openssl           | default         | No       |
