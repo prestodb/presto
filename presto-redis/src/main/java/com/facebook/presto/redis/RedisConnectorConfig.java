@@ -58,6 +58,11 @@ public class RedisConnectorConfig
     private String redisPassword;
 
     /**
+     * user for Redis server
+     */
+    private String redisUser;
+
+    /**
      * Timeout to connect to Redis.
      */
     private Duration redisConnectTimeout = Duration.valueOf("2000ms");
@@ -86,6 +91,9 @@ public class RedisConnectorConfig
      * Whether Redis key string follows "schema:table:*" format
      */
     private boolean keyPrefixSchemaTable;
+
+    private boolean tlsEnabled;
+    private File truststore;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -193,11 +201,24 @@ public class RedisConnectorConfig
         return redisPassword;
     }
 
+    public String getRedisUser()
+    {
+        return redisUser;
+    }
+
     @Config("redis.password")
     @ConfigSecuritySensitive
     public RedisConnectorConfig setRedisPassword(String redisPassword)
     {
         this.redisPassword = redisPassword;
+        return this;
+    }
+
+    @Config("redis.user")
+    @ConfigSecuritySensitive
+    public RedisConnectorConfig setRedisUser(String redisUser)
+    {
+        this.redisUser = redisUser;
         return this;
     }
 
@@ -234,5 +255,29 @@ public class RedisConnectorConfig
     private static HostAddress toHostAddress(String value)
     {
         return HostAddress.fromString(value).withDefaultPort(REDIS_DEFAULT_PORT);
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("redis.tls.enabled")
+    public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public File getTruststore()
+    {
+        return truststore;
+    }
+
+    @Config("redis.tls.trustStore")
+    public RedisConnectorConfig setTruststore(File truststore)
+    {
+        this.truststore = truststore;
+        return this;
     }
 }

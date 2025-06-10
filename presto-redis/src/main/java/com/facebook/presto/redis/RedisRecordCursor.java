@@ -118,7 +118,7 @@ public class RedisRecordCursor
         // no more keys are unscanned when
         // when redis scan command
         // returns 0 string cursor
-        return (!redisCursor.getStringCursor().equals("0"));
+        return (!redisCursor.getCursor().equals("0"));
     }
 
     @Override
@@ -299,7 +299,7 @@ public class RedisRecordCursor
                 case STRING: {
                     String cursor = SCAN_POINTER_START;
                     if (redisCursor != null) {
-                        cursor = redisCursor.getStringCursor();
+                        cursor = redisCursor.getCursor();
                     }
 
                     log.debug("Scanning new Redis keys from cursor %s . %d values read so far", cursor, totalValues);
