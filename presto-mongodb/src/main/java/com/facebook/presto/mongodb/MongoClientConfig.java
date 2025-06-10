@@ -14,19 +14,24 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.Tag;
 import com.mongodb.TagSet;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.mongodb.MongoCredential.createCredential;
@@ -38,7 +43,6 @@ public class MongoClientConfig
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
     private static final Splitter TAGSET_SPLITTER = Splitter.on('&').trimResults().omitEmptyStrings();
     private static final Splitter TAG_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
-
     private String schemaCollection = "_schema";
     private List<ServerAddress> seeds = ImmutableList.of();
     private List<MongoCredential> credentials = ImmutableList.of();
@@ -49,7 +53,6 @@ public class MongoClientConfig
     private int connectionTimeout = 10_000;
     private int socketTimeout;
     private boolean socketKeepAlive;
-    private boolean sslEnabled;
 
     // query configurations
     private int cursorBatchSize; // use driver default
@@ -59,7 +62,91 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
+    private boolean tlsEnabled;
+    private File keystorePath;
+    private String keystorePassword;
+    private File truststorePath;
+    private String truststorePassword;
     private boolean caseSensitiveNameMatchingEnabled;
+
+    @AssertTrue(message = "'mongodb.tls.keystore-path', 'mongodb.tls.keystore-password', 'mongodb.tls.truststore-path' and 'mongodb.tls.truststore-password' must be empty when TLS is disabled")
+    public boolean isValidTlsConfig()
+    {
+        if (!tlsEnabled) {
+            return keystorePath == null && keystorePassword == null && truststorePath == null && truststorePassword == null;
+        }
+        // When TLS is enabled, validate keystore and truststore configurations
+        boolean validKeystore = (keystorePath == null && keystorePassword == null) ||
+                (keystorePath != null && keystorePassword != null);
+
+        boolean validTruststore = (truststorePath == null && truststorePassword == null) ||
+                (truststorePath != null && truststorePassword != null);
+
+        return validKeystore && validTruststore;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return this.tlsEnabled;
+    }
+
+    @Config("mongodb.tls.enabled")
+    @LegacyConfig("mongodb.ssl.enabled")
+    public MongoClientConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public Optional<File> getKeystorePath()
+    {
+        return Optional.ofNullable(keystorePath);
+    }
+
+    @Config("mongodb.tls.keystore-path")
+    public MongoClientConfig setKeystorePath(File keystorePath)
+    {
+        this.keystorePath = keystorePath;
+        return this;
+    }
+
+    public Optional<String> getKeystorePassword()
+    {
+        return Optional.ofNullable(keystorePassword);
+    }
+
+    @Config("mongodb.tls.keystore-password")
+    @ConfigSecuritySensitive
+    public MongoClientConfig setKeystorePassword(String keystorePassword)
+    {
+        this.keystorePassword = keystorePassword;
+        return this;
+    }
+
+    public Optional<File> getTruststorePath()
+    {
+        return Optional.ofNullable(truststorePath);
+    }
+
+    @Config("mongodb.tls.truststore-path")
+    public MongoClientConfig setTruststorePath(File truststorePath)
+    {
+        this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public Optional<String> getTruststorePassword()
+    {
+        return Optional.ofNullable(truststorePassword);
+    }
+
+    @Config("mongodb.tls.truststore-password")
+    @ConfigSecuritySensitive
+    public MongoClientConfig setTruststorePassword(String truststorePassword)
+    {
+        this.truststorePassword = truststorePassword;
+        return this;
+    }
 
     @NotNull
     public String getSchemaCollection()
@@ -315,18 +402,6 @@ public class MongoClientConfig
     public MongoClientConfig setImplicitRowFieldPrefix(String implicitRowFieldPrefix)
     {
         this.implicitRowFieldPrefix = implicitRowFieldPrefix;
-        return this;
-    }
-
-    public boolean getSslEnabled()
-    {
-        return this.sslEnabled;
-    }
-
-    @Config("mongodb.ssl.enabled")
-    public MongoClientConfig setSslEnabled(boolean sslEnabled)
-    {
-        this.sslEnabled = sslEnabled;
         return this;
     }
 

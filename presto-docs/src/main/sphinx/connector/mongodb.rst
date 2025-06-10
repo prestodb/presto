@@ -34,21 +34,26 @@ Configuration Properties
 
 The following configuration properties are available:
 
-===================================== ==============================================================
-Property Name                         Description
-===================================== ==============================================================
-``mongodb.seeds``                     List of all mongod servers
-``mongodb.schema-collection``         A collection which contains schema information
+===================================== ============================================================== ===========
+Property Name                         Description                                                    Default
+===================================== ============================================================== ===========
+``mongodb.seeds``                     List of all MongoDB servers
+``mongodb.schema-collection``         A collection which contains schema information                 ``_schema``
 ``mongodb.credentials``               List of credentials
-``mongodb.min-connections-per-host``  The minimum size of the connection pool per host
-``mongodb.connections-per-host``      The maximum size of the connection pool per host
-``mongodb.max-wait-time``             The maximum wait time
-``mongodb.connection-timeout``        The socket connect timeout
-``mongodb.socket-timeout``            The socket timeout
-``mongodb.socket-keep-alive``         Whether keep-alive is enabled on each socket
-``mongodb.ssl.enabled``               Use TLS/SSL for connections to mongod/mongos
-``mongodb.read-preference``           The read preference
-``mongodb.write-concern``             The write concern
+``mongodb.min-connections-per-host``  The minimum size of the connection pool per host               ``0``
+``mongodb.connections-per-host``      The maximum size of the connection pool per host               ``100``
+``mongodb.max-wait-time``             The maximum wait time                                          ``120000ms``
+``mongodb.connection-timeout``        The socket connect timeout                                     ``10000ms``
+``mongodb.socket-timeout``            The socket timeout                                             ``0ms``
+``mongodb.socket-keep-alive``         Whether keep-alive is enabled on each socket                   ``false``
+``mongodb.tls.enabled``               Use TLS/SSL for connections to MongoDB                         ``false``
+``mongodb.tls.keystore-path``         Path to the keystore file for client certificates
+``mongodb.tls.keystore-password``     Password for the keystore file
+``mongodb.tls.truststore-path``       Path to the truststore file for trusted Certificate
+                                      Authorities (CA)
+``mongodb.tls.truststore-password``   Password for the truststore file
+``mongodb.read-preference``           The read preference                                             ``primary``
+``mongodb.write-concern``             The write concern                                               ``acknowledged``
 ``mongodb.required-replica-set``      The required replica set name
 ``mongodb.cursor-batch-size``         The number of elements to return in a batch
 ``case-sensitive-name-matching``      Enable case-sensitive identifier support for schema,
@@ -60,7 +65,7 @@ Property Name                         Description
 ``mongodb.seeds``
 ^^^^^^^^^^^^^^^^^
 
-Comma-separated list of ``hostname[:port]`` all mongod servers in the same replica set or a list of mongos servers in the same sharded cluster. If port is not specified, port 27017 will be used.
+Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set or a list of MongoDB servers in the same sharded cluster. If port is not specified, port 27017 will be used.
 
 This property is required; there is no default and at least one seed must be defined.
 
@@ -123,14 +128,45 @@ This flag controls the socket keep alive feature that keeps a connection alive t
 
 This property is optional; the default is ``false``.
 
-``mongodb.ssl.enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^
+``mongodb.tls.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^
 
-This flag enables SSL connections to MongoDB servers.
+This flag enables TLS/SSL connections to MongoDB servers.
 
-This property is optional and defaults to ``false``. If you set it to ``true`` and host Presto yourself, it’s likely that you also use a TLS CA file.
+This property is optional and defaults to ``false``. When enabled, you can optionally configure client certificate authentication and custom certificate authorities using the related TLS properties.
 
-For setup instructions, see :ref:`tls-ca-definition-label`.
+.. note::
+
+    The ``mongodb.ssl.enabled`` property is deprecated and will be removed in a future version.
+    Use ``mongodb.tls.enabled`` instead. The old property name is supported for backward compatibility.
+
+``mongodb.tls.keystore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the Java KeyStore file containing the client certificate and private key for TLS authentication. The connector supports both Java KeyStore (JKS) format and Privacy-Enhanced Mail (PEM) file format.
+
+This property is optional and only used when ``mongodb.tls.enabled`` is ``true``. Unlike the truststore, there is no default keystore - you must provide one if client certificate authentication is required.
+
+``mongodb.tls.keystore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the keystore file specified in ``mongodb.tls.keystore-path``.
+
+This property is optional and only used when a keystore path is specified.
+
+``mongodb.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the Java TrustStore file containing the trusted certificate authorities for TLS connections. The connector supports both Java KeyStore (JKS) format and Privacy-Enhanced Mail (PEM) file format.
+
+This property is optional and only used when ``mongodb.tls.enabled`` is ``true``. If not specified, the default system truststore will be used.
+
+``mongodb.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the truststore file specified in ``mongodb.tls.truststore-path``.
+
+This property is optional and only used when a truststore path is specified.
 
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -173,6 +209,45 @@ If batchSize is negative, it will limit of number objects returned, that fit wit
 This property is optional; the default is ``0``.
 
 .. _tls-ca-definition-label:
+
+TLS/SSL Configuration
+---------------------
+
+The MongoDB connector supports comprehensive TLS/SSL configuration for secure connections to MongoDB clusters.
+
+Basic TLS Configuration
+^^^^^^^^^^^^^^^^^^^^^^^
+
+To enable basic TLS connections, set the following property:
+
+.. code-block:: none
+
+    mongodb.tls.enabled=true
+
+This enables TLS using the system's default certificate authorities.
+
+Advanced TLS Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For advanced TLS configuration including client certificate authentication and custom certificate authorities, use the following properties:
+
+.. code-block:: none
+
+    mongodb.tls.enabled=true
+    mongodb.tls.keystore-path=/path/to/client.jks
+    mongodb.tls.keystore-password=keystore_password
+    mongodb.tls.truststore-path=/path/to/truststore.jks
+    mongodb.tls.truststore-password=truststore_password
+
+Certificate Format Support
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector supports both Java KeyStore (JKS) and PEM file formats for certificates:
+
+- **Java KeyStore (JKS)**: Traditional Java keystore format
+- **PEM Files**: Privacy-Enhanced Mail format, commonly used with OpenSSL
+
+The connector automatically detects the format and handles the certificates appropriately.
 
 Configuring the MongoDB Connector to Use a TLS CA File
 ------------------------------------------------------
@@ -241,7 +316,11 @@ To configure a MongoDB catalog for this cluster, follow these steps:
        connector.name=mongodb
        mongodb.seeds=<host-found-with-dig-above>:27017
        mongodb.credentials=<user>:<password>@<mongodb-auth-source>
-       mongodb.ssl.enabled=true
+       mongodb.tls.enabled=true
+       mongodb.tls.keystore-path=/path/to/client.jks
+       mongodb.tls.keystore-password=keystore_password
+       mongodb.tls.truststore-path=/path/to/truststore.jks
+       mongodb.tls.truststore-password=truststore_password
        mongodb.required-replica-set=<mongodb-replica-set>
 
 Run Queries
