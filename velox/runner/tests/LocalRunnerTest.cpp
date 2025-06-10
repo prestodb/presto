@@ -119,6 +119,7 @@ class LocalRunnerTest : public LocalRunnerTestBase {
             "",
             {"c0", "b0"})
         .shufflePartitioned({}, 1, false)
+        .localPartition({})
         .finalAggregation({}, {"count(1)"}, {{BIGINT()}});
     return std::make_shared<MultiFragmentPlan>(
         rootBuilder.fragments(), std::move(options));

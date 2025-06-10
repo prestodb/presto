@@ -115,6 +115,7 @@ RowVectorPtr LocalRunner::next() {
 void LocalRunner::start() {
   VELOX_CHECK_EQ(state_, State::kInitialized);
   auto lastStage = makeStages();
+  params_.maxDrivers = options_.numDrivers;
   params_.planNode = fragments_.back().fragment.planNode;
   auto cursor = exec::TaskCursor::create(params_);
   stages_.push_back({cursor->task()});

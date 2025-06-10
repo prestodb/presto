@@ -139,7 +139,7 @@ TEST_F(PrestoQueryReplayRunnerTest, joinWithTableScan) {
 
   auto rootPool = memory::memoryManager()->addRootPool("testRootPool");
   auto pool = rootPool->addLeafChild("testLeafPool");
-  PrestoQueryReplayRunner runner{pool.get(), getTaskPrefix};
+  PrestoQueryReplayRunner runner{pool.get(), getTaskPrefix, 4, 1};
   auto result =
       runner.run(queryId, serializedPlanFragments, serializedConnectorSplits);
 
