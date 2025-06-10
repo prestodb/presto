@@ -56,9 +56,9 @@ on:
 concurrency:
   group: "${{github.workflow}}-${{github.ref}}"
 
-  # Cancel in-progress jobs for efficiency. Exclude the `main` branch so that each commit to main is
-  # checked completely.
-  cancel-in-progress: "${{github.ref != 'refs/heads/main'}}"
+  # Cancel in-progress jobs for efficiency. Exclude the `release-0.293-clp-connector` branch so
+  # that each commit to release-0.293-clp-connector is checked completely.
+  cancel-in-progress: "${{github.ref != 'refs/heads/release-0.293-clp-connector'}}"
 
 jobs:
   prestocpp-linux-build-engine:
