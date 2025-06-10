@@ -180,10 +180,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>security</artifactId>
-        </dependency>
     </dependencies>
 
     <!-- dependencyManagement is to fix the Require upper bound dependencies error for slf4j -->
