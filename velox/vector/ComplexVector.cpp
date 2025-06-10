@@ -1724,7 +1724,7 @@ MapVectorPtr MapVector::updateImpl(
       auto size = vector->sizeAt(ii);
       for (vector_size_t j = 0; j < size; ++j) {
         auto jj = offset + j;
-        VELOX_DCHECK(!keys[k].isNullAt(jj));
+        VELOX_CHECK(!keys[k].isNullAt(jj), "Map key cannot be null");
         mapRow.insert(&keys[k], jj, k);
       }
     }
