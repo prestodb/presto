@@ -84,20 +84,6 @@ public class AuthenticationFilter
         this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
     }
 
-    private static void skipRequestBody(HttpServletRequest request)
-            throws IOException
-    {
-        // If we send the challenge without consuming the body of the request,
-        // the server will close the connection after sending the response.
-        // The client may interpret this as a failed request and not resend the
-        // request with the authentication header. We can avoid this behavior
-        // in the client by reading and discarding the entire body of the
-        // unauthenticated request before sending the response.
-        try (InputStream inputStream = request.getInputStream()) {
-            copy(inputStream, nullOutputStream());
-        }
-    }
-
     public static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
@@ -111,7 +97,7 @@ public class AuthenticationFilter
         };
     }
 
-    public static boolean isPublic(HttpServletRequest request)
+    private static boolean isRequestToOAuthEndpoint(HttpServletRequest request)
     {
         return request.getPathInfo().startsWith(TOKEN_ENDPOINT)
                 || request.getPathInfo().startsWith(CALLBACK_ENDPOINT);
@@ -239,7 +225,7 @@ public class AuthenticationFilter
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)
     {
-        if (isPublic(request)) {
+        if (isRequestToOAuthEndpoint(request)) {
             return false;
         }
         if (authenticators.isEmpty()) {
@@ -252,6 +238,20 @@ public class AuthenticationFilter
             return Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
         }
         return false;
+    }
+
+    private static void skipRequestBody(HttpServletRequest request)
+            throws IOException
+    {
+        // If we send the challenge without consuming the body of the request,
+        // the server will close the connection after sending the response.
+        // The client may interpret this as a failed request and not resend the
+        // request with the authentication header. We can avoid this behavior
+        // in the client by reading and discarding the entire body of the
+        // unauthenticated request before sending the response.
+        try (InputStream inputStream = request.getInputStream()) {
+            copy(inputStream, nullOutputStream());
+        }
     }
 
     private boolean isWebUiRequest(HttpServletRequest request)
