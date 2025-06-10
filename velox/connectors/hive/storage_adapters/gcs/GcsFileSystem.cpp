@@ -503,7 +503,23 @@ void GcsFileSystem::rename(
 void GcsFileSystem::mkdir(
     std::string_view path,
     const DirectoryOptions& options) {
-  VELOX_UNSUPPORTED("mkdir for GCS not implemented");
+  if (!isGcsFile(path)) {
+    VELOX_FAIL(kGcsInvalidPath, path);
+  }
+
+  std::string bucket;
+  std::string object;
+  const auto file = gcsPath(path);
+  setBucketAndKeyFromGcsPath(file, bucket, object);
+
+  // Create an empty object to represent the directory.
+  auto status = impl_->getClient()->InsertObject(bucket, object, "");
+
+  checkGcsStatus(
+      status.status(),
+      fmt::format("Failed to mkdir for GCS object {}/{}", bucket, object),
+      bucket,
+      object);
 }
 
 void GcsFileSystem::rmdir(std::string_view path) {

@@ -89,7 +89,8 @@ class GcsFileSystem : public FileSystem {
       std::string_view newPath,
       bool overwrite) override;
 
-  /// Unsupported
+  /// Supports mkdir operation by using
+  /// google::cloud::storage::Client::InsertObject
   void mkdir(std::string_view path, const DirectoryOptions& options = {})
       override;
 
