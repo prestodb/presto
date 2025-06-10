@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin;
 import com.facebook.plugin.arrow.testingServer.TestingArrowProducer;
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.flight.FlightServer;
@@ -99,6 +100,8 @@ public class ArrowFlightQueryRunner
                     .put("arrow-flight.server-ssl-certificate", "src/test/resources/server.crt");
 
             queryRunner.createCatalog(ARROW_FLIGHT_CATALOG, ARROW_FLIGHT_CONNECTOR, properties.build());
+
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
             return queryRunner;
         }

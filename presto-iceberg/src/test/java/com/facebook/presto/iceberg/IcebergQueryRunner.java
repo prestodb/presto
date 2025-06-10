@@ -29,6 +29,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.iceberg.hive.IcebergFileHiveMetastore;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -221,6 +222,8 @@ public final class IcebergQueryRunner
 
             queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
+
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
             queryRunner.getServers().forEach(server -> {
                 MBeanServer mBeanServer = MBeanServerFactory.newMBeanServer();

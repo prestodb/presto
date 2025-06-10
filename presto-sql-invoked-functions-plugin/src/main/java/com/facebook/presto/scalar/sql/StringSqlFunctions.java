@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.operator.scalar.sql;
+package com.facebook.presto.scalar.sql;
 
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
