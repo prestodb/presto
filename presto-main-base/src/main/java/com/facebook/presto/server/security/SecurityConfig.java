@@ -42,6 +42,7 @@ public class SecurityConfig
         PASSWORD,
         JWT,
         CUSTOM,
+        TEST_EXTERNAL,
         OAUTH2
     }
 
