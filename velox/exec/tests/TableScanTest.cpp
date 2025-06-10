@@ -1767,6 +1767,33 @@ TEST_F(TableScanTest, preloadEmptySplit) {
   assertQuery(op, filePaths, "SELECT * FROM tmp", 1);
 }
 
+TEST_F(TableScanTest, readAsLowerCase) {
+  auto rowType =
+      ROW({"Товары", "国Ⅵ", "\uFF21", "\uFF22"},
+          {BIGINT(), DOUBLE(), REAL(), INTEGER()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), vectors);
+  createDuckDbTable(vectors);
+
+  // Test reading table with non-ascii names.
+  auto op = PlanBuilder()
+                .tableScan(
+                    ROW({"товары", "国ⅵ", "\uFF41", "\uFF42"},
+                        {BIGINT(), DOUBLE(), REAL(), INTEGER()}))
+                .planNode();
+  auto split =
+      exec::test::HiveConnectorSplitBuilder(filePath->getPath()).build();
+
+  AssertQueryBuilder(op, duckDbQueryRunner_)
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kFileColumnNamesReadAsLowerCaseSession,
+          "true")
+      .split(split)
+      .assertResults("SELECT * FROM tmp");
+}
+
 TEST_F(TableScanTest, partitionedTableVarcharKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);

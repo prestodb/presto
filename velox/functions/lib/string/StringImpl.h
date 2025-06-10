@@ -72,6 +72,13 @@ FOLLY_ALWAYS_INLINE bool lower(TOutString& output, const TInString& input) {
   return true;
 }
 
+// Return the lower-case string of a UTF8 string.
+FOLLY_ALWAYS_INLINE std::string utf8StrToLowerCopy(const std::string& str) {
+  std::string lowerStr;
+  functions::stringImpl::lower<false>(lowerStr, str);
+  return lowerStr;
+}
+
 /// Apply a set of appenders on an output string, an appender is a lambda
 /// that takes an output string and append a string to it. This can be used by
 /// code-gen to reduce copying in concat by evaluating nested expressions

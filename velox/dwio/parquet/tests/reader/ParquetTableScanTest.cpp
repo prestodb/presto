@@ -660,44 +660,55 @@ TEST_F(ParquetTableScanTest, filterOnNestedArray) {
 }
 
 TEST_F(ParquetTableScanTest, readAsLowerCase) {
-  auto plan = PlanBuilder(pool_.get())
-                  .tableScan(ROW({"a"}, {BIGINT()}), {}, "")
-                  .planNode();
-  CursorParameters params;
-  std::shared_ptr<folly::Executor> executor =
-      std::make_shared<folly::CPUThreadPoolExecutor>(
-          std::thread::hardware_concurrency());
-  std::shared_ptr<core::QueryCtx> queryCtx =
-      core::QueryCtx::create(executor.get());
-  std::unordered_map<std::string, std::string> session = {
-      {std::string(
-           connector::hive::HiveConfig::kFileColumnNamesReadAsLowerCaseSession),
-       "true"}};
-  queryCtx->setConnectorSessionOverridesUnsafe(
-      kHiveConnectorId, std::move(session));
-  params.queryCtx = queryCtx;
-  params.planNode = plan;
-  const int numSplitsPerFile = 1;
+  auto vectors = {makeRowVector(
+      {"A", "b"},
+      {
+          makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+          makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+      })};
+  auto filePath = TempFilePath::create();
+  WriterOptions options;
+  writeToParquetFile(filePath->getPath(), vectors, options);
+  createDuckDbTable(vectors);
 
-  auto addSplits = [&](exec::TaskCursor* taskCursor) {
-    if (taskCursor->noMoreSplits()) {
-      return;
-    }
-    auto& task = taskCursor->task();
-    auto const splits = HiveConnectorTestBase::makeHiveConnectorSplits(
-        {getExampleFilePath("upper.parquet")},
-        numSplitsPerFile,
-        dwio::common::FileFormat::PARQUET);
-    for (const auto& split : splits) {
-      task->addSplit("0", exec::Split(split));
-    }
-    task->noMoreSplits("0");
-    taskCursor->setNoMoreSplits();
-  };
-  auto result = readCursor(params, addSplits);
-  ASSERT_TRUE(waitForTaskCompletion(result.first->task().get()));
-  assertEqualResults(
-      result.second, {makeRowVector({"a"}, {makeFlatVector<int64_t>({0, 1})})});
+  auto plan = PlanBuilder().tableScan(ROW({"a"}, {BIGINT()})).planNode();
+  auto split = makeSplit(filePath->getPath());
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kFileColumnNamesReadAsLowerCaseSession,
+          "true")
+      .split(split)
+      .assertResults("SELECT A FROM tmp");
+
+  // Test reading table with non-ascii names.
+  auto vectorsNonAsciiNames = {makeRowVector(
+      {"Товары", "国Ⅵ", "\uFF21", "\uFF22"},
+      {
+          makeFlatVector<int64_t>(20, [](auto row) { return row + 1; }),
+          makeFlatVector<double>(20, [](auto row) { return row + 1; }),
+          makeFlatVector<float>(20, [](auto row) { return row + 1; }),
+          makeFlatVector<int32_t>(20, [](auto row) { return row + 1; }),
+      })};
+  filePath = TempFilePath::create();
+  writeToParquetFile(filePath->getPath(), vectorsNonAsciiNames, options);
+  createDuckDbTable(vectorsNonAsciiNames);
+
+  plan = PlanBuilder()
+             .tableScan(
+                 ROW({"товары", "国ⅵ", "\uFF41", "\uFF42"},
+                     {BIGINT(), DOUBLE(), REAL(), INTEGER()}))
+             .planNode();
+  split = makeSplit(filePath->getPath());
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .connectorSessionProperty(
+          kHiveConnectorId,
+          connector::hive::HiveConfig::kFileColumnNamesReadAsLowerCaseSession,
+          "true")
+      .split(split)
+      .assertResults("SELECT * FROM tmp");
 }
 
 TEST_F(ParquetTableScanTest, rowIndex) {

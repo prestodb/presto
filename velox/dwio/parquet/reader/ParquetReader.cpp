@@ -21,6 +21,7 @@
 #include "velox/dwio/parquet/reader/ParquetColumnReader.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
+#include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::parquet {
 
@@ -304,7 +305,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
 
   auto name = schemaElement.name;
   if (isFileColumnNamesReadAsLowerCase()) {
-    folly::toLowerAscii(name);
+    name = functions::stringImpl::utf8StrToLowerCopy(name);
   }
 
   if ((!options_.useColumnNamesForColumnMapping()) &&
@@ -331,7 +332,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
       ++schemaIdx;
       auto childName = schema[schemaIdx].name;
       if (isFileColumnNamesReadAsLowerCase()) {
-        folly::toLowerAscii(childName);
+        childName = functions::stringImpl::utf8StrToLowerCopy(childName);
       }
 
       TypePtr childRequestedType = nullptr;
@@ -977,7 +978,7 @@ std::shared_ptr<const RowType> ReaderBase::createRowType(
   for (auto& child : children) {
     auto childName = static_cast<const ParquetTypeWithId&>(*child).name_;
     if (fileColumnNamesReadAsLowerCase) {
-      folly::toLowerAscii(childName);
+      childName = functions::stringImpl::utf8StrToLowerCopy(childName);
     }
     childNames.push_back(std::move(childName));
     childTypes.push_back(child->type());
