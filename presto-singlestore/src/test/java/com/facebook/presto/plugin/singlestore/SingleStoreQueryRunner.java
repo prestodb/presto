@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.singlestore;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -68,6 +69,8 @@ public final class SingleStoreQueryRunner
             queryRunner.createCatalog(SINGLE_STORE, SINGLE_STORE, connectorProperties);
 
             copyTpchTables(queryRunner, TPCH_SCHEMA, TINY_SCHEMA_NAME, createSession(), tables);
+
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
             return queryRunner;
         }

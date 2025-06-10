@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -99,7 +100,7 @@ public class TestSqlFunctions
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
 
             queryRunner.execute("CREATE TYPE testing.type.person AS (first_name varchar, last_name varchar, age tinyint, country testing.enum.country)");
-
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
             return queryRunner;
         }
         catch (Exception e) {
