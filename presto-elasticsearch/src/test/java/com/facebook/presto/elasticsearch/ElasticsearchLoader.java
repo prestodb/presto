@@ -103,7 +103,7 @@ public class ElasticsearchLoader
                         dataBuilder.field(columns.get(i).getName(), value);
                     }
                     dataBuilder.endObject();
-                    request.add(new IndexRequest(tableName, "_doc").source(dataBuilder));
+                    request.add(new IndexRequest(tableName).source(dataBuilder));
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
