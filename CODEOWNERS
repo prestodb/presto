@@ -160,6 +160,6 @@ CODEOWNERS @prestodb/team-tsc
 
 #####################################################################
 # Presto CI and builds
-/.github @czentgr @prestodb/committers
-/docker @czentgr @prestodb/committers
+/.github @czentgr @unidevel @prestodb/committers
+/docker @czentgr @unidevel @prestodb/committers
 
