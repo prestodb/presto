@@ -77,7 +77,8 @@ simdjson::error_code extractObject(
   for (auto field : jsonObj) {
     SIMDJSON_ASSIGN_OR_RAISE(auto currentKey, field.unescaped_key());
     if (currentKey == key) {
-      ret.emplace(field.value());
+      SIMDJSON_ASSIGN_OR_RAISE(auto value, field.value());
+      ret.emplace(value);
       return simdjson::SUCCESS;
     }
   }

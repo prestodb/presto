@@ -1018,6 +1018,13 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
 
   EXPECT_EQ(std::nullopt, jsonExtract("INVALID_JSON", "$"));
   VELOX_ASSERT_THROW(jsonExtract("{\"\":\"\"}", ""), "Invalid JSON path");
+  // This is a special case where the input is only identified as invalid once
+  // jsonExtract starts to traverse the path.
+  EXPECT_EQ(
+      std::nullopt,
+      jsonExtract(
+          R"({3436654998315577471:-768009352,3684989847712002091:-317930923,5235625120989803984:1278962211,6359026774420146638:651644866,6614027999037539496:528067092})",
+          "$.*"));
 
   EXPECT_EQ(
       "[\"0-553-21311-3\",\"0-395-19395-8\"]",

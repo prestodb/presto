@@ -167,7 +167,7 @@ simdjson::error_code SIMDJsonExtractor::extractInternal(
       if (selector == JsonPathTokenizer::Selector::WILDCARD) {
         SIMDJSON_ASSIGN_OR_RAISE(auto jsonObj, input.get_object());
         for (auto field : jsonObj) {
-          simdjson::ondemand::value val = field.value();
+          SIMDJSON_ASSIGN_OR_RAISE(auto val, field.value());
           if (tokenIndex == tokens_.size() - 1) {
             // Consume each element in the object.
             SIMDJSON_TRY(consumer(val));
@@ -189,7 +189,8 @@ simdjson::error_code SIMDJsonExtractor::extractInternal(
       }
     } else if (input.type() == simdjson::ondemand::json_type::array) {
       if (selector == JsonPathTokenizer::Selector::WILDCARD) {
-        for (auto child : input.get_array()) {
+        SIMDJSON_ASSIGN_OR_RAISE(auto array, input.get_array());
+        for (auto child : array) {
           if (tokenIndex == tokens_.size() - 1) {
             // Consume each element in the object.
             SIMDJSON_TRY(consumer(child.value()));
@@ -235,7 +236,7 @@ simdjson::error_code SIMDJsonExtractor::visitRecursive(
   simdjson::padded_string_view paddedJson = reusePaddedStringView(jsonString);
   simdjson::ondemand::parser localParser;
   SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, localParser.iterate(paddedJson));
-  simdjson::ondemand::value jsonDocVal = jsonDoc.get_value();
+  SIMDJSON_ASSIGN_OR_RAISE(auto jsonDocVal, jsonDoc.get_value());
   // Visit the current node.
   SIMDJSON_TRY(
       extractInternal(jsonDocVal, consumer, isDefinitePath, startTokenIdx));
@@ -243,11 +244,11 @@ simdjson::error_code SIMDJsonExtractor::visitRecursive(
   // Reset the local parser for the next round of iteration where we visit the
   // children.
   SIMDJSON_ASSIGN_OR_RAISE(jsonDoc, localParser.iterate(paddedJson));
-  jsonDocVal = jsonDoc.get_value();
+  SIMDJSON_ASSIGN_OR_RAISE(jsonDocVal, jsonDoc.get_value());
   if (jsonDocVal.type() == simdjson::ondemand::json_type::object) {
     SIMDJSON_ASSIGN_OR_RAISE(auto jsonObj, jsonDocVal.get_object());
     for (auto field : jsonObj) {
-      simdjson::ondemand::value val = field.value();
+      SIMDJSON_ASSIGN_OR_RAISE(auto val, field.value());
       if (val.type() != simdjson::ondemand::json_type::object &&
           val.type() != simdjson::ondemand::json_type::array) {
         continue;
@@ -256,7 +257,8 @@ simdjson::error_code SIMDJsonExtractor::visitRecursive(
           visitRecursive(val, consumer, isDefinitePath, startTokenIdx));
     }
   } else if (jsonDocVal.type() == simdjson::ondemand::json_type::array) {
-    for (auto child : jsonDocVal.get_array()) {
+    SIMDJSON_ASSIGN_OR_RAISE(auto array, jsonDocVal.get_array());
+    for (auto child : array) {
       simdjson::ondemand::value val = child.value();
       if (val.type() != simdjson::ondemand::json_type::object &&
           val.type() != simdjson::ondemand::json_type::array) {
