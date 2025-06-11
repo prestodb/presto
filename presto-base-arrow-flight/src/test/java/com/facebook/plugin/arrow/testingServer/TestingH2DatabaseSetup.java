@@ -193,6 +193,25 @@ public class TestingH2DatabaseSetup
                 " ) ");
         insertRows(tpchMetadata, SUPPLIER, handle);
 
+        stmt.execute("CREATE SCHEMA IF NOT EXISTS \"Tpch_Mx\"");
+        stmt.execute("CREATE SCHEMA IF NOT EXISTS \"tpch_mx\"");
+
+        stmt.execute("CREATE TABLE \"tpch_mx\".\"mxtest\" (" +
+                " ID INTEGER PRIMARY KEY," +
+                " \"NAME\" VARCHAR(50)," +
+                " \"name\" VARCHAR(50)," +
+                " \"Address\" VARCHAR(50)" +
+                ")");
+
+        stmt.execute("INSERT INTO \"tpch_mx\".\"mxtest\" VALUES(1, 'TOM','test', 'kochi'),(2, 'MARY', 'test', 'kochi')");
+
+        stmt.execute("CREATE TABLE \"tpch_mx\".\"MXTEST\" (" +
+                " ID INTEGER PRIMARY KEY," +
+                " \"NAME\" VARCHAR(50)," +
+                " \"name\" VARCHAR(50)," +
+                " \"Address\" VARCHAR(50)" +
+                ")");
+
         ResultSet resultSet1 = stmt.executeQuery("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'TPCH'");
         List<String> tables = new ArrayList<>();
         while (resultSet1.next()) {

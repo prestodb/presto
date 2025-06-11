@@ -66,7 +66,7 @@ public class TestArrowFlightNativeQueries
         arrowFlightQueryRunner = getDistributedQueryRunner();
         allocator = new RootAllocator(Long.MAX_VALUE);
         Location location = Location.forGrpcTls("localhost", serverPort);
-        FlightServer.Builder serverBuilder = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator));
+        FlightServer.Builder serverBuilder = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator, false));
 
         File serverCert = new File("src/test/resources/certs/server.crt");
         File serverKey = new File("src/test/resources/certs/server.key");
