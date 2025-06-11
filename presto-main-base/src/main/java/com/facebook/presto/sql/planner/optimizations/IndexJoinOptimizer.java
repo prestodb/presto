@@ -106,7 +106,11 @@ public class IndexJoinOptimizer
             rewriter = new DefaultJoinRewriter(idAllocator, metadata, session);
         }
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
-        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
+        if (SystemSessionProperties.isNativeExecutionEnabled(session) && !rewriter.isRewriteSucceeded()) {
+            // Return the original plan if index join rewrite doesn't happen.
+            return PlanOptimizerResult.optimizerResult(plan, rewriter.isRewriteSucceeded());
+        }
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isRewriteSucceeded());
     }
 
     private abstract static class IndexJoinRewriter
@@ -115,7 +119,7 @@ public class IndexJoinOptimizer
         protected final PlanNodeIdAllocator idAllocator;
         protected final Metadata metadata;
         protected final Session session;
-        protected boolean planChanged;
+        protected boolean rewriteSucceeded;
 
         protected IndexJoinRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
@@ -124,9 +128,9 @@ public class IndexJoinOptimizer
             this.session = requireNonNull(session, "session is null");
         }
 
-        public boolean isPlanChanged()
+        public boolean isRewriteSucceeded()
         {
-            return planChanged;
+            return rewriteSucceeded;
         }
 
         protected static List<IndexJoinNode.EquiJoinClause> createEquiJoinClause(
@@ -254,7 +258,7 @@ public class IndexJoinOptimizer
                                         identityAssignments(node.getOutputVariables()));
                             }
 
-                            planChanged = true;
+                            rewriteSucceeded = true;
                             return indexJoinNode;
                         }
                         break;
@@ -262,7 +266,7 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
-                            planChanged = true;
+                            rewriteSucceeded = true;
                             return createIndexJoinWithExpectedOutputs(
                                     node.getOutputVariables(),
                                     leftRewritten,
@@ -276,7 +280,7 @@ public class IndexJoinOptimizer
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
-                            planChanged = true;
+                            rewriteSucceeded = true;
                             return createIndexJoinWithExpectedOutputs(
                                     node.getOutputVariables(),
                                     rightRewritten,
@@ -296,7 +300,7 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                planChanged = true;
+                rewriteSucceeded = true;
                 return new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
@@ -466,14 +470,14 @@ public class IndexJoinOptimizer
                                     identityAssignments(node.getOutputVariables()));
                         }
 
-                        planChanged = true;
+                        rewriteSucceeded = true;
                         return indexJoinNode;
                     }
                     break;
 
                 case LEFT:
                     if (rightIndexCandidate.isPresent()) {
-                        planChanged = true;
+                        rewriteSucceeded = true;
                         return createIndexJoinWithExpectedOutputs(
                                 node.getOutputVariables(),
                                 leftRewritten,
@@ -486,7 +490,7 @@ public class IndexJoinOptimizer
 
                 case RIGHT:
                     if (leftIndexCandidate.isPresent()) {
-                        planChanged = true;
+                        rewriteSucceeded = true;
                         return createIndexJoinWithExpectedOutputs(
                                 node.getOutputVariables(),
                                 rightRewritten,
@@ -505,7 +509,7 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                planChanged = true;
+                rewriteSucceeded = true;
                 return new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),
