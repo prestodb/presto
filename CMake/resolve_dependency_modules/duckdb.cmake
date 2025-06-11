@@ -46,6 +46,12 @@ set(PREVIOUS_BUILD_TYPE ${CMAKE_BUILD_TYPE})
 set(CMAKE_BUILD_TYPE Release)
 set(PREVIOUS_CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-non-virtual-dtor")
+# Clang17 requires this. See issue #13215.
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION
+                                                  VERSION_GREATER 17.0.0)
+  set(CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -Wno-missing-template-arg-list-after-template-kw")
+endif()
 
 FetchContent_MakeAvailable(duckdb)
 
