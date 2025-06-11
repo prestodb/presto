@@ -15,7 +15,10 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.airlift.http.server.Authorizer;
 import com.facebook.airlift.http.server.CertificateAuthenticator;
+import com.facebook.airlift.http.server.ConfigurationBasedAuthorizer;
+import com.facebook.airlift.http.server.ConfigurationBasedAuthorizerConfig;
 import com.facebook.airlift.http.server.KerberosAuthenticator;
 import com.facebook.airlift.http.server.KerberosConfig;
 import com.facebook.airlift.http.server.TheServlet;
@@ -79,6 +82,9 @@ public class ServerSecurityModule
                 binder.bind(OAuth2Authenticator.class).in(Scopes.SINGLETON);
                 configBinder(binder).bindConfig(OAuth2Config.class);
                 authBinder.addBinding().to(OAuth2Authenticator.class).in(Scopes.SINGLETON);
+
+                configBinder(binder).bindConfig(ConfigurationBasedAuthorizerConfig.class);
+                binder.bind(Authorizer.class).to(ConfigurationBasedAuthorizer.class).in(Scopes.SINGLETON);
             }
             else if (authType == CUSTOM) {
                 authBinder.addBinding().to(CustomPrestoAuthenticator.class).in(Scopes.SINGLETON);
