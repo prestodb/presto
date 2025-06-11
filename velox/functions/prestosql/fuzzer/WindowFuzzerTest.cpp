@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 
   // List of functions that have known bugs that cause crashes or failures.
-  static const std::unordered_set<std::string> skipFunctions = {
+  std::unordered_set<std::string> skipFunctions = {
       // https://github.com/prestodb/presto/issues/24936
       "classification_fall_out",
       "classification_precision",
@@ -120,13 +120,18 @@ int main(int argc, char** argv) {
       "reduce_agg",
       // array_agg requires a flag controlling whether to ignore nulls.
       "array_agg",
-      // min_by and max_by are fixed recently, requiring Presto-0.286.
-      // https://github.com/prestodb/presto/pull/21793
-      "min_by",
-      "max_by",
       // Skip non-deterministic functions.
       "noisy_count_if_gaussian",
   };
+
+  if (!FLAGS_presto_url.empty()) {
+    skipFunctions.insert({
+        // min_by and max_by with 3 arguments produces results with different
+        // orders of elements from Presto.
+        "min_by",
+        "max_by",
+    });
+  }
 
   // Functions whose results verification should be skipped. These can be
   // functions that return complex-typed results containing floating-point
