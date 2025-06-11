@@ -40,7 +40,6 @@ public final class NativeApiEndpointUtils
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                System.out.println(line);
                 Matcher matcher = metricPattern.matcher(line);
                 if (matcher.matches()) {
                     String metricName = matcher.group(1);

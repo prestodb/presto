@@ -12,11 +12,13 @@
  * limitations under the License.
  */
 
+#include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/concurrency/ConcurrentHashMap.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/StatsReporter.h"
-#include <folly/executors/CPUThreadPoolExecutor.h>
+
 
 namespace facebook::presto::prometheus {
 
@@ -39,11 +41,7 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   class PrometheusImpl;
 
  public:
-  /**
-   * @brief Constructor with optional thread count
-   * @param labels Labels for metrics.
-   * @param numThreads Number of threads in the executor
-   */
+
   explicit PrometheusStatsReporter(
       const std::map<std::string, std::string>& labels, int numThreads);
 
@@ -99,14 +97,12 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
     return std::make_unique<PrometheusStatsReporter>(labels, nodeConfig->prometheusExecutorThreads());
   }
 
-  // Visible for testing
-  mutable std::unordered_map<std::string, StatsInfo> registeredMetricsMap_;
-
  private:
   std::shared_ptr<folly::CPUThreadPoolExecutor> executor_;
   std::shared_ptr<PrometheusImpl> impl_;
   // A map of labels assigned to each metric which helps in filtering at client
   // end.
+  mutable folly::ConcurrentHashMap<std::string, StatsInfo> registeredMetricsMap_;
   VELOX_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
   VELOX_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
   VELOX_FRIEND_TEST(PrometheusReporterTest, testConcurrentReporting);

@@ -1025,7 +1025,7 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodePrometheusExecutorThreads{"node.prometheus.executor-threads"};
+  static constexpr std::string_view kNodePrometheusExecutorThreads{"node.prometheus.num-executor-threads"};
 
   NodeConfig();
 
