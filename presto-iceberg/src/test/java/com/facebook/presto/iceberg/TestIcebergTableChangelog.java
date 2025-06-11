@@ -65,10 +65,10 @@ public class TestIcebergTableChangelog
     {
         assertQuery(String.format("SHOW COLUMNS FROM \"ctas_orders@%d$changelog\"", snapshots[0]),
                 "VALUES" +
-                        "('operation', 'varchar', '', '')," +
-                        "('ordinal', 'bigint', '', '')," +
-                        "('snapshotid', 'bigint', '', '')," +
-                        "('rowdata', 'row(\"orderkey\" bigint, \"custkey\" bigint, \"orderstatus\" varchar, \"totalprice\" double, \"orderdate\" date, \"orderpriority\" varchar, \"clerk\" varchar, \"shippriority\" integer, \"comment\" varchar)', '', '')");
+                        "('operation', 'varchar', '', '', null ,null, 2147483647)," +
+                        "('ordinal', 'bigint', '', '', 10, null, null)," +
+                        "('snapshotid', 'bigint', '', '', 10, null, null)," +
+                        "('rowdata', 'row(\"orderkey\" bigint, \"custkey\" bigint, \"orderstatus\" varchar, \"totalprice\" double, \"orderdate\" date, \"orderpriority\" varchar, \"clerk\" varchar, \"shippriority\" integer, \"comment\" varchar)', '', '', null, null, null)");
     }
 
     @Test

@@ -18,7 +18,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -165,7 +164,7 @@ public class DisabledTestOracleDistributedQueries
 
     @Test
     @Override
-    public void testShowColumns(@Optional("PARQUET") String storageFormat)
+    public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 

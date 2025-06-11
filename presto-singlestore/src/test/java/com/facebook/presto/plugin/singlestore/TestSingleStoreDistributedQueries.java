@@ -19,7 +19,6 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -61,7 +60,7 @@ public class TestSingleStoreDistributedQueries
     }
 
     @Override
-    public void testShowColumns(@Optional("PARQUET") String storageFormat)
+    public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 

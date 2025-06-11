@@ -17,7 +17,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -115,7 +114,7 @@ public class TestCassandraDistributed
     }
 
     @Override
-    public void testShowColumns(@Optional("PARQUET") String storageFormat)
+    public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
