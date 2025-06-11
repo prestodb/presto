@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.nativetests;
 
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestRepartitionQueries;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 
@@ -23,8 +23,11 @@ import java.util.Optional;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static java.lang.Boolean.parseBoolean;
 
-public class TestRepartitionQueriesWithSmallPages
-        extends AbstractTestRepartitionQueries
+/**
+ * Test that Presto works with {@link com.facebook.presto.sql.planner.iterative.IterativeOptimizer} disabled.
+ */
+public class TestNonIterativeDistributedQueries
+        extends AbstractTestQueriesNative
 {
     private String storageFormat;
     private boolean sidecarEnabled;
@@ -36,16 +39,18 @@ public class TestRepartitionQueriesWithSmallPages
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init(storageFormat, sidecarEnabled);
         super.init();
     }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled,
-                Optional.of(nativeHiveQueryRunnerBuilder().setExtraProperties(
-                        // Use small SerializedPages to force flushing
-                        ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"))));
+        /// Presto uses a rule-based iterative optimizer which is enabled by default and can be controlled with config
+        /// 'experimental.iterative-optimizer-enabled'. Tests Presto C++ worker by disabling the iterative optimizer,
+        /// resulting in possibly different query plans.
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled, Optional.of(nativeHiveQueryRunnerBuilder()
+                .setExtraProperties(ImmutableMap.of("experimental.iterative-optimizer-enabled", "false"))));
     }
 
     @Override
