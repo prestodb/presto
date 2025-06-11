@@ -394,7 +394,8 @@ public class TestHiveFileFormats
     {
         TestingConnectorSession session = new TestingConnectorSession(getAllSessionProperties(
                 new HiveClientConfig(),
-                new HiveCommonClientConfig()));
+                new HiveCommonClientConfig()
+                    .setUseOrcColumnNames(true)));
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(TEST_COLUMNS)
