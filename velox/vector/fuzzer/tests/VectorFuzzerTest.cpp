@@ -414,6 +414,24 @@ TEST_F(VectorFuzzerTest, array) {
   ASSERT_EQ(arraySize, vector->size());
   ASSERT_GE(
       100, vector->offsetAt(arraySize - 1) + vector->sizeAt(arraySize - 1));
+
+  // Test fuzzArray with given element type. Check that element size doesn't
+  // exceed opts.complexElementsMaxSize.
+  const auto kElementMaxSize = 100;
+  opts.complexElementsMaxSize = kElementMaxSize;
+  fuzzer.setOptions(opts);
+
+  auto checkElementSize = [&](size_t arraySize) {
+    vector = fuzzer.fuzzArray(BIGINT(), arraySize);
+    ASSERT_TRUE(vector->type()->childAt(0)->isBigint());
+    ASSERT_EQ(arraySize, vector->size());
+    ASSERT_LE(
+        vector->offsetAt(arraySize - 1) + vector->sizeAt(arraySize - 1),
+        kElementMaxSize);
+  };
+  checkElementSize(kElementMaxSize);
+  checkElementSize(kElementMaxSize - 70);
+  checkElementSize(kElementMaxSize + 50);
 }
 
 TEST_F(VectorFuzzerTest, map) {

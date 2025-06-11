@@ -620,6 +620,17 @@ void VectorFuzzer::fuzzOffsetsAndSizes(
 }
 
 ArrayVectorPtr VectorFuzzer::fuzzArray(
+    const TypePtr& elementType,
+    vector_size_t size) {
+  const auto length = getElementsVectorLength(opts_, size);
+
+  auto elements = opts_.containerHasNulls
+      ? fuzzFlat(elementType, length)
+      : fuzzFlatNotNull(elementType, length);
+  return fuzzArray(elements, size);
+}
+
+ArrayVectorPtr VectorFuzzer::fuzzArray(
     const VectorPtr& elements,
     vector_size_t size) {
   BufferPtr offsets, sizes;

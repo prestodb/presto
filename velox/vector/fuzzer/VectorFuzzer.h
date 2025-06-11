@@ -244,6 +244,11 @@ class VectorFuzzer {
   /// `opts.containerVariableLength`).
   ArrayVectorPtr fuzzArray(const VectorPtr& elements, vector_size_t size);
 
+  /// Same as above, but fuzz the element vector. The length of the element
+  /// vector is based on opts.containerLength and does not exceed
+  /// opts.complexElementsMaxSize.
+  ArrayVectorPtr fuzzArray(const TypePtr& elementType, vector_size_t size);
+
   /// Uses `keys` and `values` as the internal elements vectors, wrapping them
   /// into a MapVector of `size` rows.
   ///
