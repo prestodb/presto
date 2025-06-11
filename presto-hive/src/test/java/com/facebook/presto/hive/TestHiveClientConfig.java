@@ -208,7 +208,6 @@ public class TestHiveClientConfig
                 .put("hive.max-concurrent-zero-row-file-creations", "100")
                 .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
-                .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.default-bloom-filter-fpp", "0.96")
                 .put("hive.rcfile-optimized-writer.enabled", "false")
                 .put("hive.rcfile.writer.validate", "true")
