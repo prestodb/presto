@@ -94,7 +94,7 @@ std::string toTypeSql(const TypePtr& type) {
     }
     default:
       if (type->isPrimitiveType()) {
-        return type->name();
+        return type->toString();
       }
       VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
   }

@@ -68,6 +68,11 @@ class TDigestType : public VarbinaryType {
   const std::vector<TypeParameter> parameters_;
 };
 
+inline bool isTDigestType(const TypePtr& type) {
+  // Pointer comparison works since this type is a singleton.
+  return TDigestType::get(DOUBLE()) == type;
+}
+
 inline std::shared_ptr<const TDigestType> TDIGEST(const TypePtr& dataType) {
   return TDigestType::get(dataType);
 }

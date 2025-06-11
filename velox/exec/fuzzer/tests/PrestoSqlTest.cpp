@@ -19,6 +19,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::exec::test {
@@ -34,6 +35,7 @@ TEST(PrestoSqlTest, toTypeSql) {
   EXPECT_EQ(toTypeSql(DOUBLE()), "DOUBLE");
   EXPECT_EQ(toTypeSql(VARCHAR()), "VARCHAR");
   EXPECT_EQ(toTypeSql(VARBINARY()), "VARBINARY");
+  EXPECT_EQ(toTypeSql(TDIGEST(DOUBLE())), "TDIGEST(DOUBLE)");
   EXPECT_EQ(toTypeSql(TIMESTAMP()), "TIMESTAMP");
   EXPECT_EQ(toTypeSql(DATE()), "DATE");
   EXPECT_EQ(toTypeSql(TIMESTAMP_WITH_TIME_ZONE()), "TIMESTAMP WITH TIME ZONE");

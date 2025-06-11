@@ -88,9 +88,10 @@ int main(int argc, char** argv) {
       // (since TDigest is a user defined type), and tries to pass a
       // VARBINARY (since TDigest's implementation uses an
       // alias to VARBINARY).
-      "values_at_quantiles",
       "merge_tdigest",
       "construct_tdigest",
+      // https://github.com/facebookincubator/velox/issues/13551
+      "values_at_quantiles",
       // Fuzzer cannot generate valid 'comparator' lambda.
       "array_sort(array(T),constant function(T,T,bigint)) -> array(T)",
       "split_to_map(varchar,varchar,varchar,function(varchar,varchar,varchar,varchar)) -> map(varchar,varchar)",
