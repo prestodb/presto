@@ -158,6 +158,7 @@ int main(int argc, char** argv) {
       "st_issimple",
       "geometry_invalid_reason",
       "simplify_geometry",
+      "json_extract", // https://github.com/facebookincubator/velox/issues/13682
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 
