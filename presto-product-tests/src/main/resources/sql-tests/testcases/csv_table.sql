@@ -6,8 +6,8 @@ SELECT * FROM csv_table
 --! name: describe csv table
 DESCRIBE csv_table
 --!
-c_bigint|varchar|||
-c_varchar|varchar|||
+c_bigint|varchar|||null|null|2147483647|
+c_varchar|varchar|||null|null|2147483647|
 --! name: show create csv table
 SHOW CREATE TABLE csv_table
 --!
