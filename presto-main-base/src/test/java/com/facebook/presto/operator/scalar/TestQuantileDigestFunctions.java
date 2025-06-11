@@ -20,11 +20,13 @@ import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -57,6 +59,37 @@ public class TestQuantileDigestFunctions
         QuantileDigest qdigest = new QuantileDigest(1);
         functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS qdigest(bigint)), -0.2)", toHexString(qdigest)),
                 BIGINT,
+                null);
+    }
+
+    @DataProvider(name = "nullQuantileScenarios")
+    public Object[][] nullQuantileScenarios()
+    {
+        return new Object[][]{
+                {"bigint", BIGINT, "ARRAY[0.25, NULL, 0.75]"},
+                {"double", DOUBLE, "ARRAY[0.25, NULL, 0.75]"},
+                {"real", REAL, "ARRAY[0.25, NULL, 0.75]"},
+
+                {"bigint", BIGINT, "ARRAY[NULL, NULL, NULL]"},
+                {"double", DOUBLE, "ARRAY[NULL, NULL, NULL]"},
+                {"real", REAL, "ARRAY[NULL, NULL, NULL]"},
+
+                {"bigint", BIGINT, "ARRAY[NULL]"},
+                {"double", DOUBLE, "ARRAY[NULL]"},
+                {"real", REAL, "ARRAY[NULL]"}
+        };
+    }
+    @Test(dataProvider = "nullQuantileScenarios",
+            expectedExceptions = PrestoException.class,
+            expectedExceptionsMessageRegExp = "All quantiles should be non-null.")
+    public void testValuesAtQuantilesWithNullsThrowsError(String typeName, Type type, String arrayExpression)
+    {
+        QuantileDigest qdigest = new QuantileDigest(1);
+
+        functionAssertions.assertFunction(
+                format("values_at_quantiles(CAST(X'%s' AS qdigest(%s)), %s)",
+                        toHexString(qdigest), typeName, arrayExpression),
+                type,
                 null);
     }
 

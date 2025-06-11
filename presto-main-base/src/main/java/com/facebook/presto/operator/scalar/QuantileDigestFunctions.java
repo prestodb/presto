@@ -107,8 +107,16 @@ public final class QuantileDigestFunctions
     {
         QuantileDigest digest = new QuantileDigest(input);
         BlockBuilder output = DOUBLE.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
-        for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
-            DOUBLE.writeDouble(output, sortableLongToDouble(digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i))));
+        if (percentilesArrayBlock.mayHaveNull()) {
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                checkCondition(!percentilesArrayBlock.isNull(i), INVALID_FUNCTION_ARGUMENT, "All quantiles should be non-null.");
+                DOUBLE.writeDouble(output, sortableLongToDouble(digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i))));
+            }
+        }
+        else {
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                DOUBLE.writeDouble(output, sortableLongToDouble(digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i))));
+            }
         }
         return output.build();
     }
@@ -120,8 +128,16 @@ public final class QuantileDigestFunctions
     {
         QuantileDigest digest = new QuantileDigest(input);
         BlockBuilder output = REAL.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
-        for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
-            REAL.writeLong(output, floatToRawIntBits(sortableIntToFloat((int) digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)))));
+        if (percentilesArrayBlock.mayHaveNull()) {
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                checkCondition(!percentilesArrayBlock.isNull(i), INVALID_FUNCTION_ARGUMENT, "All quantiles should be non-null.");
+                REAL.writeLong(output, floatToRawIntBits(sortableIntToFloat((int) digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)))));
+            }
+        }
+        else {
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                REAL.writeLong(output, floatToRawIntBits(sortableIntToFloat((int) digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)))));
+            }
         }
         return output.build();
     }
@@ -133,8 +149,16 @@ public final class QuantileDigestFunctions
     {
         QuantileDigest digest = new QuantileDigest(input);
         BlockBuilder output = BIGINT.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
-        for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
-            BIGINT.writeLong(output, digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
+        if (percentilesArrayBlock.mayHaveNull()) {
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                checkCondition(!percentilesArrayBlock.isNull(i), INVALID_FUNCTION_ARGUMENT, "All quantiles should be non-null.");
+                BIGINT.writeLong(output, digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
+            }
+        }
+        else {
+            for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
+                BIGINT.writeLong(output, digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
+            }
         }
         return output.build();
     }
