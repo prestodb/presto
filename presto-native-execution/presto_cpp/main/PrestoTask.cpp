@@ -826,7 +826,7 @@ void PrestoTask::updateExecutionInfoLocked(
   // the coordinator and worker may not be upgraded at the same time.
   //
   // To ensure safe rollout:
-  // - We are introducing new fields (e.g., `totalNewDrivers`) instead of modifying or
+  // - We are introducing new fields (e.g., `totalNativeDrivers`) instead of modifying or
   //   removing existing ones.
   // - The worker is updated first to populate both old and new fields.
   // - The coordinator continues to use the old fields until it is updated to handle
@@ -840,10 +840,10 @@ void PrestoTask::updateExecutionInfoLocked(
   prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
   prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
 
-  prestoTaskStats.totalNewDrivers = veloxTaskStats.numTotalDrivers;
-  prestoTaskStats.queuedNewDrivers = veloxTaskStats.numQueuedDrivers;
-  prestoTaskStats.runningNewDrivers = veloxTaskStats.numRunningDrivers;
-  prestoTaskStats.completedNewDrivers = veloxTaskStats.numCompletedDrivers;
+  prestoTaskStats.totalNativeDrivers = veloxTaskStats.numTotalDrivers;
+  prestoTaskStats.queuedNativeDrivers = veloxTaskStats.numQueuedDrivers;
+  prestoTaskStats.runningNativeDrivers = veloxTaskStats.numRunningDrivers;
+  prestoTaskStats.completedNativeDrivers = veloxTaskStats.numCompletedDrivers;
 
   prestoTaskStats.totalSplits = veloxTaskStats.numTotalSplits;
   prestoTaskStats.queuedSplits = veloxTaskStats.numQueuedSplits;
