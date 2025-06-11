@@ -53,9 +53,11 @@ import static com.facebook.presto.common.type.StandardTypes.IPADDRESS;
 import static com.facebook.presto.common.type.StandardTypes.IPPREFIX;
 import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
@@ -101,7 +103,9 @@ public class NativeTypeManager
                     ARRAY,
                     DECIMAL,
                     MAP,
+                    QDIGEST,
                     ROW,
+                    TDIGEST,
                     FunctionType.NAME);
 
     private final TypeManager typeManager;
