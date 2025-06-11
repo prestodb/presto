@@ -49,6 +49,13 @@
             <version>2.1.0.32</version>
         </dependency>
 
+        <!--Needed for com.amazon.redshift:redshift-jdbc42:2.1.0.32-->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-core</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
