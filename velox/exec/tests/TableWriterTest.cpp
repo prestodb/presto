@@ -2749,7 +2749,7 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromTableWriter) {
   const int batchSize = 1'000;
   options.vectorSize = batchSize;
   options.stringVariableLength = false;
-  options.stringLength = 1'000;
+  options.stringLength = 500;
   VectorFuzzer fuzzer(options, pool());
   const int numBatches = 20;
   std::vector<RowVectorPtr> vectors;
