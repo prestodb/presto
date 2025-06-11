@@ -184,7 +184,17 @@ public class StoragePartitionLoader
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
             ExtendedFileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-            JobConf targetJob = toJobConf(targetFilesystem.getConf());
+
+            Configuration targetConfiguration = targetFilesystem.getConf();
+            if (targetConfiguration instanceof HiveCachingHdfsConfiguration.CachingJobConf) {
+                targetConfiguration = ((HiveCachingHdfsConfiguration.CachingJobConf) targetConfiguration).getConfig();
+            }
+            if (targetConfiguration instanceof CopyOnFirstWriteConfiguration) {
+                targetConfiguration = ((CopyOnFirstWriteConfiguration) targetConfiguration).getConfig();
+            }
+
+            JobConf targetJob = toJobConf(targetConfiguration);
+
             targetJob.setInputFormat(TextInputFormat.class);
             targetInputFormat.configure(targetJob);
             targetJob.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
