@@ -68,7 +68,7 @@ public class TestArrowFlightQueries
 
         allocator = new RootAllocator(Long.MAX_VALUE);
         Location location = Location.forGrpcTls("localhost", serverPort);
-        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator, false))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
