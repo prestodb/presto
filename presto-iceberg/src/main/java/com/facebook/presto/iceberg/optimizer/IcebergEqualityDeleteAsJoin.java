@@ -266,9 +266,10 @@ public class IcebergEqualityDeleteAsJoin
                     new SpecialFormExpression(SpecialFormExpression.Form.IS_NULL, BooleanType.BOOLEAN,
                             new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, BigintType.BIGINT, deleteVersionColumns)));
 
+            boolean hasExplicitDataSequenceNumberCol = node.getAssignments().containsValue(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             Assignments.Builder assignmentsBuilder = Assignments.builder();
             filter.getOutputVariables().stream()
-                    .filter(variableReferenceExpression -> !variableReferenceExpression.getName().startsWith(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE.getName()))
+                    .filter(variableReferenceExpression -> hasExplicitDataSequenceNumberCol || !variableReferenceExpression.getName().startsWith(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE.getName()))
                     .forEach(variableReferenceExpression -> assignmentsBuilder.put(variableReferenceExpression, variableReferenceExpression));
             return new ProjectNode(Optional.empty(), idAllocator.getNextId(), filter, assignmentsBuilder.build(), ProjectNode.Locality.LOCAL);
         }
@@ -368,12 +369,12 @@ public class IcebergEqualityDeleteAsJoin
 
             VariableReferenceExpression dataSequenceNumberVariableReference = toVariableReference(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignmentsBuilder = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
-                    .put(dataSequenceNumberVariableReference, DATA_SEQUENCE_NUMBER_COLUMN_HANDLE)
                     .putAll(unselectedAssignments)
                     .putAll(node.getAssignments());
             ImmutableList.Builder<VariableReferenceExpression> outputsBuilder = ImmutableList.builder();
             outputsBuilder.addAll(node.getOutputVariables());
-            if (!node.getAssignments().containsKey(dataSequenceNumberVariableReference)) {
+            if (!node.getAssignments().containsValue(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE)) {
+                assignmentsBuilder.put(dataSequenceNumberVariableReference, DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
                 outputsBuilder.add(dataSequenceNumberVariableReference);
             }
             outputsBuilder.addAll(unselectedAssignments.keySet());
