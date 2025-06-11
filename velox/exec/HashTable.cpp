@@ -919,6 +919,8 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
         partitionSteps, error, parallelJoinBuildStats_.partitionTimings, true);
     syncWorkItems(
         buildSteps, error, parallelJoinBuildStats_.buildTimings, true);
+    // Release the partition bounds to reduce memory usage.
+    buildPartitionBounds_ = raw_vector<PartitionBoundIndexType>(pool_);
   });
 
   const auto getTable = [this](size_t i) INLINE_LAMBDA {
