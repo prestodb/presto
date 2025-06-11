@@ -40,10 +40,9 @@ export class PageTitle extends React.Component<Props, State> {
             modalShown: false,
             errorText: null,
         };
-        this.refreshLoop = this.refreshLoop.bind(this);
     }
 
-    refreshLoop() {
+    refreshLoop: () => void = () => {
         clearTimeout(this.timeoutId);
         fetch("/v1/info")
             .then(response => response.json())
