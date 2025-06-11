@@ -1555,5 +1555,4 @@ struct Empty2NullFunction {
     return true;
   }
 };
-
 } // namespace facebook::velox::functions::sparksql

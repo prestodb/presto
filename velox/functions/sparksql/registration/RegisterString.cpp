@@ -24,6 +24,7 @@
 #include "velox/functions/sparksql/Split.h"
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/StringToMap.h"
+#include "velox/functions/sparksql/UnBase64Function.h"
 #include "velox/functions/sparksql/VarcharTypeWriteSideCheck.h"
 
 namespace facebook::velox::functions {
@@ -167,6 +168,8 @@ void registerStringFunctions(const std::string& prefix) {
       Varchar,
       Varchar,
       int32_t>({prefix + "varchar_type_write_side_check"});
+
+  registerFunction<UnBase64Function, Varbinary, Varchar>({prefix + "unbase64"});
 }
 } // namespace sparksql
 } // namespace facebook::velox::functions

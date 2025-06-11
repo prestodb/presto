@@ -110,6 +110,11 @@ class Base64 {
       char* outputBuffer,
       size_t outputSize);
 
+  /// Decodes a Base64 MIME‐mode buffer back to binary.
+  /// Skips any non-Base64 chars (e.g. CR/LF).
+  static Status
+  decodeMime(const char* input, size_t inputSize, char* outputBuffer);
+
   /// Calculates the encoded size based on input 'inputSize'.
   static size_t calculateEncodedSize(size_t inputSize, bool withPadding = true);
 
@@ -118,6 +123,12 @@ class Base64 {
   static Expected<size_t> calculateDecodedSize(
       const char* input,
       size_t& inputSize);
+
+  /// Calculates the decoded binary size of a MIME‐mode Base64 input,
+  /// accounting for padding and ignoring whitespace.
+  static Expected<size_t> calculateMimeDecodedSize(
+      const char* input,
+      const size_t inputSize);
 
  private:
   // Padding character used in encoding.

@@ -546,4 +546,111 @@ void Base64::decodeUrl(
   decodedOutput.resize(decodedSize.value());
 }
 
+// static
+Status Base64::decodeMime(const char* input, size_t inputSize, char* output) {
+  if (inputSize == 0) {
+    return Status::OK();
+  }
+
+  // 24-bit buffer.
+  uint32_t accumulator = 0;
+  // Next shift amount.
+  int bitsNeeded = 18;
+  size_t idx = 0;
+  char* outPtr = output;
+
+  while (idx < inputSize) {
+    unsigned char c = static_cast<unsigned char>(input[idx++]);
+    int val = kBase64ReverseIndexTable[c];
+
+    // Padding character.
+    if (c == kPadding) {
+      // If we see '=' too early or only one '=' when two are needed → error.
+      if (bitsNeeded == 18 ||
+          (bitsNeeded == 6 && (idx == inputSize || input[idx++] != kPadding))) {
+        return Status::UserError(
+            "Input byte array has wrong 4-byte ending unit.");
+      }
+      break;
+    }
+
+    // Skip whitespace or other non-Base64 chars.
+    if (val < 0 || val >= 0x40) {
+      continue;
+    }
+
+    // Accumulate 6 bits
+    accumulator |= (static_cast<uint32_t>(val) << bitsNeeded);
+    bitsNeeded -= 6;
+
+    // If we've collected 24 bits, write out 3 bytes.
+    if (bitsNeeded < 0) {
+      *outPtr++ = static_cast<char>((accumulator >> 16) & 0xFF);
+      *outPtr++ = static_cast<char>((accumulator >> 8) & 0xFF);
+      *outPtr++ = static_cast<char>(accumulator & 0xFF);
+      accumulator = 0;
+      bitsNeeded = 18;
+    }
+  }
+
+  // Handle any remaining bits (1 or 2 bytes).
+  if (bitsNeeded == 0) {
+    *outPtr++ = static_cast<char>((accumulator >> 16) & 0xFF);
+    *outPtr++ = static_cast<char>((accumulator >> 8) & 0xFF);
+  } else if (bitsNeeded == 6) {
+    *outPtr++ = static_cast<char>((accumulator >> 16) & 0xFF);
+  } else if (bitsNeeded == 12) {
+    return Status::UserError("Last unit does not have enough valid bits.");
+  }
+
+  // Verify no illegal trailing Base64 data.
+  while (idx < inputSize) {
+    unsigned char c = static_cast<unsigned char>(input[idx++]);
+    int val = kBase64ReverseIndexTable[c];
+    // Valid data after completion is an error.
+    if (val >= 0 && val < 0x40) {
+      return Status::UserError("Input byte array has incorrect ending.");
+    }
+    // '=' padding beyond handled ones is OK; other negatives are skips.
+  }
+
+  return Status::OK();
+}
+
+// static
+Expected<size_t> Base64::calculateMimeDecodedSize(
+    const char* input,
+    const size_t inputSize) {
+  if (inputSize == 0) {
+    return 0;
+  }
+  if (inputSize < 2) {
+    if (kBase64ReverseIndexTable[static_cast<uint8_t>(input[0])] >= 0x40) {
+      return 0;
+    }
+    return folly::makeUnexpected(Status::UserError(
+        "Input should at least have 2 bytes for base64 bytes."));
+  }
+  auto decodedSize = inputSize;
+  // Compute how many true Base64 chars.
+  for (size_t i = 0; i < inputSize; ++i) {
+    auto c = input[i];
+    if (c == kPadding) {
+      decodedSize -= inputSize - i;
+      break;
+    }
+    if (kBase64ReverseIndexTable[static_cast<uint8_t>(c)] >= 0x40) {
+      decodedSize--;
+    }
+  }
+  // If no explicit padding but validChars ≢ 0 mod 4, infer missing '='.
+  size_t paddings = 0;
+  if ((decodedSize & 0x3) != 0) {
+    paddings = 4 - (decodedSize & 0x3);
+  }
+  // Each 4-char block yields 3 bytes; subtract padding.
+  decodedSize = 3 * ((decodedSize + 3) / 4) - paddings;
+  return decodedSize;
+}
+
 } // namespace facebook::velox::encoding

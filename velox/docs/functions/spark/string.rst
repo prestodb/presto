@@ -433,6 +433,12 @@ String Functions
 
         SELECT trim('sprk', 'spark'); -- "a"
 
+.. spark:function:: unbase64(expr) -> varbinary
+
+    Returns a decoded base64 string as binary. ::
+
+        SELECT cast(unbase64('U3BhcmsgU1FM') AS STRING); -- 'Spark SQL'
+
 .. spark:function:: upper(string) -> string
 
     Returns string with all characters changed to uppercase. ::
