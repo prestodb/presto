@@ -112,11 +112,11 @@ public class TestIcebergSystemTables
     {
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$partitions\"",
-                "VALUES ('_date', 'date', '', '')," +
-                        "('row_count', 'bigint', '', '')," +
-                        "('file_count', 'bigint', '', '')," +
-                        "('total_size', 'bigint', '', '')," +
-                        "('_bigint', 'row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint)', '', '')");
+                "VALUES ('_date', 'date', '', '', null, null, null)," +
+                        "('row_count', 'bigint', '', '', 19L, null, null)," +
+                        "('file_count', 'bigint', '', '', 19L, null, null)," +
+                        "('total_size', 'bigint', '', '', 19L, null, null)," +
+                        "('_bigint', 'row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint)', '', '', null, null, null)");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
         assertEquals(result.getRowCount(), 3);
@@ -145,10 +145,10 @@ public class TestIcebergSystemTables
     public void testHistoryTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$history\"",
-                "VALUES ('made_current_at', 'timestamp with time zone', '', '')," +
-                        "('snapshot_id', 'bigint', '', '')," +
-                        "('parent_id', 'bigint', '', '')," +
-                        "('is_current_ancestor', 'boolean', '', '')");
+                "VALUES ('made_current_at', 'timestamp with time zone', '', '', null, null, null)," +
+                        "('snapshot_id', 'bigint', '', '', 19l, null, null)," +
+                        "('parent_id', 'bigint', '', '', 19l, null, null)," +
+                        "('is_current_ancestor', 'boolean', '', '',null , null, null)");
 
         // Test the number of history entries
         assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 2");
@@ -158,12 +158,12 @@ public class TestIcebergSystemTables
     public void testSnapshotsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$snapshots\"",
-                "VALUES ('committed_at', 'timestamp with time zone', '', '')," +
-                        "('snapshot_id', 'bigint', '', '')," +
-                        "('parent_id', 'bigint', '', '')," +
-                        "('operation', 'varchar', '', '')," +
-                        "('manifest_list', 'varchar', '', '')," +
-                        "('summary', 'map(varchar, varchar)', '', '')");
+                "VALUES ('committed_at', 'timestamp with time zone', '', '', null, null, null)," +
+                        "('snapshot_id', 'bigint', '', '', 19L, null, null)," +
+                        "('parent_id', 'bigint', '', '', 19L, null, null)," +
+                        "('operation', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('manifest_list', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('summary', 'map(varchar, varchar)', '', '', null, null, null)");
 
         assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append'");
         assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '3', '6'");
@@ -173,14 +173,14 @@ public class TestIcebergSystemTables
     public void testManifestsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$manifests\"",
-                "VALUES ('path', 'varchar', '', '')," +
-                        "('length', 'bigint', '', '')," +
-                        "('partition_spec_id', 'integer', '', '')," +
-                        "('added_snapshot_id', 'bigint', '', '')," +
-                        "('added_data_files_count', 'integer', '', '')," +
-                        "('existing_data_files_count', 'integer', '', '')," +
-                        "('deleted_data_files_count', 'integer', '', '')," +
-                        "('partitions', 'array(row(\"contains_null\" boolean, \"lower_bound\" varchar, \"upper_bound\" varchar))', '', '')");
+                "VALUES ('path', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('length', 'bigint', '', '', 19L, null, null)," +
+                        "('partition_spec_id', 'integer', '', '', 10L, null, null)," +
+                        "('added_snapshot_id', 'bigint', '', '', 19L, null, null)," +
+                        "('added_data_files_count', 'integer', '', '', 10L, null, null)," +
+                        "('existing_data_files_count', 'integer', '', '', 10L, null, null)," +
+                        "('deleted_data_files_count', 'integer', '', '', 10L, null, null)," +
+                        "('partitions', 'array(row(\"contains_null\" boolean, \"lower_bound\" varchar, \"upper_bound\" varchar))', '', '', null, null, null)");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
@@ -190,20 +190,20 @@ public class TestIcebergSystemTables
     public void testFilesTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
-                "VALUES ('content', 'integer', '', '')," +
-                        "('file_path', 'varchar', '', '')," +
-                        "('file_format', 'varchar', '', '')," +
-                        "('record_count', 'bigint', '', '')," +
-                        "('file_size_in_bytes', 'bigint', '', '')," +
-                        "('column_sizes', 'map(integer, bigint)', '', '')," +
-                        "('value_counts', 'map(integer, bigint)', '', '')," +
-                        "('null_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
-                        "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')," +
-                        "('equality_ids', 'array(integer)', '', '')");
+                "VALUES ('content', 'integer', '', '', 10L, null, null)," +
+                        "('file_path', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('file_format', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('record_count', 'bigint', '', '', 19L, null, null)," +
+                        "('file_size_in_bytes', 'bigint', '', '', 19L, null, null)," +
+                        "('column_sizes', 'map(integer, bigint)', '', '', null, null, null)," +
+                        "('value_counts', 'map(integer, bigint)', '', '', null, null, null)," +
+                        "('null_value_counts', 'map(integer, bigint)', '', '', null, null, null)," +
+                        "('nan_value_counts', 'map(integer, bigint)', '', '', null, null, null)," +
+                        "('lower_bounds', 'map(integer, varchar)', '', '', null, null, null)," +
+                        "('upper_bounds', 'map(integer, varchar)', '', '', null, null, null)," +
+                        "('key_metadata', 'varbinary', '', '', null, null, null)," +
+                        "('split_offsets', 'array(bigint)', '', '', null, null, null)," +
+                        "('equality_ids', 'array(integer)', '', '', null, null, null)");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
     }
 
@@ -211,12 +211,12 @@ public class TestIcebergSystemTables
     public void testRefsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$refs\"",
-                "VALUES ('name', 'varchar', '', '')," +
-                        "('type', 'varchar', '', '')," +
-                        "('snapshot_id', 'bigint', '', '')," +
-                        "('max_reference_age_in_ms', 'bigint', '', '')," +
-                        "('min_snapshots_to_keep', 'bigint', '', '')," +
-                        "('max_snapshot_age_in_ms', 'bigint', '', '')");
+                "VALUES ('name', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('type', 'varchar', '', '', null, null, 2147483647L)," +
+                        "('snapshot_id', 'bigint', '', '', 19L, null, null)," +
+                        "('max_reference_age_in_ms', 'bigint', '', '', 19L, null, null)," +
+                        "('min_snapshots_to_keep', 'bigint', '', '', 19L, null, null)," +
+                        "('max_snapshot_age_in_ms', 'bigint', '', '', 19L, null, null)");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$refs\"");
 
         // Check main branch entry
@@ -268,8 +268,11 @@ public class TestIcebergSystemTables
 
     protected void checkTableProperties(String schemaName, String tableName, String deleteMode, int propertiesCount, Map<String, String> additionalValidateProperties)
     {
-        assertQuery(String.format("SHOW COLUMNS FROM %s.\"%s$properties\"", schemaName, tableName),
-                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+        assertQuery(
+                String.format("SHOW COLUMNS FROM %s.\"%s$properties\"", schemaName, tableName),
+                "VALUES " +
+                        "('key', 'varchar', '', '', null, null, 2147483647)," +
+                        "('value', 'varchar', '', '', null, null, 2147483647)");
         assertQuery(String.format("SELECT COUNT(*) FROM %s.\"%s$properties\"", schemaName, tableName), "VALUES " + propertiesCount);
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM %s.\"%s$properties\"", schemaName, tableName)).getMaterializedRows();
@@ -304,7 +307,7 @@ public class TestIcebergSystemTables
     protected void checkORCFormatTableProperties(String tableName, String deleteMode)
     {
         assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
-                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+                "VALUES ('key', 'varchar', '', '', null, null, 2147483647L)," + "('value', 'varchar', '', '', null, null, 2147483647L)");
         assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 10");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();

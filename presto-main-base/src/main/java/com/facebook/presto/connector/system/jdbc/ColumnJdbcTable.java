@@ -273,7 +273,7 @@ public class ColumnJdbcTable
     }
 
     // DECIMAL_DIGITS is the number of fractional digits
-    private static Integer decimalDigits(Type type)
+    public static Integer decimalDigits(Type type)
     {
         if (type instanceof DecimalType) {
             return ((DecimalType) type).getScale();

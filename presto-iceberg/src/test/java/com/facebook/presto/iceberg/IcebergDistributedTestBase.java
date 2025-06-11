@@ -540,10 +540,10 @@ public abstract class IcebergDistributedTestBase
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM show_columns_only_identity_partition");
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("id", "integer", "", "")
-                .row("name", "varchar", "", "")
-                .row("team", "varchar", "partition key", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("id", "integer", "", "", 10L, null, null)
+                .row("name", "varchar", "", "", null, null, 2147483647L)
+                .row("team", "varchar", "partition key", "", null, null, 2147483647L)
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
@@ -556,10 +556,10 @@ public abstract class IcebergDistributedTestBase
 
         actual = computeActual("SHOW COLUMNS FROM show_columns_with_non_identity_partition");
 
-        expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("id", "integer", "", "")
-                .row("name", "varchar", "", "")
-                .row("team", "varchar", "partition by truncate[1], identity", "")
+        expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("id", "integer", "", "", 10L, null, null)
+                .row("name", "varchar", "", "", null, null, 2147483647L)
+                .row("team", "varchar", "partition by truncate[1], identity", "", null, null, 2147483647L)
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
