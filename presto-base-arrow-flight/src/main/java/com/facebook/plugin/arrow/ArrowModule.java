@@ -43,6 +43,7 @@ public class ArrowModule
         binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(ArrowSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ArrowMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(ArrowMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ArrowConnector.class).in(Scopes.SINGLETON);
         binder.bind(ArrowConnectorId.class).toInstance(new ArrowConnectorId(connectorId));
         binder.bind(ConnectorHandleResolver.class).to(ArrowHandleResolver.class).in(Scopes.SINGLETON);
