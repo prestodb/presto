@@ -62,10 +62,10 @@ public class BasicQueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
-    private final int totalNewDrivers;
-    private final int queuedNewDrivers;
-    private final int runningNewDrivers;
-    private final int completedNewDrivers;
+    private final int totalNativeDrivers;
+    private final int queuedNativeDrivers;
+    private final int runningNativeDrivers;
+    private final int completedNativeDrivers;
 
     private final int totalSplits;
     private final int queuedSplits;
@@ -107,10 +107,10 @@ public class BasicQueryStats
             int queuedDrivers,
             int runningDrivers,
             int completedDrivers,
-            int totalNewDrivers,
-            int queuedNewDrivers,
-            int runningNewDrivers,
-            int completedNewDrivers,
+            int totalNativeDrivers,
+            int queuedNativeDrivers,
+            int runningNativeDrivers,
+            int completedNativeDrivers,
             int totalSplits,
             int queuedSplits,
             int runningSplits,
@@ -151,14 +151,14 @@ public class BasicQueryStats
         this.runningDrivers = runningDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
-        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
-        this.totalNewDrivers = totalNewDrivers;
-        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
-        this.queuedNewDrivers = queuedNewDrivers;
-        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
-        this.runningNewDrivers = runningNewDrivers;
-        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
-        this.completedNewDrivers = completedNewDrivers;
+        checkArgument(totalNativeDrivers >= 0, "totalNativeDrivers is negative");
+        this.totalNativeDrivers = totalNativeDrivers;
+        checkArgument(queuedNativeDrivers >= 0, "queuedNativeDrivers is negative");
+        this.queuedNativeDrivers = queuedNativeDrivers;
+        checkArgument(runningNativeDrivers >= 0, "runningNativeDrivers is negative");
+        this.runningNativeDrivers = runningNativeDrivers;
+        checkArgument(completedNativeDrivers >= 0, "completedNativeDrivers is negative");
+        this.completedNativeDrivers = completedNativeDrivers;
         checkArgument(totalSplits >= 0, "totalSplits is negative");
         this.totalSplits = totalSplits;
         checkArgument(queuedSplits >= 0, "queuedSplits is negative");
@@ -206,10 +206,10 @@ public class BasicQueryStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("totalNewDrivers") int totalNewDrivers,
-            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
-            @JsonProperty("runningNewDrivers") int runningNewDrivers,
-            @JsonProperty("completedNewDrivers") int completedNewDrivers,
+            @JsonProperty("totalNativeDrivers") int totalNativeDrivers,
+            @JsonProperty("queuedNativeDrivers") int queuedNativeDrivers,
+            @JsonProperty("runningNativeDrivers") int runningNativeDrivers,
+            @JsonProperty("completedNativeDrivers") int completedNativeDrivers,
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
             @JsonProperty("runningSplits") int runningSplits,
@@ -244,10 +244,10 @@ public class BasicQueryStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
-                totalNewDrivers,
-                queuedNewDrivers,
-                runningNewDrivers,
-                completedNewDrivers,
+                totalNativeDrivers,
+                queuedNativeDrivers,
+                runningNativeDrivers,
+                completedNativeDrivers,
                 totalSplits,
                 queuedSplits,
                 runningSplits,
@@ -285,10 +285,10 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
-                queryStats.getTotalNewDrivers(),
-                queryStats.getQueuedNewDrivers(),
-                queryStats.getRunningNewDrivers(),
-                queryStats.getCompletedNewDrivers(),
+                queryStats.getTotalNativeDrivers(),
+                queryStats.getQueuedNativeDrivers(),
+                queryStats.getRunningNativeDrivers(),
+                queryStats.getCompletedNativeDrivers(),
                 queryStats.getTotalSplits(),
                 queryStats.getQueuedSplits(),
                 queryStats.getRunningSplits(),
@@ -596,29 +596,29 @@ public class BasicQueryStats
 
     @ThriftField(34)
     @JsonProperty
-    public int getTotalNewDrivers()
+    public int getTotalNativeDrivers()
     {
-        return totalNewDrivers;
+        return totalNativeDrivers;
     }
 
     @ThriftField(35)
     @JsonProperty
-    public int getQueuedNewDrivers()
+    public int getQueuedNativeDrivers()
     {
-        return queuedNewDrivers;
+        return queuedNativeDrivers;
     }
 
     @ThriftField(36)
     @JsonProperty
-    public int getRunningNewDrivers()
+    public int getRunningNativeDrivers()
     {
-        return runningNewDrivers;
+        return runningNativeDrivers;
     }
 
     @ThriftField(37)
     @JsonProperty
-    public int getCompletedNewDrivers()
+    public int getCompletedNativeDrivers()
     {
-        return completedNewDrivers;
+        return completedNativeDrivers;
     }
 }
