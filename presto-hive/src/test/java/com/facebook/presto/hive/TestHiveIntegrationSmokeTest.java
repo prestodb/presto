@@ -1905,7 +1905,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 getSession(),
                 "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
-                "VALUES ('part1', 'bigint', '', ''), ('part2', 'varchar', '', '')");
+                "VALUES ('part1', 'bigint', '', '', 10L, null, null), ('part2', 'varchar', '', '', null, null, 2147483647L)");
 
         assertQueryFails(
                 getSession(),
@@ -2120,15 +2120,15 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         Type unboundedVarchar = canonicalizeType(VARCHAR);
-        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
-                .row("grape", canonicalizeTypeName("bigint"), "", "")
-                .row("orange", canonicalizeTypeName("bigint"), "", "")
-                .row("pear", canonicalizeTypeName("varchar(65535)"), "", "")
-                .row("mango", canonicalizeTypeName("integer"), "", "")
-                .row("lychee", canonicalizeTypeName("smallint"), "", "")
-                .row("kiwi", canonicalizeTypeName("tinyint"), "", "")
-                .row("apple", canonicalizeTypeName("varchar"), "partition key", "")
-                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "partition key", "")
+        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar, BIGINT, BIGINT, BIGINT)
+                .row("grape", canonicalizeTypeName("bigint"), "", "", 10L, null, null)
+                .row("orange", canonicalizeTypeName("bigint"), "", "", 10L, null, null)
+                .row("pear", canonicalizeTypeName("varchar(65535)"), "", "", null, null, 65535L)
+                .row("mango", canonicalizeTypeName("integer"), "", "", 10L, null, null)
+                .row("lychee", canonicalizeTypeName("smallint"), "", "", 10L, null, null)
+                .row("kiwi", canonicalizeTypeName("tinyint"), "", "", 10L, null, null)
+                .row("apple", canonicalizeTypeName("varchar"), "partition key", "", null, null, 2147483647L)
+                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "partition key", "", null, null, 65535L)
                 .build();
         assertEquals(actual, expected);
     }
@@ -3218,7 +3218,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA'), ('b', 'bigint', '', 'test comment BBB')");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 10, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 10, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
     }
 
