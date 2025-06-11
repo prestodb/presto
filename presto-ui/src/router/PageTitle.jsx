@@ -40,6 +40,7 @@ export class PageTitle extends React.Component<Props, State> {
             modalShown: false,
             errorText: null,
         };
+        this.refreshLoop = this.refreshLoop.bind(this);
     }
 
     refreshLoop() {
