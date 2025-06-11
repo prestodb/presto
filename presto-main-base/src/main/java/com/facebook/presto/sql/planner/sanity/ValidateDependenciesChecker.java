@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -96,22 +95,19 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, WarningCollector warningCollector)
     {
-        validate(plan, session);
+        validate(plan);
     }
 
-    public static void validate(PlanNode plan, Session session)
+    public static void validate(PlanNode plan)
     {
-        plan.accept(new Visitor(session), ImmutableSet.of());
+        plan.accept(new Visitor(), ImmutableSet.of());
     }
 
     private static class Visitor
             extends InternalPlanVisitor<Void, Set<VariableReferenceExpression>>
     {
-        private final Session session;
-
-        public Visitor(Session session)
+        public Visitor()
         {
-            this.session = session;
         }
 
         @Override
@@ -466,10 +462,6 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitIndexJoin(IndexJoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            if (SystemSessionProperties.isNativeExecutionEnabled(session)) {
-                // TODO: Validate index join plan for native execution.
-                return null;
-            }
             node.getProbeSource().accept(this, boundVariables);
             node.getIndexSource().accept(this, boundVariables);
 

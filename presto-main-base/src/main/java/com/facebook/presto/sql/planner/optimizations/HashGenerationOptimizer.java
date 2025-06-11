@@ -69,7 +69,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.skipHashGenerationForJoinWithTableScanInput;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -473,13 +472,6 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, HashComputationSet parentPreference)
         {
-            if (isNativeExecutionEnabled(session)) {
-                PlanWithProperties left = planAndEnforce(node.getProbeSource(), new HashComputationSet(), true, new HashComputationSet());
-                PlanWithProperties right = planAndEnforce(node.getIndexSource(), new HashComputationSet(), true, new HashComputationSet());
-                verify(left.getHashVariables().isEmpty(), "probe side of the index join should not include hash variables");
-                verify(right.getHashVariables().isEmpty(), "build side of the index join should not include hash variables");
-                return new PlanWithProperties(replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())), ImmutableMap.of());
-            }
             List<IndexJoinNode.EquiJoinClause> clauses = node.getCriteria();
 
             // join does not pass through preferred hash variables since they take more memory and since
