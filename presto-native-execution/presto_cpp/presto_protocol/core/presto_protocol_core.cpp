@@ -10178,32 +10178,32 @@ void to_json(json& j, const TaskStats& p) {
       "completedDrivers");
   to_json_key(
       j,
-      "totalNewDrivers",
-      p.totalNewDrivers,
+      "totalNativeDrivers",
+      p.totalNativeDrivers,
       "TaskStats",
       "int",
-      "totalNewDrivers");
+      "totalNativeDrivers");
   to_json_key(
       j,
-      "queuedNewDrivers",
-      p.queuedNewDrivers,
+      "queuedNativeDrivers",
+      p.queuedNativeDrivers,
       "TaskStats",
       "int",
-      "queuedNewDrivers");
+      "queuedNativeDrivers");
   to_json_key(
       j,
-      "runningNewDrivers",
-      p.runningNewDrivers,
+      "runningNativeDrivers",
+      p.runningNativeDrivers,
       "TaskStats",
       "int",
-      "runningNewDrivers");
+      "runningNativeDrivers");
   to_json_key(
       j,
-      "completedNewDrivers",
-      p.completedNewDrivers,
+      "completedNativeDrivers",
+      p.completedNativeDrivers,
       "TaskStats",
       "int",
-      "completedNewDrivers");
+      "completedNativeDrivers");
   to_json_key(
       j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
   to_json_key(
@@ -10489,32 +10489,32 @@ void from_json(const json& j, TaskStats& p) {
       "completedDrivers");
   from_json_key(
       j,
-      "totalNewDrivers",
-      p.totalNewDrivers,
+      "totalNativeDrivers",
+      p.totalNativeDrivers,
       "TaskStats",
       "int",
-      "totalNewDrivers");
+      "totalNativeDrivers");
   from_json_key(
       j,
-      "queuedNewDrivers",
-      p.queuedNewDrivers,
+      "queuedNativeDrivers",
+      p.queuedNativeDrivers,
       "TaskStats",
       "int",
-      "queuedNewDrivers");
+      "queuedNativeDrivers");
   from_json_key(
       j,
-      "runningNewDrivers",
-      p.runningNewDrivers,
+      "runningNativeDrivers",
+      p.runningNativeDrivers,
       "TaskStats",
       "int",
-      "runningNewDrivers");
+      "runningNativeDrivers");
   from_json_key(
       j,
-      "completedNewDrivers",
-      p.completedNewDrivers,
+      "completedNativeDrivers",
+      p.completedNativeDrivers,
       "TaskStats",
       "int",
-      "completedNewDrivers");
+      "completedNativeDrivers");
   from_json_key(
       j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
   from_json_key(
