@@ -2312,10 +2312,10 @@ struct TaskStats {
   int64_t runningPartitionedSplitsWeight = {};
   int blockedDrivers = {};
   int completedDrivers = {};
-  int totalNewDrivers = {};
-  int queuedNewDrivers = {};
-  int runningNewDrivers = {};
-  int completedNewDrivers = {};
+  int totalNativeDrivers = {};
+  int queuedNativeDrivers = {};
+  int runningNativeDrivers = {};
+  int completedNativeDrivers = {};
   int totalSplits = {};
   int queuedSplits = {};
   int runningSplits = {};

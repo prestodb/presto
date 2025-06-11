@@ -158,19 +158,19 @@ export class QueryListItem extends React.Component {
                      </span>
             </div>);
 
-        const newDriverDetails = (
+        const nativeDriverDetails = (
             <div className="col-12 tinystat-row">
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed drivers">
                     <span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatCount(query.progress.completedNewDrivers)}
+                    {formatCount(query.progress.completedNativeDrivers)}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running drivers">
                     <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningNewDrivers}
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningNativeDrivers}
                 </span>
                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued drivers">
                     <span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedNewDrivers}
+                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedNativeDrivers}
                     </span>
             </div>);
 
@@ -272,7 +272,7 @@ export class QueryListItem extends React.Component {
                         { query.progress.completedSplits ?
                             <>
                                 <div className="row stat-row">
-                                    {newDriverDetails}
+                                    {nativeDriverDetails}
                                 </div>
                                 <div className="row stat-row">
                                     {splitDetails}
