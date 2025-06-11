@@ -424,7 +424,6 @@ class PhoneNumberInputGenerator : public AbstractInputGenerator {
 /// them:
 ///  - On strings, arrays, and objects: .length()
 ///  - On arrays: [begin:end:step]
-
 class JsonPathGenerator : public AbstractInputGenerator {
  public:
   JsonPathGenerator(

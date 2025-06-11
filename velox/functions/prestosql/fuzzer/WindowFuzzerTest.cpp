@@ -122,6 +122,8 @@ int main(int argc, char** argv) {
       "array_agg",
       // Skip non-deterministic functions.
       "noisy_count_if_gaussian",
+      // https://github.com/facebookincubator/velox/issues/13547
+      "merge",
   };
 
   if (!FLAGS_presto_url.empty()) {

@@ -230,9 +230,10 @@ bool hasNestedDictionaryLayers(const VectorPtr& baseVector) {
 AbstractInputGeneratorPtr maybeGetCustomTypeInputGenerator(
     const TypePtr& type,
     const double nullRatio,
-    FuzzerGenerator& rng) {
+    FuzzerGenerator& rng,
+    memory::MemoryPool* pool) {
   if (customTypeExists(type->name())) {
-    InputGeneratorConfig config{rand<uint32_t>(rng), nullRatio};
+    InputGeneratorConfig config{rand<uint32_t>(rng), nullRatio, pool};
     return getCustomTypeInputGenerator(type->name(), config);
   }
 
@@ -269,7 +270,7 @@ VectorPtr VectorFuzzer::fuzz(
   vector_size_t vectorSize = size;
   const auto inputGenerator = customGenerator
       ? customGenerator
-      : maybeGetCustomTypeInputGenerator(type, opts_.nullRatio, rng_);
+      : maybeGetCustomTypeInputGenerator(type, opts_.nullRatio, rng_, pool_);
 
   bool usingLazyVector = opts_.allowLazyVector && coinToss(0.1);
   // Lazy Vectors cannot be sliced, so we skip this if using lazy wrapping.
@@ -332,7 +333,7 @@ VectorPtr VectorFuzzer::fuzzConstant(
     const AbstractInputGeneratorPtr& customGenerator) {
   const auto inputGenerator = customGenerator
       ? customGenerator
-      : maybeGetCustomTypeInputGenerator(type, opts_.nullRatio, rng_);
+      : maybeGetCustomTypeInputGenerator(type, opts_.nullRatio, rng_, pool_);
 
   // For constants, there are two possible cases:
   // - generate a regular constant vector (only for primitive types).
@@ -345,11 +346,6 @@ VectorPtr VectorFuzzer::fuzzConstant(
     if (type->isUnKnown()) {
       return BaseVector::createNullConstant(type, size, pool_);
     } else {
-      auto inputGenerator = customGenerator;
-      if (!inputGenerator && customTypeExists(type->name())) {
-        InputGeneratorConfig config{rand<uint32_t>(rng_), opts_.nullRatio};
-        inputGenerator = getCustomTypeInputGenerator(type->name(), config);
-      }
       return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
           fuzzConstantPrimitiveImpl,
           type->kind(),
@@ -406,11 +402,9 @@ VectorPtr VectorFuzzer::fuzzFlat(
     const TypePtr& type,
     vector_size_t size,
     const AbstractInputGeneratorPtr& customGenerator) {
-  auto inputGenerator = customGenerator;
-  if (!inputGenerator && customTypeExists(type->name())) {
-    InputGeneratorConfig config{rand<uint32_t>(rng_), opts_.nullRatio};
-    inputGenerator = getCustomTypeInputGenerator(type->name(), config);
-  }
+  const auto inputGenerator = customGenerator
+      ? customGenerator
+      : maybeGetCustomTypeInputGenerator(type, opts_.nullRatio, rng_, pool_);
   if (inputGenerator) {
     return fuzzer::ConstrainedVectorGenerator::generateFlat(
         inputGenerator, size, pool_);

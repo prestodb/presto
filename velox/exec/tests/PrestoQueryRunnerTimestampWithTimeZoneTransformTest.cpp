@@ -15,16 +15,14 @@
  */
 
 #include "velox/exec/fuzzer/PrestoQueryRunnerIntermediateTypeTransforms.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/exec/tests/PrestoQueryRunnerIntermediateTypeTransformTestBase.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/fuzzer_utils/TimestampWithTimeZoneInputGenerator.h"
 
 namespace facebook::velox::exec::test {
 namespace {
 class PrestoQueryRunnerTimestampWithTimeZoneTransformTest
-    : public functions::test::FunctionBaseTest {
+    : public PrestoQueryRunnerIntermediateTypeTransformTestBase {
  public:
   VectorPtr fuzzTimestampWithTimeZone(
       const size_t seed,
@@ -43,52 +41,6 @@ class PrestoQueryRunnerTimestampWithTimeZoneTransformTest
     }
 
     return makeNullableFlatVector(values, TIMESTAMP_WITH_TIME_ZONE());
-  }
-
-  void test(const VectorPtr& vector) {
-    const auto colName = "col";
-    const auto input =
-        makeRowVector({colName}, {transformIntermediateTypes(vector)});
-
-    auto expr = getProjectionsToIntermediateTypes(
-        vector->type(),
-        std::make_shared<core::FieldAccessExpr>(
-            colName,
-            std::nullopt,
-            std::vector<core::ExprPtr>{std::make_shared<core::InputExpr>()}),
-        colName);
-
-    core::PlanNodePtr plan =
-        PlanBuilder().values({input}).projectExpressions({expr}).planNode();
-
-    AssertQueryBuilder(plan).assertResults(makeRowVector({colName}, {vector}));
-  }
-
-  void testDictionary(const VectorPtr& base) {
-    // Wrap in a dictionary without nulls.
-    auto dict = BaseVector::wrapInDictionary(
-        nullptr, makeIndicesInReverse(100), 100, base);
-    test(dict);
-    // Wrap in a dictionary with some nulls.
-    test(BaseVector::wrapInDictionary(
-        makeNulls(100, [](vector_size_t row) { return row % 10 == 0; }),
-        makeIndicesInReverse(100),
-        100,
-        base));
-    // Wrap in a dictionary with all nulls.
-    test(BaseVector::wrapInDictionary(
-        makeNulls(100, [](vector_size_t) { return true; }),
-        makeIndicesInReverse(100),
-        100,
-        base));
-  }
-
-  void testConstant(const VectorPtr& base) {
-    // Test a non-null constant.
-    test(BaseVector::wrapInConstant(100, 0, base));
-    // Test a null constant.
-    test(BaseVector::createNullConstant(
-        ARRAY(TIMESTAMP_WITH_TIME_ZONE()), 100, pool_.get()));
   }
 };
 

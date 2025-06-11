@@ -134,6 +134,8 @@ int main(int argc, char** argv) {
       "any_value",
       // Skip non-deterministic functions.
       "noisy_count_if_gaussian",
+      // https://github.com/facebookincubator/velox/issues/13547
+      "merge",
   };
 
   static const std::unordered_set<std::string> functionsRequireSortedInput = {

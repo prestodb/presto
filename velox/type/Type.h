@@ -2025,6 +2025,10 @@ using CastOperatorPtr = std::shared_ptr<const CastOperator>;
 class variant;
 class AbstractInputGenerator;
 
+namespace memory {
+class MemoryPool;
+} // namespace memory
+
 using AbstractInputGeneratorPtr = std::shared_ptr<AbstractInputGenerator>;
 using FuzzerGenerator = folly::detail::DefaultGenerator;
 
@@ -2032,6 +2036,7 @@ struct InputGeneratorConfig {
   // TODO: hook up the rest options in VectorFuzzer::Options.
   size_t seed_;
   double nullRatio_;
+  memory::MemoryPool* pool_;
 };
 
 /// Associates custom types with their custom operators to be the payload in

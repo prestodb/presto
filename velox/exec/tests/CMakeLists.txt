@@ -72,7 +72,6 @@ add_executable(
   PlanNodeToStringTest.cpp
   PlanNodeToSummaryStringTest.cpp
   PrefixSortTest.cpp
-  PrestoQueryRunnerTimestampWithTimeZoneTransformTest.cpp
   PrintPlanWithStatsTest.cpp
   ProbeOperatorStateTest.cpp
   TraceUtilTest.cpp
@@ -205,6 +204,24 @@ target_link_libraries(
   gflags::gflags
   glog::glog
   fmt::fmt)
+
+add_executable(
+  velox_exec_util_test
+  Main.cpp PrestoQueryRunnerHyperLogLogTransformTest.cpp
+  PrestoQueryRunnerIntermediateTypeTransformTestBase.cpp
+  PrestoQueryRunnerTimestampWithTimeZoneTransformTest.cpp)
+
+add_test(velox_exec_util_test velox_exec_util_test)
+
+target_link_libraries(
+  velox_exec_util_test
+  velox_fuzzer_util
+  velox_exec_test_lib
+  velox_functions_test_lib
+  velox_presto_types
+  velox_presto_types_fuzzer_utils
+  GTest::gtest
+  GTest::gtest_main)
 
 add_executable(velox_in_10_min_demo VeloxIn10MinDemo.cpp)
 

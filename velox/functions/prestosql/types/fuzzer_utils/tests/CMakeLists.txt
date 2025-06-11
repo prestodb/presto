@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_presto_types_fuzzer_utils_test
-               TimestampWithTimeZoneInputGeneratorTest.cpp)
+add_executable(
+  velox_presto_types_fuzzer_utils_test
+  TimestampWithTimeZoneInputGeneratorTest.cpp HyperLogLogInputGeneratorTest.cpp)
 
 add_test(velox_presto_types_fuzzer_utils_test
          velox_presto_types_fuzzer_utils_test)
@@ -21,6 +22,7 @@ add_test(velox_presto_types_fuzzer_utils_test
 target_link_libraries(
   velox_presto_types_fuzzer_utils_test
   velox_presto_types_fuzzer_utils
+  velox_functions_test_lib
   velox_presto_types
   velox_type
   velox_type_tz

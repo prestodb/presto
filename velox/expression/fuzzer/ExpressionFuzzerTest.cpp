@@ -82,11 +82,6 @@ int main(int argc, char** argv) {
   // Use function name to exclude all signatures of a given function from
   // testing. Use function signature to exclude only a specific signature.
   std::unordered_set<std::string> skipFunctions = {
-      // Fuzzer and the underlying engine are confused about cardinality(HLL)
-      // (since HLL is a user defined type), and end up trying to use
-      // cardinality passing a VARBINARY (since HLL's implementation uses an
-      // alias to VARBINARY).
-      "cardinality",
       "element_at",
       "width_bucket",
       // Fuzzer and the underlying engine are confused about TDigest output
