@@ -34,28 +34,29 @@ constexpr char kNotNullByte = 0xff;
 constexpr uint64_t kNull64 = 0UL;
 constexpr uint64_t kNotNull64 = (~0UL);
 
-inline bool isBitNull(const uint64_t* bits, int32_t index) {
+inline bool isBitNull(const uint64_t* bits, uint32_t index) {
   return isBitSet(bits, index) == kNull;
 }
 
-inline void setNull(uint64_t* bits, int32_t index) {
+inline void setNull(uint64_t* bits, uint32_t index) {
   clearBit(bits, index);
 }
 
-inline void clearNull(uint64_t* bits, int32_t index) {
+inline void clearNull(uint64_t* bits, uint32_t index) {
   setBit(bits, index);
 }
 
-inline void setNull(uint64_t* bits, int32_t index, bool isNull) {
+inline void setNull(uint64_t* bits, uint32_t index, bool isNull) {
   setBit(bits, index, !isNull);
 }
 
 inline uint64_t
-countNonNulls(const uint64_t* nulls, int32_t begin, int32_t end) {
+countNonNulls(const uint64_t* nulls, uint32_t begin, uint32_t end) {
   return countBits(nulls, begin, end);
 }
 
-inline uint64_t countNulls(const uint64_t* nulls, int32_t begin, int32_t end) {
+inline uint64_t
+countNulls(const uint64_t* nulls, uint32_t begin, uint32_t end) {
   return (end - begin) - countNonNulls(nulls, begin, end);
 }
 
