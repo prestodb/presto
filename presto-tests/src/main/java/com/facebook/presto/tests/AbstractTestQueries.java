@@ -2889,28 +2889,28 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar", "", "")
+        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 10L, null, null)
+                .row("custkey", "bigint", "", "", 10L, null, null)
+                .row("orderstatus", "varchar", "", "", null, null, 2147483647L)
+                .row("totalprice", "double", "", "", 2L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar", "", "", null, null, 2147483647L)
+                .row("clerk", "varchar", "", "", null, null, 2147483647L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar", "", "", null, null, 2147483647L)
                 .build();
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(1)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(15)", "", "")
-                .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(79)", "", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 10L, null, null)
+                .row("custkey", "bigint", "", "", 10L, null, null)
+                .row("orderstatus", "varchar(1)", "", "", null, null, 1L)
+                .row("totalprice", "double", "", "", 2L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
+                .row("clerk", "varchar(15)", "", "", null, null, 15L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar(79)", "", "", null, null, 79L)
                 .build();
 
         // Until we migrate all connectors to parametrized varchar we check two options

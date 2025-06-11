@@ -12,4 +12,4 @@ Synopsis
 Description
 -----------
 
-List the columns in ``table`` along with their data type and other attributes.
+List the columns in ``table`` along with their data type and other attributes such as Extra, Comment, Precision, Scale, and Length.
