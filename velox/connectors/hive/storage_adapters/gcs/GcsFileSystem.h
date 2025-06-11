@@ -94,7 +94,9 @@ class GcsFileSystem : public FileSystem {
   void mkdir(std::string_view path, const DirectoryOptions& options = {})
       override;
 
-  /// Unsupported
+  /// Deletes the objects associated to a path using
+  /// google::cloud::storage::Client::ListObjects and
+  /// google::cloud::storage::Client::DeleteObjects
   void rmdir(std::string_view path) override;
 
  protected:

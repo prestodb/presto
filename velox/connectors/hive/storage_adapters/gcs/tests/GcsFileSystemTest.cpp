@@ -152,12 +152,24 @@ TEST_F(GcsFileSystemTest, mkdir) {
   ASSERT_TRUE(std::find(results.begin(), results.end(), dir) != results.end());
 }
 
-TEST_F(GcsFileSystemTest, rmdirNotImplemented) {
+TEST_F(GcsFileSystemTest, rmdir) {
   const std::string_view dir = "Directory";
   const auto gcsDirectory = gcsURI(emulator_->preexistingBucketName(), dir);
   filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
   gcfs.initializeClient();
-  VELOX_ASSERT_THROW(gcfs.rmdir(gcsDirectory), "rmdir for GCS not implemented");
+
+  auto writeFile = gcfs.openFileForWrite(gcsDirectory);
+  std::string_view kDataContent = "GcsFileSystemTest rename operation test";
+  writeFile->append(kDataContent.substr(0, 10));
+  writeFile->flush();
+  writeFile->close();
+
+  auto results = gcfs.list(gcsDirectory);
+  ASSERT_TRUE(std::find(results.begin(), results.end(), dir) != results.end());
+  gcfs.rmdir(gcsDirectory);
+
+  results = gcfs.list(gcsDirectory);
+  ASSERT_TRUE(std::find(results.begin(), results.end(), dir) == results.end());
 }
 
 TEST_F(GcsFileSystemTest, missingFile) {
