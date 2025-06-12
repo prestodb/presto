@@ -180,7 +180,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
+            <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
             <artifactId>resolver</artifactId>
         </dependency>
 
