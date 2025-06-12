@@ -2592,12 +2592,15 @@ DEBUG_ONLY_TEST_P(MultiFragmentTest, maxBytes) {
     return;
   }
   std::string s(25, 'x');
-  // Keep the row count under 7000 to avoid hitting the row limit in the
-  // operator instead.
+  // This number is chosen so that serialization of all the 100 vectors can fit
+  // in 32MB (the QueryConfig::maxOutputBufferSize).  Otherwise the driver is
+  // blocked, since the data consumed by DataFetcher is so small that the
+  // remaining buffered data is still larger than OutputBuffer::continueSize_.
+  constexpr int kNumRows = 4'800;
   auto data = makeRowVector({
-      makeFlatVector<int64_t>(5'000, [](auto row) { return row; }),
-      makeFlatVector<int64_t>(5'000, [](auto row) { return row; }),
-      makeConstant(StringView(s), 5'000),
+      makeFlatVector<int64_t>(kNumRows, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(kNumRows, [](auto row) { return row; }),
+      makeConstant(StringView(s), kNumRows),
   });
 
   core::PlanNodeId outputNodeId;
