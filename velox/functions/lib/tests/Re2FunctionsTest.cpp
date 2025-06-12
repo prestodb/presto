@@ -21,6 +21,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "velox/common/base/VeloxException.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -1560,6 +1561,26 @@ TEST_F(Re2FunctionsTest, split) {
       {"", "a", "b", ""},
       {""},
       {"a", "b"},
+  });
+  assertEqualVectors(expected, result);
+
+  // Test for empty matches
+  result = evaluate("regexp_split(c0, '')", input);
+  expected = makeArrayVector<std::string>({
+      {"", "1", "a", " ", "2", "b", " ", "1", "4", "m", ""},
+      {"", "1", "a", " ", "2", "b", " ", "1", "4", ""},
+      {"", ""},
+      {"", "a", "1", "2", "3", "b", ""},
+  });
+  assertEqualVectors(expected, result);
+
+  // Test for another case of empty matches
+  result = evaluate("regexp_split(c0, '\\s*[a-z]*\\s*')", input);
+  expected = makeArrayVector<std::string>({
+      {"", "1", "", "2", "", "1", "4", "", ""},
+      {"", "1", "", "2", "", "1", "4", ""},
+      {"", ""},
+      {"", "", "1", "2", "3", "", ""},
   });
   assertEqualVectors(expected, result);
 }

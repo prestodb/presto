@@ -409,6 +409,7 @@ struct Re2RegexpSplit {
     const auto re2String = re2::StringPiece(string.data(), string.size());
 
     size_t pos = 0;
+    size_t lastEnd = 0;
     const char* start = string.data();
 
     re2::StringPiece subMatches[1];
@@ -423,16 +424,24 @@ struct Re2RegexpSplit {
       const auto offset = fullMatch.data() - start;
       const auto size = fullMatch.size();
 
-      out.add_item().setNoCopy(StringView(string.data() + pos, offset - pos));
+      out.add_item().setNoCopy(
+          StringView(string.data() + lastEnd, offset - lastEnd));
 
-      pos = offset + size;
+      lastEnd = offset + size;
       if (UNLIKELY(size == 0)) {
-        ++pos;
+        pos = lastEnd + 1;
+      } else {
+        pos = lastEnd;
       }
     }
 
-    out.add_item().setNoCopy(
-        StringView(string.data() + pos, string.size() - pos));
+    if (LIKELY(pos <= string.size())) {
+      out.add_item().setNoCopy(
+          StringView(string.data() + pos, string.size() - pos));
+    } else {
+      static const StringView kEmptyString(nullptr, 0);
+      out.add_item().setNoCopy(kEmptyString);
+    }
   }
 
  private:
