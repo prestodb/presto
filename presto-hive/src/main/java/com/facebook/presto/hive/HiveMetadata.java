@@ -42,7 +42,7 @@ import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
+import com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil;
 import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -336,7 +336,7 @@ import static com.facebook.presto.hive.metastore.Statistics.createComputedStatis
 import static com.facebook.presto.hive.metastore.Statistics.createEmptyPartitionStatistics;
 import static com.facebook.presto.hive.metastore.Statistics.reduce;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
+import static com.facebook.presto.hive.metastore.hms.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;

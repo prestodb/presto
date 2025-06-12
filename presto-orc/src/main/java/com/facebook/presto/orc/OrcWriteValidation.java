@@ -525,6 +525,8 @@ public class OrcWriteValidation
             expectedStringStatistics = new StringStatistics(
                     minStringTruncateToValidRange(expectedStringStatistics.getMin(), HiveWriterVersion.ORC_HIVE_8732),
                     maxStringTruncateToValidRange(expectedStringStatistics.getMax(), HiveWriterVersion.ORC_HIVE_8732),
+                    expectedStringStatistics.isLowerBoundSet(),
+                    expectedStringStatistics.isUpperBoundSet(),
                     expectedStringStatistics.getSum());
         }
         StringStatistics actualStringStatistics = actualColumnStatistics.getStringStatistics();

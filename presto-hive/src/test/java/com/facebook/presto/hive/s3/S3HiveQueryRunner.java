@@ -17,16 +17,19 @@ import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
-import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.StaticMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
+import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
@@ -47,8 +50,12 @@ public final class S3HiveQueryRunner
     {
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         ThriftHiveMetastoreConfig thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
+        HttpHiveMetastoreConfig httpHiveMetastoreConfig = new HttpHiveMetastoreConfig();
+        StaticMetastoreConfig staticMetastoreConfig = new StaticMetastoreConfig();
         if (!additionalHiveClientProperties.isEmpty()) {
-            thriftHiveMetastoreConfig.setTlsEnabled(Boolean.parseBoolean(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled")));
+            if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled") != null) {
+                thriftHiveMetastoreConfig.setTlsEnabled(Boolean.parseBoolean(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled")));
+            }
             if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore-path") != null) {
                 thriftHiveMetastoreConfig.setKeystorePath(new File(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore-path")));
                 thriftHiveMetastoreConfig.setKeystorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore-password"));
@@ -57,6 +64,37 @@ public final class S3HiveQueryRunner
                 thriftHiveMetastoreConfig.setTruststorePath(new File(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore-path")));
                 thriftHiveMetastoreConfig.setTrustStorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore-password"));
             }
+
+            // HTTP TLS Config
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.enabled"))
+                    .map(Boolean::parseBoolean)
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsEnabled);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-path"))
+                    .map(File::new)
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsKeystorePath);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.keystore-password"))
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsKeystorePassword);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-path"))
+                    .map(File::new)
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsTruststorePath);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.tls.truststore-password"))
+                    .ifPresent(httpHiveMetastoreConfig::setHttpMetastoreTlsTruststorePassword);
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.authentication.type"))
+                    .flatMap(authType ->
+                            Arrays.stream(HttpHiveMetastoreConfig.HttpHiveMetastoreClientAuthenticationType.values())
+                                    .filter(type -> type.name().equalsIgnoreCase(authType))
+                                    .findFirst())
+                    .ifPresent(httpHiveMetastoreConfig::setHttpHiveMetastoreClientAuthenticationType);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.http.client.bearer-token"))
+                    .ifPresent(httpHiveMetastoreConfig::setHttpBearerToken);
+
+            Optional.ofNullable(additionalHiveClientProperties.get("hive.metastore.uri"))
+                    .ifPresent(staticMetastoreConfig::setMetastoreUris);
         }
         return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(),
                 ImmutableMap.of(), "sql-standard",
@@ -73,8 +111,9 @@ public final class S3HiveQueryRunner
                         new ThriftHiveMetastore(
                                 new TestingHiveCluster(metastoreClientConfig,
                                         thriftHiveMetastoreConfig,
+                                        httpHiveMetastoreConfig,
                                         hiveEndpoint.getHost(),
-                                        hiveEndpoint.getPort(), new HiveCommonClientConfig()), metastoreClientConfig,
+                                        hiveEndpoint.getPort(), new HiveCommonClientConfig(), staticMetastoreConfig), metastoreClientConfig,
                                 HDFS_ENVIRONMENT),
                         new HivePartitionMutator())),
                 ImmutableMap.of());

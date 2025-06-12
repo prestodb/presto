@@ -339,10 +339,16 @@ public class OrcMetadataReader
             return null;
         }
 
-        Slice maximum = stringStatistics.hasMaximum() ? maxStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMaximumBytes()), hiveWriterVersion) : null;
-        Slice minimum = stringStatistics.hasMinimum() ? minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
+        Slice maximum = stringStatistics.hasUpperBound() ?
+                maxStringTruncateToValidRange(byteStringToSlice(stringStatistics.getUpperBoundBytes()), hiveWriterVersion) :
+                stringStatistics.hasMaximum() ?
+                        maxStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMaximumBytes()), hiveWriterVersion) : null;
+        Slice minimum = stringStatistics.hasLowerBound() ?
+                minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getLowerBoundBytes()), hiveWriterVersion) :
+                stringStatistics.hasMinimum() ?
+                        minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
         long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
-        return new StringStatistics(minimum, maximum, sum);
+        return new StringStatistics(minimum, maximum, stringStatistics.hasLowerBound(), stringStatistics.hasUpperBound(), sum);
     }
 
     private static DecimalStatistics toDecimalStatistics(OrcProto.DecimalStatistics decimalStatistics)
