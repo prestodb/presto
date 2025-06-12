@@ -14,10 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 
+// TODO: these tests are disabled because they rely on an expired certificate
+@Test(enabled = false)
 public class TestHiveSslWithKeyStore
         extends AbstractHiveSslTest
 {
