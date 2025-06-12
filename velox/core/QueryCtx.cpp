@@ -100,8 +100,10 @@ void QueryCtx::updateTracedBytesAndCheckLimit(uint64_t bytes) {
 std::unique_ptr<memory::MemoryReclaimer> QueryCtx::MemoryReclaimer::create(
     QueryCtx* queryCtx,
     memory::MemoryPool* pool) {
-  return std::unique_ptr<memory::MemoryReclaimer>(
-      new QueryCtx::MemoryReclaimer(queryCtx->shared_from_this(), pool));
+  return std::unique_ptr<memory::MemoryReclaimer>(new QueryCtx::MemoryReclaimer(
+      queryCtx->shared_from_this(),
+      pool,
+      queryCtx->queryConfig().queryMemoryReclaimerPriority()));
 }
 
 uint64_t QueryCtx::MemoryReclaimer::reclaim(

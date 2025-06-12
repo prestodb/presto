@@ -638,6 +638,11 @@ class QueryConfig {
   /// a single output for each input batch.
   static constexpr const char* kUnnestSplitOutput = "unnest_split_output";
 
+  /// Priority of the query in the memory pool reclaimer. Lower value means
+  /// higher priority. This is used in global arbitration victim selection.
+  static constexpr const char* kQueryMemoryReclaimerPriority =
+      "query_memory_reclaimer_priority";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -1160,6 +1165,11 @@ class QueryConfig {
 
   bool unnestSplitOutput() const {
     return get<bool>(kUnnestSplitOutput, true);
+  }
+
+  int32_t queryMemoryReclaimerPriority() const {
+    return get<int32_t>(
+        kQueryMemoryReclaimerPriority, std::numeric_limits<int32_t>::max());
   }
 
   template <typename T>

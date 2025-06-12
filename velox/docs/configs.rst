@@ -264,6 +264,11 @@ Memory Management
        memory limit for partial aggregation is automatically doubled up to `max_extended_partial_aggregation_memory`.
        This adaptation is disabled by default, since the value of `max_extended_partial_aggregation_memory` equals the
        value of `max_partial_aggregation_memory`. Specify higher value for `max_extended_partial_aggregation_memory` to enable.
+   * - query_memory_reclaimer_priority
+     - integer
+     - 2147483647
+     - Priority of the query in the memory pool reclaimer. Lower value means higher priority. This is used in
+       global arbitration victim selection.
 
 Spilling
 --------
