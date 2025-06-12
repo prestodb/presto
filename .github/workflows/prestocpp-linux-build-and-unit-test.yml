@@ -3,10 +3,6 @@ name: prestocpp-linux-build-and-unit-test
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - 'presto-native-execution/**'
-      - 'presto-native-sidecar-plugin/**'
-      - '.github/workflows/prestocpp-linux-build-and-unit-test.yml'
   push:
     branches:
       - master
