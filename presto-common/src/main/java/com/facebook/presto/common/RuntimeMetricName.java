@@ -55,6 +55,8 @@ public class RuntimeMetricName
     public static final String CREATE_SCHEDULER_TIME_NANOS = "createSchedulerTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
+    public static final String VALIDATE_FINAL_PLAN_TIME_NANOS = "validateFinalPlanTimeNanos";
+    public static final String VALIDATE_INTERMEDIATE_PLAN_TIME_NANOS = "validateIntermediatePlanTimeNanos";
     public static final String GET_CANONICAL_INFO_TIME_NANOS = "getCanonicalInfoTimeNanos";
     public static final String FRAGMENT_PLAN_TIME_NANOS = "fragmentPlanTimeNanos";
     public static final String GET_LAYOUT_TIME_NANOS = "getLayoutTimeNanos";

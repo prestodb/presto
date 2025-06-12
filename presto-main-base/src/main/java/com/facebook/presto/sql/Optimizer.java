@@ -47,6 +47,8 @@ import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeou
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerResults;
+import static com.facebook.presto.common.RuntimeMetricName.VALIDATE_FINAL_PLAN_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.VALIDATE_INTERMEDIATE_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
@@ -100,7 +102,7 @@ public class Optimizer
 
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
-        planChecker.validateIntermediatePlan(root, session, metadata, warningCollector);
+        validateIntermediatePlanWithRuntimeStats(root);
 
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
@@ -120,14 +122,25 @@ public class Optimizer
                 root = optimizerResult.getPlanNode();
             }
         }
-
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planChecker.validateFinalPlan(root, session, metadata, warningCollector);
+            validateFinalPlanWithRuntimeStats(root);
         }
 
         TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
         return new Plan(root, types, computeStats(root, types));
+    }
+
+    private void validateIntermediatePlanWithRuntimeStats(PlanNode root)
+    {
+        session.getRuntimeStats().recordWallAndCpuTime(VALIDATE_INTERMEDIATE_PLAN_TIME_NANOS,
+                () -> planChecker.validateIntermediatePlan(root, session, metadata, warningCollector));
+    }
+
+    private void validateFinalPlanWithRuntimeStats(PlanNode root)
+    {
+        session.getRuntimeStats().recordWallAndCpuTime(VALIDATE_FINAL_PLAN_TIME_NANOS,
+                () -> planChecker.validateFinalPlan(root, session, metadata, warningCollector));
     }
 
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
