@@ -153,7 +153,8 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
         int64_t noise = 0;
         if (addNoise) {
           double rawNoise = dist(rng);
-
+          VELOX_CHECK_GT(rawNoise, -1.0 * std::numeric_limits<int64_t>::max());
+          VELOX_CHECK_LE(rawNoise, std::numeric_limits<int64_t>::max());
           noise = static_cast<int64_t>(
               std::round(rawNoise)); // Need to round back to int64_t because
                                      // we want to return int64_t
@@ -162,7 +163,7 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
         // Check and make sure the count is within int64_t range
         int64_t trueCount = static_cast<int64_t>(accumulator->count);
         VELOX_DCHECK_LT(trueCount, std::numeric_limits<int64_t>::max());
-        int64_t noisyCount = trueCount + noise;
+        int64_t noisyCount = checkedPlus(trueCount, noise);
 
         // Post-process the noisy count to make sure it is non-negative
         if (noisyCount < 0) {
@@ -210,7 +211,8 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       }
       accumulator->checkAndSetNoiseScale(noiseScaleValue);
 
-      if (args.size() == 3 && !decodedRandomSeed_.isNullAt(i)) {
+      if (args.size() == 3 && args[2]->isConstantEncoding() &&
+          !decodedRandomSeed_.isNullAt(i)) {
         accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int32_t>(i));
       }
     });
@@ -282,7 +284,8 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       }
       accumulator->checkAndSetNoiseScale(noiseScaleValue);
 
-      if (args.size() == 3 && !decodedRandomSeed_.isNullAt(i)) {
+      if (args.size() == 3 && args[2]->isConstantEncoding() &&
+          !decodedRandomSeed_.isNullAt(i)) {
         accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int32_t>(i));
       }
     });
