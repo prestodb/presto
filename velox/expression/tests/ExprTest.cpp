@@ -58,6 +58,13 @@ class ExprTest : public testing::Test, public VectorTestBase {
     parse::registerTypeResolver();
   }
 
+  void setQueryTimeZone(const std::string& timeZone) {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kSessionTimezone, timeZone},
+        {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
+    });
+  }
+
   core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType,
@@ -4987,13 +4994,13 @@ TEST_F(ExprTest, disabledeferredLazyLoading) {
 TEST_F(ExprTest, evaluateConstantExpression) {
   auto eval = [&](const std::string& sql) {
     auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
-    return exec::tryEvaluateConstantExpression(expr, pool());
+    return exec::tryEvaluateConstantExpression(expr, pool(), queryCtx_);
   };
 
   auto evalNoThrow = [&](const std::string& sql) {
     auto expr = parseExpression(sql, ROW({"a"}, {BIGINT()}));
     return exec::tryEvaluateConstantExpression(
-        expr, pool(), true /* supressEvaluationFailures */);
+        expr, pool(), queryCtx_, true /* supressEvaluationFailures */);
   };
 
   assertEqualVectors(eval("1 + 2"), makeConstant<int64_t>(3, 1));
@@ -5014,6 +5021,17 @@ TEST_F(ExprTest, evaluateConstantExpression) {
       eval(
           "try(coalesce(array_min_by(array[1, 2, 3], x -> x / 0), 0::INTEGER))"),
       makeNullConstant(TypeKind::INTEGER, 1));
+
+  // Verify that constant folding takes into account query config.
+  setQueryTimeZone("America/Los_Angeles");
+  assertEqualVectors(
+      eval("date_format(from_unixtime(0.0), '%Y-%m-%d %H:%i')"),
+      makeConstant<std::string>("1969-12-31 16:00", 1));
+
+  setQueryTimeZone("America/New_York");
+  assertEqualVectors(
+      eval("date_format(from_unixtime(0.0), '%Y-%m-%d %H:%i')"),
+      makeConstant<std::string>("1969-12-31 19:00", 1));
 
   EXPECT_TRUE(eval("a + 1") == nullptr);
 

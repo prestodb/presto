@@ -2040,8 +2040,8 @@ core::ExecCtx* SimpleExpressionEvaluator::ensureExecCtx() {
 VectorPtr tryEvaluateConstantExpression(
     const core::TypedExprPtr& expr,
     memory::MemoryPool* pool,
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
     bool suppressEvaluationFailures) {
-  auto queryCtx = velox::core::QueryCtx::create();
   velox::core::ExecCtx execCtx{pool, queryCtx.get()};
   velox::exec::ExprSet exprSet({expr}, &execCtx);
 
