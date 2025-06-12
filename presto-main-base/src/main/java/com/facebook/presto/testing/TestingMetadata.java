@@ -146,7 +146,7 @@ public class TestingMetadata
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
                 columns.add(ColumnMetadata.builder()
-                        .setName(column.getName())
+                        .setName(normalizeIdentifier(session, column.getName()))
                         .setType(column.getType())
                         .build());
             }
@@ -289,7 +289,7 @@ public class TestingMetadata
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
         columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builder()
-                .setName(target)
+                .setName(normalizeIdentifier(session, target))
                 .setType(columnMetadata.getType())
                 .setComment(columnMetadata.getComment().orElse(null))
                 .setHidden(columnMetadata.isHidden())

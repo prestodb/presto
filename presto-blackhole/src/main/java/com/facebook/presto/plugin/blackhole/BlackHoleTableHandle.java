@@ -126,13 +126,6 @@ public final class BlackHoleTableHandle
         return pageProcessingDelay;
     }
 
-    public ConnectorTableMetadata toTableMetadata()
-    {
-        return new ConnectorTableMetadata(
-                toSchemaTableName(),
-                columnHandles.stream().map(BlackHoleColumnHandle::toColumnMetadata).collect(toList()));
-    }
-
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
