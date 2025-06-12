@@ -384,8 +384,12 @@
                     <artifactId>elasticsearch-core</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.elasticsearch</groupId>
+                    <artifactId>elasticsearch-grok</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.apache.lucene</groupId>
-                    <artifactId>lucene-queryparser</artifactId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
