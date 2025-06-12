@@ -42,6 +42,8 @@
 
         <air.java.version>1.8.0-151</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
+        <dep.maven-resolver.version>1.9.6</dep.maven-resolver.version>
+        <dep.maven-dependency.version>3.8.8</dep.maven-dependency.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
         <dep.airlift.version>0.216</dep.airlift.version>
@@ -66,7 +68,7 @@
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
-        <dep.slf4j.version>1.7.36</dep.slf4j.version>
+        <dep.slf4j.version>2.0.16</dep.slf4j.version>
         <dep.kafka.version>3.9.0</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
@@ -1379,15 +1381,99 @@
             </dependency>
 
             <dependency>
-                <groupId>org.sonatype.aether</groupId>
-                <artifactId>aether-api</artifactId>
-                <version>1.13.1</version>
+                <groupId>com.facebook.airlift.resolver</groupId>
+                <artifactId>resolver</artifactId>
+                <version>1.7</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.resolver</groupId>
-                <artifactId>resolver</artifactId>
-                <version>1.4</version>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-api</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-spi</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-util</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-impl</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-connector-basic</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-transport-file</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-transport-http</artifactId>
+                <version>${dep.maven-resolver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-core</artifactId>
+                <version>${dep.maven-dependency.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-compat</artifactId>
+                <version>${dep.maven-dependency.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-model</artifactId>
+                <version>${dep.maven-dependency.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-resolver-provider</artifactId>
+                <version>${dep.maven-dependency.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-artifact</artifactId>
+                <version>${dep.maven-dependency.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-model-builder</artifactId>
+                <version>${dep.maven-dependency.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-repository-metadata</artifactId>
+                <version>${dep.maven-dependency.version}</version>
             </dependency>
 
             <dependency>
@@ -2682,8 +2768,6 @@
                         <rules>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
-                                    <!-- TODO: fix this in Airlift resolver -->
-                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
