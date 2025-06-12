@@ -142,6 +142,11 @@ function install_adapters {
   run_and_time install_hdfs
 }
 
+function install_faiss_deps {
+  dnf install -y openblas-devel
+  dnf install -y libomp
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_dnf
   run_and_time install_conda
@@ -164,6 +169,7 @@ function install_velox_deps {
   run_and_time install_xsimd
   run_and_time install_simdjson
   run_and_time install_geos
+  run_and_time install_faiss
 }
 
 (return 2> /dev/null) && return # If script was sourced, don't run commands.

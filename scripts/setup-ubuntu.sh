@@ -227,6 +227,10 @@ function install_adapters {
   run_and_time install_hdfs
 }
 
+function install_faiss_deps {
+  sudo apt-get install -y libopenblas-dev libomp-dev
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_apt
   run_and_time install_fmt
@@ -246,6 +250,7 @@ function install_velox_deps {
   run_and_time install_xsimd
   run_and_time install_simdjson
   run_and_time install_geos
+  run_and_time install_faiss
 }
 
 function install_apt_deps {

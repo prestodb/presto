@@ -40,6 +40,7 @@ export CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 openssl protobuf@21 simdjson snappy xz xxhash zstd"
+
 MACOS_BUILD_DEPS="ninja cmake"
 
 SUDO="${SUDO:-""}"
@@ -133,6 +134,38 @@ function install_duckdb_clang {
   fi
 }
 
+function install_faiss_deps {
+  brew install openblas
+  brew install libomp
+}
+
+function install_faiss {
+  if [[ "$BUILD_FAISS" == "true" ]]; then
+    # Install OpenBLAS and libomp if not already installed
+    install_faiss_deps
+
+    wget_and_untar "https://github.com/facebookresearch/faiss/archive/refs/tags/v${FAISS_VERSION}.tar.gz" faiss
+
+    local cmake_args
+    cmake_args=(
+      -DFAISS_ENABLE_GPU=OFF
+      -DFAISS_ENABLE_PYTHON=OFF
+      -DFAISS_ENABLE_REMOTE=OFF
+      -DFAISS_ENABLE_GPU_TESTS=OFF
+      -DFAISS_ENABLE_BENCHMARKS=OFF
+      -DFAISS_ENABLE_GPU=OFF
+      -FAISS_ENABLE_MKL=OFF
+    )
+
+    local libomp_prefix
+    libomp_prefix=$(brew --prefix libomp)
+    cmake_args+=(
+      "-DCMAKE_PREFIX_PATH=${libomp_prefix}"
+    )
+    cmake_install_dir faiss "${cmake_args[@]}"
+  fi
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_brew
   run_and_time install_ranges_v3
@@ -152,8 +185,9 @@ function install_velox_deps {
 # See https://github.com/facebook/fbthrift/pull/317 for an explanation.
 # run_and_time install_thrift
   run_and_time install_arrow
-  run_and_time install_duckdb_clang 
+  run_and_time install_duckdb_clang
   run_and_time install_geos
+  run_and_time install_faiss
 }
 
 (return 2> /dev/null) && return # If script was sourced, don't run commands.

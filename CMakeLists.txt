@@ -160,6 +160,7 @@ option(
   OFF)
 option(VELOX_SIMDJSON_SKIPUTF8VALIDATION
        "Skip simdjson utf8 validation in JSON parsing" OFF)
+option(VELOX_ENABLE_FAISS "Build faiss vector search support" OFF)
 
 # Explicitly force compilers to generate colored output. Compilers usually do
 # this by default if they detect the output is a terminal, but this assumption
@@ -227,6 +228,11 @@ endif()
 if(${VELOX_ENABLE_DUCKDB})
   velox_set_source(DuckDB)
   velox_resolve_dependency(DuckDB)
+endif()
+
+if(VELOX_ENABLE_FAISS)
+  velox_set_source(faiss)
+  velox_resolve_dependency(faiss)
 endif()
 
 if(DEFINED ENV{INSTALL_PREFIX})

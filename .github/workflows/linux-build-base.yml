@@ -39,6 +39,7 @@ jobs:
       GTest_SOURCE: BUNDLED
       cudf_SOURCE: BUNDLED
       CUDA_VERSION: '12.8'
+      faiss_SOURCE: SYSTEM
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     steps:
       - uses: actions/checkout@v4
@@ -93,6 +94,7 @@ jobs:
             "-DVELOX_ENABLE_EXAMPLES=ON"
             "-DVELOX_ENABLE_ARROW=ON"
             "-DVELOX_ENABLE_GEO=ON"
+            "-DVELOX_ENABLE_FAISS=ON"
             "-DVELOX_ENABLE_PARQUET=ON"
             "-DVELOX_ENABLE_HDFS=ON"
             "-DVELOX_ENABLE_S3=ON"

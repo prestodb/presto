@@ -22,6 +22,7 @@ VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly and gflags shared f
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 BUILD_GEOS="${BUILD_GEOS:-true}"
+BUILD_FAISS="${BUILD_FAISS:-true}"
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 EXTRA_ARROW_OPTIONS=${EXTRA_ARROW_OPTIONS:-""}
 
@@ -223,6 +224,26 @@ function install_geos {
     cmake_install_dir geos -DBUILD_TESTING=OFF
   fi
 }
+
+function install_faiss_deps {
+  echo "Unsupported platform for faiss"
+}
+
+function install_faiss {
+  if [[ "$BUILD_FAISS" == "true" ]]; then
+    # Install OpenBLAS and libomp if not already installed
+    install_faiss_deps
+
+    wget_and_untar "https://github.com/facebookresearch/faiss/archive/refs/tags/v${FAISS_VERSION}.tar.gz" faiss
+    cmake_install_dir faiss \
+      -DFAISS_ENABLE_GPU=OFF \
+      -DFAISS_ENABLE_PYTHON=OFF \
+      -DFAISS_ENABLE_REMOTE=OFF \
+      -DFAISS_ENABLE_GPU_TESTS=OFF \
+      -DFAISS_ENABLE_BENCHMARKS=OFF
+  fi
+}
+
 
 # Adapters that can be installed.
 

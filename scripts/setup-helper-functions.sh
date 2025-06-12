@@ -196,11 +196,12 @@ function wget_and_untar {
 }
 
 function cmake_install_dir {
-  pushd "${DEPENDENCY_DIR}/$1"
+  pushd "${DEPENDENCY_DIR}/$1" || return 1
   # remove the directory argument
   shift
+  # shellcheck disable=SC2068
   cmake_install $@
-  popd
+  popd || return 1
 }
 
 function cmake_install {
