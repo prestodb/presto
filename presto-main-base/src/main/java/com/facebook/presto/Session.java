@@ -645,7 +645,7 @@ public final class Session
             this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
             this.runtimeStats = requireNonNull(session.runtimeStats, "runtimeStats is null");
             this.queryType = requireNonNull(session.queryType, "queryType is null");
-            this.certificates.addAll(session.certificates);
+            this.certificates = ImmutableList.copyOf(requireNonNull(session.certificates, "certificates is null"));
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
