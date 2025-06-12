@@ -7,9 +7,6 @@ on:
   # - use smaller image - in the works
   # - remove the adapters downloaded files after install - JWT needs fixing because of the cmake files end up
   #pull_request:
-  #  paths:
-  #    - 'presto-native-execution/scripts/**'
-  #    - '.github/workflows/prestocpp-linux-adapters-build.yml'
 
 jobs:
   prestocpp-linux-adapters-build:
