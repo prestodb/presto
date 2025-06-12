@@ -89,12 +89,12 @@ public class ParquetWriter
     public static final Slice MAGIC = wrappedBuffer("PAR1".getBytes(US_ASCII));
 
     public ParquetWriter(OutputStream outputStream,
-                         MessageType messageType,
-                         Map<List<String>, Type> primitiveTypes,
-                         List<String> columnNames,
-                         List<Type> types,
-                         ParquetWriterOptions writerOption,
-                         String compressionCodecClass)
+            MessageType messageType,
+            Map<List<String>, Type> primitiveTypes,
+            List<String> columnNames,
+            List<Type> types,
+            ParquetWriterOptions writerOption,
+            String compressionCodecClass)
     {
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
         this.names = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -335,7 +335,8 @@ public class ParquetWriter
         else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.Lz4Codec")) {
             return LZ4;
         }
-        else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.ZStandardCodec")) {
+        else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.ZStandardCodec") ||
+                compressionCodecClass.equals("org.apache.parquet.hadoop.codec.ZstandardCodec")) {
             return ZSTD;
         }
         throw new IllegalArgumentException("Invalid compressionCodec: " + compressionCodecClass);

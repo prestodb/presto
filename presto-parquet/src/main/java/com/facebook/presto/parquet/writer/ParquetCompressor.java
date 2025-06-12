@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.writer;
 
 import io.airlift.compress.Compressor;
+import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.Slices;
@@ -42,6 +43,8 @@ interface ParquetCompressor
                 return new GzipCompressor();
             case SNAPPY:
                 return new AirLiftCompressor(new SnappyCompressor());
+            case LZ4:
+                return new AirLiftCompressor(new Lz4Compressor());
             case ZSTD:
                 return new AirLiftCompressor(new ZstdCompressor());
             case UNCOMPRESSED:

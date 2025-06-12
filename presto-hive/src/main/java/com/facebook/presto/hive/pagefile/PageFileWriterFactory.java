@@ -55,7 +55,6 @@ import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.pagefile.PageFileFooterOutput.createEmptyPageFileFooterOutput;
 import static com.facebook.presto.hive.util.ConfigurationUtils.PAGE_FILE_COMPRESSION;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -92,11 +91,6 @@ public class PageFileWriterFactory
         }
 
         HiveCompressionCodec compression = HiveCompressionCodec.valueOf(configuration.get(PAGE_FILE_COMPRESSION));
-        if (!compression.isSupportedStorageFormat(PAGEFILE)) {
-            throw new PrestoException(
-                    GENERIC_USER_ERROR,
-                    format("%s compression is not supported for %s", compression.name(), PAGEFILE.getOutputFormat()));
-        }
         PagesSerde pagesSerde = createPagesSerdeForPageFile(blockEncodingSerde, Optional.of(compression));
 
         try {
