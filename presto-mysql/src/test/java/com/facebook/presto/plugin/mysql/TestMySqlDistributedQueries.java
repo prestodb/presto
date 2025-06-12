@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -67,7 +68,7 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
-    public void testShowColumns()
+    public void testShowColumns(@Optional("PARQUET") String storageFormat)
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
