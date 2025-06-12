@@ -75,7 +75,8 @@ public abstract class AbstractHiveSslTest
         closeAllRuntimeException(dockerizedS3DataLake);
     }
 
-    @Test
+    // TODO: these tests are disabled because they rely on an expired certificate
+    @Test(enabled = false)
     public void testInsertTable()
     {
         String testTable = getTestTableName();
