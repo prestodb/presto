@@ -63,7 +63,7 @@ export class ClusterHUD extends React.Component {
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        $.get('/v1/cluster', /* {principal}, */ function (clusterState) {
+        $.get('/v1/cluster', function (clusterState) {
 
             let newRowInputRate = [];
             let newByteInputRate = [];
