@@ -675,6 +675,42 @@ The Iceberg data sequence number in which this row was added.
      ----------------------------------+------------
                   2                    | 3
 
+``$deleted`` column
+^^^^^^^^^^^^^^^^^^^
+Whether this row is a deleted row. When this column is used, deleted rows
+from delete files will be marked as ``true`` instead of being filtered out of the results.
+
+.. code-block:: sql
+
+    DELETE FROM "ctas_nation" WHERE regionkey = 0;
+
+    SELECT "$deleted", regionkey FROM "ctas_nation";
+
+.. code-block:: text
+
+     $deleted | regionkey
+    ----------+-----------
+     true     |         0
+     false    |         1
+
+``$delete_file_path`` column
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The path of the delete file corresponding to a deleted row, or NULL if the row was not deleted.
+When this column is used, deleted rows will not be filtered out of the results.
+
+.. code-block:: sql
+
+    DELETE FROM "ctas_nation" WHERE regionkey = 0;
+
+    SELECT "$delete_file_path", regionkey FROM "ctas_nation";
+
+.. code-block:: text
+
+                                     $delete_file_path                                 | regionkey
+    -----------------------------------------------------------------------------------+-----------
+     file:/path/to/table/data/delete_file_d8510b3e-510a-4fc2-b2b2-e59ead7fd386.parquet |         0
+     NULL                                                                              |         1
+
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 
