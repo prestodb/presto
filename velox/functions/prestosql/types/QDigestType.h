@@ -84,6 +84,11 @@ inline std::shared_ptr<const QDigestType> QDIGEST(const TypePtr& dataType) {
   return QDigestType::get(dataType);
 }
 
+inline bool isQDigestType(const TypePtr& type) {
+  return QDigestType::get(DOUBLE()) == type ||
+      QDigestType::get(REAL()) == type || QDigestType::get(BIGINT()) == type;
+}
+
 // Type to use for inputs and outputs of simple functions, e.g.
 // arg_type<QDigest> and out_type<QDigest>.
 template <typename T>

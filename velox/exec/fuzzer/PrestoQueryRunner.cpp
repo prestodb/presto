@@ -37,6 +37,7 @@
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/UuidType.h"
@@ -306,7 +307,8 @@ bool PrestoQueryRunner::isConstantExprSupported(
         !isJsonType(type) && !type->isIntervalDayTime() &&
         !isIPAddressType(type) && !isIPPrefixType(type) && !isUuidType(type) &&
         !isTimestampWithTimeZoneType(type) && !isHyperLogLogType(type) &&
-        !isTDigestType(type);
+        !isTDigestType(type) && !isQDigestType(type);
+    ;
   }
   return true;
 }

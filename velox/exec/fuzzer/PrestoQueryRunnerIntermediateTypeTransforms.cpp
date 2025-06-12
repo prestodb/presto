@@ -18,6 +18,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunnerTimestampWithTimeZoneTransform.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
+#include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/parse/Expressions.h"
@@ -25,6 +26,7 @@
 
 namespace facebook::velox::exec::test {
 namespace {
+
 const std::unordered_map<TypePtr, std::shared_ptr<IntermediateTypeTransform>>&
 intermediateTypeTransforms() {
   static std::unordered_map<TypePtr, std::shared_ptr<IntermediateTypeTransform>>
@@ -36,7 +38,16 @@ intermediateTypeTransforms() {
                HYPERLOGLOG(), VARBINARY())},
           {TDIGEST(DOUBLE()),
            std::make_shared<IntermediateTypeTransformUsingCast>(
-               TDIGEST(DOUBLE()), VARBINARY())}};
+               TDIGEST(DOUBLE()), VARBINARY())},
+          {QDIGEST(DOUBLE()),
+           std::make_shared<IntermediateTypeTransformUsingCast>(
+               QDIGEST(DOUBLE()), VARBINARY())},
+          {QDIGEST(BIGINT()),
+           std::make_shared<IntermediateTypeTransformUsingCast>(
+               QDIGEST(BIGINT()), VARBINARY())},
+          {QDIGEST(REAL()),
+           std::make_shared<IntermediateTypeTransformUsingCast>(
+               QDIGEST(REAL()), VARBINARY())}};
   return intermediateTypeTransforms;
 }
 
