@@ -49,9 +49,10 @@ WrapperStruct:
   TransactionId:
   RuntimeStats:
   SqlFunctionId:
+  HostAddress:
+  TimeZoneKey:
 
 Special:
-  HostAddress:
   QualifiedObjectName:
   MetadataUpdatesWrapper:
   OperatorInfoUnion:
@@ -59,6 +60,5 @@ Special:
   SplitWrapper:
   TableWriteInfoWrapper:
   TaskId:
-  TimeZoneKey:
   Type:
   TypeSignature:
