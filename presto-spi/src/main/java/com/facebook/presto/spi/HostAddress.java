@@ -78,6 +78,13 @@ public class HostAddress
     private final int port;
 
     @ThriftConstructor
+    public HostAddress(String hostPortString)
+    {
+        HostAddress parsedAddress = fromString(hostPortString);
+        this.host = parsedAddress.host;
+        this.port = parsedAddress.port;
+    }
+
     public HostAddress(String host, int port)
     {
         this.host = host;
@@ -91,7 +98,6 @@ public class HostAddress
      * <p>A successful parse does not imply any degree of sanity in this field.
      * For additional validation, see the {@link com.google.common.net.HostSpecifier} class.
      */
-    @ThriftField(value = 1, name = "host")
     public String getHostText()
     {
         return host;
@@ -112,7 +118,6 @@ public class HostAddress
      * @throws IllegalStateException if no port is defined.  You can use
      * {@link #withDefaultPort(int)} to prevent this from occurring.
      */
-    @ThriftField(2)
     public int getPort()
     {
         if (!hasPort()) {
@@ -278,6 +283,7 @@ public class HostAddress
      * Rebuild the host:port string, including brackets if necessary.
      */
     @JsonValue
+    @ThriftField(value = 1, name = "hostPortString")
     @Override
     public String toString()
     {
