@@ -53,6 +53,16 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcpkix-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -566,6 +576,9 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHiveSslWithKeyStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStoreKeyStore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>

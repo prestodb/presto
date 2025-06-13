@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.containers.HiveMinIODataLake;
 import com.facebook.presto.hive.s3.S3HiveQueryRunner;
+import com.facebook.presto.plugin.base.security.SslKeystoreManager;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +41,7 @@ public abstract class AbstractHiveSslTest
 
     AbstractHiveSslTest(Map<String, String> sslConfig)
     {
+        SslKeystoreManager.initializeKeystore();
         this.sslConfig = sslConfig;
     }
 
@@ -75,8 +77,7 @@ public abstract class AbstractHiveSslTest
         closeAllRuntimeException(dockerizedS3DataLake);
     }
 
-    // TODO: these tests are disabled because they rely on an expired certificate
-    @Test(enabled = false)
+    @Test
     public void testInsertTable()
     {
         String testTable = getTestTableName();
