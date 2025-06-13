@@ -52,16 +52,17 @@ public interface RowPredicate
     {
         int positionCount = page.getPositionCount();
 
+        boolean[] deletedValues = new boolean[positionCount];
         boolean allSameValues = true;
+
         boolean firstValue = !test(page, 0);
-        BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(positionCount);
-        BOOLEAN.writeBoolean(blockBuilder, firstValue);
+        deletedValues[0] = firstValue;
         for (int position = 1; position < positionCount; position++) {
             boolean deleted = !test(page, position);
+            deletedValues[position] = deleted;
             if (deleted != firstValue) {
                 allSameValues = false;
             }
-            BOOLEAN.writeBoolean(blockBuilder, deleted);
         }
 
         Block block;
@@ -69,6 +70,10 @@ public interface RowPredicate
             block = RunLengthEncodedBlock.create(BOOLEAN, firstValue, positionCount);
         }
         else {
+            BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(positionCount);
+            for (int position = 0; position < positionCount; position++) {
+                BOOLEAN.writeBoolean(blockBuilder, deletedValues[position]);
+            }
             block = blockBuilder.build();
         }
 
