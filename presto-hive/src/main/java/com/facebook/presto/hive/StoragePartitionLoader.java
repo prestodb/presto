@@ -191,7 +191,7 @@ public class StoragePartitionLoader
             FileInputFormat.setInputPaths(targetJob, targetPath);
             InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
-            InternalHiveSplitFactory splitFactory = getHiveSplitFactory(fs, inputFormat, s3SelectPushdownEnabled, storage, path.toUri().toString(), partitionName,
+            InternalHiveSplitFactory splitFactory = getHiveSplitFactory(targetFilesystem, inputFormat, s3SelectPushdownEnabled, storage, path.toUri().toString(), partitionName,
                     partitionKeys, partitionDataColumnCount, partition, Optional.empty());
             lastResult = addSplitsToSource(targetSplits, splitFactory, hiveSplitSource, stopped);
             if (stopped) {
