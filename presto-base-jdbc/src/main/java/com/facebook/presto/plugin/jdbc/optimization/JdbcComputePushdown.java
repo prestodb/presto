@@ -158,12 +158,11 @@ public class JdbcComputePushdown
                 return createNewTableScanNode(oldTableScanNode, oldTableHandle, oldTableLayoutHandle, translated);
             }
             if (JdbcSessionProperties.isPartialPredicatePushDownEnabled(this.session)) {
-/*
-                Copied from the PR to enhance pushing part filters down to the tablehandle
-                - https://github.com/prestodb/presto/pull/16412/files.
-                This will find out which parts can be pushed down and able to translate by connector,
-                and the remaining part will keep in a new FilterNode.
-             */
+//                Copied from the PR to enhance pushing part filters down to the tablehandle
+//                - https://github.com/prestodb/presto/pull/16412/files.
+//                This will find out which parts can be pushed down and able to translate by connector,
+//                and the remaining part will keep in a new FilterNode.
+
                 // Find out which parts can be pushed down
                 ImmutableList.Builder<RowExpression> remainingExpressionsBuilder = ImmutableList.builder();
                 ImmutableList.Builder<JdbcExpression> translatedExpressionsBuilder = ImmutableList.builder();
@@ -198,9 +197,6 @@ public class JdbcComputePushdown
                 TableScanNode newTableScanNode = createNewTableScanNode(oldTableScanNode, oldTableHandle, oldTableLayoutHandle, translated);
 
                 RowExpression remainingPredicates = logicalRowExpressions.combineConjuncts(remainingExpressions);
-                /// !!! For now, we only create a new FilterNode with the remaining predicates
-                // As per https://github.com/prestodb/presto/pull/16864, this is not sufficient and we should re-use the existing filter predicate for correctness
-                // We need to find a test case for jdbc pushdown that fails with this implementation
                 return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, remainingPredicates);
             }
             return node;

@@ -43,6 +43,7 @@ public class JdbcSplit
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<JdbcExpression> additionalPredicate;
     private final List<ConnectorTableHandle> joinTables;
+    private Optional<String> tableAlias;
 
     @JsonCreator
     public JdbcSplit(
@@ -52,7 +53,8 @@ public class JdbcSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate,
-            @JsonProperty("joinTables") List<ConnectorTableHandle> joinTables)
+            @JsonProperty("joinTables") List<ConnectorTableHandle> joinTables,
+            @JsonProperty("tableAlias") Optional<String> tableAlias)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -61,6 +63,7 @@ public class JdbcSplit
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
         this.joinTables = requireNonNull(joinTables, "joinTables is null");
+        this.tableAlias = requireNonNull(tableAlias, "tableAlias is null");
     }
 
     @JsonProperty
@@ -93,6 +96,12 @@ public class JdbcSplit
     public List<ConnectorTableHandle> getJoinTables()
     {
         return joinTables;
+    }
+
+    @JsonProperty
+    public Optional<String> getTableAlias()
+    {
+        return tableAlias;
     }
 
     @JsonProperty

@@ -37,7 +37,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
@@ -235,39 +234,6 @@ public class QueryBuilder
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
         }
-    }
-
-    public PreparedStatement buildSql(
-            JdbcClient client,
-            ConnectorSession session,
-            Connection connection,
-            String catalog,
-            String schema,
-            String table,
-            List<ConnectorTableHandle> joinPushdownTables,
-            List<JdbcColumnHandle> columns,
-            TupleDomain<ColumnHandle> tupleDomain,
-            Optional<JdbcExpression> additionalPredicate)
-            throws SQLException
-    {
-        return buildSql(client, session, connection, catalog, schema, table, joinPushdownTables, columns, ImmutableMap.of(), tupleDomain, additionalPredicate);
-    }
-
-    public PreparedStatement buildSql(
-            JdbcClient client,
-            ConnectorSession session,
-            Connection connection,
-            String catalog,
-            String schema,
-            String table,
-            List<ConnectorTableHandle> joinPushdownTables,
-            List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
-            TupleDomain<ColumnHandle> tupleDomain,
-            Optional<JdbcExpression> additionalPredicate)
-            throws SQLException
-    {
-        return buildSql(client, session, connection, catalog, schema, table, joinPushdownTables, columns, columnExpressions, tupleDomain, additionalPredicate, Optional.empty());
     }
 
     private String addColumns(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
