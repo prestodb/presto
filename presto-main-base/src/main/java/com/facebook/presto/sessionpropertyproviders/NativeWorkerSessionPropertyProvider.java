@@ -53,6 +53,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
     public static final String NATIVE_DEBUG_MEMORY_POOL_NAME_REGEX = "native_debug_memory_pool_name_regex";
+    public static final String NATIVE_DEBUG_LAMBDA_FUNCTION_EVALUATION_BATCH_SIZE = "native_debug_lambda_function_evaluation_batch_size";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
@@ -350,7 +351,18 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC,
                         "Maximum wait time for exchange long poll requests in seconds.",
                         10,
-                        !nativeExecution));
+                        !nativeExecution)),
+                integerProperty(
+                        NATIVE_DEBUG_LAMBDA_FUNCTION_EVALUATION_BATCH_SIZE,
+                        "Some lambda functions over arrays and maps are evaluated in batches of " +
+                                "the underlying elements that comprise the arrays/maps. This is done " +
+                                "to make the batch size manageable as array vectors can have thousands " +
+                                "of elements each and hit scaling limits as implementations typically " +
+                                "expect BaseVectors to be a couple of thousand entries. This lets us tune " +
+                                "those batch sizes. Setting this to zero will set an unlimited batch size. " +
+                                "Default is 10,000",
+                        10000,
+                        !nativeExecution);
     }
 
     @Override
