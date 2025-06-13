@@ -341,6 +341,12 @@ public final class FunctionResolution
     }
 
     @Override
+    public FunctionHandle arbitraryFunction(Type valueType)
+    {
+        return functionAndTypeResolver.lookupFunction("arbitrary", fromTypes(valueType));
+    }
+
+    @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("max")));
