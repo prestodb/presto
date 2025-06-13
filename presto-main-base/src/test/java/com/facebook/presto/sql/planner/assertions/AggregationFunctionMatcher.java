@@ -117,8 +117,8 @@ public class AggregationFunctionMatcher
     private static boolean isEquivalent(Optional<Expression> expression, Optional<RowExpression> rowExpression)
     {
         // Function's argument provided by FunctionCallProvider is SymbolReference that already resolved from symbolAliases.
-        if (rowExpression.isPresent() && expression.isPresent()) {
-            checkArgument(rowExpression.get() instanceof VariableReferenceExpression, "can only process variableReference");
+        if (rowExpression.isPresent() && expression.isPresent() && !(expression.get() instanceof AnySymbolReference)) {
+            checkArgument(rowExpression.get() instanceof VariableReferenceExpression, "can only process variableReference: " + rowExpression.get());
             return expression.get().equals(createSymbolReference(((VariableReferenceExpression) rowExpression.get())));
         }
         return rowExpression.isPresent() == expression.isPresent();
