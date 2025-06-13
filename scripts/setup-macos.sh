@@ -154,7 +154,7 @@ function install_faiss {
       -DFAISS_ENABLE_GPU_TESTS=OFF
       -DFAISS_ENABLE_BENCHMARKS=OFF
       -DFAISS_ENABLE_GPU=OFF
-      -FAISS_ENABLE_MKL=OFF
+      -DFAISS_ENABLE_MKL=OFF
     )
 
     local libomp_prefix
