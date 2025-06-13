@@ -31,7 +31,7 @@ namespace facebook::velox::core {
 class PlanNodeVisitor;
 class PlanNodeVisitorContext;
 
-typedef std::string PlanNodeId;
+using PlanNodeId = std::string;
 
 /// Generic representation of InsertTable
 struct InsertTableHandle {
@@ -301,7 +301,7 @@ class PlanNode : public ISerializable {
       std::stringstream& stream,
       size_t indentationSize) const;
 
-  const std::string id_;
+  const PlanNodeId id_;
 };
 
 using PlanNodePtr = std::shared_ptr<const PlanNode>;
