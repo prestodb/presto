@@ -471,6 +471,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.starburstdata</groupId>
+            <artifactId>starburst-spotify-docker-client</artifactId>
+            <version>8.11.7-0.6</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.objenesis</groupId>
             <artifactId>objenesis</artifactId>
             <version>2.6</version>
@@ -549,6 +555,9 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHiveSslWithKeyStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStoreKeyStore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>

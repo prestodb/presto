@@ -40,6 +40,7 @@ public abstract class AbstractHiveSslTest
 
     AbstractHiveSslTest(Map<String, String> sslConfig)
     {
+        HiveSslTestKeystoreManager.initializeKeystore();
         this.sslConfig = sslConfig;
     }
 
@@ -75,8 +76,7 @@ public abstract class AbstractHiveSslTest
         closeAllRuntimeException(dockerizedS3DataLake);
     }
 
-    // TODO: these tests are disabled because they rely on an expired certificate
-    @Test(enabled = false)
+    @Test
     public void testInsertTable()
     {
         String testTable = getTestTableName();
