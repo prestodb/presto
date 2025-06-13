@@ -133,5 +133,7 @@ target_link_libraries(
   presto_types
   velox_dwio_common
   velox_exec_test_lib
+  velox_hive_connector
+  velox_tpch_connector
   GTest::gtest
   GTest::gtest_main)
