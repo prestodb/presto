@@ -320,6 +320,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
     public static final String PRINT_ESTIMATED_STATS_FROM_CACHE = "print_estimated_stats_from_cache";
     public static final String REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT = "remove_cross_join_with_constant_single_row_input";
+    public static final String OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT = "optimize_conditional_constant_approximate_distinct";
     public static final String EAGER_PLAN_VALIDATION_ENABLED = "eager_plan_validation_enabled";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
@@ -1904,6 +1905,11 @@ public final class SystemSessionProperties
                         "Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance",
                         featuresConfig.getAddExchangeBelowPartialAggregationOverGroupId(),
                         false),
+                booleanProperty(
+                        OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT,
+                        "Optimize out APPROX_DISTINCT operations over constant conditionals",
+                        featuresConfig.isOptimizeConditionalApproxDistinct(),
+                        false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3266,5 +3272,10 @@ public final class SystemSessionProperties
     public static Duration getQueryClientTimeout(Session session)
     {
         return session.getSystemProperty(QUERY_CLIENT_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isOptimizeConditionalApproxDistinctEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, Boolean.class);
     }
 }
