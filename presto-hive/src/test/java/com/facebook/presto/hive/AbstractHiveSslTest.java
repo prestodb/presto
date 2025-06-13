@@ -26,6 +26,7 @@ import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.tests.SslKeystoreManager.initializeKeystoreAndTruststore;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
@@ -40,6 +41,7 @@ public abstract class AbstractHiveSslTest
 
     AbstractHiveSslTest(Map<String, String> sslConfig)
     {
+        initializeKeystoreAndTruststore();
         this.sslConfig = sslConfig;
     }
 
@@ -75,8 +77,7 @@ public abstract class AbstractHiveSslTest
         closeAllRuntimeException(dockerizedS3DataLake);
     }
 
-    // TODO: these tests are disabled because they rely on an expired certificate
-    @Test(enabled = false)
+    @Test
     public void testInsertTable()
     {
         String testTable = getTestTableName();
