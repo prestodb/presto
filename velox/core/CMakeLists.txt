@@ -18,6 +18,7 @@ endif()
 velox_add_library(
   velox_core
   Expressions.cpp
+  FilterToExpression.cpp
   PlanFragment.cpp
   PlanNode.cpp
   QueryConfig.cpp
