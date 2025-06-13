@@ -210,6 +210,41 @@ Property Name                                      Description                  
  ``hive.metastore.catalog.name``                   Specifies the catalog name to be passed to the metastore.
 ================================================== ============================================================ ============
 
+Avro Configuration Properties
+-----------------------------
+
+When querying or creating Avro-formatted tables with the Hive connector, you may need to supply or override the Avro schema. In addition, Hive Metastore, especially Hive 3.x, must be configured to read storage schemas for Avro tables.
+
+Table Properties
+^^^^^^^^^^^^^^^^
+
+These properties can be used when creating or querying Avro tables in Presto:
+
+======================================================== ============================================================================== ======================================================================================
+Property Name                                            Description                                                                    Default
+======================================================== ============================================================================== ======================================================================================
+``avro_schema_url``                                      URL or path (HDFS, S3, HTTP, or others) to the Avro schema file for             None (must be specified if Metastore does not provide or you need to
+                                                         reading an Avro-formatted table. If specified, Presto will fetch                override schema)
+                                                         and use this schema instead of relying on any schema in the
+                                                         Metastore.
+======================================================== ============================================================================== ======================================================================================
+
+Hive Metastore Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To support Avro tables with schema properties when using Hive 3.x, you must configure the Hive Metastore service:
+
+Add the ``metastore.storage.schema.reader.impl`` property to ``hive-site.xml`` where the metastore service is running:
+
+.. code-block:: xml
+
+    <property>
+      <name>metastore.storage.schema.reader.impl</name>
+      <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
+    </property>
+
+You must restart the metastore service for this configuration to take effect. This setting allows the metastore to read storage schemas for Avro tables and avoids ``Storage schema reading not supported`` errors.
+
 Metastore Configuration Properties
 ----------------------------------
 
