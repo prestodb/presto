@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
@@ -6801,6 +6802,41 @@ public abstract class AbstractTestQueries
                 "FROM lineitem " +
                 "GROUP BY linenumber " +
                 "HAVING min(orderkey) < (SELECT avg(orderkey) FROM orders WHERE orderkey < 7)");
+    }
+
+    @Test
+    public void testReplaceConditionalApproxDistinct()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, "false")
+                .build();
+
+        List<String> queries = ImmutableList.of(
+                "select approx_distinct(if(%s, 1, 2)) from orders %s",
+                "select approx_distinct(if(%s, 3)) from orders %s",
+                "select approx_distinct(if(%s, 4, NULL)) from orders %s",
+                "select approx_distinct(if(%s, NULL, 5)) from orders %s",
+                "select approx_distinct(if(%s, NULL)) from orders %s",
+                "select approx_distinct(if(%s, NULL, NULL)) from orders %s");
+        List<String> conditions = ImmutableList.of(
+                "orderkey = orderkey",
+                "orderkey % 2 = 0");
+        List<String> suffixes = ImmutableList.of(
+                "",
+                "where orderkey % 3 = 0",
+                "group by orderkey");
+
+        for (String query : queries) {
+            for (String condition : conditions) {
+                for (String suffix : suffixes) {
+                    String sql = format(query, condition, suffix);
+                    assertQueryWithSameQueryRunner(enabled, sql, disabled);
+                }
+            }
+        }
     }
 
     @Test
