@@ -165,7 +165,7 @@ AbstractClasses:
         - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
         - { name: TopNNode,                 key: .TopNNode }
         - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
-        - { name: UnnestNode,               key: com.facebook.presto.sql.planner.plan.UnnestNode }
+        - { name: UnnestNode,               key: .UnnestNode }
         - { name: ValuesNode,               key: .ValuesNode }
         - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
         - { name: MergeJoinNode,            key: .MergeJoinNode }
@@ -243,7 +243,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TopNRowNumberNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterMergeNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/UnnestNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/WindowNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/ExecutionFailureInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/Location.java
