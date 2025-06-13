@@ -11,32 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.lang.String.format;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class UnnestNode
-        extends InternalPlanNode
+public final class UnnestNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final List<VariableReferenceExpression> replicateVariables;
@@ -66,26 +66,25 @@ public class UnnestNode
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
-        this.replicateVariables = ImmutableList.copyOf(requireNonNull(replicateVariables, "replicateVariables is null"));
+        this.replicateVariables = unmodifiableList(new ArrayList<>(requireNonNull(replicateVariables, "replicateVariables is null")));
         checkArgument(source.getOutputVariables().containsAll(replicateVariables), "Source does not contain all replicateSymbols");
         requireNonNull(unnestVariables, "unnestVariables is null");
         checkArgument(!unnestVariables.isEmpty(), "unnestVariables is empty");
-        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> builder = ImmutableMap.builder();
+        Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariablesMap = new LinkedHashMap<>();
         for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : unnestVariables.entrySet()) {
-            builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
+            unnestVariablesMap.put(entry.getKey(), unmodifiableList(new ArrayList<>(entry.getValue())));
         }
-        this.unnestVariables = builder.build();
+        this.unnestVariables = unmodifiableMap(unnestVariablesMap);
         this.ordinalityVariable = requireNonNull(ordinalityVariable, "ordinalityVariable is null");
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        ImmutableList.Builder<VariableReferenceExpression> outputSymbolsBuilder = ImmutableList.<VariableReferenceExpression>builder()
-                .addAll(replicateVariables)
-                .addAll(Iterables.concat(unnestVariables.values()));
-        ordinalityVariable.ifPresent(outputSymbolsBuilder::add);
-        return outputSymbolsBuilder.build();
+        List<VariableReferenceExpression> outputSymbols = new ArrayList<>(replicateVariables);
+        unnestVariables.values().forEach(outputSymbols::addAll);
+        ordinalityVariable.ifPresent(outputSymbols::add);
+        return unmodifiableList(outputSymbols);
     }
 
     @JsonProperty
@@ -115,11 +114,11 @@ public class UnnestNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return singletonList(source);
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitUnnest(this, context);
     }
@@ -127,7 +126,8 @@ public class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), replicateVariables, unnestVariables, ordinalityVariable);
+        checkArgument(newChildren.size() == 1);
+        return new UnnestNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), replicateVariables, unnestVariables, ordinalityVariable);
     }
 
     @Override
@@ -161,11 +161,6 @@ public class UnnestNode
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("source", source)
-                .add("replicateVariables", replicateVariables)
-                .add("unnestVariables", unnestVariables)
-                .add("ordinalityVariable", ordinalityVariable)
-                .toString();
+        return format("%s {source=%s, replicateVariables=%s, unnestVariables=%s, ordinalityVariable=%s}", this.getClass().getSimpleName(), source, replicateVariables, unnestVariables, ordinalityVariable);
     }
 }
