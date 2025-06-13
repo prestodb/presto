@@ -24,26 +24,38 @@ PYTHON_VENV ?= .venv
 
 EXTRA_CMAKE_FLAGS ?= ""
 
+define deprecate_message
+  $(eval $@_VAR_NAME = $(1))
+  $(warning ${$@_VAR_NAME} environment variable is deprecated and will be removed in the future. Use EXTRA_CMAKE_FLAGS.)
+endef
+
 ifeq ($(PRESTO_ENABLE_PARQUET), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=ON
+  output := $(call deprecate_message,"PRESTO_ENABLE_PARQUET")
 endif
 ifeq ($(PRESTO_ENABLE_S3), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_S3=ON
+  output := $(call deprecate_message,"PRESTO_ENABLE_S3")
 endif
 ifeq ($(PRESTO_ENABLE_HDFS), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_HDFS=ON
+  output := $(call deprecate_message,"PRESTO_ENABLE_HDFS")
 endif
 ifeq ($(PRESTO_ENABLE_REMOTE_FUNCTIONS), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON
+  output := $(call deprecate_message,"PRESTO_ENABLE_REMOTE_FUNCTIONS")
 endif
 ifeq ($(PRESTO_ENABLE_JWT), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=ON
+  output := $(call deprecate_message,"PRESTO_ENABLE_JWT")
 endif
 ifneq ($(PRESTO_STATS_REPORTER_TYPE),)
   EXTRA_CMAKE_FLAGS += -DPRESTO_STATS_REPORTER_TYPE=$(PRESTO_STATS_REPORTER_TYPE)
+  output := $(call deprecate_message,"PRESTO_STATS_REPORTER_TYPE")
 endif
 ifneq ($(PRESTO_MEMORY_CHECKER_TYPE),)
   EXTRA_CMAKE_FLAGS += -DPRESTO_MEMORY_CHECKER_TYPE=$(PRESTO_MEMORY_CHECKER_TYPE)
+  output := $(call deprecate_message,"PRESTO_MEMORY_CHECKER_TYPE")
 endif
 
 CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
