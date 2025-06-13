@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 #pragma once
 
@@ -31,9 +30,9 @@ struct NoisyCountAccumulator {
   double noiseScale{-1.0};
 
   // Add a field to store random seed
-  std::optional<int32_t> randomSeed{std::nullopt};
+  std::optional<int64_t> randomSeed{std::nullopt};
 
-  void setRandomSeed(int32_t seed) {
+  void setRandomSeed(int64_t seed) {
     randomSeed = seed;
   }
 
@@ -50,7 +49,7 @@ struct NoisyCountAccumulator {
 
   static size_t serializedSize() {
     return sizeof(uint64_t) + sizeof(double) +
-        sizeof(bool) /** has_random_seed flag */ + sizeof(int32_t);
+        sizeof(bool) /** has_random_seed flag */ + sizeof(int64_t);
   }
 
   void serialize(char* output) {
@@ -67,7 +66,7 @@ struct NoisyCountAccumulator {
     auto count = stream.read<uint64_t>();
     auto noiseScale = stream.read<double>();
     auto hasRandomSeed = stream.read<bool>();
-    auto randomSeed = stream.read<int32_t>();
+    auto randomSeed = stream.read<int64_t>();
     if (hasRandomSeed) {
       return NoisyCountAccumulator{count, noiseScale, randomSeed};
     }

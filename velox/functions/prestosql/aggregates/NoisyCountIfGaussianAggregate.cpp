@@ -213,7 +213,7 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
 
       if (args.size() == 3 && args[2]->isConstantEncoding() &&
           !decodedRandomSeed_.isNullAt(i)) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int32_t>(i));
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
       }
     });
   }
@@ -286,7 +286,7 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
 
       if (args.size() == 3 && args[2]->isConstantEncoding() &&
           !decodedRandomSeed_.isNullAt(i)) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int32_t>(i));
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
       }
     });
   }
