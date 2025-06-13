@@ -17,6 +17,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.operator.scalar.ScalarHeader;
 import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
+import com.facebook.presto.spi.function.FunctionNamespace;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
@@ -34,6 +35,7 @@ import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarImplementationHeader
@@ -42,11 +44,16 @@ public class ScalarImplementationHeader
     private final Optional<OperatorType> operatorType;
     private final ScalarHeader header;
 
-    private ScalarImplementationHeader(String name, ScalarHeader header)
+    private ScalarImplementationHeader(QualifiedObjectName qualifiedObjectName, ScalarHeader header)
     {
-        this.name = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, requireNonNull(name));
+        this.name = qualifiedObjectName;
         this.operatorType = Optional.empty();
         this.header = requireNonNull(header);
+    }
+
+    private ScalarImplementationHeader(String name, ScalarHeader header)
+    {
+        this(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name), header);
     }
 
     private ScalarImplementationHeader(OperatorType operatorType, ScalarHeader header)
@@ -84,10 +91,18 @@ public class ScalarImplementationHeader
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), descriptor)));
+            FunctionNamespace functionNamespaceAnnotation = null;
+            if (annotated instanceof Method) {
+                functionNamespaceAnnotation = ((Method) annotated).getDeclaringClass().getAnnotation(FunctionNamespace.class);
+            }
+            String functionNamespace;
+            functionNamespace = functionNamespaceAnnotation != null ? functionNamespaceAnnotation.value() : JAVA_BUILTIN_NAMESPACE.toString();
+            QualifiedObjectName qualifiedObjectName = QualifiedObjectName.valueOf(functionNamespace + "." + baseName.toLowerCase(ENGLISH));
 
+            builder.add(new ScalarImplementationHeader(qualifiedObjectName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), descriptor)));
             for (String alias : scalarFunction.alias()) {
-                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), descriptor)));
+                QualifiedObjectName aliasObjectName = QualifiedObjectName.valueOf(functionNamespace + "." + alias.toLowerCase(ENGLISH));
+                builder.add(new ScalarImplementationHeader(aliasObjectName, new ScalarHeader(description, scalarFunction.visibility(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput(), descriptor)));
             }
         }
 
