@@ -368,9 +368,9 @@ public class KuduMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<ColumnHandle> getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return KuduColumnHandle.ROW_ID_HANDLE;
+        return Optional.of(KuduColumnHandle.ROW_ID_HANDLE);
     }
 
     @Override

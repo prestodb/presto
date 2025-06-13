@@ -2919,8 +2919,10 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitDelete(DeleteNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
-
-            OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId()), tableCommitContextCodec);
+            if (!node.getRowId().isPresent()) {
+                throw new PrestoException(NOT_SUPPORTED, "DELETE is not supported by this connector");
+            }
+            OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId().get()), tableCommitContextCodec);
 
             Map<VariableReferenceExpression, Integer> layout = ImmutableMap.<VariableReferenceExpression, Integer>builder()
                     .put(node.getOutputVariables().get(0), 0)
