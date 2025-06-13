@@ -370,10 +370,9 @@ namespace facebook::presto::protocol::hive {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BucketFunctionType, json>
-    BucketFunctionType_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {BucketFunctionType::HIVE_COMPATIBLE, "HIVE_COMPATIBLE"},
-            {BucketFunctionType::PRESTO_NATIVE, "PRESTO_NATIVE"}};
+    BucketFunctionType_enum_table[] = { // NOLINT: cert-err58-cpp
+        {BucketFunctionType::HIVE_COMPATIBLE, "HIVE_COMPATIBLE"},
+        {BucketFunctionType::PRESTO_NATIVE, "PRESTO_NATIVE"}};
 void to_json(json& j, const BucketFunctionType& e) {
   static_assert(
       std::is_enum<BucketFunctionType>::value,
@@ -599,13 +598,12 @@ namespace facebook::presto::protocol::hive {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<HiveCompressionCodec, json>
-    HiveCompressionCodec_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {HiveCompressionCodec::NONE, "NONE"},
-            {HiveCompressionCodec::SNAPPY, "SNAPPY"},
-            {HiveCompressionCodec::GZIP, "GZIP"},
-            {HiveCompressionCodec::LZ4, "LZ4"},
-            {HiveCompressionCodec::ZSTD, "ZSTD"}};
+    HiveCompressionCodec_enum_table[] = { // NOLINT: cert-err58-cpp
+        {HiveCompressionCodec::NONE, "NONE"},
+        {HiveCompressionCodec::SNAPPY, "SNAPPY"},
+        {HiveCompressionCodec::GZIP, "GZIP"},
+        {HiveCompressionCodec::LZ4, "LZ4"},
+        {HiveCompressionCodec::ZSTD, "ZSTD"}};
 void to_json(json& j, const HiveCompressionCodec& e) {
   static_assert(
       std::is_enum<HiveCompressionCodec>::value,
@@ -791,6 +789,8 @@ namespace facebook::presto::protocol::hive {
 void to_json(json& j, const Table& p) {
   j = json::object();
   to_json_key(
+      j, "catalogName", p.catalogName, "Table", "String", "catalogName");
+  to_json_key(
       j, "databaseName", p.databaseName, "Table", "String", "databaseName");
   to_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
   to_json_key(j, "owner", p.owner, "Table", "String", "owner");
@@ -830,6 +830,8 @@ void to_json(json& j, const Table& p) {
 }
 
 void from_json(const json& j, Table& p) {
+  from_json_key(
+      j, "catalogName", p.catalogName, "Table", "String", "catalogName");
   from_json_key(
       j, "databaseName", p.databaseName, "Table", "String", "databaseName");
   from_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
