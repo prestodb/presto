@@ -23,6 +23,12 @@ using geos::operation::valid::IsValidOp;
 
 namespace facebook::velox::functions::geospatial {
 
+geos::geom::GeometryFactory* getGeometryFactory() {
+  thread_local static geos::geom::GeometryFactory::Ptr geometryFactory =
+      geos::geom::GeometryFactory::create();
+  return geometryFactory.get();
+}
+
 std::optional<std::string> geometryInvalidReason(
     const geos::geom::Geometry* geometry) {
   if (geometry == nullptr) {

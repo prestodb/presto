@@ -35,8 +35,6 @@
 
 namespace facebook::velox::functions {
 
-// Constructors and Serde
-
 template <typename T>
 struct StGeometryFromTextFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -50,7 +48,7 @@ struct StGeometryFromTextFunction {
           geosGeometry = reader.read(wkt);
         },
         "Failed to parse WKT");
-    result = geospatial::serializeGeometry(*geosGeometry);
+    geospatial::GeometrySerializer::serialize(*geosGeometry, result);
     return Status::OK();
   }
 };
@@ -70,7 +68,7 @@ struct StGeomFromBinaryFunction {
               reinterpret_cast<const uint8_t*>(wkb.data()), wkb.size());
         },
         "Failed to parse WKB");
-    result = geospatial::serializeGeometry(*geosGeometry);
+    geospatial::GeometrySerializer::serialize(*geosGeometry, result);
     return Status::OK();
   }
 };
@@ -82,7 +80,7 @@ struct StAsTextFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Varchar>& result, const arg_type<Geometry>& geometry) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(geometry);
+        geospatial::GeometryDeserializer::deserialize(geometry);
 
     GEOS_TRY(
         {
@@ -102,7 +100,7 @@ struct StAsBinaryFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Varbinary>& result, const arg_type<Geometry>& geometry) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(geometry);
+        geospatial::GeometryDeserializer::deserialize(geometry);
     GEOS_TRY(
         {
           geos::io::WKBWriter writer;
@@ -135,7 +133,7 @@ struct StPointFunction {
         {
           auto point = std::unique_ptr<geos::geom::Point>(
               factory_->createPoint(geos::geom::Coordinate(x, y)));
-          result = geospatial::serializeGeometry(*point);
+          geospatial::GeometrySerializer::serialize(*point, result);
         },
         "Failed to create point geometry");
     return Status::OK();
@@ -157,9 +155,9 @@ struct StRelateFunction {
       const arg_type<Geometry>& rightGeometry,
       const arg_type<Varchar>& relation) {
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->relate(*rightGeosGeometry, relation);
              , "Failed to check geometry relation");
 
@@ -177,9 +175,9 @@ struct StContainsFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->contains(&*rightGeosGeometry);
              , "Failed to check geometry contains");
 
@@ -197,9 +195,9 @@ struct StCrossesFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->crosses(&*rightGeosGeometry);
              , "Failed to check geometry crosses");
 
@@ -217,9 +215,9 @@ struct StDisjointFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->disjoint(&*rightGeosGeometry);
              , "Failed to check geometry disjoint");
 
@@ -237,9 +235,9 @@ struct StEqualsFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->equals(&*rightGeosGeometry);
              , "Failed to check geometry equals");
 
@@ -257,9 +255,9 @@ struct StIntersectsFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->intersects(&*rightGeosGeometry);
              , "Failed to check geometry intersects");
 
@@ -277,9 +275,9 @@ struct StOverlapsFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->overlaps(&*rightGeosGeometry);
              , "Failed to check geometry overlaps");
 
@@ -297,9 +295,9 @@ struct StTouchesFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->touches(&*rightGeosGeometry);
              , "Failed to check geometry touches");
 
@@ -317,9 +315,9 @@ struct StWithinFunction {
       const arg_type<Geometry>& rightGeometry) {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
     GEOS_TRY(result = leftGeosGeometry->within(&*rightGeosGeometry);
              , "Failed to check geometry within");
 
@@ -340,15 +338,15 @@ struct StDifferenceFunction {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     // if envelopes are disjoint
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
 
     std::unique_ptr<geos::geom::Geometry> outputGeometry;
     GEOS_TRY(outputGeometry = leftGeosGeometry->difference(&*rightGeosGeometry);
              , "Failed to compute geometry difference");
 
-    result = geospatial::serializeGeometry(*outputGeometry);
+    geospatial::GeometrySerializer::serialize(*outputGeometry, result);
     return Status::OK();
   }
 };
@@ -360,13 +358,13 @@ struct StBoundaryFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Geometry>& result, const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     std::unique_ptr<geos::geom::Geometry> outputGeometry;
 
-    GEOS_TRY(
-        result = geospatial::serializeGeometry(*geosGeometry->getBoundary());
-        , "Failed to compute geometry boundary");
+    GEOS_TRY(geospatial::GeometrySerializer::serialize(
+                 *geosGeometry->getBoundary(), result);
+             , "Failed to compute geometry boundary");
 
     return Status::OK();
   }
@@ -383,16 +381,16 @@ struct StIntersectionFunction {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     // if envelopes are disjoint
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
 
     std::unique_ptr<geos::geom::Geometry> outputGeometry;
     GEOS_TRY(
         outputGeometry = leftGeosGeometry->intersection(&*rightGeosGeometry);
         , "Failed to compute geometry intersection");
 
-    result = geospatial::serializeGeometry(*outputGeometry);
+    geospatial::GeometrySerializer::serialize(*outputGeometry, result);
     return Status::OK();
   }
 };
@@ -408,16 +406,16 @@ struct StSymDifferenceFunction {
     // TODO: When #12771 is merged, check envelopes and short-circuit
     // if envelopes are disjoint
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
 
     std::unique_ptr<geos::geom::Geometry> outputGeometry;
     GEOS_TRY(
         outputGeometry = leftGeosGeometry->symDifference(&*rightGeosGeometry);
         , "Failed to compute geometry symdifference");
 
-    result = geospatial::serializeGeometry(*outputGeometry);
+    geospatial::GeometrySerializer::serialize(*outputGeometry, result);
     return Status::OK();
   }
 };
@@ -433,15 +431,15 @@ struct StUnionFunction {
     // TODO: When #12771 is merged, check envelopes and short-circuit if
     // one/both are empty
     std::unique_ptr<geos::geom::Geometry> leftGeosGeometry =
-        geospatial::deserializeGeometry(leftGeometry);
+        geospatial::GeometryDeserializer::deserialize(leftGeometry);
     std::unique_ptr<geos::geom::Geometry> rightGeosGeometry =
-        geospatial::deserializeGeometry(rightGeometry);
+        geospatial::GeometryDeserializer::deserialize(rightGeometry);
 
     std::unique_ptr<geos::geom::Geometry> outputGeometry;
     GEOS_TRY(outputGeometry = leftGeosGeometry->Union(&*rightGeosGeometry);
              , "Failed to compute geometry union");
 
-    result = geospatial::serializeGeometry(*outputGeometry);
+    geospatial::GeometrySerializer::serialize(*outputGeometry, result);
     return Status::OK();
   }
 };
@@ -455,7 +453,7 @@ struct StIsValidFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<bool>& result, const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     GEOS_TRY(result = geosGeometry->isValid();
              , "Failed to check geometry isValid");
@@ -471,7 +469,7 @@ struct StIsSimpleFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<bool>& result, const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     GEOS_TRY(result = geosGeometry->isSimple();
              , "Failed to check geometry isSimple");
@@ -488,7 +486,7 @@ struct GeometryInvalidReasonFunction {
       out_type<Varchar>& result,
       const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     std::optional<std::string> messageOpt =
         geospatial::geometryInvalidReason(geosGeometry.get());
@@ -507,7 +505,7 @@ struct StAreaFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<double>& result, const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     std::unique_ptr<geos::geom::Geometry> outputGeometry;
 
@@ -525,7 +523,7 @@ struct StCentroidFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Geometry>& result, const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     auto validate = facebook::velox::functions::geospatial::validateType(
         *geosGeometry,
@@ -553,14 +551,15 @@ struct StCentroidFunction {
             geos::geom::GeometryFactory::Ptr factory =
                 geos::geom::GeometryFactory::create();
             std::unique_ptr<geos::geom::Point> point = factory->createPoint();
-            result = geospatial::serializeGeometry(*point);
+            geospatial::GeometrySerializer::serialize(*point, result);
             factory->destroyGeometry(point.release());
           },
           "Failed to create point geometry");
       return Status::OK();
     }
 
-    result = geospatial::serializeGeometry(*(geosGeometry->getCentroid()));
+    geospatial::GeometrySerializer::serialize(
+        *(geosGeometry->getCentroid()), result);
     return Status::OK();
   }
 };
@@ -573,7 +572,7 @@ struct StXFunction {
       out_type<double>& result,
       const arg_type<Geometry>& geometry) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(geometry);
+        geospatial::GeometryDeserializer::deserialize(geometry);
     if (geosGeometry->getGeometryTypeId() !=
         geos::geom::GeometryTypeId::GEOS_POINT) {
       VELOX_USER_FAIL(fmt::format(
@@ -597,7 +596,7 @@ struct StYFunction {
       out_type<double>& result,
       const arg_type<Geometry>& geometry) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(geometry);
+        geospatial::GeometryDeserializer::deserialize(geometry);
     if (geosGeometry->getGeometryTypeId() !=
         geos::geom::GeometryTypeId::GEOS_POINT) {
       VELOX_USER_FAIL(fmt::format(
@@ -691,7 +690,7 @@ struct SimplifyGeometryFunction {
     }
 
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(geometry);
+        geospatial::GeometryDeserializer::deserialize(geometry);
 
     if (geosGeometry->isEmpty()) {
       result = geometry;
@@ -707,7 +706,7 @@ struct SimplifyGeometryFunction {
         },
         "Failed to compute simplified geometry");
 
-    result = geospatial::serializeGeometry(*outputGeometry);
+    geospatial::GeometrySerializer::serialize(*outputGeometry, result);
     return Status::OK();
   }
 };
@@ -719,7 +718,7 @@ struct StGeometryTypeFunction {
   FOLLY_ALWAYS_INLINE Status
   call(out_type<Varchar>& result, const arg_type<Geometry>& input) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
-        geospatial::deserializeGeometry(input);
+        geospatial::GeometryDeserializer::deserialize(input);
 
     result = geosGeometry->getGeometryType();
 
@@ -736,9 +735,9 @@ struct StDistanceFunction {
       const arg_type<Geometry>& geometry1,
       const arg_type<Geometry>& geometry2) {
     std::unique_ptr<geos::geom::Geometry> geosGeometry1 =
-        geospatial::deserializeGeometry(geometry1);
+        geospatial::GeometryDeserializer::deserialize(geometry1);
     std::unique_ptr<geos::geom::Geometry> geosGeometry2 =
-        geospatial::deserializeGeometry(geometry2);
+        geospatial::GeometryDeserializer::deserialize(geometry2);
 
     if (geosGeometry1->getSRID() != geosGeometry2->getSRID()) {
       VELOX_USER_FAIL(fmt::format(

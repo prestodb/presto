@@ -56,6 +56,8 @@ namespace facebook::velox::functions::geospatial {
     VELOX_FAIL(fmt::format("{}: {}", user_error_message, e.what()));       \
   }
 
+geos::geom::GeometryFactory* getGeometryFactory();
+
 FOLLY_ALWAYS_INLINE const
     std::unordered_map<geos::geom::GeometryTypeId, std::string>&
     getGeosTypeToStringIdentifier() {
@@ -111,5 +113,62 @@ FOLLY_ALWAYS_INLINE Status validateType(
 
 std::optional<std::string> geometryInvalidReason(
     const geos::geom::Geometry* geometry);
+
+/// Determines if a ring of coordinates (from `start` to `end`) is oriented
+/// clockwise.
+FOLLY_ALWAYS_INLINE bool isClockwise(
+    const std::unique_ptr<geos::geom::CoordinateSequence>& coordinates,
+    int start,
+    int end) {
+  double sum = 0.0;
+  for (int i = start; i < end - 1; i++) {
+    const auto& p1 = coordinates->getAt(i);
+    const auto& p2 = coordinates->getAt(i + 1);
+    sum += (p2.x - p1.x) * (p2.y + p1.y);
+  }
+  return sum > 0.0;
+}
+
+/// Reverses the order of coordinates in the sequence between `start` and `end`
+FOLLY_ALWAYS_INLINE void reverse(
+    const std::unique_ptr<geos::geom::CoordinateSequence>& coordinates,
+    int start,
+    int end) {
+  for (int i = 0; i < (end - start) / 2; ++i) {
+    auto temp = coordinates->getAt(start + i);
+    coordinates->setAt(coordinates->getAt(end - 1 - i), start + i);
+    coordinates->setAt(temp, end - 1 - i);
+  }
+}
+
+/// Ensures that a polygon ring has the canonical orientation:
+/// - Exterior rings (shells) must be clockwise.
+/// - Interior rings (holes) must be counter-clockwise.
+FOLLY_ALWAYS_INLINE void canonicalizePolygonCoordinates(
+    const std::unique_ptr<geos::geom::CoordinateSequence>& coordinates,
+    int start,
+    int end,
+    bool isShell) {
+  bool isClockwiseFlag = isClockwise(coordinates, start, end);
+
+  if ((isShell && !isClockwiseFlag) || (!isShell && isClockwiseFlag)) {
+    reverse(coordinates, start, end);
+  }
+}
+
+/// Applies `canonicalizePolygonCoordinates` to all rings in a polygon.
+FOLLY_ALWAYS_INLINE void canonicalizePolygonCoordinates(
+    const std::unique_ptr<geos::geom::CoordinateSequence>& coordinates,
+    const std::vector<int>& partIndexes,
+    const std::vector<bool>& shellPart) {
+  for (size_t part = 0; part < partIndexes.size() - 1; part++) {
+    canonicalizePolygonCoordinates(
+        coordinates, partIndexes[part], partIndexes[part + 1], shellPart[part]);
+  }
+  if (!partIndexes.empty()) {
+    canonicalizePolygonCoordinates(
+        coordinates, partIndexes.back(), coordinates->size(), shellPart.back());
+  }
+}
 
 } // namespace facebook::velox::functions::geospatial
