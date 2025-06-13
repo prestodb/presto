@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "velox/common/fuzzer/Utils.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -124,14 +125,14 @@ class RowNumberFuzzerBase {
       memory::memoryManager()->addRootPool(
           "rowNumberFuzzer",
           memory::kMaxMemory,
-          memory::MemoryReclaimer::create())};
+          exec::MemoryReclaimer::create())};
   std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild(
       "rowNumberFuzzerLeaf",
       true,
-      memory::MemoryReclaimer::create())};
+      exec::MemoryReclaimer::create())};
   std::shared_ptr<memory::MemoryPool> writerPool_{rootPool_->addAggregateChild(
       "rowNumberFuzzerWriter",
-      memory::MemoryReclaimer::create())};
+      exec::MemoryReclaimer::create())};
   VectorFuzzer vectorFuzzer_;
   std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner_;
 };
