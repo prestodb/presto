@@ -77,8 +77,6 @@ public class IcebergUpdateablePageSource
     private IcebergDeletePageSink positionDeleteSink;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
     private final Supplier<List<DeleteFilter>> deleteFilters;
-    private final boolean hasIsDeletedColumn;
-    private final boolean hasDeleteFilePathColumn;
 
     private final List<IcebergColumnHandle> columns;
     /**
@@ -99,6 +97,8 @@ public class IcebergUpdateablePageSource
     // Maps the Iceberg field ids of modified columns to their indexes in the updatedColumns columnValueAndRowIdChannels array
     private final Map<ColumnIdentity, Integer> columnIdentityToUpdatedColumnIndex = new HashMap<>();
     private final int[] outputColumnToDelegateMapping;
+    private final int isDeletedColumnId;
+    private final int deleteFilePathColumnId;
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -126,8 +126,6 @@ public class IcebergUpdateablePageSource
         this.deleteSinkSupplier = deleteSinkSupplier;
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
         this.deleteFilters = requireNonNull(deleteFilters, "deleteFilters is null");
-        this.hasIsDeletedColumn = columns.contains(IS_DELETED_COLUMN_HANDLE);
-        this.hasDeleteFilePathColumn = columns.contains(DELETE_FILE_PATH_COLUMN_HANDLE);
         // information for updates
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
@@ -165,6 +163,18 @@ public class IcebergUpdateablePageSource
             else {
                 outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumns.get(i).getColumnIdentity());
             }
+        }
+        if (columns.contains(IS_DELETED_COLUMN_HANDLE)) {
+            this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
+        }
+        else {
+            this.isDeletedColumnId = -1;
+        }
+        if (columns.contains(DELETE_FILE_PATH_COLUMN_HANDLE)) {
+            this.deleteFilePathColumnId = getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn);
+        }
+        else {
+            this.deleteFilePathColumnId = -1;
         }
     }
 
@@ -212,19 +222,19 @@ public class IcebergUpdateablePageSource
             }
 
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
-            if (hasIsDeletedColumn || hasDeleteFilePathColumn) {
-                if (hasIsDeletedColumn) {
+            if (isDeletedColumnId != -1 || deleteFilePathColumnId != -1) {
+                if (isDeletedColumnId != -1) {
                     if (deleteFilterPredicate.isPresent()) {
                         // Instead of filtering rows, we mark whether the row is deleted in the $deleted column
-                        dataPage = deleteFilterPredicate.get().markDeleted(dataPage, getDelegateColumnId(IcebergColumnHandle::isDeletedColumn));
+                        dataPage = deleteFilterPredicate.get().markDeleted(dataPage, isDeletedColumnId);
                     }
                     else {
                         Block allFalseBlock = RunLengthEncodedBlock.create(BOOLEAN, false, dataPage.getPositionCount());
-                        dataPage = dataPage.replaceColumn(getDelegateColumnId(IcebergColumnHandle::isDeletedColumn), allFalseBlock);
+                        dataPage = dataPage.replaceColumn(isDeletedColumnId, allFalseBlock);
                     }
                 }
-                if (hasDeleteFilePathColumn) {
-                    dataPage = markDeleteFilePath(dataPage, getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn));
+                if (deleteFilePathColumnId != -1) {
+                    dataPage = markDeleteFilePath(dataPage, deleteFilePathColumnId);
                 }
             }
             else if (deleteFilterPredicate.isPresent()) {
