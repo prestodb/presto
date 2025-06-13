@@ -33,6 +33,8 @@
 #include "velox/functions/prestosql/fuzzer/MapUnionSumInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxByResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/NoisyCountIfInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/NoisyCountIfResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggResultVerifier.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -82,6 +84,8 @@ getCustomInputGenerators() {
       {"approx_percentile", std::make_shared<ApproxPercentileInputGenerator>()},
       {"qdigest_agg", std::make_shared<QDigestAggInputGenerator>()},
       {"map_union_sum", std::make_shared<MapUnionSumInputGenerator>()},
+      {"noisy_count_if_gaussian",
+       std::make_shared<NoisyCountIfInputGenerator>()},
   };
 }
 
@@ -133,7 +137,6 @@ int main(int argc, char** argv) {
       "max_data_size_for_stats",
       "any_value",
       // Skip non-deterministic functions.
-      "noisy_count_if_gaussian",
       // https://github.com/facebookincubator/velox/issues/13547
       "merge",
   };
@@ -148,6 +151,7 @@ int main(int argc, char** argv) {
   using facebook::velox::exec::test::ArbitraryResultVerifier;
   using facebook::velox::exec::test::AverageResultVerifier;
   using facebook::velox::exec::test::MinMaxByResultVerifier;
+  using facebook::velox::exec::test::NoisyCountIfResultVerifier;
   using facebook::velox::exec::test::QDigestAggResultVerifier;
   using facebook::velox::exec::test::setupReferenceQueryRunner;
   using facebook::velox::exec::test::TransformResultVerifier;
@@ -199,6 +203,8 @@ int main(int argc, char** argv) {
           // https://github.com/facebookincubator/velox/issues/6330
           {"max_data_size_for_stats", nullptr},
           {"sum_data_size_for_stats", nullptr},
+          {"noisy_count_if_gaussian",
+           std::make_shared<NoisyCountIfResultVerifier>()},
       };
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
