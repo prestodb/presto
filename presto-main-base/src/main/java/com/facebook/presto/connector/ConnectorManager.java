@@ -50,6 +50,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSpecificCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -123,6 +124,7 @@ public class ConnectorManager
     private final FilterStatsCalculator filterStatsCalculator;
     private final BlockEncodingSerde blockEncodingSerde;
     private final ConnectorSystemConfig connectorSystemConfig;
+    private final ConnectorSpecificCodecManager connectorSpecificCodecManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -158,7 +160,8 @@ public class ConnectorManager
             DeterminismEvaluator determinismEvaluator,
             FilterStatsCalculator filterStatsCalculator,
             BlockEncodingSerde blockEncodingSerde,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ConnectorSpecificCodecManager connectorSpecificCodecManager)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
@@ -185,6 +188,7 @@ public class ConnectorManager
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.connectorSystemConfig = () -> featuresConfig.isNativeExecutionEnabled();
+        this.connectorSpecificCodecManager = requireNonNull(connectorSpecificCodecManager, "connectorSpecificCodecManager is null");
     }
 
     @PreDestroy
@@ -317,9 +321,11 @@ public class ConnectorManager
                 .ifPresent(metadataUpdaterProvider -> connectorMetadataUpdaterManager.addMetadataUpdaterProvider(connectorId, metadataUpdaterProvider));
 
         connector.getConnectorTypeSerdeProvider()
-                        .ifPresent(
-                                connectorTypeSerdeProvider ->
+                .ifPresent(
+                        connectorTypeSerdeProvider ->
                                 connectorTypeSerdeManager.addConnectorTypeSerdeProvider(connectorId, connectorTypeSerdeProvider));
+
+        connector.getConnectorSpecificCodecProvider().ifPresent(connectorSpecificCodecProvider -> connectorSpecificCodecManager.addConnectorSpecificCodecProvider(connectorId, connectorSpecificCodecProvider));
 
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
 
@@ -412,6 +418,7 @@ public class ConnectorManager
         private final Optional<ConnectorPlanOptimizerProvider> planOptimizerProvider;
         private final Optional<ConnectorMetadataUpdaterProvider> metadataUpdaterProvider;
         private final Optional<ConnectorTypeSerdeProvider> connectorTypeSerdeProvider;
+        private final Optional<ConnectorSpecificCodecProvider> connectorSpecificCodecProvider;
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
@@ -509,6 +516,15 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
             this.connectorTypeSerdeProvider = Optional.ofNullable(connectorTypeSerdeProvider);
+
+            ConnectorSpecificCodecProvider connectorSpecificCodecProvider = null;
+            try {
+                connectorSpecificCodecProvider = connector.getConnectorSpecificCodecProvider();
+                requireNonNull(connectorSpecificCodecProvider, format("Connector %s returned null connector specific codec provider", connectorId));
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.connectorSpecificCodecProvider = Optional.ofNullable(connectorSpecificCodecProvider);
 
             ConnectorAccessControl accessControl = null;
             try {
@@ -627,6 +643,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getAnalyzeProperties()
         {
             return analyzeProperties;
+        }
+
+        public Optional<ConnectorSpecificCodecProvider> getConnectorSpecificCodecProvider()
+        {
+            return connectorSpecificCodecProvider;
         }
     }
 }

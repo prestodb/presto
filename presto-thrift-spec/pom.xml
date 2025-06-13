@@ -19,6 +19,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
@@ -52,9 +53,15 @@
                                 <class>com.facebook.presto.execution.TaskStatus</class>
                                 <class>com.facebook.presto.execution.TaskInfo</class>
                                 <class>com.facebook.presto.server.TaskUpdateRequest</class>
+                                <class>com.facebook.presto.metadata.MetadataUpdates</class>
+                                <class>com.facebook.presto.execution.scheduler.TableWriteInfo</class>
                             </classes>
+                            <namespaces>
+                                <cpp2>facebook.presto.thrift</cpp2>
+                            </namespaces>
                             <customCodecs>
-                                <codec>com.facebook.presto.server.thrift.SplitCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.ConnectorSplitThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.ConnectorTransactionHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TableWriteInfoCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.MetadataUpdatesCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>

@@ -19,6 +19,7 @@ import com.facebook.drift.codec.metadata.DefaultThriftTypeReference;
 import com.facebook.drift.codec.metadata.FieldKind;
 import com.facebook.drift.codec.metadata.ThriftFieldExtractor;
 import com.facebook.drift.codec.metadata.ThriftFieldMetadata;
+import com.facebook.drift.codec.metadata.ThriftMethodInjection;
 import com.facebook.drift.codec.metadata.ThriftStructMetadata;
 import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TField;
@@ -30,6 +31,9 @@ import com.facebook.drift.protocol.TType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.NONE;
@@ -61,7 +65,7 @@ public class CustomCodecUtils
                         referencedType)),
                 Optional.empty());
         return new ThriftStructMetadata(
-                originalType.getSimpleName() + "Wrapper",
+                originalType.getSimpleName(),
                 ImmutableMap.of(),
                 originalType, null,
                 ThriftStructMetadata.MetadataType.STRUCT,
@@ -105,5 +109,43 @@ public class CustomCodecUtils
 
         protocol.writeFieldStop();
         protocol.writeStructEnd();
+    }
+
+    protected static ThriftType createConnectorSpecificThriftType(Class<?> originalType, String filedValue, String getFieldMethod)
+    {
+        List<ThriftFieldMetadata> fieldMetadata = new ArrayList<>();
+        try {
+            fieldMetadata.add(new ThriftFieldMetadata(
+                    (short) 1,
+                    false, false, NONE, ImmutableMap.of(),
+                    new DefaultThriftTypeReference(ThriftType.STRING),
+                    "connectorId",
+                    FieldKind.THRIFT_FIELD,
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    Optional.of(new ThriftMethodInjection(originalType.getMethod("getConnectorId"), ImmutableList.of())),
+                    Optional.empty(),
+                    Optional.empty()));
+            fieldMetadata.add(new ThriftFieldMetadata(
+                    (short) 2,
+                    false, false, NONE, Collections.emptyMap(),
+                    new DefaultThriftTypeReference(ThriftType.BINARY),
+                    filedValue,
+                    FieldKind.THRIFT_FIELD,
+                    Collections.emptyList(),
+                    Optional.empty(),
+                    Optional.of(new ThriftMethodInjection(originalType.getMethod(getFieldMethod), ImmutableList.of())),
+                    Optional.empty(),
+                    Optional.empty()));
+        }
+        catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Can not find methodInjection.", e);
+        }
+        return ThriftType.struct(new ThriftStructMetadata(
+                originalType.getSimpleName(),
+                Collections.emptyMap(),
+                originalType, null,
+                ThriftStructMetadata.MetadataType.STRUCT,
+                Optional.empty(), Collections.emptyList(), fieldMetadata, Optional.empty(), Collections.emptyList()));
     }
 }
