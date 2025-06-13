@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -32,7 +31,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
 @ThriftStruct
@@ -44,16 +42,16 @@ public class DriverStats
     private final long startTimeInMillis;
     private final long endTimeInMillis;
 
-    private final Duration queuedTime;
-    private final Duration elapsedTime;
+    private final long queuedTimeInNanos;
+    private final long elapsedTimeInNanos;
 
     private final long userMemoryReservationInBytes;
     private final long revocableMemoryReservationInBytes;
     private final long systemMemoryReservationInBytes;
 
-    private final Duration totalScheduledTime;
-    private final Duration totalCpuTime;
-    private final Duration totalBlockedTime;
+    private final long totalScheduledTimeInNanos;
+    private final long totalCpuTimeInNanos;
+    private final long totalBlockedTimeInNanos;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
@@ -61,7 +59,7 @@ public class DriverStats
 
     private final long rawInputDataSizeInBytes;
     private final long rawInputPositions;
-    private final Duration rawInputReadTime;
+    private final long rawInputReadTimeInNanos;
 
     private final long processedInputDataSizeInBytes;
     private final long processedInputPositions;
@@ -80,16 +78,16 @@ public class DriverStats
         this.createTimeInMillis = currentTimeMillis();
         this.startTimeInMillis = 0L;
         this.endTimeInMillis = 0L;
-        this.queuedTime = new Duration(0, MILLISECONDS);
-        this.elapsedTime = new Duration(0, MILLISECONDS);
+        this.queuedTimeInNanos = 0;
+        this.elapsedTimeInNanos = 0;
 
         this.userMemoryReservationInBytes = 0L;
         this.revocableMemoryReservationInBytes = 0L;
         this.systemMemoryReservationInBytes = 0L;
 
-        this.totalScheduledTime = new Duration(0, MILLISECONDS);
-        this.totalCpuTime = new Duration(0, MILLISECONDS);
-        this.totalBlockedTime = new Duration(0, MILLISECONDS);
+        this.totalScheduledTimeInNanos = 0;
+        this.totalCpuTimeInNanos = 0;
+        this.totalBlockedTimeInNanos = 0;
         this.fullyBlocked = false;
         this.blockedReasons = ImmutableSet.of();
 
@@ -97,7 +95,7 @@ public class DriverStats
 
         this.rawInputDataSizeInBytes = 0L;
         this.rawInputPositions = 0;
-        this.rawInputReadTime = new Duration(0, MILLISECONDS);
+        this.rawInputReadTimeInNanos = 0;
 
         this.processedInputDataSizeInBytes = 0L;
         this.processedInputPositions = 0;
@@ -118,16 +116,16 @@ public class DriverStats
             @JsonProperty("createTimeInMillis") long createTimeInMillis,
             @JsonProperty("startTimeInMillis") long startTimeInMillis,
             @JsonProperty("endTimeInMillis") long endTimeInMillis,
-            @JsonProperty("queuedTime") Duration queuedTime,
-            @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("queuedTimeInNanos") long queuedTimeInNanos,
+            @JsonProperty("elapsedTimeInNanos") long elapsedTimeInNanos,
 
             @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
             @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
 
-            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
-            @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
+            @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
+            @JsonProperty("totalBlockedTimeInNanos") long totalBlockedTimeInNanos,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
@@ -135,7 +133,7 @@ public class DriverStats
 
             @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
             @JsonProperty("rawInputPositions") long rawInputPositions,
-            @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
+            @JsonProperty("rawInputReadTimeInNanos") long rawInputReadTimeInNanos,
 
             @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
             @JsonProperty("processedInputPositions") long processedInputPositions,
@@ -153,8 +151,8 @@ public class DriverStats
         this.createTimeInMillis = createTimeInMillis;
         this.startTimeInMillis = startTimeInMillis;
         this.endTimeInMillis = endTimeInMillis;
-        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
-        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.queuedTimeInNanos = requireNonNull(queuedTimeInNanos, "queuedTimeInNanos is null");
+        this.elapsedTimeInNanos = requireNonNull(elapsedTimeInNanos, "elapsedTimeInNanos is null");
 
         checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
         this.userMemoryReservationInBytes = userMemoryReservationInBytes;
@@ -163,9 +161,9 @@ public class DriverStats
         checkArgument(systemMemoryReservationInBytes >= 0, "systemMemoryReservationInBytes is negative");
         this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
 
-        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
-        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+        this.totalScheduledTimeInNanos = requireNonNull(totalScheduledTimeInNanos, "totalScheduledTimeInNanos is null");
+        this.totalCpuTimeInNanos = requireNonNull(totalCpuTimeInNanos, "totalCpuTimeInNanos is null");
+        this.totalBlockedTimeInNanos = requireNonNull(totalBlockedTimeInNanos, "totalBlockedTimeInNanos is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
@@ -177,7 +175,7 @@ public class DriverStats
 
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
-        this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
+        this.rawInputReadTimeInNanos = requireNonNull(rawInputReadTimeInNanos, "rawInputReadTimeInNanos is null");
 
         checkArgument(processedInputDataSizeInBytes >= 0, "processedInputDataSizeInBytes is negative");
         this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
@@ -229,16 +227,16 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(5)
-    public Duration getQueuedTime()
+    public long getQueuedTimeInNanos()
     {
-        return queuedTime;
+        return queuedTimeInNanos;
     }
 
     @JsonProperty
     @ThriftField(6)
-    public Duration getElapsedTime()
+    public long getElapsedTimeInNanos()
     {
-        return elapsedTime;
+        return elapsedTimeInNanos;
     }
 
     @JsonProperty
@@ -264,23 +262,23 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(10)
-    public Duration getTotalScheduledTime()
+    public long getTotalScheduledTimeInNanos()
     {
-        return totalScheduledTime;
+        return totalScheduledTimeInNanos;
     }
 
     @JsonProperty
     @ThriftField(11)
-    public Duration getTotalCpuTime()
+    public long getTotalCpuTimeInNanos()
     {
-        return totalCpuTime;
+        return totalCpuTimeInNanos;
     }
 
     @JsonProperty
     @ThriftField(12)
-    public Duration getTotalBlockedTime()
+    public long getTotalBlockedTimeInNanos()
     {
-        return totalBlockedTime;
+        return totalBlockedTimeInNanos;
     }
 
     @JsonProperty
@@ -313,9 +311,9 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(17)
-    public Duration getRawInputReadTime()
+    public long getRawInputReadTimeInNanos()
     {
-        return rawInputReadTime;
+        return rawInputReadTimeInNanos;
     }
 
     @JsonProperty
