@@ -56,6 +56,8 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -322,7 +324,14 @@ public class H2QueryRunner
                 else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
                     // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
-                    throw new UnsupportedOperationException();
+                    OffsetDateTime timestampValue;
+                    try {
+                        timestampValue = resultSet.getObject(position, OffsetDateTime.class);
+                    }
+                    catch (SQLException e) {
+                        throw e;
+                    }
+                    return resultSet.wasNull() ? null : timestampValue.toZonedDateTime().withZoneSameInstant(ZoneId.of("UTC"));
                 }
                 else if (UNKNOWN.equals(type)) {
                     Object objectValue = resultSet.getObject(position);
