@@ -66,7 +66,7 @@ public class ClpTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, storageType);
+        return Objects.hash(schemaTableName, tablePath, storageType);
     }
 
     @Override

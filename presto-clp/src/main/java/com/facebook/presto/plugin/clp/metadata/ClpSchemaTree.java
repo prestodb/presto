@@ -25,6 +25,7 @@ import com.facebook.presto.plugin.clp.ClpErrorCode;
 import com.facebook.presto.spi.PrestoException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -188,9 +189,11 @@ public class ClpSchemaTree
     private Type buildRowType(ClpNode node)
     {
         List<RowType.Field> fields = new ArrayList<>();
-        for (Map.Entry<String, ClpNode> entry : node.children.entrySet()) {
-            String name = entry.getKey();
-            ClpNode child = entry.getValue();
+        List<String> sortedKeys = new ArrayList<>(node.children.keySet());
+        Collections.sort(sortedKeys);
+
+        for (String name : sortedKeys) {
+            ClpNode child = node.children.get(name);
             Type fieldType = child.isLeaf() ? child.type : buildRowType(child);
             fields.add(new RowType.Field(Optional.of(name), fieldType));
         }

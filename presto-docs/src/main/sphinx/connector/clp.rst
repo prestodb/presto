@@ -68,7 +68,7 @@ Property Name                      Description                                  
 ``clp.metadata-db-name``           The name of the metadata database. This option is required if
                                    ``clp.metadata-provider-type`` is set to ``mysql`` and the database name
                                    is not specified in the URL.
-``clp.metadata-db-user``           The database user with access to the metadata database.This option is
+``clp.metadata-db-user``           The database user with access to the metadata database. This option is
                                    required if ``clp.metadata-provider-type`` is set to ``mysql`` and the
                                    database name is not specified in the URL.
 ``clp.metadata-db-password``       The password for the metadata database user. This option is required if

@@ -75,11 +75,11 @@ public class ClpColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        ColumnMetadata.Builder builder = ColumnMetadata.builder()
+        return ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(columnType)
-                .setNullable(nullable);
-        return builder.build();
+                .setNullable(nullable)
+                .build();
     }
 
     @Override

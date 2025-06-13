@@ -46,7 +46,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class ClpMetadata
         implements ConnectorMetadata
 {
-    private static final String DEFAULT_SCHEMA_NAME = "default";
+    public static final String DEFAULT_SCHEMA_NAME = "default";
     private final ClpMetadataProvider clpMetadataProvider;
     private final LoadingCache<SchemaTableName, List<ClpColumnHandle>> columnHandleCache;
     private final LoadingCache<String, List<ClpTableHandle>> tableHandleCache;
@@ -63,7 +63,7 @@ public class ClpMetadata
                 .refreshAfterWrite(clpConfig.getMetadataRefreshInterval(), SECONDS)
                 .build(CacheLoader.from(this::loadTableHandles));
 
-        this.clpMetadataProvider = clpMetadataProvider;
+        this.clpMetadataProvider = requireNonNull(clpMetadataProvider, "ClpMetadataProvider is null");
     }
 
     private List<ClpColumnHandle> loadColumnHandles(SchemaTableName schemaTableName)
@@ -120,14 +120,14 @@ public class ClpMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
-                                                            ConnectorTableHandle table,
-                                                            Constraint<ColumnHandle> constraint,
-                                                            Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(ConnectorSession session,
+                                                                  ConnectorTableHandle table,
+                                                                  Constraint<ColumnHandle> constraint,
+                                                                  Optional<Set<ColumnHandle>> desiredColumns)
     {
         ClpTableHandle tableHandle = (ClpTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new ClpTableLayoutHandle(tableHandle, Optional.empty()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override
@@ -163,7 +163,13 @@ public class ClpMetadata
             schemaTableNames = listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         else {
-            schemaTableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            SchemaTableName table = new SchemaTableName(schemaName, prefix.getTableName());
+            if (listTables(session, Optional.ofNullable(schemaName)).contains(table)) {
+                schemaTableNames = ImmutableList.of(table);
+            }
+            else {
+                schemaTableNames = ImmutableList.of();
+            }
         }
 
         return schemaTableNames.stream()

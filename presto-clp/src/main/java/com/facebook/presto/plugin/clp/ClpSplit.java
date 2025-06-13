@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static java.util.Objects.requireNonNull;
 
 public class ClpSplit
         implements ConnectorSplit
@@ -33,7 +34,7 @@ public class ClpSplit
     @JsonCreator
     public ClpSplit(@JsonProperty("path") String path)
     {
-        this.path = path;
+        this.path = requireNonNull(path, "Split path is null");
     }
 
     @JsonProperty
