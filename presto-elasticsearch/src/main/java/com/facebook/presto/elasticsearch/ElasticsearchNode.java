@@ -27,7 +27,6 @@ public class ElasticsearchNode
     {
         super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null, null, null), classpathPlugins, false);
     }
-
     public ElasticsearchNode(Settings preparedSettings)
     {
         super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null, null, null));
