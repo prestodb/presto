@@ -489,6 +489,14 @@ SessionProperties::SessionProperties() {
       10,
       QueryConfig::kRequestDataSizesMaxWaitSec,
       std::to_string(c.requestDataSizesMaxWaitSec()));
+
+  addSessionProperty(
+      kNativeQueryMemoryReclaimerPriority,
+      "Memory pool reclaimer priority.",
+      INTEGER(),
+      2147483647,
+      QueryConfig::kQueryMemoryReclaimerPriority,
+      std::to_string(c.queryMemoryReclaimerPriority()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
