@@ -16,17 +16,10 @@ package com.facebook.presto.elasticsearch;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.InternalSettingsPreparer;
 import org.elasticsearch.node.Node;
-import org.elasticsearch.plugins.Plugin;
-
-import java.util.Collection;
 
 public class ElasticsearchNode
         extends Node
 {
-    public ElasticsearchNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins)
-    {
-        super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null, null, null), classpathPlugins, false);
-    }
     public ElasticsearchNode(Settings preparedSettings)
     {
         super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null, null, null));
