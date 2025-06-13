@@ -34,6 +34,8 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -99,17 +101,17 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator, query);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query, List<X509Certificate> certificates)
     {
         // Query check
-        checkAccessPermissionsForQuery(accessControlReferences, query);
+        checkAccessPermissionsForQuery(accessControlReferences, query, certificates);
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);
         // Table Column checks
         checkAccessPermissionsForColumns(accessControlReferences);
     }
 
-    private static void checkAccessPermissionsForQuery(AccessControlReferences accessControlReferences, String query)
+    private static void checkAccessPermissionsForQuery(AccessControlReferences accessControlReferences, String query, List<X509Certificate> certificates)
     {
         AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
         // Only check access if query gets analyzed
@@ -120,7 +122,7 @@ public class AnalyzerUtil
             Map<QualifiedObjectName, ViewDefinition> viewDefinitionMap = accessControlReferences.getViewDefinitions();
             Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap = accessControlReferences.getMaterializedViewDefinitions();
 
-            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, viewDefinitionMap, materializedViewDefinitionMap);
+            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, viewDefinitionMap, materializedViewDefinitionMap, certificates);
         }
     }
 

@@ -590,7 +590,8 @@ public class LocalQueryRunner
                 defaultSession.getTracer(),
                 defaultSession.getWarningCollector(),
                 defaultSession.getRuntimeStats(),
-                defaultSession.getQueryType());
+                defaultSession.getQueryType(),
+                defaultSession.getCertificates());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
@@ -939,7 +940,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql, session.getCertificates());
 
         MaterializedResult result = MaterializedResult.resultBuilder(session, BooleanType.BOOLEAN)
                 .row(true)
@@ -1195,7 +1196,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql, session.getCertificates());
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
