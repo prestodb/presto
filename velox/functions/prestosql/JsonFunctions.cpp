@@ -612,6 +612,9 @@ class JsonFunctionTemplate : public exec::VectorFunction {
           }
           nullResult = true;
           context.setErrors(rows, std::current_exception());
+        } catch (const std::exception&) {
+          nullResult = true;
+          context.setErrors(rows, std::current_exception());
         }
       }
 

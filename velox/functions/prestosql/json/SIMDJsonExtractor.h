@@ -191,6 +191,9 @@ simdjson::error_code SIMDJsonExtractor::extractInternal(
       if (selector == JsonPathTokenizer::Selector::WILDCARD) {
         SIMDJSON_ASSIGN_OR_RAISE(auto array, input.get_array());
         for (auto child : array) {
+          if (child.error()) {
+            return child.error();
+          }
           if (tokenIndex == tokens_.size() - 1) {
             // Consume each element in the object.
             SIMDJSON_TRY(consumer(child.value()));
@@ -259,6 +262,9 @@ simdjson::error_code SIMDJsonExtractor::visitRecursive(
   } else if (jsonDocVal.type() == simdjson::ondemand::json_type::array) {
     SIMDJSON_ASSIGN_OR_RAISE(auto array, jsonDocVal.get_array());
     for (auto child : array) {
+      if (child.error()) {
+        return child.error();
+      }
       simdjson::ondemand::value val = child.value();
       if (val.type() != simdjson::ondemand::json_type::object &&
           val.type() != simdjson::ondemand::json_type::array) {
