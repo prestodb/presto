@@ -611,12 +611,11 @@ Table Scan
      - Type
      - Description
    * - table_scan_batch_process_time_ms
-     - Histogram
-     - The time distribution of table scan batch processing time in range of [0,
-       16s] with 512 buckets and reports P50, P90, P99, and P100.
+     - Average
+     - Tracks the averaged table scan batch processing time in milliseconds.
    * - table_scan_batch_bytes
-     - Histogram
-     - The size distribution of table scan output batch in range of [0, 512MB]
+     - Average
+     - Tracks the averaged table scan output batch size in bytes.
        with 512 buckets and reports P50, P90, P99, and P100
 
 S3 FileSystem

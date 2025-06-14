@@ -645,15 +645,12 @@ void registerVeloxMetrics() {
       kMetricIndexLookupBlockedWaitTimeMs, 32, 0, 16L << 10, 50, 90, 99, 100);
 
   /// ================== Table Scan Counters =================
-  // The time distribution of table scan batch processing time in range of [0,
-  // 16s] with 512 buckets and reports P50, P90, P99, and P100.
-  DEFINE_HISTOGRAM_METRIC(
-      kMetricTableScanBatchProcessTimeMs, 32, 0, 16L << 10, 50, 90, 99, 100);
+  // Tracks the averaged table scan batch processing time in milliseconds.
+  DEFINE_METRIC(
+      kMetricTableScanBatchProcessTimeMs, facebook::velox::StatType::AVG);
 
-  // The size distribution of table scan output batch in range of [0, 512MB]
-  // with 512 buckets and reports P50, P90, P99, and P100
-  DEFINE_HISTOGRAM_METRIC(
-      kMetricTableScanBatchBytes, 1L << 20, 0, 512L << 20, 50, 90, 99, 100);
+  // Tracks the averaged table scan output batch size in bytes.
+  DEFINE_METRIC(kMetricTableScanBatchBytes, facebook::velox::StatType::AVG);
 
   /// ================== Storage Counters =================
 
