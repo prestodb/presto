@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -43,7 +44,6 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
