@@ -197,6 +197,7 @@ void PrestoExchangeSource::doRequest(
           protocol::PRESTO_MAX_WAIT_HTTP_HEADER,
           protocol::Duration(maxWait.count(), protocol::TimeUnit::MICROSECONDS)
               .toString())
+      .header(proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", host_, port_))
       .send(httpClient_.get(), "", delayMs)
       .via(driverExecutor_)
       .thenTry(

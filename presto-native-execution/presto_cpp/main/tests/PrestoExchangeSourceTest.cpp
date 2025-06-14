@@ -129,9 +129,11 @@ class Producer {
   }
 
   proxygen::RequestHandler* getResults(
-      proxygen::HTTPMessage* /*message*/,
+      proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch,
       bool getDataSizeOnly) {
+    const auto& headers = message->getHeaders();
+    VELOX_CHECK(headers.exists(proxygen::HTTP_HEADER_HOST));
     protocol::TaskId taskId = pathMatch[1];
     long sequence = std::stol(pathMatch[3]);
 
