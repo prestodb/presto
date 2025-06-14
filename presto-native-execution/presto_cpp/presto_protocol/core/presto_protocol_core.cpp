@@ -10178,6 +10178,47 @@ void to_json(json& j, const TaskStats& p) {
       "completedDrivers");
   to_json_key(
       j,
+      "totalNativeDrivers",
+      p.totalNativeDrivers,
+      "TaskStats",
+      "int",
+      "totalNativeDrivers");
+  to_json_key(
+      j,
+      "queuedNativeDrivers",
+      p.queuedNativeDrivers,
+      "TaskStats",
+      "int",
+      "queuedNativeDrivers");
+  to_json_key(
+      j,
+      "runningNativeDrivers",
+      p.runningNativeDrivers,
+      "TaskStats",
+      "int",
+      "runningNativeDrivers");
+  to_json_key(
+      j,
+      "completedNativeDrivers",
+      p.completedNativeDrivers,
+      "TaskStats",
+      "int",
+      "completedNativeDrivers");
+  to_json_key(
+      j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
+  to_json_key(
+      j, "queuedSplits", p.queuedSplits, "TaskStats", "int", "queuedSplits");
+  to_json_key(
+      j, "runningSplits", p.runningSplits, "TaskStats", "int", "runningSplits");
+  to_json_key(
+      j,
+      "completedSplits",
+      p.completedSplits,
+      "TaskStats",
+      "int",
+      "completedSplits");
+  to_json_key(
+      j,
       "cumulativeUserMemory",
       p.cumulativeUserMemory,
       "TaskStats",
@@ -10446,6 +10487,47 @@ void from_json(const json& j, TaskStats& p) {
       "TaskStats",
       "int",
       "completedDrivers");
+  from_json_key(
+      j,
+      "totalNativeDrivers",
+      p.totalNativeDrivers,
+      "TaskStats",
+      "int",
+      "totalNativeDrivers");
+  from_json_key(
+      j,
+      "queuedNativeDrivers",
+      p.queuedNativeDrivers,
+      "TaskStats",
+      "int",
+      "queuedNativeDrivers");
+  from_json_key(
+      j,
+      "runningNativeDrivers",
+      p.runningNativeDrivers,
+      "TaskStats",
+      "int",
+      "runningNativeDrivers");
+  from_json_key(
+      j,
+      "completedNativeDrivers",
+      p.completedNativeDrivers,
+      "TaskStats",
+      "int",
+      "completedNativeDrivers");
+  from_json_key(
+      j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
+  from_json_key(
+      j, "queuedSplits", p.queuedSplits, "TaskStats", "int", "queuedSplits");
+  from_json_key(
+      j, "runningSplits", p.runningSplits, "TaskStats", "int", "runningSplits");
+  from_json_key(
+      j,
+      "completedSplits",
+      p.completedSplits,
+      "TaskStats",
+      "int",
+      "completedSplits");
   from_json_key(
       j,
       "cumulativeUserMemory",
