@@ -780,7 +780,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                     <tbody>
                                         <tr>
                                             <td className="stage-table-stat-title">
-                                                Pending
+                                                Planned
                                             </td>
                                             <td className="stage-table-stat-text">
                                                 {prestoStage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "PLANNED").length}
