@@ -39,6 +39,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.CharMatcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import jakarta.inject.Inject;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -68,8 +69,6 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;

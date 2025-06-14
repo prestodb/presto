@@ -16,6 +16,7 @@ package com.facebook.presto.router.scheduler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
@@ -33,12 +34,10 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
+import jakarta.servlet.http.HttpServletRequest;
 import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.Locale;

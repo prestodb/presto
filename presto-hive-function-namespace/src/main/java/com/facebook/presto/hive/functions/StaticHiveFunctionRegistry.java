@@ -16,9 +16,8 @@ package com.facebook.presto.hive.functions;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import jakarta.inject.Inject;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
-
-import javax.inject.Inject;
 
 import static com.facebook.presto.hive.functions.FunctionRegistry.getFunctionInfo;
 import static java.util.Objects.requireNonNull;
