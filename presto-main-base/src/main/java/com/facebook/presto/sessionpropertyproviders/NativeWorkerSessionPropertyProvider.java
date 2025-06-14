@@ -78,6 +78,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
     public static final String NATIVE_STREAMING_AGGREGATION_MIN_OUTPUT_BATCH_ROWS = "native_streaming_aggregation_min_output_batch_rows";
     public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
+    public static final String NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY = "native_query_memory_reclaimer_priority";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -350,6 +351,12 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC,
                         "Maximum wait time for exchange long poll requests in seconds.",
                         10,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY,
+                        "Native Execution only. Priority of memory recliamer when deciding on memory pool to abort." +
+                        "Lower value has higher priority and less likely to be choosen for memory pool abort",
+                        2147483647,
                         !nativeExecution));
     }
 
