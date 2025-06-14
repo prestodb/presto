@@ -168,7 +168,8 @@ public class TestHiveClientConfig
                 .setSkipEmptyFilesEnabled(false)
                 .setOptimizeParsingOfPartitionValues(false)
                 .setOptimizeParsingOfPartitionValuesThreshold(500)
-                .setLegacyTimestampBucketing(false));
+                .setLegacyTimestampBucketing(false)
+                .setSymlinkOptimizedReaderEnabled(true));
     }
 
     @Test
@@ -297,6 +298,7 @@ public class TestHiveClientConfig
                 .put("hive.optimize-parsing-of-partition-values-enabled", "true")
                 .put("hive.optimize-parsing-of-partition-values-threshold", "100")
                 .put("hive.legacy-timestamp-bucketing", "true")
+                .put("hive.experimental.symlink.optimized-reader.enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -420,7 +422,8 @@ public class TestHiveClientConfig
                 .setCteVirtualBucketCount(256)
                 .setOptimizeParsingOfPartitionValues(true)
                 .setOptimizeParsingOfPartitionValuesThreshold(100)
-                .setLegacyTimestampBucketing(true);
+                .setLegacyTimestampBucketing(true)
+                .setSymlinkOptimizedReaderEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
