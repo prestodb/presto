@@ -36,7 +36,7 @@ import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 
 public final class ChunkedSliceOutput
-        extends SliceOutput
+        extends SliceOutput implements OrcChunkedOutputBuffer
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ChunkedSliceOutput.class).instanceSize();
     private static final int MINIMUM_CHUNK_SIZE = 256;
@@ -200,6 +200,20 @@ public final class ChunkedSliceOutput
             sourceIndex += batch;
             length -= batch;
         }
+    }
+
+    @Override
+    public void ensureAvailable(int minLength, int length)
+    {
+        ensureWritableBytes(minLength);
+    }
+
+    @Override
+    public void writeHeader(int header)
+    {
+        write(header & 0x00_00FF);
+        write((header & 0x00_FF00) >> 8);
+        write((header & 0xFF_0000) >> 16);
     }
 
     @Override
