@@ -45,6 +45,7 @@ import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
@@ -338,6 +339,39 @@ public final class FunctionResolution
     public boolean isMinByFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("min_by")));
+    }
+
+    @Override
+    public boolean supportsArbitraryFunction()
+    {
+        try {
+            functionAndTypeResolver.lookupFunction("ARBITRARY", fromTypes(BIGINT));
+            return true;
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode()) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public boolean isArbitraryFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("arbitrary")));
+    }
+
+    @Override
+    public FunctionHandle arbitraryFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("arbitrary", ImmutableList.of());
+    }
+
+    @Override
+    public FunctionHandle arbitraryFunction(Type valueType)
+    {
+        return functionAndTypeResolver.lookupFunction("arbitrary", fromTypes(valueType));
     }
 
     @Override
