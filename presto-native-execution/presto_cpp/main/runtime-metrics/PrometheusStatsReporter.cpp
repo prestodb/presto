@@ -47,14 +47,15 @@ struct PrometheusStatsReporter::PrometheusImpl {
 };
 
 PrometheusStatsReporter::PrometheusStatsReporter(
-    const std::map<std::string, std::string>& labels) {
-  impl_ = std::make_shared<PrometheusImpl>(labels);
+    const std::map<std::string, std::string>& labels, int numThreads)
+    : executor_(std::make_shared<folly::CPUThreadPoolExecutor>(numThreads)),
+      impl_(std::make_shared<PrometheusImpl>(labels)) {
 }
 
 void PrometheusStatsReporter::registerMetricExportType(
     const char* key,
     facebook::velox::StatType statType) const {
-  if (registeredMetricsMap_.count(key)) {
+  if (registeredMetricsMap_.find(key) != registeredMetricsMap_.end()) {
     VLOG(1) << "Trying to register already registered metric " << key;
     return;
   }
@@ -68,8 +69,7 @@ void PrometheusStatsReporter::registerMetricExportType(
                                 .Name(sanitizedMetricKey)
                                 .Register(*impl_->registry);
       auto& counter = counterFamily.Add(impl_->labels);
-      registeredMetricsMap_.emplace(
-          std::string(key), StatsInfo{statType, &counter});
+      registeredMetricsMap_.insert({key, StatsInfo{statType, &counter}});
     } break;
     case facebook::velox::StatType::SUM:
     case facebook::velox::StatType::AVG:
@@ -78,7 +78,7 @@ void PrometheusStatsReporter::registerMetricExportType(
                               .Name(sanitizedMetricKey)
                               .Register(*impl_->registry);
       auto& gauge = gaugeFamily.Add(impl_->labels);
-      registeredMetricsMap_.emplace(
+      registeredMetricsMap_.insert(
           std::string(key), StatsInfo{statType, &gauge});
     } break;
     default:
@@ -99,7 +99,7 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     int64_t min,
     int64_t max,
     const std::vector<int32_t>& pcts) const {
-  if (registeredMetricsMap_.count(key)) {
+  if (registeredMetricsMap_.find(key) != registeredMetricsMap_.end()) {
     // Already registered;
     VLOG(1) << "Trying to register already registered metric " << key;
     return;
@@ -123,7 +123,7 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
   VELOX_CHECK_GE(bucketBoundaries.size(), 1);
   auto& histogramMetric = histogramFamily.Add(impl_->labels, bucketBoundaries);
 
-  registeredMetricsMap_.emplace(
+  registeredMetricsMap_.insert(
       key, StatsInfo{velox::StatType::HISTOGRAM, &histogramMetric});
   // If percentiles are provided, create a Summary type metric and register.
   if (pcts.size() > 0) {
@@ -137,7 +137,7 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
           pct / static_cast<double>(100), 0));
     }
     auto& summaryMetric = summaryFamily.Add({impl_->labels}, quantiles);
-    registeredMetricsMap_.emplace(
+    registeredMetricsMap_.insert(
         std::string(key).append(kSummarySuffix),
         StatsInfo{velox::StatType::HISTOGRAM, &summaryMetric});
   }
@@ -161,36 +161,38 @@ void PrometheusStatsReporter::addMetricValue(
 
 void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
     const {
-  auto metricIterator = registeredMetricsMap_.find(key);
-  if (metricIterator == registeredMetricsMap_.end()) {
-    VLOG(1) << "addMetricValue called for unregistered metric " << key;
-    return;
-  }
-  auto statsInfo = metricIterator->second;
-  switch (statsInfo.statType) {
-    case velox::StatType::COUNT: {
-      auto* counter =
-          reinterpret_cast<::prometheus::Counter*>(statsInfo.metricPtr);
-      counter->Increment(static_cast<double>(value));
-      break;
+  executor_->add([this, key = std::string(key), value]() {
+    auto metricIterator = registeredMetricsMap_.find(key);
+    if (metricIterator == registeredMetricsMap_.end()) {
+      VLOG(1) << "addMetricValue called for unregistered metric " << key;
+      return;
     }
-    case velox::StatType::SUM: {
-      auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
-      gauge->Increment(static_cast<double>(value));
-      break;
-    }
-    case velox::StatType::AVG:
-    case velox::StatType::RATE: {
-      // Overrides the existing state.
-      auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
-      gauge->Set(static_cast<double>(value));
-      break;
-    }
-    default:
-      VELOX_UNSUPPORTED(
-          "Unsupported metric type {}",
-          velox::statTypeString(statsInfo.statType));
-  };
+    auto statsInfo = metricIterator->second;
+    switch (statsInfo.statType) {
+      case velox::StatType::COUNT: {
+        auto* counter =
+            reinterpret_cast<::prometheus::Counter*>(statsInfo.metricPtr);
+        counter->Increment(static_cast<double>(value));
+        break;
+      }
+      case velox::StatType::SUM: {
+        auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+        gauge->Increment(static_cast<double>(value));
+        break;
+      }
+      case velox::StatType::AVG:
+      case velox::StatType::RATE: {
+        // Overrides the existing state.
+        auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+        gauge->Set(static_cast<double>(value));
+        break;
+      }
+      default:
+        VELOX_UNSUPPORTED(
+            "Unsupported metric type {}",
+            velox::statTypeString(statsInfo.statType));
+    };
+  });
 }
 
 void PrometheusStatsReporter::addMetricValue(
@@ -208,22 +210,24 @@ void PrometheusStatsReporter::addHistogramMetricValue(
 void PrometheusStatsReporter::addHistogramMetricValue(
     const char* key,
     size_t value) const {
-  auto metricIterator = registeredMetricsMap_.find(key);
-  if (metricIterator == registeredMetricsMap_.end()) {
-    VLOG(1) << "addMetricValue for unregistered metric " << key;
-    return;
-  }
-  auto histogram = reinterpret_cast<::prometheus::Histogram*>(
-      metricIterator->second.metricPtr);
-  histogram->Observe(value);
-
-  std::string summaryKey = std::string(key).append(kSummarySuffix);
-  metricIterator = registeredMetricsMap_.find(summaryKey);
-  if (metricIterator != registeredMetricsMap_.end()) {
-    auto summary = reinterpret_cast<::prometheus::Summary*>(
+  executor_->add([this, key = std::string(key), value]() {
+    auto metricIterator = registeredMetricsMap_.find(key);
+    if (metricIterator == registeredMetricsMap_.end()) {
+      VLOG(1) << "addMetricValue for unregistered metric " << key;
+      return;
+    }
+    auto histogram = reinterpret_cast<::prometheus::Histogram*>(
         metricIterator->second.metricPtr);
-    summary->Observe(value);
-  }
+    histogram->Observe(value);
+
+    std::string summaryKey = std::string(key).append(kSummarySuffix);
+    metricIterator = registeredMetricsMap_.find(summaryKey);
+    if (metricIterator != registeredMetricsMap_.end()) {
+      auto summary = reinterpret_cast<::prometheus::Summary*>(
+          metricIterator->second.metricPtr);
+      summary->Observe(value);
+    }
+  });
 }
 
 void PrometheusStatsReporter::addHistogramMetricValue(
@@ -239,6 +243,10 @@ std::string PrometheusStatsReporter::fetchMetrics() {
   ::prometheus::TextSerializer serializer;
   // Registry::Collect() acquires lock on a mutex.
   return serializer.Serialize(impl_->registry->Collect());
+}
+
+void PrometheusStatsReporter::waitForCompletion() const {
+  executor_->join();
 }
 
 } // namespace facebook::presto::prometheus
