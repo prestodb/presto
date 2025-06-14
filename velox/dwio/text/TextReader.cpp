@@ -16,72 +16,61 @@
 
 #include "velox/dwio/text/TextReader.h"
 
-using namespace facebook::velox::dwio::common;
+namespace facebook::velox::dwio::common {
 
-namespace facebook::velox::text {
-
-using dwio::common::ReaderOptions;
-
-/// TODO: Add implementation
 TextRowReader::TextRowReader(
-    std::unique_ptr<RowReader> /*rowReader*/,
+    std::unique_ptr<RowReader> rowReader,
     memory::MemoryPool& pool,
-    const std::shared_ptr<common::ScanSpec>& /*scanSpec*/)
-    : pool_(pool) {}
+    const std::shared_ptr<ScanSpec>& scanSpec)
+    : pool_(pool), rowReader_(std::move(rowReader)), scanSpec_(scanSpec) {}
 
-/// TODO: Add implementation
 int64_t TextRowReader::nextRowNumber() {
-  return 0;
+  return rowReader_->nextRowNumber();
 }
 
-/// TODO: Add implementation
-int64_t TextRowReader::nextReadSize(uint64_t /*size*/) {
-  return 0;
+int64_t TextRowReader::nextReadSize(uint64_t size) {
+  return rowReader_->nextReadSize(size);
 }
 
-/// TODO: Add implementation
 uint64_t TextRowReader::next(
-    uint64_t /*size*/,
-    VectorPtr& /*result*/,
-    const Mutation* /*mutation*/) {
-  return 0;
+    uint64_t size,
+    VectorPtr& result,
+    const Mutation* mutation) {
+  return rowReader_->next(size, result, mutation);
 }
 
-void TextRowReader::updateRuntimeStats(RuntimeStatistics& /*stats*/) const {
-  // No-op for non-selective reader.
-  return;
+void TextRowReader::updateRuntimeStats(RuntimeStatistics& stats) const {
+  rowReader_->updateRuntimeStats(stats);
 }
 
 void TextRowReader::resetFilterCaches() {
-  // No-op for non-selective reader.
-  return;
+  rowReader_->resetFilterCaches();
 }
 
 std::optional<size_t> TextRowReader::estimatedRowSize() const {
-  return std::nullopt;
+  return rowReader_->estimatedRowSize();
 }
 
 TextReader::TextReader(
     const ReaderOptions& options,
-    const std::shared_ptr<ReadFile>& readFile)
-    : options_(options), readFile_(readFile) {
+    std::unique_ptr<BufferedInput> input)
+    : options_(options),
+      reader_(std::make_unique<TextReaderImpl>(std::move(input), options_)) {
   VELOX_USER_CHECK_NOT_NULL(
       options_.fileSchema(), "File schema for TEXT must be set.");
 }
 
-// No-op
 std::optional<uint64_t> TextReader::numberOfRows() const {
-  return std::nullopt;
+  return reader_->numberOfRows();
 }
 
-// No-op
 std::unique_ptr<ColumnStatistics> TextReader::columnStatistics(
-    uint32_t /*index*/) const {
-  return nullptr;
+    uint32_t index) const {
+  return reader_->columnStatistics(index);
 }
 
 const RowTypePtr& TextReader::rowType() const {
-  return options_.fileSchema();
+  return reader_->rowType();
 }
 
 const std::shared_ptr<const TypeWithId>& TextReader::typeWithId() const {
@@ -91,16 +80,17 @@ const std::shared_ptr<const TypeWithId>& TextReader::typeWithId() const {
   return typeWithId_;
 }
 
-/// TODO: Add implementation
 std::unique_ptr<RowReader> TextReader::createRowReader(
-    const RowReaderOptions& /*options*/) const {
-  return nullptr;
+    const RowReaderOptions& options) const {
+  auto rowReader = reader_->createRowReader(options);
+  return std::make_unique<TextRowReader>(
+      std::move(rowReader), options_.memoryPool(), options.scanSpec());
 }
 
 std::unique_ptr<Reader> TextReaderFactory::createReader(
     std::unique_ptr<BufferedInput> input,
-    const dwio::common::ReaderOptions& options) {
-  return std::make_unique<TextReader>(options, input->getReadFile());
+    const ReaderOptions& options) {
+  return std::make_unique<TextReader>(options, std::move(input));
 }
 
 void registerTextReaderFactory() {
@@ -111,4 +101,4 @@ void unregisterTextReaderFactory() {
   unregisterReaderFactory(FileFormat::TEXT);
 }
 
-} // namespace facebook::velox::text
+} // namespace facebook::velox::dwio::common

@@ -17,25 +17,19 @@
 #pragma once
 
 #include "velox/dwio/common/ReaderFactory.h"
+#include "velox/dwio/text/reader/TextReaderImpl.h"
 
-namespace facebook::velox::text {
+namespace facebook::velox::dwio::common {
 
-using dwio::common::ColumnStatistics;
-using dwio::common::Mutation;
-using dwio::common::Reader;
-using dwio::common::RowReader;
-using dwio::common::RowReaderOptions;
-using dwio::common::RuntimeStatistics;
-using dwio::common::TypeWithId;
-
-using dwio::common::ReaderOptions;
+using memory::MemoryPool;
+using velox::common::ScanSpec;
 
 class TextRowReader : public RowReader {
  public:
   explicit TextRowReader(
       std::unique_ptr<RowReader> rowReader,
-      memory::MemoryPool& pool,
-      const std::shared_ptr<common::ScanSpec>& scanSpec);
+      MemoryPool& pool,
+      const std::shared_ptr<ScanSpec>& scanSpec);
 
   int64_t nextRowNumber() override;
 
@@ -51,17 +45,21 @@ class TextRowReader : public RowReader {
   std::optional<size_t> estimatedRowSize() const override;
 
  private:
-  std::unique_ptr<RowReader> rowReader_;
-  memory::MemoryPool& pool_;
-  std::unique_ptr<BaseVector> batch_;
-  std::shared_ptr<common::ScanSpec> scanSpec_;
+  MemoryPool& pool_;
+  std::unique_ptr<RowReader>
+      rowReader_; // creation of TextRowReader dictates rowReader_ to be type of
+                  // TextRowReaderImpl but no dynamic cast to avoid runtime
+                  // performance penalty, no casting will be needed after
+                  // refactoring redundant abstraction layer
+  std::unique_ptr<BaseVector> vector_;
+  std::shared_ptr<ScanSpec> scanSpec_;
 };
 
 class TextReader : public Reader {
  public:
   TextReader(
       const ReaderOptions& options,
-      const std::shared_ptr<ReadFile>& readFile);
+      std::unique_ptr<BufferedInput> input);
 
   std::optional<uint64_t> numberOfRows() const override;
 
@@ -69,6 +67,7 @@ class TextReader : public Reader {
       uint32_t index) const override;
 
   const RowTypePtr& rowType() const override;
+
   const std::shared_ptr<const TypeWithId>& typeWithId() const override;
 
   std::unique_ptr<RowReader> createRowReader(
@@ -76,21 +75,22 @@ class TextReader : public Reader {
 
  private:
   ReaderOptions options_;
-  std::shared_ptr<ReadFile> readFile_;
+  std::unique_ptr<TextReaderImpl> reader_;
+
   mutable std::shared_ptr<const TypeWithId> typeWithId_;
 };
 
-class TextReaderFactory : public dwio::common::ReaderFactory {
+class TextReaderFactory : public ReaderFactory {
  public:
-  TextReaderFactory() : ReaderFactory(dwio::common::FileFormat::TEXT) {}
+  TextReaderFactory() : ReaderFactory(FileFormat::TEXT) {}
 
-  std::unique_ptr<dwio::common::Reader> createReader(
-      std::unique_ptr<dwio::common::BufferedInput>,
-      const dwio::common::ReaderOptions&) override;
+  std::unique_ptr<Reader> createReader(
+      std::unique_ptr<BufferedInput>,
+      const ReaderOptions&) override;
 };
 
 void registerTextReaderFactory();
 
 void unregisterTextReaderFactory();
 
-} // namespace facebook::velox::text
+} // namespace facebook::velox::dwio::common
