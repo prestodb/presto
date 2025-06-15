@@ -68,17 +68,17 @@ class QuantileDigest {
 
   /// Estimate the values of the given quantiles and write the results in order
   /// directly into 'result'.
-  void estimateQuantiles(const std::vector<double>& quantiles, T* result);
+  void estimateQuantiles(const std::vector<double>& quantiles, T* result) const;
 
-  T estimateQuantile(double quantile);
+  T estimateQuantile(double quantile) const;
 
   int64_t serializedByteSize() const;
 
   int64_t serialize(char* out);
 
-  T getMin();
+  T getMin() const;
 
-  T getMax();
+  T getMax() const;
 
   // For testing only. Calling this method with 'other' being constructed from
   // QuantileDigest(const Allocator& allocator, const char* serialized) is
@@ -140,7 +140,7 @@ class QuantileDigest {
       int32_t node,
       Func callback,
       const std::vector<int32_t, RebindAlloc<int32_t>>& firstChildren,
-      const std::vector<int32_t, RebindAlloc<int32_t>>& secondChildren) {
+      const std::vector<int32_t, RebindAlloc<int32_t>>& secondChildren) const {
     if (node == -1) {
       return false;
     } else {
@@ -222,6 +222,8 @@ class QuantileDigest {
   U lowerBound(int32_t node) const;
 
   U upperBound(int32_t node) const;
+
+  bool validateDigest() const;
 
   double maxError_;
   double weightedCount_;
@@ -718,6 +720,42 @@ void QuantileDigest<T, Allocator>::setChild(
 }
 
 template <typename T, typename Allocator>
+bool QuantileDigest<T, Allocator>::validateDigest() const {
+  std::unordered_set<
+      int32_t,
+      std::hash<int32_t>,
+      std::equal_to<int32_t>,
+      RebindAlloc<int32_t>>
+      free(lefts_.get_allocator());
+  auto iterator = firstFree_;
+  while (iterator != -1) {
+    free.insert(iterator);
+    iterator = lefts_[iterator];
+  }
+  std::vector<bool, RebindAlloc<unsigned long>> visited(
+      lefts_.size(), false, RebindAlloc<unsigned long>(lefts_.get_allocator()));
+
+  // Check that visited nodes are not in the free list and are visited only
+  // once.
+  postOrderTraverse(
+      root_,
+      [&free, &visited](int32_t node) {
+        VELOX_CHECK_EQ(free.count(node), 0);
+        VELOX_CHECK_EQ(visited[node], false);
+        visited[node] = true;
+
+        return true;
+      },
+      lefts_,
+      rights_);
+  // Check that all nodes that are not in the free list are visited.
+  for (auto i = 0; i < visited.size(); ++i) {
+    VELOX_CHECK(visited[i] == true || free.count(i) == 1);
+  }
+  return true;
+}
+
+template <typename T, typename Allocator>
 void QuantileDigest<T, Allocator>::compress() {
   double bound = std::floor(
       weightedCount_ / static_cast<double>(calculateCompressionFactor()));
@@ -753,6 +791,7 @@ void QuantileDigest<T, Allocator>::compress() {
   if (root_ != -1 && counts_[root_] < qdigest::kZeroWeightThreshold) {
     root_ = tryRemove(root_);
   }
+  VELOX_DCHECK(validateDigest());
 }
 
 template <typename T, typename Allocator>
@@ -847,6 +886,8 @@ void QuantileDigest<T, Allocator>::mergeSerialized(const char* other) {
   std::tie(root_, pos) = mergeSerializedRecursive(root_, other, other + size);
   max_ = std::max(max_, max);
   min_ = std::min(min_, min);
+  VELOX_DCHECK(validateDigest());
+
   compress();
 }
 
@@ -903,6 +944,8 @@ QuantileDigest<T, Allocator>::mergeSerializedRecursive(
       if (branch == 0) {
         if (hasRight) {
           std::tie(right, position) = copySerializedRecursive(start, position);
+        } else {
+          right = -1;
         }
         if (hasLeft) {
           std::tie(left, position) =
@@ -915,6 +958,8 @@ QuantileDigest<T, Allocator>::mergeSerializedRecursive(
         }
         if (hasLeft) {
           std::tie(left, position) = copySerializedRecursive(start, position);
+        } else {
+          left = -1;
         }
       }
 
@@ -1076,7 +1121,7 @@ inline bool validateQuantiles(const std::vector<double>& quantiles) {
 template <typename T, typename Allocator>
 void QuantileDigest<T, Allocator>::estimateQuantiles(
     const std::vector<double>& quantiles,
-    T* result) {
+    T* result) const {
   VELOX_DCHECK(validateQuantiles(quantiles));
   int i = -1;
   double sum = 0.0;
@@ -1099,14 +1144,14 @@ void QuantileDigest<T, Allocator>::estimateQuantiles(
 }
 
 template <typename T, typename Allocator>
-T QuantileDigest<T, Allocator>::estimateQuantile(double quantile) {
+T QuantileDigest<T, Allocator>::estimateQuantile(double quantile) const {
   T result;
   estimateQuantiles({quantile}, &result);
   return result;
 }
 
 template <typename T, typename Allocator>
-T QuantileDigest<T, Allocator>::getMin() {
+T QuantileDigest<T, Allocator>::getMin() const {
   T result = std::numeric_limits<T>::min();
   postOrderTraverse(
       root_,
@@ -1124,7 +1169,7 @@ T QuantileDigest<T, Allocator>::getMin() {
 }
 
 template <typename T, typename Allocator>
-T QuantileDigest<T, Allocator>::getMax() {
+T QuantileDigest<T, Allocator>::getMax() const {
   T result = std::numeric_limits<T>::max();
   postOrderTraverse(
       root_,
@@ -1191,6 +1236,7 @@ int64_t QuantileDigest<T, Allocator>::serializedByteSize() const {
 
 template <typename T, typename Allocator>
 int64_t QuantileDigest<T, Allocator>::serialize(char* out) {
+  VELOX_DCHECK(validateDigest());
   compress();
   const char* outStart = out;
   SerDe::writeMetadata(
