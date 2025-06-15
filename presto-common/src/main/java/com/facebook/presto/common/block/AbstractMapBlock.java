@@ -15,9 +15,8 @@
 package com.facebook.presto.common.block;
 
 import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
