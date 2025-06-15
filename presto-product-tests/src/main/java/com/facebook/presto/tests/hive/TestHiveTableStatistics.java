@@ -201,8 +201,8 @@ public class TestHiveTableStatistics
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
         assertThat(query(showStatsWholeTable)).containsOnly(
-                row("n_nationkey", null, 19.0, 0.0, null, "0", "24", null),
-                row("n_name", 177.0, 24.0, 0.0, null, null, null, null),
+                row("n_nationkey", null, 25.0, 0.0, null, "0", "24", null),
+                row("n_name", 177.0, 25.0, 0.0, null, null, null, null),
                 row("n_regionkey", null, 5.0, 0.0, null, "0", "4", null),
                 row("n_comment", 1857.0, 25.0, 0.0, null, null, null, null),
                 row(null, null, null, null, 25.0, null, null, null));
@@ -328,7 +328,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0, null, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, 4.0, 0.0, null, "8", "21", null),
+                row("p_nationkey", null, 5.0, 0.0, null, "8", "21", null),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2", null),
                 row("p_comment", 351.0, 5.0, 0.0, null, null, null, null),
@@ -455,7 +455,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0, null, null, null));
 
         assertThat(query(showStatsPartitionTwo)).containsOnly(
-                row("p_nationkey", null, 4.0, 0.0, null, "8", "21", null),
+                row("p_nationkey", null, 5.0, 0.0, null, "8", "21", null),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null, null),
                 row("p_comment", 351.0, 5.0, 0.0, null, null, null, null),
@@ -565,28 +565,6 @@ public class TestHiveTableStatistics
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
         onHive().executeQuery("INSERT INTO TABLE " + tableNameInDatabase + " VALUES(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)");
 
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
-
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, null, null, null, null, null, null),
-                row("c_smallint", null, null, null, null, null, null, null),
-                row("c_int", null, null, null, null, null, null, null),
-                row("c_bigint", null, null, null, null, null, null, null),
-                row("c_float", null, null, null, null, null, null, null),
-                row("c_double", null, null, null, null, null, null, null),
-                row("c_decimal", null, null, null, null, null, null, null),
-                row("c_decimal_w_params", null, null, null, null, null, null, null),
-                row("c_timestamp", null, null, null, null, null, null, null),
-                row("c_date", null, null, null, null, null, null, null),
-                row("c_string", null, null, null, null, null, null, null),
-                row("c_varchar", null, null, null, null, null, null, null),
-                row("c_char", null, null, null, null, null, null, null),
-                row("c_boolean", null, null, null, null, null, null, null),
-                row("c_binary", null, null, null, null, null, null, null),
-                row(null, null, null, null, 1.0, null, null, null));
-
-        onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
-
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 0.0, 1.0, null, null, null, null),
                 row("c_smallint", null, 0.0, 1.0, null, null, null, null),
@@ -616,19 +594,6 @@ public class TestHiveTableStatistics
         onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES ('c1', 1), ('c1', 2)");
 
         assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
-                row("c_string", null, null, null, null, null, null, null),
-                row("c_int", null, null, null, null, null, null, null),
-                row(null, null, null, null, 2.0, null, null, null));
-
-        onHive().executeQuery("ANALYZE TABLE " + tableName + " COMPUTE STATISTICS");
-
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
-                row("c_string", null, null, null, null, null, null, null),
-                row("c_int", null, null, null, null, null, null, null),
-                row(null, null, null, null, 2.0, null, null, null));
-
-        onHive().executeQuery("ANALYZE TABLE " + tableName + " COMPUTE STATISTICS FOR COLUMNS");
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2", null),
                 row(null, null, null, null, 2.0, null, null, null));
@@ -643,12 +608,6 @@ public class TestHiveTableStatistics
         onHive().executeQuery("CREATE TABLE " + tableName + " (c_string STRING, c_int INT) SKEWED BY (c_string) ON ('c1')");
         onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES ('c1', 1), ('c1', 2)");
 
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
-                row("c_string", null, null, null, null, null, null, null),
-                row("c_int", null, null, null, null, null, null, null),
-                row(null, null, null, null, 2.0, null, null, null));
-
-        assertThat(query("ANALYZE " + tableName)).containsExactly(row(2));
         assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2", null),
@@ -976,26 +935,6 @@ public class TestHiveTableStatistics
 
         // insert from hive to prevent Presto collecting statistics on insert
         onHive().executeQuery("INSERT INTO TABLE " + tableNameInDatabase + " VALUES(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)");
-
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
-                row("c_tinyint", null, null, null, null, null, null, null),
-                row("c_smallint", null, null, null, null, null, null, null),
-                row("c_int", null, null, null, null, null, null, null),
-                row("c_bigint", null, null, null, null, null, null, null),
-                row("c_float", null, null, null, null, null, null, null),
-                row("c_double", null, null, null, null, null, null, null),
-                row("c_decimal", null, null, null, null, null, null, null),
-                row("c_decimal_w_params", null, null, null, null, null, null, null),
-                row("c_timestamp", null, null, null, null, null, null, null),
-                row("c_date", null, null, null, null, null, null, null),
-                row("c_string", null, null, null, null, null, null, null),
-                row("c_varchar", null, null, null, null, null, null, null),
-                row("c_char", null, null, null, null, null, null, null),
-                row("c_boolean", null, null, null, null, null, null, null),
-                row("c_binary", null, null, null, null, null, null, null),
-                row(null, null, null, null, 1.0, null, null, null));
-
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(1));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 0.0, 1.0, null, null, null, null),

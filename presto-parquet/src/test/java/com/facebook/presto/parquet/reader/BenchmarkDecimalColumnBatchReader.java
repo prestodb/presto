@@ -35,6 +35,7 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type.Repetition;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -440,7 +441,8 @@ public class BenchmarkDecimalColumnBatchReader
                     null,
                     null,
                     false,
-                    Optional.empty());
+                    Optional.empty(),
+                    Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
         }
 
         protected abstract List<?> generateValues();
