@@ -269,6 +269,7 @@ public class FeaturesConfig
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
     private boolean rewriteExpressionWithConstantVariable = true;
+    private boolean optimizeConditionalApproxDistinct = true;
 
     private boolean preProcessMetadataCalls;
     private boolean handleComplexEquiJoins;
@@ -2784,6 +2785,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
     {
         this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
+        return this;
+    }
+
+    public boolean isOptimizeConditionalApproxDistinct()
+    {
+        return this.optimizeConditionalApproxDistinct;
+    }
+
+    @Config("optimizer.optimize-constant-approx-distinct")
+    @ConfigDescription("Optimize out APPROX_DISTINCT over conditional constant expressions")
+    public FeaturesConfig setOptimizeConditionalApproxDistinct(boolean optimizeConditionalApproxDistinct)
+    {
+        this.optimizeConditionalApproxDistinct = optimizeConditionalApproxDistinct;
         return this;
     }
 

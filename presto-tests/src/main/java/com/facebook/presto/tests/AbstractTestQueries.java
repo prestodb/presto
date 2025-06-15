@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
@@ -6801,6 +6802,38 @@ public abstract class AbstractTestQueries
                 "FROM lineitem " +
                 "GROUP BY linenumber " +
                 "HAVING min(orderkey) < (SELECT avg(orderkey) FROM orders WHERE orderkey < 7)");
+    }
+
+    @Test
+    public void testReplaceConditionalApproxDistinct()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CONDITIONAL_APPROXIMATE_DISTINCT, "true")
+                .build();
+
+        // if(..., true, true) -> if(..., 1, 1)
+        assertQuery(session, "select approx_distinct(if(orderkey = 1, 'const', 'const')) from orders",
+                             "select 1");
+
+        // if(..., true) -> if(..., 1, 0)
+        assertQuery(session, "select approx_distinct(if(orderkey = 1, 'const')) from orders",
+                             "select 0");
+
+        // if(..., true, false) -> if(..., 1, 0)
+        assertQuery(session, "select approx_distinct(if(orderkey = 1, 'const', NULL)) from orders",
+                             "select 0");
+
+        // if(..., false, true) -> if(..., 0, 1)
+        assertQuery(session, "select approx_distinct(if(orderkey = 1, NULL, 'const')) from orders",
+                             "select 1");
+
+        // if(..., false) -> if(..., 0, 0)
+        assertQuery(session, "select approx_distinct(if(orderkey = 1, NULL)) from orders",
+                             "select 0");
+
+        // if(..., false, false) -> if(..., 0, 0)
+        assertQuery(session, "select approx_distinct(if(orderkey = 1, NULL, NULL)) from orders",
+                             "select 0");
     }
 
     @Test

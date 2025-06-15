@@ -68,6 +68,14 @@ public interface StandardFunctionResolution
 
     FunctionHandle countFunction(Type valueType);
 
+    boolean supportsArbitraryFunction();
+
+    boolean isArbitraryFunction(FunctionHandle functionHandle);
+
+    FunctionHandle arbitraryFunction();
+
+    FunctionHandle arbitraryFunction(Type valueType);
+
     boolean isMaxFunction(FunctionHandle functionHandle);
 
     FunctionHandle maxFunction(Type valueType);
