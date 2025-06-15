@@ -98,8 +98,7 @@ struct ErrorLocation {
   2: i32 columnNumber;
 }
 struct HostAddress {
-  1: string host;
-  2: i32 port;
+  1: string hostPortString;
 }
 struct StageId {
   1: string queryId;
@@ -237,8 +236,7 @@ struct TransactionId {
   1: string uuid;
 }
 struct TimeZoneKey {
-  1: string id;
-  2: i16 key;
+  1: i16 timeZoneKey;
 }
 struct ResourceEstimates {
   1: optional double executionTime;
