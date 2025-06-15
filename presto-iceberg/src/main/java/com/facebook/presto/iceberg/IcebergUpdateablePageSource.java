@@ -15,9 +15,12 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -27,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,19 +38,27 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -64,12 +76,14 @@ public class IcebergUpdateablePageSource
     private final Supplier<IcebergDeletePageSink> deleteSinkSupplier;
     private IcebergDeletePageSink positionDeleteSink;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
+    private final Supplier<List<DeleteFilter>> deleteFilters;
 
     private final List<IcebergColumnHandle> columns;
     /**
      * Columns actually updated in the query
      */
     private final List<IcebergColumnHandle> updatedColumns;
+    private final List<IcebergColumnHandle> delegateColumns;
     private final Schema tableSchema;
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     private IcebergPageSink updatedRowPageSink;
@@ -83,6 +97,8 @@ public class IcebergUpdateablePageSource
     // Maps the Iceberg field ids of modified columns to their indexes in the updatedColumns columnValueAndRowIdChannels array
     private final Map<ColumnIdentity, Integer> columnIdentityToUpdatedColumnIndex = new HashMap<>();
     private final int[] outputColumnToDelegateMapping;
+    private final int isDeletedColumnId;
+    private final int deleteFilePathColumnId;
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -95,6 +111,7 @@ public class IcebergUpdateablePageSource
             List<IcebergColumnHandle> delegateColumns,
             Supplier<IcebergDeletePageSink> deleteSinkSupplier,
             Supplier<Optional<RowPredicate>> deletePredicate,
+            Supplier<List<DeleteFilter>> deleteFilters,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             // the columns that this page source is supposed to update
             List<IcebergColumnHandle> updatedColumns,
@@ -104,9 +121,11 @@ public class IcebergUpdateablePageSource
         this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
         this.columns = requireNonNull(outputColumns, "columns is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.delegateColumns = requireNonNull(delegateColumns, "delegateColumns is null");
         // information for deletes
         this.deleteSinkSupplier = deleteSinkSupplier;
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
+        this.deleteFilters = requireNonNull(deleteFilters, "deleteFilters is null");
         // information for updates
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
@@ -144,6 +163,18 @@ public class IcebergUpdateablePageSource
             else {
                 outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumns.get(i).getColumnIdentity());
             }
+        }
+        if (columns.contains(IS_DELETED_COLUMN_HANDLE)) {
+            this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
+        }
+        else {
+            this.isDeletedColumnId = -1;
+        }
+        if (columns.contains(DELETE_FILE_PATH_COLUMN_HANDLE)) {
+            this.deleteFilePathColumnId = getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn);
+        }
+        else {
+            this.deleteFilePathColumnId = -1;
         }
     }
 
@@ -191,7 +222,22 @@ public class IcebergUpdateablePageSource
             }
 
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
-            if (deleteFilterPredicate.isPresent()) {
+            if (isDeletedColumnId != -1 || deleteFilePathColumnId != -1) {
+                if (isDeletedColumnId != -1) {
+                    if (deleteFilterPredicate.isPresent()) {
+                        // Instead of filtering rows, we mark whether the row is deleted in the $deleted column
+                        dataPage = deleteFilterPredicate.get().markDeleted(dataPage, isDeletedColumnId);
+                    }
+                    else {
+                        Block allFalseBlock = RunLengthEncodedBlock.create(BOOLEAN, false, dataPage.getPositionCount());
+                        dataPage = dataPage.replaceColumn(isDeletedColumnId, allFalseBlock);
+                    }
+                }
+                if (deleteFilePathColumnId != -1) {
+                    dataPage = markDeleteFilePath(dataPage, deleteFilePathColumnId);
+                }
+            }
+            else if (deleteFilterPredicate.isPresent()) {
                 dataPage = deleteFilterPredicate.get().filterPage(dataPage);
             }
 
@@ -309,6 +355,71 @@ public class IcebergUpdateablePageSource
         }
 
         return new Page(page.getPositionCount(), fullPage);
+    }
+
+    private int getDelegateColumnId(Predicate<IcebergColumnHandle> columnPredicate)
+    {
+        int targetColumnId = 0;
+        for (int i = 0; i < columns.size(); i++) {
+            if (columnPredicate.test(columns.get(i))) {
+                targetColumnId = i;
+                break;
+            }
+        }
+        return outputColumnToDelegateMapping[targetColumnId];
+    }
+
+    private Page markDeleteFilePath(Page page, int deleteFilePathDelegateColumnId)
+    {
+        List<Pair<DeleteFilter, RowPredicate>> filterPredicates = deleteFilters.get().stream()
+                .map(filter -> Pair.of(filter, filter.createPredicate(delegateColumns)))
+                .collect(Collectors.toList());
+
+        int positionCount = page.getPositionCount();
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+        boolean allSameValues = true;
+        String firstValue = null;
+
+        // Build the varchar block with the deleted file path or null if the row isn't deleted
+        for (int position = 0; position < positionCount; position++) {
+            Optional<String> deleteFilePath = getDeleteFilePath(page, position, filterPredicates);
+            if (allSameValues && !Objects.equals(firstValue, deleteFilePath.orElse(null))) {
+                allSameValues = false;
+            }
+            if (firstValue == null && deleteFilePath.isPresent()) {
+                firstValue = deleteFilePath.get();
+            }
+            if (deleteFilePath.isPresent()) {
+                VARCHAR.writeString(blockBuilder, deleteFilePath.get());
+            }
+            else {
+                blockBuilder.appendNull();
+            }
+        }
+
+        Block block;
+        if (allSameValues) {
+            Slice slice = firstValue == null ? null : utf8Slice(firstValue);
+            block = RunLengthEncodedBlock.create(VARCHAR, slice, positionCount);
+        }
+        else {
+            block = blockBuilder.build();
+        }
+        return page.replaceColumn(deleteFilePathDelegateColumnId, block);
+    }
+
+    private Optional<String> getDeleteFilePath(Page page, int position, List<Pair<DeleteFilter, RowPredicate>> filterPredicates)
+    {
+        for (Pair<DeleteFilter, RowPredicate> pair : filterPredicates) {
+            boolean deleted = !pair.second().test(page, position);
+            if (deleted) {
+                String path = pair.first().getDeleteFilePath().orElse(null);
+                if (path != null) {
+                    return Optional.of(path);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
