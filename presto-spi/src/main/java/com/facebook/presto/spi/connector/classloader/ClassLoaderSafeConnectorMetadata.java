@@ -495,7 +495,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<ColumnHandle> getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getDeleteRowIdColumnHandle(session, tableHandle);
@@ -589,7 +589,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public Optional<ColumnHandle> getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns);

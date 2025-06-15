@@ -58,8 +58,8 @@ import static java.lang.Math.floorDiv;
 
 public final class TimestampOperators
 {
-    public static final int MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
-    public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
+    public static final long MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+    public static final long MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
     private TimestampOperators()
     {
     }

@@ -394,13 +394,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
+    public Optional<ColumnHandle> getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public Optional<ColumnHandle> getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new UnsupportedOperationException();
     }

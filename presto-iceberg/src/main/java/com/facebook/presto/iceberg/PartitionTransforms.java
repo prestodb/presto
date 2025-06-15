@@ -61,8 +61,8 @@ public final class PartitionTransforms
     private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
     private static final DateTimeField YEAR_UTC = getInstanceUTC().year();
     private static final DateTimeField MONTH_OF_YEAR_UTC = getInstanceUTC().monthOfYear();
-    public static final int MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
-    public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
+    public static final long MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+    public static final long MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
 
     private PartitionTransforms() {}
 
