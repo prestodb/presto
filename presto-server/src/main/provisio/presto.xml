@@ -274,4 +274,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/native-sidecar-plugin">
+        <artifact id="${project.groupId}:presto-native-sidecar-plugin:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
