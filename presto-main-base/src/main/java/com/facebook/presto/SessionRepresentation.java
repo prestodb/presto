@@ -32,6 +32,7 @@ import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
@@ -339,6 +340,7 @@ public final class SessionRepresentation
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 }
