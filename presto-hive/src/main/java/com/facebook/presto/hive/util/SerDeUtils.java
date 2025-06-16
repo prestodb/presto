@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.drift.codec.ThriftCodec;
+import com.facebook.drift.protocol.TBinaryProtocol;
+import com.facebook.drift.protocol.TMemoryBuffer;
+import com.facebook.drift.protocol.TMemoryBufferWriteOnly;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
@@ -310,5 +314,31 @@ public final class SerDeUtils
             return ((TimestampWritable) object).getTimestamp();
         }
         return inspector.getPrimitiveJavaObject(object);
+    }
+
+    public static <T> T fromThrift(byte[] bytes, ThriftCodec<T> thriftCodec)
+    {
+        try {
+            TMemoryBuffer transport = new TMemoryBuffer(bytes.length);
+            transport.write(bytes);
+            TBinaryProtocol protocol = new TBinaryProtocol(transport);
+            return thriftCodec.read(protocol);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static <T> byte[] toThrift(T value, ThriftCodec<T> thriftCodec)
+    {
+        TMemoryBufferWriteOnly transport = new TMemoryBufferWriteOnly(1024);
+        TBinaryProtocol protocol = new TBinaryProtocol(transport);
+        try {
+            thriftCodec.write(value, protocol);
+            return transport.getBytes();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

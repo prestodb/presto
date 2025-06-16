@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -23,6 +26,7 @@ import java.util.function.Function;
 import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 
+@ThriftStruct
 public final class SplitWeight
 {
     private static final long UNIT_VALUE = 100;
@@ -31,7 +35,8 @@ public final class SplitWeight
 
     private final long value;
 
-    private SplitWeight(long value)
+    @ThriftConstructor
+    public SplitWeight(long value)
     {
         if (value <= 0) {
             throw new IllegalArgumentException("value must be > 0, found: " + value);
@@ -43,6 +48,7 @@ public final class SplitWeight
      * @return The internal integer representation for this weight value
      */
     @JsonValue
+    @ThriftField(value = 1, name = "value")
     public long getRawValue()
     {
         return value;

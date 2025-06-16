@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -33,6 +36,7 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class Split
 {
     private final ConnectorId connectorId;
@@ -62,7 +66,22 @@ public final class Split
         this.splitContext = requireNonNull(splitContext, "splitContext is null");
     }
 
+    @ThriftConstructor
+    public Split(ConnectorId connectorId,
+            ConnectorTransactionHandleWrapper transactionHandleWrapper,
+            ConnectorSplitWrapper connectorSplitWrapper,
+            Lifespan lifespan,
+            SplitContext splitContext)
+    {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionHandle = requireNonNull(transactionHandleWrapper, "transactionHandleWrapper is null").getTransactionHandle();
+        this.connectorSplit = requireNonNull(connectorSplitWrapper, "connectorSplitWrapper is null").getConnectorSplit();
+        this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        this.splitContext = requireNonNull(splitContext, "splitContext is null");
+    }
+
     @JsonProperty
+    @ThriftField(1)
     public ConnectorId getConnectorId()
     {
         return connectorId;
@@ -74,19 +93,33 @@ public final class Split
         return transactionHandle;
     }
 
+    @ThriftField(value = 2, name = "transactionHandleWrapper")
+    public ConnectorTransactionHandleWrapper getTransactionHandleWrapper()
+    {
+        return new ConnectorTransactionHandleWrapper(connectorId, transactionHandle);
+    }
+
     @JsonProperty
     public ConnectorSplit getConnectorSplit()
     {
         return connectorSplit;
     }
 
+    @ThriftField(value = 3, name = "connectorSplitWrapper")
+    public ConnectorSplitWrapper getConnectorSplitWrapper()
+    {
+        return new ConnectorSplitWrapper(connectorId, connectorSplit);
+    }
+
     @JsonProperty
+    @ThriftField(4)
     public Lifespan getLifespan()
     {
         return lifespan;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public SplitContext getSplitContext()
     {
         return splitContext;
@@ -202,6 +235,67 @@ public final class Split
         public int hashCode()
         {
             return Objects.hash(connectorId, splitIdentifier);
+        }
+    }
+
+    @ThriftStruct
+    public static class ConnectorTransactionHandleWrapper
+    {
+        private final ConnectorId connectorId;
+        private final ConnectorTransactionHandle transactionHandle;
+
+        @JsonCreator
+        @ThriftConstructor
+        public ConnectorTransactionHandleWrapper(
+                @JsonProperty("connectorId") ConnectorId connectorId,
+                @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle)
+        {
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        }
+
+        @JsonProperty
+        @ThriftField(1)
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
+        }
+
+        @JsonProperty
+        @ThriftField(2)
+        public ConnectorTransactionHandle getTransactionHandle()
+        {
+            return transactionHandle;
+        }
+    }
+
+    @ThriftStruct
+    public static class ConnectorSplitWrapper
+    {
+        private final ConnectorId connectorId;
+        private final ConnectorSplit connectorSplit;
+
+        @JsonCreator
+        @ThriftConstructor
+        public ConnectorSplitWrapper(@JsonProperty("connectorId") ConnectorId connectorId,
+                @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
+        {
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
+        }
+
+        @JsonProperty
+        @ThriftField(1)
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
+        }
+
+        @JsonProperty
+        @ThriftField(2)
+        public ConnectorSplit getConnectorSplit()
+        {
+            return connectorSplit;
         }
     }
 }
