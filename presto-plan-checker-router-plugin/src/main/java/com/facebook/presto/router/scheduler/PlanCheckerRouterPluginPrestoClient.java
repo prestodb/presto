@@ -13,22 +13,12 @@
  */
 package com.facebook.presto.router.scheduler;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.ErrorLocation;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.common.ErrorCode;
-import com.facebook.presto.common.ErrorType;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
@@ -37,35 +27,23 @@ import org.weakref.jmx.Nested;
 
 import java.net.URI;
 import java.security.Principal;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
-import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.router.scheduler.PlanCheckerPluginHttpRequestSessionContext.getResourceEstimates;
 import static com.facebook.presto.router.scheduler.PlanCheckerPluginHttpRequestSessionContext.getSerializedSessionFunctions;
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
-import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.google.common.base.Verify.verify;
 
 public class PlanCheckerRouterPluginPrestoClient
 {
     private static final Logger log = Logger.get(PlanCheckerRouterPluginPrestoClient.class);
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
     private static final CounterStat javaClusterRedirectRequests = new CounterStat();
     private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
-    private static final Set<StandardErrorCode> USER_ERRORS_SET =
-            new HashSet<>(ImmutableList.of(GENERIC_USER_ERROR, SYNTAX_ERROR, ABANDONED_QUERY, USER_CANCELED, PERMISSION_DENIED));
     private final OkHttpClient httpClient = new OkHttpClient();
     private final URI planCheckerClusterURI;
     private final URI javaRouterURI;
@@ -108,7 +86,6 @@ public class PlanCheckerRouterPluginPrestoClient
             verify(client.isFinished());
             QueryError resultsError = client.finalStatusInfo().getError();
             if (resultsError != null) {
-                returnQueryErrorToClient(resultsError, client);
                 isNativeCompatible = false;
                 log.info(resultsError.getMessage());
             }
@@ -136,71 +113,6 @@ public class PlanCheckerRouterPluginPrestoClient
     public CounterStat getNativeClusterRedirectRequests()
     {
         return nativeClusterRedirectRequests;
-    }
-
-    private void returnQueryErrorToClient(QueryError resultsError, StatementClient client)
-    {
-        if (ErrorType.valueOf(resultsError.getErrorType()) == USER_ERROR) {
-            if (USER_ERRORS_SET.stream()
-                    .anyMatch((code -> code.toErrorCode().getName()
-                                    .equalsIgnoreCase(resultsError.getErrorName())))) {
-                throw new PrestoException(
-                        () -> new ErrorCode(
-                                resultsError.getErrorCode(),
-                                resultsError.getErrorName(),
-                                USER_ERROR,
-                                resultsError.isRetriable()),
-                        newQueryResults(client));
-            }
-        }
-    }
-
-    private String newQueryResults(StatementClient client)
-    {
-        QueryStatusInfo queryStatusInfo = client.finalStatusInfo();
-        QueryResults queryResults = new QueryResults(
-                queryStatusInfo.getId(),
-                queryStatusInfo.getInfoUri(),
-                queryStatusInfo.getPartialCancelUri(),
-                queryStatusInfo.getNextUri(),
-                queryStatusInfo.getColumns(),
-                null, // if error thrown no data is returned.
-                null,
-                queryStatusInfo.getStats(),
-                newQueryError(queryStatusInfo.getError()),
-                queryStatusInfo.getWarnings(),
-                queryStatusInfo.getUpdateType(),
-                queryStatusInfo.getUpdateCount());
-
-        return QUERY_RESULTS_CODEC.toJson(queryResults);
-    }
-
-    private QueryError newQueryError(QueryError error)
-    {
-        // todo: the getMessage() calls will still return the previous error location
-        ErrorLocation errorLocation = error.getErrorLocation();
-        ErrorLocation newErrorLocation = null;
-        FailureInfo failureInfo = error.getFailureInfo();
-        if (errorLocation != null) {
-            newErrorLocation = new ErrorLocation(
-                    errorLocation.getLineNumber(),
-                    errorLocation.getColumnNumber() - ANALYZE_CALL.length());
-        }
-        return new QueryError(
-                error.getMessage(),
-                error.getSqlState(),
-                error.getErrorCode(),
-                error.getErrorName(),
-                error.getErrorType(),
-                error.isRetriable(),
-                newErrorLocation,
-                new FailureInfo(
-                        failureInfo.getType(),
-                        failureInfo.getMessage(),
-                        failureInfo.getCause(),
-                        failureInfo.getSuppressed(),
-                        failureInfo.getStack(),
-                        newErrorLocation));
     }
 
     private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal, String remoteUserAddr)
