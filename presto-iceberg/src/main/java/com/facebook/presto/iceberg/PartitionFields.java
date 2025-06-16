@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -22,6 +23,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -78,12 +80,25 @@ public final class PartitionFields
                 .orElseGet(() -> PartitionSpec.builderFor(schema));
 
         for (String field : fields) {
-            parsePartitionField(builder, field);
+            buildPartitionField(builder, field);
         }
         return builder.build();
     }
 
-    public static void parsePartitionField(PartitionSpec.Builder builder, String field)
+    public static PartitionSpec parseIcebergPartitionFields(Schema schema, List<IcebergPartitionField> fields, @Nullable Integer specId)
+    {
+        PartitionSpec.Builder builder = Optional.ofNullable(specId)
+                .map(id -> PartitionSpec.builderFor(schema).withSpecId(id))
+                .orElseGet(() -> PartitionSpec.builderFor(schema));
+
+        for (IcebergPartitionField field : fields) {
+            buildPartitionSpec(builder, field);
+        }
+        return builder.build();
+    }
+
+    @VisibleForTesting
+    static void buildPartitionField(PartitionSpec.Builder builder, String field)
     {
         @SuppressWarnings("PointlessBooleanExpression")
         boolean matched = false ||
@@ -96,6 +111,35 @@ public final class PartitionFields
                 tryMatch(field, TRUNCATE_PATTERN, match -> builder.truncate(match.group(1), parseInt(match.group(2))));
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
+        }
+    }
+
+    private static void buildPartitionSpec(PartitionSpec.Builder builder, IcebergPartitionField partitionField)
+    {
+        String field = partitionField.getName();
+        PartitionTransformType type = partitionField.getTransform();
+        OptionalInt parameter = partitionField.getParameter();
+        switch (type) {
+            case IDENTITY:
+                builder.identity(field);
+                break;
+            case YEAR:
+                builder.year(field);
+                break;
+            case MONTH:
+                builder.month(field);
+                break;
+            case DAY:
+                builder.day(field);
+                break;
+            case HOUR:
+                builder.hour(field);
+                break;
+            case BUCKET:
+                builder.bucket(field, parameter.getAsInt());
+                break;
+            case TRUNCATE:
+                builder.truncate(field, parameter.getAsInt());
         }
     }
 
@@ -113,6 +157,41 @@ public final class PartitionFields
     {
         return spec.fields().stream()
                 .map(field -> toPartitionField(spec, field))
+                .collect(toImmutableList());
+    }
+
+    private static String toPartitionField(PartitionSpec spec, PartitionField field)
+    {
+        String name = spec.schema().findColumnName(field.sourceId());
+        String transform = field.transform().toString();
+
+        switch (transform) {
+            case "identity":
+                return name;
+            case "year":
+            case "month":
+            case "day":
+            case "hour":
+                return format("%s(%s)", transform, name);
+        }
+
+        Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return format("bucket(%s, %s)", name, matcher.group(1));
+        }
+
+        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return format("truncate(%s, %s)", name, matcher.group(1));
+        }
+
+        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+    }
+
+    public static List<IcebergPartitionField> toIcebergPartitionFields(PartitionSpec spec)
+    {
+        return spec.fields().stream()
+                .map(field -> toIcebergPartitionField(spec, field))
                 .collect(toImmutableList());
     }
 
@@ -170,32 +249,23 @@ public final class PartitionFields
         throw new UnsupportedOperationException("Unknown partition transform: " + transform);
     }
 
-    private static String toPartitionField(PartitionSpec spec, PartitionField field)
+    private static IcebergPartitionField toIcebergPartitionField(PartitionSpec spec, PartitionField field)
     {
         String name = spec.schema().findColumnName(field.sourceId());
         String transform = field.transform().toString();
-
-        switch (transform) {
-            case "identity":
-                return name;
-            case "year":
-            case "month":
-            case "day":
-            case "hour":
-                return format("%s(%s)", transform, name);
-        }
-
+        IcebergPartitionField.Builder builder = IcebergPartitionField.builder();
+        builder.setTransform(PartitionTransformType.fromStringOrFail(transform)).setFieldId(field.fieldId()).setSourceId(field.sourceId()).setName(name);
         Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
         if (matcher.matches()) {
-            return format("bucket(%s, %s)", name, matcher.group(1));
+            builder.setParameter(OptionalInt.of(Integer.parseInt(matcher.group(1))));
+            return builder.build();
         }
-
         matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
-            return format("truncate(%s, %s)", name, matcher.group(1));
+            builder.setParameter(OptionalInt.of(Integer.parseInt(matcher.group(1))));
+            return builder.build();
         }
-
-        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+        return builder.build();
     }
 
     public static String quotedName(String name)
