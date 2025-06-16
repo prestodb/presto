@@ -263,7 +263,7 @@ public final class HiveUtil
         // Only propagate serialization schema configs by default
         Predicate<String> schemaFilter = schemaProperty -> schemaProperty.startsWith("serialization.");
 
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), getDeserializerClassName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
         if (!customSplitInfo.isEmpty()) {
@@ -346,15 +346,25 @@ public final class HiveUtil
         return Optional.ofNullable(compressionCodecFactory.getCodec(file));
     }
 
-    public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
+    public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, String serDe, boolean symlinkTarget)
     {
         try {
             JobConf jobConf = toJobConf(configuration);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
-                // symlink targets are always TextInputFormat
-                inputFormatClass = TextInputFormat.class;
+                if (serDe == null) {
+                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Missing SerDe for SymlinkTextInputFormat");
+                }
+
+                for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+                    if (serDe.equals(hiveStorageFormat.getSerDe())) {
+                        inputFormatClass = getInputFormatClass(jobConf, hiveStorageFormat.getInputFormat());
+                        return ReflectionUtils.newInstance(inputFormatClass, jobConf);
+                    }
+                }
+
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Unsupported SerDe for SymlinkTextInputFormat: %s", serDe));
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
@@ -395,7 +405,7 @@ public final class HiveUtil
             return false;
         }
 
-        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), false);
+        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), storage.getStorageFormat().getSerDe(), false);
         return Arrays.stream(inputFormat.getClass().getAnnotations())
                 .map(Annotation::annotationType)
                 .map(Class::getSimpleName)
