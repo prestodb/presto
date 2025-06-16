@@ -147,7 +147,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.square"), ImmutableList.of(parseTypeSignature("integer")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         squareFunctions.add(new JsonBasedUdfFunctionMetadata(
                 "square a double",
                 FunctionKind.SCALAR,
@@ -160,7 +161,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.square"), ImmutableList.of(parseTypeSignature("double")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         udfSignatureMap.put("square", squareFunctions);
 
         // array_function_1
@@ -177,7 +179,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         arrayFunction1.add(new JsonBasedUdfFunctionMetadata(
                 "combines two float arrays into one",
                 FunctionKind.SCALAR,
@@ -190,7 +193,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<ARRAY<BIGINT>>"), parseTypeSignature("ARRAY<ARRAY<BIGINT>>")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         arrayFunction1.add(new JsonBasedUdfFunctionMetadata(
                 "combines two double arrays into one",
                 FunctionKind.SCALAR,
@@ -203,7 +207,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<DOUBLE>"), parseTypeSignature("ARRAY<DOUBLE>")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         udfSignatureMap.put("array_function_1", arrayFunction1);
 
         // array_function_2
@@ -220,7 +225,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.array_function_2"), ImmutableList.of(parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), parseTypeSignature("ARRAY<varchar>")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         arrayFunction2.add(new JsonBasedUdfFunctionMetadata(
                 "transforms inputs into the output",
                 FunctionKind.SCALAR,
@@ -233,7 +239,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_2"), ImmutableList.of(parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<varchar>")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         udfSignatureMap.put("array_function_2", arrayFunction2);
 
         return udfSignatureMap;
@@ -257,7 +264,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.square"), ImmutableList.of(parseTypeSignature("integer")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         squareFunctions.add(new JsonBasedUdfFunctionMetadata(
                 "square a double",
                 FunctionKind.SCALAR,
@@ -270,7 +278,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.square"), ImmutableList.of(parseTypeSignature("double")))),
                 Optional.of("1"),
                 Optional.of(emptyList()),
-                Optional.of(emptyList())));
+                Optional.of(emptyList()),
+                Optional.empty()));
         udfSignatureMap.put("square", squareFunctions);
 
         return udfSignatureMap;
