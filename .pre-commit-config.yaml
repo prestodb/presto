@@ -91,6 +91,12 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        args: [-x, --severity=warning]
+
   # The following checks mostly target GitHub Actions workflows.
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.0

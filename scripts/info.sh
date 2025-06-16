@@ -25,7 +25,7 @@ fi
 info=$(cmake --system-information)
 
 ext() {
-  grep -oE '".+"$' $1 | tr -d '"'
+  grep -oE '".+"$' | tr -d '"'
 }
 
 print_info() {
@@ -65,10 +65,10 @@ if [ -x "$(command -v xclip)" ]; then
 elif [ -x "$(command -v pbcopy)" ]; then
   clip="pbcopy"
 else
-  echo "\nThe results will be copied to your clipboard if xclip is installed."
+  printf "\nThe results will be copied to your clipboard if xclip is installed."
 fi
 
-if [ ! -z "$clip" ]; then
+if [ -n "$clip" ]; then
   echo "$all" | $clip
   echo "Result copied to clipboard!"
 fi

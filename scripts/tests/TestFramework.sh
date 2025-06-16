@@ -46,15 +46,15 @@ printf -- "------   %-52s   ------   ------\n" ----
 
 Test() {
     Expect=Pass
-    if [ x"$1" = "x!" ] ; then Expect=Fail;  shift
+    if [ "$1" = "!" ] ; then Expect=Fail;  shift
     fi
 
     Title=$1; shift
-    TestsRun=`expr $TestsRun + 1`
+    TestsRun=$(expr $TestsRun + 1)
 
-    printf "%6d %-52s"  $TestsRun "$Title" 1>&2
+    printf "%6d %-52s"  "$TestsRun" "$Title" 1>&2
 
-    Start=`Clock`
+    Start=$(Clock)
     if [ "$SetMinusX" = 1 ] ; then
         set -x
     fi
@@ -70,12 +70,12 @@ Calc() {
 
 TestCleanUp() {
     local result="$1"
-    Now=`Clock`; Elapse=$(Calc $Now - $Start)
+    Now=$(Clock); Elapse=$(Calc "$Now" - "$Start")
 
-    if [ "$result" = Pass ] ; then TestsPassed=`expr $TestsPassed + 1`
-    else                           TestsFailed=`expr $TestsFailed + 1`
+    if [ "$result" = Pass ] ; then TestsPassed=$(expr $TestsPassed + 1)
+    else                           TestsFailed=$(expr $TestsFailed + 1)
     fi
-    printf "    $result %7.3f\n" $Elapse 1>&2
+    printf "    $result %7.3f\n" "$Elapse" 1>&2
 
     if [ "$result" = Fail -a $ExitOnFail = 1 ] ; then
         exit 1
@@ -132,7 +132,7 @@ CompareArgs() {
 
 CompareEval() {
     while [ $# -ge 2 ] ; do
-    x=`$1`
+    x=$($1)
     y=$2
     shift; shift
 

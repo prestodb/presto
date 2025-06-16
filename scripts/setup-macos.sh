@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# shellcheck source-path=SCRIPT_DIR
 
 # This script documents setting up a macOS host for Velox
 # development.  Running it should make you ready to compile.
@@ -28,14 +29,15 @@
 set -e # Exit on error.
 set -x # Print commands that are executed.
 
-SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"$(pwd)/deps-install"}
-source $SCRIPTDIR/setup-common.sh
-PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
+source "$SCRIPT_DIR"/setup-common.sh
+PYTHON_VENV=${PYTHON_VENV:-"${SCRIPT_DIR}/../.venv"}
 # Allow installed package headers to be picked up before brew package headers
 # by tagging the brew packages to be system packages.
 # This is used during package builds.
-export OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
+OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
+export OS_CXXFLAGS
 export CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
@@ -47,7 +49,7 @@ SUDO="${SUDO:-""}"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
-  if [ `arch` == "arm64" ] ;
+  if [ "$(arch)" == "arm64" ] ;
     then
       DEFAULT_BREW_PATH=$(which brew) ;
   fi
@@ -75,25 +77,25 @@ function install_from_brew {
 function install_build_prerequisites {
   for pkg in ${MACOS_BUILD_DEPS}
   do
-    install_from_brew ${pkg}
+    install_from_brew "${pkg}"
   done
-  if [ ! -f ${PYTHON_VENV}/pyvenv.cfg ]; then
+  if [ ! -f "${PYTHON_VENV}"/pyvenv.cfg ]; then
     echo "Creating Python Virtual Environment at ${PYTHON_VENV}"
-    python3 -m venv ${PYTHON_VENV}
+    python3 -m venv "${PYTHON_VENV}"
   fi
-  source ${PYTHON_VENV}/bin/activate; pip3 install cmake-format regex pyyaml
+  source "${PYTHON_VENV}"/bin/activate; pip3 install cmake-format regex pyyaml
 
   # Install ccache
-  curl -L https://github.com/ccache/ccache/releases/download/v${CCACHE_VERSION}/ccache-${CCACHE_VERSION}-darwin.tar.gz > ccache.tar.gz
+  curl -L https://github.com/ccache/ccache/releases/download/v"${CCACHE_VERSION}"/ccache-"${CCACHE_VERSION}"-darwin.tar.gz > ccache.tar.gz
   tar -xf ccache.tar.gz
-  mv ccache-${CCACHE_VERSION}-darwin/ccache /usr/local/bin/
-  rm -rf ccache-${CCACHE_VERSION}-darwin ccache.tar.gz
+  mv ccache-"${CCACHE_VERSION}"-darwin/ccache /usr/local/bin/
+  rm -rf ccache-"${CCACHE_VERSION}"-darwin ccache.tar.gz
 }
 
 function install_velox_deps_from_brew {
   for pkg in ${MACOS_VELOX_DEPS}
   do
-    install_from_brew ${pkg}
+    install_from_brew "${pkg}"
   done
 }
 
@@ -125,9 +127,9 @@ function install_adapters {
 }
 
 function install_duckdb_clang {
-  clang_major_version=`echo | clang -dM -E - | grep __clang_major__ | awk '{print $3}'`
+  clang_major_version=$(echo | clang -dM -E - | grep __clang_major__ | awk '{print $3}')
   # Clang17 requires this. See issue #13215.
-  if [ ${clang_major_version} -ge 17 ]; then
+  if [ "${clang_major_version}" -ge 17 ]; then
      EXTRA_PKG_CXXFLAGS=" -Wno-missing-template-arg-list-after-template-kw" install_duckdb
   else
      install_duckdb

@@ -19,7 +19,7 @@
 # Run in the valox checkout root.
 
 JIT=velox/experimental/wave/jit
-if [[ -z "$STRINGIFY" ]]; then
+if [ -z "$STRINGIFY" ]; then
     STRINGIFY=stringify
 fi
 
@@ -44,12 +44,12 @@ $STRINGIFY "velox/experimental/wave/common/StringView.h" >> $JIT/Headers.h
 $STRINGIFY "velox/experimental/wave/common/Hash.h" >> $JIT/Headers.h
 $STRINGIFY "velox/experimental/wave/common/CompilerDefines.h" >> $JIT/Headers.h
 $STRINGIFY "velox/experimental/wave/common/Atomic.cuh" >> $JIT/Headers.h
-cd velox/experimental/breeze
+cd velox/experimental/breeze || exit
 $STRINGIFY "breeze/platforms/cuda.cuh" >> ../../../$JIT/Headers.h
 $STRINGIFY "breeze/platforms/specialization/cuda-ptx.cuh" >> ../../../$JIT/Headers.h
 $STRINGIFY "breeze/platforms/platform.h" >> ../../../$JIT/Headers.h
 $STRINGIFY "breeze/utils/types.h" >> ../../../$JIT/Headers.h
-cd -
+cd - || exit
 
 echo "}" >> $JIT/Headers.h
 

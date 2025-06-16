@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SRC=$(dirname $0)
+SRC=$(dirname "$0")
 DATA=$SRC/data
 
-source $SRC/TestFramework.sh
+source "$SRC"/TestFramework.sh
 
 LICENSE_HEADER=$SRC/../license-header.py
 LICENSE_HEADER_FILE=$SRC/../../license.header
 
 license_header() {
-    $SRC/../license-header.py --header $LICENSE_HEADER_FILE "$@"
+    "$SRC"/../license-header.py --header "$LICENSE_HEADER_FILE" "$@"
 }
 
 TestFile() {
@@ -30,10 +30,10 @@ TestFile() {
     local expected="$1"     ; shift
 
     Test "license-header.py $title file $file"
-        cp $DATA/$file .
-        license_header "$@" -i $file
+        cp "$DATA"/"$file" .
+        license_header "$@" -i "$file"
 
-    DiffFiles $file $DATA/$expected
+    DiffFiles "$file" "$DATA"/"$expected"
 }
 
 # Test header insertion
@@ -69,15 +69,15 @@ TestFile Almost foo.almost.sh      foo.expected.sh
 TestFile Almost hashbang.almost.sh hashbang.expected.sh
 
 Test "List of Files in stdin"
-    cp $DATA/foo.sh .
+    cp "$DATA"/foo.sh .
 
     echo foo.sh | license_header -i -
 
-    DiffFiles foo.sh $DATA/foo.expected.sh
+    DiffFiles foo.sh "$DATA"/foo.expected.sh
 
 Test "Header Check Only - OK"
-    cp $DATA/foo.expected.sh .
-    cp $DATA/foo.expected.cpp .
+    cp "$DATA"/foo.expected.sh .
+    cp "$DATA"/foo.expected.cpp .
 
     if license_header "$@" -k foo.expected.sh foo.expected.cpp ; then
         Pass
@@ -86,8 +86,8 @@ Test "Header Check Only - OK"
     fi
 
 Test "Header Check Only - Fix"
-    cp $DATA/foo.sh .
-    cp $DATA/foo.cpp .
+    cp "$DATA"/foo.sh .
+    cp "$DATA"/foo.cpp .
 
     if license_header "$@" -k foo.sh foo.cpp; then
         Fail
@@ -96,10 +96,10 @@ Test "Header Check Only - Fix"
     fi
 
 Test "Header Check Verbose"
-    cp $DATA/foo.sh .
-    cp $DATA/foo.expected.sh .
-    cp $DATA/foo.cpp .
-    cp $DATA/foo.expected.cpp .
+    cp "$DATA"/foo.sh .
+    cp "$DATA"/foo.expected.sh .
+    cp "$DATA"/foo.cpp .
+    cp "$DATA"/foo.expected.cpp .
 
     result=$(license_header "$@" -vk foo.sh foo.expected.sh foo.cpp foo.expected.cpp)
     expected="\
