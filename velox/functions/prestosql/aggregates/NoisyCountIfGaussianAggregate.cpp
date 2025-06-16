@@ -191,18 +191,22 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
     decodedNoiseScale_.decode(*args[1], rows);
 
     // If intput has random seed, decode it
-    if (args.size() == 3 && args[2]->isConstantEncoding()) {
+    if (args.size() == 3) {
       decodedRandomSeed_.decode(*args[2], rows);
     }
 
     rows.applyToSelected([&](vector_size_t i) {
+      auto* group = groups[i];
+      auto* accumulator = value<AccumulatorType>(group);
+
+      if (args.size() == 3 && !decodedRandomSeed_.isNullAt(i)) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
+      }
+
       if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
         return;
       }
 
-      auto* group = groups[i];
-
-      auto* accumulator = value<AccumulatorType>(group);
       if (decodedValue_.valueAt<bool>(i)) {
         accumulator->increaseCount(1);
       }
@@ -216,11 +220,6 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
             static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
       }
       accumulator->checkAndSetNoiseScale(noiseScaleValue);
-
-      if (args.size() == 3 && args[2]->isConstantEncoding() &&
-          !decodedRandomSeed_.isNullAt(i)) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
-      }
     });
   }
 
@@ -266,13 +265,17 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
     decodedNoiseScale_.decode(*args[1], rows);
 
     // Check if input has random seed and make sure it's constant for each row.
-    if (args.size() == 3 && args[2]->isConstantEncoding()) {
+    if (args.size() == 3) {
       decodedRandomSeed_.decode(*args[2], rows);
     }
 
     auto* accumulator = value<AccumulatorType>(group);
 
     rows.applyToSelected([&](vector_size_t i) {
+      if (args.size() == 3 && !decodedRandomSeed_.isNullAt(i)) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
+      }
+
       if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
         return;
       }
@@ -289,11 +292,6 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
             static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
       }
       accumulator->checkAndSetNoiseScale(noiseScaleValue);
-
-      if (args.size() == 3 && args[2]->isConstantEncoding() &&
-          !decodedRandomSeed_.isNullAt(i)) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
-      }
     });
   }
 
