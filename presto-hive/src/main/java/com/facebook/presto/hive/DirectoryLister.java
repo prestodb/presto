@@ -30,4 +30,9 @@ public interface DirectoryLister
             Optional<Partition> partition,
             NamenodeStats namenodeStats,
             HiveDirectoryContext hiveDirectoryContext);
+
+    default boolean isPathCached(Path path)
+    {
+        return false;
+    }
 }
