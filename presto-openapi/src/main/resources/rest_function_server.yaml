@@ -250,6 +250,17 @@ components:
           type: string
           description: The version of the function. This version shall be maintained by REST server for any change in the function.
           example: "1"
+        executionEndpoint:
+          type: string
+          format: uri
+          pattern: "^https?://"
+          description: |
+            Base URL of the execution server where this function should be executed.
+            Must use HTTP or HTTPS protocol. If not specified, the function
+            is assumed to be executable on the same server that provides metadata.
+            When specified, the function will be executed at:
+            {executionEndpoint}/v1/functions/{schema}/{functionName}/{functionId}/{version}
+          example: "https://compute-cluster-1.example.com"
     FunctionKind:
       type: string
       description: The kind of function.
