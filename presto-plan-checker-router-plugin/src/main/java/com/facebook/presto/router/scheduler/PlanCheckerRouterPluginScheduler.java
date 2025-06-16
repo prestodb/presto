@@ -33,7 +33,6 @@ public class PlanCheckerRouterPluginScheduler
     private final AtomicInteger planCheckerClusterCandidateIndex = new AtomicInteger(0);
 
     private List<URI> candidates;
-    private final List<URI> planCheckerClusterCandidates;
     private final URI javaRouterURI;
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
@@ -42,8 +41,6 @@ public class PlanCheckerRouterPluginScheduler
     public PlanCheckerRouterPluginScheduler(PlanCheckerRouterPluginConfig planCheckerRouterConfig)
     {
         requireNonNull(planCheckerRouterConfig, "PlanCheckerRouterPluginConfig is null");
-        this.planCheckerClusterCandidates =
-                requireNonNull(planCheckerRouterConfig.getPlanCheckClustersURIs(), "validatorCandidates is null");
         this.javaRouterURI =
                 requireNonNull(planCheckerRouterConfig.getJavaRouterURI(), "javaRouterURI is null");
         this.nativeRouterURI =
@@ -72,7 +69,7 @@ public class PlanCheckerRouterPluginScheduler
 
     private URI getValidatorDestination()
     {
-        int currentIndex = planCheckerClusterCandidateIndex.getAndUpdate(i -> (i + 1) % planCheckerClusterCandidates.size());
-        return planCheckerClusterCandidates.get(currentIndex);
+        int currentIndex = planCheckerClusterCandidateIndex.getAndUpdate(i -> (i + 1) % candidates.size());
+        return candidates.get(currentIndex);
     }
 }

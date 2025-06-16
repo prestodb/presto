@@ -34,7 +34,6 @@ public class TestPlanCheckerProviderRouterPluginConfig
         assertRecordedDefaults(recordDefaults(PlanCheckerRouterPluginConfig.class)
                 .setJavaRouterURI(null)
                 .setNativeRouterURI(null)
-                .setPlanCheckClustersURIs(null)
                 .setClientRequestTimeout(new Duration(2, MINUTES)));
     }
 
@@ -45,13 +44,11 @@ public class TestPlanCheckerProviderRouterPluginConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("router-java-url", "192.168.0.1")
                 .put("router-native-url", "192.168.0.2")
-                .put("plan-check-clusters-uris", "192.168.0.3, 192.168.0.4")
                 .put("client-request-timeout", "5m")
                 .build();
         PlanCheckerRouterPluginConfig expected = new PlanCheckerRouterPluginConfig()
                 .setJavaRouterURI(new URI("192.168.0.1"))
                 .setNativeRouterURI(new URI("192.168.0.2"))
-                .setPlanCheckClustersURIs("192.168.0.3, 192.168.0.4")
                 .setClientRequestTimeout(new Duration(5, MINUTES));
         assertFullMapping(properties, expected);
     }

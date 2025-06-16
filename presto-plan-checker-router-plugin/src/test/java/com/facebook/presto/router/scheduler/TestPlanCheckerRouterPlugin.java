@@ -44,6 +44,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLine
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
@@ -60,16 +61,11 @@ public class TestPlanCheckerRouterPlugin
             throws Exception
     {
         Logging.initialize();
-
-        URI javaRouterUri = new URI("192.168.0.1");
-        URI nativeRouterUri = new URI("192.168.0.2");
-
-        URI planCheckerClusters = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getBaseUrl();
+        // for testing purposes, we can skip the router chaining part and specify the native/java clusters directly here
         planCheckerRouterConfig =
                 new PlanCheckerRouterPluginConfig()
-                        .setJavaRouterURI(javaRouterUri)
-                        .setNativeRouterURI(nativeRouterUri)
-                        .setPlanCheckClustersURIs(planCheckerClusters.toString());
+                        .setJavaRouterURI(((DistributedQueryRunner) getExpectedQueryRunner()).getCoordinator().getBaseUrl())
+                        .setNativeRouterURI(((DistributedQueryRunner) getQueryRunner()).getCoordinator().getBaseUrl());
     }
 
     @Override
@@ -107,7 +103,7 @@ public class TestPlanCheckerRouterPlugin
     public void testPlanCheckerPluginWithNativeCompatibleQueries()
     {
         Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        scheduler.setCandidates(singletonList(planCheckerRouterConfig.getNativeRouterURI()));
 
         // native compatible query
         Optional<URI> target = scheduler.getDestination(
@@ -126,7 +122,7 @@ public class TestPlanCheckerRouterPlugin
     public void testPlanCheckerPluginWithNativeIncompatibleQueries()
     {
         Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        scheduler.setCandidates(singletonList(planCheckerRouterConfig.getNativeRouterURI()));
 
         // native incompatible query
         Optional<URI> target = scheduler.getDestination(
@@ -145,7 +141,7 @@ public class TestPlanCheckerRouterPlugin
     public void testPlanCheckerPluginWithUserErrors()
     {
         Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        scheduler.setCandidates(singletonList(planCheckerRouterConfig.getNativeRouterURI()));
 
         // queries with user error, the below query does not have a defined catalog and schema
         try {
