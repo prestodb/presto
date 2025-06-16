@@ -589,6 +589,16 @@ public class TaskContext
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
+                // Report driver and split stats separately. Since there's a 1:1 mapping between drivers and splits
+                // in the Java worker, we can safely reuse the driver stats to represent the split stats.
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
                 cumulativeUserMemory.get(),
                 cumulativeTotalMemory.get(),
                 userMemory,
