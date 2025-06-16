@@ -470,3 +470,12 @@ to produce a batch of the size specified by this property. If set to ``0``, then
 * **Default value:** ``10``
 
 Maximum wait time for exchange long poll requests in seconds.
+
+``native_query_memory_reclaimer_priority``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``2147483647``
+
+Priority of the query in the memory pool reclaimer. Lower value means higher priority.
+This is used in global arbitration victim selection.
