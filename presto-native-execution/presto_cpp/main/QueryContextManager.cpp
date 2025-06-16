@@ -15,8 +15,6 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/common/Counters.h"
-#include "velox/common/base/StatsReporter.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -28,6 +26,10 @@ using facebook::presto::protocol::TaskId;
 
 namespace facebook::presto {
 namespace {
+
+inline QueryId queryIdFromTaskId(const TaskId& taskId) {
+  return taskId.substr(0, taskId.find('.'));
+}
 
 // Update passed in query session configs with system configs. For any pairing
 // system/session configs if session config is present, it overrides system
@@ -132,6 +134,16 @@ QueryContextManager::findOrCreateQueryCtx(
       toConnectorConfigs(taskUpdateRequest));
 }
 
+bool QueryContextManager::queryHasStartedTasks(
+    const protocol::TaskId& taskId) const {
+  return queryContextCache_.rlock()->hasStartedTasks(queryIdFromTaskId(taskId));
+}
+
+void QueryContextManager::setQueryHasStartedTasks(
+    const protocol::TaskId& taskId) {
+  queryContextCache_.wlock()->setHasStartedTasks(queryIdFromTaskId(taskId));
+}
+
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
     const TaskId& taskId,
     std::unordered_map<std::string, std::string>&& configStrings,
@@ -139,7 +151,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
         std::string,
         std::unordered_map<std::string, std::string>>&&
         connectorConfigStrings) {
-  QueryId queryId = taskId.substr(0, taskId.find('.'));
+  const QueryId queryId{queryIdFromTaskId(taskId)};
 
   auto lockedCache = queryContextCache_.wlock();
   if (auto queryCtx = lockedCache->get(queryId)) {
@@ -193,7 +205,7 @@ void QueryContextManager::visitAllContexts(
         visitor) const {
   auto lockedCache = queryContextCache_.rlock();
   for (const auto& it : lockedCache->ctxs()) {
-    if (const auto queryCtxSP = it.second.first.lock()) {
+    if (const auto queryCtxSP = it.second.queryCtx.lock()) {
       visitor(it.first, queryCtxSP.get());
     }
   }
