@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.inject.Scopes.SINGLETON;
 
 public class PlanCheckerRouterPluginModule
         implements Module
@@ -25,5 +26,6 @@ public class PlanCheckerRouterPluginModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(PlanCheckerRouterPluginConfig.class);
+        binder.bind(PlanCheckerRouterPluginScheduler.class).in(SINGLETON);
     }
 }
