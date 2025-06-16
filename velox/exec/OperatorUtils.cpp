@@ -121,7 +121,6 @@ void gatherCopy(
 bool shouldAggregateRuntimeMetric(const std::string& name) {
   static const folly::F14FastSet<std::string> metricNames{
       "dataSourceAddSplitWallNanos",
-      "dataSourceReadWallNanos",
       "dataSourceLazyWallNanos",
       "queuedWallNanos",
       "flushTimes"};

@@ -5727,3 +5727,51 @@ TEST_F(TableScanTest, statsBasedFilterReorderDisabled) {
     }
   }
 }
+
+TEST_F(TableScanTest, prevBatchEmptyAdaptivity) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), VARCHAR()});
+
+  const vector_size_t size = 100;
+  const size_t stringBytes = 1024 * 1024;
+  const size_t preferredOutputBatchBytes = 10UL << 20;
+
+  const std::string sampleString(stringBytes, 'a');
+  StringView sampleStringView(sampleString);
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>(
+           size,
+           [&](auto row) {
+             return row % 100 == 50 ? 51 : row % 100;
+           }), // so that the filter "c0 = 50" cannot rely on the min-max range
+               // to filter out all data in the data source even before the
+               // first batch is read
+       makeFlatVector<StringView>(
+           size, [&](auto /*unused*/) { return sampleStringView; })});
+
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), rowVector);
+  createDuckDbTable({rowVector});
+
+  auto plan = PlanBuilder().tableScan(rowType, {"c0 = 50"}).planNode();
+  {
+    auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                    .plan(plan)
+                    .split(makeHiveConnectorSplit(filePath->getPath()))
+                    .config(
+                        QueryConfig::kMaxOutputBatchRows,
+                        folly::to<std::string>(size * 4))
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        folly::to<std::string>(preferredOutputBatchBytes))
+                    .assertResults("SELECT * FROM tmp WHERE c0 = 50");
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[0];
+    const auto numBatchesRead =
+        opStats.runtimeStats.at("dataSourceReadWallNanos").count - 1;
+    const auto batchSizeWithoutAdaptivity =
+        QueryConfig({}).preferredOutputBatchBytes() /
+        (sizeof(int64_t) + stringBytes + sizeof(StringView));
+    const auto numBatchesReadWithoutAdaptivity =
+        bits::divRoundUp(size, batchSizeWithoutAdaptivity);
+    EXPECT_GT(numBatchesReadWithoutAdaptivity, numBatchesRead);
+  }
+}

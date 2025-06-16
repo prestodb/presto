@@ -174,9 +174,9 @@ RowVectorPtr TableScan::getOutput() {
       // at least read one batch from a split to trigger split fetch inside Meta
       // internal data source connector.
       if (data != nullptr && !shouldDropOutput()) {
+        constexpr int kMaxSelectiveBatchSizeMultiplier = 4;
         if (data->size() > 0) {
           lockedStats->addInputVector(data->estimateFlatSize(), data->size());
-          constexpr int kMaxSelectiveBatchSizeMultiplier = 4;
           maxFilteringRatio_ = std::max(
               {maxFilteringRatio_,
                1.0 * data->size() / readBatchSize,
@@ -188,6 +188,9 @@ RowVectorPtr TableScan::getOutput() {
           RECORD_HISTOGRAM_METRIC_VALUE(
               velox::kMetricTableScanBatchBytes, data->estimateFlatSize());
           return data;
+        } else {
+          maxFilteringRatio_ = std::max(
+              maxFilteringRatio_, 1.0 / kMaxSelectiveBatchSizeMultiplier);
         }
         continue;
       }
