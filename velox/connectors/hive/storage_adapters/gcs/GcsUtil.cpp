@@ -34,4 +34,24 @@ std::string getErrorStringFromGcsError(const google::cloud::StatusCode& code) {
   }
 }
 
+void checkGcsStatus(
+    const google::cloud::Status outcome,
+    const std::string_view& errorMsgPrefix,
+    const std::string& bucket,
+    const std::string& key) {
+  if (!outcome.ok()) {
+    const auto errMsg = fmt::format(
+        "{} due to: Path:'{}', SDK Error Type:{}, GCS Status Code:{},  Message:'{}'",
+        errorMsgPrefix,
+        gcsURI(bucket, key),
+        outcome.error_info().domain(),
+        getErrorStringFromGcsError(outcome.code()),
+        outcome.message());
+    if (outcome.code() == google::cloud::StatusCode::kNotFound) {
+      VELOX_FILE_NOT_FOUND_ERROR(errMsg);
+    }
+    VELOX_FAIL(errMsg);
+  }
+}
+
 } // namespace facebook::velox

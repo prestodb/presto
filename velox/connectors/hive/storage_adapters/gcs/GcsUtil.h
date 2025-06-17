@@ -20,6 +20,16 @@
 
 namespace facebook::velox {
 
+// Reference: https://github.com/apache/arrow/issues/29916
+// Change the default upload buffer size. In general, sending larger buffers is
+// more efficient with GCS, as each buffer requires a roundtrip to the service.
+// With formatted output (when using `operator<<`), keeping a larger buffer in
+// memory before uploading makes sense.  With unformatted output (the only
+// choice given gcs::io::OutputStream's API) it is better to let the caller
+// provide as large a buffer as they want. The GCS C++ client library will
+// upload this buffer with zero copies if possible.
+auto constexpr kUploadBufferSize = 256 * 1024;
+
 namespace {
 constexpr const char* kSep{"/"};
 constexpr std::string_view kGcsScheme{"gs://"};
@@ -57,5 +67,11 @@ inline std::string gcsPath(const std::string_view& path) {
   // Remove the prefix gcs:// from the given path
   return std::string(path.substr(kGcsScheme.length()));
 }
+
+void checkGcsStatus(
+    const google::cloud::Status outcome,
+    const std::string_view& errorMsgPrefix,
+    const std::string& bucket,
+    const std::string& key);
 
 } // namespace facebook::velox

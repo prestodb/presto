@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_gcsfile_test GcsUtilTest.cpp GcsFileSystemTest.cpp)
-add_test(velox_gcsfile_test velox_gcsfile_test)
+add_executable(velox_gcs_file_test GcsUtilTest.cpp GcsFileSystemTest.cpp)
+add_test(velox_gcs_file_test velox_gcs_file_test)
 target_link_libraries(
-  velox_gcsfile_test
+  velox_gcs_file_test
   velox_core
   velox_dwio_common_exception
   velox_exec
