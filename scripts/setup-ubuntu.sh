@@ -88,7 +88,7 @@ function install_build_prerequisites {
     echo "Creating Python Virtual Environment at ${PYTHON_VENV}"
     python3 -m venv "${PYTHON_VENV}"
   fi
-  source "${PYTHON_VENV}"/bin/activate;
+  source "${PYTHON_VENV}"/bin/activate
   # Install to /usr/local to make it available to all users.
   ${SUDO} pip3 install cmake==3.28.3
 
@@ -173,9 +173,9 @@ function install_cuda {
   fi
 
   local cuda_repo
-  if [[ "$arch" == "x86_64" ]]; then
+  if [[ $arch == "x86_64" ]]; then
     cuda_repo="${os_ver}/x86_64"
-  elif [[ "$arch" == "aarch64" ]]; then
+  elif [[ $arch == "aarch64" ]]; then
     cuda_repo="${os_ver}/sbsa"
   else
     echo "Unsupported architecture: $arch" >&2
@@ -264,7 +264,7 @@ function install_apt_deps {
   install_velox_deps_from_apt
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+(return 2>/dev/null) && return # If script was sourced, don't run commands.
 
 (
   if [[ ${USE_CLANG} != "false" ]]; then

@@ -97,6 +97,13 @@ repos:
       - id: shellcheck
         args: [-x, --severity=warning]
 
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
+    hooks:
+      - id: shfmt
+        # w: write changes, s: simplify, i set indent to 2 spaces
+        args: [-w, -s, -i, '2']
+
   # The following checks mostly target GitHub Actions workflows.
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.0

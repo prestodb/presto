@@ -91,9 +91,9 @@ function install_cuda {
   arch="$(uname -m)"
   local repo_url
 
-  if [[ "$arch" == "x86_64" ]]; then
+  if [[ $arch == "x86_64" ]]; then
     repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
-  elif [[ "$arch" == "aarch64" ]]; then
+  elif [[ $arch == "aarch64" ]]; then
     # Using SBSA (Server Base System Architecture) repository for ARM64 servers
     repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel9/sbsa/cuda-rhel9.repo"
   else
@@ -175,7 +175,7 @@ function install_velox_deps {
   run_and_time install_faiss
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+(return 2>/dev/null) && return # If script was sourced, don't run commands.
 
 (
   if [[ $# -ne 0 ]]; then

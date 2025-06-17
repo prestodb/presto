@@ -19,13 +19,13 @@ SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 cd "$SCRIPTDIR"
 
 function generate {
-    BACKEND=$1
-    TYPE=$2
-    EXT=$3
-    DIR="$TYPE"s
-    mkdir -p generated/"$DIR"
-    ./kernel_generator.py --backend="$BACKEND" --template="$DIR"/"$TYPE"-kernels.template.h --out=generated/"$DIR"/kernels-"$BACKEND"."$EXT" ${LLVM_PATH:+-l "$LLVM_PATH"}
-    ./test_fixture_generator.py --backend="$BACKEND" --template="$DIR"/"$TYPE"_test.template.h --out=generated/"$DIR"/"$TYPE"_test-"$BACKEND"."$EXT" ${LLVM_PATH:+-l "$LLVM_PATH"}
+  BACKEND=$1
+  TYPE=$2
+  EXT=$3
+  DIR="$TYPE"s
+  mkdir -p generated/"$DIR"
+  ./kernel_generator.py --backend="$BACKEND" --template="$DIR"/"$TYPE"-kernels.template.h --out=generated/"$DIR"/kernels-"$BACKEND"."$EXT" ${LLVM_PATH:+-l "$LLVM_PATH"}
+  ./test_fixture_generator.py --backend="$BACKEND" --template="$DIR"/"$TYPE"_test.template.h --out=generated/"$DIR"/"$TYPE"_test-"$BACKEND"."$EXT" ${LLVM_PATH:+-l "$LLVM_PATH"}
 }
 
 generate openmp "algorithm" h

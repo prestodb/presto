@@ -29,12 +29,12 @@ ext() {
 }
 
 print_info() {
-echo "$info" | grep -e "$1" | ext
+  echo "$info" | grep -e "$1" | ext
 }
 
 result="
 Velox System Info v${version}
-Commit: $(git rev-parse HEAD 2> /dev/null || echo "Not in a git repo.")
+Commit: $(git rev-parse HEAD 2>/dev/null || echo "Not in a git repo.")
 CMake Version: $(cmake --version | grep -oE '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+')
 System: $(print_info 'CMAKE_SYSTEM "')
 Arch: $(print_info 'CMAKE_SYSTEM_PROCESSOR')
@@ -61,7 +61,7 @@ all="$result  $conda"
 echo "$all"
 
 if [ -x "$(command -v xclip)" ]; then
- clip="xclip -selection c"
+  clip="xclip -selection c"
 elif [ -x "$(command -v pbcopy)" ]; then
   clip="pbcopy"
 else

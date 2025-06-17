@@ -60,7 +60,6 @@ function install_build_prerequisites {
   dnf_install ninja-build cmake ccache gcc-toolset-12 git wget which
   dnf_install autoconf automake python3-devel pip libtool
 
-
   if [[ ${USE_CLANG} != "false" ]]; then
     install_clang15
   fi
@@ -91,9 +90,9 @@ function install_cuda {
   arch=$(uname -m)
   local repo_url
 
-  if [[ "$arch" == "x86_64" ]]; then
+  if [[ $arch == "x86_64" ]]; then
     repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo"
-  elif [[ "$arch" == "aarch64" ]]; then
+  elif [[ $arch == "aarch64" ]]; then
     # Using SBSA (Server Base System Architecture) repository for ARM64 servers
     repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel8/sbsa/cuda-rhel8.repo"
   else
@@ -127,7 +126,7 @@ function install_velox_deps {
   run_and_time install_arrow
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+(return 2>/dev/null) && return # If script was sourced, don't run commands.
 
 (
   if [[ $# -ne 0 ]]; then

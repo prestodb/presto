@@ -13,44 +13,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 # Generates the inlined headers for Wave Jit.
 #
 # Run in the valox checkout root.
 
 JIT=velox/experimental/wave/jit
 if [ -z "$STRINGIFY" ]; then
-    STRINGIFY=stringify
+  STRINGIFY=stringify
 fi
 
-head --lines 16 velox/experimental/wave/common/Cuda.h > $JIT/Headers.h
-echo "namespace facebook::velox::wave {" >> $JIT/Headers.h
+head --lines 16 velox/experimental/wave/common/Cuda.h >$JIT/Headers.h
+echo "namespace facebook::velox::wave {" >>$JIT/Headers.h
 
-echo "bool registerHeader(const char* text);" >> $JIT/Headers.h
+echo "bool registerHeader(const char* text);" >>$JIT/Headers.h
 
-$STRINGIFY velox/experimental/wave/common/BitUtil.cuh >> $JIT/Headers.h
-$STRINGIFY velox/experimental/wave/common/Scan.cuh >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/vector/Operand.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/exec/ErrorCode.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/exec/WaveCore.cuh" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/exec/ExprKernel.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/exec/Accumulators.cuh" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/exec/Join.cuh" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/HashTable.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/HashTable.cuh" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/hash.cuh" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/StringView.cuh" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/StringView.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/Hash.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/CompilerDefines.h" >> $JIT/Headers.h
-$STRINGIFY "velox/experimental/wave/common/Atomic.cuh" >> $JIT/Headers.h
+$STRINGIFY velox/experimental/wave/common/BitUtil.cuh >>$JIT/Headers.h
+$STRINGIFY velox/experimental/wave/common/Scan.cuh >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/vector/Operand.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/exec/ErrorCode.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/exec/WaveCore.cuh" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/exec/ExprKernel.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/exec/Accumulators.cuh" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/exec/Join.cuh" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/HashTable.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/HashTable.cuh" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/hash.cuh" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/StringView.cuh" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/StringView.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/Hash.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/CompilerDefines.h" >>$JIT/Headers.h
+$STRINGIFY "velox/experimental/wave/common/Atomic.cuh" >>$JIT/Headers.h
 cd velox/experimental/breeze || exit
-$STRINGIFY "breeze/platforms/cuda.cuh" >> ../../../$JIT/Headers.h
-$STRINGIFY "breeze/platforms/specialization/cuda-ptx.cuh" >> ../../../$JIT/Headers.h
-$STRINGIFY "breeze/platforms/platform.h" >> ../../../$JIT/Headers.h
-$STRINGIFY "breeze/utils/types.h" >> ../../../$JIT/Headers.h
+$STRINGIFY "breeze/platforms/cuda.cuh" >>../../../$JIT/Headers.h
+$STRINGIFY "breeze/platforms/specialization/cuda-ptx.cuh" >>../../../$JIT/Headers.h
+$STRINGIFY "breeze/platforms/platform.h" >>../../../$JIT/Headers.h
+$STRINGIFY "breeze/utils/types.h" >>../../../$JIT/Headers.h
 cd - || exit
 
-echo "}" >> $JIT/Headers.h
+echo "}" >>$JIT/Headers.h
 
 clang-format -i $JIT/Headers.h

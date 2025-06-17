@@ -91,7 +91,7 @@ function install_fbthrift {
 }
 
 function install_duckdb {
-  if $BUILD_DUCKDB ; then
+  if $BUILD_DUCKDB; then
     wget_and_untar https://github.com/duckdb/duckdb/archive/refs/tags/"${DUCKDB_VERSION}".tar.gz duckdb
     cmake_install_dir duckdb -DBUILD_UNITTESTS=OFF -DENABLE_SANITIZER=OFF -DENABLE_UBSAN=OFF -DBUILD_SHELL=OFF -DEXPORT_DLL_SYMBOLS=OFF -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
   fi
@@ -186,31 +186,31 @@ function install_arrow {
 }
 
 function install_thrift {
-   wget_and_untar https://github.com/apache/thrift/archive/"${THRIFT_VERSION}".tar.gz thrift
+  wget_and_untar https://github.com/apache/thrift/archive/"${THRIFT_VERSION}".tar.gz thrift
 
-   EXTRA_CXXFLAGS="-O3 -fPIC"
-   # Clang will generate warnings and they need to be suppressed, otherwise the build will fail.
-   if [[ ${USE_CLANG} != "false" ]]; then
-     EXTRA_CXXFLAGS="-O3 -fPIC -Wno-inconsistent-missing-override -Wno-unused-but-set-variable"
-   fi
+  EXTRA_CXXFLAGS="-O3 -fPIC"
+  # Clang will generate warnings and they need to be suppressed, otherwise the build will fail.
+  if [[ ${USE_CLANG} != "false" ]]; then
+    EXTRA_CXXFLAGS="-O3 -fPIC -Wno-inconsistent-missing-override -Wno-unused-but-set-variable"
+  fi
 
-   CXX_FLAGS="$EXTRA_CXXFLAGS" cmake_install_dir thrift \
-     -DBUILD_SHARED_LIBS=OFF \
-     -DBUILD_COMPILER=ON \
-     -DBUILD_EXAMPLES=OFF \
-     -DBUILD_TUTORIALS=OFF \
-     -DCMAKE_DEBUG_POSTFIX= \
-     -DWITH_AS3=OFF \
-     -DWITH_CPP=ON \
-     -DWITH_C_GLIB=OFF \
-     -DWITH_JAVA=OFF \
-     -DWITH_JAVASCRIPT=OFF \
-     -DWITH_LIBEVENT=OFF \
-     -DWITH_NODEJS=OFF \
-     -DWITH_PYTHON=OFF \
-     -DWITH_QT5=OFF \
-     -DWITH_ZLIB=OFF \
-     "${EXTRA_ARROW_OPTIONS}"
+  CXX_FLAGS="$EXTRA_CXXFLAGS" cmake_install_dir thrift \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_COMPILER=ON \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_TUTORIALS=OFF \
+    -DCMAKE_DEBUG_POSTFIX= \
+    -DWITH_AS3=OFF \
+    -DWITH_CPP=ON \
+    -DWITH_C_GLIB=OFF \
+    -DWITH_JAVA=OFF \
+    -DWITH_JAVASCRIPT=OFF \
+    -DWITH_LIBEVENT=OFF \
+    -DWITH_NODEJS=OFF \
+    -DWITH_PYTHON=OFF \
+    -DWITH_QT5=OFF \
+    -DWITH_ZLIB=OFF \
+    "${EXTRA_ARROW_OPTIONS}"
 }
 
 function install_stemmer {
@@ -225,7 +225,7 @@ function install_stemmer {
 }
 
 function install_geos {
-  if [[ "$BUILD_GEOS" == "true" ]]; then
+  if [[ $BUILD_GEOS == "true" ]]; then
     wget_and_untar https://github.com/libgeos/geos/archive/"${GEOS_VERSION}".tar.gz geos
     cmake_install_dir geos -DBUILD_TESTING=OFF
   fi
@@ -236,7 +236,7 @@ function install_faiss_deps {
 }
 
 function install_faiss {
-  if [[ "$BUILD_FAISS" == "true" ]]; then
+  if [[ $BUILD_FAISS == "true" ]]; then
     # Install OpenBLAS and libomp if not already installed
     install_faiss_deps
 
@@ -249,7 +249,6 @@ function install_faiss {
       -DFAISS_ENABLE_BENCHMARKS=OFF
   fi
 }
-
 
 # Adapters that can be installed.
 
@@ -338,7 +337,7 @@ function install_azure-storage-sdk-cpp {
   if ! grep -q "baseline" $azure_core_dir/vcpkg.json; then
     # build and install azure-core with the version compatible with system pre-installed openssl
     openssl_version=$(openssl version -v | awk '{print $2}')
-    if [[ "$openssl_version" == 1.1.1* ]]; then
+    if [[ $openssl_version == 1.1.1* ]]; then
       openssl_version="1.1.1n"
     fi
     sed -i "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" $azure_core_dir/vcpkg.json
@@ -346,7 +345,7 @@ function install_azure-storage-sdk-cpp {
   fi
   (
     cd $azure_core_dir || exit
-    cmake_install  -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" -DBUILD_SHARED_LIBS=OFF
+    cmake_install -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" -DBUILD_SHARED_LIBS=OFF
   )
   # install azure-identity
   (

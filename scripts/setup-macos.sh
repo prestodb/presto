@@ -49,9 +49,8 @@ SUDO="${SUDO:-""}"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
-  if [ "$(arch)" == "arm64" ] ;
-    then
-      DEFAULT_BREW_PATH=$(which brew) ;
+  if [ "$(arch)" == "arm64" ]; then
+    DEFAULT_BREW_PATH=$(which brew)
   fi
   BREW_PATH=${BREW_PATH:-$DEFAULT_BREW_PATH}
   $BREW_PATH update --auto-update --verbose
@@ -60,41 +59,45 @@ function update_brew {
 
 function install_from_brew {
   pkg=$1
-  if [[ "${pkg}" =~ ^([0-9a-z-]*):([0-9](\.[0-9\])*)$ ]];
-  then
+  if [[ ${pkg} =~ ^([0-9a-z-]*):([0-9](\.[0-9\])*)$ ]]; then
     pkg=${BASH_REMATCH[1]}
     ver=${BASH_REMATCH[2]}
     echo "Installing '${pkg}' at '${ver}'"
     tap="velox/local-${pkg}"
     brew tap-new "${tap}"
     brew extract "--version=${ver}" "${pkg}" "${tap}"
-    brew install "${tap}/${pkg}@${ver}" || ( echo "Failed to install ${tap}/${pkg}@${ver}" ; exit 1 )
+    brew install "${tap}/${pkg}@${ver}" || (
+      echo "Failed to install ${tap}/${pkg}@${ver}"
+      exit 1
+    )
   else
-    ( brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg" ) || ( echo "Failed to install ${pkg}" ; exit 1 )
+    (brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg") || (
+      echo "Failed to install ${pkg}"
+      exit 1
+    )
   fi
 }
 
 function install_build_prerequisites {
-  for pkg in ${MACOS_BUILD_DEPS}
-  do
+  for pkg in ${MACOS_BUILD_DEPS}; do
     install_from_brew "${pkg}"
   done
   if [ ! -f "${PYTHON_VENV}"/pyvenv.cfg ]; then
     echo "Creating Python Virtual Environment at ${PYTHON_VENV}"
     python3 -m venv "${PYTHON_VENV}"
   fi
-  source "${PYTHON_VENV}"/bin/activate; pip3 install cmake-format regex pyyaml
+  source "${PYTHON_VENV}"/bin/activate
+  pip3 install cmake-format regex pyyaml
 
   # Install ccache
-  curl -L https://github.com/ccache/ccache/releases/download/v"${CCACHE_VERSION}"/ccache-"${CCACHE_VERSION}"-darwin.tar.gz > ccache.tar.gz
+  curl -L https://github.com/ccache/ccache/releases/download/v"${CCACHE_VERSION}"/ccache-"${CCACHE_VERSION}"-darwin.tar.gz >ccache.tar.gz
   tar -xf ccache.tar.gz
   mv ccache-"${CCACHE_VERSION}"-darwin/ccache /usr/local/bin/
   rm -rf ccache-"${CCACHE_VERSION}"-darwin ccache.tar.gz
 }
 
 function install_velox_deps_from_brew {
-  for pkg in ${MACOS_VELOX_DEPS}
-  do
+  for pkg in ${MACOS_VELOX_DEPS}; do
     install_from_brew "${pkg}"
   done
 }
@@ -130,9 +133,9 @@ function install_duckdb_clang {
   clang_major_version=$(echo | clang -dM -E - | grep __clang_major__ | awk '{print $3}')
   # Clang17 requires this. See issue #13215.
   if [ "${clang_major_version}" -ge 17 ]; then
-     EXTRA_PKG_CXXFLAGS=" -Wno-missing-template-arg-list-after-template-kw" install_duckdb
+    EXTRA_PKG_CXXFLAGS=" -Wno-missing-template-arg-list-after-template-kw" install_duckdb
   else
-     install_duckdb
+    install_duckdb
   fi
 }
 
@@ -142,7 +145,7 @@ function install_faiss_deps {
 }
 
 function install_faiss {
-  if [[ "$BUILD_FAISS" == "true" ]]; then
+  if [[ $BUILD_FAISS == "true" ]]; then
     # Install OpenBLAS and libomp if not already installed
     install_faiss_deps
 
@@ -183,16 +186,16 @@ function install_velox_deps {
   run_and_time install_fbthrift
   run_and_time install_xsimd
   run_and_time install_stemmer
-# We allow arrow to bundle thrift on MacOS due to issues with bison and flex.
-# See https://github.com/facebook/fbthrift/pull/317 for an explanation.
-# run_and_time install_thrift
+  # We allow arrow to bundle thrift on MacOS due to issues with bison and flex.
+  # See https://github.com/facebook/fbthrift/pull/317 for an explanation.
+  # run_and_time install_thrift
   run_and_time install_arrow
   run_and_time install_duckdb_clang
   run_and_time install_geos
   run_and_time install_faiss
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+(return 2>/dev/null) && return # If script was sourced, don't run commands.
 
 (
   update_brew
@@ -209,7 +212,7 @@ function install_velox_deps {
       echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
     fi
     install_velox_deps
-    echo "All deps for Velox installed! Now try \"make\""
+    echo 'All deps for Velox installed! Now try "make"'
   fi
 )
 
