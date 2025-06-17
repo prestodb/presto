@@ -72,6 +72,15 @@ public class MongoColumnHandle
                 .build();
     }
 
+    public ColumnMetadata toColumnMetadata(String name)
+    {
+        return ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setHidden(hidden)
+                .build();
+    }
+
     public Document getDocument()
     {
         return new Document().append("name", name)

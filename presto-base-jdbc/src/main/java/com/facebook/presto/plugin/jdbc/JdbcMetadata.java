@@ -104,7 +104,7 @@ public class JdbcMetadata
 
         ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
         for (JdbcColumnHandle column : jdbcMetadataCache.getColumns(session, handle)) {
-            columnMetadata.add(column.getColumnMetadata());
+            columnMetadata.add(column.getColumnMetadata(session, jdbcClient));
         }
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
     }
@@ -122,7 +122,7 @@ public class JdbcMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcMetadataCache.getColumns(session, jdbcTableHandle)) {
-            columnHandles.put(column.getColumnMetadata().getName(), column);
+            columnHandles.put(column.getColumnMetadata(session, jdbcClient).getName(), column);
         }
         return columnHandles.build();
     }
