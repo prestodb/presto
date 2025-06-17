@@ -220,9 +220,9 @@ class Expr {
 
   void clearMemo() {
     baseOfDictionaryRepeats_ = 0;
-    baseOfDictionary_.reset();
-    baseOfDictionaryWeakPtr_.reset();
     baseOfDictionaryRawPtr_ = nullptr;
+    baseOfDictionaryWeakPtr_.reset();
+    baseOfDictionary_.reset();
     dictionaryCache_ = nullptr;
     cachedDictionaryIndices_ = nullptr;
   }

@@ -1970,8 +1970,7 @@ void ExprSet::clear() {
   for (auto* memo : memoizingExprs_) {
     memo->clearMemo();
   }
-  distinctFields_.clear();
-  multiplyReferencedFields_.clear();
+  memoizingExprs_.clear();
 }
 
 void ExprSet::clearCache() {

@@ -5086,5 +5086,21 @@ TEST_F(ExprTest, peelingOnDeterministicFunctionInNonDeterministicExpr) {
   ASSERT_EQ(stats["plus"].numProcessedRows, input->size() / 2);
 }
 
+TEST_F(ExprTest, lambdaConstantFolded) {
+  const auto makeTypedExpr =
+      [this](const std::string& text, const RowTypePtr& rowType) {
+        auto untyped = parse::parseExpr(text, {});
+        return core::Expressions::inferTypes(untyped, rowType, pool());
+      };
+
+  // Test the resource clear of lambda constant folding which relies on an
+  // uninitialized ExprSet for eval.
+  std::string expression =
+      "reduce(regexp_split('a,b,c,d,e,f,g,h',','), array[array['']], (acc, x) -> array[array[x]], (id) -> id)";
+  auto typedExpr = makeTypedExpr(expression, ROW({"c0"}, {INTEGER()}));
+  exec::ExprSet exprSet({typedExpr}, execCtx_.get());
+  exprSet.clear();
+}
+
 } // namespace
 } // namespace facebook::velox::test
