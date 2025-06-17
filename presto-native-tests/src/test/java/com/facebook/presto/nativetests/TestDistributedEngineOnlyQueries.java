@@ -88,10 +88,10 @@ public class TestDistributedEngineOnlyQueries
     @Test
     public void testLocallyUnrepresentableTimeLiterals()
     {
-        LocalTime localTimeThatDidNotOccurOn19700101 = LocalTime.of(0, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn19700101.atDate(LocalDate.ofEpochDay(0))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn19700101).toLocalTime(), localTimeThatDidNotOccurOn19700101), "This test assumes certain JVM time zone");
-        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn19700101);
+        LocalTime localTimeThatDidNotOccurOn20120401 = LocalTime.of(2, 10);
+        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn20120401.atDate(LocalDate.of(2012, 4, 1))).isEmpty(), "This test assumes certain JVM time zone");
+        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn20120401).toLocalTime(), localTimeThatDidNotOccurOn20120401), "This test assumes certain JVM time zone");
+        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn20120401);
         assertQueryFails(sql, timeTypeUnsupportedError);
     }
 }
