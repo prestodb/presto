@@ -103,14 +103,14 @@ public class PlanCheckerRouterPluginPrestoClient
 
     @Managed
     @Nested
-    public CounterStat getJavaClusterRedirectRequests()
+    public static CounterStat getJavaClusterRedirectRequests()
     {
         return javaClusterRedirectRequests;
     }
 
     @Managed
     @Nested
-    public CounterStat getNativeClusterRedirectRequests()
+    public static CounterStat getNativeClusterRedirectRequests()
     {
         return nativeClusterRedirectRequests;
     }
