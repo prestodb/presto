@@ -77,6 +77,15 @@ std::string TaskTraceMetadataReader::connectorId(
   const auto* traceNode = core::PlanNode::findFirstNode(
       tracePlanNode_.get(),
       [&nodeId](const core::PlanNode* node) { return node->id() == nodeId; });
+
+  if (const auto* indexLookupJoinNode =
+          dynamic_cast<const core::IndexLookupJoinNode*>(traceNode)) {
+    const auto indexLookupConnectorId =
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId();
+    VELOX_CHECK(!indexLookupConnectorId.empty());
+    return indexLookupConnectorId;
+  }
+
   const auto* tableScanNode =
       dynamic_cast<const core::TableScanNode*>(traceNode);
   VELOX_CHECK_NOT_NULL(tableScanNode);

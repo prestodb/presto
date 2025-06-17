@@ -16,10 +16,11 @@
 
 #include "velox/tool/trace/TraceReplayRunner.h"
 
+#include <folly/init/Init.h>
 #include <gflags/gflags.h>
 
 int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  folly::Init init(&argc, &argv);
 
   facebook::velox::tool::trace::TraceReplayRunner runner;
   runner.init();
