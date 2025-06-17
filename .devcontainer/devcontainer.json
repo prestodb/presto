@@ -1,0 +1,6 @@
+{
+    "name": "PrestoDB Dev Container",
+    "build": {
+      "dockerfile": "Dockerfile"
+    }
+}
