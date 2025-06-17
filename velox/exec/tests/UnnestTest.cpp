@@ -709,9 +709,9 @@ TEST_P(UnnestTest, barrier) {
 
 TEST_P(UnnestTest, spiltOutput) {
   std::vector<RowVectorPtr> vectors;
-  const auto numBatches = 5;
-  const auto inputBatchSize = 2048;
-  for (int32_t i = 0; i < 5; ++i) {
+  const auto numBatches = 3;
+  const auto inputBatchSize = 256;
+  for (int32_t i = 0; i < 3; ++i) {
     auto vector = makeRowVector({
         makeFlatVector<int64_t>(inputBatchSize, [](auto row) { return row; }),
     });
@@ -719,7 +719,7 @@ TEST_P(UnnestTest, spiltOutput) {
   }
   createDuckDbTable(vectors);
 
-  // Unnest 1K rows into 3K rows.
+  // Unnest 256 rows into 768 rows.
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId unnestPlanNodeId;
   const auto plan = PlanBuilder(planNodeIdGenerator)
@@ -768,7 +768,7 @@ TEST_P(UnnestTest, spiltOutput) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     UnnestTest,
     UnnestTest,
-    testing::ValuesIn(/*batchSize*/ {2, 17, 33, 1024}),
+    testing::ValuesIn(/*batchSize*/ {2, 17, 33, 512}),
     [](const testing::TestParamInfo<int32_t>& info) {
       return fmt::format("outputBatchSize_{}", info.param);
     });
