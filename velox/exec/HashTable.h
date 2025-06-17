@@ -127,6 +127,9 @@ class BaseHashTable {
 
   using MaskType = uint16_t;
 
+  /// The load factor of the hash table.
+  static constexpr double kHashTableLoadFactor = 0.7;
+
   /// 2M entries, i.e. 16MB is the largest array based hash table.
   static constexpr uint64_t kArrayHashMaxSize = 2L << 20;
 
@@ -742,8 +745,7 @@ class HashTable : public BaseHashTable {
 
   // Returns the number of entries after which the table gets rehashed.
   static uint64_t rehashSize(int64_t size) {
-    // This implements the F14 load factor: Resize if less than 1/8 unoccupied.
-    return size - (size / 8);
+    return size * kHashTableLoadFactor;
   }
 
   // Returns the number of entries with 'numNew' and existing 'numDistincts'
