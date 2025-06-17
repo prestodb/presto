@@ -40,13 +40,25 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+/**
+ * For efficiency, this class maintains two caches for metadata from the
+ * {@link ClpMetadataProvider}:
+ * <ul>
+ *     <li>columnHandleCache: Maps {@link SchemaTableName} to a list of {@link ClpColumnHandle}s.
+ *     </li>
+ *     <li>tableHandleCache: Maps schema names to a list of {@link ClpTableHandle}s.</li>
+ * </ul>
+ */
 public class ClpMetadata
         implements ConnectorMetadata
 {
     public static final String DEFAULT_SCHEMA_NAME = "default";
+
     private final ClpMetadataProvider clpMetadataProvider;
     private final LoadingCache<SchemaTableName, List<ClpColumnHandle>> columnHandleCache;
     private final LoadingCache<String, List<ClpTableHandle>> tableHandleCache;
@@ -54,6 +66,8 @@ public class ClpMetadata
     @Inject
     public ClpMetadata(ClpConfig clpConfig, ClpMetadataProvider clpMetadataProvider)
     {
+        this.clpMetadataProvider = requireNonNull(clpMetadataProvider, "ClpMetadataProvider is null");
+
         this.columnHandleCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(clpConfig.getMetadataExpireInterval(), SECONDS)
                 .refreshAfterWrite(clpConfig.getMetadataRefreshInterval(), SECONDS)
@@ -62,28 +76,6 @@ public class ClpMetadata
                 .expireAfterWrite(clpConfig.getMetadataExpireInterval(), SECONDS)
                 .refreshAfterWrite(clpConfig.getMetadataRefreshInterval(), SECONDS)
                 .build(CacheLoader.from(this::loadTableHandles));
-
-        this.clpMetadataProvider = requireNonNull(clpMetadataProvider, "ClpMetadataProvider is null");
-    }
-
-    private List<ClpColumnHandle> loadColumnHandles(SchemaTableName schemaTableName)
-    {
-        return clpMetadataProvider.listColumnHandles(schemaTableName);
-    }
-
-    private List<ClpTableHandle> loadTableHandles(String schemaName)
-    {
-        return clpMetadataProvider.listTableHandles(schemaName);
-    }
-
-    private List<ClpTableHandle> listTables(String schemaName)
-    {
-        return tableHandleCache.getUnchecked(schemaName);
-    }
-
-    private List<ClpColumnHandle> listColumns(SchemaTableName schemaTableName)
-    {
-        return columnHandleCache.getUnchecked(schemaTableName);
     }
 
     @Override
@@ -102,7 +94,7 @@ public class ClpMetadata
 
         return listTables(schemaNameValue).stream()
                 .map(tableHandle -> new SchemaTableName(schemaNameValue, tableHandle.getSchemaTableName().getTableName()))
-                .collect(ImmutableList.toImmutableList());
+                .collect(toImmutableList());
     }
 
     @Override
@@ -120,10 +112,11 @@ public class ClpMetadata
     }
 
     @Override
-    public ConnectorTableLayoutResult getTableLayoutForConstraint(ConnectorSession session,
-                                                                  ConnectorTableHandle table,
-                                                                  Constraint<ColumnHandle> constraint,
-                                                                  Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
         ClpTableHandle tableHandle = (ClpTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new ClpTableLayoutHandle(tableHandle, Optional.empty()));
@@ -143,14 +136,13 @@ public class ClpMetadata
         SchemaTableName schemaTableName = clpTableHandle.getSchemaTableName();
         List<ColumnMetadata> columns = listColumns(schemaTableName).stream()
                 .map(ClpColumnHandle::getColumnMetadata)
-                .collect(ImmutableList.toImmutableList());
+                .collect(toImmutableList());
 
         return new ConnectorTableMetadata(schemaTableName, columns);
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session,
-                                                                       SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         String schemaName = prefix.getSchemaName();
@@ -173,7 +165,7 @@ public class ClpMetadata
         }
 
         return schemaTableNames.stream()
-                .collect(ImmutableMap.toImmutableMap(
+                .collect(toImmutableMap(
                         Function.identity(),
                         tableName -> getTableMetadata(session, getTableHandle(session, tableName)).getColumns()));
     }
@@ -182,18 +174,33 @@ public class ClpMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ClpTableHandle clpTableHandle = (ClpTableHandle) tableHandle;
-        return listColumns(clpTableHandle.getSchemaTableName()).stream()
-                .collect(ImmutableMap.toImmutableMap(
-                        ClpColumnHandle::getColumnName,
-                        column -> column));
+        return listColumns(clpTableHandle.getSchemaTableName()).stream().collect(toImmutableMap(ClpColumnHandle::getColumnName, column -> column));
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session,
-                                            ConnectorTableHandle tableHandle,
-                                            ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ClpColumnHandle clpColumnHandle = (ClpColumnHandle) columnHandle;
         return clpColumnHandle.getColumnMetadata();
+    }
+
+    private List<ClpColumnHandle> loadColumnHandles(SchemaTableName schemaTableName)
+    {
+        return clpMetadataProvider.listColumnHandles(schemaTableName);
+    }
+
+    private List<ClpTableHandle> loadTableHandles(String schemaName)
+    {
+        return clpMetadataProvider.listTableHandles(schemaName);
+    }
+
+    private List<ClpColumnHandle> listColumns(SchemaTableName schemaTableName)
+    {
+        return columnHandleCache.getUnchecked(schemaTableName);
+    }
+
+    private List<ClpTableHandle> listTables(String schemaName)
+    {
+        return tableHandleCache.getUnchecked(schemaName);
     }
 }

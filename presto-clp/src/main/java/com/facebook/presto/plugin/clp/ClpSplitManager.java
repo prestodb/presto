@@ -37,10 +37,11 @@ public class ClpSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle,
-                                          ConnectorSession session,
-                                          ConnectorTableLayoutHandle layout,
-                                          SplitSchedulingContext splitSchedulingContext)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layout,
+            SplitSchedulingContext splitSchedulingContext)
     {
         ClpTableLayoutHandle layoutHandle = (ClpTableLayoutHandle) layout;
         return new FixedSplitSource(clpSplitProvider.listSplits(layoutHandle));

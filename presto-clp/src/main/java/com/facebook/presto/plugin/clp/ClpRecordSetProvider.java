@@ -26,10 +26,7 @@ public class ClpRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle,
-                                  ConnectorSession session,
-                                  ConnectorSplit split,
-                                  List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         throw new UnsupportedOperationException("getRecordSet is not supported");
     }

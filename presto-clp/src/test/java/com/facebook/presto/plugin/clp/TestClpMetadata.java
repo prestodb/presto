@@ -14,12 +14,7 @@
 package com.facebook.presto.plugin.clp;
 
 import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.BooleanType;
-import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.plugin.clp.metadata.ClpNodeType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -34,34 +29,46 @@ import org.testng.annotations.Test;
 import java.util.HashSet;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.clp.ClpMetadata.DEFAULT_SCHEMA_NAME;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.DbHandle;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.getDbHandle;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.setupMetadata;
+import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Boolean;
+import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.ClpString;
+import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Float;
+import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Integer;
+import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.UnstructuredArray;
+import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.VarString;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestClpMetadata
 {
-    private ClpMetadataDbSetUp.DbHandle dbHandle;
+    private static final String TABLE_NAME = "test";
+    private DbHandle dbHandle;
     private ClpMetadata metadata;
-
-    private static final String tableName = "test";
 
     @BeforeMethod
     public void setUp()
     {
-        dbHandle = ClpMetadataDbSetUp.getDbHandle("metadata_testdb");
-        metadata = ClpMetadataDbSetUp.setupMetadata(
+        dbHandle = getDbHandle("metadata_testdb");
+        metadata = setupMetadata(
                 dbHandle,
                 ImmutableMap.of(
-                        tableName,
+                        TABLE_NAME,
                         ImmutableList.of(
-                                new Pair<>("a", ClpNodeType.Integer),
-                                new Pair<>("a", ClpNodeType.VarString),
-                                new Pair<>("b", ClpNodeType.Float),
-                                new Pair<>("b", ClpNodeType.ClpString),
-                                new Pair<>("c.d", ClpNodeType.Boolean),
-                                new Pair<>("c.e", ClpNodeType.VarString),
-                                new Pair<>("f.g.h", ClpNodeType.UnstructuredArray))));
+                                new Pair<>("a", Integer),
+                                new Pair<>("a", ClpString),
+                                new Pair<>("b", Float),
+                                new Pair<>("b", ClpString),
+                                new Pair<>("c.d", Boolean),
+                                new Pair<>("c.e", VarString),
+                                new Pair<>("f.g.h", UnstructuredArray))));
     }
 
     @AfterMethod
@@ -80,42 +87,41 @@ public class TestClpMetadata
     public void testListTables()
     {
         HashSet<SchemaTableName> tables = new HashSet<>();
-        tables.add(new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName));
+        tables.add(new SchemaTableName(DEFAULT_SCHEMA_NAME, TABLE_NAME));
         assertEquals(new HashSet<>(metadata.listTables(SESSION, Optional.empty())), tables);
     }
 
     @Test
     public void testGetTableMetadata()
     {
-        ClpTableHandle clpTableHandle =
-                (ClpTableHandle) metadata.getTableHandle(SESSION, new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName));
+        ClpTableHandle clpTableHandle = (ClpTableHandle) metadata.getTableHandle(SESSION, new SchemaTableName(DEFAULT_SCHEMA_NAME, TABLE_NAME));
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, clpTableHandle);
         ImmutableSet<ColumnMetadata> columnMetadata = ImmutableSet.<ColumnMetadata>builder()
                 .add(ColumnMetadata.builder()
                         .setName("a_bigint")
-                        .setType(BigintType.BIGINT)
+                        .setType(BIGINT)
                         .setNullable(true)
                         .build())
                 .add(ColumnMetadata.builder()
                         .setName("a_varchar")
-                        .setType(VarcharType.VARCHAR)
+                        .setType(VARCHAR)
                         .setNullable(true)
                         .build())
                 .add(ColumnMetadata.builder()
                         .setName("b_double")
-                        .setType(DoubleType.DOUBLE)
+                        .setType(DOUBLE)
                         .setNullable(true)
                         .build())
                 .add(ColumnMetadata.builder()
                         .setName("b_varchar")
-                        .setType(VarcharType.VARCHAR)
+                        .setType(VARCHAR)
                         .setNullable(true)
                         .build())
                 .add(ColumnMetadata.builder()
                         .setName("c")
                         .setType(RowType.from(ImmutableList.of(
-                                RowType.field("d", BooleanType.BOOLEAN),
-                                RowType.field("e", VarcharType.VARCHAR))))
+                                RowType.field("d", BOOLEAN),
+                                RowType.field("e", VARCHAR))))
                         .setNullable(true)
                         .build())
                 .add(ColumnMetadata.builder()
@@ -123,7 +129,7 @@ public class TestClpMetadata
                         .setType(RowType.from(ImmutableList.of(
                                 RowType.field("g",
                                         RowType.from(ImmutableList.of(
-                                                RowType.field("h", new ArrayType(VarcharType.VARCHAR))))))))
+                                                RowType.field("h", new ArrayType(VARCHAR))))))))
                         .setNullable(true)
                         .build())
                 .build();

@@ -25,24 +25,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class ClpTableHandle
         implements ConnectorTableHandle
 {
-    public enum StorageType
-    {
-        FS, // Local File System
-        S3
-    }
-
     private final SchemaTableName schemaTableName;
     private final String tablePath;
-    private final StorageType storageType;
 
     @JsonCreator
-    public ClpTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                          @JsonProperty("tablePath") String tablePath,
-                          @JsonProperty("storageType") StorageType storageType)
+    public ClpTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName, @JsonProperty("tablePath") String tablePath)
     {
         this.schemaTableName = schemaTableName;
         this.tablePath = tablePath;
-        this.storageType = storageType;
     }
 
     @JsonProperty
@@ -57,16 +47,10 @@ public class ClpTableHandle
         return tablePath;
     }
 
-    @JsonProperty
-    public StorageType getStorageType()
-    {
-        return storageType;
-    }
-
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, tablePath, storageType);
+        return Objects.hash(schemaTableName, tablePath);
     }
 
     @Override
@@ -79,9 +63,7 @@ public class ClpTableHandle
             return false;
         }
         ClpTableHandle other = (ClpTableHandle) obj;
-        return this.schemaTableName.equals(other.schemaTableName) &&
-                this.tablePath.equals(other.tablePath) &&
-                this.storageType == other.storageType;
+        return this.schemaTableName.equals(other.schemaTableName) && this.tablePath.equals(other.tablePath);
     }
 
     @Override
@@ -90,7 +72,6 @@ public class ClpTableHandle
         return toStringHelper(this)
                 .add("schemaTableName", schemaTableName)
                 .add("tablePath", tablePath)
-                .add("storageType", storageType)
                 .toString();
     }
 }

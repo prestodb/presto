@@ -29,8 +29,7 @@ public class ClpTableLayoutHandle
     private final Optional<String> kqlQuery;
 
     @JsonCreator
-    public ClpTableLayoutHandle(@JsonProperty("table") ClpTableHandle table,
-                                @JsonProperty("kqlQuery") Optional<String> kqlQuery)
+    public ClpTableLayoutHandle(@JsonProperty("table") ClpTableHandle table, @JsonProperty("kqlQuery") Optional<String> kqlQuery)
     {
         this.table = table;
         this.kqlQuery = kqlQuery;

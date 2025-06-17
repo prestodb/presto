@@ -20,17 +20,10 @@ import java.util.regex.Pattern;
 
 public class ClpConfig
 {
-    public enum MetadataProviderType
-    {
-        MYSQL
-    }
-
-    public enum SplitProviderType
-    {
-        MYSQL
-    }
+    public static final Pattern SAFE_SQL_TABLE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
 
     private boolean polymorphicTypeEnabled = true;
+
     private MetadataProviderType metadataProviderType = MetadataProviderType.MYSQL;
     private String metadataDbUrl;
     private String metadataDbName;
@@ -39,9 +32,8 @@ public class ClpConfig
     private String metadataTablePrefix;
     private long metadataRefreshInterval = 60;
     private long metadataExpireInterval = 600;
-    private SplitProviderType splitProviderType = SplitProviderType.MYSQL;
 
-    public static final Pattern SAFE_SQL_IDENTIFIER = Pattern.compile("^[a-zA-Z0-9_]+$");
+    private SplitProviderType splitProviderType = SplitProviderType.MYSQL;
 
     public boolean isPolymorphicTypeEnabled()
     {
@@ -123,9 +115,10 @@ public class ClpConfig
     @Config("clp.metadata-table-prefix")
     public ClpConfig setMetadataTablePrefix(String metadataTablePrefix)
     {
-        if (metadataTablePrefix == null || !SAFE_SQL_IDENTIFIER.matcher(metadataTablePrefix).matches()) {
-            throw new PrestoException(ClpErrorCode.CLP_UNSUPPORTED_CONFIG_OPTION, "Invalid metadataTablePrefix: " +
-                    metadataTablePrefix + ". Only alphanumeric characters and underscores are allowed.");
+        if (metadataTablePrefix == null || !SAFE_SQL_TABLE_NAME_PATTERN.matcher(metadataTablePrefix).matches()) {
+            throw new PrestoException(
+                    ClpErrorCode.CLP_UNSUPPORTED_CONFIG_OPTION,
+                    "Invalid metadataTablePrefix: " + metadataTablePrefix + ". Only alphanumeric characters and underscores are allowed.");
         }
 
         this.metadataTablePrefix = metadataTablePrefix;
@@ -166,5 +159,15 @@ public class ClpConfig
     {
         this.splitProviderType = splitProviderType;
         return this;
+    }
+
+    public enum MetadataProviderType
+    {
+        MYSQL
+    }
+
+    public enum SplitProviderType
+    {
+        MYSQL
     }
 }

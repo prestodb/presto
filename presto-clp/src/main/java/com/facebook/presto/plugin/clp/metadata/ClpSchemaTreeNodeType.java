@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.plugin.clp.metadata;
 
-public enum ClpNodeType
+/**
+ * The CLP schema-tree node types used in clp-s archives.
+ */
+public enum ClpSchemaTreeNodeType
 {
     Integer((byte) 0),
     Float((byte) 1),
@@ -26,31 +29,15 @@ public enum ClpNodeType
     DateString((byte) 8),
     StructuredArray((byte) 9);
 
+    private static final ClpSchemaTreeNodeType[] LOOKUP_TABLE;
     private final byte type;
-    private static final ClpNodeType[] LOOKUP_TABLE;
 
-    static {
-        byte maxType = 0;
-        for (ClpNodeType nodeType : values()) {
-            if (nodeType.type > maxType) {
-                maxType = nodeType.type;
-            }
-        }
-
-        ClpNodeType[] lookup = new ClpNodeType[maxType + 1];
-        for (ClpNodeType nodeType : values()) {
-            lookup[nodeType.type] = nodeType;
-        }
-
-        LOOKUP_TABLE = lookup;
-    }
-
-    ClpNodeType(byte type)
+    ClpSchemaTreeNodeType(byte type)
     {
         this.type = type;
     }
 
-    public static ClpNodeType fromType(byte type)
+    public static ClpSchemaTreeNodeType fromType(byte type)
     {
         if (type < 0 || type >= LOOKUP_TABLE.length || LOOKUP_TABLE[type] == null) {
             throw new IllegalArgumentException("Invalid type code: " + type);
@@ -61,5 +48,21 @@ public enum ClpNodeType
     public byte getType()
     {
         return type;
+    }
+
+    static {
+        byte maxType = 0;
+        for (ClpSchemaTreeNodeType nodeType : values()) {
+            if (nodeType.type > maxType) {
+                maxType = nodeType.type;
+            }
+        }
+
+        ClpSchemaTreeNodeType[] lookup = new ClpSchemaTreeNodeType[maxType + 1];
+        for (ClpSchemaTreeNodeType nodeType : values()) {
+            lookup[nodeType.type] = nodeType;
+        }
+
+        LOOKUP_TABLE = lookup;
     }
 }

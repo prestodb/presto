@@ -20,8 +20,10 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
@@ -56,8 +58,8 @@ public class ClpSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getInfo()
     {
-        return this;
+        return ImmutableMap.of("path", path);
     }
 }

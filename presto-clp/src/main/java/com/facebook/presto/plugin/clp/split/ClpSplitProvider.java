@@ -18,10 +18,14 @@ import com.facebook.presto.plugin.clp.ClpTableLayoutHandle;
 
 import java.util.List;
 
+/**
+ * A provider for splits from a CLP dataset.
+ */
 public interface ClpSplitProvider
 {
     /**
-     * Returns a list of splits for the given table layout handle.
+     * @param clpTableLayoutHandle the table layout handle
+     * @return the list of splits for the specified table layout
      */
     List<ClpSplit> listSplits(ClpTableLayoutHandle clpTableLayoutHandle);
 }

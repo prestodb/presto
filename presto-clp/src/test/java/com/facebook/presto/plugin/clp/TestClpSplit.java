@@ -27,19 +27,23 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.plugin.clp.ClpMetadata.DEFAULT_SCHEMA_NAME;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.ARCHIVE_STORAGE_DIRECTORY_BASE;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.DbHandle;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.getDbHandle;
+import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.setupSplit;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestClpSplit
 {
-    private ClpMetadataDbSetUp.DbHandle dbHandle;
+    private DbHandle dbHandle;
     private ClpSplitProvider clpSplitProvider;
     private Map<String, List<String>> tableSplits;
 
     @BeforeMethod
     public void setUp()
     {
-        dbHandle = ClpMetadataDbSetUp.getDbHandle("split_testdb");
+        dbHandle = getDbHandle("split_testdb");
         tableSplits = new HashMap<>();
 
         int numKeys = 3;
@@ -55,7 +59,7 @@ public class TestClpSplit
 
             tableSplits.put(key, values);
         }
-        clpSplitProvider = ClpMetadataDbSetUp.setupSplit(dbHandle, tableSplits);
+        clpSplitProvider = setupSplit(dbHandle, tableSplits);
     }
 
     @AfterMethod
@@ -69,12 +73,10 @@ public class TestClpSplit
     {
         for (Map.Entry<String, List<String>> entry : tableSplits.entrySet()) {
             String tableName = entry.getKey();
-            String tablePath = "/tmp/archives/" + tableName;
+            String tablePath = ARCHIVE_STORAGE_DIRECTORY_BASE + tableName;
             List<String> expectedSplits = entry.getValue();
             ClpTableLayoutHandle layoutHandle = new ClpTableLayoutHandle(
-                    new ClpTableHandle(new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName),
-                            tablePath, ClpTableHandle.StorageType.FS),
-                    Optional.empty());
+                    new ClpTableHandle(new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName), tablePath), Optional.empty());
             List<ClpSplit> splits = clpSplitProvider.listSplits(layoutHandle);
             assertEquals(splits.size(), expectedSplits.size());
 

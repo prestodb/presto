@@ -19,15 +19,21 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.List;
 
+/**
+ * A provider for metadata that describes what tables exist in the CLP connector, and what columns
+ * exist in each of those tables.
+ */
 public interface ClpMetadataProvider
 {
     /**
-     * Returns the list of column handles for the given table.
+     * @param schemaTableName the name of the schema and the table
+     * @return the list of column handles for the given table.
      */
     List<ClpColumnHandle> listColumnHandles(SchemaTableName schemaTableName);
 
     /**
-     * Returns the list of table handles in the given schema.
+     * @param schema the name of the schema
+     * @return the list of table handles in the specified schema
      */
     List<ClpTableHandle> listTableHandles(String schema);
 }

@@ -52,11 +52,11 @@ public class ClpConnectorFactory
         requireNonNull(config, "config is null");
         try {
             Bootstrap app = new Bootstrap(new JsonModule(), new ClpModule(), binder -> {
-                binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                 binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
-                binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+                binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                 binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+                binder.bind(TypeManager.class).toInstance(context.getTypeManager());
             });
 
             Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperties(config).initialize();

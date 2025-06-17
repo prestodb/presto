@@ -10,18 +10,18 @@ CLP Connector
 Overview
 --------
 
-The CLP Connector enables SQL-based querying of CLP-S archives from Presto. This document describes how to set up the
-CLP Connector to run SQL queries.
+The CLP Connector enables SQL-based querying of `CLP <https://github.com/y-scope/clp>`_ archives via Presto. This
+document describes how to configure the CLP Connector for use with a CLP cluster, as well as essential details for
+understanding the CLP connector.
 
 
 Configuration
 -------------
 
-To configure the CLP connector, create a catalog properties file
-``etc/catalog/clp.properties`` with the following contents,
-replacing the properties as appropriate:
+To configure the CLP connector, create a catalog properties file ``etc/catalog/clp.properties`` with at least the
+following contents, modifying the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: ini
 
     connector.name=clp
     clp.metadata-provider-type=mysql
@@ -41,20 +41,15 @@ The following configuration properties are available:
 ================================== ======================================================================== =========
 Property Name                      Description                                                              Default
 ================================== ======================================================================== =========
-``clp.metadata-expire-interval``   Defines how long metadata entries remain valid before being considered   600
-                                   expired, in seconds.
-``clp.metadata-refresh-interval``  Specifies how frequently metadata is refreshed from the source, in       60
-                                   seconds. Set this to a lower value for frequently changing datasets or
-                                   to a higher value to reduce load.
 ``clp.polymorphic-type-enabled``   Enables or disables support for polymorphic types in CLP, allowing the   ``false``
                                    same field to have different types. This is useful for schema-less,
                                    semi-structured data where the same field may appear with different
                                    types.
 
                                    When enabled, type annotations are added to conflicting field names to
-                                   distinguish between types. For example, if ``id`` column appears as both
-                                   an ``int`` and ``string`` types, the connector will create two columns
-                                   named ``id_bigint`` and ``id_varchar``.
+                                   distinguish between types. For example, if an ``id`` column appears with
+                                   both an ``int`` and ``string`` types, the connector will create two
+                                   columns named ``id_bigint`` and ``id_varchar``.
 
                                    Supported type annotations include ``bigint``, ``varchar``, ``double``,
                                    ``boolean``, and ``array(varchar)`` (See `Data Types`_ for details). For
@@ -76,6 +71,11 @@ Property Name                      Description                                  
 ``clp.metadata-table-prefix``      A string prefix prepended to all metadata table names when querying the
                                    database. Useful for namespacing or avoiding collisions. This option is
                                    required if ``clp.metadata-provider-type`` is set to ``mysql``.
+``clp.metadata-expire-interval``   Defines how long, in seconds, metadata entries remain valid before they  600
+                                   need to be refreshed.
+``clp.metadata-refresh-interval``  Specifies how frequently metadata is refreshed from the source, in       60
+                                   seconds. Set this to a lower value for frequently changing datasets or
+                                   to a higher value to reduce load.
 ``clp.split-provider-type``        Specifies the split provider type. By default, it uses the same type as  ``mysql``
                                    the metadata provider with the same connection parameters. Additional
                                    types can be supported by implementing the ``ClpSplitProvider``
@@ -83,14 +83,14 @@ Property Name                      Description                                  
 ================================== ======================================================================== =========
 
 
-
 Metadata and Split Providers
 ----------------------------
+
 The CLP connector relies on metadata and split providers to retrieve information from various sources. By default, it
 uses a MySQL database for both metadata and split storage. We recommend using the CLP package for log ingestion, which
 automatically populates the database with the required information.
 
-If you prefer to use a different source—or the same source with a custom implementation—you can provide your own
+If you prefer to use a different source--or the same source with a custom implementation--you can provide your own
 implementations of the ``ClpMetadataProvider`` and ``ClpSplitProvider`` interfaces, and configure the connector
 accordingly.
 
@@ -129,6 +129,7 @@ when read. ``StructuredArray`` type is not supported in Presto.
 
 Object Types
 ^^^^^^^^^^^^
+
 CLP stores metadata using a global schema tree structure that captures all possible fields from various log structures.
 Internal nodes may represent objects containing nested fields as their children. In Presto, we map these internal object
 nodes to the ``ROW`` data type, including all subfields as fields within the ``ROW``.
