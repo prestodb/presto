@@ -31,11 +31,20 @@ General Aggregate Functions
     inputs if :doc:`presto.array_agg.ignore_nulls <../../configs>` is set
     to false.
 
-.. function:: avg(x) -> double|real
+.. function:: avg(x) -> double|real|decimal
 
     Returns the average (arithmetic mean) of all non-null input values.
     When x is of type REAL, the result type is REAL.
-    For all other input types, the result type is DOUBLE.
+    When x is an integer or a DOUBLE, the result is DOUBLE.
+    When x is of type DECIMAL(p, s), the result type is DECIMAL(p, s).
+    Note: For the overflow cases, Velox returns a result when Presto throws "Decimal overflow". ::
+        SELECT AVG(col)
+        FROM ( VALUES
+        	  (CAST(9999999999999999999999999999999.9999999 AS DECIMAL(38,7))),
+              (CAST(9999999999999999999999999999999.9999999 AS DECIMAL(38,7)))
+             ) AS t(col);
+        -- Velox: 9999999999999999999999999999999.9999999
+        -- Presto: Decimal overflow
 
 .. function:: bool_and(boolean) -> boolean
 

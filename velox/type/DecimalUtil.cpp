@@ -98,6 +98,17 @@ void DecimalUtil::computeAverage(
     divideWithRoundUp<int128_t, int128_t, int64_t>(
         avg, sum, count, false, 0, 0);
   } else {
+    // The average is computed as `(sum + overflow * kOverflowMultiplier) /
+    // count`:
+    //  1. sum / count → quotient quotSum, remainder remSum.
+    //  2. (overflow * kOverflowMultiplier) / count → quotient quotMul,
+    //  remainder remMul.
+    //  3. (remSum + remMul) / count -> remTotal
+    //  4. final result = quotSum + quotMul + remTotal
+    // Since we only use quotients (no rounding needed, set "noRoundUp = true")
+    // and combine remainders to compute the final average, rounding is applied
+    // based on the combined remainder values (set "noRoundUp = false"), which
+    // ensures accuracy.
     VELOX_DCHECK_LE(overflow, count);
     __uint128_t quotMul, remMul;
     __int128_t quotSum, remSum;
@@ -109,7 +120,7 @@ void DecimalUtil::computeAverage(
     remSum = DecimalUtil::divideWithRoundUp<__int128_t, __int128_t, int64_t>(
         quotSum, sum, count, true, 0, 0);
     DecimalUtil::divideWithRoundUp<__int128_t, __int128_t, int64_t>(
-        remTotal, remMul + remSum, count, true, 0, 0);
+        remTotal, remMul + remSum, count, false, 0, 0);
     avg = quotMul + quotSum + remTotal;
   }
 }
