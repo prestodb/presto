@@ -16,6 +16,7 @@
 #include <folly/base64.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/prestosql/types/QDigestType.h"
 
@@ -103,6 +104,19 @@ class QDigestAggTest : public AggregationTestBase {
     return decoded;
   }
 };
+
+TEST_F(QDigestAggTest, metadata) {
+  core::QueryConfig config{{}};
+  auto function = exec::Aggregate::create(
+      "qdigest_agg",
+      core::AggregationNode::Step::kSingle,
+      {BIGINT()},
+      QDIGEST(BIGINT()),
+      config);
+  EXPECT_FALSE(function->isFixedSize());
+  EXPECT_FALSE(function->accumulatorUsesExternalMemory());
+  EXPECT_EQ(function->accumulatorAlignmentSize(), 8);
+}
 
 TEST_F(QDigestAggTest, basic) {
   testQDigestAgg<int64_t>(

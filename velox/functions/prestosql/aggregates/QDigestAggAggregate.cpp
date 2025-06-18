@@ -32,6 +32,9 @@ namespace {
 
 template <typename T, typename Func, bool DefaultMaxError>
 struct QDigestAccumulator {
+  static constexpr bool is_fixed_size_ = false;
+  static constexpr bool is_aligned_ = true;
+
   QuantileDigest<T> digest;
 
   explicit QDigestAccumulator(HashStringAllocator* allocator, Func* /*fn*/)
