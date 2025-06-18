@@ -127,6 +127,17 @@ TEST_F(TDigestFunctionsTest, valuesAtQuantiles) {
   test::assertEqualVectors(expected, result);
 }
 
+TEST_F(TDigestFunctionsTest, valuesAtQuantilesWithNulls) {
+  const std::string input = decodeBase64(
+      "AQAAAAAAAADwPwAAAAAAABRAAAAAAAAALkAAAAAAAABZQAAAAAAAABRABQAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAABAAAAAAAAACEAAAAAAAAAQQAAAAAAAABRA");
+  auto arg0 = makeFlatVector<std::string>({input}, TDIGEST_DOUBLE);
+  auto arg1 = makeNullableArrayVector<double>({{0.1, std::nullopt, 0.9, 0.99}});
+
+  ASSERT_THROW(
+      evaluate("values_at_quantiles(c0, c1)", makeRowVector({arg0, arg1})),
+      VeloxUserError);
+}
+
 TEST_F(TDigestFunctionsTest, testMergeTDigestNullInput) {
   auto arg0 = makeNullableArrayVector<std::string>(
       {std::nullopt}, ARRAY_TDIGEST_DOUBLE);

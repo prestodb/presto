@@ -46,6 +46,8 @@ struct ValuesAtQuantilesFunction {
     auto digest = TDigest<>::fromSerialized(input.data());
     result.resize(quantiles.size());
     for (size_t i = 0; i < quantiles.size(); ++i) {
+      VELOX_USER_CHECK(
+          quantiles[i].has_value(), "All values should be non-null.");
       double quantile = quantiles[i].value();
       VELOX_USER_CHECK(0 <= quantile && quantile <= 1);
       result[i] = digest.estimateQuantile(quantile);
