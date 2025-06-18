@@ -3,6 +3,17 @@
 # Set base image
 FROM quay.io/centos/centos:stream9
 
+ENV PROMPT_ALWAYS_RESPOND=y
+# Install necessary packages
+RUN dnf config-manager --enable crb
+RUN dnf update && dnf install -y epel-release
+RUN dnf install -y git \
+    make \
+    which \
+    iputils \
+    hostname
+
+
 # Toolchain and platform environment variables
 ENV PROMPT_ALWAYS_RESPOND=n
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
@@ -16,16 +27,6 @@ ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 ENV DEPENDENCY_DIR="/deps-download"
 ENV INSTALL_PREFIX="/deps-install"
-
-# Install necessary packages
-RUN dnf config-manager --enable crb
-RUN dnf update && dnf install -y epel-release
-RUN dnf install -y git \
-    make \
-    which \
-    iputils \
-    hostname
-
 # download git repo
 RUN git clone https://github.com/prestodb/presto.git /source
 #
