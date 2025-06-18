@@ -116,8 +116,7 @@ TEST_F(PrestoTaskTest, updateStatus) {
   memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
   PrestoTask prestoTask{taskId, "node1", 0};
-
-  const facebook::velox::core::PlanFragment planFragment;
+  long sequenceId{0};
 
   // No exec task yet (no fragment plan), so in planned state.
   auto status = prestoTask.updateStatus();
@@ -133,31 +132,39 @@ TEST_F(PrestoTaskTest, updateStatus) {
   EXPECT_EQ(status.queuedPartitionedDrivers, 0);
   EXPECT_EQ(status.runningPartitionedDrivers, 0);
 
+  // Add some splits. We should return some splits queued.
+  addSplitToTask(prestoTask, sequenceId++);
+  addSplitToTask(prestoTask, sequenceId++);
+  status = prestoTask.updateStatus();
+  EXPECT_EQ(status.state, protocol::TaskState::PLANNED);
+  EXPECT_EQ(status.queuedPartitionedDrivers, 2);
+  EXPECT_EQ(status.runningPartitionedDrivers, 0);
+
   // We 'start' the task, so should be in the running state.
   prestoTask.taskStarted = true;
   status = prestoTask.updateStatus();
   EXPECT_EQ(status.state, protocol::TaskState::RUNNING);
-  EXPECT_EQ(status.queuedPartitionedDrivers, 0);
+  EXPECT_EQ(status.queuedPartitionedDrivers, 2);
   EXPECT_EQ(status.runningPartitionedDrivers, 0);
 
-  // Add some splits. We should return some splits queued.
-  addSplitToTask(prestoTask, 0);
+  // Add some splits. We should return more splits queued.
+  addSplitToTask(prestoTask, sequenceId++);
   status = prestoTask.updateStatus();
   EXPECT_EQ(status.state, protocol::TaskState::RUNNING);
-  EXPECT_EQ(status.queuedPartitionedDrivers, 1);
+  EXPECT_EQ(status.queuedPartitionedDrivers, 3);
   EXPECT_EQ(status.runningPartitionedDrivers, 0);
 
   // Error the task. Should be no new splits since the last update.
-  addSplitToTask(prestoTask, 1);
+  addSplitToTask(prestoTask, sequenceId++);
   try {
     VELOX_FAIL("Test error");
-  } catch (const VeloxException& e) {
+  } catch (const VeloxException&) {
     prestoTask.error = std::current_exception();
   }
-  addSplitToTask(prestoTask, 2);
+  addSplitToTask(prestoTask, sequenceId++);
   status = prestoTask.updateStatus();
   EXPECT_EQ(status.state, protocol::TaskState::FAILED);
-  EXPECT_EQ(status.queuedPartitionedDrivers, 1);
+  EXPECT_EQ(status.queuedPartitionedDrivers, 3);
   EXPECT_EQ(status.runningPartitionedDrivers, 0);
 
   // Create aborted task and test the state is as expected.

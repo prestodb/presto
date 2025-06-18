@@ -14,8 +14,8 @@
 #pragma once
 
 #include <folly/Synchronized.h>
+#include <deque>
 #include <memory>
-#include <queue>
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -24,7 +24,8 @@
 
 namespace facebook::presto {
 
-using TaskQueue = std::queue<std::weak_ptr<PrestoTask>>;
+// One entry can hold multiple queued tasks for the same query.
+using TaskQueue = std::deque<std::vector<std::weak_ptr<PrestoTask>>>;
 
 class TaskManager {
  public:
