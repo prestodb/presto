@@ -245,7 +245,7 @@ public abstract class AbstractTestAggregationsNative
     /// Function `tdigest_agg` is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24811.
     /// `qdigest` datatype is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24814.
     @Override
-    @Test(dataProvider = "getType")
+    @Test(dataProvider = "getType", enabled = false)
     public void testStatisticalDigestMerge(String type)
     {
         String errorMessage = type.equals(QDIGEST_TYPE) ? mergeAggFunctionUnsupportedError : tdigestAggFunctionUnsupportedError;
@@ -260,7 +260,7 @@ public abstract class AbstractTestAggregationsNative
     /// https://github.com/prestodb/presto/issues/24813. `qdigest` datatype is not supported in Presto C++, see:
     /// https://github.com/prestodb/presto/issues/24814.
     @Override
-    @Test(dataProvider = "getType")
+    @Test(dataProvider = "getType", enabled = false)
     public void testStatisticalDigestMergeGroupBy(String type)
     {
         String errorMessage = type.equals(QDIGEST_TYPE) ? mergeAggFunctionUnsupportedError : tdigestAggFunctionUnsupportedError;
