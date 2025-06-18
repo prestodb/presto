@@ -28,6 +28,7 @@
 #include "velox/functions/prestosql/fuzzer/ModulusArgTypesGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MultiplyArgTypesGenerator.h"
 #include "velox/functions/prestosql/fuzzer/PlusMinusArgTypesGenerator.h"
+
 #include "velox/functions/prestosql/fuzzer/SortArrayTransformer.h"
 #include "velox/functions/prestosql/fuzzer/TruncateArgTypesGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -60,7 +61,9 @@ using facebook::velox::fuzzer::ExpressionFuzzer;
 using facebook::velox::fuzzer::FuzzerRunner;
 using facebook::velox::fuzzer::JsonExtractArgValuesGenerator;
 using facebook::velox::fuzzer::JsonParseArgValuesGenerator;
+using facebook::velox::fuzzer::QDigestArgValuesGenerator;
 using facebook::velox::fuzzer::TDigestArgValuesGenerator;
+using facebook::velox::fuzzer::UnifiedDigestArgValuesGenerator;
 using facebook::velox::test::ReferenceQueryRunner;
 
 int main(int argc, char** argv) {
@@ -185,7 +188,8 @@ int main(int argc, char** argv) {
           {"json_parse", std::make_shared<JsonParseArgValuesGenerator>()},
           {"json_extract", std::make_shared<JsonExtractArgValuesGenerator>()},
           {"value_at_quantile",
-           std::make_shared<TDigestArgValuesGenerator>("value_at_quantile")},
+           std::make_shared<UnifiedDigestArgValuesGenerator>(
+               "value_at_quantile")},
           {"scale_tdigest",
            std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")},
           {"quantile_at_value",

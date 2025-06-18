@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-#include <boost/random/uniform_int_distribution.hpp>
-#include <cfloat>
-
 #include "velox/common/fuzzer/ConstrainedGenerators.h"
+#include <boost/random/uniform_int_distribution.hpp>
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/functions/lib/TDigest.h"
 #include "velox/functions/prestosql/types/BingTileType.h"
@@ -309,6 +307,40 @@ int64_t BingTileInputGenerator::generateImpl() {
   uint32_t x = rand<uint32_t>(rng_, 0, maxCoordinate);
   uint32_t y = rand<uint32_t>(rng_, 0, maxCoordinate);
   return static_cast<int64_t>(BingTileType::bingTileCoordsToInt(x, y, zoom));
+}
+
+QDigestInputGenerator::QDigestInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio,
+    const TypePtr& qdigestType)
+    : AbstractInputGenerator(seed, type, nullptr, nullRatio),
+      qdigestType{qdigestType} {}
+
+QDigestInputGenerator::~QDigestInputGenerator() = default;
+
+variant QDigestInputGenerator::generate() {
+  const double kAccuracy = 0.05;
+
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+
+  size_t len = rand(rng_, 1, 1000);
+
+  std::string serializedStr = [&]() {
+    switch (qdigestType->kind()) {
+      case TypeKind::BIGINT:
+        return createSerializedDigest<int64_t>(len, kAccuracy);
+      case TypeKind::DOUBLE:
+        return createSerializedDigest<double>(len, kAccuracy);
+      case TypeKind::REAL:
+        return createSerializedDigest<float>(len, kAccuracy);
+      default:
+        VELOX_FAIL("Unsupported type for QDigest: {}", qdigestType->toString());
+    }
+  }();
+  return variant::create<TypeKind::VARBINARY>(std::move(serializedStr));
 }
 
 // Utility functions

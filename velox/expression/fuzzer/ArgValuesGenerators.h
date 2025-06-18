@@ -109,4 +109,42 @@ class TDigestArgValuesGenerator : public ArgValuesGenerator {
  private:
   std::string functionName_;
 };
+
+class QDigestArgValuesGenerator : public ArgValuesGenerator {
+ public:
+  explicit QDigestArgValuesGenerator(std::string functionName) {
+    functionName_ = std::move(functionName);
+  }
+  ~QDigestArgValuesGenerator() override = default;
+
+  std::vector<core::TypedExprPtr> generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) override;
+
+ private:
+  std::string functionName_;
+};
+
+class UnifiedDigestArgValuesGenerator : public ArgValuesGenerator {
+ public:
+  explicit UnifiedDigestArgValuesGenerator(std::string functionName)
+      : functionName_(std::move(functionName)),
+        tdigestGenerator_(functionName_),
+        qdigestGenerator_(functionName_) {}
+
+  ~UnifiedDigestArgValuesGenerator() override = default;
+
+  std::vector<core::TypedExprPtr> generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) override;
+
+ private:
+  std::string functionName_;
+  TDigestArgValuesGenerator tdigestGenerator_;
+  QDigestArgValuesGenerator qdigestGenerator_;
+};
 } // namespace facebook::velox::fuzzer

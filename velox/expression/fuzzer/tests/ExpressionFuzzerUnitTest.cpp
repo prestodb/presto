@@ -18,6 +18,8 @@
 
 #include "velox/expression/fuzzer/ExpressionFuzzer.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/types/QDigestRegistration.h"
+#include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 
@@ -26,6 +28,7 @@ class ExpressionFuzzerUnitTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     registerTDigestType();
+    registerQDigestType();
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
@@ -54,7 +57,10 @@ class ExpressionFuzzerUnitTest : public testing::Test {
         TIMESTAMP(),
         DATE(),
         INTERVAL_DAY_TIME(),
-        TDIGEST(DOUBLE())};
+        TDIGEST(DOUBLE()),
+        QDIGEST(DOUBLE()),
+        QDIGEST(BIGINT()),
+        QDIGEST(REAL())};
     auto index = folly::Random::rand32(kSupportedTypes.size(), seed);
     return kSupportedTypes[index];
   }

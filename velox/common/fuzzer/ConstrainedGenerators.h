@@ -21,6 +21,7 @@
 #include "folly/json.h"
 
 #include "velox/common/fuzzer/Utils.h"
+#include "velox/functions/lib/QuantileDigest.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
@@ -498,5 +499,60 @@ class BingTileInputGenerator : public AbstractInputGenerator {
 
  private:
   int64_t generateImpl();
+};
+
+class QDigestInputGenerator : public AbstractInputGenerator {
+ public:
+  QDigestInputGenerator(
+      size_t seed,
+      const TypePtr& type,
+      double nullRatio,
+      const TypePtr& qdigestType);
+
+  ~QDigestInputGenerator() override;
+
+  variant generate() override;
+
+ private:
+  const TypePtr qdigestType;
+
+  template <typename T>
+  std::vector<T> generateRandomValue(size_t len) {
+    std::vector<T> values;
+    values.reserve(len);
+
+    auto makeDist = []() {
+      if constexpr (std::is_integral_v<T>) {
+        return std::uniform_int_distribution<T>(0, 10000);
+      } else {
+        return std::uniform_real_distribution<T>(0.0, 10000.0);
+      }
+    };
+
+    auto dist = makeDist();
+    for (size_t i = 0; i < len; ++i) {
+      values.push_back(dist(rng_));
+    }
+    return values;
+  }
+
+  template <typename T>
+  std::string createSerializedDigest(size_t len, double accuracy) {
+    using facebook::velox::functions::qdigest::QuantileDigest;
+
+    std::allocator<T> allocator;
+    QuantileDigest<T, std::allocator<T>> digest(allocator, accuracy);
+
+    const auto input = generateRandomValue<T>(len);
+    auto dist = boost::random::uniform_real_distribution<T>(1.0, 100.0);
+    for (const auto& value : input) {
+      digest.add(value, dist(rng_));
+    }
+    const auto serializedSize = digest.serializedByteSize();
+    std::vector<char> serializedData(serializedSize);
+    digest.serialize(serializedData.data());
+
+    return std::string(serializedData.begin(), serializedData.end());
+  }
 };
 } // namespace facebook::velox::fuzzer

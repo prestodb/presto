@@ -311,6 +311,59 @@ std::vector<core::TypedExprPtr> CastVarcharAndJsonArgValuesGenerator::generate(
   return inputExpressions;
 }
 
+std::vector<core::TypedExprPtr> QDigestArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  populateInputTypesAndNames(signature, state);
+  const auto seed = rand<uint32_t>(rng);
+  const auto nullRatio = options.nullRatio;
+  std::vector<core::TypedExprPtr> inputExpressions;
+  VELOX_CHECK_EQ(signature.args.size(), 2);
+  const std::vector<std::string> functionNames = {
+      "value_at_quantile", "values_at_quantiles"};
+  if (std::find(functionNames.begin(), functionNames.end(), functionName_) ==
+      functionNames.end()) {
+    return inputExpressions;
+  }
+  VELOX_CHECK_GE(state.inputRowNames_.size(), 2);
+
+  const auto& qDigestType = [&signature]() -> TypePtr {
+    const auto& typeStr = signature.args[0]->toString();
+    if (typeStr.find("QDIGEST(BIGINT)") != std::string::npos) {
+      return BIGINT();
+    } else if (typeStr.find("QDIGEST(DOUBLE)") != std::string::npos) {
+      return DOUBLE();
+    } else if (typeStr.find("QDIGEST(REAL)") != std::string::npos) {
+      return REAL();
+    }
+    VELOX_UNREACHABLE("Unsupported QDigest type: {}", typeStr);
+  };
+
+  state.customInputGenerators_.emplace_back(
+      std::make_shared<fuzzer::QDigestInputGenerator>(
+          seed, signature.args[0], nullRatio, qDigestType()));
+  VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size());
+  inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+      signature.args[0],
+      signature.args.size() == 1
+          ? state.inputRowNames_.back()
+          : state.inputRowNames_
+                [state.inputRowNames_.size() - signature.args.size()]));
+
+  // Add null generators for remaining arguments
+  for (size_t i = 1; i < signature.args.size(); i++) {
+    state.customInputGenerators_.emplace_back(nullptr);
+    VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size() - i);
+    inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[i],
+        state.inputRowNames_
+            [state.inputRowNames_.size() + i - signature.args.size()]));
+  }
+  return inputExpressions;
+}
+
 std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
     const CallableSignature& signature,
     const VectorFuzzer::Options& options,
@@ -354,4 +407,23 @@ std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
   }
   return inputExpressions;
 }
+
+std::vector<core::TypedExprPtr> UnifiedDigestArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  VELOX_CHECK_GE(signature.args.size(), 1);
+  const auto& argType = signature.args[0];
+
+  if (argType->toString().find("TDIGEST") != std::string::npos) {
+    return tdigestGenerator_.generate(signature, options, rng, state);
+
+  } else if (argType->toString().find("QDIGEST") != std::string::npos) {
+    return qdigestGenerator_.generate(signature, options, rng, state);
+  }
+
+  VELOX_UNREACHABLE("Unsupported digest type");
+}
+
 } // namespace facebook::velox::fuzzer
