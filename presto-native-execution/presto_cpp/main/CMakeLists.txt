@@ -15,6 +15,7 @@ add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
 add_subdirectory(connectors)
+add_subdirectory(dynamic_registry)
 
 add_library(
   presto_server_lib
@@ -63,6 +64,7 @@ target_link_libraries(
   velox_dwio_orc_reader
   velox_dwio_parquet_reader
   velox_dwio_parquet_writer
+  velox_dynamic_library_loader
   velox_encode
   velox_exec
   velox_file
@@ -114,10 +116,19 @@ set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
 
 add_executable(presto_server PrestoMain.cpp)
 
-# velox_tpch_connector is an OBJECT target in Velox and so needs to be linked
-# to the executable or use TARGET_OBJECT linkage for the presto_server_lib target.
-# However, we also would need to add its dependencies (tpch_gen etc).
-# TODO change the target in Velox to a library target then we can move this to the
+# The below additional flags are necessary for resolving dependencies for
+# loading dynamic libraries.
+if(APPLE)
+  target_link_options(presto_server BEFORE PUBLIC
+                      "-Wl,-undefined,dynamic_lookup")
+else()
+  target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
+endif()
+
+# velox_tpch_connector is an OBJECT target in Velox and so needs to be linked to
+# the executable or use TARGET_OBJECT linkage for the presto_server_lib target.
+# However, we also would need to add its dependencies (tpch_gen etc). TODO
+# change the target in Velox to a library target then we can move this to the
 # presto_server_lib.
 target_link_libraries(presto_server presto_server_lib velox_tpch_connector)
 
