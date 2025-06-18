@@ -479,6 +479,33 @@ TEST_F(AggregationTest, countPartialFinalGlobal) {
   assertQuery(op, "SELECT count(*) FROM tmp");
 }
 
+/// Tests the spark scenario of having different types of aggs in the same
+/// planNode Specific example being tested is
+/// https://github.com/facebookincubator/velox/issues/12830#issuecomment-2783340233
+TEST_F(AggregationTest, CompanionAggs) {
+  std::vector<int64_t> keys0{1, 1, 1, 2, 1, 1, 2, 2};
+  std::vector<int64_t> keys1{1, 2, 1, 2, 1, 2, 1, 2};
+  std::vector<int64_t> values{1, 2, 3, 4, 5, 6, 7, 8};
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>(keys0),
+       makeFlatVector<int64_t>(keys1),
+       makeFlatVector<int64_t>(values)});
+
+  createDuckDbTable({rowVector});
+
+  auto op =
+      PlanBuilder()
+          .values({rowVector})
+          .singleAggregation({"c2", "c0"}, {"count_partial(c1)"})
+          .localPartition({"c2", "c0"})
+          .singleAggregation({"c0"}, {"count_merge(a0)", "count_partial(c2)"})
+          .localPartition({"c0"})
+          .singleAggregation({"c0"}, {"count_merge(a0)", "count_merge(a1)"})
+          .planNode();
+  assertQuery(
+      op, "SELECT c0, count(c1), count(distinct c2) FROM tmp GROUP BY c0");
+}
+
 TEST_F(AggregationTest, partialAggregationMemoryLimit) {
   auto vectors = {
       makeRowVector({makeFlatVector<int32_t>(

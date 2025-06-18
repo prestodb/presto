@@ -392,8 +392,6 @@ std::unique_ptr<cudf_velox::CudfHashAggregation::Aggregator> createAggregator(
     uint32_t inputIndex,
     VectorPtr constant,
     bool isGlobal) {
-  // Companion function may be count_merge_extract or count_partial or others,
-  // so use this to map
   if (kind.rfind("sum", 0) == 0) {
     return std::make_unique<SumAggregator>(
         step, inputIndex, constant, isGlobal);
@@ -412,6 +410,39 @@ std::unique_ptr<cudf_velox::CudfHashAggregation::Aggregator> createAggregator(
   } else {
     VELOX_NYI("Aggregation not yet supported");
   }
+}
+
+static const std::unordered_map<std::string, core::AggregationNode::Step>
+    companionStep = {
+        {"_partial", core::AggregationNode::Step::kPartial},
+        {"_merge", core::AggregationNode::Step::kIntermediate},
+        {"_merge_extract", core::AggregationNode::Step::kFinal}};
+
+/// \brief Convert companion function to step for the aggregation function
+///
+/// Companion functions are functions that are registered in velox along with
+/// their main aggregation functions. These are designed to always function
+/// with a fixed `step`. This is to allow spark style planNodes where `step` is
+/// the property of the aggregation function rather than the planNode.
+/// Companion functions allow us to override the planNode's step and use
+/// aggregations of different steps in the same planNode
+core::AggregationNode::Step getCompanionStep(
+    std::string const& kind,
+    core::AggregationNode::Step step) {
+  for (const auto& [k, v] : companionStep) {
+    if (folly::StringPiece(kind).endsWith(k)) {
+      step = v;
+      break;
+    }
+  }
+  return step;
+}
+
+bool hasFinalAggs(
+    std::vector<core::AggregationNode::Aggregate> const& aggregates) {
+  return std::any_of(aggregates.begin(), aggregates.end(), [](auto const& agg) {
+    return folly::StringPiece(agg.call->name()).endsWith("_merge_extract");
+  });
 }
 
 auto toAggregators(
@@ -453,8 +484,9 @@ auto toAggregators(
     auto const kind = aggregate.call->name();
     auto const inputIndex = aggInputs[0];
     auto const constant = aggConstants.empty() ? nullptr : aggConstants[0];
+    auto const companionStep = getCompanionStep(kind, step);
     aggregators.push_back(
-        createAggregator(step, kind, inputIndex, constant, isGlobal));
+        createAggregator(companionStep, kind, inputIndex, constant, isGlobal));
   }
   return aggregators;
 }
@@ -505,7 +537,9 @@ CudfHashAggregation::CudfHashAggregation(
           operatorId,
           fmt::format("[{}]", aggregationNode->id())),
       aggregationNode_(aggregationNode),
-      isPartialOutput_(exec::isPartialOutput(aggregationNode->step())),
+      isPartialOutput_(
+          exec::isPartialOutput(aggregationNode->step()) &&
+          !hasFinalAggs(aggregationNode->aggregates())),
       isGlobal_(aggregationNode->groupingKeys().empty()),
       isDistinct_(!isGlobal_ && aggregationNode->aggregates().empty()),
       maxPartialAggregationMemoryUsage_(
