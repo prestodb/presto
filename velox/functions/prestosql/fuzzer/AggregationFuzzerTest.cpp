@@ -35,6 +35,8 @@
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/NoisyCountIfInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/NoisyCountIfResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/NoisyCountInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/NoisyCountResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggResultVerifier.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -86,6 +88,7 @@ getCustomInputGenerators() {
       {"map_union_sum", std::make_shared<MapUnionSumInputGenerator>()},
       {"noisy_count_if_gaussian",
        std::make_shared<NoisyCountIfInputGenerator>()},
+      {"noisy_count_gaussian", std::make_shared<NoisyCountInputGenerator>()},
   };
 }
 
@@ -152,6 +155,7 @@ int main(int argc, char** argv) {
   using facebook::velox::exec::test::AverageResultVerifier;
   using facebook::velox::exec::test::MinMaxByResultVerifier;
   using facebook::velox::exec::test::NoisyCountIfResultVerifier;
+  using facebook::velox::exec::test::NoisyCountResultVerifier;
   using facebook::velox::exec::test::QDigestAggResultVerifier;
   using facebook::velox::exec::test::setupReferenceQueryRunner;
   using facebook::velox::exec::test::TransformResultVerifier;
@@ -205,6 +209,8 @@ int main(int argc, char** argv) {
           {"sum_data_size_for_stats", nullptr},
           {"noisy_count_if_gaussian",
            std::make_shared<NoisyCountIfResultVerifier>()},
+          {"noisy_count_gaussian",
+           std::make_shared<NoisyCountResultVerifier>()},
       };
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;

@@ -177,7 +177,7 @@ class NoisyCountIfResultVerifier : public ResultVerifier {
     expectedNoNoise_.reset();
   }
 
- private:
+ protected:
   void extractNoiseScale(const RowVectorPtr& input) {
     auto secondArg = input->childAt(1);
     if (secondArg->type()->isDouble()) {
