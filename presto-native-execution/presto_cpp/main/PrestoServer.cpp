@@ -487,6 +487,10 @@ void PrestoServer::run() {
     }
   }
 
+  if (auto factory = getSplitListenerFactory()) {
+    velox::exec::registerSplitListenerFactory(factory);
+  }
+
   if (systemConfig->enableVeloxExprSetLogging()) {
     if (auto listener = getExprSetListener()) {
       velox::exec::registerExprSetListener(listener);
@@ -1130,6 +1134,11 @@ std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
 
 std::shared_ptr<velox::exec::ExprSetListener>
 PrestoServer::getExprSetListener() {
+  return nullptr;
+}
+
+std::shared_ptr<facebook::velox::exec::SplitListenerFactory>
+PrestoServer::getSplitListenerFactory() {
   return nullptr;
 }
 
