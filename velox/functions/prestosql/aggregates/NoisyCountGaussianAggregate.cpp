@@ -184,9 +184,18 @@ class NoisyCountGaussianAggregate : public exec::Aggregate {
         // Add noise to the count.
         int64_t noise = 0;
         if (noiseScale > 0) {
-          noise = static_cast<int64_t>(std::round(distribution(rng)));
+          double rawNoise = distribution(rng);
+          VELOX_USER_CHECK_GE(
+              rawNoise,
+              static_cast<double>(std::numeric_limits<int64_t>::min()),
+              "Noise is too large. Please reduce noise scale.");
+          VELOX_USER_CHECK_LE(
+              rawNoise,
+              static_cast<double>(std::numeric_limits<int64_t>::max()),
+              "Noise is too large. Please reduce noise scale.");
+          noise = static_cast<int64_t>(std::round(rawNoise));
         }
-        int64_t noisyCount = trueCount + noise;
+        int64_t noisyCount = checkedPlus(trueCount, noise);
 
         // Post-process the noisy count to make sure it is non-negative
         flatResult->set(i, std::max<int64_t>(noisyCount, 0));
