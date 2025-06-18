@@ -48,13 +48,13 @@ jobs:
       fail-fast: false
       matrix:
         # macos-13 = x86_64 Mac
-        # macos-14 = arm64 Mac
-        os: [macos-13, macos-14]
+        # macos-15 = arm64 Mac and cmake 4.0
+        os: [macos-13, macos-15]
     runs-on: ${{ matrix.os }}
     env:
       CCACHE_DIR: ${{ github.workspace }}/ccache
       # The arm runners have only 7GB RAM
-      BUILD_TYPE: ${{ matrix.os ==  'macos-14' && 'Release' || 'Debug' }}
+      BUILD_TYPE: ${{ matrix.os == 'macos-15' && 'Release' || 'Debug' }}
       INSTALL_PREFIX: /tmp/deps-install
     steps:
       - name: Checkout
@@ -75,9 +75,11 @@ jobs:
           install_double_conversion
 
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
-          brew link --force protobuf@21
-          brew uninstall cmake
-          pipx install --force cmake==3.31
+          majorVersion=$(sw_vers -productVersion | awk -F '.' '{print $1}')
+          if (( majorVersion == 13 )); then
+            brew uninstall cmake
+            pipx install --force cmake==3.31
+          fi
 
       - name: Cache ccache
         uses: apache/infrastructure-actions/stash/restore@3354c1565d4b0e335b78a76aedd82153a9e144d4

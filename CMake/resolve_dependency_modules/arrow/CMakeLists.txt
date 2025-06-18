@@ -75,7 +75,8 @@ if(VELOX_ENABLE_ARROW)
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
     BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a
                      ${ARROW_LIBDIR}/libarrow_testing.a ${THRIFT_LIB}
-    PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/thrift-download.patch)
+    PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/thrift-download.patch &&
+                  git apply ${CMAKE_CURRENT_LIST_DIR}/cmake-compatibility.patch)
 
   add_library(arrow STATIC IMPORTED GLOBAL)
   add_library(arrow_testing STATIC IMPORTED GLOBAL)
