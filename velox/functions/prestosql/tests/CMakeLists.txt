@@ -58,6 +58,7 @@ add_executable(
   ComparisonsTest.cpp
   DateTimeFunctionsTest.cpp
   DecimalArithmeticTest.cpp
+  DistanceFunctionsTest.cpp
   ElementAtTest.cpp
   FailTest.cpp
   FindFirstTest.cpp
@@ -116,6 +117,11 @@ add_executable(
   WordStemTest.cpp
   ZipTest.cpp
   ZipWithTest.cpp)
+
+if(VELOX_ENABLE_FAISS)
+  set_source_files_properties(DistanceFunctionsTest.cpp
+                              PROPERTIES COMPILE_DEFINITIONS VELOX_ENABLE_FAISS)
+endif()
 
 add_test(velox_functions_test velox_functions_test)
 

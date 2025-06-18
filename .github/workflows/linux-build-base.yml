@@ -39,7 +39,7 @@ jobs:
       GTest_SOURCE: BUNDLED
       cudf_SOURCE: BUNDLED
       CUDA_VERSION: '12.8'
-      faiss_SOURCE: SYSTEM
+      faiss_SOURCE: BUNDLED
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     steps:
       - uses: actions/checkout@v4
@@ -159,7 +159,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          source scripts/setup-ubuntu.sh && install_apt_deps
+          source scripts/setup-ubuntu.sh && install_apt_deps && install_faiss_deps
 
       - name: Clear CCache Statistics
         run: |
@@ -170,7 +170,7 @@ jobs:
           VELOX_DEPENDENCY_SOURCE: BUNDLED
           ICU_SOURCE: SYSTEM
           MAKEFLAGS: NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=3
-          EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_EXAMPLES=ON
+          EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_EXAMPLES=ON -DVELOX_ENABLE_FAISS=ON
         run: |
           if [[ "${USE_CLANG}" = "true" ]]; then export CC=/usr/bin/clang-15; export CXX=/usr/bin/clang++-15; fi
           make debug

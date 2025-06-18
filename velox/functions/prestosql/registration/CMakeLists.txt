@@ -39,6 +39,11 @@ velox_add_library(
   TDigestFunctionsRegistration.cpp
   URLFunctionsRegistration.cpp)
 
+if(VELOX_ENABLE_FAISS)
+  set_source_files_properties(MathematicalFunctionsRegistration.cpp
+                              PROPERTIES COMPILE_DEFINITIONS VELOX_ENABLE_FAISS)
+endif()
+
 # GCC 12 has a bug where it does not respect "pragma ignore" directives and ends
 # up failing compilation in an openssl header included by a hash-related
 # function.
