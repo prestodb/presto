@@ -240,4 +240,22 @@ TEST_F(NoisyCountGaussianAggregationTest, twoAggregatesSingleGroupNoNoise) {
   ASSERT_TRUE(result->childAt(0)->asFlatVector<int64_t>()->valueAt(0) <= 150);
 }
 
+// Test distinct noisy_count.
+TEST_F(NoisyCountGaussianAggregationTest, distinctCount) {
+  auto vectors = makeVectors(rowType1_, 4, 3);
+  createDuckDbTable(vectors);
+
+  // Use singleAggregation directly instead of testAggregations to avoid partial
+  // aggregation which doesn't support distinct aggregations
+  auto result = AssertQueryBuilder(
+                    PlanBuilder()
+                        .values(vectors)
+                        .markDistinct("distinct", {"c0"})
+                        .singleAggregation(
+                            {}, {"noisy_count_gaussian(c0, 0.0)"}, {"distinct"})
+                        .planNode(),
+                    duckDbQueryRunner_)
+                    .assertResults("SELECT count(distinct c0) FROM tmp");
+}
+
 } // namespace facebook::velox::aggregate::test
