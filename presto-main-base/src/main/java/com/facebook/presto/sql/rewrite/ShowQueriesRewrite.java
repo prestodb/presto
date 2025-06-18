@@ -502,6 +502,9 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+
+                accessControl.checkCanShowCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), objectName);
+
                 CreateView.Security security = (viewDefinition.get().isRunAsInvoker()) ? CreateView.Security.INVOKER : CreateView.Security.DEFINER;
                 String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.of(security)), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
@@ -549,6 +552,8 @@ final class ShowQueriesRewrite
                 if (!tableHandle.isPresent()) {
                     throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
                 }
+
+                accessControl.checkCanShowCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), objectName);
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
