@@ -118,6 +118,8 @@ if(PRESTO_ENABLE_CUDF)
   set(VELOX_ENABLE_CUDF
       ON
       CACHE BOOL "Enable cuDF support")
+  set(VELOX_ENABLE_PARSE ON)
+  set(VELOX_ENABLE_DUCKDB ON)
   add_compile_definitions(PRESTO_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.

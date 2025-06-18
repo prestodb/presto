@@ -19,6 +19,10 @@
 #include "presto_cpp/main/connectors/arrow_flight/ArrowPrestoToVeloxConnector.h"
 #endif
 
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/connectors/parquet/ParquetConnector.h"
+#endif
+
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 
@@ -27,6 +31,7 @@ namespace {
 
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
+constexpr char const* kCudfParquetConnectorName = "cudf-parquet";
 
 void registerConnectorFactories() {
   // These checks for connector factories can be removed after we remove the
@@ -58,6 +63,17 @@ void registerConnectorFactories() {
           ArrowFlightConnectorFactory::kArrowFlightConnectorName)) {
     velox::connector::registerConnectorFactory(
         std::make_shared<ArrowFlightConnectorFactory>());
+  }
+#endif
+
+#ifdef PRESTO_ENABLE_CUDF
+  LOG(INFO) << "Registering the cuDF parquet reader factory with name: "
+            << kCudfParquetConnectorName;
+  if (!velox::connector::hasConnectorFactory(kCudfParquetConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<
+            velox::cudf_velox::connector::parquet::ParquetConnectorFactory>(
+            kCudfParquetConnectorName));
   }
 #endif
 }
