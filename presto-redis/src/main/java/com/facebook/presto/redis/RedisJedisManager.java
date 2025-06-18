@@ -19,8 +19,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
