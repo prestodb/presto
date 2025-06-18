@@ -74,9 +74,12 @@ public final class PlanChecker
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
                         new WarnOnScanWithoutPartitionPredicate(featuresConfig));
-        if (featuresConfig.isNativeExecutionEnabled() && (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
-                featuresConfig.isDisableIPAddressForNative())) {
-            builder.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
+        if (featuresConfig.isNativeExecutionEnabled()) {
+            if (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
+                    featuresConfig.isDisableIPAddressForNative()) {
+                builder.put(Stage.INTERMEDIATE, new CheckUnsupportedPrestissimoTypes(featuresConfig));
+            }
+            builder.put(Stage.FINAL, new CheckNoIneligibleFunctionsInCoordinatorFragments());
         }
         checkers = builder.build();
     }
