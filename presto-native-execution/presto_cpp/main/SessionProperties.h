@@ -319,6 +319,10 @@ class SessionProperties {
   static constexpr const char* kNativeQueryMemoryReclaimerPriority =
       "native_query_memory_reclaimer_priority";
 
+  /// Maximum number of splits to listen to by SplitListener on native workers.
+  static constexpr const char* kMaxNumSplitsListenedTo =
+      "native_max_num_splits_listened_to";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
