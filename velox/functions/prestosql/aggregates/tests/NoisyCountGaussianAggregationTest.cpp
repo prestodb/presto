@@ -30,6 +30,9 @@ class NoisyCountGaussianAggregationTest
       ROW({"c0", "c1", "c2"}, {INTEGER(), BOOLEAN(), VARCHAR()})};
   RowTypePtr rowType2_{
       ROW({"c0", "c1", "c2"}, {DOUBLE(), TIMESTAMP(), BIGINT()})};
+  RowTypePtr rowType3_{
+      ROW({"c0", "c1", "c2"},
+          {REAL(), ARRAY(BIGINT()), MAP(BIGINT(), BIGINT())})};
 };
 
 // Test normal count(*)
@@ -166,6 +169,17 @@ TEST_F(NoisyCountGaussianAggregationTest, groupByNullNoNoise) {
       {expectedResult});
 }
 
+// Test cases where the input vector is empty. Return null.
+TEST_F(NoisyCountGaussianAggregationTest, emptyInputNoNoise) {
+  auto vectors = makeVectors(rowType1_, 0, 1);
+
+  // Test against the expected result, will return NULL.
+  auto expectedResult = makeRowVector({makeAllNullFlatVector<int64_t>(1)});
+
+  testAggregations(
+      vectors, {}, {"noisy_count_gaussian(c0, 0.0)"}, {expectedResult});
+}
+
 TEST_F(NoisyCountGaussianAggregationTest, oneAggregateSingleGroupNoNoise) {
   // Make two batches of rows: one with nulls; another without.
   auto vectors = makeVectors(rowType1_, 10, 2);
@@ -256,6 +270,26 @@ TEST_F(NoisyCountGaussianAggregationTest, distinctCount) {
                         .planNode(),
                     duckDbQueryRunner_)
                     .assertResults("SELECT count(distinct c0) FROM tmp");
+}
+
+// Test non-scalar input types.
+TEST_F(NoisyCountGaussianAggregationTest, nonScalarInputNoNoise) {
+  auto vectors = makeVectors(rowType3_, 10, 3);
+  createDuckDbTable(vectors);
+
+  // Aggregate on column c1 which contains array values.
+  testAggregations(
+      vectors,
+      {},
+      {"noisy_count_gaussian(c1, 0.0)"},
+      "SELECT count(c1) FROM tmp");
+
+  // Aggregate on column c2 which contains map values.
+  testAggregations(
+      vectors,
+      {},
+      {"noisy_count_gaussian(c2, 0.0)"},
+      "SELECT count(c2) FROM tmp");
 }
 
 } // namespace facebook::velox::aggregate::test
