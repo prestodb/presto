@@ -18,7 +18,6 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.memory.HighMemoryTaskKillerStrategy;
-import com.facebook.presto.util.PowerOfTwo;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -486,7 +485,6 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    @PowerOfTwo
     public int getTaskConcurrency()
     {
         return taskConcurrency;

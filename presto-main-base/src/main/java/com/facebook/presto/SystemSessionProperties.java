@@ -549,7 +549,7 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
-                        value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
+                        featuresConfig.isNativeExecutionEnabled() ? value -> validateIntegerValue(value, TASK_CONCURRENCY, 1, false) : value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
                         value -> value),
                 booleanProperty(
                         TASK_SHARE_INDEX_LOADING,
