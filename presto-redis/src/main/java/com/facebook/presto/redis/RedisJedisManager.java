@@ -19,12 +19,13 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 
@@ -142,7 +143,7 @@ public class RedisJedisManager
         log.info("Creating new JedisPool for %s", hostAddress);
         return new JedisPool(jedisPoolConfig, hostAddress.getHostText(), hostAddress.getPort(),
                 toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
-                2000, 2000, redisConnectorConfig.getRedisUser(), redisConnectorConfig.getRedisPassword(),
-                redisConnectorConfig.getRedisDataBaseIndex(), null, false, null, null, null);
+                redisConnectorConfig.getRedisPassword(),
+                redisConnectorConfig.getRedisDataBaseIndex());
     }
 }
