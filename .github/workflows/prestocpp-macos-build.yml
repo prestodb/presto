@@ -3,7 +3,9 @@ name: prestocpp-macos-build
 on:
   workflow_dispatch:
   pull_request:
-
+    paths:
+      - 'presto-native-execution/**'
+      - '.github/workflows/prestocpp-macos-build.yml'
 jobs:
   prestocpp-macos-build-engine:
     runs-on: macos-13
