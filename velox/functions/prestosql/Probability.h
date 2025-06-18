@@ -442,5 +442,31 @@ struct InverseFCDFFunction {
   }
 };
 
+template <typename T>
+struct InverseChiSquaredCdf {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(double& result, double df, double p) {
+    static constexpr double kInf = std::numeric_limits<double>::infinity();
+
+    VELOX_USER_CHECK(
+        p >= 0 && p <= 1 && p != kInf,
+        "inverseChiSquaredCdf Function: p must be in the interval [0, 1]");
+    VELOX_USER_CHECK(
+        df > 0 && df != kInf,
+        "inverseChiSquaredCdf Function: df must be greater than 0");
+
+    if (p == 0.0) {
+      result = 0.0;
+      return;
+    } else if (p == 1.0) {
+      result = std::numeric_limits<double>::infinity();
+      return;
+    }
+    boost::math::chi_squared_distribution<> dist(df);
+    result = boost::math::quantile(dist, p);
+  }
+};
+
 } // namespace
 } // namespace facebook::velox::functions

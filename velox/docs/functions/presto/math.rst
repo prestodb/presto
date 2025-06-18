@@ -408,6 +408,12 @@ Probability Functions: inverse_cdf
     The lambda parameter must be a positive real number (of type DOUBLE).
     The probability p must lie on the interval [0, 1).
 
+.. function:: inverse_chi_squared_cdf(df, p) -> double
+
+    Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
+    probability (p): P(N < n). The df parameter must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
 ====================================
 Statistical Functions
 ====================================
