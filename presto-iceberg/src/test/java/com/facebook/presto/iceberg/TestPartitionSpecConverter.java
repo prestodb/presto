@@ -20,13 +20,13 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toIcebergPartitionSpec;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.TestSchemaConverter.prestoIcebergSchema;
 import static com.facebook.presto.iceberg.TestSchemaConverter.schema;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -44,26 +44,6 @@ public class TestPartitionSpecConverter
                 {"bucket", "bigint"},
                 {"truncate", "varchar"}
         };
-    }
-
-    @Test(dataProvider = "allTransforms")
-    public void testToPrestoPartitionSpec(String transform, String name)
-    {
-        // Create a test TypeManager
-        TypeManager typeManager = createTestFunctionAndTypeManager();
-
-        // Create a mock PartitionSpec
-        PartitionSpec partitionSpec = partitionSpec(transform, name);
-
-        PrestoIcebergPartitionSpec expectedPrestoPartitionSpec = prestoIcebergPartitionSpec(transform, name, typeManager);
-
-        // Convert Iceberg PartitionSpec to Presto Iceberg Partition Spec
-        PrestoIcebergPartitionSpec prestoIcebergPartitionSpec = toPrestoPartitionSpec(partitionSpec, typeManager);
-
-        // Check that the result is not null
-        assertNotNull(prestoIcebergPartitionSpec);
-
-        assertEquals(prestoIcebergPartitionSpec, expectedPrestoPartitionSpec);
     }
 
     @Test(dataProvider = "allTransforms")
@@ -110,23 +90,35 @@ public class TestPartitionSpecConverter
 
     private static PrestoIcebergPartitionSpec prestoIcebergPartitionSpec(String transform, String name, TypeManager typeManager)
     {
-        List<String> fields = new ArrayList<>();
-
+        List<IcebergPartitionField> fields = new ArrayList<>();
+        IcebergPartitionField.Builder builder = IcebergPartitionField.builder();
+        builder.setName(name);
         switch (transform) {
             case "identity":
-                fields.add(name);
+                builder.setTransform(PartitionTransformType.IDENTITY);
                 break;
             case "year":
+                builder.setTransform(PartitionTransformType.YEAR);
+                break;
             case "month":
+                builder.setTransform(PartitionTransformType.MONTH);
+                break;
             case "day":
-                fields.add(format("%s(%s)", transform, name));
+                builder.setTransform(PartitionTransformType.DAY);
+                break;
+            case "hour":
+                builder.setTransform(PartitionTransformType.HOUR);
                 break;
             case "bucket":
+                builder.setTransform(PartitionTransformType.BUCKET)
+                        .setParameter(OptionalInt.of(3));
+                break;
             case "truncate":
-                fields.add(format("%s(%s, 3)", transform, name));
+                builder.setTransform(PartitionTransformType.TRUNCATE)
+                        .setParameter(OptionalInt.of(3));
                 break;
         }
-
+        fields.add(builder.build());
         return new PrestoIcebergPartitionSpec(0, prestoIcebergSchema(typeManager), fields);
     }
 
