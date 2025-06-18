@@ -20,6 +20,7 @@ add_library(
   PrestoQueryRunner.cpp
   PrestoQueryRunnerIntermediateTypeTransforms.cpp
   PrestoQueryRunnerTimestampWithTimeZoneTransform.cpp
+  PrestoQueryRunnerJsonTransform.cpp
   PrestoQueryRunnerToSqlPlanNodeVisitor.cpp
   FuzzerUtil.cpp
   PrestoSql.cpp

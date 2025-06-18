@@ -41,6 +41,14 @@ class PrestoQueryRunnerIntermediateTypeTransformTestBase
 
   void testRow(const TypePtr& type);
 
+  void testArray(const VectorPtr& vector);
+
+  void testMap(const VectorPtr& keys, const VectorPtr& values);
+
+  void testRow(
+      std::vector<VectorPtr>&& vectors,
+      std::vector<std::string> names);
+
  private:
   const int32_t kVectorSize = 100;
   VectorFuzzer fuzzer_{VectorFuzzer::Options{}, pool_.get(), 123};

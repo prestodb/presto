@@ -212,6 +212,7 @@ add_executable(
   PrestoQueryRunnerIntermediateTypeTransformTestBase.cpp
   PrestoQueryRunnerTDigestTransformTest.cpp
   PrestoQueryRunnerQDigestTransformTest.cpp
+  PrestoQueryRunnerJsonTransformTest.cpp
   PrestoQueryRunnerTimestampWithTimeZoneTransformTest.cpp)
 
 add_test(velox_exec_util_test velox_exec_util_test)

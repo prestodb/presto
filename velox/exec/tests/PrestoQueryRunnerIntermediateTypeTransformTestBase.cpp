@@ -168,4 +168,24 @@ void PrestoQueryRunnerIntermediateTypeTransformTestBase::testRow(
   testConstant(base);
 }
 
+void PrestoQueryRunnerIntermediateTypeTransformTestBase::testArray(
+    const VectorPtr& vector) {
+  test(fuzzer_.fuzzArray(vector, vector->size()));
+}
+
+void PrestoQueryRunnerIntermediateTypeTransformTestBase::testMap(
+    const VectorPtr& keys,
+    const VectorPtr& values) {
+  VELOX_DCHECK_EQ(keys->size(), values->size());
+  test(fuzzer_.fuzzMap(keys, values, keys->size()));
+}
+
+void PrestoQueryRunnerIntermediateTypeTransformTestBase::testRow(
+    std::vector<VectorPtr>&& vectors,
+    std::vector<std::string> names) {
+  auto vector_size = vectors.size();
+  VELOX_DCHECK_EQ(vector_size, names.size());
+  test(fuzzer_.fuzzRow(std::move(vectors), names, vector_size));
+}
+
 } // namespace facebook::velox::exec::test
