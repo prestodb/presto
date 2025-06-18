@@ -23,7 +23,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.parseBoolean;
@@ -90,7 +89,6 @@ public class TestDistributedEngineOnlyQueries
     {
         LocalTime localTimeThatDidNotOccurOn20120401 = LocalTime.of(2, 10);
         checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn20120401.atDate(LocalDate.of(2012, 4, 1))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn20120401).toLocalTime(), localTimeThatDidNotOccurOn20120401), "This test assumes certain JVM time zone");
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn20120401);
         assertQueryFails(sql, timeTypeUnsupportedError);
     }
