@@ -79,6 +79,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_STREAMING_AGGREGATION_MIN_OUTPUT_BATCH_ROWS = "native_streaming_aggregation_min_output_batch_rows";
     public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
     public static final String NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY = "native_query_memory_reclaimer_priority";
+    public static final String NATIVE_MAX_NUM_SPLITS_LISTENED_TO = "native_max_num_splits_listened_to";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -357,6 +358,11 @@ public class NativeWorkerSessionPropertyProvider
                         "Native Execution only. Priority of memory recliamer when deciding on memory pool to abort." +
                         "Lower value has higher priority and less likely to be choosen for memory pool abort",
                         2147483647,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_MAX_NUM_SPLITS_LISTENED_TO,
+                        "Maximum number of splits to listen to per table scan node per worker.",
+                        0,
                         !nativeExecution));
     }
 
