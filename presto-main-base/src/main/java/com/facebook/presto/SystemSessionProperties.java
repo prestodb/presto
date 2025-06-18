@@ -261,6 +261,7 @@ public final class SystemSessionProperties
     public static final String TRACK_HISTORY_STATS_FROM_FAILED_QUERIES = "track_history_stats_from_failed_queries";
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
+    public static final String HISTORY_BASED_OPTIMIZER_ESTIMATE_SIZE_USING_VARIABLES = "history_based_optimizer_estimate_size_using_variables";
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
@@ -1491,6 +1492,11 @@ public final class SystemSessionProperties
                         RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY,
                         "Enable history based optimization only for complex queries, i.e. queries with join and aggregation",
                         true,
+                        false),
+                booleanProperty(
+                        HISTORY_BASED_OPTIMIZER_ESTIMATE_SIZE_USING_VARIABLES,
+                        "Estimate the size of the plan node output with variable statistics for HBO",
+                        featuresConfig.isHistoryBasedOptimizerEstimateSizeUsingVariables(),
                         false),
                 new PropertyMetadata<>(
                         HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD,
@@ -2939,6 +2945,11 @@ public final class SystemSessionProperties
     public static boolean restrictHistoryBasedOptimizationToComplexQuery(Session session)
     {
         return session.getSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, Boolean.class);
+    }
+
+    public static boolean estimateSizeUsingVariablesForHBO(Session session)
+    {
+        return session.getSystemProperty(HISTORY_BASED_OPTIMIZER_ESTIMATE_SIZE_USING_VARIABLES, Boolean.class);
     }
 
     public static double getHistoryInputTableStatisticsMatchingThreshold(Session session)
