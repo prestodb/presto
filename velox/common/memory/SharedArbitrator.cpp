@@ -332,8 +332,16 @@ void SharedArbitrator::shutdown() {
   memoryReclaimExecutor_.reset();
   VELOX_MEM_LOG(INFO) << "Memory reclaim executor stopped";
 
-  VELOX_CHECK_EQ(
-      participants_.size(), 0, "Unexpected alive participants on destruction");
+  if (!participants_.empty()) {
+    std::vector<std::string> participantNames;
+    participantNames.reserve(participants_.size());
+    for (const auto& partitionEntry : participants_) {
+      participantNames.push_back(partitionEntry.second->name());
+    }
+    VELOX_FAIL(
+        "Unexpected alive participants on destruction: {}",
+        folly::join(",", participantNames));
+  }
 }
 
 void SharedArbitrator::setupGlobalArbitration() {
