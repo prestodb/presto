@@ -450,6 +450,12 @@ Aggregation
      - In streaming aggregation, wait until we have enough number of output rows
        to produce a batch of size specified by this. If set to 0, then
        Operator::outputBatchRows will be used as the min output batch rows.
+   * - streaming_aggregation_try_split_output_at_input_boundary
+     - bool
+     - false
+     - If true, the streaming aggregation accumulates at least two batch inputs and
+       produce all the groups created from the previous input batch except the last
+       group.
 
 Table Scan
 ------------

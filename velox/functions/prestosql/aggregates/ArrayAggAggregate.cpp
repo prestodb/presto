@@ -112,8 +112,8 @@ class ArrayAggAggregate : public exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    auto vector = (*result)->as<ArrayVector>();
-    VELOX_CHECK(vector);
+    auto* vector = (*result)->as<ArrayVector>();
+    VELOX_CHECK_NOT_NULL(vector);
     vector->resize(numGroups);
     uint64_t* rawNulls = getRawNulls(vector);
     auto* resultOffsets =
@@ -121,11 +121,13 @@ class ArrayAggAggregate : public exec::Aggregate {
     auto* resultSizes =
         vector->mutableSizes(numGroups)->asMutable<vector_size_t>();
     auto& elements = vector->elements();
-    elements->resize(countElements(groups, numGroups));
-    vector_size_t arrayOffset = 0;
+    const auto numElements = countElements(groups, numGroups);
+    elements->resize(numElements);
 
+    vector_size_t arrayOffset = 0;
     if (clusteredInput_) {
-      VectorPtr* currentSource = nullptr;
+      bool singleSource{true};
+      VectorPtr* currentSource{nullptr};
       std::vector<BaseVector::CopyRange> ranges;
       for (int32_t i = 0; i < numGroups; ++i) {
         auto* accumulator = value<ClusteredAccumulator>(groups[i]);
@@ -137,6 +139,7 @@ class ArrayAggAggregate : public exec::Aggregate {
             ranges.clear();
           }
           if (!currentSource || currentSource->get() != source.vector.get()) {
+            singleSource = currentSource == nullptr;
             currentSource = &source.vector;
             ranges.push_back({source.offset, arrayOffset, source.size});
           } else if (
@@ -158,11 +161,17 @@ class ArrayAggAggregate : public exec::Aggregate {
           clearNull(rawNulls, i);
         }
       }
-      if (currentSource) {
+      if (currentSource != nullptr) {
         VELOX_DCHECK(!ranges.empty());
-        elements->copyRanges(currentSource->get(), ranges);
+        if (singleSource && ranges.size() == 1) {
+          VELOX_CHECK_GE(currentSource->get()->size(), numElements);
+          VELOX_CHECK_EQ(ranges[0].count, numElements);
+          elements = currentSource->get()->slice(
+              ranges[0].sourceIndex, ranges[0].count);
+        } else {
+          elements->copyRanges(currentSource->get(), ranges);
+        }
       }
-
     } else {
       for (int32_t i = 0; i < numGroups; ++i) {
         auto& values = value<ArrayAccumulator>(groups[i])->elements;
@@ -219,7 +228,7 @@ class ArrayAggAggregate : public exec::Aggregate {
     decodedElements_.decode(*args[0]);
     vector_size_t groupStart = 0;
     auto forEachAccumulator = [&](auto func) {
-      for (auto groupEnd : groupBoundaries) {
+      for (const vector_size_t groupEnd : groupBoundaries) {
         auto* accumulator = value<ClusteredAccumulator>(groups[groupEnd - 1]);
         func(groupEnd, accumulator);
         groupStart = groupEnd;
@@ -227,27 +236,29 @@ class ArrayAggAggregate : public exec::Aggregate {
     };
     if (rows.isAllSelected() &&
         (!ignoreNulls_ || !decodedElements_.mayHaveNulls())) {
-      forEachAccumulator([&](auto groupEnd, auto* accumulator) {
-        accumulator->sources.push_back(
-            {args[0], groupStart, groupEnd - groupStart});
-      });
+      forEachAccumulator(
+          [&](vector_size_t groupEnd, ClusteredAccumulator* accumulator) {
+            accumulator->sources.push_back(
+                {args[0], groupStart, groupEnd - groupStart});
+          });
     } else {
-      forEachAccumulator([&](auto groupEnd, auto* accumulator) {
-        for (auto i = groupStart; i < groupEnd; ++i) {
-          if (!rows.isValid(i) ||
-              (ignoreNulls_ && decodedElements_.isNullAt(i))) {
-            if (i > groupStart) {
-              accumulator->sources.push_back(
-                  {args[0], groupStart, i - groupStart});
+      forEachAccumulator(
+          [&](vector_size_t groupEnd, ClusteredAccumulator* accumulator) {
+            for (auto i = groupStart; i < groupEnd; ++i) {
+              if (!rows.isValid(i) ||
+                  (ignoreNulls_ && decodedElements_.isNullAt(i))) {
+                if (i > groupStart) {
+                  accumulator->sources.push_back(
+                      {args[0], groupStart, i - groupStart});
+                }
+                groupStart = i + 1;
+              }
             }
-            groupStart = i + 1;
-          }
-        }
-        if (groupEnd > groupStart) {
-          accumulator->sources.push_back(
-              {args[0], groupStart, groupEnd - groupStart});
-        }
-      });
+            if (groupEnd > groupStart) {
+              accumulator->sources.push_back(
+                  {args[0], groupStart, groupEnd - groupStart});
+            }
+          });
     }
   }
 

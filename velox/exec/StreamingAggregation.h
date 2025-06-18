@@ -87,11 +87,14 @@ class StreamingAggregation : public Operator {
   // Initialize the aggregations setting allocator and offsets.
   void initializeAggregates(uint32_t numKeys);
 
-  /// Maximum number of rows in the output batch.
+  // Maximum number of rows in the output batch.
   const vector_size_t maxOutputBatchSize_;
 
-  /// Maximum number of rows in the output batch.
+  // Maximum number of rows in the output batch.
   const vector_size_t minOutputBatchSize_;
+  // If true, we accumulate at least two batch inputs and produce all the groups
+  // created from the previous input batch except the last group.
+  const bool trySplitOutputAtInputBoundary_;
 
   // Used at initialize() and gets reset() afterward.
   std::shared_ptr<const core::AggregationNode> aggregationNode_;

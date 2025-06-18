@@ -41,6 +41,10 @@ StreamingAggregation::StreamingAggregation(
                         ->queryConfig()
                         .streamingAggregationMinOutputBatchRows())
               : maxOutputBatchSize_},
+      trySplitOutputAtInputBoundary_{
+          operatorCtx_->driverCtx()
+              ->queryConfig()
+              .streamingAggregationTrySplitOutputAtInputBoundary()},
       aggregationNode_{aggregationNode},
       step_{aggregationNode->step()} {
   if (aggregationNode_->ignoreNullKeys()) {
@@ -341,15 +345,20 @@ RowVectorPtr StreamingAggregation::getOutput() {
   masks_->addInput(input_, inputRows_);
 
   const auto numPrevGroups = numGroups_;
-
   assignGroups();
   initializeNewGroups(numPrevGroups);
   evaluateAggregates();
 
   RowVectorPtr output;
-  if (numGroups_ > minOutputBatchSize_) {
-    output = createOutput(
-        std::min(numGroups_ - 1, static_cast<size_t>(maxOutputBatchSize_)));
+  if (trySplitOutputAtInputBoundary_) {
+    if ((numPrevGroups != 0) && (numGroups_ > minOutputBatchSize_)) {
+      output = createOutput(std::min(numGroups_ - 1, numPrevGroups));
+    }
+  } else {
+    if (numGroups_ > minOutputBatchSize_) {
+      output = createOutput(
+          std::min(numGroups_ - 1, static_cast<size_t>(maxOutputBatchSize_)));
+    }
   }
   prevInput_ = input_;
   input_ = nullptr;

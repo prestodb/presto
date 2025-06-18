@@ -41,14 +41,19 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
 
   AssertQueryBuilder& config(
       AssertQueryBuilder builder,
-      uint32_t outputBatchSize) {
+      uint32_t outputBatchSize,
+      bool splitOutput = false) {
     return builder
         .config(
             core::QueryConfig::kPreferredOutputBatchRows,
             std::to_string(outputBatchSize))
         .config(
             core::QueryConfig::kStreamingAggregationMinOutputBatchRows,
-            std::to_string(flushRows()));
+            std::to_string(flushRows()))
+        .config(
+            core::QueryConfig::
+                kStreamingAggregationTrySplitOutputAtInputBoundary,
+            splitOutput ? "true" : "false");
   }
 
   void testAggregation(
@@ -875,6 +880,126 @@ TEST_P(StreamingAggregationTest, clusteredInput) {
   for (auto batchSize : {3, 20}) {
     SCOPED_TRACE(fmt::format("batchSize={}", batchSize));
     config(AssertQueryBuilder(plan), batchSize).assertResults(expected);
+  }
+}
+
+TEST_P(StreamingAggregationTest, clusteredInputWithOutputSplit) {
+  std::vector<VectorPtr> keysWithOverlap = {
+      makeNullableFlatVector<int32_t>({1, 1, std::nullopt, 2, 2}),
+      makeFlatVector<int32_t>({2, 3, 3, 4}),
+      makeFlatVector<int32_t>({5, 6, 6, 6}),
+      makeFlatVector<int32_t>({6, 6, 6, 6}),
+      makeFlatVector<int32_t>({6, 7, 8}),
+  };
+  auto dataWithOverlap = addPayload(keysWithOverlap, 1);
+  auto planWithOverlap = PlanBuilder()
+                             .values(dataWithOverlap)
+                             .streamingAggregation(
+                                 {"c0"},
+                                 {"arbitrary(c1)", "array_agg(c1)"},
+                                 {},
+                                 core::AggregationNode::Step::kSingle,
+                                 false)
+                             .planNode();
+  const auto expectedWithOverlap = makeRowVector({
+      makeNullableFlatVector<int32_t>({1, std::nullopt, 2, 3, 4, 5, 6, 7, 8}),
+      makeFlatVector<int32_t>({0, 2, 3, 6, 8, 9, 10, 18, 19}),
+      makeArrayVector<int32_t>(
+          {{0, 1},
+           {2},
+           {3, 4, 5},
+           {6, 7},
+           {8},
+           {9},
+           {10, 11, 12, 13, 14, 15, 16, 17},
+           {18},
+           {19}}),
+  });
+  for (auto splitOutput : {false, true}) {
+    SCOPED_TRACE(fmt::format("splitOutput={}", splitOutput));
+    config(AssertQueryBuilder(planWithOverlap), 1024, splitOutput)
+        .assertResults(expectedWithOverlap);
+  }
+
+  std::vector<VectorPtr> keysWithoutOverlap = {
+      makeNullableFlatVector<int32_t>({1, 1, std::nullopt, 2, 2}),
+      makeFlatVector<int32_t>({3, 3, 4, 4}),
+      makeFlatVector<int32_t>({5, 6, 6, 7}),
+      makeFlatVector<int32_t>({8, 8, 9, 9}),
+      makeFlatVector<int32_t>({10, 11, 12}),
+  };
+  auto dataWithoutOverlap = addPayload(keysWithoutOverlap, 1);
+  auto planWithoutOverlap = PlanBuilder()
+                                .values(dataWithoutOverlap)
+                                .streamingAggregation(
+                                    {"c0"},
+                                    {"arbitrary(c1)", "array_agg(c1)"},
+                                    {},
+                                    core::AggregationNode::Step::kSingle,
+                                    false)
+                                .planNode();
+  const auto expectedWithoutOverlap = makeRowVector(
+      {makeNullableFlatVector<int32_t>(
+           {1, std::nullopt, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}),
+       makeFlatVector<int32_t>({0, 2, 3, 5, 7, 9, 10, 12, 13, 15, 17, 18, 19}),
+       makeArrayVector<int32_t>(
+           {{0, 1},
+            {2},
+            {3, 4},
+            {5, 6},
+            {7, 8},
+            {9},
+            {10, 11},
+            {12},
+            {13, 14},
+            {15, 16},
+            {17},
+            {18},
+            {19}})});
+  for (auto splitOutput : {false, true}) {
+    SCOPED_TRACE(fmt::format("splitOutput={}", splitOutput));
+    config(AssertQueryBuilder(planWithoutOverlap), 1024, splitOutput)
+        .assertResults(expectedWithoutOverlap);
+  }
+
+  std::vector<VectorPtr> mixedKeys = {
+      makeNullableFlatVector<int32_t>({1, 1, std::nullopt, std::nullopt, 2}),
+      makeFlatVector<int32_t>({3, 3, 4, 4}),
+      makeFlatVector<int32_t>({6, 6, 6, 7}),
+      makeFlatVector<int32_t>({7, 8, 9, 9}),
+      makeFlatVector<int32_t>({10, 11, 12}),
+  };
+  auto mixedData = addPayload(mixedKeys, 1);
+  auto mixedPlan = PlanBuilder()
+                       .values(mixedData)
+                       .streamingAggregation(
+                           {"c0"},
+                           {"arbitrary(c1)", "array_agg(c1)"},
+                           {},
+                           core::AggregationNode::Step::kSingle,
+                           false)
+                       .planNode();
+  const auto expectedMixedResult = makeRowVector(
+      {makeNullableFlatVector<int32_t>(
+           {1, std::nullopt, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12}),
+       makeFlatVector<int32_t>({0, 2, 4, 5, 7, 9, 12, 14, 15, 17, 18, 19}),
+       makeArrayVector<int32_t>(
+           {{0, 1},
+            {2, 3},
+            {4},
+            {5, 6},
+            {7, 8},
+            {9, 10, 11},
+            {12, 13},
+            {14},
+            {15, 16},
+            {17},
+            {18},
+            {19}})});
+  for (auto splitOutput : {false, true}) {
+    SCOPED_TRACE(fmt::format("splitOutput={}", splitOutput));
+    config(AssertQueryBuilder(mixedPlan), 1024, splitOutput)
+        .assertResults(expectedMixedResult);
   }
 }
 
