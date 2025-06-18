@@ -51,6 +51,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.ENFORCE_HISTORY_BASED_OPTIMIZER_REGISTRATION_TIMEOUT;
+import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZER_ESTIMATE_SIZE_USING_VARIABLES;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -129,6 +130,28 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
                 anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(3).withOutputSize(54)));
+    }
+
+    @Test
+    public void testHistoryBasedStatsCalculatorUsingVariables()
+    {
+        Session useVariables = Session.builder(createSession())
+                .setSystemProperty(HISTORY_BASED_OPTIMIZER_ESTIMATE_SIZE_USING_VARIABLES, "true")
+                .build();
+        // CBO Statistics
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // HBO Statistics
+        executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A'");
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(2).withOutputSize(199)));
+        assertPlan(
+                useVariables,
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(2).withOutputSize(256)));
     }
 
     @Test
