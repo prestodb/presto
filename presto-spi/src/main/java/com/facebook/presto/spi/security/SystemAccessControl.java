@@ -53,6 +53,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectC
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -153,6 +154,16 @@ public interface SystemAccessControl
     default Set<String> filterSchemas(Identity identity, AccessControlContext context, String catalogName, Set<String> schemaNames)
     {
         return Collections.emptySet();
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyShowCreateTable(table.toString());
     }
 
     /**
