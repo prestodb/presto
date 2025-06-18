@@ -17,6 +17,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
@@ -140,6 +141,22 @@ public interface AccessControl
      * Filter the list of tables and views to those visible to the identity.
      */
     Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, Set<SchemaTableName> tableNames);
+
+    /**
+     * Check if identity is allowed to show columns of tables by executing SHOW COLUMNS, DESCRIBE etc.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterColumns} method must filter all results for unauthorized users,
+     * since there are multiple ways to list columns.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowColumnsMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaTableName table);
+
+    /**
+     * Filter the list of columns to those visible to the identity.
+     */
+    List<ColumnMetadata> filterColumns(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns);
 
     /**
      * Check if identity is allowed to add columns to the specified table.

@@ -335,6 +335,21 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanShowColumnsMetadata(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), READ_ONLY)) {
+            return ImmutableList.of();
+        }
+
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {

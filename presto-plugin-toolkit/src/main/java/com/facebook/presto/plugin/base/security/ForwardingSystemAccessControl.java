@@ -159,6 +159,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowColumnsMetadata(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanShowColumnsMetadata(identity, context, table);
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    {
+        return delegate().filterColumns(identity, context, table, columns);
+    }
+
+    @Override
     public void checkCanAddColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanAddColumn(identity, context, table);
