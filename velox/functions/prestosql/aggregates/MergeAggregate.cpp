@@ -17,8 +17,10 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/HyperLogLogAggregate.h"
+#include "velox/functions/prestosql/aggregates/MergeQDigestAggregate.h"
 #include "velox/functions/prestosql/aggregates/MergeTDigestAggregate.h"
 #include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
+#include "velox/functions/prestosql/types/QDigestRegistration.h"
 #include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 
@@ -32,7 +34,12 @@ exec::AggregateRegistrationResult registerMerge(
     bool overwrite,
     double defaultError) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  auto inputTypes = std::vector<std::string>{"hyperloglog", "tdigest(double)"};
+  auto inputTypes = std::vector<std::string>{
+      "hyperloglog",
+      "tdigest(double)",
+      "qdigest(bigint)",
+      "qdigest(real)",
+      "qdigest(double)"};
   signatures.reserve(inputTypes.size());
   for (const auto& inputType : inputTypes) {
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
@@ -54,6 +61,11 @@ exec::AggregateRegistrationResult registerMerge(
           -> std::unique_ptr<exec::Aggregate> {
         if (*argTypes[0] == *TDIGEST(DOUBLE())) {
           return createMergeTDigestAggregate(resultType);
+        }
+        if (*argTypes[0] == *QDIGEST(BIGINT()) ||
+            *argTypes[0] == *QDIGEST(REAL()) ||
+            *argTypes[0] == *QDIGEST(DOUBLE())) {
+          return createMergeQDigestAggregate(resultType, argTypes[0]);
         }
         if (argTypes[0]->isUnKnown()) {
           return std::make_unique<HyperLogLogAggregate<UnknownValue, true>>(
@@ -84,6 +96,7 @@ void registerMergeAggregate(
     bool overwrite) {
   registerHyperLogLogType();
   registerTDigestType();
+  registerQDigestType();
   // merge is companion function for approx_distinct. Don't register companion
   // functions for it.
   registerMerge(
