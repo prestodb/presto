@@ -59,10 +59,12 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.checkRulesAreFiredBeforeAddExchangesRule;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static com.facebook.presto.sql.relational.RowExpressionUtils.containsNonCoordinatorEligibleCallExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -271,6 +273,16 @@ public class PickTableLayout
                 new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                 metadata.getFunctionAndTypeManager());
         RowExpression deterministicPredicate = logicalRowExpressions.filterDeterministicConjuncts(predicate);
+        // If the predicate contains non-Java expressions, we cannot prune partitions over system tables.
+        RowExpression ineligiblePredicate = TRUE_CONSTANT;
+        if (containsSystemTableScan(node)) {
+            ineligiblePredicate = logicalRowExpressions.filterConjuncts(
+                    deterministicPredicate,
+                    expression -> containsNonCoordinatorEligibleCallExpression(metadata.getFunctionAndTypeManager(), expression));
+            deterministicPredicate = logicalRowExpressions.filterConjuncts(
+                    deterministicPredicate,
+                    expression -> !containsNonCoordinatorEligibleCallExpression(metadata.getFunctionAndTypeManager(), expression));
+        }
         DomainTranslator.ExtractionResult<VariableReferenceExpression> decomposedPredicate = domainTranslator.fromPredicate(
                 session.toConnectorSession(),
                 deterministicPredicate,
@@ -339,7 +351,8 @@ public class PickTableLayout
         RowExpression resultingPredicate = logicalRowExpressions.combineConjuncts(
                 domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
                 logicalRowExpressions.filterNonDeterministicConjuncts(predicate),
-                decomposedPredicate.getRemainingExpression());
+                decomposedPredicate.getRemainingExpression(),
+                ineligiblePredicate);
 
         if (!TRUE_CONSTANT.equals(resultingPredicate)) {
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), tableScan, resultingPredicate);
