@@ -1236,7 +1236,12 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                                << " using connector " << connectorName;
 
       // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
+      // cudf-parquet is not a real Presto connector, as it does not have
+      // a protocol associated, so it does not go via the standard
+      // PrestoToVelox conversion
+      if (connectorName != "cudf-parquet") {
+        getPrestoToVeloxConnector(connectorName);
+      }
 
       std::shared_ptr<velox::connector::Connector> connector =
           velox::connector::getConnectorFactory(connectorName)
@@ -1246,6 +1251,11 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                   connectorIoExecutor_.get(),
                   connectorCpuExecutor_.get());
       velox::connector::registerConnector(connector);
+
+      if (connectorName == "cudf-parquet") {
+        facebook::velox::cudf_velox::CudfOptions::getInstance()
+            .setParquetConnectorRegistered(true);
+      }
     }
   }
   return catalogNames;

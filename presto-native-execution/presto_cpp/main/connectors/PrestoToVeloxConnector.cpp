@@ -28,6 +28,16 @@
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
+
+#include "velox/experimental/cudf/connectors/parquet/ParquetConnector.h"
+#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
+
+#include "velox/parse/Expressions.h"
+#include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/IExpr.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/type/Filter.h"
 
 namespace facebook::presto {
@@ -69,6 +79,14 @@ const PrestoToVeloxConnector& getPrestoToVeloxConnector(
 
 namespace {
 using namespace velox;
+
+bool canUseCudfTableScan() {
+  const bool isParquetConnectorRegistered =
+      facebook::velox::connector::getAllConnectors().count("parquet-test") > 0;
+  const bool isCudfTableScanEnabled =
+      facebook::velox::cudf_velox::CudfOptions::getInstance().cudfTableScan;
+  return isParquetConnectorRegistered && isCudfTableScanEnabled;
+}
 
 dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::hive::StorageFormat& format) {
@@ -653,6 +671,108 @@ std::unique_ptr<common::Filter> combineBytesRanges(
       std::move(bytesGeneric), nullAllowed, false);
 }
 
+std::string valueTypeToString(
+    const TypePtr& type,
+    const std::shared_ptr<facebook::presto::protocol::Block> block,
+    const VeloxExprConverter& exprConverter) {
+  if (type->isDate()) {
+    int64_t daysSinceEpoch = dateToInt64(block, exprConverter, type);
+    auto secondsSinceEpoch = daysSinceEpoch * 24 * 60 * 60;
+    char formattedDate[13];
+    std::strftime(
+        formattedDate,
+        13,
+        "'%Y-%m-%d'",
+        gmtime((std::time_t*)&secondsSinceEpoch));
+    return std::string(formattedDate);
+  }
+
+  switch (type->kind()) {
+    case TypeKind::TINYINT:
+    case TypeKind::SMALLINT:
+    case TypeKind::INTEGER:
+    case TypeKind::BIGINT:
+      return std::to_string(toInt64(block, exprConverter, type));
+    case TypeKind::HUGEINT:
+      return std::to_string(toInt128(block, exprConverter, type));
+    case TypeKind::DOUBLE:
+      return std::to_string(
+          toFloatingPoint<double>(block, exprConverter, type));
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      return "'" + toString(block, exprConverter, type) + "'";
+    case TypeKind::BOOLEAN:
+      return std::to_string(toBoolean(block, exprConverter, type));
+    case TypeKind::REAL:
+      return std::to_string(toFloatingPoint<float>(block, exprConverter, type));
+    case TypeKind::TIMESTAMP:
+      return toTimestamp(block, exprConverter, type);
+    default:
+      VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
+  }
+}
+
+std::string toStringFilter(
+    const std::string columnName,
+    const protocol::Domain& domain,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  std::string stringFilter;
+
+  auto nullAllowed = domain.nullAllowed;
+  if (auto sortedRangeSet =
+          std::dynamic_pointer_cast<protocol::SortedRangeSet>(domain.values)) {
+    LOG(INFO) << "toStringFilter 1";
+    auto type = stringToType(sortedRangeSet->type, typeParser);
+    LOG(INFO) << "toStringFilter 2";
+    auto ranges = sortedRangeSet->ranges;
+
+    if (ranges.empty()) {
+      VELOX_CHECK(nullAllowed, "Unexpected always-false filter");
+      stringFilter = columnName + " is null";
+      return stringFilter;
+    }
+
+    for (auto range : ranges) {
+      LOG(INFO) << "toStringFilter 3";
+      if (!stringFilter.empty()) {
+        stringFilter += " or ";
+      }
+      // 'is not null' arrives as unbounded range with 'nulls not allowed'.
+      // We catch this case and create 'is not null' filter instead of the range
+      // filter.
+
+      bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
+      bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
+      bool highExclusive = range.high.bound == protocol::Bound::BELOW;
+      bool highUnbounded = range.high.valueBlock == nullptr && highExclusive;
+      if (lowUnbounded && highUnbounded && !nullAllowed) {
+        stringFilter += columnName + " is not null";
+      }
+
+      if (!lowUnbounded) {
+        LOG(INFO) << "toStringFilter 4";
+        stringFilter += columnName;
+        stringFilter += lowExclusive ? " > " : " >= ";
+        stringFilter +=
+            valueTypeToString(type, range.low.valueBlock, exprConverter) +
+            "::" + type->toString();
+      }
+      if (!highUnbounded) {
+        LOG(INFO) << "toStringFilter 5";
+        stringFilter += lowUnbounded ? "" : " and ";
+        stringFilter += columnName;
+        stringFilter += highExclusive ? " < " : " <= ";
+        stringFilter +=
+            valueTypeToString(type, range.high.valueBlock, exprConverter) +
+            "::" + type->toString();
+      }
+    }
+    return stringFilter;
+  }
+  VELOX_UNSUPPORTED("Unsupported filter found.");
+}
+
 std::unique_ptr<common::Filter> toFilter(
     const TypePtr& type,
     const protocol::Range& range,
@@ -800,6 +920,41 @@ std::unique_ptr<common::Filter> toFilter(
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
+facebook::velox::core::TypedExprPtr getTypedExprFromSubfieldFilter(
+    std::shared_ptr<facebook::presto::protocol::Map<
+        facebook::presto::protocol::Subfield,
+        facebook::presto::protocol::Domain>> domains,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser,
+    RowTypePtr finalDataColumns) {
+  facebook::velox::parse::registerTypeResolver();
+  auto parseOptions = parse::ParseOptions{.functionPrefix = "presto.default."};
+
+  std::string stringFilter;
+  for (const auto& domain : *domains) {
+    if (!stringFilter.empty()) {
+      stringFilter += " and ";
+    }
+    stringFilter += toStringFilter(
+        common::Subfield(domain.first).toString(),
+        domain.second,
+        exprConverter,
+        typeParser);
+  }
+
+  LOG(INFO) << "stringFilter = " << stringFilter;
+  facebook::velox::core::ExprPtr filter =
+      facebook::velox::parse::parseExpr(stringFilter, parseOptions);
+  LOG(INFO) << "Produced Expr = " << filter->toString();
+  facebook::velox::core::TypedExprPtr filterExpr =
+      facebook::velox::core::Expressions::inferTypes(
+          filter,
+          finalDataColumns,
+          memory::memoryManager()->addRootPool().get());
+  LOG(INFO) << "Produced filterExpr = " << filterExpr->toString();
+  return filterExpr;
+}
+
 std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
@@ -846,17 +1001,49 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
       types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
+    if (!subfieldFilters.empty()) {
+      for (const auto& domain : *domains) {
+        std::string name = common::Subfield(domain.first).toString();
+        folly::toLowerAscii(name);
+        names.emplace_back(std::move(name));
+        if (auto sortedRangeSet =
+                std::dynamic_pointer_cast<protocol::SortedRangeSet>(
+                    domain.second.values)) {
+          auto type = stringToType(sortedRangeSet->type, typeParser);
+          types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+              fieldNamesToLowerCase, type->kind(), type));
+        } else {
+          VELOX_UNSUPPORTED("Unsupported filter found.");
+        }
+      }
+    }
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
   if (tableParameters.empty()) {
-    return std::make_unique<connector::hive::HiveTableHandle>(
-        tableHandle.connectorId,
-        tableName,
-        isPushdownFilterEnabled,
-        std::move(subfieldFilters),
-        remainingFilter,
-        finalDataColumns);
+    if (canUseCudfTableScan()) {
+      facebook::velox::core::TypedExprPtr filterExpr = nullptr;
+      if (!subfieldFilters.empty()) {
+        filterExpr = getTypedExprFromSubfieldFilter(
+            domains, exprConverter, typeParser, finalDataColumns);
+      }
+      return std::make_unique<
+          cudf_velox::connector::parquet::ParquetTableHandle>(
+          "parquet-test",
+          tableName,
+          isPushdownFilterEnabled,
+          filterExpr,
+          remainingFilter,
+          finalDataColumns);
+    } else {
+      return std::make_unique<connector::hive::HiveTableHandle>(
+          tableHandle.connectorId,
+          tableName,
+          isPushdownFilterEnabled,
+          std::move(subfieldFilters),
+          remainingFilter,
+          finalDataColumns);
+    }
   }
 
   std::unordered_map<std::string, std::string> finalTableParameters = {};
@@ -864,15 +1051,29 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
   for (const auto& [key, value] : tableParameters) {
     finalTableParameters[key] = value;
   }
-
-  return std::make_unique<connector::hive::HiveTableHandle>(
-      tableHandle.connectorId,
-      tableName,
-      isPushdownFilterEnabled,
-      std::move(subfieldFilters),
-      remainingFilter,
-      finalDataColumns,
-      finalTableParameters);
+  if (canUseCudfTableScan()) {
+    facebook::velox::core::TypedExprPtr filterExpr = nullptr;
+    if (!subfieldFilters.empty()) {
+      filterExpr = getTypedExprFromSubfieldFilter(
+          domains, exprConverter, typeParser, finalDataColumns);
+    }
+    return std::make_unique<cudf_velox::connector::parquet::ParquetTableHandle>(
+        "parquet-test",
+        tableName,
+        isPushdownFilterEnabled,
+        filterExpr,
+        remainingFilter,
+        finalDataColumns);
+  } else {
+    return std::make_unique<connector::hive::HiveTableHandle>(
+        tableHandle.connectorId,
+        tableName,
+        isPushdownFilterEnabled,
+        std::move(subfieldFilters),
+        remainingFilter,
+        finalDataColumns,
+        finalTableParameters);
+  }
 }
 
 connector::hive::LocationHandle::TableType toTableType(
@@ -1139,27 +1340,44 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   if (hiveSplit->tableBucketNumber) {
     infoColumns["$bucket"] = std::to_string(*hiveSplit->tableBucketNumber);
   }
-  auto veloxSplit =
-      std::make_unique<velox::connector::hive::HiveConnectorSplit>(
-          catalogId,
-          hiveSplit->fileSplit.path,
-          toVeloxFileFormat(hiveSplit->storage.storageFormat),
-          hiveSplit->fileSplit.start,
-          hiveSplit->fileSplit.length,
-          partitionKeys,
-          hiveSplit->tableBucketNumber
-              ? std::optional<int>(*hiveSplit->tableBucketNumber)
-              : std::nullopt,
-          customSplitInfo,
-          extraFileInfo,
-          serdeParameters,
-          hiveSplit->splitWeight,
-          splitContext->cacheable,
-          infoColumns);
-  if (hiveSplit->bucketConversion) {
-    VELOX_CHECK_NOT_NULL(hiveSplit->tableBucketNumber);
-    veloxSplit->bucketConversion =
-        toVeloxBucketConversion(*hiveSplit->bucketConversion);
+  std::unique_ptr<velox::connector::ConnectorSplit> veloxSplit;
+  if (canUseCudfTableScan()) {
+    std::string realPath;
+    if (boost::algorithm::starts_with(hiveSplit->fileSplit.path, "file:")) {
+      realPath = hiveSplit->fileSplit.path.substr(std::string("file:").size());
+    } else {
+      realPath = hiveSplit->fileSplit.path;
+    }
+    veloxSplit = std::make_unique<
+        facebook::velox::cudf_velox::connector::parquet::ParquetConnectorSplit>(
+        "parquet-test", realPath, 0);
+    LOG(INFO) << "Using cuDF Parquet splits for file: "
+              << hiveSplit->fileSplit.path;
+  } else {
+    auto veloxHiveSplit =
+        std::make_unique<velox::connector::hive::HiveConnectorSplit>(
+            catalogId,
+            hiveSplit->fileSplit.path,
+            toVeloxFileFormat(hiveSplit->storage.storageFormat),
+            hiveSplit->fileSplit.start,
+            hiveSplit->fileSplit.length,
+            partitionKeys,
+            hiveSplit->tableBucketNumber
+                ? std::optional<int>(*hiveSplit->tableBucketNumber)
+                : std::nullopt,
+            customSplitInfo,
+            extraFileInfo,
+            serdeParameters,
+            hiveSplit->splitWeight,
+            splitContext->cacheable,
+            infoColumns);
+    if (veloxHiveSplit->bucketConversion) {
+      VELOX_CHECK_NOT_NULL(hiveSplit->tableBucketNumber);
+      veloxHiveSplit->bucketConversion =
+          toVeloxBucketConversion(*hiveSplit->bucketConversion);
+    }
+    veloxSplit = std::move(veloxHiveSplit);
+    LOG(INFO) << "Using Hive splits";
   }
   return veloxSplit;
 }
