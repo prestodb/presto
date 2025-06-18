@@ -154,6 +154,7 @@ class IndexLookupJoin : public Operator {
   // 'outputBatchSize'. This is only used by left join which needs to fill nulls
   // for output rows without lookup matches.
   void prepareOutputRowMappings(size_t outputBatchSize);
+
   // Prepare 'output_' for the next output batch with size of 'numOutputRows'.
   void prepareOutput(vector_size_t numOutputRows);
 

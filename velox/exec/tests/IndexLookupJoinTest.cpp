@@ -643,7 +643,6 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
        {"t1", "u1", "u2", "u3", "u5"},
        core::JoinType::kLeft,
        "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0"},
-
       // 10% match with larger lookup table.
       {{500, 1, 1},
        10,
@@ -1733,7 +1732,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
   queryThread.join();
 }
 
-TEST_P(IndexLookupJoinTest, outputBatchSize) {
+TEST_P(IndexLookupJoinTest, outputBatchSizeWithInnerJoin) {
   SequenceTableData tableData;
   generateIndexTableData({3'000, 1, 1}, tableData, pool_);
 
@@ -1741,27 +1740,37 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
     int numProbeBatches;
     int numRowsPerProbeBatch;
     int maxBatchRows;
+    bool splitOutput;
     int numExpectedOutputBatch;
 
     std::string debugString() const {
       return fmt::format(
-          "numProbeBatches: {}, numRowsPerProbeBatch: {}, maxBatchRows: {}, numExpectedOutputBatch: {}",
+          "numProbeBatches: {}, numRowsPerProbeBatch: {}, maxBatchRows: {}, splitOutput: {}, numExpectedOutputBatch: {}",
           numProbeBatches,
           numRowsPerProbeBatch,
           maxBatchRows,
+          splitOutput,
           numExpectedOutputBatch);
     }
   } testSettings[] = {
-      {10, 100, 10, 100},
-      {10, 500, 10, 500},
-      {10, 1, 200, 10},
-      {1, 500, 10, 50},
-      {1, 300, 10, 30},
-      {1, 500, 200, 3},
-      {10, 200, 200, 10},
-      {10, 500, 300, 20},
-      {10, 50, 1, 500}};
-
+      {10, 100, 10, false, 10},
+      {10, 500, 10, false, 10},
+      {10, 1, 200, false, 10},
+      {1, 500, 10, false, 1},
+      {1, 300, 10, false, 1},
+      {1, 500, 200, false, 1},
+      {10, 200, 200, false, 10},
+      {10, 500, 300, false, 10},
+      {10, 50, 1, false, 10},
+      {10, 100, 10, true, 100},
+      {10, 500, 10, true, 500},
+      {10, 1, 200, true, 10},
+      {1, 500, 10, true, 50},
+      {1, 300, 10, true, 30},
+      {1, 500, 200, true, 3},
+      {10, 200, 200, true, 10},
+      {10, 500, 300, true, 20},
+      {10, 50, 1, true, 500}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
@@ -1814,11 +1823,119 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
             .config(
                 core::QueryConfig::kPreferredOutputBatchBytes,
                 std::to_string(1ULL << 30))
+            .config(
+                core::QueryConfig::kIndexLookupJoinSplitOutput,
+                testData.splitOutput ? "true" : "false")
             .splits(probeScanNodeId_, makeHiveConnectorSplits(probeFiles))
             .serialExecution(GetParam().serialExecution)
             .barrierExecution(GetParam().serialExecution)
             .assertResults(
                 "SELECT t.c4, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+    ASSERT_EQ(
+        toPlanStats(task->taskStats()).at(joinNodeId_).outputVectors,
+        testData.numExpectedOutputBatch);
+  }
+}
+
+TEST_P(IndexLookupJoinTest, outputBatchSizeWithLeftJoin) {
+  SequenceTableData tableData;
+  generateIndexTableData({3'000, 1, 1}, tableData, pool_);
+
+  struct {
+    int numProbeBatches;
+    int numRowsPerProbeBatch;
+    int maxBatchRows;
+    bool splitOutput;
+    int numExpectedOutputBatch;
+
+    std::string debugString() const {
+      return fmt::format(
+          "numProbeBatches: {}, numRowsPerProbeBatch: {}, maxBatchRows: {}, splitOutput: {}, numExpectedOutputBatch: {}",
+          numProbeBatches,
+          numRowsPerProbeBatch,
+          maxBatchRows,
+          splitOutput,
+          numExpectedOutputBatch);
+    }
+  } testSettings[] = {
+      {10, 100, 10, false, 10},
+      {10, 500, 10, false, 10},
+      {10, 1, 200, false, 10},
+      {1, 500, 10, false, 1},
+      {1, 300, 10, false, 1},
+      {1, 500, 200, false, 1},
+      {10, 200, 200, false, 10},
+      {10, 500, 300, false, 10},
+      {10, 50, 1, false, 10},
+      {10, 100, 10, true, 100},
+      {10, 500, 10, true, 500},
+      {10, 1, 200, true, 10},
+      {1, 500, 10, true, 50},
+      {1, 300, 10, true, 30},
+      {1, 500, 200, true, 3},
+      {10, 200, 200, true, 10},
+      {10, 500, 300, true, 20},
+      {10, 50, 1, true, 500}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    const auto probeVectors = generateProbeInput(
+        testData.numProbeBatches,
+        testData.numRowsPerProbeBatch,
+        1,
+        tableData,
+        pool_,
+        {"t0", "t1", "t2"},
+        {},
+        {},
+        /*equalMatchPct=*/100);
+    std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+        createProbeFiles(probeVectors);
+
+    createDuckDbTable("t", probeVectors);
+    createDuckDbTable("u", {tableData.tableData});
+
+    const auto indexTable = createIndexTable(
+        /*numEqualJoinKeys=*/3, tableData.keyData, tableData.valueData);
+    const auto indexTableHandle =
+        makeIndexTableHandle(indexTable, GetParam().asyncLookup);
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        columnHandles;
+    const auto indexScanNode = makeIndexScanNode(
+        planNodeIdGenerator,
+        indexTableHandle,
+        makeScanOutputType({"u0", "u1", "u2", "u5"}),
+        columnHandles);
+
+    auto plan = makeLookupPlan(
+        planNodeIdGenerator,
+        indexScanNode,
+        {"t0", "t1", "t2"},
+        {"u0", "u1", "u2"},
+        {},
+        core::JoinType::kLeft,
+        {"t4", "u5"});
+    const auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .plan(plan)
+            .config(
+                core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
+                std::to_string(GetParam().numPrefetches))
+            .config(
+                core::QueryConfig::kPreferredOutputBatchRows,
+                std::to_string(testData.maxBatchRows))
+            .config(
+                core::QueryConfig::kPreferredOutputBatchBytes,
+                std::to_string(1ULL << 30))
+            .config(
+                core::QueryConfig::kIndexLookupJoinSplitOutput,
+                testData.splitOutput ? "true" : "false")
+            .splits(probeScanNodeId_, makeHiveConnectorSplits(probeFiles))
+            .serialExecution(GetParam().serialExecution)
+            .barrierExecution(GetParam().serialExecution)
+            .assertResults(
+                "SELECT t.c4, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
     ASSERT_EQ(
         toPlanStats(task->taskStats()).at(joinNodeId_).outputVectors,
         testData.numExpectedOutputBatch);

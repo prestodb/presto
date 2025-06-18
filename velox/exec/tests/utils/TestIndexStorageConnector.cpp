@@ -254,6 +254,7 @@ std::optional<std::unique_ptr<connector::IndexSource::LookupResult>>
 TestIndexSource::ResultIterator::next(
     vector_size_t size,
     ContinueFuture& future) {
+  const auto lookupSize = std::min(size, kMaxLookupSize);
   source_->checkNotFailed();
 
   if (hasPendingRequest_.exchange(true)) {
@@ -261,7 +262,7 @@ TestIndexSource::ResultIterator::next(
   }
 
   if (executor_ && !asyncResult_.has_value()) {
-    asyncLookup(size, future);
+    asyncLookup(lookupSize, future);
     return std::nullopt;
   }
 
@@ -274,7 +275,7 @@ TestIndexSource::ResultIterator::next(
     asyncResult_.reset();
     return result;
   }
-  return syncLookup(size);
+  return syncLookup(lookupSize);
 }
 
 void TestIndexSource::ResultIterator::extractLookupColumns(

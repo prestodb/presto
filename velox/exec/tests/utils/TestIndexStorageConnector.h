@@ -158,6 +158,8 @@ class TestIndexSource : public connector::IndexSource,
         ContinueFuture& future) override;
 
    private:
+    static constexpr vector_size_t kMaxLookupSize = 8192;
+
     // Initializes the buffer used to store row pointers or indices for output
     // match result processing.
     template <typename T>

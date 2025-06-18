@@ -140,7 +140,10 @@ IndexLookupJoin::IndexLookupJoin(
           "IndexLookupJoin"),
       // TODO: support to update output batch size with output size stats during
       // the lookup processing.
-      outputBatchSize_{outputBatchRows()},
+      outputBatchSize_{
+          driverCtx->queryConfig().indexLookupJoinSplitOutput()
+              ? outputBatchRows()
+              : std::numeric_limits<vector_size_t>::max()},
       joinType_{joinNode->joinType()},
       numKeys_{joinNode->leftKeys().size()},
       probeType_{joinNode->sources()[0]->outputType()},
@@ -622,7 +625,6 @@ RowVectorPtr IndexLookupJoin::produceOutputForInnerJoin(
               ->slice(nextOutputResultRow_, numOutputRows);
     }
   }
-
   nextOutputResultRow_ += numOutputRows;
   VELOX_CHECK_LE(nextOutputResultRow_, batch.lookupResult->size());
   return output_;
@@ -636,13 +638,20 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
   VELOX_CHECK_NOT_NULL(rawLookupInputHitIndices_);
   VELOX_CHECK_NOT_NULL(batch.input);
 
-  prepareOutputRowMappings(outputBatchSize_);
+  const auto startOutputRow = nextOutputResultRow_;
+  int32_t lastProcessedInputRow = lastProcessedInputRow_.value_or(-1);
+  const auto startProcessInputRow = lastProcessedInputRow + 1;
+  // Set 'maxOutputRows' to max number of output rows that can be produced
+  // considering the possible missed input rows.
+  const size_t maxOutputRows = std::min<size_t>(
+      outputBatchSize_,
+      batch.lookupResult->size() - nextOutputResultRow_ + batch.input->size() -
+          startProcessInputRow);
+  prepareOutputRowMappings(maxOutputRows);
   VELOX_CHECK_NOT_NULL(rawLookupOutputNulls_);
-
   size_t numOutputRows{0};
   size_t totalMissedInputRows{0};
-  int32_t lastProcessedInputRow = lastProcessedInputRow_.value_or(-1);
-  for (; numOutputRows < outputBatchSize_ &&
+  for (; numOutputRows < maxOutputRows &&
        nextOutputResultRow_ < batch.lookupResult->size();) {
     VELOX_CHECK_GE(
         rawLookupInputHitIndices_[nextOutputResultRow_], lastProcessedInputRow);
@@ -652,11 +661,10 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
     VELOX_CHECK_GE(numMissedInputRows, -1);
     if (numMissedInputRows > 0) {
       if (totalMissedInputRows == 0) {
-        bits::fillBits(
-            rawLookupOutputNulls_, 0, outputBatchSize_, bits::kNotNull);
+        bits::fillBits(rawLookupOutputNulls_, 0, maxOutputRows, bits::kNotNull);
       }
       const auto numOutputMissedInputRows = std::min<vector_size_t>(
-          numMissedInputRows, outputBatchSize_ - numOutputRows);
+          numMissedInputRows, maxOutputRows - numOutputRows);
       bits::fillBits(
           rawLookupOutputNulls_,
           numOutputRows,
@@ -677,7 +685,7 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
     ++numOutputRows;
   }
   VELOX_CHECK(
-      numOutputRows == outputBatchSize_ ||
+      numOutputRows == maxOutputRows ||
       nextOutputResultRow_ == batch.lookupResult->size());
   VELOX_CHECK_LE(nextOutputResultRow_, batch.lookupResult->size());
   lastProcessedInputRow_ = lastProcessedInputRow;
@@ -693,19 +701,52 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
   }
 
   prepareOutput(numOutputRows);
-  for (const auto& projection : probeOutputProjections_) {
-    output_->childAt(projection.outputChannel) = BaseVector::wrapInDictionary(
-        nullptr,
-        probeOutputRowMapping_,
-        numOutputRows,
-        batch.input->childAt(projection.inputChannel));
+  const auto numInputRows = lastProcessedInputRow - startProcessInputRow + 1;
+  if (numInputRows == numOutputRows) {
+    if (startProcessInputRow == 0 && numInputRows == batch.input->size()) {
+      for (const auto& projection : probeOutputProjections_) {
+        output_->childAt(projection.outputChannel) =
+            batch.input->childAt(projection.inputChannel);
+      }
+    } else {
+      for (const auto& projection : probeOutputProjections_) {
+        output_->childAt(projection.outputChannel) =
+            batch.input->childAt(projection.inputChannel)
+                ->slice(startProcessInputRow, numInputRows);
+      }
+    }
+  } else {
+    for (const auto& projection : probeOutputProjections_) {
+      output_->childAt(projection.outputChannel) = BaseVector::wrapInDictionary(
+          nullptr,
+          probeOutputRowMapping_,
+          numOutputRows,
+          batch.input->childAt(projection.inputChannel));
+    }
   }
-  for (const auto& projection : lookupOutputProjections_) {
-    output_->childAt(projection.outputChannel) = BaseVector::wrapInDictionary(
-        totalMissedInputRows > 0 ? lookupOutputNulls_ : nullptr,
-        lookupOutputRowMapping_,
-        numOutputRows,
-        batch.lookupResult->output->childAt(projection.inputChannel));
+
+  if (totalMissedInputRows > 0) {
+    for (const auto& projection : lookupOutputProjections_) {
+      output_->childAt(projection.outputChannel) = BaseVector::wrapInDictionary(
+          lookupOutputNulls_,
+          lookupOutputRowMapping_,
+          numOutputRows,
+          batch.lookupResult->output->childAt(projection.inputChannel));
+    }
+  } else {
+    if (startOutputRow == 0 &&
+        numOutputRows == batch.lookupResult->output->size()) {
+      for (const auto& projection : lookupOutputProjections_) {
+        output_->childAt(projection.outputChannel) =
+            batch.lookupResult->output->childAt(projection.inputChannel);
+      }
+    } else {
+      for (const auto& projection : lookupOutputProjections_) {
+        output_->childAt(projection.outputChannel) =
+            batch.lookupResult->output->childAt(projection.inputChannel)
+                ->slice(startOutputRow, numOutputRows);
+      }
+    }
   }
   return output_;
 }
@@ -716,40 +757,33 @@ RowVectorPtr IndexLookupJoin::produceRemainingOutputForLeftJoin(
   VELOX_CHECK(!batch.empty());
   VELOX_CHECK(hasRemainingOutputForLeftJoin(batch));
   VELOX_CHECK_NULL(rawLookupInputHitIndices_);
-  prepareOutputRowMappings(outputBatchSize_);
-  VELOX_CHECK_NOT_NULL(rawLookupOutputNulls_);
 
   size_t lastProcessedInputRow = lastProcessedInputRow_.value_or(-1);
+  const auto startProcessInputRow = lastProcessedInputRow + 1;
   const size_t numOutputRows = std::min<size_t>(
-      outputBatchSize_, batch.input->size() - lastProcessedInputRow - 1);
+      outputBatchSize_, batch.input->size() - startProcessInputRow);
   VELOX_CHECK_GT(numOutputRows, 0);
-  bits::fillBits(rawLookupOutputNulls_, 0, numOutputRows, bits::kNull);
-  for (auto outputRow = 0; outputRow < numOutputRows; ++outputRow) {
-    rawProbeOutputRowIndices_[outputRow] = ++lastProcessedInputRow;
-  }
-  lookupOutputNulls_->setSize(bits::nbytes(numOutputRows));
-  probeOutputRowMapping_->setSize(numOutputRows * sizeof(vector_size_t));
-  lookupOutputRowMapping_->setSize(numOutputRows * sizeof(vector_size_t));
-
+  VELOX_CHECK_LE(numOutputRows, batch.input->size());
   prepareOutput(numOutputRows);
-  for (const auto& projection : probeOutputProjections_) {
-    output_->childAt(projection.outputChannel) = BaseVector::wrapInDictionary(
-        nullptr,
-        probeOutputRowMapping_,
-        numOutputRows,
-        batch.input->childAt(projection.inputChannel));
+  if (numOutputRows != batch.input->size()) {
+    for (const auto& projection : probeOutputProjections_) {
+      output_->childAt(projection.outputChannel) =
+          batch.input->childAt(projection.inputChannel)
+              ->slice(startProcessInputRow, numOutputRows);
+    }
+  } else {
+    for (const auto& projection : probeOutputProjections_) {
+      output_->childAt(projection.outputChannel) =
+          batch.input->childAt(projection.inputChannel);
+    }
   }
   for (const auto& projection : lookupOutputProjections_) {
-    output_->childAt(projection.outputChannel) = BaseVector::wrapInDictionary(
-        lookupOutputNulls_,
-        lookupOutputRowMapping_,
+    output_->childAt(projection.outputChannel) = BaseVector::createNullConstant(
+        output_->type()->childAt(projection.outputChannel),
         numOutputRows,
-        BaseVector::createNullConstant(
-            output_->type()->childAt(projection.outputChannel),
-            numOutputRows,
-            pool()));
+        pool());
   }
-  lastProcessedInputRow_ = lastProcessedInputRow;
+  lastProcessedInputRow_ = lastProcessedInputRow + numOutputRows;
   return output_;
 }
 

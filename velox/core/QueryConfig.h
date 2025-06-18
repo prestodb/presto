@@ -607,6 +607,12 @@ class QueryConfig {
   static constexpr const char* kIndexLookupJoinMaxPrefetchBatches =
       "index_lookup_join_max_prefetch_batches";
 
+  /// If this is true, then the index join operator might split output for each
+  /// input batch based on the output batch size control. Otherwise, it tries to
+  /// produce a single output for each input batch.
+  static constexpr const char* kIndexLookupJoinSplitOutput =
+      "index_lookup_join_split_output";
+
   // Max wait time for exchange request in seconds.
   static constexpr const char* kRequestDataSizesMaxWaitSec =
       "request_data_sizes_max_wait_sec";
@@ -1132,6 +1138,10 @@ class QueryConfig {
 
   uint32_t indexLookupJoinMaxPrefetchBatches() const {
     return get<uint32_t>(kIndexLookupJoinMaxPrefetchBatches, 0);
+  }
+
+  bool indexLookupJoinSplitOutput() const {
+    return get<bool>(kIndexLookupJoinSplitOutput, true);
   }
 
   std::string shuffleCompressionKind() const {

@@ -167,6 +167,12 @@ Generic Configuration
      - 0
      - Specifies the max number of input batches to prefetch to do index lookup ahead. If it is zero,
        then process one input batch at a time.
+   * - index_lookup_join_split_output
+     - bool
+     - true
+     - If this is true, then the index join operator might split output for each input batch based
+       on the output batch size control. Otherwise, it tries to produce a single output for each input
+       batch.
    * - unnest_split_output_batch
      - bool
      - true
