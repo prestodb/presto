@@ -156,7 +156,8 @@ public class RestBasedFunctionNamespaceManager
                                 qualifiedFunctionName,
                                 jsonBasedUdfFunctionMetaData.getFunctionKind(),
                                 jsonBasedUdfFunctionMetaData.getOutputType(),
-                                jsonBasedUdfFunctionMetaData.getParamTypes()))));
+                                jsonBasedUdfFunctionMetaData.getParamTypes()),
+                        jsonBasedUdfFunctionMetaData.getExecutionEndpoint())));
     }
 
     @Override
