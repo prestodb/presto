@@ -233,6 +233,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/presto-clp">
+        <artifact id="${project.groupId}:presto-clp:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/presto-druid">
         <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
             <unpack />
