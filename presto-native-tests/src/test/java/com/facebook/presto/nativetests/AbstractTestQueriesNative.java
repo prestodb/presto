@@ -50,7 +50,8 @@ public abstract class AbstractTestQueriesNative
     private static final String HASH_GENERATION_UNSUPPORTED_ERROR = ".*Scalar function name not registered: presto.default.\\$operator\\$.*hash.*";
     private static final String CREATE_HLL_FUNCTION_NOT_REGISTERED = ".*Scalar function name not registered: presto.default.create_hll, called with arguments.*";
 
-    public void init(String storageFormat, boolean sidecarEnabled) {
+    public void init(String storageFormat, boolean sidecarEnabled)
+    {
         this.storageFormat = storageFormat;
         this.sidecarEnabled = sidecarEnabled;
 
@@ -516,14 +517,6 @@ public abstract class AbstractTestQueriesNative
                         "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", "Value 32860 exceeds 32767", true);
     }
 
-    /// TODO: Fix error with sidecar enabled/disabled
-    /*
-    not equal
-    Actual rows (1 of 1 extra rows shown, 1 rows in total):
-        [{"":3}]
-    Expected rows (1 of 1 missing rows shown, 1 rows in total):
-        [[3]]
-    */
     @Override
     @Test
     public void testRows()
@@ -531,18 +524,19 @@ public abstract class AbstractTestQueriesNative
         // Using JSON_FORMAT(CAST(_ AS JSON)) because H2 does not support ROW type
         Session session = Session.builder(getSession()).setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true").build();
         assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))", "SELECT '{\"\":3,\"\":\"ab\"}'");
-        assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(a + b) AS JSON)) FROM (VALUES (1, 2)) AS t(a, b)", "SELECT '[3]'");
+        // Presto casts ROW(...) to a JSON object, not a JSON array and uses "" as keys for unnamed fields. So updating the expected expression to JSON object.
+        assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(a + b) AS JSON)) FROM (VALUES (1, 2)) AS t(a, b)", "SELECT '{\"\":3}'");
         assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(1, ROW(9, a, ARRAY[], NULL), ROW(1, 2)) AS JSON)) FROM (VALUES ('a')) t(a)",
-                "SELECT '[1,[9,\"a\",[],null],[1,2]]'");
+                "SELECT '{\"\":1,\"\":{\"\":9,\"\":\"a\",\"\":[],\"\":null},\"\":{\"\":1,\"\":2}}'");
         assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(ROW(ROW(ROW(ROW(a, b), c), d), e), f) AS JSON)) FROM (VALUES (ROW(0, 1), 2, '3', NULL, ARRAY[5], ARRAY[])) t(a, b, c, d, e, f)",
-                "SELECT '[[[[[[0,1],2],\"3\"],null],[5]],[]]'");
+                "SELECT '{\"\":{\"\":{\"\":{\"\":{\"\":{\"\":0,\"\":1},\"\":2},\"\":\"3\"},\"\":null},\"\":[5]},\"\":[]}'");
         assertQuery(session, "SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(a, b)) AS JSON)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)",
-                "SELECT '[[1,2],[3,4],[5,6]]'");
+                "SELECT '[{\"\":1,\"\":2},{\"\":3,\"\":4},{\"\":5,\"\":6}]'");
         assertQuery(session, "SELECT CONTAINS(ARRAY_AGG(ROW(a, b)), ROW(1, 2)) FROM (VALUES (1, 2), (3, 4), (5, 6)) t(a, b)", "SELECT TRUE");
         assertQuery(session, "SELECT JSON_FORMAT(CAST(ARRAY_AGG(ROW(c, d)) AS JSON)) FROM (VALUES (ARRAY[1, 3, 5], ARRAY[2, 4, 6])) AS t(a, b) CROSS JOIN UNNEST(a, b) AS u(c, d)",
-                "SELECT '[[1,2],[3,4],[5,6]]'");
-        assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, NULL, '3')) t(x,y,z)", "SELECT '[1,null,\"3\"]'");
-        assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, CAST(NULL AS INTEGER), '3')) t(x,y,z)", "SELECT '[1,null,\"3\"]'");
+                "SELECT '[{\"\":1,\"\":2},{\"\":3,\"\":4},{\"\":5,\"\":6}]'");
+        assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, NULL, '3')) t(x,y,z)", "SELECT '{\"\":1,\"\":null,\"\":\"3\"}'");
+        assertQuery(session, "SELECT JSON_FORMAT(CAST(ROW(x, y, z) AS JSON)) FROM (VALUES ROW(1, CAST(NULL AS INTEGER), '3')) t(x,y,z)", "SELECT '{\"\":1,\"\":null,\"\":\"3\"}'");
     }
 
     /// TODO: Fix result mismatch when sidecar disabled:
@@ -790,7 +784,6 @@ public abstract class AbstractTestQueriesNative
         assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
                 "Cannot cast BIGINT.*to INTEGER. Overflow during arithmetic conversion", true);
     }
-
 
     @Override
     @Test
