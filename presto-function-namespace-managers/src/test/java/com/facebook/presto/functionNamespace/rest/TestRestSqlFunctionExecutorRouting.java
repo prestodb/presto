@@ -24,12 +24,12 @@ import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
 import com.facebook.presto.spi.function.RestFunctionHandle;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.net.MediaType;
+import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -37,17 +37,22 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.http.client.HttpStatus.OK;
+import static com.facebook.airlift.http.client.testing.TestingResponse.mockResponse;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionImplementationType.REST;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestRestSqlFunctionExecutorRouting
 {
+    private static final MediaType PRESTO_PAGES = MediaType.create("application", "X-presto-pages");
+
     private RestSqlFunctionExecutor executor;
     private AtomicReference<Request> capturedRequest;
     private RestBasedFunctionNamespaceManagerConfig config;
@@ -68,7 +73,9 @@ public class TestRestSqlFunctionExecutorRouting
             BIGINT.writeLong(pageBuilder.getBlockBuilder(0), 42);
             Page resultPage = pageBuilder.build();
 
-            return TestingResponse.mockResponse(200, ImmutableMap.of(), pagesSerde.serialize(resultPage).getSlice().getBytes());
+            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(resultPage.getPositionCount());
+            writeSerializedPage(sliceOutput, pagesSerde.serialize(resultPage));
+            return mockResponse(OK, PRESTO_PAGES, sliceOutput.slice().toStringUtf8());
         });
 
         executor = new RestSqlFunctionExecutor(config, httpClient);
@@ -96,7 +103,7 @@ public class TestRestSqlFunctionExecutorRouting
 
         RemoteScalarFunctionImplementation implementation = new RemoteScalarFunctionImplementation(
                 handle,
-                RoutineCharacteristics.Language.REST,
+                CPP,
                 REST);
 
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
@@ -112,6 +119,8 @@ public class TestRestSqlFunctionExecutorRouting
                 ImmutableList.of(BIGINT),
                 BIGINT).get();
 
+        assertTrue(result.getResult().getPositionCount() == 1);
+        assertEquals(BIGINT.getLong(result.getResult(), 0), 42L);
         assertNotNull(capturedRequest.get());
         URI uri = capturedRequest.get().getUri();
         assertEquals(uri.getHost(), "default-server.example.com");
@@ -140,7 +149,7 @@ public class TestRestSqlFunctionExecutorRouting
 
         RemoteScalarFunctionImplementation implementation = new RemoteScalarFunctionImplementation(
                 handle,
-                RoutineCharacteristics.Language.REST,
+                CPP,
                 REST);
 
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
@@ -156,6 +165,8 @@ public class TestRestSqlFunctionExecutorRouting
                 ImmutableList.of(BIGINT),
                 BIGINT).get();
 
+        assertTrue(result.getResult().getPositionCount() == 1);
+        assertEquals(BIGINT.getLong(result.getResult(), 0), 42L);
         assertNotNull(capturedRequest.get());
         URI uri = capturedRequest.get().getUri();
         assertEquals(uri.getScheme(), "https");
@@ -202,13 +213,13 @@ public class TestRestSqlFunctionExecutorRouting
 
         RemoteScalarFunctionImplementation implementation1 = new RemoteScalarFunctionImplementation(
                 handle1,
-                REST,
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT));
+                CPP,
+                REST);
 
         RemoteScalarFunctionImplementation implementation2 = new RemoteScalarFunctionImplementation(
                 handle2,
-                REST,
-                new RoutineCharacteristics(RoutineCharacteristics.Language.REST, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT));
+                CPP,
+                REST);
 
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
         pageBuilder.declarePosition();
