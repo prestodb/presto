@@ -72,7 +72,7 @@ std::string TaskTraceMetadataReader::nodeName(const std::string& nodeId) const {
   return std::string(traceNode->name());
 }
 
-std::string TaskTraceMetadataReader::connectorId(
+std::optional<std::string> TaskTraceMetadataReader::connectorId(
     const std::string& nodeId) const {
   const auto* traceNode = core::PlanNode::findFirstNode(
       tracePlanNode_.get(),
@@ -84,13 +84,14 @@ std::string TaskTraceMetadataReader::connectorId(
         indexLookupJoinNode->lookupSource()->tableHandle()->connectorId();
     VELOX_CHECK(!indexLookupConnectorId.empty());
     return indexLookupConnectorId;
+  } else if (
+      const auto* tableScanNode =
+          dynamic_cast<const core::TableScanNode*>(traceNode)) {
+    VELOX_CHECK_NOT_NULL(tableScanNode);
+    const auto connectorId = tableScanNode->tableHandle()->connectorId();
+    VELOX_CHECK(!connectorId.empty());
+    return connectorId;
   }
-
-  const auto* tableScanNode =
-      dynamic_cast<const core::TableScanNode*>(traceNode);
-  VELOX_CHECK_NOT_NULL(tableScanNode);
-  const auto connectorId = tableScanNode->tableHandle()->connectorId();
-  VELOX_CHECK(!connectorId.empty());
-  return connectorId;
+  return std::nullopt;
 }
 } // namespace facebook::velox::exec::trace

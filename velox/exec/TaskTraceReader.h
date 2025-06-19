@@ -37,8 +37,9 @@ class TaskTraceMetadataReader {
   /// Returns node name in the trace query plan by ID.
   std::string nodeName(const std::string& nodeId) const;
 
-  /// Returns connector ID in the TableScanNode.
-  std::string connectorId(const std::string& nodeId) const;
+  /// Returns optional of connector ID in the TableScanNode. If nullptr, then no
+  /// connector will be registered.
+  std::optional<std::string> connectorId(const std::string& nodeId) const;
 
  private:
   const std::string traceDir_;
