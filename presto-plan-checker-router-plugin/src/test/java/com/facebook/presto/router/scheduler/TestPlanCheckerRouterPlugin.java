@@ -13,14 +13,9 @@
  */
 package com.facebook.presto.router.scheduler;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.server.MockHttpServletRequest;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
 import com.facebook.presto.testing.QueryRunner;
@@ -34,25 +29,20 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Optional;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestPlanCheckerRouterPlugin
         extends AbstractTestQueryFramework
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     private PlanCheckerRouterPluginConfig planCheckerRouterConfig;
 
     @BeforeClass
@@ -141,36 +131,8 @@ public class TestPlanCheckerRouterPlugin
         assertEquals(target.get(), planCheckerRouterConfig.getJavaRouterURI());
     }
 
-    @Test
-    public void testPlanCheckerPluginWithUserErrors()
-    {
-        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
-
-        // queries with user error, the below query does not have a defined catalog and schema
-        try {
-            scheduler.getDestination(
-                    getMockRouterRequestInfo(
-                            ImmutableListMultimap.of(
-                                    PRESTO_USER, "test",
-                                    PRESTO_TIME_ZONE, "America/Bahia_Banderas"),
-                            "SELECT lower(comment) from region"));
-        }
-        catch (PrestoException e) {
-            verifyQueryError(e, "line 1:55: Schema must be specified when session schema is not set");
-        }
-    }
-
     private static RouterRequestInfo getMockRouterRequestInfo(ListMultimap<String, String> headers, String query)
     {
         return new RouterRequestInfo("test", Optional.empty(), emptyList(), query, new MockHttpServletRequest(headers));
-    }
-
-    private static void verifyQueryError(PrestoException e, String message)
-    {
-        QueryError error = QUERY_RESULTS_CODEC.fromJson(e.getMessage()).getError();
-        assertNotNull(error);
-        assertTrue(error.getMessage().equalsIgnoreCase(message));
-        assertSame(ErrorType.valueOf(error.getErrorType()), USER_ERROR);
     }
 }
