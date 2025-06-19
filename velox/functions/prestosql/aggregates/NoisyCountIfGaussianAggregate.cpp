@@ -95,7 +95,10 @@ class NoisyCountIfGaussianAggregate : public exec::Aggregate {
       if (!isNull(group)) {
         auto* accumulator = value<AccumulatorType>(group);
         noiseScale = accumulator->noiseScale;
-        break;
+        // Only exit when a valid noise_scale is found.
+        if (noiseScale >= 0) {
+          break;
+        }
       }
     }
 
