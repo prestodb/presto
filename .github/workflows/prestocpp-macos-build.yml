@@ -12,6 +12,9 @@ jobs:
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+    concurrency:
+      group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
