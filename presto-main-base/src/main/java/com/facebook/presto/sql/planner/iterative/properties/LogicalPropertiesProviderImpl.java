@@ -51,6 +51,7 @@ import static com.facebook.presto.sql.planner.iterative.properties.LogicalProper
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.propagateAndLimitProperties;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.propagateProperties;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.tableScanProperties;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.invertAssignments;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -101,7 +102,7 @@ public class LogicalPropertiesProviderImpl
         List<TableConstraint<ColumnHandle>> uniqueConstraints = tableScanNode.getTableConstraints().stream().filter(tableConstraint -> tableConstraint instanceof UniqueConstraint && (tableConstraint.isEnabled() || tableConstraint.isRely())).collect(Collectors.toList());
         if (!uniqueConstraints.isEmpty()) {
             Map<VariableReferenceExpression, ColumnHandle> assignments = tableScanNode.getAssignments();
-            Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = assignments.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+            Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = invertAssignments(assignments);
             uniqueConstraints.stream().filter(uniqueConstraint -> uniqueConstraint.getColumns().stream().allMatch(col -> inverseAssignments.containsKey(col))).forEach(uniqueConstraint -> keys.add(uniqueConstraint.getColumns().stream().map(col -> inverseAssignments.get(col)).collect(Collectors.toSet())));
         }
         return tableScanProperties(keys);

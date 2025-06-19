@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.invertAssignments;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -527,8 +528,7 @@ public class IndexJoinOptimizer
             }
             ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
 
-            Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = node.getAssignments().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
+            Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = invertAssignments(node.getAssignments());
 
             PlanNode source = new IndexSourceNode(
                     node.getSourceLocation(),
