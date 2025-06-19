@@ -18,7 +18,6 @@ import com.facebook.presto.spi.router.Scheduler;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.List;
@@ -33,7 +32,6 @@ public class PlanCheckerRouterPluginScheduler
     private final AtomicInteger planCheckerClusterCandidateIndex = new AtomicInteger(0);
 
     private List<URI> candidates;
-    private final List<URI> planCheckerClusterCandidates;
     private final URI javaRouterURI;
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
@@ -42,8 +40,6 @@ public class PlanCheckerRouterPluginScheduler
     public PlanCheckerRouterPluginScheduler(PlanCheckerRouterPluginConfig planCheckerRouterConfig)
     {
         requireNonNull(planCheckerRouterConfig, "PlanCheckerRouterPluginConfig is null");
-        this.planCheckerClusterCandidates =
-                requireNonNull(planCheckerRouterConfig.getPlanCheckClustersURIs(), "validatorCandidates is null");
         this.javaRouterURI =
                 requireNonNull(planCheckerRouterConfig.getJavaRouterURI(), "javaRouterURI is null");
         this.nativeRouterURI =
@@ -55,13 +51,7 @@ public class PlanCheckerRouterPluginScheduler
     public Optional<URI> getDestination(RouterRequestInfo routerRequestInfo)
     {
         PlanCheckerRouterPluginPrestoClient planCheckerPrestoClient = new PlanCheckerRouterPluginPrestoClient(getValidatorDestination(), javaRouterURI, nativeRouterURI, clientRequestTimeout);
-        Object servletRequest = routerRequestInfo.getServletRequest();
-        if (!(servletRequest instanceof HttpServletRequest)) {
-            throw new IllegalArgumentException(
-                    "Expected an instance of HttpServletRequest but got : " +
-                            (servletRequest == null ? "null" : servletRequest.getClass().getName()));
-        }
-        return planCheckerPrestoClient.getCompatibleClusterURI((HttpServletRequest) servletRequest, routerRequestInfo.getQuery());
+        return planCheckerPrestoClient.getCompatibleClusterURI(routerRequestInfo.getHeaders(), routerRequestInfo.getQuery(), routerRequestInfo.getPrincipal(), routerRequestInfo.getRemoteUserAddr());
     }
 
     @Override
@@ -72,7 +62,7 @@ public class PlanCheckerRouterPluginScheduler
 
     private URI getValidatorDestination()
     {
-        int currentIndex = planCheckerClusterCandidateIndex.getAndUpdate(i -> (i + 1) % planCheckerClusterCandidates.size());
-        return planCheckerClusterCandidates.get(currentIndex);
+        int currentIndex = planCheckerClusterCandidateIndex.getAndUpdate(i -> (i + 1) % candidates.size());
+        return candidates.get(currentIndex);
     }
 }

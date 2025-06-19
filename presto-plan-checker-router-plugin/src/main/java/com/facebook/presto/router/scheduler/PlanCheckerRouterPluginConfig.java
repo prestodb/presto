@@ -14,44 +14,18 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.configuration.Config;
-import com.google.common.base.Splitter;
-import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import java.net.URI;
-import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class PlanCheckerRouterPluginConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
-    private List<URI> planCheckClustersURIs;
     private URI javaRouterURI;
     private URI nativeRouterURI;
     private Duration clientRequestTimeout = new Duration(2, MINUTES);
-
-    @Config("plan-check-clusters-uris")
-    public PlanCheckerRouterPluginConfig setPlanCheckClustersURIs(String uris)
-    {
-        if (uris == null) {
-            this.planCheckClustersURIs = null;
-            return this;
-        }
-
-        this.planCheckClustersURIs = Streams.stream(SPLITTER.split(uris))
-                .map(URI::create)
-                .collect(toImmutableList());
-        return this;
-    }
-
-    public List<URI> getPlanCheckClustersURIs()
-    {
-        return planCheckClustersURIs;
-    }
 
     @Config("router-java-url")
     public PlanCheckerRouterPluginConfig setJavaRouterURI(URI javaRouterURI)

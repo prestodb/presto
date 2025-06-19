@@ -23,8 +23,7 @@ The following configuration properties must be set in `etc/router-config/router-
 | Property Name            | Type   | Description                                                             |                   
 |--------------------------|--------|-------------------------------------------------------------------------|
 | router-scheduler.name    | String | The name of the custom scheduler factory                                |
-|                          |        | Example: `router-scheduler.name=plan-checker`                           |
-| plan-check-clusters-uris | String | The URIs of the plan checker clusters.                                  |                                           |
+|                          |        | Example: `router-scheduler.name=plan-checker`                           |                                           |
 | router-java-url          | String | The router URI dedicated to java clusters.                              |
 | router-native-url        | String | The router URI dedicated to native clusters.                            |
 | client-request-timeout   | String | The maximum time the client will wait for a response before timing out. |
