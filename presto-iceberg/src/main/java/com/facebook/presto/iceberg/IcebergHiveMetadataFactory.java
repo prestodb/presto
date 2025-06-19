@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -44,6 +45,7 @@ public class IcebergHiveMetadataFactory
     final StatisticsFileCache statisticsFileCache;
     final ManifestFileCache manifestFileCache;
     final IcebergTableProperties tableProperties;
+    final ConnectorSystemConfig connectorSystemConfig;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -59,7 +61,8 @@ public class IcebergHiveMetadataFactory
             IcebergHiveTableOperationsConfig operationsConfig,
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -74,6 +77,7 @@ public class IcebergHiveMetadataFactory
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
     public ConnectorMetadata create()
@@ -91,6 +95,7 @@ public class IcebergHiveMetadataFactory
                 operationsConfig,
                 statisticsFileCache,
                 manifestFileCache,
-                tableProperties);
+                tableProperties,
+                connectorSystemConfig);
     }
 }
