@@ -130,6 +130,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredi
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteMapSubSetToMapWithElementAt;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.ScaledWriterRule;
@@ -529,7 +530,8 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.<Rule<?>>builder().add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
+                        ImmutableSet.<Rule<?>>builder().addAll(new RewriteMapSubSetToMapWithElementAt(metadata.getFunctionAndTypeManager()).rules())
+                                .add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
                                 .addAll(new RemoveMapCastRule(metadata.getFunctionAndTypeManager()).rules()).build()));
 
         builder.add(new IterativeOptimizer(
