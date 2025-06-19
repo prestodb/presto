@@ -203,7 +203,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   uint8_t startPartitionBit = config->startPartitionBit;
   if (spillPartition != nullptr) {
     spillInputReader_ = spillPartition->createUnorderedReader(
-        config->readBufferSize, pool(), &spillStats_);
+        config->readBufferSize, pool(), spillStats_.get());
     VELOX_CHECK(!restoringPartitionId_.has_value());
     restoringPartitionId_ = spillPartition->id();
     const auto numPartitionBits = config->numPartitionBits;
@@ -218,7 +218,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       LOG(WARNING) << "Exceeded spill level limit: " << config->maxSpillLevel
                    << ", and disable spilling for memory pool: "
                    << pool()->name();
-      ++spillStats_.wlock()->spillMaxLevelExceededCount;
+      ++spillStats_->wlock()->spillMaxLevelExceededCount;
       exceededMaxSpillLevelLimit_ = true;
       return;
     }
@@ -233,7 +233,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       HashBitRange(
           startPartitionBit, startPartitionBit + config->numPartitionBits),
       config,
-      &spillStats_);
+      spillStats_.get());
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();
   spillInputIndicesBuffers_.resize(numPartitions);
@@ -768,20 +768,20 @@ bool HashBuild::finishHashBuild() {
   HashJoinTableSpillFunc tableSpillFunc;
   if (canReclaim()) {
     VELOX_CHECK_NOT_NULL(spiller_);
-    tableSpillFunc = [hashBitRange = spiller_->hashBits(),
-                      restoringPartitionId = restoringPartitionId_,
-                      joinNode = joinNode_,
-                      spillConfig = spillConfig(),
-                      spillStats =
-                          &spillStats_](std::shared_ptr<BaseHashTable> table) {
-      return spillHashJoinTable(
-          table,
-          restoringPartitionId,
-          hashBitRange,
-          joinNode,
-          spillConfig,
-          spillStats);
-    };
+    tableSpillFunc =
+        [hashBitRange = spiller_->hashBits(),
+         restoringPartitionId = restoringPartitionId_,
+         joinNode = joinNode_,
+         spillConfig = spillConfig(),
+         spillStats = spillStats_.get()](std::shared_ptr<BaseHashTable> table) {
+          return spillHashJoinTable(
+              table,
+              restoringPartitionId,
+              hashBitRange,
+              joinNode,
+              spillConfig,
+              spillStats);
+        };
   }
   joinBridge_->setHashTable(
       std::move(table_),

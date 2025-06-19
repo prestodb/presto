@@ -120,13 +120,13 @@ void RowNumber::restoreNextSpillPartition() {
   auto it = spillInputPartitionSet_.begin();
   restoringPartitionId_ = it->first;
   spillInputReader_ = it->second->createUnorderedReader(
-      spillConfig_->readBufferSize, pool(), &spillStats_);
+      spillConfig_->readBufferSize, pool(), spillStats_.get());
 
   // Find matching partition for the hash table.
   auto hashTableIt = spillHashTablePartitionSet_.find(it->first);
   if (hashTableIt != spillHashTablePartitionSet_.end()) {
     spillHashTableReader_ = hashTableIt->second->createUnorderedReader(
-        spillConfig_->readBufferSize, pool(), &spillStats_);
+        spillConfig_->readBufferSize, pool(), spillStats_.get());
 
     setSpillPartitionBits(&(it->first));
 
@@ -388,7 +388,7 @@ void RowNumber::reclaim(
                  << spillConfig_->maxSpillLevel
                  << ", and abandon spilling for memory pool: "
                  << pool()->name();
-    ++spillStats_.wlock()->spillMaxLevelExceededCount;
+    ++spillStats_->wlock()->spillMaxLevelExceededCount;
     return;
   }
 
@@ -408,7 +408,7 @@ SpillPartitionIdSet RowNumber::spillHashTable() {
       tableType,
       spillPartitionBits_,
       &spillConfig,
-      &spillStats_);
+      spillStats_.get());
 
   hashTableSpiller->spill();
   hashTableSpiller->finishSpill(spillHashTablePartitionSet_);
@@ -429,7 +429,7 @@ void RowNumber::setupInputSpiller(
       restoringPartitionId_,
       spillPartitionBits_,
       &spillConfig,
-      &spillStats_);
+      spillStats_.get());
 
   const auto& hashers = table_->hashers();
 

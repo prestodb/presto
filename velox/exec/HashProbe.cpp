@@ -249,7 +249,7 @@ void HashProbe::maybeSetupInputSpiller(
       restoringPartitionId_,
       HashBitRange(bitOffset, bitOffset + spillConfig()->numPartitionBits),
       spillConfig(),
-      &spillStats_);
+      spillStats_.get());
 
   // Set the spill partitions to the corresponding ones at the build side. We
   // only spill the seen partitions from the build side. For the ones not seen
@@ -288,7 +288,7 @@ void HashProbe::maybeSetupSpillInputReader(
   VELOX_CHECK_EQ(partition->id(), restoredPartitionId.value());
   restoringPartitionId_ = restoredPartitionId;
   spillInputReader_ = partition->createUnorderedReader(
-      spillConfig_->readBufferSize, pool(), &spillStats_);
+      spillConfig_->readBufferSize, pool(), spillStats_.get());
   inputSpillPartitionSet_.erase(iter);
 }
 
@@ -1699,7 +1699,7 @@ void HashProbe::noMoreInputInternal() {
         spillInputPartitionIds_.size(),
         inputSpiller_->state().spilledPartitionIdSet().size());
     inputSpiller_->finishSpill(inputSpillPartitionSet_);
-    VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeNanos, 0);
+    VELOX_CHECK_EQ(spillStats_->rlock()->spillSortTimeNanos, 0);
   }
 
   const bool hasSpillEnabled = canSpill();
@@ -1893,7 +1893,7 @@ void HashProbe::reclaim(
         tableSpillHashBits_,
         joinNode_,
         spillConfig(),
-        &spillStats_);
+        spillStats_.get());
     VELOX_CHECK(!spillPartitionSet.empty());
   }
   const auto spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
@@ -1975,7 +1975,11 @@ void HashProbe::spillOutput() {
   }
   // We spill all the outputs produced from 'input_' into a single partition.
   auto outputSpiller = std::make_unique<NoRowContainerSpiller>(
-      outputType_, std::nullopt, HashBitRange{}, spillConfig(), &spillStats_);
+      outputType_,
+      std::nullopt,
+      HashBitRange{},
+      spillConfig(),
+      spillStats_.get());
   outputSpiller->setPartitionsSpilled({SpillPartitionId(0)});
 
   RowVectorPtr output{nullptr};
@@ -2017,7 +2021,7 @@ void HashProbe::maybeSetupSpillOutputReader() {
 
   spillOutputReader_ =
       spillOutputPartitionSet_.begin()->second->createUnorderedReader(
-          spillConfig_->readBufferSize, pool(), &spillStats_);
+          spillConfig_->readBufferSize, pool(), spillStats_.get());
   spillOutputPartitionSet_.clear();
 }
 
@@ -2043,7 +2047,7 @@ void HashProbe::checkMaxSpillLevel(
           << "Exceeded spill level limit: " << config->maxSpillLevel
           << ", and disable spilling for memory pool: " << pool()->name();
       exceededMaxSpillLevelLimit_ = true;
-      ++spillStats_.wlock()->spillMaxLevelExceededCount;
+      ++spillStats_->wlock()->spillMaxLevelExceededCount;
       return;
     }
   }

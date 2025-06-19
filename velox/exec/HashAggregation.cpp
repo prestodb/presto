@@ -113,7 +113,7 @@ void HashAggregation::initialize() {
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
       &nonReclaimableSection_,
       operatorCtx_.get(),
-      &spillStats_);
+      spillStats_.get());
 
   aggregationNode_.reset();
 }

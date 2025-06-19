@@ -390,7 +390,7 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
 }
 
 void Operator::recordSpillStats() {
-  const auto lockedSpillStats = spillStats_.wlock();
+  const auto lockedSpillStats = spillStats_->wlock();
   auto lockedStats = stats_.wlock();
   lockedStats->spilledInputBytes += lockedSpillStats->spilledInputBytes;
   lockedStats->spilledBytes += lockedSpillStats->spilledBytes;

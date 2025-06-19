@@ -628,7 +628,8 @@ class Operator : public BaseRuntimeStatWriter {
   bool initialized_{false};
 
   folly::Synchronized<OperatorStats> stats_;
-  folly::Synchronized<common::SpillStats> spillStats_;
+  std::shared_ptr<folly::Synchronized<common::SpillStats>> spillStats_ =
+      std::make_shared<folly::Synchronized<common::SpillStats>>();
 
   /// NOTE: only one of the two could be set for an operator for tracing .
   /// 'splitTracer_' is only set for table scan to record the processed split

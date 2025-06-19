@@ -116,7 +116,7 @@ void Merge::maybeSetupOutputSpiller() {
       HashBitRange{},
       sortingKeys_,
       &spillConfig_.value(),
-      &spillStats_);
+      spillStats_.get());
 }
 
 void Merge::spill() {
@@ -157,7 +157,7 @@ void Merge::setupSpillMerger() {
     spillReadFiles.reserve(spillFiles.size());
     for (const auto& spillFile : spillFiles) {
       spillReadFiles.emplace_back(SpillReadFile::create(
-          spillFile, spillConfig_->readBufferSize, pool(), &spillStats_));
+          spillFile, spillConfig_->readBufferSize, pool(), spillStats_.get()));
     }
     spillReadFilesGroups.push_back(std::move(spillReadFiles));
   }
