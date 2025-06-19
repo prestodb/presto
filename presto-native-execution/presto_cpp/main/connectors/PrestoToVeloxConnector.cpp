@@ -1011,7 +1011,11 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
       types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
-    if (!subfieldFilters.empty()) {
+#ifdef PRESTO_ENABLE_CUDF
+    // for cuDF's parquet reader the columns from the filter also need
+    // to be added to the final list of columns, while Velox's parquet
+    // reader is more forgiving
+    if (canUseCudfTableScan() && !subfieldFilters.empty()) {
       for (const auto& domain : *domains) {
         std::string name = common::Subfield(domain.first).toString();
         folly::toLowerAscii(name);
@@ -1027,6 +1031,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
         }
       }
     }
+#endif
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
