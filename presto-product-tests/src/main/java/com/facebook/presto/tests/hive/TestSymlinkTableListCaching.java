@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.name.Named;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.BeforeTestWithContext;
@@ -24,14 +25,11 @@ import org.testng.annotations.Test;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Paths;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_LIST_CACHING;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
-import static com.google.common.io.Resources.getResource;
+import static com.facebook.presto.tests.hive.SymlinkTestUtils.createParquetSymlinkTable;
+import static com.facebook.presto.tests.hive.SymlinkTestUtils.deleteSymlinkTable;
 import static io.prestodb.tempto.query.QueryExecutor.query;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestSymlinkTableListCaching
@@ -48,21 +46,7 @@ public class TestSymlinkTableListCaching
     public void setUp() throws IOException
     {
         String table = "hive_symlink_table";
-        onHive().executeQuery("DROP TABLE IF EXISTS " + table);
-
-        onHive().executeQuery("" +
-                "CREATE TABLE default.hive_symlink_table " +
-                "(col int) " +
-                "ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe' " +
-                "STORED AS " +
-                "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
-                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ");
-
-        String tableRoot = warehouseDirectoryPath + "/hive_symlink_table";
-        String dataDir = warehouseDirectoryPath + "/data_hive_symlink_table";
-
-        saveResourceOnHdfs("data.parquet", dataDir + "/data.parquet");
-        hdfsClient.saveFile(tableRoot + "/manifest", format("hdfs://hadoop-master:9000%s/data.parquet", dataDir));
+        createParquetSymlinkTable(hdfsClient, table, warehouseDirectoryPath, false);
     }
 
     @Test(groups = {HIVE_LIST_CACHING})
@@ -85,24 +69,16 @@ public class TestSymlinkTableListCaching
         long hitCountAfter = (long) result.row(0).get(0);
         long missCountAfter = (long) result.row(0).get(1);
 
-        assertEquals(hitCountAfter, hitCountBefore + 1);
-        assertEquals(missCountAfter, missCountBefore + 1);
+        assertEquals(hitCountAfter, hitCountBefore + 3);
+        assertEquals(missCountAfter, missCountBefore + 3);
     }
 
     @AfterTestWithContext
     public void tearDown()
     {
-        String dataDir = warehouseDirectoryPath + "/data_hive_symlink_table";
-        onHive().executeQuery("DROP TABLE IF EXISTS hive_symlink_table");
-        hdfsClient.delete(dataDir);
-    }
+        String table = "hive_symlink_table";
+        String dataDir = warehouseDirectoryPath + "/data_" + table;
 
-    private void saveResourceOnHdfs(String resource, String location)
-            throws IOException
-    {
-        hdfsClient.delete(location);
-        try (InputStream inputStream = getResource(Paths.get("com/facebook/presto/tests/hive/data/single_int_column/", resource).toString()).openStream()) {
-            hdfsClient.saveFile(location, inputStream);
-        }
+        deleteSymlinkTable(hdfsClient, table, ImmutableList.of(dataDir));
     }
 }

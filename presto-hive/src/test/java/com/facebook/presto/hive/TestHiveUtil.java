@@ -17,6 +17,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,8 +25,10 @@ import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
 import org.apache.hadoop.hive.serde2.thrift.test.IntString;
+import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.joda.time.DateTime;
@@ -49,6 +52,9 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
+import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveUtil.CLIENT_TAGS_DELIMITER;
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
@@ -75,8 +81,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveUtil
@@ -213,6 +221,84 @@ public class TestHiveUtil
 
         prestoValue = parsePartitionValue("p=USA", "USA", VARCHAR, ZoneId.of(TimeZone.getDefault().getID())).getValue();
         assertEquals(prestoValue, Slices.utf8Slice("USA"));
+    }
+
+    @Test
+    public void testGetInputFormatValidInput()
+    {
+        Configuration configuration = new Configuration();
+        String inputFormatName = ORC.getInputFormat();
+        String serDe = ORC.getSerDe();
+        boolean symlinkTarget = false;
+
+        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, inputFormatName, serDe, symlinkTarget);
+        assertNotNull(inputFormat, "InputFormat should not be null for valid input");
+        assertEquals(inputFormat.getClass().getName(), ORC.getInputFormat());
+    }
+
+    @Test
+    public void testGetInputFormatInvalidInputFormatName()
+    {
+        Configuration configuration = new Configuration();
+        String inputFormatName = "invalid.InputFormatName";
+        String serDe = ORC.getSerDe();
+        boolean symlinkTarget = false;
+
+        assertThatThrownBy(() -> HiveUtil.getInputFormat(configuration, inputFormatName, serDe, symlinkTarget))
+                .isInstanceOf(PrestoException.class)
+                .hasStackTraceContaining("Unable to create input format invalid.InputFormatName");
+    }
+
+    @Test
+    public void testGetInputFormatMissingSerDeForSymlinkTextInputFormat()
+    {
+        Configuration configuration = new Configuration();
+        String inputFormatName = SymlinkTextInputFormat.class.getName();
+        String serDe = null;
+        boolean symlinkTarget = true;
+
+        assertThatThrownBy(() -> HiveUtil.getInputFormat(configuration, inputFormatName, serDe, symlinkTarget))
+                .isInstanceOf(PrestoException.class)
+                .hasStackTraceContaining("Missing SerDe for SymlinkTextInputFormat");
+    }
+
+    @Test
+    public void testGetInputFormatUnsupportedSerDeForSymlinkTextInputFormat()
+    {
+        Configuration configuration = new Configuration();
+        String inputFormatName = SymlinkTextInputFormat.class.getName();
+        String serDe = "unsupported.SerDe";
+        boolean symlinkTarget = true;
+
+        assertThatThrownBy(() -> HiveUtil.getInputFormat(configuration, inputFormatName, serDe, symlinkTarget))
+                .isInstanceOf(PrestoException.class)
+                .hasStackTraceContaining("Unsupported SerDe for SymlinkTextInputFormat: unsupported.SerDe");
+    }
+
+    @Test
+    public void testGetInputFormatForAllSupportedSerDesForSymlinkTextInputFormat()
+    {
+        Configuration configuration = new Configuration();
+        boolean symlinkTarget = true;
+
+        /*
+         * https://github.com/apache/hive/blob/b240eb3266d4736424678d6c71c3c6f6a6fdbf38/ql/src/java/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.java#L47-L52
+         * According to Hive implementation of SymlinkInputFormat, The target input data should be in TextInputFormat.
+         *
+         * But another common use-case of Symlink Tables is to read Delta Lake Symlink Tables with target input data as MapredParquetInputFormat
+         * https://docs.delta.io/latest/presto-integration.html
+         */
+        List<HiveStorageFormat> supportedFormats = ImmutableList.of(PARQUET, TEXTFILE);
+
+        for (HiveStorageFormat hiveStorageFormat : supportedFormats) {
+            String inputFormatName = SymlinkTextInputFormat.class.getName();
+            String serDe = hiveStorageFormat.getSerDe();
+
+            InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, inputFormatName, serDe, symlinkTarget);
+
+            assertNotNull(inputFormat, "InputFormat should not be null for valid SerDe: " + serDe);
+            assertEquals(inputFormat.getClass().getName(), hiveStorageFormat.getInputFormat());
+        }
     }
 
     private static void assertToPartitionValues(String partitionName)

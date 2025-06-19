@@ -156,6 +156,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGNORED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
+import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
@@ -361,6 +362,20 @@ public final class HiveUtil
             if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
                 if (serDe == null) {
                     throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Missing SerDe for SymlinkTextInputFormat");
+                }
+
+                /*
+                 * https://github.com/apache/hive/blob/b240eb3266d4736424678d6c71c3c6f6a6fdbf38/ql/src/java/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.java#L47-L52
+                 * According to Hive implementation of SymlinkInputFormat, The target input data should be in TextInputFormat.
+                 *
+                 * But Delta Lake provides an integration with Presto using Symlink Tables with target input data as MapredParquetInputFormat.
+                 * https://docs.delta.io/latest/presto-integration.html
+                 *
+                 * To comply with Hive implementation, we will keep the default value here as TextInputFormat unless serde is not LazySimpleSerDe
+                 */
+                if (serDe.equals(TEXTFILE.getSerDe())) {
+                    inputFormatClass = TextInputFormat.class;
+                    return ReflectionUtils.newInstance(inputFormatClass, jobConf);
                 }
 
                 for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
