@@ -285,7 +285,7 @@ class TranslationMap
                     rewritten = new Cast(
                             original.getLocation(),
                             rewritten,
-                            coercion.getTypeSignature().toString(),
+                            coercion,
                             false,
                             analysis.isTypeOnlyCoercion(original));
                 }

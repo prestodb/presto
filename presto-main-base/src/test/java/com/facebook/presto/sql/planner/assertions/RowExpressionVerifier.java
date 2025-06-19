@@ -194,8 +194,8 @@ public final class RowExpressionVerifier
             return false;
         }
 
-        if (!expected.getType().equalsIgnoreCase(actual.getType().toString()) &&
-                !(expected.getType().toLowerCase(ENGLISH).equals(VARCHAR) && actual.getType().getTypeSignature().getBase().equals(VARCHAR))) {
+        if (!expected.getType().equals(actual.getType()) &&
+                !(expected.getType().equals(VARCHAR) && actual.getType().getTypeSignature().getBase().equals(VARCHAR))) {
             return false;
         }
 

@@ -17,7 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -526,7 +528,7 @@ class QueryPlanner
                 assignments.put(variable, rowExpression(
                         new Cast(
                                 subPlan.rewrite(expression),
-                                coercion.getTypeSignature().toString(),
+                                coercion,
                                 false,
                                 metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion)),
                         sqlPlannerContext));
@@ -556,7 +558,7 @@ class QueryPlanner
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
-                        coercion.getTypeSignature().toString(),
+                        coercion,
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion));
             }
@@ -885,7 +887,7 @@ class QueryPlanner
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
-                        coercion.getTypeSignature().toString(),
+                        coercion,
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
@@ -1112,8 +1114,8 @@ class QueryPlanner
                 new Cast(
                         new FunctionCall(
                                 QualifiedName.of("presto", "default", "fail"),
-                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), VARCHAR.getTypeSignature().toString()))),
-                        BOOLEAN.getTypeSignature().toString()));
+                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), VARCHAR))),
+                        BOOLEAN));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 getSourceLocation(window),
                 idAllocator.getNextId(),
@@ -1135,7 +1137,7 @@ class QueryPlanner
             else {
                 Expression cast = new Cast(
                         new SymbolReference(coercions.get(sortKey).getName()),
-                        expectedType.getTypeSignature().toString(),
+                        expectedType,
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
                 sortKeyCoercedForFrameBoundCalculation = newVariable(variableAllocator, cast, expectedType);
@@ -1181,7 +1183,7 @@ class QueryPlanner
             else {
                 Expression cast = new Cast(
                         new SymbolReference(coercions.get(sortKey).getName()),
-                        expectedType.getTypeSignature().toString(),
+                        expectedType,
                         false,
                         metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
                 VariableReferenceExpression castSymbol = newVariable(variableAllocator, cast, expectedType);
@@ -1203,7 +1205,7 @@ class QueryPlanner
     private Expression zeroOfType(Type type)
     {
         if (isNumericType(type)) {
-            return new Cast(new LongLiteral("0"), type.getTypeSignature().toString());
+            return new Cast(new LongLiteral("0"), type);
         }
         if (type.equals(INTERVAL_DAY_TIME)) {
             return new IntervalLiteral("0", POSITIVE, DAY);

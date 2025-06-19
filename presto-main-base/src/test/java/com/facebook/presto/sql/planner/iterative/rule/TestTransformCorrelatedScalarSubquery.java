@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -226,6 +227,6 @@ public class TestTransformCorrelatedScalarSubquery
                         ImmutableList.of(
                                 new LongLiteral(Long.toString(StandardErrorCode.SUBQUERY_MULTIPLE_ROWS.ordinal())),
                                 new StringLiteral("Scalar sub-query has returned multiple rows"))),
-                        StandardTypes.BOOLEAN)));
+                        BOOLEAN)));
     }
 }

@@ -418,7 +418,7 @@ public class ScalarStatsCalculator
         protected VariableStatsEstimate visitCast(Cast node, Void context)
         {
             VariableStatsEstimate sourceStats = process(node.getExpression());
-            TypeSignature targetType = TypeSignature.parseTypeSignature(node.getType());
+            TypeSignature targetType = node.getType().getTypeSignature();
 
             // todo - make this general postprocessing rule.
             double distinctValuesCount = sourceStats.getDistinctValuesCount();

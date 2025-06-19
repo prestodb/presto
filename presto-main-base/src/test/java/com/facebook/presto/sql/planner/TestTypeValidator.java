@@ -128,8 +128,8 @@ public class TestTypeValidator
     @Test
     public void testValidProject()
     {
-        Expression expression1 = new Cast(new SymbolReference(variableB.getName()), StandardTypes.BIGINT);
-        Expression expression2 = new Cast(new SymbolReference(variableC.getName()), StandardTypes.BIGINT);
+        Expression expression1 = new Cast(new SymbolReference(variableB.getName()), BIGINT);
+        Expression expression2 = new Cast(new SymbolReference(variableC.getName()), BIGINT);
         Assignments assignments = Assignments.builder()
                 .put(newVariable(variableAllocator, expression1, BIGINT), translator.translate(expression1, TypeProvider.fromVariables(ImmutableList.of(variableB))))
                 .put(newVariable(variableAllocator, expression2, BIGINT), translator.translate(expression2, TypeProvider.fromVariables(ImmutableList.of(variableC))))
@@ -278,7 +278,7 @@ public class TestTypeValidator
     @Test
     public void testValidTypeOnlyCoercion()
     {
-        Expression expression = new Cast(new SymbolReference(variableB.getName()), StandardTypes.BIGINT);
+        Expression expression = new Cast(new SymbolReference(variableB.getName()), BIGINT);
         Assignments assignments = Assignments.builder()
                 .put(newVariable(variableAllocator, expression, BIGINT), translator.translate(expression, TypeProvider.fromVariables(ImmutableList.of(variableB))))
                 .put(newVariable(variableAllocator, new SymbolReference(variableE.getName()), VARCHAR), variableE) // implicit coercion from varchar(3) to varchar
@@ -291,8 +291,8 @@ public class TestTypeValidator
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
     public void testInvalidProject()
     {
-        Expression expression1 = new Cast(new SymbolReference(variableB.getName()), StandardTypes.INTEGER);
-        Expression expression2 = new Cast(new SymbolReference(variableA.getName()), StandardTypes.INTEGER);
+        Expression expression1 = new Cast(new SymbolReference(variableB.getName()), INTEGER);
+        Expression expression2 = new Cast(new SymbolReference(variableA.getName()), INTEGER);
         Assignments assignments = Assignments.builder()
                 .put(newVariable(variableAllocator, expression1, BIGINT), translator.translate(expression1, TypeProvider.fromVariables(ImmutableList.of(variableB)))) // should be INTEGER
                 .put(newVariable(variableAllocator, expression1, INTEGER), translator.translate(expression2, TypeProvider.fromVariables(ImmutableList.of(variableA))))

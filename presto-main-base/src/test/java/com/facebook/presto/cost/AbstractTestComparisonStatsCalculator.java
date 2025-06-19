@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.MetadataManager;
@@ -690,14 +691,14 @@ public abstract class AbstractTestComparisonStatsCalculator
     public void symbolToCastExpressionNotEqual()
     {
         double rowCount = 807.3;
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new SymbolReference("w"), StandardTypes.BIGINT)))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new SymbolReference("w"), BigintType.BIGINT)))
                 .outputRowsCount(rowCount)
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "u", DOUBLE), equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "w", DOUBLE), equalTo(capNDV(wStats, rowCount)))
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), equalTo(capNDV(zStats, rowCount)));
 
         rowCount = 897.0;
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), StandardTypes.BIGINT)))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), BigintType.BIGINT)))
                 .outputRowsCount(rowCount)
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "u", DOUBLE), equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), equalTo(capNDV(zStats, rowCount)));

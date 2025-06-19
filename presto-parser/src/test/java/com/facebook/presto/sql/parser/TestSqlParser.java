@@ -895,7 +895,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(
-                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), "ROW(COL0 INTEGER,COL1 INTEGER)"), identifier("col0"))),
+                                        new DereferenceExpression(new Cast(new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))), null), identifier("col0"))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -3096,7 +3096,7 @@ public class TestSqlParser
 
     private static void assertCast(String type, String expected)
     {
-        assertExpression("CAST(null AS " + type + ")", new Cast(new NullLiteral(), expected));
+        assertExpression("CAST(null AS " + type + ")", new Cast(new NullLiteral(), null));
     }
 
     private static void assertStatement(String query, Statement expected)

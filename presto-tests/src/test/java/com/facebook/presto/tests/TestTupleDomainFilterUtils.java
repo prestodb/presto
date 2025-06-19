@@ -706,7 +706,7 @@ public class TestTupleDomainFilterUtils
 
     private static Expression cast(Expression expression, Type type)
     {
-        return new Cast(expression, type.getTypeSignature().toString());
+        return new Cast(expression, type);
     }
 
     private static FunctionCall colorLiteral(long value)

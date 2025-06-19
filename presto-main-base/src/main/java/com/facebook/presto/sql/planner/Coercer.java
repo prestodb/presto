@@ -61,7 +61,7 @@ public class Coercer
             if (target != null) {
                 rewritten = new Cast(
                         rewritten,
-                        target.getTypeSignature().toString(),
+                        target,
                         false,
                         typeOnlyCoercions.contains(NodeRef.of(expression)));
             }

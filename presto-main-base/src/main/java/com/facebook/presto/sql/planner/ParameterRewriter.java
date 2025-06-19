@@ -69,7 +69,7 @@ public class ParameterRewriter
         if (coercion != null) {
             rewritten = new Cast(
                     rewritten,
-                    coercion.getTypeSignature().toString(),
+                    coercion,
                     false,
                     analysis.isTypeOnlyCoercion(original));
         }

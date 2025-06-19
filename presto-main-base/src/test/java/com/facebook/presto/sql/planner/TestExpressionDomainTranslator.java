@@ -17,7 +17,9 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
@@ -650,10 +652,10 @@ public class TestExpressionDomainTranslator
         // we expect TupleDomain.all here().
         // see comment in ExpressionDomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
-                new Cast(new SymbolReference(C_TIMESTAMP), DATE.toString()),
+                new Cast(new SymbolReference(C_TIMESTAMP), DATE),
                 toExpression(DATE_VALUE, DATE)));
         assertUnsupportedPredicate(equal(
-                new Cast(new SymbolReference(C_DECIMAL_12_2), BIGINT.toString()),
+                new Cast(new SymbolReference(C_DECIMAL_12_2), BIGINT),
                 bigintLiteral(135L)));
     }
 
@@ -661,19 +663,19 @@ public class TestExpressionDomainTranslator
     void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
     {
         assertUnsupportedPredicate(equal(
-                new Cast(new SymbolReference(C_DECIMAL_12_2), DOUBLE.toString()),
+                new Cast(new SymbolReference(C_DECIMAL_12_2), DOUBLE),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(new SymbolReference(C_BIGINT), DOUBLE.toString()),
+                new Cast(new SymbolReference(C_BIGINT), DOUBLE),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(new SymbolReference(C_BIGINT), REAL.toString()),
+                new Cast(new SymbolReference(C_BIGINT), REAL),
                 toExpression(realValue(12345.56f), REAL)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(new SymbolReference(C_INTEGER), REAL.toString()),
+                new Cast(new SymbolReference(C_INTEGER), REAL),
                 toExpression(realValue(12345.56f), REAL)));
     }
 
@@ -1437,7 +1439,7 @@ public class TestExpressionDomainTranslator
 
     private static Expression cast(Expression expression, Type type)
     {
-        return new Cast(expression, type.getTypeSignature().toString());
+        return new Cast(expression, type);
     }
 
     private static FunctionCall colorLiteral(long value)

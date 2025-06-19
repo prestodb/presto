@@ -135,7 +135,7 @@ public class CreateFunctionTask
                     if (coercion != null) {
                         return new Cast(
                                 rewritten,
-                                coercion.getTypeSignature().toString(),
+                                coercion,
                                 false,
                                 analysis.isTypeOnlyCoercion(expression));
                     }
@@ -145,7 +145,7 @@ public class CreateFunctionTask
 
             if (!bodyType.equals(metadata.getType(returnType))) {
                 // Casting is safe here, since we have verified at analysis time that the actual type of the body is coercible to declared return type.
-                bodyExpression = new Cast(bodyExpression, statement.getReturnType());
+                bodyExpression = new Cast(bodyExpression, metadata.getType(returnType));
             }
 
             body = new Return(bodyExpression);

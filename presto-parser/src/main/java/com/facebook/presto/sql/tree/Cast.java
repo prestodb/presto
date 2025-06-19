@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -29,44 +30,66 @@ public final class Cast
     private final boolean safe;
     private final boolean typeOnly;
 
-    public Cast(Expression expression, String type)
+    public Cast(Expression expression, Type type)
     {
         this(Optional.empty(), expression, type, false, false);
     }
 
-    public Cast(Expression expression, String type, boolean safe)
+    public Cast(Expression expression, Type type, boolean safe)
     {
         this(Optional.empty(), expression, type, safe, false);
     }
 
-    public Cast(Expression expression, String type, boolean safe, boolean typeOnly)
+    public Cast(Expression expression, Type type, boolean safe, boolean typeOnly)
     {
         this(Optional.empty(), expression, type, safe, typeOnly);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type)
+    public Cast(NodeLocation location, Expression expression, Type type)
     {
         this(Optional.of(location), expression, type, false, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type, boolean safe)
+    public Cast(NodeLocation location, Expression expression, String typeName, boolean safe)
+    {
+        this(Optional.of(location), expression, typeName, safe, false);
+    }
+
+    public Cast(NodeLocation location, Expression expression, Type type, boolean safe)
     {
         this(Optional.of(location), expression, type, safe, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type, boolean safe, boolean typeOnly)
+    public Cast(NodeLocation location, Expression expression, Type type, boolean safe, boolean typeOnly)
     {
         this(Optional.of(location), expression, type, safe, typeOnly);
     }
 
-    public Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
+    public Cast(Optional<NodeLocation> location, Expression expression, Type type, boolean safe, boolean typeOnly)
     {
         super(location);
         requireNonNull(expression, "expression is null");
-        requireNonNull(type, "type is null");
 
         this.expression = expression;
-        this.type = transformCase(type);
+        this.type = type;
+        if (type == null) {
+            this.typeName = transformCase(type.getDisplayName());
+        }
+        else {
+            this.typeName = null;
+        }
+        this.safe = safe;
+        this.typeOnly = typeOnly;
+    }
+
+    public Cast(Optional<NodeLocation> location, Expression expression, String typeName, boolean safe, boolean typeOnly)
+    {
+        super(location);
+        requireNonNull(expression, "expression is null");
+
+        this.expression = expression;
+        this.type = null;
+        this.typeName = transformCase(typeName);
         this.safe = safe;
         this.typeOnly = typeOnly;
     }
@@ -76,9 +99,13 @@ public final class Cast
         return expression;
     }
 
-    public String getType()
+    public Type getType()
     {
         return type;
+    }
+
+    public String getTypeName() {
+        return typeName;
     }
 
     public boolean isSafe()

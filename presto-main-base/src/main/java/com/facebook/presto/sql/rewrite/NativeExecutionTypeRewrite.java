@@ -103,46 +103,13 @@ final class NativeExecutionTypeRewrite
         @Override
         protected Node visitCast(Cast node, Void context)
         {
-            try {
-                Type type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
-                if (type instanceof TypeWithName) {
-                    // Peel user defined type name.
-                    type = ((TypeWithName) type).getType();
-                    switch (type.getTypeSignature().getBase()) {
-                        case BIGINT_ENUM:
-                            return new Cast(node.getLocation(), node.getExpression(), BIGINT, node.isSafe(), node.isTypeOnly());
-                        case VARCHAR_ENUM:
-                            return new Cast(node.getLocation(), node.getExpression(), VARCHAR, node.isSafe(), node.isTypeOnly());
-                        default:
-                            return new Cast(node.getLocation(), node.getExpression(), type.getTypeSignature().getBase(), node.isSafe(), node.isTypeOnly());
-                    }
-                }
-            }
-            catch (IllegalArgumentException | UnknownTypeException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
-            }
-            return node;
+            return null;
         }
 
         @Override
         protected Node visitFunctionCall(FunctionCall node, Void context)
         {
-            if (isValidEnumKeyFunctionCall(node)) {
-                Cast argument = (Cast) node.getArguments().get(0);
-                Type argumentType = functionAndTypeResolver.getType(parseTypeSignature(argument.getType()));
-                if (argumentType instanceof TypeWithName) {
-                    // Peel user defined type name.
-                    argumentType = ((TypeWithName) argumentType).getType();
-                }
-                if (argumentType instanceof EnumType) {
-                    // Convert enum_key to element_at.
-                    List<Expression> arguments = ImmutableList.of(convertEnumTypeToMapExpression(argumentType), argument.getExpression());
-                    return node.getLocation().isPresent()
-                            ? new FunctionCall(node.getLocation().get(), QualifiedName.of(FUNCTION_ELEMENT_AT), node.getWindow(), node.getFilter(), node.getOrderBy(), node.isDistinct(), node.isIgnoreNulls(), arguments)
-                            : new FunctionCall(QualifiedName.of(FUNCTION_ELEMENT_AT), node.getWindow(), node.getFilter(), node.getOrderBy(), node.isDistinct(), node.isIgnoreNulls(), arguments);
-                }
-            }
-            return super.visitFunctionCall(node, context);
+            return null;
         }
 
         @Override

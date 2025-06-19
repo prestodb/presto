@@ -17,20 +17,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
-import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.CharType;
-import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.EnumType;
-import com.facebook.presto.common.type.FunctionType;
-import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.SqlDate;
-import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.common.type.VarcharEnumType;
-import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.*;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.Signature;
@@ -148,7 +135,7 @@ public final class LiteralEncoder
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, typeOnly);
+            return new Cast(new NullLiteral(), type, false, typeOnly);
         }
 
         if (type.equals(TINYINT)) {
@@ -194,13 +181,13 @@ public final class LiteralEncoder
             Float value = intBitsToFloat(((Long) object).intValue());
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
-                return new Cast(new FunctionCall(QualifiedName.of("nan"), ImmutableList.of()), StandardTypes.REAL);
+                return new Cast(new FunctionCall(QualifiedName.of("nan"), ImmutableList.of()), RealType.REAL);
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL));
+                return ArithmeticUnaryExpression.negative(new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), RealType.REAL));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
-                return new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), StandardTypes.REAL);
+                return new Cast(new FunctionCall(QualifiedName.of("infinity"), ImmutableList.of()), RealType.REAL);
             }
             return new GenericLiteral("REAL", value.toString());
         }
@@ -213,7 +200,7 @@ public final class LiteralEncoder
             else {
                 string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
             }
-            return new Cast(new DecimalLiteral(string), type.getDisplayName());
+            return new Cast(new DecimalLiteral(string), type);
         }
 
         if (type instanceof VarcharType) {
@@ -224,12 +211,12 @@ public final class LiteralEncoder
             if (!varcharType.isUnbounded() && varcharType.getLengthSafe() == SliceUtf8.countCodePoints(value)) {
                 return stringLiteral;
             }
-            return new Cast(stringLiteral, type.getDisplayName(), false, typeOnly);
+            return new Cast(stringLiteral, type, false, typeOnly);
         }
 
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, type.getDisplayName(), false, typeOnly);
+            return new Cast(stringLiteral, type, false, typeOnly);
         }
 
         if (type.equals(BOOLEAN)) {

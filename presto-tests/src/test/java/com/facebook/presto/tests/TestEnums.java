@@ -119,7 +119,7 @@ public class TestEnums
     public void testEnumLiterals()
     {
         assertQueryResultUnordered(
-                "SELECT test.enum.mood.HAPPY, test.enum.mood.happY, \"test.enum.mood\".SAD, \"test.enum.mood\".\"mellow\"",
+                "select enum_key(cast(custkey as test.enum.mood)) from tpch.tiny.customer where custkey = 1",
                 singletonList(ImmutableList.of(0L, 0L, 1L, BIG_VALUE)));
 
         assertQueryResultUnordered(

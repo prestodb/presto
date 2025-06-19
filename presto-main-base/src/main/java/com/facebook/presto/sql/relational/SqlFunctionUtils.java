@@ -280,7 +280,7 @@ public final class SqlFunctionUtils
                 if (coercion != null) {
                     return new Cast(
                             rewritten,
-                            coercion.getTypeSignature().toString(),
+                            coercion,
                             false,
                             analysis.isTypeOnlyCoercion(expression));
                 }

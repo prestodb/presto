@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -133,7 +134,7 @@ public class TestScalarStatsCalculator
         assertCalculate(
                 new FunctionCall(
                         QualifiedName.of("length"),
-                        ImmutableList.of(new Cast(new NullLiteral(), "VARCHAR(10)"))))
+                        ImmutableList.of(new Cast(new NullLiteral(), VarcharType.VARCHAR))))
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -196,7 +197,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+        assertCalculate(new Cast(new SymbolReference("a"), BIGINT), inputStatistics)
                 .lowValue(2.0)
                 .highValue(17.0)
                 .distinctValuesCount(10)
@@ -217,7 +218,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+        assertCalculate(new Cast(new SymbolReference("a"), BIGINT), inputStatistics)
                 .lowValue(2.0)
                 .highValue(3.0)
                 .distinctValuesCount(2)
@@ -237,7 +238,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), inputStatistics)
+        assertCalculate(new Cast(new SymbolReference("a"), BIGINT), inputStatistics)
                 .lowValue(2.0)
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
@@ -258,7 +259,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.viewOf(ImmutableMap.of("a", DOUBLE)))
+        assertCalculate(new Cast(new SymbolReference("a"), DOUBLE), inputStatistics, TypeProvider.viewOf(ImmutableMap.of("a", DOUBLE)))
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -269,7 +270,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testCastUnknown()
     {
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), PlanNodeStatsEstimate.unknown())
+        assertCalculate(new Cast(new SymbolReference("a"), BIGINT), PlanNodeStatsEstimate.unknown())
                 .lowValueUnknown()
                 .highValueUnknown()
                 .distinctValuesCountUnknown()

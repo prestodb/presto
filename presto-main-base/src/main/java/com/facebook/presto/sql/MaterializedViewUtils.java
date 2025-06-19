@@ -17,6 +17,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.HyperLogLogType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.MaterializedViewStatus;
@@ -295,14 +297,14 @@ public final class MaterializedViewUtils
         @Override
         public Expression rewrite(Identifier baseTableColumn, Map<Expression, Identifier> baseToViewColumnMap)
         {
-            Cast cast = new Cast(new FunctionCall(APPROX_SET, ImmutableList.of(baseTableColumn)), VARBINARY);
+            Cast cast = new Cast(new FunctionCall(APPROX_SET, ImmutableList.of(baseTableColumn)), VarcharType.VARCHAR);
 
             if (!baseToViewColumnMap.containsKey(cast)) {
                 throw new SemanticException(NOT_SUPPORTED, baseTableColumn, "APPROX_DISTINCT rewrite not supported without approx set in base to view column map");
             }
 
             Identifier identifier = baseToViewColumnMap.get(cast);
-            Cast varbinaryToHll = new Cast(identifier, HYPER_LOG_LOG);
+            Cast varbinaryToHll = new Cast(identifier, HyperLogLogType.HYPER_LOG_LOG);
 
             FunctionCall mergedHll = new FunctionCall(MERGE, ImmutableList.of(varbinaryToHll));
             return new FunctionCall(CARDINALITY, ImmutableList.of(mergedHll));
@@ -311,7 +313,7 @@ public final class MaterializedViewUtils
         @Override
         public boolean validate(Identifier baseTableColumn, Map<Expression, Identifier> baseToViewColumnMap)
         {
-            return baseToViewColumnMap.containsKey(new Cast(new FunctionCall(APPROX_SET, ImmutableList.of(baseTableColumn)), VARBINARY));
+            return baseToViewColumnMap.containsKey(new Cast(new FunctionCall(APPROX_SET, ImmutableList.of(baseTableColumn)), VarcharType.VARCHAR));
         }
     }
 }

@@ -100,8 +100,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ShowStatsRewrite
         implements StatementRewrite.Rewrite
 {
-    private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), DOUBLE);
-    private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
+    private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), DoubleType.DOUBLE);
+    private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), DoubleType.DOUBLE);
 
     @Override
     public Statement rewrite(Session session,

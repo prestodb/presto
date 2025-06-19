@@ -1338,7 +1338,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeResolver.getType(parseTypeSignature(node.getTypeName()));
             }
             catch (IllegalArgumentException | UnknownTypeException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());

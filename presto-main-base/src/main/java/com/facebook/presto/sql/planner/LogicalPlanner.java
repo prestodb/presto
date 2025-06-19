@@ -343,7 +343,7 @@ public class LogicalPlanner
             VariableReferenceExpression output = variableAllocator.newVariable(getSourceLocation(query), column.getName(), column.getType());
             int index = columnHandles.indexOf(columns.get(column.getName()));
             if (index < 0) {
-                Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
+                Expression cast = new Cast(new NullLiteral(), column.getType());
                 assignments.put(output, rowExpression(cast, context, analysis));
             }
             else {
@@ -355,7 +355,7 @@ public class LogicalPlanner
                     assignments.put(output, input);
                 }
                 else {
-                    Expression cast = new Cast(createSymbolReference(input), tableType.getTypeSignature().toString());
+                    Expression cast = new Cast(createSymbolReference(input), tableType);
                     assignments.put(output, rowExpression(cast, context, analysis));
                 }
             }

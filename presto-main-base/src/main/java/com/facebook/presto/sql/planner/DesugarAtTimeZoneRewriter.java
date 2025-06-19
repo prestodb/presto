@@ -74,10 +74,10 @@ public class DesugarAtTimeZoneRewriter
             Expression value = treeRewriter.rewrite(node.getValue(), context);
             Type type = expressionTypes.get(NodeRef.of(node.getValue()));
             if (type.equals(TIME)) {
-                value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
+                value = new Cast(value, TIME_WITH_TIME_ZONE);
             }
             else if (type.equals(TIMESTAMP)) {
-                value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE.getDisplayName());
+                value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE);
             }
 
             return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));

@@ -832,7 +832,7 @@ public final class FunctionAssertions
                 if (coercion != null) {
                     rewrittenExpression = new Cast(
                             rewrittenExpression,
-                            coercion.getTypeSignature().toString(),
+                            coercion,
                             false,
                             analysis.isTypeOnlyCoercion(node));
                 }
@@ -852,7 +852,7 @@ public final class FunctionAssertions
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion);
                 }
 
                 return rewrittenExpression;

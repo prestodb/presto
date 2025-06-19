@@ -616,7 +616,7 @@ class RelationPlanner
                     new Cast(
                             identifier.getLocation(),
                             createSymbolReference(left.getVariable(leftField)),
-                            type.getTypeSignature().toString(),
+                            type,
                             false,
                             metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)),
                     context));
@@ -629,7 +629,7 @@ class RelationPlanner
                     new Cast(
                             identifier.getLocation(),
                             createSymbolReference(right.getVariable(rightField)),
-                            type.getTypeSignature().toString(),
+                            type,
                             false,
                             metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)),
                     context));
@@ -984,7 +984,7 @@ class RelationPlanner
             Field oldField = oldRelationWithVisibleFields.getFieldByIndex(i);
             Type outputType = targetColumnTypes[i];
             if (!outputType.equals(inputVariable.getType())) {
-                Expression cast = new Cast(createSymbolReference(inputVariable), outputType.getTypeSignature().toString());
+                Expression cast = new Cast(createSymbolReference(inputVariable), outputType);
                 VariableReferenceExpression outputVariable = newVariable(variableAllocator, cast, outputType);
                 assignments.put(outputVariable, rowExpression(cast, context));
                 newVariables.add(outputVariable);
