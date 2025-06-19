@@ -61,9 +61,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableFinishOperator
         implements Operator
@@ -328,8 +328,8 @@ public class TableFinishOperator
         requireNonNull(statisticsTiming, "statisticsTiming is null");
         return () -> new TableFinishInfo(
                 outputMetadata.get(),
-                succinctNanos(statisticsTiming.getWallNanos()),
-                succinctNanos(statisticsTiming.getCpuNanos()));
+                NANOSECONDS.toMillis(statisticsTiming.getWallNanos()),
+                NANOSECONDS.toMillis(statisticsTiming.getCpuNanos()));
     }
 
     @Override

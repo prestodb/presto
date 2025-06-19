@@ -26,7 +26,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,13 +40,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.System.currentTimeMillis;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -323,8 +319,8 @@ public class DriverContext
     public DriverStats getDriverStats()
     {
         long totalScheduledTime = overallTiming.getWallNanos();
-        long totalCpuTime = overallTiming.getCpuNanos();
         long totalAllocation = overallTiming.getAllocationBytes();
+        long totalCpuTime = overallTiming.getCpuNanos();
 
         long totalBlockedTime = blockedWallNanos.get();
         BlockedMonitor blockedMonitor = this.blockedMonitor.get();
@@ -334,17 +330,17 @@ public class DriverContext
 
         // startNanos is always valid once executionStartTime is not null
         long executionStartTimeInMillis = this.executionStartTime.get();
-        Duration queuedTime = new Duration(nanosBetween(createNanos, executionStartTimeInMillis == 0 ? nanoTime() : startNanos.get()), NANOSECONDS);
+        long queuedTime = nanosBetween(createNanos, executionStartTimeInMillis == 0 ? nanoTime() : startNanos.get());
 
         // endNanos is always valid once executionStartTime is not null
         long executionEndTimeInMillis = this.executionEndTime.get();
-        Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTimeInMillis == 0 ? nanoTime() : endNanos.get()), NANOSECONDS);
+        long elapsedTime = nanosBetween(createNanos, executionEndTimeInMillis == 0 ? nanoTime() : endNanos.get());
 
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
         long rawInputDataSize;
         long rawInputPositions;
-        Duration rawInputReadTime;
+        long rawInputReadTime;
         long processedInputDataSize;
         long processedInputPositions;
         long outputDataSize;
@@ -352,7 +348,7 @@ public class DriverContext
         if (inputOperator != null) {
             rawInputDataSize = inputOperator.getRawInputDataSizeInBytes();
             rawInputPositions = inputOperator.getRawInputPositions();
-            rawInputReadTime = inputOperator.getAddInputWall();
+            rawInputReadTime = inputOperator.getAddInputWallInNanos();
 
             processedInputDataSize = inputOperator.getInputDataSizeInBytes();
             processedInputPositions = inputOperator.getInputPositions();
@@ -364,7 +360,7 @@ public class DriverContext
         else {
             rawInputDataSize = 0L;
             rawInputPositions = 0;
-            rawInputReadTime = new Duration(0, MILLISECONDS);
+            rawInputReadTime = 0;
 
             processedInputDataSize = 0L;
             processedInputPositions = 0;
@@ -380,7 +376,7 @@ public class DriverContext
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
-            totalCpuTime += operator.getAdditionalCpu().roundTo(NANOSECONDS);
+            totalCpuTime += operator.getAdditionalCpuInNanos();
         }
 
         return new DriverStats(
@@ -388,14 +384,14 @@ public class DriverContext
                 createdTimeInMillis,
                 executionStartTimeInMillis,
                 executionEndTimeInMillis,
-                queuedTime.convertToMostSuccinctTimeUnit(),
-                elapsedTime.convertToMostSuccinctTimeUnit(),
+                queuedTime,
+                elapsedTime,
                 driverMemoryContext.getUserMemory(),
                 driverMemoryContext.getRevocableMemory(),
                 driverMemoryContext.getSystemMemory(),
-                succinctNanos(totalScheduledTime),
-                succinctNanos(totalCpuTime),
-                succinctNanos(totalBlockedTime),
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
                 blockedMonitor != null,
                 builder.build(),
                 totalAllocation,
