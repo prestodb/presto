@@ -73,8 +73,6 @@ target_link_libraries(
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_hive_partition_function
-  velox_parse_expression
-  velox_parse_parser
   velox_presto_serializer
   velox_s3fs
   velox_serialization
@@ -92,7 +90,8 @@ target_link_libraries(
   pthread)
 
 if(PRESTO_ENABLE_CUDF)
-  target_link_libraries(presto_server_lib velox_cudf_exec)
+  target_link_libraries(presto_server_lib velox_parse_expression
+                        velox_parse_parser velox_cudf_exec)
 endif()
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
@@ -116,10 +115,10 @@ set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
 
 add_executable(presto_server PrestoMain.cpp)
 
-# velox_tpch_connector is an OBJECT target in Velox and so needs to be linked
-# to the executable or use TARGET_OBJECT linkage for the presto_server_lib target.
-# However, we also would need to add its dependencies (tpch_gen etc).
-# TODO change the target in Velox to a library target then we can move this to the
+# velox_tpch_connector is an OBJECT target in Velox and so needs to be linked to
+# the executable or use TARGET_OBJECT linkage for the presto_server_lib target.
+# However, we also would need to add its dependencies (tpch_gen etc). TODO
+# change the target in Velox to a library target then we can move this to the
 # presto_server_lib.
 target_link_libraries(presto_server presto_server_lib velox_tpch_connector)
 
