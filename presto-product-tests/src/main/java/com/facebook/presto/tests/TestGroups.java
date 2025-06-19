@@ -69,6 +69,7 @@ public final class TestGroups
     public static final String HIVE_LIST_CACHING = "hive_list_caching";
     public static final String INVALIDATE_METASTORE_CACHE = "invalidate_metastore_cache";
     public static final String MIXED_CASE = "mixed_case";
+    public static final String HIVE_SYMLINK_TABLE = "hive_symlink_table";
 
     private TestGroups() {}
 }

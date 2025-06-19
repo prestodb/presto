@@ -24,6 +24,7 @@ import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -239,7 +240,8 @@ public class StoragePartitionLoader
                 targetPaths);
     }
 
-    private Iterator<InternalHiveSplit> getSymlinkIterator(
+    @VisibleForTesting
+    Iterator<InternalHiveSplit> getSymlinkIterator(
             Path path,
             boolean s3SelectPushdownEnabled,
             Storage storage,
