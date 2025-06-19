@@ -19,14 +19,14 @@ ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
-RUN mkdir build && \
+RUN bash -c "mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
                  ../velox/scripts/setup-centos9.sh install_adapters && \
                  ../scripts/setup-adapters.sh && \
                  source ../velox/scripts/setup-centos9.sh && \
                  install_clang15 && \
                  install_cuda 12.8) && \
-    rm -rf build
+    rm -rf build"
 
 # put CUDA binaries on the PATH
 ENV PATH=/usr/local/cuda/bin:${PATH}
