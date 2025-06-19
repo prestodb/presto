@@ -139,8 +139,8 @@ uint64_t TextRowReaderImpl::next(
       }
 
       DelimType delim = DelimTypeNone;
-      auto const& ct = t->childAt(i);
-      auto const& rct = reqT->childAt(i);
+      const auto& ct = t->childAt(i);
+      const auto& rct = reqT->childAt(i);
 
       /// TODO: PROJECTION
 
@@ -353,7 +353,7 @@ bool TextRowReaderImpl::getEOR(DelimType& delim, bool& isNull) {
   bool wasAtSOL = atSOL_;
   setNone(delim);
   std::string s;
-  auto const& ns = contents_->serDeOptions.nullString;
+  const auto& ns = contents_->serDeOptions.nullString;
   uint8_t v = 0;
   while (true) {
     v = getByteUnchecked(delim);
@@ -795,17 +795,191 @@ void TextRowReaderImpl::readElement(
       }
       break;
 
-    /// TODO: ADD IMPLEMENTATION
-    case TypeKind::ARRAY:
-      break;
+    case TypeKind::ARRAY: {
+      const auto& ct = t->childAt(0);
+      const auto arrayVector = data->asChecked<ArrayVector>();
+      incrementDepth();
+      (void)getEOR(delim, isNull);
 
-    /// TODO: ADD IMPLEMENTATION
-    case TypeKind::ROW:
-      break;
+      if (arrayVector != nullptr) {
+        auto rawSizes = arrayVector->sizes()->asMutable<vector_size_t>();
+        auto rawOffsets = arrayVector->offsets()->asMutable<vector_size_t>();
+        const int startElementIdx = rawOffsets[insertionRow];
+        vector_size_t elementCount = 0;
 
-    /// TODO: ADD IMPLEMENTATION
-    case TypeKind::MAP:
+        if (isNull) {
+          arrayVector->setNull(insertionRow, isNull);
+          arrayVector->setNullCount(
+              arrayVector->getNullCount().value_or(0) + 1);
+        } else {
+          // Read elements until we reach the end of the array
+          while (!isOuterEOR(delim)) {
+            setNone(delim);
+            auto elementsVector = arrayVector->elements().get();
+            resizeVector(elementsVector, startElementIdx + elementCount);
+            readElement(
+                ct,
+                reqT->childAt(0),
+                elementsVector,
+                startElementIdx + elementCount,
+                delim);
+            elementCount++;
+
+            if (atEOF_ && atSOL_) {
+              decrementDepth(delim);
+              return;
+            }
+          }
+
+          rawSizes[insertionRow] = elementCount;
+        }
+
+        /**
+        TODO: Redundant rawOffsets update. Only update the next rawOffsets,
+        remember to update rawOffsets even if its null forthis to work
+        */
+        for (auto i = insertionRow + 1; i <= arrayVector->size(); ++i) {
+          rawOffsets[i] = startElementIdx + elementCount;
+        }
+
+      } else {
+        // skip over array data to maintain correct stream position
+        while (!isOuterEOR(delim)) {
+          setNone(delim);
+          readElement(ct, reqT->childAt(0), nullptr, 0, delim);
+        }
+      }
+      decrementDepth(delim);
       break;
+    }
+
+    case TypeKind::ROW: {
+      const auto& childCount = t->size();
+      const auto& rowVector = data->asChecked<RowVector>();
+      incrementDepth();
+
+      if (rowVector != nullptr) {
+        if (isNull) {
+          rowVector->setNull(insertionRow, isNull);
+          rowVector->setNullCount(rowVector->getNullCount().value_or(0) + 1);
+        } else {
+          for (uint64_t j = 0; j < childCount; j++) {
+            if (!isOuterEOR(delim)) {
+              setNone(delim);
+            }
+
+            // Get the child vector for this field
+            BaseVector* childVector = nullptr;
+            if (j < reqT->size()) {
+              childVector = rowVector->childAt(j).get();
+            }
+            resizeVector(childVector, insertionRow);
+            readElement(
+                t->childAt(j),
+                j < reqT->size() ? reqT->childAt(j) : t->childAt(j),
+                childVector,
+                insertionRow,
+                delim);
+
+            if (atEOF_ && atSOL_) {
+              decrementDepth(delim);
+              return;
+            }
+          }
+        }
+      } else {
+        // Skip over row data to maintain correct stream position
+        for (uint64_t j = 0; j < childCount; j++) {
+          if (!isOuterEOR(delim)) {
+            setNone(delim);
+          }
+          readElement(t->childAt(j), reqT->childAt(j), nullptr, 0, delim);
+        }
+      }
+
+      decrementDepth(delim);
+      setEOE(delim);
+      break;
+    }
+
+    case TypeKind::MAP: {
+      auto& mapt = t->asMap();
+      const auto& key = mapt.keyType();
+      const auto& value = mapt.valueType();
+      auto mapVector = data->asChecked<MapVector>();
+      incrementDepth();
+      (void)getEOR(delim, isNull);
+
+      if (mapVector != nullptr) {
+        auto rawOffsets = mapVector->offsets()->asMutable<vector_size_t>();
+        auto rawSizes = mapVector->sizes()->asMutable<vector_size_t>();
+        const auto startElementIdx = rawOffsets[insertionRow];
+        vector_size_t elementCount = 0;
+        if (isNull) {
+          mapVector->setNull(insertionRow, isNull);
+          mapVector->setNullCount(mapVector->getNullCount().value_or(0) + 1);
+        } else {
+          while (!isOuterEOR(delim)) {
+            // decode another element
+            setNone(delim);
+            incrementDepth();
+
+            // insert key
+            auto keysVector = mapVector->mapKeys().get();
+            resizeVector(keysVector, startElementIdx + elementCount);
+            readElement(
+                key,
+                reqT->childAt(0),
+                keysVector,
+                startElementIdx + elementCount,
+                delim);
+
+            // case for no value key
+            if (atEOF_ && atSOL_) {
+              rawSizes[insertionRow] = elementCount;
+              decrementDepth(delim);
+              decrementDepth(delim);
+              return;
+            }
+            resetEOE(delim);
+
+            // insert value
+            auto valsVector = mapVector->mapValues().get();
+            resizeVector(valsVector, startElementIdx + elementCount);
+            readElement(
+                value,
+                reqT->childAt(1),
+                valsVector,
+                startElementIdx + elementCount,
+                delim);
+
+            ++elementCount;
+            decrementDepth(delim);
+          }
+
+          rawSizes[insertionRow] = elementCount;
+        }
+        /**
+        TODO: Redundant rawOffsets update. Only update the next
+        rawOffsets, similar to Array
+        */
+        for (auto i = insertionRow + 1; i <= mapVector->size(); ++i) {
+          rawOffsets[i] = startElementIdx + elementCount;
+        }
+      } else {
+        // skip over map data to maintain correct stream position
+        while (!isOuterEOR(delim)) {
+          setNone(delim);
+          incrementDepth();
+          readElement(key, reqT->childAt(0), nullptr, 0, delim);
+          resetEOE(delim);
+          readElement(value, reqT->childAt(1), nullptr, 0, delim);
+          decrementDepth(delim);
+        }
+      }
+      decrementDepth(delim);
+      break;
+    }
 
     case TypeKind::REAL:
       switch (reqT->kind()) {

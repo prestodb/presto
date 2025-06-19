@@ -301,7 +301,7 @@ TEST_F(TextReaderTest, DISABLED_headerAndCustomNullString) {
   }
 }
 
-TEST_F(TextReaderTest, DISABLED_complexTypesWithCustomDelimiters) {
+TEST_F(TextReaderTest, complexTypesWithCustomDelimiters) {
   const vector_size_t length = 13;
   const auto keyVector = makeFlatVector<int64_t>(
       {1,   111,  22, 22222, 333, 33, 44,    5,   555, 66, 7777,     7,
