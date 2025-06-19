@@ -56,21 +56,24 @@ class NoisyCountIfResultVerifier : public ResultVerifier {
     groupingKeys_ = groupingKeys;
     name_ = aggregateName;
 
-    // Create a function to get the expected result without noise.
-    auto countIfCall =
-        fmt::format("noisy_count_if_gaussian({}, 0.0)", aggregateColumn_);
+    std::string countIfCall;
+    if (aggregate.distinct) {
+      countIfCall = fmt::format("count_if(DISTINCT {})", aggregateColumn_);
+    } else {
+      countIfCall = fmt::format("count_if({})", aggregateColumn_);
+    }
 
-    // Add filter if distinct mask exists
+    // Add filter if mask exists
     if (aggregate.mask != nullptr) {
       countIfCall += fmt::format(" filter (where {})", aggregate.mask->name());
     }
 
     // Execute plan to get expected result without noise
-    auto plan = PlanBuilder()
-                    .values(input)
-                    .projectExpressions(projections)
-                    .singleAggregation(groupingKeys, {countIfCall})
-                    .planNode();
+    core::PlanNodePtr plan = PlanBuilder()
+                                 .values(input)
+                                 .projectExpressions(projections)
+                                 .singleAggregation(groupingKeys, {countIfCall})
+                                 .planNode();
 
     expectedNoNoise_ = AssertQueryBuilder(plan).copyResults(input[0]->pool());
   }

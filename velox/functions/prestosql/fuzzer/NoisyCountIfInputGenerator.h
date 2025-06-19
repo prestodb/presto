@@ -75,6 +75,15 @@ class NoisyCountIfInputGenerator : public InputGenerator {
               BaseVector::createConstant(BIGINT(), intValue, size, pool));
         }
       }
+      // For the third argument (random seed)
+      else if (i == 2 && type->isBigint()) {
+        if (!randomSeed_.has_value()) {
+          randomSeed_ =
+              boost::random::uniform_int_distribution<int64_t>(0, 12345)(rng);
+        }
+        result.push_back(
+            BaseVector::createConstant(BIGINT(), *randomSeed_, size, pool));
+      }
     }
 
     return result;
@@ -85,6 +94,7 @@ class NoisyCountIfInputGenerator : public InputGenerator {
 
  private:
   std::optional<double> noiseScale_;
+  std::optional<int64_t> randomSeed_;
 };
 
 } // namespace facebook::velox::exec::test
