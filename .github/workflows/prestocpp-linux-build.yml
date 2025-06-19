@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+    concurrency:
+      group: ${{ github.workflow }}-prestocpp-linux-build-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CC: /usr/bin/clang-15
