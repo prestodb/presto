@@ -1,0 +1,43 @@
+<runtime>
+    <!-- Target -->
+    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+
+    <!-- Notices -->
+    <fileSet to="/">
+        <directory path="${basedir}">
+            <include>NOTICE</include>
+            <include>README.txt</include>
+        </directory>
+    </fileSet>
+
+    <!-- Launcher -->
+    <artifactSet to="bin">
+        <artifact id="com.facebook.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
+            <unpack />
+        </artifact>
+        <artifact id="com.facebook.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
+            <unpack filter="true" />
+        </artifact>
+    </artifactSet>
+
+    <!-- Server -->
+    <artifactSet to="lib">
+        <artifact id="${project.groupId}:presto-main-base:${project.version}" />
+    </artifactSet>
+    <artifactSet to="lib">
+        <artifact id="${project.groupId}:presto-main:${project.version}" />
+    </artifactSet>
+
+    <!-- Plugins -->
+    <artifactSet to="plugin/plan-checker-router-plugin">
+        <artifact id="${project.groupId}:presto-plan-checker-router-plugin:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/router-example-plugin-scheduler">
+        <artifact id="${project.groupId}:presto-router-example-plugin-scheduler:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+</runtime>
