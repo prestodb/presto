@@ -464,6 +464,7 @@ void LocalPlanner::markMixedJoinBridges(
 std::shared_ptr<Driver> DriverFactory::createDriver(
     std::unique_ptr<DriverCtx> ctx,
     std::shared_ptr<ExchangeClient> exchangeClient,
+    std::shared_ptr<PipelinePushdownFilters> filters,
     std::function<int(int pipelineId)> numDrivers) {
   auto driver = std::shared_ptr<Driver>(new Driver());
   ctx->driver = driver.get();
@@ -672,6 +673,11 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
     operators.push_back(operatorSupplier(operators.size(), ctx.get()));
   }
 
+  if (filters->empty()) {
+    filters->resize(operators.size());
+  } else {
+    VELOX_CHECK_EQ(filters->size(), operators.size());
+  }
   driver->init(std::move(ctx), std::move(operators));
   for (auto& adapter : adapters) {
     if (adapter.adapt(*this, *driver)) {
@@ -679,6 +685,7 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
     }
   }
   driver->isAdaptable_ = false;
+  driver->pushdownFilters_ = std::move(filters);
   return driver;
 }
 

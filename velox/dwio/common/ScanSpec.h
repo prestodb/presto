@@ -57,17 +57,15 @@ class ScanSpec {
   // Filter to apply. If 'this' corresponds to a struct/list/map, this
   // can only be isNull or isNotNull, other filtering is given by
   // 'children'.
-  common::Filter* filter() const {
+  const common::Filter* filter() const {
     return filterDisabled_ ? nullptr : filter_.get();
   }
 
   // Sets 'filter_'. May be used at initialization or when adding a
   // pushed down filter, e.g. top k cutoff.
-  void setFilter(std::unique_ptr<Filter> filter) {
+  void setFilter(std::shared_ptr<Filter> filter) {
     filter_ = std::move(filter);
   }
-
-  void addFilter(const Filter&);
 
   void setMaxArrayElementsCount(vector_size_t count) {
     maxArrayElementsCount_ = count;
@@ -422,7 +420,7 @@ class ScanSpec {
   // True if a string dictionary or flat map in this field should be
   // returned as flat.
   bool makeFlat_ = false;
-  std::unique_ptr<common::Filter> filter_;
+  std::shared_ptr<const common::Filter> filter_;
   bool filterDisabled_ = false;
   dwio::common::DeltaColumnUpdater* deltaUpdate_ = nullptr;
 
@@ -496,7 +494,7 @@ void ScanSpec::visit(const Type& type, F&& f) {
 // Returns false if no value from a range defined by stats can pass the
 // filter. True, otherwise.
 bool testFilter(
-    common::Filter* filter,
+    const common::Filter* filter,
     dwio::common::ColumnStatistics* stats,
     uint64_t totalRows,
     const TypePtr& type);

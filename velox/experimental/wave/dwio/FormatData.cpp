@@ -176,9 +176,9 @@ void setFilter(GpuDecode* step, ColumnReader* reader, Stream* stream) {
       step->filterKind = WaveFilterKind::kBigintRange;
       step->nullsAllowed = veloxFilter->testNull();
       step->filter._.int64Range[0] =
-          reinterpret_cast<common::BigintRange*>(veloxFilter)->lower();
+          reinterpret_cast<const common::BigintRange*>(veloxFilter)->lower();
       step->filter._.int64Range[1] =
-          reinterpret_cast<common::BigintRange*>(veloxFilter)->upper();
+          reinterpret_cast<const common::BigintRange*>(veloxFilter)->upper();
       break;
     }
 

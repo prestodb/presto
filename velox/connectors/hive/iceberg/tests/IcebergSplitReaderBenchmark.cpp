@@ -215,7 +215,7 @@ std::shared_ptr<ScanSpec> IcebergSplitReaderBenchmark::createScanSpec(
     RowTypePtr& rowType,
     const std::vector<FilterSpec>& filterSpecs,
     std::vector<uint64_t>& hitRows,
-    std::unordered_map<Subfield, std::unique_ptr<Filter>>& filters) {
+    SubfieldFilters& filters) {
   std::unique_ptr<FilterGenerator> filterGenerator =
       std::make_unique<FilterGenerator>(rowType, 0);
   filters = filterGenerator->makeSubfieldFilters(
@@ -271,7 +271,7 @@ void IcebergSplitReaderBenchmark::readSingleColumn(
       createFilterSpec(columnName, startPct, selectPct, rowType, false, false));
 
   std::vector<uint64_t> hitRows;
-  std::unordered_map<Subfield, std::unique_ptr<Filter>> filters;
+  SubfieldFilters filters;
   auto scanSpec =
       createScanSpec(*batches, rowType, filterSpecs, hitRows, filters);
 

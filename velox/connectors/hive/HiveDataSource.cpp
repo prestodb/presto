@@ -129,7 +129,7 @@ HiveDataSource::HiveDataSource(
   }
 
   for (const auto& [k, v] : hiveTableHandle_->subfieldFilters()) {
-    filters_.emplace(k.clone(), v->clone());
+    filters_.emplace(k.clone(), v);
   }
   double sampleRate = 1;
   auto remainingFilter = extractFiltersFromRemainingFilter(
@@ -415,7 +415,7 @@ void HiveDataSource::addDynamicFilter(
     column_index_t outputChannel,
     const std::shared_ptr<common::Filter>& filter) {
   auto& fieldSpec = scanSpec_->getChildByChannel(outputChannel);
-  fieldSpec.addFilter(*filter);
+  fieldSpec.setFilter(filter);
   scanSpec_->resetCachedValues(true);
   if (splitReader_) {
     splitReader_->resetFilterCaches();

@@ -3058,6 +3058,7 @@ TEST_F(TableScanTest, bucketConversion) {
     return splits;
   };
   {
+    SCOPED_TRACE("Basic");
     auto outputType = ROW({"c1"}, {BIGINT()});
     auto plan = PlanBuilder().tableScan(outputType, {}, "", schema).planNode();
     std::vector<int64_t> c1;
@@ -3113,6 +3114,28 @@ TEST_F(TableScanTest, bucketConversion) {
     auto data = makeFlatVector(c1);
     auto expected = makeRowVector({"c2", "c1"}, {data, data});
     AssertQueryBuilder(plan).splits(makeSplits()).assertResults(expected);
+  }
+  {
+    SCOPED_TRACE("Dynamic filters");
+    auto outputType = ROW({"c1"}, {BIGINT()});
+    auto build = makeRowVector({"cc1"}, {makeFlatVector<int64_t>({2, 3})});
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId scanNodeId;
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .tableScan(outputType, {}, "", schema)
+            .capturePlanNodeId(scanNodeId)
+            .hashJoin(
+                {"c1"},
+                {"cc1"},
+                PlanBuilder(planNodeIdGenerator).values({build}).planNode(),
+                "",
+                {"c1"})
+            .planNode();
+    auto expected = makeRowVector({makeConstant<int64_t>(2, 1)});
+    AssertQueryBuilder(plan)
+        .splits(scanNodeId, makeSplits())
+        .assertResults(expected);
   }
 }
 

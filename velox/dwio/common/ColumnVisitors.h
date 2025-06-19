@@ -164,7 +164,7 @@ class ColumnVisitor {
   static constexpr bool kFilterOnly = std::is_same_v<Extract, DropValues>;
 
   ColumnVisitor(
-      TFilter& filter,
+      const TFilter& filter,
       SelectiveColumnReader* reader,
       const RowSet& rows,
       ExtractValues values)
@@ -409,7 +409,7 @@ class ColumnVisitor {
   inline void addNull();
   inline void addOutputRow(vector_size_t row);
 
-  TFilter& filter() {
+  const TFilter& filter() {
     return filter_;
   }
 
@@ -491,7 +491,7 @@ class ColumnVisitor {
   }
 
  protected:
-  TFilter& filter_;
+  const TFilter& filter_;
   SelectiveColumnReader* reader_;
   const bool allowNulls_;
   const vector_size_t* rows_;
@@ -741,7 +741,7 @@ class DictionaryColumnVisitor
 
  public:
   DictionaryColumnVisitor(
-      TFilter& filter,
+      const TFilter& filter,
       SelectiveColumnReader* reader,
       const RowSet& rows,
       ExtractValues values)
@@ -1192,7 +1192,7 @@ class StringDictionaryColumnVisitor
 
  public:
   StringDictionaryColumnVisitor(
-      TFilter& filter,
+      const TFilter& filter,
       SelectiveColumnReader* reader,
       RowSet rows,
       ExtractValues values)
@@ -1412,7 +1412,7 @@ class DirectRleColumnVisitor
 
  public:
   DirectRleColumnVisitor(
-      TFilter& filter,
+      const TFilter& filter,
       SelectiveColumnReader* reader,
       RowSet rows,
       ExtractValues values)
@@ -1547,12 +1547,15 @@ class StringColumnReadWithVisitorHelper {
  private:
   template <typename TFilter, bool kIsDense, typename ExtractValues, typename F>
   void readHelper(
-      velox::common::Filter* filter,
+      const velox::common::Filter* filter,
       ExtractValues extractValues,
       F readWithVisitor) {
     readWithVisitor(
         ColumnVisitor<folly::StringPiece, TFilter, ExtractValues, kIsDense>(
-            *static_cast<TFilter*>(filter), &reader_, rows_, extractValues));
+            *static_cast<const TFilter*>(filter),
+            &reader_,
+            rows_,
+            extractValues));
   }
 
   template <bool kIsDense, typename ExtractValues, typename F>

@@ -162,7 +162,7 @@ void fixedWidthScan(
     dwio::common::SeekableInputStream& input,
     const char*& bufferStart,
     const char*& bufferEnd,
-    TFilter& filter,
+    const TFilter& filter,
     THook& hook) {
   constexpr int32_t kWidth = xsimd::batch<T>::size;
   constexpr bool is16 = sizeof(T) == 2;
@@ -473,7 +473,7 @@ void processFixedWidthRun(
     T* values,
     int32_t* filterHits,
     int32_t& numValues,
-    TFilter& filter,
+    const TFilter& filter,
     THook& hook) {
   constexpr int32_t kWidth = xsimd::batch<T>::size;
   constexpr bool hasFilter =

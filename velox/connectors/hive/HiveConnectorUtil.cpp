@@ -330,7 +330,11 @@ void processFieldSpec(
     if (type.isMap() && !spec.isConstant()) {
       auto* keys = spec.childByName(common::ScanSpec::kMapKeysFieldName);
       VELOX_CHECK_NOT_NULL(keys);
-      keys->addFilter(common::IsNotNull());
+      if (keys->filter()) {
+        VELOX_CHECK(!keys->filter()->testNull());
+      } else {
+        keys->setFilter(std::make_shared<common::IsNotNull>());
+      }
     }
   });
   if (dataColumns) {
@@ -443,7 +447,8 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       continue;
     }
     auto fieldSpec = spec->getOrCreateChild(pair.first);
-    fieldSpec->addFilter(*pair.second);
+    VELOX_CHECK_NULL(spec->filter());
+    fieldSpec->setFilter(pair.second);
   }
 
   if (disableStatsBasedFilterReorder) {
@@ -637,7 +642,7 @@ bool applyPartitionFilter(
     const TypePtr& type,
     const std::string& partitionValue,
     bool isPartitionDateDaysSinceEpoch,
-    common::Filter* filter,
+    const common::Filter* filter,
     bool asLocalTime) {
   if (type->isDate()) {
     int32_t result = 0;

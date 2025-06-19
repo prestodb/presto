@@ -373,6 +373,36 @@ void HashProbe::initializeResultIter() {
       rowSizeEstimation);
 }
 
+void HashProbe::pushdownDynamicFilters() {
+  auto* driver = operatorCtx_->driverCtx()->driver;
+  auto numFilters = driver->pushdownFilters(
+      this,
+      keyChannels_,
+      [&](column_index_t sourceChannel,
+          std::shared_ptr<common::Filter>& filter) {
+        if (dynamicFiltersProducedOnChannels_.contains(sourceChannel)) {
+          return true;
+        }
+        filter = table_->hashers()[sourceChannel]->getFilter(false);
+        if (!filter) {
+          return false;
+        }
+        for (auto* peer : findPeerOperators()) {
+          peer->dynamicFiltersProducedOnChannels_.insert(sourceChannel);
+        }
+        return true;
+      });
+  // The join can be completely replaced with a pushed down filter when the
+  // following conditions are met:
+  //  * hash table has a single key with unique values,
+  //  * build side has no dependent columns.
+  if (keyChannels_.size() == 1 && !table_->hasDuplicateKeys() &&
+      tableOutputProjections_.empty() && !filter_ && numFilters > 0 &&
+      !isRightJoin(joinType_)) {
+    canReplaceWithDynamicFilter_ = true;
+  }
+}
+
 void HashProbe::asyncWaitForHashTable() {
   checkRunning();
   VELOX_CHECK_NULL(table_);
@@ -438,18 +468,7 @@ void HashProbe::asyncWaitForHashTable() {
     // probe input is read from spilled data and there is no upstream operators
     // involved; (2) if there is spill data to restore, then we can't filter
     // probe inputs solely based on the current table's join keys.
-    const auto& buildHashers = table_->hashers();
-    const auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
-        this, keyChannels_);
-
-    for (auto i = 0; i < keyChannels_.size(); ++i) {
-      if (channels.find(keyChannels_[i]) != channels.end()) {
-        if (auto filter = buildHashers[i]->getFilter(/*nullAllowed=*/false)) {
-          dynamicFilters_.emplace(keyChannels_[i], std::move(filter));
-        }
-      }
-    }
-    hasGeneratedDynamicFilters_ = !dynamicFilters_.empty();
+    pushdownDynamicFilters();
   }
 }
 
@@ -631,20 +650,6 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
     *future = std::move(future_);
   }
   return fromStateToBlockingReason(state_);
-}
-
-void HashProbe::clearDynamicFilters() {
-  // The join can be completely replaced with a pushed down filter when the
-  // following conditions are met:
-  //  * hash table has a single key with unique values,
-  //  * build side has no dependent columns.
-  if (keyChannels_.size() == 1 && !table_->hasDuplicateKeys() &&
-      tableOutputProjections_.empty() && !filter_ && !dynamicFilters_.empty() &&
-      !isRightJoin(joinType_)) {
-    canReplaceWithDynamicFilter_ = true;
-  }
-
-  Operator::clearDynamicFilters();
 }
 
 void HashProbe::decodeAndDetectNonNullKeys() {

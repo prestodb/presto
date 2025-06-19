@@ -65,15 +65,6 @@ class TableScan : public WaveSourceOperator {
 
   bool isFinished() const override;
 
-  bool canAddDynamicFilter() const override {
-    return true;
-  }
-
-  void addDynamicFilter(
-      const core::PlanNodeId& producer,
-      column_index_t outputChannel,
-      const std::shared_ptr<common::Filter>& filter) override;
-
   static uint64_t ioWaitNanos() {
     return ioWaitNanos_;
   }
@@ -121,9 +112,6 @@ class TableScan : public WaveSourceOperator {
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   bool noMoreSplits_ = false;
-  // Dynamic filters to add to the data source when it gets created.
-  std::unordered_map<column_index_t, std::shared_ptr<common::Filter>>
-      pendingDynamicFilters_;
 
   std::shared_ptr<connector::DataSource> dataSource_;
 

@@ -206,7 +206,7 @@ class ParquetData : public dwio::common::FormatData {
  private:
   /// True if 'filter' may have hits for the column of 'this' according to the
   /// stats in 'rowGroup'.
-  bool rowGroupMatches(uint32_t rowGroupId, common::Filter* filter);
+  bool rowGroupMatches(uint32_t rowGroupId, const common::Filter* filter);
 
  protected:
   memory::MemoryPool& pool_;

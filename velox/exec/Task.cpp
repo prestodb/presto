@@ -1241,6 +1241,7 @@ std::vector<std::shared_ptr<Driver>> Task::createDriversLocked(
     // execution, from the split group id.
     const uint32_t driverIdOffset =
         factory->numDrivers * (groupedExecutionDrivers ? splitGroupId : 0);
+    auto filters = std::make_shared<PipelinePushdownFilters>();
     for (uint32_t partitionId = 0; partitionId < factory->numDrivers;
          ++partitionId) {
       drivers.emplace_back(factory->createDriver(
@@ -1251,6 +1252,7 @@ std::vector<std::shared_ptr<Driver>> Task::createDriversLocked(
               splitGroupId,
               partitionId),
           getExchangeClientLocked(pipeline),
+          filters,
           [self](size_t i) {
             return i < self->driverFactories_.size()
                 ? self->driverFactories_[i]->numTotalDrivers

@@ -213,7 +213,7 @@ folly::dynamic AlwaysFalse::serialize() const {
   return Filter::serializeBase("AlwaysFalse");
 }
 
-FilterPtr AlwaysFalse::create(const folly::dynamic& /*obj*/) {
+std::unique_ptr<Filter> AlwaysFalse::create(const folly::dynamic& /*obj*/) {
   return std::make_unique<AlwaysFalse>();
 }
 
@@ -221,7 +221,7 @@ folly::dynamic AlwaysTrue::serialize() const {
   return Filter::serializeBase("AlwaysTrue");
 }
 
-FilterPtr AlwaysTrue::create(const folly::dynamic& /*obj*/) {
+std::unique_ptr<Filter> AlwaysTrue::create(const folly::dynamic& /*obj*/) {
   return std::make_unique<AlwaysTrue>();
 }
 
@@ -229,7 +229,7 @@ folly::dynamic IsNull::serialize() const {
   return Filter::serializeBase("IsNull");
 }
 
-FilterPtr IsNull::create(const folly::dynamic& /*obj*/) {
+std::unique_ptr<Filter> IsNull::create(const folly::dynamic& /*obj*/) {
   return std::make_unique<IsNull>();
 }
 
@@ -237,7 +237,7 @@ folly::dynamic IsNotNull::serialize() const {
   return Filter::serializeBase("IsNotNull");
 }
 
-FilterPtr IsNotNull::create(const folly::dynamic& /*obj*/) {
+std::unique_ptr<Filter> IsNotNull::create(const folly::dynamic& /*obj*/) {
   return std::make_unique<IsNotNull>();
 }
 
@@ -247,7 +247,7 @@ folly::dynamic BoolValue::serialize() const {
   return obj;
 }
 
-FilterPtr BoolValue::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BoolValue::create(const folly::dynamic& obj) {
   auto value = obj["value"].asBool();
   auto nullAllowed = deserializeNullAllowed(obj);
   return std::make_unique<BoolValue>(value, nullAllowed);
@@ -266,7 +266,7 @@ folly::dynamic BigintRange::serialize() const {
   return obj;
 }
 
-FilterPtr BigintRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BigintRange::create(const folly::dynamic& obj) {
   auto lower = obj["lower"].asInt();
   auto upper = obj["upper"].asInt();
   auto nullAllowed = deserializeNullAllowed(obj);
@@ -287,7 +287,7 @@ folly::dynamic NegatedBigintRange::serialize() const {
   return obj;
 }
 
-FilterPtr NegatedBigintRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> NegatedBigintRange::create(const folly::dynamic& obj) {
   auto lower = obj["lower"].asInt();
   auto upper = obj["upper"].asInt();
   auto nullAllowed = deserializeNullAllowed(obj);
@@ -309,7 +309,7 @@ folly::dynamic HugeintRange::serialize() const {
   return obj;
 }
 
-FilterPtr HugeintRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> HugeintRange::create(const folly::dynamic& obj) {
   auto lower = HugeInt::parse(obj["lower"].asString());
   auto upper = HugeInt::parse(obj["upper"].asString());
   auto nullAllowed = deserializeNullAllowed(obj);
@@ -330,7 +330,7 @@ folly::dynamic TimestampRange::serialize() const {
   return obj;
 }
 
-FilterPtr TimestampRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> TimestampRange::create(const folly::dynamic& obj) {
   auto lower = ISerializable::deserialize<Timestamp>(obj["lower"]);
   auto upper = ISerializable::deserialize<Timestamp>(obj["upper"]);
   auto nullAllowed = deserializeNullAllowed(obj);
@@ -358,7 +358,8 @@ folly::dynamic BigintValuesUsingHashTable::serialize() const {
   return obj;
 }
 
-FilterPtr BigintValuesUsingHashTable::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BigintValuesUsingHashTable::create(
+    const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   auto min = obj["min"].asInt();
   auto max = obj["max"].asInt();
@@ -405,7 +406,8 @@ folly::dynamic BigintValuesUsingBitmask::serialize() const {
   return obj;
 }
 
-FilterPtr BigintValuesUsingBitmask::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BigintValuesUsingBitmask::create(
+    const folly::dynamic& obj) {
   auto min = obj["min"].asInt();
   auto max = obj["max"].asInt();
   auto nullAllowed = deserializeNullAllowed(obj);
@@ -441,7 +443,8 @@ folly::dynamic NegatedBigintValuesUsingHashTable::serialize() const {
   return obj;
 }
 
-FilterPtr NegatedBigintValuesUsingHashTable::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> NegatedBigintValuesUsingHashTable::create(
+    const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   auto nonNegated =
       ISerializable::deserialize<BigintValuesUsingHashTable>(obj["nonNegated"]);
@@ -470,7 +473,8 @@ folly::dynamic NegatedBigintValuesUsingBitmask::serialize() const {
   return obj;
 }
 
-FilterPtr NegatedBigintValuesUsingBitmask::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> NegatedBigintValuesUsingBitmask::create(
+    const folly::dynamic& obj) {
   auto min = obj["min"].asInt();
   auto max = obj["max"].asInt();
   auto nullAllowed = deserializeNullAllowed(obj);
@@ -505,7 +509,7 @@ folly::dynamic FloatingPointRange<double>::serialize() const {
   return obj;
 }
 
-FilterPtr AbstractRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> AbstractRange::create(const folly::dynamic& obj) {
   auto lowerUnbounded = obj["lowerUnbounded"].asBool();
   auto lowerExclusive = obj["lowerExclusive"].asBool();
   auto upperUnbounded = obj["upperUnbounded"].asBool();
@@ -544,7 +548,7 @@ folly::dynamic BytesRange::serialize() const {
   return obj;
 }
 
-FilterPtr BytesRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BytesRange::create(const folly::dynamic& obj) {
   auto lowerUnbounded = obj["lowerUnbounded"].asBool();
   auto lowerExclusive = obj["lowerExclusive"].asBool();
   auto upperUnbounded = obj["upperUnbounded"].asBool();
@@ -575,7 +579,7 @@ folly::dynamic NegatedBytesRange::serialize() const {
   return obj;
 }
 
-FilterPtr NegatedBytesRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> NegatedBytesRange::create(const folly::dynamic& obj) {
   auto nonNegated = ISerializable::deserialize<BytesRange>(obj["nonNegated"]);
 
   return std::make_unique<NegatedBytesRange>(
@@ -605,7 +609,7 @@ folly::dynamic BytesValues::serialize() const {
   return obj;
 }
 
-FilterPtr BytesValues::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BytesValues::create(const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   auto arr = obj["values"];
   std::vector<std::string> values;
@@ -655,7 +659,7 @@ folly::dynamic BigintMultiRange::serialize() const {
   return obj;
 }
 
-FilterPtr BigintMultiRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> BigintMultiRange::create(const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   auto arr = obj["ranges"];
   std::vector<std::unique_ptr<BigintRange>> ranges;
@@ -693,7 +697,7 @@ folly::dynamic NegatedBytesValues::serialize() const {
   return obj;
 }
 
-FilterPtr NegatedBytesValues::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> NegatedBytesValues::create(const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   auto nonNegated = ISerializable::deserialize<BytesValues>(obj["nonNegated"]);
   return std::make_unique<NegatedBytesValues>(
@@ -720,7 +724,7 @@ folly::dynamic MultiRange::serialize() const {
   return obj;
 }
 
-FilterPtr MultiRange::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> MultiRange::create(const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   folly::dynamic arr = obj["filters"];
   auto tmpFilters = ISerializable::deserialize<std::vector<Filter>>(arr);
@@ -998,7 +1002,8 @@ folly::dynamic HugeintValuesUsingHashTable::serialize() const {
   return obj;
 }
 
-FilterPtr HugeintValuesUsingHashTable::create(const folly::dynamic& obj) {
+std::unique_ptr<Filter> HugeintValuesUsingHashTable::create(
+    const folly::dynamic& obj) {
   auto nullAllowed = deserializeNullAllowed(obj);
   auto min = HugeInt::build(obj["min_upper"].asInt(), obj["min_lower"].asInt());
   auto max = HugeInt::build(obj["max_upper"].asInt(), obj["max_lower"].asInt());

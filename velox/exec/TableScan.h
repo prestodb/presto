@@ -28,6 +28,8 @@ class TableScan : public SourceOperator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::TableScanNode>& tableScanNode);
 
+  void initialize() override;
+
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* future) override {
@@ -50,10 +52,9 @@ class TableScan : public SourceOperator {
     return connector_->canAddDynamicFilter();
   }
 
-  void addDynamicFilter(
+  void addDynamicFilterLocked(
       const core::PlanNodeId& producer,
-      column_index_t outputChannel,
-      const std::shared_ptr<common::Filter>& filter) override;
+      const PushdownFilters& filters) override;
 
   /// The name of runtime stats specific to table scan.
   /// The number of running table scan drivers.
@@ -124,9 +125,6 @@ class TableScan : public SourceOperator {
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::unique_ptr<connector::DataSource> dataSource_;
   bool noMoreSplits_ = false;
-  // Dynamic filters to add to the data source when it gets created.
-  std::unordered_map<column_index_t, std::shared_ptr<common::Filter>>
-      dynamicFilters_;
 
   int32_t maxPreloadedSplits_{0};
 

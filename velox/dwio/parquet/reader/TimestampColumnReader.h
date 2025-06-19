@@ -163,10 +163,10 @@ class TimestampColumnReader : public IntegerColumnReader {
       bool isDense,
       typename ExtractValues>
   void readHelper(
-      velox::common::Filter* filter,
+      const velox::common::Filter* filter,
       const RowSet& rows,
       ExtractValues extractValues) {
-    if (auto* range = dynamic_cast<common::TimestampRange*>(filter)) {
+    if (auto* range = dynamic_cast<const common::TimestampRange*>(filter)) {
       ParquetTimestampRange<T> newRange{
           range->lower(), range->upper(), range->nullAllowed(), filePrecision_};
       this->readWithVisitor(
@@ -176,7 +176,8 @@ class TimestampColumnReader : public IntegerColumnReader {
               common::TimestampRange,
               ExtractValues,
               isDense>(newRange, this, rows, extractValues));
-    } else if (auto* multiRange = dynamic_cast<common::MultiRange*>(filter)) {
+    } else if (
+        auto* multiRange = dynamic_cast<const common::MultiRange*>(filter)) {
       std::vector<std::unique_ptr<common::Filter>> filters;
       filters.reserve(multiRange->filters().size());
       for (const auto& filter : multiRange->filters()) {
@@ -204,7 +205,7 @@ class TimestampColumnReader : public IntegerColumnReader {
           rows,
           dwio::common::
               ColumnVisitor<int128_t, TFilter, ExtractValues, isDense>(
-                  *reinterpret_cast<TFilter*>(filter),
+                  *static_cast<const TFilter*>(filter),
                   this,
                   rows,
                   extractValues));

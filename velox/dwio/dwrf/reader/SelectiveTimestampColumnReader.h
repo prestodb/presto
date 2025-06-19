@@ -42,7 +42,7 @@ class SelectiveTimestampColumnReader
 
  private:
   template <bool isDense>
-  void readHelper(common::Filter* filter, const RowSet& rows);
+  void readHelper(const common::Filter* filter, const RowSet& rows);
 
   void
   processNulls(const bool isNull, const RowSet& rows, const uint64_t* rawNulls);

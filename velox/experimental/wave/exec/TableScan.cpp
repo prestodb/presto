@@ -150,10 +150,6 @@ BlockingReason TableScan::nextSplit(ContinueFuture* future) {
   }
   ++stats().wlock()->numSplits;
 
-  for (const auto& entry : pendingDynamicFilters_) {
-    waveDataSource_->addDynamicFilter(entry.first, entry.second);
-  }
-  pendingDynamicFilters_.clear();
   return BlockingReason::kNotBlocked;
 }
 
@@ -224,17 +220,6 @@ void TableScan::checkPreload() {
 
 bool TableScan::isFinished() const {
   return noMoreSplits_;
-}
-
-void TableScan::addDynamicFilter(
-    const core::PlanNodeId& producer,
-    column_index_t outputChannel,
-    const std::shared_ptr<common::Filter>& filter) {
-  if (dataSource_) {
-    dataSource_->addDynamicFilter(outputChannel, filter);
-  } else {
-    pendingDynamicFilters_.emplace(outputChannel, filter);
-  }
 }
 
 } // namespace facebook::velox::wave

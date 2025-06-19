@@ -64,8 +64,6 @@ class HashProbe : public Operator {
 
   void close() override;
 
-  void clearDynamicFilters() override;
-
   bool canReclaim() const override;
 
   const std::vector<IdentityProjection>& tableOutputProjections() const {
@@ -129,6 +127,8 @@ class HashProbe : public Operator {
   // probe side. This is not a reliable signal, but rather a best effort signal.
   // Applies only for mixed grouped execution mode.
   bool allProbeGroupFinished() const;
+
+  void pushdownDynamicFilters();
 
   // Invoked to wait for the hash table to be built by the hash build operators
   // asynchronously. The function also sets up the internal state for
@@ -413,11 +413,7 @@ class HashProbe : public Operator {
   // Channel of probe keys in 'input_'.
   std::vector<column_index_t> keyChannels_;
 
-  // True if we have generated dynamic filters from the hash build join keys.
-  //
-  // NOTE: 'dynamicFilters_' might have been cleared once they have been pushed
-  // down to the upstream operators.
-  tsan_atomic<bool> hasGeneratedDynamicFilters_{false};
+  folly::F14FastSet<column_index_t> dynamicFiltersProducedOnChannels_;
 
   // True if the join can become a no-op starting with the next batch of input.
   bool canReplaceWithDynamicFilter_{false};

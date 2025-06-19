@@ -100,7 +100,7 @@ void SelectiveTimestampColumnReader::read(
 
 template <bool isDense>
 void SelectiveTimestampColumnReader::readHelper(
-    common::Filter* filter,
+    const common::Filter* filter,
     const RowSet& rows) {
   ExtractToReader extractValues(this);
   common::AlwaysTrue alwaysTrue;

@@ -210,12 +210,10 @@ class WaveDriver : public exec::SourceOperator {
 
   std::string toString() const override;
 
-  void addDynamicFilter(
+  void addDynamicFilterLocked(
       const core::PlanNodeId& producer,
-      column_index_t outputChannel,
-      const std::shared_ptr<common::Filter>& filter) override {
-    pipelines_[0].operators[0]->addDynamicFilter(
-        producer, outputChannel, filter);
+      const exec::PushdownFilters& filters) override {
+    pipelines_[0].operators[0]->addDynamicFilter(producer, filters);
   }
 
   exec::OperatorCtx* operatorCtx() const {

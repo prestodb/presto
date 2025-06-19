@@ -72,6 +72,10 @@ class HiveDataSource : public DataSource {
 
   int64_t estimatedRowSize() override;
 
+  const common::SubfieldFilters* getFilters() const override {
+    return &filters_;
+  }
+
   std::shared_ptr<wave::WaveDataSource> toWaveDataSource() override;
 
   using WaveDelegateHookFunction =

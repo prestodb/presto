@@ -70,9 +70,7 @@ class IcebergSplitReaderBenchmark {
       RowTypePtr& rowType,
       const std::vector<dwio::common::FilterSpec>& filterSpecs,
       std::vector<uint64_t>& hitRows,
-      std::unordered_map<
-          facebook::velox::common::Subfield,
-          std::unique_ptr<facebook::velox::common::Filter>>& filters);
+      common::SubfieldFilters& filters);
 
   int read(
       const RowTypePtr& rowType,

@@ -47,7 +47,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
       bool kEncodingHasNulls,
       typename ExtractValues>
   void processFilter(
-      velox::common::Filter* filter,
+      const velox::common::Filter* filter,
       ExtractValues extractValues,
       const RowSet& rows);
 
@@ -63,7 +63,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
       bool isDense,
       typename ExtractValues>
   void readHelper(
-      velox::common::Filter* filter,
+      const velox::common::Filter* filter,
       const RowSet& rows,
       ExtractValues extractValues);
 
@@ -80,7 +80,7 @@ template <
     bool isDense,
     typename ExtractValues>
 void SelectiveIntegerColumnReader::readHelper(
-    velox::common::Filter* filter,
+    const velox::common::Filter* filter,
     const RowSet& rows,
     ExtractValues extractValues) {
   switch (valueSize_) {
@@ -88,28 +88,28 @@ void SelectiveIntegerColumnReader::readHelper(
       reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
           rows,
           ColumnVisitor<int16_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
+              *static_cast<const TFilter*>(filter), this, rows, extractValues));
       break;
 
     case 4:
       reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
           rows,
           ColumnVisitor<int32_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
+              *static_cast<const TFilter*>(filter), this, rows, extractValues));
       break;
 
     case 8:
       reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
           rows,
           ColumnVisitor<int64_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
+              *static_cast<const TFilter*>(filter), this, rows, extractValues));
       break;
 
     case 16:
       reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
           rows,
           ColumnVisitor<int128_t, TFilter, ExtractValues, isDense>(
-              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
+              *static_cast<const TFilter*>(filter), this, rows, extractValues));
       break;
 
     default:
@@ -123,7 +123,7 @@ template <
     bool kEncodingHasNulls,
     typename ExtractValues>
 void SelectiveIntegerColumnReader::processFilter(
-    velox::common::Filter* filter,
+    const velox::common::Filter* filter,
     ExtractValues extractValues,
     const RowSet& rows) {
   if (filter == nullptr) {
@@ -246,8 +246,7 @@ void SelectiveIntegerColumnReader::processValueHook(
 template <typename Reader, bool kEncodingHasNulls>
 void SelectiveIntegerColumnReader::readCommon(const RowSet& rows) {
   const bool isDense = rows.back() == rows.size() - 1;
-  velox::common::Filter* filter =
-      scanSpec_->filter() ? scanSpec_->filter() : &alwaysTrue();
+  auto* filter = scanSpec_->filter() ? scanSpec_->filter() : &alwaysTrue();
   if (scanSpec_->keepValues()) {
     if (scanSpec_->valueHook()) {
       if (isDense) {

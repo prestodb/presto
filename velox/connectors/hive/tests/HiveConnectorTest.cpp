@@ -64,7 +64,7 @@ groupSubfields(const std::vector<Subfield>& subfields) {
 }
 
 bool mapKeyIsNotNull(const ScanSpec& mapSpec) {
-  return dynamic_cast<IsNotNull*>(
+  return dynamic_cast<const IsNotNull*>(
       mapSpec.childByName(ScanSpec::kMapKeysFieldName)->filter());
 }
 
