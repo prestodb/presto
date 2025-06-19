@@ -313,6 +313,12 @@ class SystemConfig : public ConfigBase {
   /// Ignored if zero. Default is zero.
   static constexpr std::string_view kWorkerOverloadedThresholdCpuPct{
       "worker-overloaded-threshold-cpu-pct"};
+  /// Floating point number used in calculating how many drivers must be queued
+  /// for the worker to be considered overloaded.
+  /// Ignored if zero. Default is zero.
+  static constexpr std::string_view
+      kWorkerOverloadedThresholdNumQueuedDriversHwMultiplier{
+          "worker-overloaded-threshold-num-queued-drivers-hw-multiplier"};
   /// Specifies how many seconds worker has to be not overloaded (in terms of
   /// memory and CPU) before its status changes to not overloaded.
   /// This is to prevent spiky fluctuation of the overloaded status.
@@ -849,6 +855,8 @@ class SystemConfig : public ConfigBase {
   uint64_t workerOverloadedThresholdMemGb() const;
 
   uint32_t workerOverloadedThresholdCpuPct() const;
+
+  double workerOverloadedThresholdNumQueuedDriversHwMultiplier() const;
 
   uint32_t workerOverloadedCooldownPeriodSec() const;
 

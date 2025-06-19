@@ -609,6 +609,16 @@ memory use. Ignored if zero.
 CPU threshold in % above which the worker is considered overloaded in terms of
 CPU use. Ignored if zero.
 
+``worker-overloaded-threshold-num-queued-drivers-hw-multiplier``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.0``
+
+Floating point number used in calculating how many drivers must be queued
+for the worker to be considered overloaded.
+Number of drivers is calculated as hw_concurrency x multiplier. Ignored if zero.
+
 ``worker-overloaded-cooldown-period-sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

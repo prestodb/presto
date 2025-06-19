@@ -146,7 +146,7 @@ class TaskManager {
   int64_t getBytesProcessed() const;
 
   /// Stores the number of drivers in various states of execution.
-  velox::exec::Task::DriverCounts getDriverCounts() const;
+  velox::exec::Task::DriverCounts getDriverCounts();
 
   /// Returns array with number of tasks for each of six PrestoTaskState (enum
   /// defined in PrestoTask.h).
@@ -179,6 +179,12 @@ class TaskManager {
   /// so the Task Manager can optionally change Task admission algorithm.
   void setServerOverloaded(bool serverOverloaded) {
     serverOverloaded_ = serverOverloaded;
+  }
+
+  /// Returns last known number of queued drivers. Used in determining if the
+  /// server is CPU overloaded.
+  uint32_t numQueuedDrivers() const {
+    return numQueuedDrivers_;
   }
 
   /// Contains the logic on starting tasks if not overloaded.
@@ -226,6 +232,7 @@ class TaskManager {
   std::unique_ptr<QueryContextManager> queryContextManager_;
   folly::Executor* httpSrvCpuExecutor_;
   std::atomic_bool serverOverloaded_{false};
+  std::atomic_uint32_t numQueuedDrivers_{0};
 };
 
 } // namespace facebook::presto

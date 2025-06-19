@@ -1486,18 +1486,30 @@ void PrestoServer::checkOverload() {
 
   const auto overloadedThresholdCpuPct =
       systemConfig->workerOverloadedThresholdCpuPct();
-  if (overloadedThresholdCpuPct > 0) {
+  const auto overloadedThresholdQueuedDrivers =
+      systemConfig->driverNumCpuThreadsHwMultiplier() *
+      systemConfig->workerOverloadedThresholdNumQueuedDriversHwMultiplier();
+  if (overloadedThresholdCpuPct > 0 && overloadedThresholdQueuedDrivers > 0) {
     const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
-    const bool cpuOverloaded = (currentUsedCpuPct > overloadedThresholdCpuPct);
+    const auto currentQueuedDrivers = taskManager_->numQueuedDrivers();
+    const bool cpuOverloaded =
+        (currentUsedCpuPct > overloadedThresholdCpuPct) &&
+        (currentQueuedDrivers > overloadedThresholdQueuedDrivers);
     if (cpuOverloaded && !cpuOverloaded_) {
       LOG(WARNING) << "OVERLOAD: Server CPU is overloaded. Currently used: "
                    << currentUsedCpuPct
-                   << "%, threshold: " << overloadedThresholdCpuPct << "%";
+                   << "% CPU (threshold: " << overloadedThresholdCpuPct
+                   << "%), " << currentQueuedDrivers
+                   << " queued drivers (threshold: "
+                   << overloadedThresholdQueuedDrivers << ")";
     } else if (!cpuOverloaded && cpuOverloaded_) {
       LOG(INFO)
           << "OVERLOAD: Server CPU is no longer overloaded. Currently used: "
-          << currentUsedCpuPct << "%, threshold: " << overloadedThresholdCpuPct
-          << "%";
+          << currentUsedCpuPct
+          << "% CPU (threshold: " << overloadedThresholdCpuPct << "%), "
+          << currentQueuedDrivers
+          << " queued drivers (threshold: " << overloadedThresholdQueuedDrivers
+          << ")";
     }
     RECORD_METRIC_VALUE(kCounterOverloadedCpu, cpuOverloaded ? 100 : 0);
     cpuOverloaded_ = cpuOverloaded;
