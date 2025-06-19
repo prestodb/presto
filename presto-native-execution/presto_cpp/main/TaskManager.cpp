@@ -1284,7 +1284,7 @@ std::string TaskManager::toString() const {
   return out.str();
 }
 
-velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
+velox::exec::Task::DriverCounts TaskManager::getDriverCounts() {
   const auto taskMap = *taskMap_.rlock();
   velox::exec::Task::DriverCounts ret;
   for (const auto& pair : taskMap) {
@@ -1299,6 +1299,7 @@ velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
       }
     }
   }
+  numQueuedDrivers_ = ret.numQueuedDrivers;
   return ret;
 }
 
