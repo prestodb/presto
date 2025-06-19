@@ -30,9 +30,11 @@
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 
+#ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/connectors/parquet/ParquetConnector.h"
 #include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#endif
 
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
@@ -81,11 +83,15 @@ namespace {
 using namespace velox;
 
 bool canUseCudfTableScan() {
+#ifdef PRESTO_ENABLE_CUDF
   const bool isParquetConnectorRegistered =
       facebook::velox::connector::getAllConnectors().count("parquet-test") > 0;
   const bool isCudfTableScanEnabled =
       facebook::velox::cudf_velox::CudfOptions::getInstance().cudfTableScan;
   return isParquetConnectorRegistered && isCudfTableScanEnabled;
+#else
+  return false;
+#endif
 }
 
 dwio::common::FileFormat toVeloxFileFormat(
@@ -671,6 +677,7 @@ std::unique_ptr<common::Filter> combineBytesRanges(
       std::move(bytesGeneric), nullAllowed, false);
 }
 
+#ifdef PRESTO_ENABLE_CUDF
 std::string valueTypeToString(
     const TypePtr& type,
     const std::shared_ptr<facebook::presto::protocol::Block> block,
@@ -772,6 +779,7 @@ std::string toStringFilter(
   }
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
+#endif
 
 std::unique_ptr<common::Filter> toFilter(
     const TypePtr& type,
@@ -920,6 +928,7 @@ std::unique_ptr<common::Filter> toFilter(
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
+#ifdef PRESTO_ENABLE_CUDF
 facebook::velox::core::TypedExprPtr getTypedExprFromSubfieldFilter(
     std::shared_ptr<facebook::presto::protocol::Map<
         facebook::presto::protocol::Subfield,
@@ -954,6 +963,7 @@ facebook::velox::core::TypedExprPtr getTypedExprFromSubfieldFilter(
   LOG(INFO) << "Produced filterExpr = " << filterExpr->toString();
   return filterExpr;
 }
+#endif
 
 std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
@@ -1022,6 +1032,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
 
   if (tableParameters.empty()) {
     if (canUseCudfTableScan()) {
+#ifdef PRESTO_ENABLE_CUDF
       facebook::velox::core::TypedExprPtr filterExpr = nullptr;
       if (!subfieldFilters.empty()) {
         filterExpr = getTypedExprFromSubfieldFilter(
@@ -1035,6 +1046,12 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
           filterExpr,
           remainingFilter,
           finalDataColumns);
+#else
+      // this never happens because if PRESTO_ENABLE_CUDF
+      // is false then canUseCudfTableScan returns false
+      // and we never hit this branch
+      return nullptr;
+#endif
     } else {
       return std::make_unique<connector::hive::HiveTableHandle>(
           tableHandle.connectorId,
@@ -1052,6 +1069,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     finalTableParameters[key] = value;
   }
   if (canUseCudfTableScan()) {
+#ifdef PRESTO_ENABLE_CUDF
     facebook::velox::core::TypedExprPtr filterExpr = nullptr;
     if (!subfieldFilters.empty()) {
       filterExpr = getTypedExprFromSubfieldFilter(
@@ -1064,7 +1082,12 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
         filterExpr,
         remainingFilter,
         finalDataColumns);
+#else
+    // this never happens - if PRESTO_ENABLE_CUDF is not defined,
+    // canUseCudfTableScan() will always return false
+    return nullptr;
   } else {
+#endif
     return std::make_unique<connector::hive::HiveTableHandle>(
         tableHandle.connectorId,
         tableName,
@@ -1342,6 +1365,7 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   }
   std::unique_ptr<velox::connector::ConnectorSplit> veloxSplit;
   if (canUseCudfTableScan()) {
+#ifdef PRESTO_ENABLE_CUDF
     std::string realPath;
     if (boost::algorithm::starts_with(hiveSplit->fileSplit.path, "file:")) {
       realPath = hiveSplit->fileSplit.path.substr(std::string("file:").size());
@@ -1353,6 +1377,7 @@ HivePrestoToVeloxConnector::toVeloxSplit(
         "parquet-test", realPath, 0);
     LOG(INFO) << "Using cuDF Parquet splits for file: "
               << hiveSplit->fileSplit.path;
+#endif
   } else {
     auto veloxHiveSplit =
         std::make_unique<velox::connector::hive::HiveConnectorSplit>(
