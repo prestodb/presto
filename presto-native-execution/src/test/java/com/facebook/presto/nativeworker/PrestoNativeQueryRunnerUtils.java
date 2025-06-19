@@ -123,6 +123,7 @@ public class PrestoNativeQueryRunnerUtils
         private boolean addStorageFormatToPath;
         private boolean coordinatorSidecarEnabled;
         private boolean enableRuntimeMetricsCollection;
+        private boolean enablePrometheusHistogramMetricsCollection;
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
         // External worker launcher is applicable only for the native hive query runner, since it depends on other
@@ -201,6 +202,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setEnablePrometheusHistogramMetricsCollection(boolean enablePrometheusHistogramMetricsCollection)
+        {
+            this.enablePrometheusHistogramMetricsCollection = enablePrometheusHistogramMetricsCollection;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
         {
             this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
@@ -253,7 +260,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache);
+                        failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enablePrometheusHistogramMetricsCollection, enableSsdCache);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -342,7 +349,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false, false);
+                        false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -439,6 +446,7 @@ public class PrestoNativeQueryRunnerUtils
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
             boolean enableRuntimeMetricsCollection,
+            boolean enablePrometheusHistogramMetricsCollection,
             boolean enableSsdCache)
     {
         return
@@ -464,6 +472,10 @@ public class PrestoNativeQueryRunnerUtils
                         if (enableRuntimeMetricsCollection) {
                             configProperties = format("%s%n" +
                                     "runtime-metrics-collection-enabled=true%n", configProperties);
+                            if (enablePrometheusHistogramMetricsCollection) {
+                                configProperties = format("%s%n" +
+                                        "prometheus-histogram-metrics-collection-enabled=true%n", configProperties);
+                            }
                         }
 
                         if (enableSsdCache) {
