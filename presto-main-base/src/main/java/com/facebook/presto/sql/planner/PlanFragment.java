@@ -176,8 +176,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<String> getCanonicalPlanFragmentStr()
-    {
+    public Optional<String> getCanonicalPlanFragmentStr(){
         return canonicalPlanFragmentStr;
     }
 

@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.spark.planner;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -244,7 +245,7 @@ public class IterativePlanFragmenter
                 VariableAllocator variableAllocator,
                 Set<PlanNodeId> outputTableWriterNodeIds)
         {
-            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds);
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds, new JsonObjectMapperProvider().get());
         }
 
         @Override

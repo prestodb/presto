@@ -98,7 +98,7 @@ class TaskManager {
   /// Old is being defined by the lifetime of the task.
   size_t cleanOldTasks();
 
-  folly::Future<std::unique_ptr<protocol::TaskInfo>> getTaskInfo(
+  folly::Future<std::unique_ptr<json>> getTaskInfo(
       const protocol::TaskId& taskId,
       bool summarize,
       std::optional<protocol::TaskState> currentState,
@@ -113,7 +113,7 @@ class TaskManager {
       protocol::Duration maxWait,
       std::shared_ptr<http::CallbackRequestHandlerState> state);
 
-  folly::Future<std::unique_ptr<protocol::TaskStatus>> getTaskStatus(
+  folly::Future<std::unique_ptr<json>> getTaskStatus(
       const protocol::TaskId& taskId,
       std::optional<protocol::TaskState> currentState,
       std::optional<protocol::Duration> maxWait,
@@ -206,7 +206,7 @@ class TaskManager {
   folly::Synchronized<TaskMap> taskMap_;
   std::unique_ptr<QueryContextManager> queryContextManager_;
   folly::Executor* httpSrvCpuExecutor_;
-  std::shared_ptr<velox::exec::FragmentResultCacheManager> fragmentResultCacheManager_ = std::make_shared<velox::exec::FragmentResultCacheManager>();
+  std::shared_ptr<velox::exec::FragmentResultCacheManager> fragmentResultCacheManager_;
 };
 
 } // namespace facebook::presto

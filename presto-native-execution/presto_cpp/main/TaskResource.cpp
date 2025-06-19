@@ -98,6 +98,7 @@ void TaskResource::registerUris(http::HttpServer& server) {
       R"(/v1/task/(.+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
+        // TODO
         return deleteTask(message, pathMatch);
       });
 
@@ -253,19 +254,17 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                   throw;
                 }
               }
-              return taskInfo;
+              if (sendThrift) {
+                thrift::TaskInfo thriftTaskInfo;
+                toThrift(*taskInfo, thriftTaskInfo);
+                return thriftWrite(thriftTaskInfo);
+              }
+              return json(*taskInfo);
             })
             .via(folly::EventBaseManager::get()->getEventBase())
-            .thenValue([downstream, handlerState, sendThrift](auto taskInfo) {
+            .thenValue([downstream, handlerState](auto response) {
               if (!handlerState->requestExpired()) {
-                if (sendThrift) {
-                  thrift::TaskInfo thriftTaskInfo;
-                  toThrift(*taskInfo, thriftTaskInfo);
-                  http::sendOkThriftResponse(
-                      downstream, thriftWrite(thriftTaskInfo));
-                } else {
-                  http::sendOkResponse(downstream, json(*taskInfo));
-                }
+                http::sendOkResponse(downstream, response);
               }
             })
             .thenError(
@@ -562,17 +561,9 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                   .via(evb)
                   .thenValue(
                       [sendThrift, downstream, taskId, handlerState](
-                          std::unique_ptr<protocol::TaskStatus> taskStatus) {
+                          std::unique_ptr<json> taskStatusJson) {
                         if (!handlerState->requestExpired()) {
-                          if (sendThrift) {
-                            thrift::TaskStatus thriftTaskStatus;
-                            toThrift(*taskStatus, thriftTaskStatus);
-                            http::sendOkThriftResponse(
-                                downstream, thriftWrite(thriftTaskStatus));
-                          } else {
-                            json taskStatusJson = *taskStatus;
-                            http::sendOkResponse(downstream, taskStatusJson);
-                          }
+                          http::sendOkResponse(downstream, *taskStatusJson);
                         }
                       })
                   .thenError(
@@ -627,10 +618,9 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
                       taskId, summarize, currentState, maxWait, handlerState)
                   .via(evb)
                   .thenValue([downstream, taskId, handlerState](
-                                 std::unique_ptr<protocol::TaskInfo> taskInfo) {
+                                 std::unique_ptr<json> taskInfoJson) {
                     if (!handlerState->requestExpired()) {
-                      json taskInfoJson = *taskInfo;
-                      http::sendOkResponse(downstream, taskInfoJson);
+                      http::sendOkResponse(downstream, *taskInfoJson);
                     }
                   })
                   .thenError(

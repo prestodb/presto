@@ -16,7 +16,9 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.type.*;
 import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
@@ -60,6 +62,8 @@ import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATI
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.hive.HiveTestUtils.getDataDirectoryPath;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -85,6 +89,39 @@ public final class HiveQueryRunner
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final UserDefinedType MOOD_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.mood"), new TypeSignature(
+            BIGINT_ENUM,
+            TypeSignatureParameter.of(new BigintEnumType.LongEnumMap("test.enum.mood", ImmutableMap.of(
+                    "HAPPY", 0L,
+                    "SAD", 1L,
+                    "MELLOW", 2L,
+                    "curious", -2L)))));
+    private static final UserDefinedType COUNTRY_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.country"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumType.VarcharEnumMap("test.enum.country", ImmutableMap.of(
+                    "US", "United States",
+                    "BAHAMAS", "The Bahamas",
+                    "FRANCE", "France",
+                    "CHINA", "中国",
+                    "भारत", "India")))));
+    private static final UserDefinedType TEST_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testenum"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumType.VarcharEnumMap("test.enum.testenum", ImmutableMap.of(
+                    "TEST", "\"}\"",
+                    "TEST2", "",
+                    "TEST3", " ",
+                    "TEST4", ")))\"\"",
+                    "TEST5", "France")))));
+    private static final UserDefinedType TEST_BIGINT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testbigintenum"), new TypeSignature(
+            BIGINT_ENUM,
+            TypeSignatureParameter.of(new BigintEnumType.LongEnumMap("test.enum.testbigintenum", ImmutableMap.of(
+                    "TEST", 6L,
+                    "TEST2", 8L)))));
+    private static final UserDefinedType MARKET_SEGMENT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.market_segment"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumType.VarcharEnumMap("test.enum.market_segment", ImmutableMap.of(
+                    "MKT_BUILDING", "BUILDING",
+                    "MKT_FURNITURE", "FURNITURE")))));
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -238,6 +275,12 @@ public final class HiveQueryRunner
                     .put("tpch.column-naming", "standard")
                     .build();
             queryRunner.createCatalog("tpchstandard", "tpch", tpchProperties);
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("test"), ImmutableMap.of());
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_BIGINT_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MARKET_SEGMENT_ENUM);
 
             ExtendedHiveMetastore metastore;
             metastore = externalMetastore.orElseGet(() -> getFileHiveMetastore(queryRunner));

@@ -38,12 +38,7 @@ std::string bool2String(bool value) {
 }
 
 int getThreadCount() {
-  auto numThreads = std::thread::hardware_concurrency();
-  // The spec says std::thread::hardware_concurrency() might return 0.
-  // But we depend on std::thread::hardware_concurrency() to create executors.
-  // Check to ensure numThreads is > 0.
-  VELOX_CHECK_GT(numThreads, 0);
-  return numThreads;
+  return 1;
 }
 
 #define STR_PROP(_key_, _val_) \

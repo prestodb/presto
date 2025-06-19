@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -71,6 +73,7 @@ import com.facebook.presto.tpch.TpchTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -104,6 +107,7 @@ import static com.facebook.presto.testing.TestingSession.createBogusTestingCatal
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -129,6 +133,7 @@ public class TestCostCalculator
     private NodePartitioningManager nodePartitioningManager;
     private TestingRowExpressionTranslator translator;
     private PlanCheckerProviderManager planCheckerProviderManager;
+    private ObjectMapper sortedMapObjectMapper;
 
     @BeforeClass
     public void setUp()
@@ -139,6 +144,7 @@ public class TestCostCalculator
 
         session = testSessionBuilder().setCatalog("tpch").build();
 
+        sortedMapObjectMapper = new JsonObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
         transactionManager = createTestTransactionManager(catalogManager);
@@ -158,7 +164,7 @@ public class TestCostCalculator
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)), new PlanCheckerProviderManagerConfig());
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig(), planCheckerProviderManager);
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new FeaturesConfig(), planCheckerProviderManager, sortedMapObjectMapper);
         translator = new TestingRowExpressionTranslator();
     }
 
@@ -206,7 +212,7 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
-        RowExpression cast = translator.translate(new Cast(new SymbolReference("orderkey"), "VARCHAR"), TypeProvider.viewOf(ImmutableMap.of("orderkey", BIGINT)));
+        RowExpression cast = translator.translate(new Cast(new SymbolReference("orderkey"), VARCHAR), TypeProvider.viewOf(ImmutableMap.of("orderkey", BIGINT)));
         PlanNode project = project("project", tableScan, new VariableReferenceExpression(Optional.empty(), "string", VARCHAR), cast);
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(

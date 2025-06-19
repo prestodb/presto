@@ -101,11 +101,10 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory(
-      []() {
-        return std::make_unique<
-            velox::serializer::presto::PrestoOutputStreamListener>();
-      });
+  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory([]() {
+    return std::make_unique<
+        velox::serializer::presto::PrestoOutputStreamListener>();
+  });
 }
 
 // Log only the catalog keys that are configured to avoid leaking
@@ -164,6 +163,111 @@ PrestoServer::PrestoServer(const std::string& configDirectoryPath)
       memoryInfo_(std::make_unique<protocol::MemoryInfo>()) {}
 
 PrestoServer::~PrestoServer() {}
+
+static protocol::Duration getUptime(
+    std::chrono::steady_clock::time_point& start) {
+  auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                     std::chrono::steady_clock::now() - start)
+                     .count();
+  if (seconds >= 86400) {
+    return protocol::Duration(seconds / 86400.0, protocol::TimeUnit::DAYS);
+  }
+  if (seconds >= 3600) {
+    return protocol::Duration(seconds / 3600.0, protocol::TimeUnit::HOURS);
+  }
+  if (seconds >= 60) {
+    return protocol::Duration(seconds / 60.0, protocol::TimeUnit::MINUTES);
+  }
+
+  return protocol::Duration(seconds, protocol::TimeUnit::SECONDS);
+}
+
+proxygen::RequestHandler* PrestoServer::fetchMemory() {
+  return new http::CallbackRequestHandler(
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_.get(),
+            [this]() { return json(**memoryInfo_.rlock()); })
+            .via(folly::EventBaseManager::get()->getEventBase())
+            .thenValue([downstream, handlerState](auto response) {
+              if (!handlerState->requestExpired()) {
+                http::sendOkResponse(downstream, response);
+              }
+            });
+      });
+}
+
+proxygen::RequestHandler* PrestoServer::fetchServerInfo() {
+  return new http::CallbackRequestHandler(
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_.get(),
+            [this]() {
+              const protocol::ServerInfo serverInfo{
+                  {nodeVersion_},
+                  environment_,
+                  false,
+                  false,
+                  std::make_shared<protocol::Duration>(getUptime(start_))};
+              return json(serverInfo);
+            })
+            .via(folly::EventBaseManager::get()->getEventBase())
+            .thenValue([downstream, handlerState](auto response) {
+              if (!handlerState->requestExpired()) {
+                http::sendOkResponse(downstream, response);
+              }
+            });
+      });
+}
+
+proxygen::RequestHandler* PrestoServer::fetchNodeStatus2() {
+  return new http::CallbackRequestHandler(
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_.get(),
+            [this]() { return json(fetchNodeStatus()); })
+            .via(folly::EventBaseManager::get()->getEventBase())
+            .thenValue([downstream, handlerState](auto response) {
+              if (!handlerState->requestExpired()) {
+                http::sendOkResponse(downstream, response);
+              }
+            });
+      });
+}
+
+proxygen::RequestHandler* PrestoServer::fetchState(PrestoServer* server) {
+  return new http::CallbackRequestHandler(
+      [this, server](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_.get(),
+            [this, server]() {
+              json infoStateJson = convertNodeState(server->nodeState());
+              return infoStateJson;
+            })
+            .via(folly::EventBaseManager::get()->getEventBase())
+            .thenValue([downstream, handlerState](auto response) {
+              if (!handlerState->requestExpired()) {
+                http::sendOkResponse(downstream, response);
+              }
+            });
+      });
+}
 
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
@@ -300,29 +404,18 @@ void PrestoServer::run() {
 
   httpServer_->registerPost(
       "/v1/memory",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->reportMemoryInfo(downstream);
-      });
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) { return fetchMemory(); });
   httpServer_->registerGet(
       "/v1/info",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->reportServerInfo(downstream);
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return fetchServerInfo();
       });
   httpServer_->registerGet(
       "/v1/info/state",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        json infoStateJson = convertNodeState(server->nodeState());
-        http::sendOkResponse(downstream, infoStateJson);
-      });
+      [&, server = this](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) { return fetchState(server); });
   httpServer_->registerPut(
       "/v1/info/state",
       [server = this](
@@ -333,11 +426,9 @@ void PrestoServer::run() {
       });
   httpServer_->registerGet(
       "/v1/status",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->reportNodeStatus(downstream);
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return fetchNodeStatus2();
       });
   httpServer_->registerHead(
       "/v1/status",
@@ -1474,24 +1565,6 @@ void PrestoServer::checkOverload() {
     RECORD_METRIC_VALUE(kCounterOverloadedCpu, isCpuOverloaded ? 100 : 0);
     isCpuOverloaded_ = isCpuOverloaded;
   }
-}
-
-static protocol::Duration getUptime(
-    std::chrono::steady_clock::time_point& start) {
-  auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
-                     std::chrono::steady_clock::now() - start)
-                     .count();
-  if (seconds >= 86400) {
-    return protocol::Duration(seconds / 86400.0, protocol::TimeUnit::DAYS);
-  }
-  if (seconds >= 3600) {
-    return protocol::Duration(seconds / 3600.0, protocol::TimeUnit::HOURS);
-  }
-  if (seconds >= 60) {
-    return protocol::Duration(seconds / 60.0, protocol::TimeUnit::MINUTES);
-  }
-
-  return protocol::Duration(seconds, protocol::TimeUnit::SECONDS);
 }
 
 void PrestoServer::reportMemoryInfo(proxygen::ResponseHandler* downstream) {

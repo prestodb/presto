@@ -115,6 +115,11 @@ class PrestoServer {
   /// worker).
   void enableAnnouncer(bool enable);
 
+  proxygen::RequestHandler* fetchMemory();
+  proxygen::RequestHandler* fetchServerInfo();
+  proxygen::RequestHandler* fetchNodeStatus2();
+  proxygen::RequestHandler* fetchState(PrestoServer* server);
+
  protected:
   virtual void createPeriodicMemoryChecker();
 

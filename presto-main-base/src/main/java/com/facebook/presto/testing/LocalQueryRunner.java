@@ -465,7 +465,7 @@ public class LocalQueryRunner
         this.planCheckerProviderManager = new PlanCheckerProviderManager(new JsonCodecSimplePlanFragmentSerde(jsonCodec(SimplePlanFragment.class)), new PlanCheckerProviderManagerConfig());
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false, planCheckerProviderManager);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true, planCheckerProviderManager);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig, planCheckerProviderManager);
+        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), featuresConfig, planCheckerProviderManager, objectMapper);
         this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
 

@@ -332,7 +332,8 @@ TaskManager::TaskManager(
       queryContextManager_(std::make_unique<QueryContextManager>(
           driverExecutor,
           spillerExecutor)),
-      httpSrvCpuExecutor_(httpSrvCpuExecutor) {
+      httpSrvCpuExecutor_(httpSrvCpuExecutor),
+      fragmentResultCacheManager_(std::make_shared<velox::exec::FragmentResultCacheManager>(spillerExecutor)) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -825,7 +826,7 @@ void TaskManager::cancelAbandonedTasks() {
   cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
 }
 
-folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
+folly::Future<std::unique_ptr<json>> TaskManager::getTaskInfo(
     const TaskId& taskId,
     bool summarize,
     std::optional<protocol::TaskState> currentState,
@@ -839,7 +840,10 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     promise.setValue(std::make_unique<protocol::TaskInfo>(
         prestoTask->updateInfo(summarize)));
     prestoTask->updateCoordinatorHeartbeat();
-    return std::move(future).via(httpSrvCpuExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_).thenValue([](std::unique_ptr<protocol::TaskInfo> taskInfo) {
+          json taskInfoJson = *taskInfo;
+      return std::make_unique<json>(taskInfoJson);
+    });
   }
 
   uint64_t maxWaitMicros =
@@ -861,16 +865,23 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
           .onTimeout(
               std::chrono::microseconds(maxWaitMicros),
               [prestoTask, summarize]() {
-                return std::make_unique<protocol::TaskInfo>(
-                    prestoTask->updateInfo(summarize));
-              });
+                auto taskInfo = std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo(summarize));
+                json taskInfoJson = *taskInfo;
+                return std::make_unique<json>(taskInfoJson);
+      }).thenValue([](std::unique_ptr<protocol::TaskInfo> taskInfo) {
+        json taskInfoJson = *taskInfo;
+        return std::make_unique<json>(taskInfoJson);
+      });;
     }
     info = prestoTask->updateInfoLocked(summarize);
   }
   if (currentState.value() != info.taskStatus.state ||
       isFinalState(info.taskStatus.state)) {
     promise.setValue(std::make_unique<protocol::TaskInfo>(info));
-    return std::move(future).via(httpSrvCpuExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_).thenValue([](std::unique_ptr<protocol::TaskInfo> taskInfo) {
+          json taskInfoJson = *taskInfo;
+      return std::make_unique<json>(taskInfoJson);
+    });
   }
 
   auto promiseHolder =
@@ -891,7 +902,10 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
                 std::make_unique<protocol::TaskInfo>(
                     prestoTask->updateInfo(summarize)));
           });
-  return std::move(future).via(httpSrvCpuExecutor_);
+  return std::move(future).via(httpSrvCpuExecutor_).thenValue([](std::unique_ptr<protocol::TaskInfo> taskInfo) {
+          json taskInfoJson = *taskInfo;
+      return std::make_unique<json>(taskInfoJson);
+    });
 }
 
 folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
@@ -997,7 +1011,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
   }
 }
 
-folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
+folly::Future<std::unique_ptr<json>> TaskManager::getTaskStatus(
     const TaskId& taskId,
     std::optional<protocol::TaskState> currentState,
     std::optional<protocol::Duration> maxWait,
@@ -1010,7 +1024,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
   if (!currentState || !maxWait) {
     // Return task's status immediately without waiting.
     prestoTask->updateCoordinatorHeartbeat();
-    return std::make_unique<protocol::TaskStatus>(prestoTask->updateStatus());
+    return std::make_unique<json>(prestoTask->updateStatus());
   }
 
   uint64_t maxWaitMicros =
@@ -1030,9 +1044,14 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
       return std::move(future)
           .via(httpSrvCpuExecutor_)
           .onTimeout(std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
-            return std::make_unique<protocol::TaskStatus>(
+            auto taskStatus = std::make_unique<protocol::TaskStatus>(
                 prestoTask->updateStatus());
-          });
+            json taskStatusJson = *taskStatus;
+            return std::make_unique<json>(taskStatusJson);
+      }).thenValue([](std::unique_ptr<protocol::TaskStatus> taskStatus) {
+      json taskStatusJson = *taskStatus;
+        return std::make_unique<json>(taskStatusJson);
+      });
     }
 
     status = prestoTask->updateStatusLocked();
@@ -1040,7 +1059,10 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 
   if (currentState.value() != status.state || isFinalState(status.state)) {
     promise.setValue(std::make_unique<protocol::TaskStatus>(status));
-    return std::move(future).via(httpSrvCpuExecutor_);
+    return std::move(future).via(httpSrvCpuExecutor_).thenValue([](std::unique_ptr<protocol::TaskStatus> taskStatus) {
+      json taskStatusJson = *taskStatus;
+        return std::make_unique<json>(taskStatusJson);
+      });
   }
 
   auto promiseHolder =
@@ -1061,7 +1083,10 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
                 std::make_unique<protocol::TaskStatus>(
                     prestoTask->updateStatus()));
           });
-  return std::move(future).via(httpSrvCpuExecutor_);
+  return std::move(future).via(httpSrvCpuExecutor_).thenValue([](std::unique_ptr<protocol::TaskStatus> taskStatus) {
+      json taskStatusJson = *taskStatus;
+        return std::make_unique<json>(taskStatusJson);
+      });
 }
 
 void TaskManager::removeRemoteSource(

@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -41,6 +42,7 @@ import static com.facebook.presto.sql.planner.PlanFragmenterUtils.ROOT_FRAGMENT_
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.finalizeSubPlan;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.getOutputTableWriterNodeIds;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,15 +55,19 @@ public class PlanFragmenter
     private final QueryManagerConfig config;
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
+    private final ObjectMapper sortedMapObjectMapper;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, FeaturesConfig featuresConfig, PlanCheckerProviderManager planCheckerProviderManager)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, FeaturesConfig featuresConfig, PlanCheckerProviderManager planCheckerProviderManager, ObjectMapper objectMapper)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false, planCheckerProviderManager);
         this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true, planCheckerProviderManager);
+        this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
+                .copy()
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean noExchange, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
@@ -80,7 +86,8 @@ public class PlanFragmenter
                 warningCollector,
                 idAllocator,
                 variableAllocator,
-                getOutputTableWriterNodeIds(plan.getRoot()));
+                getOutputTableWriterNodeIds(plan.getRoot()),
+                sortedMapObjectMapper);
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
@@ -99,9 +106,9 @@ public class PlanFragmenter
     {
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds)
+        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds, ObjectMapper sortedMapObjectMapper)
         {
-            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds);
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds, sortedMapObjectMapper);
         }
 
         @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
@@ -592,7 +593,7 @@ public abstract class AbstractTestQueryFramework
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig, queryRunner.getPlanCheckerProviderManager()),
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig, queryRunner.getPlanCheckerProviderManager(), new JsonObjectMapperProvider().get()),
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,

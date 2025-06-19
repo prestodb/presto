@@ -106,6 +106,7 @@ public abstract class BasePlanFragmenter
     private final WarningCollector warningCollector;
     private final Set<PlanNodeId> outputTableWriterNodeIds;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
+    private final ObjectMapper sortedMapObjectMapper;
 
     public BasePlanFragmenter(
             Session session,
@@ -115,7 +116,8 @@ public abstract class BasePlanFragmenter
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
             VariableAllocator variableAllocator,
-            Set<PlanNodeId> outputTableWriterNodeIds)
+            Set<PlanNodeId> outputTableWriterNodeIds,
+            ObjectMapper objectMapper)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -126,6 +128,7 @@ public abstract class BasePlanFragmenter
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(variableAllocator, metadata.getFunctionAndTypeManager(), session);
+        this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null").copy();
     }
 
     public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -159,7 +162,7 @@ public abstract class BasePlanFragmenter
         Optional<Integer> canonicalPlanFragmentHash = Optional.empty();
         Optional<String> canonicalPlanFragmentStr = Optional.empty();
         if (SystemSessionProperties.isFragmentResultCachingEnabled(session) && isEligibleForFragmentResultCaching(root)) {
-            canonicalPlanFragment = generateCanonicalPlanFragment(root, properties.getPartitioningScheme(), new ObjectMapper(), session);
+            canonicalPlanFragment = generateCanonicalPlanFragment(root, properties.getPartitioningScheme(), sortedMapObjectMapper, session);
             if (canonicalPlanFragment.isPresent()) {
                 canonicalPlanFragmentHash = Optional.of(canonicalPlanFragment.get().getPlan().hashCode());
                 canonicalPlanFragmentStr = Optional.of(canonicalPlanFragment.get().getPlan().toString());
