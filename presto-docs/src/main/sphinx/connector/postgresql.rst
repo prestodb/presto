@@ -141,6 +141,8 @@ The connector maps PostgreSQL types to the corresponding PrestoDB types:
     - ``JSON``
   * - ``JSONB``
     - ``JSON``
+  * - ``GEOMETRY``
+    - ``VARCHAR``
 
 No other types are supported.
 
