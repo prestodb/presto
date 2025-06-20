@@ -182,7 +182,8 @@ function install_arrow {
     -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DARROW_BUILD_STATIC=ON \
-    -DBOOST_ROOT="${INSTALL_PREFIX}"
+    -DBOOST_ROOT="${INSTALL_PREFIX}" \
+    "${EXTRA_ARROW_OPTIONS}"
 }
 
 function install_thrift {
@@ -209,8 +210,7 @@ function install_thrift {
     -DWITH_NODEJS=OFF \
     -DWITH_PYTHON=OFF \
     -DWITH_QT5=OFF \
-    -DWITH_ZLIB=OFF \
-    "${EXTRA_ARROW_OPTIONS}"
+    -DWITH_ZLIB=OFF
 }
 
 function install_stemmer {
