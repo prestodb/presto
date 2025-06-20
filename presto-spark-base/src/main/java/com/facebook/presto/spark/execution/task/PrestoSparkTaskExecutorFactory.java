@@ -687,7 +687,8 @@ public class PrestoSparkTaskExecutorFactory
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     public boolean isMemoryRevokePending(TaskContext taskContext)

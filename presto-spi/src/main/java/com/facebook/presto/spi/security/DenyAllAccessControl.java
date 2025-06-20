@@ -22,7 +22,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -79,7 +81,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions, List<X509Certificate> certificates)
     {
         denyQueryIntegrityCheck();
     }
