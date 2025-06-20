@@ -331,7 +331,8 @@ public class DwrfMetadataReader
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                Optional.empty());
     }
 
     private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)
@@ -541,7 +542,7 @@ public class DwrfMetadataReader
         Slice minimum = stringStatistics.hasMinimum() ? minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
         long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
 
-        return new StringStatistics(minimum, maximum, sum);
+        return new StringStatistics(minimum, maximum, false, false, sum);
     }
 
     private static BinaryStatistics toBinaryStatistics(DwrfProto.BinaryStatistics binaryStatistics)
