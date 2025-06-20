@@ -8,12 +8,19 @@ on:
       - '.github/workflows/prestocpp-macos-build.yml'
 jobs:
   prestocpp-macos-build-engine:
-    runs-on: macos-13
+    strategy:
+      matrix:
+        os: [macos-13, macos-15]
+    runs-on: ${{ matrix.os }}
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
+      # The arm runners (macos-14 and later) have only 7GB RAM.
+      BUILD_TYPE: "${{ matrix.os ==  'macos-15' && 'Release' || 'Debug' }}"
+      INSTALL_PREFIX: "/tmp/deps-install"
     concurrency:
-      group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}-${{ matrix.os }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -28,32 +35,44 @@ jobs:
           cd presto-native-execution
           make submodules
 
-      # The current Github runners for newer versions of macOS (14, 15) only provide 7GB memory while macOS 13 runners provide 14GB.
-      # Thus, we are installing XCode 15 on macOS 13 to build with Clang 15.
-      # https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
-      - uses: maxim-lobanov/setup-xcode@v1.6.0
-        with:
-          xcode-version: 15
-
       - name: "Setup MacOS"
         run: |
           set -xu
-          mkdir ~/deps ~/deps-src
-          git clone --depth 1 https://github.com/Homebrew/brew ~/deps
-          PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./presto-native-execution/scripts/setup-macos.sh
-          # Calculate the prefix path before we delete brew's repos and taps.
-          rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
-          rm -rf ~/deps-src
+          source presto-native-execution/scripts/setup-macos.sh
+          export PROMPT_ALWAYS_RESPOND=n
+
+          # First selectively install the minimal dependencies for Velox.
+          install_build_prerequisites
+          install_velox_deps_from_brew
+          install_double_conversion
+
+          # Velox deps needed by proxygen, a presto dependency.
+          install_boost
+          install_fmt
+          install_fast_float
+          install_folly
+          install_fizz
+          install_wangle
+          install_mvfst
+
+          # Velox dependencies that Presto directly depends on.
+          install_re2
+          install_fbthrift
+
+          # Now install the presto dependencies.
+          install_presto_deps
+
+          echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
+          brew link --force protobuf@21
 
       - name: Install Github CLI for using apache/infrastructure-actions/stash
         run: |
-          PATH=~/deps/bin:${PATH}
           brew install gh
 
       - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
         with:
           path: '${{ env.CCACHE_DIR }}'
-          key: ccache-prestocpp-macos-build-engine
+          key: ccache-prestocpp-macos-build-engine-${{ matrix.os }}
 
       - name: Zero ccache statistics
         run: ccache -sz
@@ -61,11 +80,18 @@ jobs:
       - name: "Build presto_cpp on MacOS"
         run: |
           clang --version
-          export INSTALL_PREFIX=~/deps
-          export PATH=~/deps/bin:$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
+          export PATH=$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
+          export BOOST_ROOT=${INSTALL_PREFIX}
           cd presto-native-execution
-          cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          ninja -C _build/debug
+          if [[ "${{ matrix.os }}" == "macos-13" ]]; then
+            # Velox sets -Wno-sign-compare but it needs to apply to Arrow.
+            # There is also a conflict with Arrow and Velox (Glog) macros which are fixed
+            # in a newer version of Arrow. The issues cannot be easily fixed in Velox so 
+            # override the warnings that would throw errors.
+            export CXXFLAGS="-Wno-error=sign-compare -Wno-error=macro-redefined"
+          fi
+          cmake -B _build/${BUILD_TYPE} -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+          ninja -C _build/${BUILD_TYPE} -j ${NJOBS}
 
       - name: Ccache after
         run: ccache -s
@@ -73,4 +99,4 @@ jobs:
       - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
         with:
           path: '${{ env.CCACHE_DIR }}'
-          key: ccache-macos-prestocpp
+          key: ccache-prestocpp-macos-build-engine-${{ matrix.os }}
