@@ -90,7 +90,7 @@ function install_build_prerequisites {
   pip3 install cmake-format regex pyyaml
 
   # Install ccache
-  curl -L https://github.com/ccache/ccache/releases/download/v"${CCACHE_VERSION}"/ccache-"${CCACHE_VERSION}"-darwin.tar.gz >ccache.tar.gz
+  curl -L https://github.com/ccache/ccache/releases/download/v"${CCACHE_VERSION}"/ccache-"${CCACHE_VERSION}"-darwin.tar.gz -o ccache.tar.gz
   tar -xf ccache.tar.gz
   mv ccache-"${CCACHE_VERSION}"-darwin/ccache /usr/local/bin/
   rm -rf ccache-"${CCACHE_VERSION}"-darwin ccache.tar.gz
