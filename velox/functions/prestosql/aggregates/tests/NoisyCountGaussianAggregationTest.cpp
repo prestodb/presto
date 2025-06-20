@@ -292,4 +292,124 @@ TEST_F(NoisyCountGaussianAggregationTest, nonScalarInputNoNoise) {
       "SELECT count(c2) FROM tmp");
 }
 
+// Test cases where the noise_scale is BIGINT.
+TEST_F(NoisyCountGaussianAggregationTest, noiseScaleBigintNoNoise) {
+  auto vectors = makeVectors(rowType1_, 10, 3);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {},
+      {"noisy_count_gaussian(c0, 0)"},
+      "SELECT count(c0) FROM tmp");
+}
+
+TEST_F(NoisyCountGaussianAggregationTest, twoAggregatesMultipleGroupsNoNoise) {
+  // Test case that do not contain nulls.
+  auto vectors = {
+      makeRowVector({
+          makeFlatVector<int>(1'000, [](auto row) { return row % 5; }), // c0
+          makeFlatVector<int>(1'000, [](auto row) { return row % 2; }), // c1
+          makeFlatVector<std::string>(
+              1'000, [](auto row) { return std::to_string(row) + "foo"; }) // c2
+      }),
+  };
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"noisy_count_gaussian(c1, 0.0, 1234)", "noisy_count_gaussian(c2, 0.0)"},
+      "SELECT c0, count(c1), count(c2) FROM tmp GROUP BY c0");
+
+  // Test case that contains nulls.
+  auto vectors2 = {
+      // This test case is designed to test the senario where the aggregated
+      // column has null values for one of the groupby keys.
+      // c0: null,  1,  0,   1,  0,  null,  0,   1,  0,   1
+      // c1: null,  1, null, 1, null,  1,  null, 1, null, 1
+      // c2: null, "foo", ... "foo", "foo"
+      makeRowVector({
+          makeFlatVector<int>(
+              10, [](auto row) { return row % 2; }, nullEvery(5)), // c0
+          makeFlatVector<int>(
+              10, [](auto row) { return row % 2; }, nullEvery(2)), // c1
+          makeFlatVector<std::string>(
+              10,
+              [](auto row) { return std::to_string(row) + "foo"; },
+              nullEvery(10)) // c2
+      }),
+  };
+
+  // EXPECTED RESULT:
+  // C0   | noisy_count_gaussian(c1, 0.0) | noisy_count_gaussian(c2, 0.0)
+  // NULL | 1                             | 1
+  // 0    | NULL                          | 4
+  // 1    | 4                             | 4
+  auto expectedResult = makeRowVector(
+      {makeNullableFlatVector<int>({std::nullopt, 0, 1}),
+       makeNullableFlatVector<int64_t>({1, std::nullopt, 4}),
+       makeNullableFlatVector<int64_t>({1, 4, 4})});
+
+  testAggregations(
+      vectors2,
+      {"c0"},
+      {"noisy_count_gaussian(c1, 0.0, 1234)",
+       "noisy_count_gaussian(c2, 0.0, 5678)"},
+      {expectedResult});
+}
+
+TEST_F(
+    NoisyCountGaussianAggregationTest,
+    twoAggregatesMultipleGroupsWrappedNoNoise) {
+  auto vectors = makeVectors(rowType1_, 10, 4);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      [&](auto& builder) {
+        builder.values(vectors)
+            .filter("c0 % 2 = 0")
+            .project({"c0 % 11 AS c0_mod_11", "c1", "c2"});
+      },
+      {"c0_mod_11"},
+      {"noisy_count_gaussian(c1, 0.0, 000)",
+       "noisy_count_gaussian(c2, 0.0, 000)"},
+      "SELECT c0 % 11, count(c1), count(c2) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+}
+
+// Test that the aggregation random seed as input
+TEST_F(NoisyCountGaussianAggregationTest, randomSeedNoNoise) {
+  auto vectors = makeVectors(rowType2_, 10, 4);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {},
+      {"noisy_count_gaussian(c1, 0.0, 456)",
+       "noisy_count_gaussian(c2, 0.0, 456)"},
+      "SELECT count(c1), count(c2) FROM tmp");
+}
+
+// Test that given a random seed, the aggregation is deterministic.
+TEST_F(NoisyCountGaussianAggregationTest, randomSeedDeterminism) {
+  auto vectors = makeVectors(rowType1_, 10, 4);
+
+  // Now run the aggregation with the given random seed and extract the result
+  auto expectedResult =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              .singleAggregation({}, {"noisy_count_gaussian(c1, 3.0, 456)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  // The result should be the same for the same input, noise scale, and seed
+  int numRuns = 10;
+  for (int i = 0; i < numRuns; i++) {
+    testAggregations(
+        vectors, {}, {"noisy_count_gaussian(c1, 3, 456)"}, {expectedResult});
+  }
+}
+
 } // namespace facebook::velox::aggregate::test
