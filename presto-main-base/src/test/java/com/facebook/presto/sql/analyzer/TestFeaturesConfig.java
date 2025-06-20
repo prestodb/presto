@@ -259,6 +259,7 @@ public class TestFeaturesConfig
                 .setExcludeInvalidWorkerSessionProperties(false)
                 .setAddExchangeBelowPartialAggregationOverGroupId(false)
                 .setAddDistinctBelowSemiJoinBuild(false)
+                .setPushdownSubfieldForMapSubset(true)
                 .setInnerJoinPushdownEnabled(false)
                 .setBroadcastSemiJoinForDelete(true)
                 .setInEqualityJoinPushdownEnabled(false)
@@ -473,6 +474,7 @@ public class TestFeaturesConfig
                 .put("expression-optimizer-name", "custom")
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("optimizer.add-distinct-below-semi-join-build", "true")
+                .put("optimizer.pushdown-subfield-for-map-subset", "false")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .build();
 
@@ -678,6 +680,7 @@ public class TestFeaturesConfig
                 .setExcludeInvalidWorkerSessionProperties(true)
                 .setAddExchangeBelowPartialAggregationOverGroupId(true)
                 .setAddDistinctBelowSemiJoinBuild(true)
+                .setPushdownSubfieldForMapSubset(false)
                 .setInEqualityJoinPushdownEnabled(true)
                 .setBroadcastSemiJoinForDelete(false)
                 .setRewriteMinMaxByToTopNEnabled(true)

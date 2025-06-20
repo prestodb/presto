@@ -426,6 +426,11 @@ public final class FunctionResolution
         return windowValueFunctions.contains(functionAndTypeResolver.getFunctionMetadata(functionHandle).getName());
     }
 
+    public boolean isMapSubSetFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("map_subset")));
+    }
+
     @Override
     public FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes)
     {
