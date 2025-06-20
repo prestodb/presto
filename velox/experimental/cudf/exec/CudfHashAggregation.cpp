@@ -15,6 +15,7 @@
  */
 
 #include "velox/experimental/cudf/exec/CudfHashAggregation.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 
@@ -392,19 +393,20 @@ std::unique_ptr<cudf_velox::CudfHashAggregation::Aggregator> createAggregator(
     uint32_t inputIndex,
     VectorPtr constant,
     bool isGlobal) {
-  if (kind.rfind("sum", 0) == 0) {
+  auto prefix = cudf_velox::CudfOptions::getInstance().prefix();
+  if (kind.rfind(prefix + "sum", 0) == 0) {
     return std::make_unique<SumAggregator>(
         step, inputIndex, constant, isGlobal);
-  } else if (kind.rfind("count", 0) == 0) {
+  } else if (kind.rfind(prefix + "count", 0) == 0) {
     return std::make_unique<CountAggregator>(
         step, inputIndex, constant, isGlobal);
-  } else if (kind.rfind("min", 0) == 0) {
+  } else if (kind.rfind(prefix + "min", 0) == 0) {
     return std::make_unique<MinAggregator>(
         step, inputIndex, constant, isGlobal);
-  } else if (kind.rfind("max", 0) == 0) {
+  } else if (kind.rfind(prefix + "max", 0) == 0) {
     return std::make_unique<MaxAggregator>(
         step, inputIndex, constant, isGlobal);
-  } else if (kind.rfind("avg", 0) == 0) {
+  } else if (kind.rfind(prefix + "avg", 0) == 0) {
     return std::make_unique<MeanAggregator>(
         step, inputIndex, constant, isGlobal);
   } else {

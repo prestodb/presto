@@ -351,7 +351,7 @@ bool cudfDebugEnabled() {
 }
 
 bool cudfTableScanEnabled() {
-  return FLAGS_velox_cudf_table_scan;
+  return CudfOptions::getInstance().cudfTableScan;
 }
 
 } // namespace facebook::velox::cudf_velox

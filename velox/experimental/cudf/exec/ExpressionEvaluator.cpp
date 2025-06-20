@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/experimental/cudf/exec/ExpressionEvaluator.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
 
 #include "velox/expression/ConstantExpr.h"
 #include "velox/expression/FieldReference.h"
@@ -197,6 +198,14 @@ std::vector<cudf::ast::literal> createLiteralsFromArray(
 
   return literals;
 }
+
+std::string stripPrefix(const std::string& input, const std::string& prefix) {
+  if (input.size() >= prefix.size() &&
+      input.compare(0, prefix.size(), prefix) == 0) {
+    return input.substr(prefix.size());
+  }
+  return input;
+}
 } // namespace
 
 using Op = cudf::ast::ast_operator;
@@ -250,7 +259,8 @@ const std::unordered_set<std::string> supportedOps = {
 namespace detail {
 
 bool canBeEvaluated(const std::shared_ptr<velox::exec::Expr>& expr) {
-  const auto& name = expr->name();
+  const auto name =
+      stripPrefix(expr->name(), CudfOptions::getInstance().prefix());
   if (supportedOps.count(name) || binaryOps.count(name) ||
       unaryOps.count(name)) {
     return std::all_of(
@@ -334,7 +344,8 @@ cudf::ast::expression const& AstContext::multipleInputsToPairWise(
     const std::shared_ptr<velox::exec::Expr>& expr) {
   using Operation = cudf::ast::operation;
 
-  const auto& name = expr->name();
+  const auto name =
+      stripPrefix(expr->name(), CudfOptions::getInstance().prefix());
   auto len = expr->inputs().size();
   // Create a simple chain of operations
   auto result = &pushExprToTree(expr->inputs()[0]);
@@ -359,7 +370,8 @@ cudf::ast::expression const& AstContext::pushExprToTree(
   using velox::exec::ConstantExpr;
   using velox::exec::FieldReference;
 
-  auto& name = expr->name();
+  const auto name =
+      stripPrefix(expr->name(), CudfOptions::getInstance().prefix());
   auto len = expr->inputs().size();
 
   if (name == "literal") {

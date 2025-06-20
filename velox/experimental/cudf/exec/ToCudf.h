@@ -47,16 +47,38 @@ class CompileState {
   exec::Driver& driver_;
 };
 
-struct CudfOptions {
-  bool cudfEnabled = FLAGS_velox_cudf_enabled;
-  std::string cudfMemoryResource = FLAGS_velox_cudf_memory_resource;
-  static CudfOptions defaultOptions() {
-    return CudfOptions();
+class CudfOptions {
+ public:
+  static CudfOptions& getInstance() {
+    static CudfOptions instance;
+    return instance;
   }
+
+  void setPrefix(const std::string& prefix) {
+    prefix_ = prefix;
+  }
+
+  const std::string& prefix() const {
+    return prefix_;
+  }
+
+  const bool cudfEnabled;
+  const std::string cudfMemoryResource;
+  const bool cudfTableScan;
+
+ private:
+  CudfOptions()
+      : cudfEnabled(FLAGS_velox_cudf_enabled),
+        cudfMemoryResource(FLAGS_velox_cudf_memory_resource),
+        cudfTableScan(FLAGS_velox_cudf_table_scan),
+        prefix_("") {}
+  CudfOptions(const CudfOptions&) = delete;
+  CudfOptions& operator=(const CudfOptions&) = delete;
+  std::string prefix_;
 };
 
 /// Registers adapter to add cuDF operators to Drivers.
-void registerCudf(const CudfOptions& options = CudfOptions::defaultOptions());
+void registerCudf(const CudfOptions& options = CudfOptions::getInstance());
 void unregisterCudf();
 
 /// Returns true if cuDF is registered.
