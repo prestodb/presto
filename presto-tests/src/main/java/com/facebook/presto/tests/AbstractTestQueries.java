@@ -7929,6 +7929,16 @@ public abstract class AbstractTestQueries
                 ".*Out of range for integer.*");
         assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
                 "values 0.5, 0.1");
+
+        Session disableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "false")
+                .build();
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[key]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[1, cast(3 as bigint)]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[1, 3, key]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[key]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[1, 400000000000]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[key, 2, 400000000000]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", disableOptimization);
     }
 
     // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
