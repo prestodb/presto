@@ -72,4 +72,44 @@ public class TestRemoveMapCastRule
                                 ImmutableMap.of("a", expression("element_at(feature, try_cast(key as integer))")),
                                 values("feature", "key")));
     }
+
+    @Test
+    public void testMapSubSet()
+    {
+        tester().assertThat(
+                        ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(new RemoveMapCastRule(getFunctionManager()).rules()).build())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", DOUBLE);
+                    VariableReferenceExpression feature = p.variable("feature", createMapType(getFunctionManager(), INTEGER, DOUBLE));
+                    VariableReferenceExpression key = p.variable("key", BIGINT);
+                    return p.project(
+                            assignment(a, p.rowExpression("map_subset(cast(feature as map<bigint, double>), array[key])")),
+                            p.values(feature, key));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("a", expression("cast(map_subset(feature, array[try_cast(key as integer)]) as map<bigint, double>)")),
+                                values("feature", "key")));
+    }
+
+    @Test
+    public void testMapSubSetConstantArray()
+    {
+        tester().assertThat(
+                        ImmutableSet.<Rule<?>>builder().addAll(new SimplifyRowExpressions(getMetadata(), getExpressionManager()).rules()).addAll(new RemoveMapCastRule(getFunctionManager()).rules()).build())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", DOUBLE);
+                    VariableReferenceExpression feature = p.variable("feature", createMapType(getFunctionManager(), INTEGER, DOUBLE));
+                    VariableReferenceExpression key = p.variable("key", BIGINT);
+                    return p.project(
+                            assignment(a, p.rowExpression("map_subset(cast(feature as map<bigint, double>), array[cast(1 as bigint)])")),
+                            p.values(feature, key));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("a", expression("cast(map_subset(feature, array[1]) as map<bigint, double>)")),
+                                values("feature", "key")));
+    }
 }
