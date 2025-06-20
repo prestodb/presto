@@ -30,7 +30,7 @@
 # Minimal setup for Ubuntu 22.04.
 set -eufx -o pipefail
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
-source $SCRIPT_DIR/setup-common.sh
+source "$SCRIPT_DIR"/setup-common.sh
 
 SUDO="${SUDO:-"sudo --preserve-env"}"
 USE_CLANG="${USE_CLANG:-false}"
