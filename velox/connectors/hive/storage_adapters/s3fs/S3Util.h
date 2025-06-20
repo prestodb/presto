@@ -28,6 +28,8 @@
 
 #include "velox/common/base/Exceptions.h"
 
+#include <aws/core/utils/stream/PreallocatedStreamBuf.h>
+
 namespace facebook::velox::filesystems {
 
 namespace {
@@ -214,6 +216,21 @@ class S3ProxyConfigurationBuilder {
  private:
   const std::string s3Endpoint_;
   bool useSsl_;
+};
+
+// Reference: https://issues.apache.org/jira/browse/ARROW-8692
+// https://github.com/apache/arrow/blob/master/cpp/src/arrow/filesystem/s3fs.cc#L843
+// A non-copying iostream. See
+// https://stackoverflow.com/questions/35322033/aws-c-sdk-uploadpart-times-out
+// https://stackoverflow.com/questions/13059091/creating-an-input-stream-from-constant-memory
+class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf,
+                         public std::iostream {
+ public:
+  StringViewStream(const void* data, int64_t nbytes)
+      : Aws::Utils::Stream::PreallocatedStreamBuf(
+            reinterpret_cast<unsigned char*>(const_cast<void*>(data)),
+            static_cast<size_t>(nbytes)),
+        std::iostream(this) {}
 };
 
 } // namespace facebook::velox::filesystems

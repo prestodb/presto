@@ -21,7 +21,9 @@ if(VELOX_ENABLE_S3)
     PRIVATE
     S3FileSystem.cpp
     S3Util.cpp
-    S3Config.cpp)
+    S3Config.cpp
+    S3WriteFile.cpp
+    S3ReadFile.cpp)
 
   velox_include_directories(velox_s3fs PRIVATE ${AWSSDK_INCLUDE_DIRS})
   velox_link_libraries(velox_s3fs PRIVATE velox_dwio_common Folly::folly
