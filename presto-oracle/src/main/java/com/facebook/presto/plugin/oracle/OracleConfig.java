@@ -28,6 +28,9 @@ public class OracleConfig
     private int timestampDefaultPrecision = 6;
     private int numberDefaultScale = 10;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
+    private boolean tlsEnabled;
+    private String trustStorePath;
+    private String truststorePassword;
 
     @NotNull
     public boolean isSynonymsEnabled()
@@ -93,6 +96,42 @@ public class OracleConfig
     public OracleConfig setTimestampDefaultPrecision(int timestampDefaultPrecision)
     {
         this.timestampDefaultPrecision = timestampDefaultPrecision;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("oracle.tls.enabled")
+    public OracleConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public String getTrustStorePath()
+    {
+        return trustStorePath;
+    }
+
+    @Config("oracle.tls.truststore-path")
+    public OracleConfig setTrustStorePath(String path)
+    {
+        this.trustStorePath = path;
+        return this;
+    }
+
+    public String getTruststorePassword()
+    {
+        return truststorePassword;
+    }
+
+    @Config("oracle.tls.truststore-password")
+    public OracleConfig setTruststorePassword(String password)
+    {
+        this.truststorePassword = password;
         return this;
     }
 }

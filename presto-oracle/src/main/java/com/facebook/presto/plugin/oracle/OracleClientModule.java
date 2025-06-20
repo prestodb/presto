@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
         implements Module
@@ -49,8 +50,22 @@ public class OracleClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
-        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
+        requireNonNull(oracleConfig, "oracle config is null");
+        requireNonNull(config, "BaseJdbc config  is null");
+        if (config.getConnectionUser() != null && config.getConnectionPassword() != null) {
+            connectionProperties.setProperty("user", config.getConnectionUser());
+            connectionProperties.setProperty("password", config.getConnectionPassword());
+        }
+        if (oracleConfig.isTlsEnabled()) {
+            if (oracleConfig.getTrustStorePath() != null) {
+                connectionProperties.setProperty("javax.net.ssl.trustStore", oracleConfig.getTrustStorePath());
+            }
+            if (oracleConfig.getTruststorePassword() != null) {
+                connectionProperties.setProperty("javax.net.ssl.trustStorePassword", oracleConfig.getTruststorePassword());
+            }
+        }
+        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
         return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
