@@ -22,6 +22,7 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnector.h" // @manual
 #include "velox/core/QueryCtx.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h" // @manual
 #include "velox/dwio/parquet/reader/PageReader.h"
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
@@ -803,6 +804,76 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, timestampUnitAndTimeZone) {
       .copyResults(pool_.get());
 }
 #endif
+
+TEST_F(ParquetWriterTest, dictionaryEncodedVector) {
+  const auto randomIndices = [this](vector_size_t size) {
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(size, leafPool_.get());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    for (int32_t i = 0; i < size; i++) {
+      rawIndices[i] = folly::Random::rand32(size);
+    }
+    return indices;
+  };
+
+  const auto wrapDictionaryVectors =
+      [&](const std::vector<VectorPtr>& vectors) {
+        std::vector<VectorPtr> wrappedVectors;
+        wrappedVectors.reserve(vectors.size());
+
+        for (const auto& vector : vectors) {
+          auto wrappedVector = BaseVector::wrapInDictionary(
+              BufferPtr(nullptr),
+              randomIndices(vector->size()),
+              vector->size(),
+              vector);
+          EXPECT_EQ(
+              wrappedVector->encoding(), VectorEncoding::Simple::DICTIONARY);
+          wrappedVectors.emplace_back(wrappedVector);
+        }
+        return wrappedVectors;
+      };
+
+  const auto writeToFile = [this](const RowVectorPtr& data) {
+    parquet::WriterOptions writerOptions;
+    writerOptions.memoryPool = leafPool_.get();
+
+    // Create an in-memory writer.
+    auto sink = std::make_unique<MemorySink>(
+        200 * 1024 * 1024,
+        dwio::common::FileSink::Options{.pool = leafPool_.get()});
+    auto writer = std::make_unique<parquet::Writer>(
+        std::move(sink), writerOptions, rootPool_, asRowType(data->type()));
+    writer->write(data);
+    writer->close();
+  };
+
+  // Dictionary encoded vectors with complex type.
+  const auto size = 10'000;
+  auto wrappedVectors = wrapDictionaryVectors({
+      facebook::velox::test::BatchMaker::createVector<TypeKind::MAP>(
+          MAP(VARCHAR(), INTEGER()), size, *leafPool_),
+      facebook::velox::test::BatchMaker::createVector<TypeKind::ARRAY>(
+          ARRAY(VARCHAR()), size, *leafPool_),
+      facebook::velox::test::BatchMaker::createVector<TypeKind::ROW>(
+          ROW({"c0", "c1"},
+              {BIGINT(), ROW({"id", "name"}, {INTEGER(), VARCHAR()})}),
+          size,
+          *leafPool_),
+  });
+
+  writeToFile(makeRowVector(wrappedVectors));
+
+  // Dictionary encoded constant vector of scalar type.
+  const auto constantVector = makeConstant(static_cast<int64_t>(123'456), size);
+  const auto wrappedVector = std::make_shared<DictionaryVector<int64_t>>(
+      leafPool_.get(), nullptr, size, constantVector, randomIndices(size));
+  EXPECT_EQ(wrappedVector->encoding(), VectorEncoding::Simple::DICTIONARY);
+  VELOX_CHECK_NOT_NULL(wrappedVector->valueVector());
+  EXPECT_FALSE(wrappedVector->wrappedVector()->isFlatEncoding());
+
+  writeToFile(makeRowVector({wrappedVector}));
+};
 
 } // namespace
 

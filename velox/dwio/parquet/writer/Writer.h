@@ -196,6 +196,11 @@ class Writer : public dwio::common::Writer {
   // Sets the memory reclaimers for all the memory pools used by this writer.
   void setMemoryReclaimers();
 
+  // Checks if the input data contains a nested wrapped vector or complex
+  // vector. If so, flatten the input to make it compatible with
+  // 'exportFlattenedVector' in Arrow export.
+  bool needFlatten(const VectorPtr& data) const;
+
   // Pool for 'stream_'.
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<memory::MemoryPool> generalPool_;

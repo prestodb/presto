@@ -711,7 +711,7 @@ TEST_F(E2EFilterTest, writeDecimalAsInteger) {
   auto rowVector = makeRowVector(
       {makeFlatVector<int64_t>({1, 2}, DECIMAL(8, 2)),
        makeFlatVector<int64_t>({1, 2}, DECIMAL(10, 2)),
-       makeFlatVector<int64_t>({1, 2}, DECIMAL(19, 2))});
+       makeFlatVector<int128_t>({1, 2}, DECIMAL(19, 2))});
   writeToMemory(rowVector->type(), {rowVector}, false);
   dwio::common::ReaderOptions readerOpts{leafPool_.get()};
   auto input = std::make_unique<BufferedInput>(
