@@ -205,13 +205,10 @@ void TopNRowNumber::addInput(RowVectorPtr input) {
     // Initialize new partitions.
     initializeNewPartitions();
 
-    // Process input rows. For each row, lookup the partition. If number of rows
-    // in that partition is less than limit, add the new row. Otherwise, check
-    // if row should replace an existing row or be discarded.
-    for (auto i = 0; i < numInput; ++i) {
-      auto& partition = partitionAt(lookup_->hits[i]);
-      processInputRow(i, partition);
-    }
+    // Process input rows. For each row, lookup the partition. If the highest
+    // (top) rank in that partition is less than limit, add the new row.
+    // Otherwise, check if row should replace an existing row or be discarded.
+    processInputRowLoop(numInput);
 
     if (abandonPartialEarly()) {
       abandonedPartial_ = true;
@@ -222,9 +219,7 @@ void TopNRowNumber::addInput(RowVectorPtr input) {
       outputRows_.resize(outputBatchSize_);
     }
   } else {
-    for (auto i = 0; i < numInput; ++i) {
-      processInputRow(i, *singlePartition_);
-    }
+    processInputRowLoop(numInput);
   }
 }
 
@@ -302,6 +297,18 @@ void TopNRowNumber::processInputRow(vector_size_t index, TopRows& partition) {
   }
 
   topRows.push(newRow);
+}
+
+void TopNRowNumber::processInputRowLoop(vector_size_t numInput) {
+  if (table_) {
+    for (auto i = 0; i < numInput; ++i) {
+      processInputRow(i, partitionAt(lookup_->hits[i]));
+    }
+  } else {
+    for (auto i = 0; i < numInput; ++i) {
+      processInputRow(i, *singlePartition_);
+    }
+  }
 }
 
 void TopNRowNumber::noMoreInput() {

@@ -110,6 +110,9 @@ class TopNRowNumber : public Operator {
   // Returns a pointer to the row to add to the partition accumulator.
   char* processRowExceedingLimit(vector_size_t index, TopRows& partition);
 
+  // Loop to add each row to a partition or discard the row.
+  void processInputRowLoop(vector_size_t numInput);
+
   // Adds input row to a partition or discards the row.
   void processInputRow(vector_size_t index, TopRows& partition);
 
