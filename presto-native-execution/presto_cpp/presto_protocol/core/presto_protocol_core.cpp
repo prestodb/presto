@@ -726,7 +726,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TopNRowNumberNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.UnnestNode") {
+  if (type == ".UnnestNode") {
     j = *std::static_pointer_cast<UnnestNode>(p);
     return;
   }
@@ -906,7 +906,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.UnnestNode") {
+  if (type == ".UnnestNode") {
     std::shared_ptr<UnnestNode> k = std::make_shared<UnnestNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -11134,12 +11134,12 @@ void from_json(const json& j, TopNRowNumberNode& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 UnnestNode::UnnestNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.UnnestNode";
+  _type = ".UnnestNode";
 }
 
 void to_json(json& j, const UnnestNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.UnnestNode";
+  j["@type"] = ".UnnestNode";
   to_json_key(j, "id", p.id, "UnnestNode", "PlanNodeId", "id");
   to_json_key(j, "source", p.source, "UnnestNode", "PlanNode", "source");
   to_json_key(
