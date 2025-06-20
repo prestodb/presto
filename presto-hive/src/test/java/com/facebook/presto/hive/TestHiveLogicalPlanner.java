@@ -84,6 +84,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUER
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_IGNORE_STATS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
@@ -1459,6 +1460,44 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("x", toSubfields("x.d")));
 
         assertUpdate("DROP TABLE test_pushdown_struct_subfields");
+    }
+
+    @Test
+    public void testPushdownSubfieldsForMapSubset()
+    {
+        Session mapSubset = Session.builder(getSession()).setSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET, "true").build();
+        assertUpdate("CREATE TABLE test_pushdown_map_subfields(id integer, x map(integer, double))");
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[1, 2, 3]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields("x[1]", "x[2]", "x[3]")));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[-1, -2, 3]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields("x[-1]", "x[-2]", "x[3]")));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[1, 2, null]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[1, 2, 3, id]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[id]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertUpdate("DROP TABLE test_pushdown_map_subfields");
+
+        assertUpdate("CREATE TABLE test_pushdown_map_subfields(id integer, x array(map(integer, double)))");
+        assertPushdownSubfields(mapSubset, "SELECT t.id, transform(x, mp -> map_subset(mp, array[1, 2, 3])) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields("x[*][1]", "x[*][2]", "x[*][3]")));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, transform(x, mp -> map_subset(mp, array[1, 2, null])) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, transform(x, mp -> map_subset(mp, array[1, 2, id])) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertUpdate("DROP TABLE test_pushdown_map_subfields");
+
+        assertUpdate("CREATE TABLE test_pushdown_map_subfields(id varchar, x map(varchar, double))");
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array['ab', 'c', 'd']) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields("x[\"ab\"]", "x[\"c\"]", "x[\"d\"]")));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array['ab', 'c', null]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array['ab', 'c', 'd', id]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[id]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of("x", toSubfields()));
+        assertUpdate("DROP TABLE test_pushdown_map_subfields");
     }
 
     @Test

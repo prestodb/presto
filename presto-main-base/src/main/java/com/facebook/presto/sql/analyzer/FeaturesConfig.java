@@ -306,6 +306,7 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
+    private boolean pushdownSubfieldForMapSubset = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3055,5 +3056,18 @@ public class FeaturesConfig
     public boolean isAddDistinctBelowSemiJoinBuild()
     {
         return addDistinctBelowSemiJoinBuild;
+    }
+
+    @Config("optimizer.pushdown-subfield-for-map-subset")
+    @ConfigDescription("Enable subfield pruning for map_subset function")
+    public FeaturesConfig setPushdownSubfieldForMapSubset(boolean pushdownSubfieldForMapSubset)
+    {
+        this.pushdownSubfieldForMapSubset = pushdownSubfieldForMapSubset;
+        return this;
+    }
+
+    public boolean isPushdownSubfieldForMapSubset()
+    {
+        return pushdownSubfieldForMapSubset;
     }
 }
