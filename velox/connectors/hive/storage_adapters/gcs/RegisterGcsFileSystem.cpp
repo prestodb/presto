@@ -24,7 +24,15 @@
 namespace facebook::velox::filesystems {
 
 #ifdef VELOX_ENABLE_GCS
-folly::once_flag GcsInstantiationFlag;
+
+using FileSystemMap = folly::Synchronized<
+    std::unordered_map<std::string, std::shared_ptr<FileSystem>>>;
+
+/// Multiple GCS filesystems are supported.
+FileSystemMap& gcsFileSystems() {
+  static FileSystemMap instances;
+  return instances;
+}
 
 std::function<std::shared_ptr<
     FileSystem>(std::shared_ptr<const config::ConfigBase>, std::string_view)>
@@ -32,24 +40,49 @@ gcsFileSystemGenerator() {
   static auto filesystemGenerator =
       [](std::shared_ptr<const config::ConfigBase> properties,
          std::string_view filePath) {
-        // Only one instance of GCSFileSystem is supported for now (follow S3
-        // for now).
-        // TODO: Support multiple GCSFileSystem instances using a cache
-        // Initialize on first access and reuse after that.
-        static std::shared_ptr<FileSystem> gcsfs;
-        folly::call_once(GcsInstantiationFlag, [&properties]() {
-          std::shared_ptr<GcsFileSystem> fs;
-          if (properties != nullptr) {
-            fs = std::make_shared<GcsFileSystem>(properties);
-          } else {
-            fs = std::make_shared<GcsFileSystem>(
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
-          }
-          fs->initializeClient();
-          gcsfs = fs;
-        });
-        return gcsfs;
+        const auto file = gcsPath(filePath);
+        std::string bucket;
+        std::string object;
+        setBucketAndKeyFromGcsPath(file, bucket, object);
+        auto cacheKey = fmt::format(
+            "{}-{}",
+            properties->get<std::string>("hive.gcs.endpoint").value(),
+            bucket);
+
+        // Check if an instance exists with a read lock (shared).
+        auto fs = gcsFileSystems().withRLock(
+            [&](auto& instanceMap) -> std::shared_ptr<FileSystem> {
+              auto iterator = instanceMap.find(cacheKey);
+              if (iterator != instanceMap.end()) {
+                return iterator->second;
+              }
+              return nullptr;
+            });
+        if (fs != nullptr) {
+          return fs;
+        }
+
+        return gcsFileSystems().withWLock(
+            [&](auto& instanceMap) -> std::shared_ptr<FileSystem> {
+              // Repeat the checks with a write lock.
+              auto iterator = instanceMap.find(cacheKey);
+              if (iterator != instanceMap.end()) {
+                return iterator->second;
+              }
+
+              std::shared_ptr<GcsFileSystem> fs;
+              if (properties != nullptr) {
+                fs = std::make_shared<GcsFileSystem>(properties);
+              } else {
+                fs = std::make_shared<GcsFileSystem>(
+                    std::make_shared<config::ConfigBase>(
+                        std::unordered_map<std::string, std::string>()));
+              }
+              fs->initializeClient();
+
+              instanceMap.insert({cacheKey, fs});
+              return fs;
+            });
       };
   return filesystemGenerator;
 }
