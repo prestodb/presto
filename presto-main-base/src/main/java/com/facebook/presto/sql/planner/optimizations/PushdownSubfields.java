@@ -416,7 +416,7 @@ public class PushdownSubfields
             if (node.getInputDistribution().isPresent()) {
                 context.get().variables.addAll(node.getInputDistribution().get().getInputVariables());
             }
-            context.get().variables.add(node.getRowId());
+            node.getRowId().ifPresent(r -> context.get().variables.add(r));
             return context.defaultRewrite(node, context.get());
         }
 
