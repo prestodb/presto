@@ -39,6 +39,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.Maps;
 import jakarta.inject.Inject;
+import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleTypes;
 
 import java.sql.Connection;
@@ -83,7 +84,7 @@ public class OracleClient
         extends BaseJdbcClient
 {
     private static final Logger LOG = Logger.get(OracleClient.class);
-    private static final int FETCH_SIZE = 1000;
+    private final int fetchSize;
 
     private final boolean synonymsEnabled;
     private final int numberDefaultScale;
@@ -100,6 +101,7 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
+        this.fetchSize = config.getFetchSize();
     }
 
     private String[] getTableTypes()
@@ -114,22 +116,29 @@ public class OracleClient
     protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
+        if (connection.isWrapperFor(OracleConnection.class)) {
+            OracleConnection oracleConnection = connection.unwrap(OracleConnection.class);
+            oracleConnection.setDefaultRowPrefetch(fetchSize);
+        }
         DatabaseMetaData metadata = connection.getMetaData();
         String escape = metadata.getSearchStringEscape();
-        return metadata.getTables(
+        ResultSet resultSet = metadata.getTables(
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
+        return resultSet;
     }
 
     @Override
     public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
-        PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(FETCH_SIZE);
-        return statement;
+        if (connection.isWrapperFor(OracleConnection.class)) {
+            OracleConnection oracleConnection = connection.unwrap(OracleConnection.class);
+            oracleConnection.setDefaultRowPrefetch(fetchSize);
+        }
+        return connection.prepareStatement(sql);
     }
 
     @Override
