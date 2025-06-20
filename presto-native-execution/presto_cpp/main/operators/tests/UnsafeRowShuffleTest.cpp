@@ -769,17 +769,19 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     if (sorted) {
       data = makeRowVector(
+          // value
           {fuzzer.fuzzConstant(INTEGER(), inputRows),
-           fuzzer.fuzzMap(
-               fuzzer.fuzzConstant(VARCHAR(), 100),
-               fuzzer.fuzzArray(
-                   fuzzer.fuzzArray(fuzzer.fuzzFlat(DOUBLE()), 100), 100),
+           // sort key
+           fuzzer.fuzzRow(
+               {fuzzer.fuzzConstant(VARCHAR(), 100),
+                fuzzer.fuzzArray(
+                    fuzzer.fuzzArray(fuzzer.fuzzFlat(DOUBLE()), 100), 100)},
                inputRows)});
       ordering = {velox::core::SortOrder(velox::core::kAscNullsFirst)};
       fields =
           std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>>{
               std::make_shared<const velox::core::FieldAccessTypedExpr>(
-                  INTEGER(), "c0")};
+                  INTEGER(), "c1")};
     } else {
       data = makeRowVector({fuzzer.fuzzMap(
           fuzzer.fuzzConstant(VARCHAR(), 100),
@@ -791,7 +793,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     auto plan = exec::test::PlanBuilder()
                     .values({data}, false)
                     .addNode(addPartitionAndSerializeNode(
-                        2, true, {}, ordering, fields))
+                        2, true, {"c0"}, ordering, fields))
                     .planNode();
 
     auto properties = std::unordered_map<std::string, std::string>{
@@ -806,7 +808,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     params.planNode = plan;
     params.queryCtx = queryCtx;
 
-    testPartitionAndSerialize(plan, data, params, expectedOutputCount);
+    auto expected = makeRowVector({data->childAt(0)});
+    testPartitionAndSerialize(plan, expected, params, expectedOutputCount);
   }
 
   void cleanupDirectory(const std::string& rootPath) {
@@ -1220,6 +1223,10 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOutputRowLimit) {
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOutputRowLimitWithSort) {
   partitionAndSerializeWithThresholds(5, 1'000'000'000, 10, 2, true);
+}
+
+TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOutputByteLimitWithSort) {
+  partitionAndSerializeWithThresholds(10'000, 100, 10, 10, true);
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeNoLimit) {
