@@ -192,6 +192,28 @@ class FileSpillBatchStream : public BatchStream {
   std::unique_ptr<SpillReadFile> spillFile_;
 };
 
+/// A source of spilled RowVectors coming from a sequence of files.
+///
+/// NOTE: this object is not thread-safe.
+class ConcatFilesSpillBatchStream final : public BatchStream {
+ public:
+  static std::unique_ptr<BatchStream> create(
+      std::vector<std::unique_ptr<SpillReadFile>> spillFiles);
+
+  bool nextBatch(RowVectorPtr& batch) override;
+
+ private:
+  explicit ConcatFilesSpillBatchStream(
+      std::vector<std::unique_ptr<SpillReadFile>> spillFiles)
+      : spillFiles_(std::move(spillFiles)) {
+    VELOX_CHECK(!spillFiles_.empty());
+  }
+
+  std::vector<std::unique_ptr<SpillReadFile>> spillFiles_;
+  size_t fileIndex_{0};
+  bool atEnd_{false};
+};
+
 /// A SpillMergeStream that contains a sequence of sorted spill files, the
 /// sorted keys are ordered both within each file and across files.
 class ConcatFilesSpillMergeStream final : public SpillMergeStream {

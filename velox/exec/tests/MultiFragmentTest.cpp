@@ -125,15 +125,18 @@ class MultiFragmentTest : public HiveConnectorTestBase,
       std::unordered_map<std::string, std::string>& extraQueryConfigs,
       int destination = 0,
       Consumer consumer = nullptr,
-      int64_t maxMemory = memory::kMaxMemory,
-      folly::Executor* executor = nullptr) const {
+      int64_t maxMemory = memory::kMaxMemory) const {
     auto configCopy = configSettings_;
     for (const auto& [k, v] : extraQueryConfigs) {
       configCopy[k] = v;
     }
     auto queryCtx = core::QueryCtx::create(
-        executor ? executor : executor_.get(),
-        core::QueryConfig(std::move(configCopy)));
+        executor_.get(),
+        core::QueryConfig(std::move(configCopy)),
+        {},
+        nullptr,
+        nullptr,
+        executor_.get());
     queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
         queryCtx->queryId(), maxMemory, MemoryReclaimer::create()));
     core::PlanFragment planFragment{planNode};

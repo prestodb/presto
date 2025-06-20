@@ -429,6 +429,28 @@ const std::vector<SpillSortKey>& ConcatFilesSpillMergeStream::sortingKeys()
   return spillFiles_[fileIndex_]->sortingKeys();
 }
 
+std::unique_ptr<BatchStream> ConcatFilesSpillBatchStream::create(
+    std::vector<std::unique_ptr<SpillReadFile>> spillFiles) {
+  auto* spillStream = new ConcatFilesSpillBatchStream(std::move(spillFiles));
+  return std::unique_ptr<BatchStream>(spillStream);
+}
+
+bool ConcatFilesSpillBatchStream::nextBatch(RowVectorPtr& batch) {
+  VELOX_CHECK_NULL(batch);
+  VELOX_CHECK(!atEnd_);
+  for (; fileIndex_ < spillFiles_.size(); ++fileIndex_) {
+    VELOX_CHECK_NOT_NULL(spillFiles_[fileIndex_]);
+    if (spillFiles_[fileIndex_]->nextBatch(batch)) {
+      VELOX_CHECK_NOT_NULL(batch);
+      return true;
+    }
+    spillFiles_[fileIndex_].reset();
+  }
+  spillFiles_.clear();
+  atEnd_ = true;
+  return false;
+}
+
 SpillPartitionId::SpillPartitionId(uint32_t partitionNumber)
     : encodedId_(partitionNumber) {
   if (FOLLY_UNLIKELY(partitionNumber >= (1 << kMaxPartitionBits))) {
