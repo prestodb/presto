@@ -73,7 +73,7 @@ target_link_libraries(
   velox_gcs
   velox_hdfs
   velox_hive_connector
-  velox_hive_iceberg_splitreader
+  velox_hive_iceberg_connector
   velox_hive_partition_function
   velox_presto_serializer
   velox_s3fs

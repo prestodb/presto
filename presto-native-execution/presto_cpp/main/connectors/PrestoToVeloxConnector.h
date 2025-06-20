@@ -13,11 +13,13 @@
  */
 #pragma once
 
-#include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
-#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
+#include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.h"
+#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -187,8 +189,35 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       velox::connector::ColumnHandleMap& assignments)
       const final;
 
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::CreateHandle* createHandle,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::InsertHandle* insertHandle,
+      const TypeParser& typeParser) const final;
+
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
+
+ private:
+  std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
+  toHiveColumns(
+      const protocol::List<protocol::iceberg::IcebergColumnHandle>&
+          inputColumns,
+      const TypeParser& typeParser,
+      bool& hasPartitionColumn) const;
+
+  velox::connector::hive::iceberg::IcebergPartitionField
+  toVeloxIcebergPartitionField(
+      const protocol::iceberg::IcebergPartitionField& filed) const;
+
+  std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
+  toVeloxIcebergPartitionSpec(
+      const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
+      const TypeParser& typeParser) const;
 };
 
 class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
