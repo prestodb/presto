@@ -124,7 +124,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8.0.442
+          java-version: 8.0.452
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
@@ -204,7 +204,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8.0.442'
+          java-version: '8.0.452'
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
@@ -276,7 +276,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8.0.442'
+          java-version: '8.0.452'
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
@@ -345,7 +345,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8.0.442'
+          java-version: '8.0.452'
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs

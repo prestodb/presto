@@ -214,8 +214,8 @@ public class TestSingleStoreTypeMapping
     {
         ZoneId jvmZone = ZoneId.systemDefault();
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
+        LocalDate dateOfLocalTimeChangeForwardAtHour2InJvmZone = LocalDate.of(2012, 4, 1);
+        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtHour2InJvmZone.atTime(2, 1)).isEmpty());
 
         ZoneId someZone = ZoneId.of("Europe/Vilnius");
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
@@ -229,7 +229,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip(singleStoreDateDataType(), LocalDate.of(1970, 2, 3))
                 .addRoundTrip(singleStoreDateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
                 .addRoundTrip(singleStoreDateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(singleStoreDateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
+                .addRoundTrip(singleStoreDateDataType(), dateOfLocalTimeChangeForwardAtHour2InJvmZone)
                 .addRoundTrip(singleStoreDateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
                 .addRoundTrip(singleStoreDateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
 
