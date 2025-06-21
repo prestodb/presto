@@ -1,0 +1,36 @@
+[
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "variable",
+        "name": "c1",
+        "type": "boolean"
+      },
+      {
+        "@type": "constant",
+        "type": "boolean",
+        "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+      }
+    ],
+    "form": "OR",
+    "returnType": "boolean"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "variable",
+        "name": "c2",
+        "type": "boolean"
+      },
+      {
+        "@type": "variable",
+        "name": "c3",
+        "type": "boolean"
+      }
+    ],
+    "form": "AND",
+    "returnType": "boolean"
+  }
+]
