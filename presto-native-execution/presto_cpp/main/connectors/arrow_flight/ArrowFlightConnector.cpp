@@ -71,6 +71,26 @@ ArrowFlightConnector::initClientOpts(
     clientOpts->tls_root_certs = cert;
   }
 
+  auto clientCertPath = config->clientSslCertificate();
+  if (clientCertPath.has_value()) {
+    std::ifstream certFile(clientCertPath.value());
+    VELOX_CHECK(
+        certFile.is_open(), "Could not open client certificate at {}", clientCertPath.value());
+    clientOpts->cert_chain.assign(
+        (std::istreambuf_iterator<char>(certFile)),
+        (std::istreambuf_iterator<char>()));
+  }
+
+  auto clientKeyPath = config->clientSslKey();
+  if (clientKeyPath.has_value()) {
+    std::ifstream keyFile(clientKeyPath.value());
+    VELOX_CHECK(
+        keyFile.is_open(), "Could not open client key at {}", clientKeyPath.value());
+    clientOpts->private_key.assign(
+        (std::istreambuf_iterator<char>(keyFile)),
+        (std::istreambuf_iterator<char>()));
+  }
+
   return clientOpts;
 }
 
