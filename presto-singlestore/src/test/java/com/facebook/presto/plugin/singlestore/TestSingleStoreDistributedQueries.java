@@ -21,6 +21,7 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -64,16 +65,16 @@ public class TestSingleStoreDistributedQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(85)", "", "")//utf8
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(85)", "", "")
-                .row("clerk", "varchar(85)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(85)", "", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 10L, null, null)
+                .row("custkey", "bigint", "", "", 10L, null, null)
+                .row("orderstatus", "varchar(85)", "", "", null, null, 85L)//utf8
+                .row("totalprice", "double", "", "", 2L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar(85)", "", "", null, null, 85L)
+                .row("clerk", "varchar(85)", "", "", null, null, 85L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar(85)", "", "", null, null, 85L)
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
