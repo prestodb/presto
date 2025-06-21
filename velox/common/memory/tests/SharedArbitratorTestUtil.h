@@ -109,43 +109,4 @@ class ArbitrationParticipantTestHelper {
   ArbitrationParticipant* const participant_;
 };
 
-struct ArbitrationTestStructs {
-  ArbitrationParticipant::Config config;
-  std::shared_ptr<ArbitrationParticipant> participant{nullptr};
-  std::shared_ptr<ArbitrationOperation> operation{nullptr};
-
-  static ArbitrationTestStructs createArbitrationTestStructs(
-      const std::shared_ptr<MemoryPool>& pool,
-      uint64_t initCapacity = 1024,
-      uint64_t minCapacity = 128,
-      uint64_t fastExponentialGrowthCapacityLimit = 0,
-      double slowCapacityGrowRatio = 0,
-      uint64_t minFreeCapacity = 0,
-      double minFreeCapacityRatio = 0,
-      uint64_t minReclaimBytes = 128,
-      double minReclaimPct = 0,
-      uint64_t abortCapacityLimit = 512,
-      uint64_t requestBytes = 128,
-      uint64_t maxArbitrationTimeNs = 1'000'000'000'000UL /* 1'000s */) {
-    ArbitrationTestStructs ret{
-        .config = ArbitrationParticipant::Config(
-            initCapacity,
-            minCapacity,
-            fastExponentialGrowthCapacityLimit,
-            slowCapacityGrowRatio,
-            minFreeCapacity,
-            minFreeCapacityRatio,
-            minReclaimBytes,
-            minReclaimPct,
-            abortCapacityLimit)};
-    ret.participant = ArbitrationParticipant::create(
-        folly::Random::rand64(), pool, &ret.config);
-    ret.operation = std::make_shared<ArbitrationOperation>(
-        ScopedArbitrationParticipant(ret.participant, pool),
-        requestBytes,
-        maxArbitrationTimeNs);
-    return ret;
-  }
-};
-
 } // namespace facebook::velox::memory::test

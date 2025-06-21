@@ -31,7 +31,7 @@ using namespace facebook::velox::memory;
 
 std::string ArbitrationParticipant::Config::toString() const {
   return fmt::format(
-      "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}, minReclaimBytes {}, minReclaimPct {}, abortCapacityLimit {}",
+      "initCapacity {}, minCapacity {}, fastExponentialGrowthCapacityLimit {}, slowCapacityGrowRatio {}, minFreeCapacity {}, minFreeCapacityRatio {}, minReclaimBytes {}, minReclaimPct {}",
       succinctBytes(initCapacity),
       succinctBytes(minCapacity),
       succinctBytes(fastExponentialGrowthCapacityLimit),
@@ -39,8 +39,7 @@ std::string ArbitrationParticipant::Config::toString() const {
       succinctBytes(minFreeCapacity),
       minFreeCapacityRatio,
       succinctBytes(minReclaimBytes),
-      minReclaimPct,
-      succinctBytes(abortCapacityLimit));
+      minReclaimPct);
 }
 
 ArbitrationParticipant::Config::Config(
@@ -51,8 +50,7 @@ ArbitrationParticipant::Config::Config(
     uint64_t _minFreeCapacity,
     double _minFreeCapacityRatio,
     uint64_t _minReclaimBytes,
-    double _minReclaimPct,
-    uint64_t _abortCapacityLimit)
+    double _minReclaimPct)
     : initCapacity(_initCapacity),
       minCapacity(_minCapacity),
       fastExponentialGrowthCapacityLimit(_fastExponentialGrowthCapacityLimit),
@@ -60,8 +58,7 @@ ArbitrationParticipant::Config::Config(
       minFreeCapacity(_minFreeCapacity),
       minFreeCapacityRatio(_minFreeCapacityRatio),
       minReclaimBytes(_minReclaimBytes),
-      minReclaimPct(_minReclaimPct),
-      abortCapacityLimit(_abortCapacityLimit) {
+      minReclaimPct(_minReclaimPct) {
   VELOX_CHECK_GE(slowCapacityGrowRatio, 0);
   VELOX_CHECK_EQ(
       fastExponentialGrowthCapacityLimit == 0,
@@ -82,10 +79,6 @@ ArbitrationParticipant::Config::Config(
       "adjustment.",
       minFreeCapacity,
       minFreeCapacityRatio);
-  VELOX_CHECK(
-      bits::isPowerOfTwo(abortCapacityLimit),
-      "abortCapacityLimit {} not a power of two",
-      abortCapacityLimit);
   VELOX_CHECK(
       0 <= minReclaimPct && minReclaimPct <= 1,
       "minReclaimPct {} must be in [0, 1]",

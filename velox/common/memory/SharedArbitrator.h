@@ -136,12 +136,28 @@ class SharedArbitrator : public memory::MemoryArbitrator {
         const std::unordered_map<std::string, std::string>& configs);
 
     /// Specifies the starting memory capacity limit for global arbitration to
+    /// search for victim participant to reclaim used memory by spill. For
+    /// participants with reclaimable used capacity larger than the limit, the
+    /// global arbitration choose to spill the lowest priority participant with
+    /// highest reclaimable used capacity. The spill capacity limit is reduced
+    /// by half if couldn't find a victim participant until reaches to zero.
+    ///
+    /// NOTE: the limit must be zero or a power of 2.
+    static constexpr std::string_view kMemoryPoolSpillCapacityLimit{
+        "memory-pool-spill-capacity-limit"};
+    static constexpr std::string_view kDefaultMemoryPoolSpillCapacityLimit{
+        "4GB"};
+    static uint64_t memoryPoolSpillCapacityLimit(
+        const std::unordered_map<std::string, std::string>& configs);
+
+    /// Specifies the starting memory capacity limit for global arbitration to
     /// search for victim participant to reclaim used memory by abort. For
     /// participants with capacity larger than the limit, the global arbitration
-    /// choose to abort the youngest participant which has the largest
-    /// participant id. This helps to let the old queries to run to completion.
-    /// The abort capacity limit is reduced by half if could not find a victim
-    /// participant until this reaches to zero.
+    /// choose to abort the participant that has lowest priority and shortest
+    /// execution time (largest participant id). This helps to let the low
+    /// priority queries to be aborted first, as well as old queries to run to
+    /// completion. The abort capacity limit is reduced by half if couldn't find
+    /// a victim participant until reaches to zero.
     ///
     /// NOTE: the limit must be zero or a power of 2.
     static constexpr std::string_view kMemoryPoolAbortCapacityLimit{
@@ -387,7 +403,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Invoked to initialize the global arbitration on arbitrator start-up. It
   // starts the background threads to used memory from running queries
   // on-demand.
-  void setupGlobalArbitration();
+  void setupGlobalArbitration(
+      uint64_t spillCapacityLimit,
+      uint64_t abortCapacityLimit);
 
   // Invoked to stop the global arbitration threads on shut-down.
   void shutdownGlobalArbitration();
@@ -468,10 +486,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   uint64_t reclaimUsedMemoryBySpill(uint64_t targetBytes);
 
-  // Sorts 'candidates' based on reclaimable used capacity in descending order.
-  static void sortCandidatesByReclaimableUsedCapacity(
-      std::vector<ArbitrationCandidate>& candidates);
-
   // Invoked to reclaim the used memory capacity to abort the participant with
   // the largest capacity to free up memory. The function returns the actually
   // reclaimed capacity in bytes.
@@ -483,12 +497,20 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // abort if there is no eligible one.
   uint64_t reclaimUsedMemoryByAbort(bool force);
 
+  // Sorts and groups 'candidates' for spilling. The sort firstly groups
+  // candidates first based on 'globalArbitrationSpillCapacityLimits_', larger
+  // bucket in the front. Then order each group based on priority and
+  // reclaimable used capacity in descending order, with lower priority (higher
+  // priority value) and higher reclaimable used capacity ones in front.
+  // Priority takes precedence over reclaimable used capacity.
+  std::vector<std::vector<ArbitrationCandidate>> sortAndGroupSpillCandidates(
+      std::vector<ArbitrationCandidate>&& candidates);
+
   // Sorts 'candidates' based on participant's reclaimer priority in descending
   // order, putting lower priority ones (with higher priority value) first, and
   // high priority ones (with lower priority value) later.
   static std::vector<std::vector<ArbitrationCandidate>>
-  sortAndGroupCandidatesByPriority(
-      std::vector<ArbitrationCandidate>&& candidates);
+  sortAndGroupAbortCandidates(std::vector<ArbitrationCandidate>&& candidates);
 
   // Finds the participant victim to abort to free used memory based on the
   // participant's memory capacity and age. The function returns std::nullopt if
@@ -642,6 +664,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // and abort the youngest participant whose capacity is larger than the limit.
   // If there is no such participant, it goes to the next limit and so on.
   std::vector<uint64_t> globalArbitrationAbortCapacityLimits_;
+
+  // The spill capacity limits listed in descending order. It is used by global
+  // arbitration to choose the victim to spill. It starts with the largest limit
+  // and spill the largest reclaimable used capacity participant whose
+  // reclaimable used capacity is larger than the limit. If there is no such
+  // participant, it goes to the next limit and so on.
+  std::vector<uint64_t> globalArbitrationSpillCapacityLimits_;
 
   // The global arbitration control thread which runs the global arbitration at
   // the background, and dispatch the actual memory reclaim work on different
