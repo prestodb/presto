@@ -65,7 +65,7 @@ public class HiveTableLayoutHandle
     private final boolean footerStatsUnreliable;
 
     // coordinator-only properties
-    private final Optional<List<HivePartition>> partitions;
+    private final Optional<LazyLoadedPartitions> partitions;
     private final Optional<HiveTableHandle> hiveTableHandle;
 
     /**
@@ -133,7 +133,7 @@ public class HiveTableLayoutHandle
             Optional<Set<HiveColumnHandle>> requestedColumns,
             boolean partialAggregationsPushedDown,
             boolean appendRowNumberEnabled,
-            Optional<List<HivePartition>> partitions,
+            Optional<LazyLoadedPartitions> partitions,
             boolean footerStatsUnreliable,
             Optional<HiveTableHandle> hiveTableHandle)
     {
@@ -300,7 +300,7 @@ public class HiveTableLayoutHandle
         // Constants are only removed from point checks, and not range checks. Example:
         // `x = 1` is equivalent to `x = 1000`
         // `x > 1` is NOT equivalent to `x > 1000`
-        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), partitions.get());
+        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), partitions.get().getFullyLoadedPartitions());
         constraint = getDomainPredicate()
                 .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
                 .transform(getPredicateColumns()::get)
@@ -393,7 +393,7 @@ public class HiveTableLayoutHandle
         private boolean appendRowNumberEnabled;
         private boolean footerStatsUnreliable;
 
-        private Optional<List<HivePartition>> partitions;
+        private Optional<LazyLoadedPartitions> partitions;
         private Optional<HiveTableHandle> hiveTableHandle = Optional.empty();
 
         public Builder setSchemaTableName(SchemaTableName schemaTableName)
@@ -492,13 +492,13 @@ public class HiveTableLayoutHandle
             return this;
         }
 
-        public Builder setPartitions(List<HivePartition> partitions)
+        public Builder setPartitions(LazyLoadedPartitions partitions)
         {
             requireNonNull(partitions, "partitions is null");
             return setPartitions(Optional.of(partitions));
         }
 
-        public Builder setPartitions(Optional<List<HivePartition>> partitions)
+        public Builder setPartitions(Optional<LazyLoadedPartitions> partitions)
         {
             requireNonNull(partitions, "partitions is null");
             this.partitions = partitions;

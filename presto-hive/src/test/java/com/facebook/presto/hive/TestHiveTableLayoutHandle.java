@@ -60,7 +60,7 @@ public class TestHiveTableLayoutHandle
         Optional<HiveBucketing.HiveBucketFilter> bucketFilter = Optional.empty();
         Optional<Set<HiveColumnHandle>> requestedColumns = Optional.empty();
         SchemaTableName schemaTableName = SchemaTableName.valueOf("schema.TableName");
-        Optional<List<HivePartition>> partitions = Optional.empty();
+        Optional<LazyLoadedPartitions> partitions = Optional.empty();
         Optional<HiveTableHandle> hiveTableHandle = Optional.empty();
         HiveTableLayoutHandle handle = new HiveTableLayoutHandle(
                 schemaTableName,

@@ -199,8 +199,18 @@ public class IcebergMetadataOptimizer
 
             DiscretePredicates discretePredicates = layout.getDiscretePredicates().get();
 
+            // When reducible optimization is possible, we tend to load all partitions
+            //  Or we load partitions that do not exceed the threshold
+            if (!isReducible(node, inputs)) {
+                discretePredicates.setPartitionThreshold(rowsForMetadataOptimizationThreshold);
+            }
+
+            if (discretePredicates.isSingleAllDomain()) {
+                return context.defaultRewrite(node);
+            }
+
             // the optimization is only valid if there is no filter on non-partition columns
-            if (layout.getPredicate().getColumnDomains().isPresent()) {
+            if (!discretePredicates.isEmpty() && layout.getPredicate().getColumnDomains().isPresent()) {
                 List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().get().stream()
                         .map(ColumnDomain::getColumn)
                         .collect(toImmutableList());
@@ -227,9 +237,9 @@ public class IcebergMetadataOptimizer
             }
 
             // When `rowsForMetadataOptimizationThreshold == 0`, or partitions number exceeds the threshold, skip the optimization
-            if (rowsForMetadataOptimizationThreshold == 0 || Iterables.size(discretePredicates.getPredicates()) > rowsForMetadataOptimizationThreshold) {
+            /*if (rowsForMetadataOptimizationThreshold == 0 || Iterables.size(discretePredicates.getPredicates()) > rowsForMetadataOptimizationThreshold) {
                 return context.defaultRewrite(node);
-            }
+            }*/
 
             ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : discretePredicates.getPredicates()) {
