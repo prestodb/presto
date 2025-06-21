@@ -623,13 +623,6 @@ class QueryConfig {
   static constexpr const char* kStreamingAggregationMinOutputBatchRows =
       "streaming_aggregation_min_output_batch_rows";
 
-  /// If true, the streaming aggregation accumulates at least two input batches
-  /// and produce all the groups created from the previous input batch except
-  /// the last group.
-  static constexpr const char*
-      kStreamingAggregationTrySplitOutputAtInputBoundary =
-          "streaming_aggregation_try_split_output_at_input_boundary";
-
   /// TODO: Remove after dependencies are cleaned up.
   static constexpr const char* kStreamingAggregationEagerFlush =
       "streaming_aggregation_eager_flush";
@@ -1176,10 +1169,6 @@ class QueryConfig {
 
   int32_t streamingAggregationMinOutputBatchRows() const {
     return get<int32_t>(kStreamingAggregationMinOutputBatchRows, 0);
-  }
-
-  bool streamingAggregationTrySplitOutputAtInputBoundary() const {
-    return get<bool>(kStreamingAggregationTrySplitOutputAtInputBoundary, false);
   }
 
   bool isFieldNamesInJsonCastEnabled() const {

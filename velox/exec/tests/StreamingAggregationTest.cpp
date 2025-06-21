@@ -41,19 +41,14 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
 
   AssertQueryBuilder& config(
       AssertQueryBuilder builder,
-      uint32_t outputBatchSize,
-      bool splitOutput = false) {
+      uint32_t outputBatchSize) {
     return builder
         .config(
             core::QueryConfig::kPreferredOutputBatchRows,
             std::to_string(outputBatchSize))
         .config(
             core::QueryConfig::kStreamingAggregationMinOutputBatchRows,
-            std::to_string(flushRows()))
-        .config(
-            core::QueryConfig::
-                kStreamingAggregationTrySplitOutputAtInputBoundary,
-            splitOutput ? "true" : "false");
+            std::to_string(flushRows()));
   }
 
   void testAggregation(
@@ -915,9 +910,9 @@ TEST_P(StreamingAggregationTest, clusteredInputWithOutputSplit) {
            {18},
            {19}}),
   });
-  for (auto splitOutput : {false, true}) {
-    SCOPED_TRACE(fmt::format("splitOutput={}", splitOutput));
-    config(AssertQueryBuilder(planWithOverlap), 1024, splitOutput)
+  for (auto batchSize : {1, 3, 20}) {
+    SCOPED_TRACE(fmt::format("batchSize={}", batchSize));
+    config(AssertQueryBuilder(planWithOverlap), batchSize)
         .assertResults(expectedWithOverlap);
   }
 
@@ -956,9 +951,9 @@ TEST_P(StreamingAggregationTest, clusteredInputWithOutputSplit) {
             {17},
             {18},
             {19}})});
-  for (auto splitOutput : {false, true}) {
-    SCOPED_TRACE(fmt::format("splitOutput={}", splitOutput));
-    config(AssertQueryBuilder(planWithoutOverlap), 1024, splitOutput)
+  for (auto batchSize : {1, 3, 20}) {
+    SCOPED_TRACE(fmt::format("batchSize={}", batchSize));
+    config(AssertQueryBuilder(planWithoutOverlap), batchSize)
         .assertResults(expectedWithoutOverlap);
   }
 
@@ -996,9 +991,9 @@ TEST_P(StreamingAggregationTest, clusteredInputWithOutputSplit) {
             {17},
             {18},
             {19}})});
-  for (auto splitOutput : {false, true}) {
-    SCOPED_TRACE(fmt::format("splitOutput={}", splitOutput));
-    config(AssertQueryBuilder(mixedPlan), 1024, splitOutput)
+  for (auto batchSize : {1, 3, 20}) {
+    SCOPED_TRACE(fmt::format("batchSize={}", batchSize));
+    config(AssertQueryBuilder(mixedPlan), batchSize)
         .assertResults(expectedMixedResult);
   }
 }

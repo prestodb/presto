@@ -40,6 +40,8 @@ class StreamingAggregation : public Operator {
   RowVectorPtr getOutput() override;
 
   bool needsInput() const override {
+    // We don't need input if the first group is ready to output which has mixed
+    // input sources across streaming input batches.
     return true;
   }
 
@@ -71,8 +73,9 @@ class StreamingAggregation : public Operator {
   RowVectorPtr createOutput(size_t numGroups);
 
   // Assign input rows to groups based on values of the grouping keys. Store the
-  // assignments in inputGroups_.
-  void assignGroups();
+  // assignments in inputGroups_. Returns true if there is input rows have been
+  // assigned to the previously last group.
+  bool assignGroups();
 
   // Add input data to accumulators.
   void evaluateAggregates();
@@ -92,9 +95,6 @@ class StreamingAggregation : public Operator {
 
   // Maximum number of rows in the output batch.
   const vector_size_t minOutputBatchSize_;
-  // If true, we accumulate at least two batch inputs and produce all the groups
-  // created from the previous input batch except the last group.
-  const bool trySplitOutputAtInputBoundary_;
 
   // Used at initialize() and gets reset() afterward.
   std::shared_ptr<const core::AggregationNode> aggregationNode_;
@@ -121,6 +121,17 @@ class StreamingAggregation : public Operator {
   // Number of active entries at the beginning of the groups_ vector. The
   // remaining entries are re-usable.
   size_t numGroups_{0};
+
+  // If true, we want to output the first group which has inputs across
+  // different batches. Hence the next output could only contain the input from
+  // a single streaming input batch. This is used to help avoid data copy in
+  // streaming aggregation function processing which is only applicable if all
+  // the sources are from the same input batch.
+  //
+  // NOTE: the streaming aggregation operator must have at-least more than one
+  // groups in this case. Also we only enable this optimization if
+  // 'minOutputBatchSize_' is set to one for eagerly streaming output producing.
+  bool outputFirstGroup_{false};
 
   // Reusable memory.
 
