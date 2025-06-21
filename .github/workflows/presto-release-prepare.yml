@@ -37,6 +37,16 @@ jobs:
           show-progress: false
           fetch-depth: 5
 
+      - name: Ensure checkout latest code
+        run: |
+          git fetch origin ${{ github.ref_name }}
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/${{ github.ref_name }})" ]; then
+            echo "Branch ${{ github.ref_name }} has new commits. Resetting to latest."
+            git reset --hard origin/${{ github.ref_name }}
+          else
+            echo "Branch ${{ github.ref_name }} is already up to date."
+          fi
+
       - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
@@ -106,7 +116,9 @@ jobs:
       - name: Checkout presto source
         uses: actions/checkout@v4
         with:
+          fetch-tags: true
           show-progress: false
+          fetch-depth: 0
 
       - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
