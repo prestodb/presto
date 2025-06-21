@@ -147,15 +147,17 @@ bool cachePeriodicPersistenceEnabled() {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
- facebook::velox::cudf_velox::registerCudf();
- PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+  facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
+      SystemConfig::instance()->prestoDefaultNamespacePrefix());
+  facebook::velox::cudf_velox::registerCudf();
+  PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
 #endif
 }
 
 void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
- facebook::velox::cudf_velox::unregisterCudf();
- PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  facebook::velox::cudf_velox::unregisterCudf();
+  PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
 #endif
 }
 
@@ -1215,7 +1217,14 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                                << " using connector " << connectorName;
 
       // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
+      // cudf-parquet is not a real Presto connector, as it does not have
+      // a protocol associated, so it does not go via the standard
+      // PrestoToVelox conversion
+#ifdef PRESTO_ENABLE_CUDF
+      if (connectorName != "cudf-parquet") {
+        getPrestoToVeloxConnector(connectorName);
+      }
+#endif
 
       std::shared_ptr<velox::connector::Connector> connector =
           velox::connector::getConnectorFactory(connectorName)
@@ -1225,6 +1234,13 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                   connectorIoExecutor_.get(),
                   connectorCpuExecutor_.get());
       velox::connector::registerConnector(connector);
+
+#ifdef PRESTO_ENABLE_CUDF
+      if (connectorName == "cudf-parquet") {
+        facebook::velox::cudf_velox::CudfOptions::getInstance()
+            .setParquetConnectorRegistered(true);
+      }
+#endif
     }
   }
   return catalogNames;
