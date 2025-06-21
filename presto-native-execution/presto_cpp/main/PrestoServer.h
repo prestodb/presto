@@ -130,6 +130,9 @@ class PrestoServer {
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
+  virtual std::shared_ptr<facebook::velox::exec::SplitListenerFactory>
+    getSplitListenerFactory();
+
   virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
 
