@@ -189,7 +189,8 @@ public class TestSqlTaskExecution
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
-                    createTestSplitMonitor());
+                    createTestSplitMonitor(),
+                    null);
 
             //
             // test body
@@ -451,7 +452,8 @@ public class TestSqlTaskExecution
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
-                    createTestSplitMonitor());
+                    createTestSplitMonitor(),
+                    null);
 
             //
             // test body

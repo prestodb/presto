@@ -15,6 +15,7 @@ package com.facebook.presto.opentelemetry;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.tracing.TracerProvider;
+import com.facebook.presto.testing.TestingOpenTelemetryTracerProvider;
 import com.google.common.collect.ImmutableList;
 
 public class OpenTelemetryPlugin
@@ -23,6 +24,6 @@ public class OpenTelemetryPlugin
     @Override
     public Iterable<TracerProvider> getTracerProviders()
     {
-        return ImmutableList.of(new OpenTelemetryTracerProvider());
+        return ImmutableList.of(new OpenTelemetryTracerProvider(), new TestingOpenTelemetryTracerProvider());
     }
 }

@@ -102,7 +102,7 @@ public class TestEventListenerManager
         QueryCompletedEvent queryCompletedEvent = createDummyQueryCompletedEvent();
         eventListenerManager.queryCompleted(queryCompletedEvent);
         SplitCompletedEvent splitCompletedEvent = createDummySplitCompletedEvent();
-        eventListenerManager.splitCompleted(splitCompletedEvent);
+        eventListenerManager.splitCompleted(splitCompletedEvent, null);
 
         assertEquals(generatedEvents.getQueryCreatedEvents().size(), 3);
         assertEquals(generatedEvents.getQueryCompletedEvents().size(), 3);

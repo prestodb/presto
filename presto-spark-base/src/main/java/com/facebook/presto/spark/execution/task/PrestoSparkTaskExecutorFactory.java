@@ -104,6 +104,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.storage.TempStorageManager;
+import com.facebook.presto.tracing.TracingManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -655,6 +656,8 @@ public class PrestoSparkTaskExecutorFactory
 
         return new Session(
                 new QueryId(sessionRepresentation.getQueryId()),
+                TracingManager.getInvalidSpan(),
+                TracingManager.getInvalidSpan(),
                 sessionRepresentation.getTransactionId(),
                 sessionRepresentation.isClientTransactionSupport(),
                 new Identity(
@@ -683,7 +686,6 @@ public class PrestoSparkTaskExecutorFactory
                 sessionPropertyManager,
                 sessionRepresentation.getPreparedStatements(),
                 sessionRepresentation.getSessionFunctions(),
-                Optional.empty(),
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
