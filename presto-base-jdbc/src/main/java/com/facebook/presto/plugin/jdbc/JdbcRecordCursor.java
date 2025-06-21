@@ -15,13 +15,6 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.plugin.jdbc.mapping.ColumnMapping;
-import com.facebook.presto.plugin.jdbc.mapping.ReadFunction;
-import com.facebook.presto.plugin.jdbc.mapping.functions.BooleanReadFunction;
-import com.facebook.presto.plugin.jdbc.mapping.functions.DoubleReadFunction;
-import com.facebook.presto.plugin.jdbc.mapping.functions.LongReadFunction;
-import com.facebook.presto.plugin.jdbc.mapping.functions.ObjectReadFunction;
-import com.facebook.presto.plugin.jdbc.mapping.functions.SliceReadFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
@@ -38,6 +31,7 @@ import java.util.List;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
@@ -50,7 +44,6 @@ public class JdbcRecordCursor
     private final DoubleReadFunction[] doubleReadFunctions;
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
-    private final ObjectReadFunction[] objectReadFunctions;
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
@@ -68,13 +61,12 @@ public class JdbcRecordCursor
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
-        objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
-            ColumnMapping columnMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
+            ReadMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
                     .orElseThrow(() -> new VerifyException("Unsupported column type"));
-            Class<?> javaType = columnMapping.getType().getJavaType();
-            ReadFunction readFunction = columnMapping.getReadFunction();
+            Class<?> javaType = readMapping.getType().getJavaType();
+            ReadFunction readFunction = readMapping.getReadFunction();
 
             if (javaType == boolean.class) {
                 booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
@@ -89,7 +81,7 @@ public class JdbcRecordCursor
                 sliceReadFunctions[i] = (SliceReadFunction) readFunction;
             }
             else {
-                objectReadFunctions[i] = (ObjectReadFunction) readFunction;
+                throw new IllegalStateException(format("Unsupported java type %s", javaType));
             }
         }
 
@@ -188,13 +180,7 @@ public class JdbcRecordCursor
     @Override
     public Object getObject(int field)
     {
-        checkState(!closed, "cursor is closed");
-        try {
-            return objectReadFunctions[field].readObject(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override

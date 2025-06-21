@@ -16,7 +16,7 @@ package com.facebook.presto.plugin.mysql;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
-import com.facebook.presto.plugin.jdbc.mapping.functions.SliceReadFunction;
+import com.facebook.presto.plugin.jdbc.SliceReadFunction;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 
 import static com.facebook.presto.geospatial.GeoFunctions.stGeomFromBinary;
-import static com.facebook.presto.plugin.mysql.MySqlClient.geometryColumnMapping;
+import static com.facebook.presto.plugin.mysql.MySqlClient.geometryReadMapping;
 import static com.facebook.presto.plugin.mysql.MySqlClient.getAsText;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -61,7 +61,7 @@ public class TestMySqlClient
     @Test
     public void testReadMapping() throws SQLException
     {
-        SliceReadFunction fn = (SliceReadFunction) geometryColumnMapping().getReadFunction();
+        SliceReadFunction fn = (SliceReadFunction) geometryReadMapping().getReadFunction();
         OGCGeometry geometry = new OGCPoint(new Point(1.0, 2.0), null);
         ByteBuffer buffer = geometry.asBinary();
         Slice value = fn.readSlice(new MockResultSet(buffer.array()), 1);

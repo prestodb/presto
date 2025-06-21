@@ -11,20 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.jdbc.mapping.functions;
+package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.plugin.jdbc.mapping.WriteFunction;
-
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-
-public interface DoubleWriteFunction
-        extends WriteFunction
+public interface ReadFunction
 {
-    default Class<?> getJavaType()
-    {
-        return double.class;
-    }
+    Class<?> getJavaType();
 
-    void set(PreparedStatement statement, int index, double value) throws SQLException;
+    // This should be considered to have a method as below (it doesn't to avoid autoboxing)
+    //    T read(ResultSet resultSet, int columnIndex)
+    //            throws SQLException;
 }

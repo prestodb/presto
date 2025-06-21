@@ -11,23 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.jdbc.mapping.functions;
-
-import com.facebook.presto.plugin.jdbc.mapping.ReadFunction;
+package com.facebook.presto.plugin.jdbc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 @FunctionalInterface
-public interface LongReadFunction
+public interface DoubleReadFunction
         extends ReadFunction
 {
     @Override
     default Class<?> getJavaType()
     {
-        return long.class;
+        return double.class;
     }
 
-    long readLong(ResultSet resultSet, int columnIndex)
+    double readDouble(ResultSet resultSet, int columnIndex)
             throws SQLException;
 }
