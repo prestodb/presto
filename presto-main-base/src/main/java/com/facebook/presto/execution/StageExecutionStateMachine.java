@@ -253,6 +253,16 @@ public class StageExecutionStateMachine
         int runningDrivers = 0;
         int completedDrivers = 0;
 
+        int totalNativeDrivers = 0;
+        int queuedNativeDrivers = 0;
+        int runningNativeDrivers = 0;
+        int completedNativeDrivers = 0;
+
+        int totalSplits = 0;
+        int queuedSplits = 0;
+        int runningSplits = 0;
+        int completedSplits = 0;
+
         double cumulativeUserMemory = 0;
         double cumulativeTotalMemory = 0;
         long userMemoryReservationInBytes = 0;
@@ -277,6 +287,16 @@ public class StageExecutionStateMachine
             queuedDrivers += taskStats.getQueuedDrivers();
             runningDrivers += taskStats.getRunningDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
+
+            totalNativeDrivers += taskStats.getTotalNativeDrivers();
+            queuedNativeDrivers += taskStats.getQueuedNativeDrivers();
+            runningNativeDrivers += taskStats.getRunningNativeDrivers();
+            completedNativeDrivers += taskStats.getCompletedNativeDrivers();
+
+            totalSplits += taskStats.getTotalSplits();
+            queuedSplits += taskStats.getQueuedSplits();
+            runningSplits += taskStats.getRunningSplits();
+            completedSplits += taskStats.getCompletedSplits();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
 
@@ -312,6 +332,16 @@ public class StageExecutionStateMachine
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+
+                totalNativeDrivers,
+                queuedNativeDrivers,
+                runningNativeDrivers,
+                completedNativeDrivers,
+
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
 
                 rawInputDataSizeInBytes,
                 rawInputPositions,
