@@ -786,11 +786,12 @@ public class PlanOptimizers
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
 
         builder.add(new IterativeOptimizer(
-                metadata,
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                new GroupInnerJoinsByConnectorRuleSet(metadata, predicatePushDown).rules()));
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        new GroupInnerJoinsByConnectorRuleSet(metadata, predicatePushDown).rules()),
+                predicatePushDown);
 
         builder.add(new IterativeOptimizer(
                 metadata,
