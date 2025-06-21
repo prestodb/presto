@@ -656,6 +656,12 @@ class QueryConfig {
   static constexpr const char* kQueryMemoryReclaimerPriority =
       "query_memory_reclaimer_priority";
 
+  /// The max number of input splits to listen to by SplitListener per table
+  /// scan node per worker. It's up to the SplitListener implementation to
+  /// respect this config.
+  static constexpr const char* kMaxNumSplitsListenedTo =
+      "max_num_splits_listened_to";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -1191,6 +1197,10 @@ class QueryConfig {
   int32_t queryMemoryReclaimerPriority() const {
     return get<int32_t>(
         kQueryMemoryReclaimerPriority, std::numeric_limits<int32_t>::max());
+  }
+
+  int32_t maxNumSplitsListenedTo() const {
+    return get<int32_t>(kMaxNumSplitsListenedTo, 0);
   }
 
   template <typename T>

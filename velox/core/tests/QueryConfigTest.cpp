@@ -33,6 +33,7 @@ TEST_F(QueryConfigTest, emptyConfig) {
   const QueryConfig& config = queryCtx->queryConfig();
 
   ASSERT_FALSE(config.isLegacyCast());
+  EXPECT_EQ(config.maxNumSplitsListenedTo(), 0);
 }
 
 TEST_F(QueryConfigTest, setConfig) {
