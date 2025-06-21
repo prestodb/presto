@@ -14,7 +14,6 @@
 package com.facebook.presto.functionNamespace.rest;
 
 import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
@@ -36,21 +35,17 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.airlift.concurrent.MoreFutures.failedFuture;
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.presto.functionNamespace.rest.RestErrorCode.REST_SERVER_BAD_RESPONSE;
@@ -71,6 +66,7 @@ import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_SERVER_ERROR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class RestSqlFunctionExecutor
@@ -136,21 +132,15 @@ public class RestSqlFunctionExecutor
     private URI getExecutionEndpoint(SqlFunctionId functionId, String functionVersion)
     {
         String encodedFunctionId;
-        try {
-            encodedFunctionId = URLEncoder.encode(functionId.toJsonString(), StandardCharsets.UTF_8.toString());
-        }
-        catch (UnsupportedEncodingException e) {
-            // Should never happen
-            throw new IllegalStateException("UTF-8 encoding is not supported", e);
-        }
+        encodedFunctionId = URLEncoder.encode(functionId.toJsonString(), UTF_8);
 
-        HttpUriBuilder uri = uriBuilderFrom(URI.create(restBasedFunctionNamespaceManagerConfig.getRestUrl()))
-                .appendPath(format("/v1/functions/%s/%s/%s/%s",
-                        functionId.getFunctionName().getSchemaName(),
-                        functionId.getFunctionName().getObjectName(),
-                        encodedFunctionId,
-                        functionVersion));
-        return uri.build();
+        String path = format("/v1/functions/%s/%s/%s/%s",
+                functionId.getFunctionName().getSchemaName(),
+                functionId.getFunctionName().getObjectName(),
+                encodedFunctionId,
+                functionVersion);
+
+        return URI.create(String.format("%s%s", restBasedFunctionNamespaceManagerConfig.getRestUrl(), path));
     }
 
     public static class SqlFunctionResultResponseHandler
