@@ -361,7 +361,10 @@ Task::Task(
 void Task::initSplitListeners() {
   splitListenerFactories().withRLock([&](const auto& factories) {
     for (const auto& factory : factories) {
-      splitListeners_.emplace_back(factory->create(taskId_, uuid_));
+      auto listener = factory->create(taskId_, uuid_, queryCtx_->queryConfig());
+      if (listener != nullptr) {
+        splitListeners_.emplace_back(std::move(listener));
+      }
     }
   });
 }

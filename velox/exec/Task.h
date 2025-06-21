@@ -1464,9 +1464,16 @@ class SplitListenerFactory {
  public:
   virtual ~SplitListenerFactory() = default;
 
+  /// Create and return an std::unique_ptr<SplitListener> to be used by a Task
+  /// of the given taskId, taskUuid and config. The Task constructor calls this
+  /// method and holds the SplitListener. The SplitListener is destroyed when
+  /// the Task is destructed. This method can return a nullptr, e.g., if taskId
+  /// doesn't satisfy certain criteria or if config.maxNumSplitsListenedTo() is
+  /// 0. In this situation, the Task doesn't hold this SplitListener.
   virtual std::unique_ptr<SplitListener> create(
-      const std::string& taskId_,
-      const std::string& taskUuid_) = 0;
+      const std::string& taskId,
+      const std::string& taskUuid,
+      const core::QueryConfig& config) = 0;
 };
 
 bool registerSplitListenerFactory(
