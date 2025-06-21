@@ -83,6 +83,8 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isDeleteToJoinPushdownEnabled;
@@ -172,6 +174,11 @@ public class IcebergEqualityDeleteAsJoin
             IcebergTableName tableName = icebergTableHandle.getIcebergTableName();
             if (!tableName.getSnapshotId().isPresent() || tableName.getTableType() != IcebergTableType.DATA) {
                 // Node is already optimized or not ready for planning
+                return node;
+            }
+
+            if (node.getAssignments().containsValue(IS_DELETED_COLUMN_HANDLE) || node.getAssignments().containsValue(DELETE_FILE_PATH_COLUMN_HANDLE)) {
+                // Skip this optimization if metadata columns `$deleted` or `$delete_file_path` exist
                 return node;
             }
 
