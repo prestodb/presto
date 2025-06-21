@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -28,6 +31,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class StorageFormat
 {
     public static final StorageFormat VIEW_STORAGE_FORMAT = StorageFormat.createNullable(null, null, null);
@@ -36,7 +40,8 @@ public class StorageFormat
     private final String inputFormat;
     private final String outputFormat;
 
-    private StorageFormat(String serDe, String inputFormat, String outputFormat)
+    @ThriftConstructor
+    public StorageFormat(String serDe, String inputFormat, String outputFormat)
     {
         this.serDe = serDe;
         this.inputFormat = inputFormat;
@@ -68,18 +73,21 @@ public class StorageFormat
     }
 
     @JsonProperty("serDe")
+    @ThriftField(value = 1, name = "serDe")
     public String getSerDeNullable()
     {
         return serDe;
     }
 
     @JsonProperty("inputFormat")
+    @ThriftField(value = 2, name = "inputFormat")
     public String getInputFormatNullable()
     {
         return inputFormat;
     }
 
     @JsonProperty("outputFormat")
+    @ThriftField(value = 3, name = "outputFormat")
     public String getOutputFormatNullable()
     {
         return outputFormat;

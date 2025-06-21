@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -25,39 +26,42 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class HivePartitionKey
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() * 2;
 
     private final String name;
-    @Nullable
-    private final String value;
+    private final Optional<String> value;
 
     @JsonCreator
+    @ThriftConstructor
     public HivePartitionKey(
             @JsonProperty("name") String name,
             @JsonProperty("value") Optional<String> value)
     {
         this.name = requireNonNull(name, "name is null");
-        this.value = requireNonNull(value, "value is null").orElse(null);
+        this.value = requireNonNull(value, "value is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getName()
     {
         return name;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Optional<String> getValue()
     {
-        return Optional.ofNullable(value);
+        return value;
     }
 
     public int getEstimatedSizeInBytes()
     {
-        return INSTANCE_SIZE + name.length() * Character.BYTES + (value == null ? 0 : value.length() * Character.BYTES);
+        return INSTANCE_SIZE + name.length() * Character.BYTES + (value.map(s -> s.length() * Character.BYTES).orElse(0));
     }
 
     @Override

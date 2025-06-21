@@ -11,29 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.schedule;
+package com.facebook.presto.spi;
 
-import com.facebook.drift.annotations.ThriftEnum;
-import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.drift.protocol.TProtocolReader;
+import com.facebook.drift.protocol.TProtocolWriter;
 
-@ThriftEnum
-public enum NodeSelectionStrategy
+public interface ConnectorThriftCodec<T>
 {
-    HARD_AFFINITY(0),
-    SOFT_AFFINITY(1),
-    NO_PREFERENCE(2),
-    /**/;
+    void serialize(T value, TProtocolWriter writer);
 
-    private final int value;
-
-    NodeSelectionStrategy(int value)
-    {
-        this.value = value;
-    }
-
-    @ThriftEnumValue
-    public int getValue()
-    {
-        return value;
-    }
+    T deserialize(TProtocolReader reader);
 }
