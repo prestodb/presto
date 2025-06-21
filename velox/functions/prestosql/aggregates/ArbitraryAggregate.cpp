@@ -176,12 +176,11 @@ class NonNumericArbitrary : public exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    VELOX_CHECK(result);
+    VELOX_CHECK_NOT_NULL(result);
     (*result)->resize(numGroups);
 
-    auto* rawNulls = exec::Aggregate::getRawNulls(result->get());
-
     if (clusteredInput_) {
+      bool singleSource{true};
       VectorPtr* currentSource = nullptr;
       VELOX_DCHECK(copyRanges_.empty());
       for (vector_size_t i = 0; i < numGroups; ++i) {
@@ -190,8 +189,9 @@ class NonNumericArbitrary : public exec::Aggregate {
           (*result)->setNull(i, true);
           continue;
         }
-        if (currentSource &&
-            currentSource->get() != accumulator->vector.get()) {
+        if ((currentSource != nullptr) &&
+            (currentSource->get() != accumulator->vector.get())) {
+          singleSource = false;
           result->get()->copyRanges(currentSource->get(), copyRanges_);
           copyRanges_.clear();
         }
@@ -203,11 +203,33 @@ class NonNumericArbitrary : public exec::Aggregate {
           copyRanges_.push_back(range);
         }
       }
-      if (currentSource) {
-        result->get()->copyRanges(currentSource->get(), copyRanges_);
+      if (currentSource != nullptr) {
+        if (!singleSource) {
+          result->get()->copyRanges(currentSource->get(), copyRanges_);
+        } else {
+          if (copyRanges_.size() == 1) {
+            *result = currentSource->get()->slice(
+                copyRanges_[0].sourceIndex, copyRanges_[0].count);
+          } else {
+            prepareGroupIndices(numGroups, result->get()->pool());
+            applyToEachRange(
+                copyRanges_,
+                [&](auto targetIndex, auto sourceIndex, auto count) {
+                  for (auto i = 0; i < count; ++i) {
+                    rawGroupIndices_[targetIndex + i] = sourceIndex + i;
+                  }
+                });
+            *result = BaseVector::wrapInDictionary(
+                result->get()->nulls(),
+                groupIndices_,
+                numGroups,
+                *currentSource);
+          }
+        }
         copyRanges_.clear();
       }
     } else {
+      auto* rawNulls = exec::Aggregate::getRawNulls(result->get());
       for (int32_t i = 0; i < numGroups; ++i) {
         auto* accumulator = value<SingleValueAccumulator>(groups[i]);
         if (!accumulator->hasValue()) {
@@ -218,6 +240,16 @@ class NonNumericArbitrary : public exec::Aggregate {
         }
       }
     }
+  }
+
+  void prepareGroupIndices(size_t numGroups, memory::MemoryPool* pool) {
+    const auto groupByteSize = numGroups * sizeof(vector_size_t);
+    if ((groupIndices_ == nullptr) || !groupIndices_->unique() ||
+        (groupIndices_->capacity() < groupByteSize)) {
+      groupIndices_ = allocateIndices(numGroups, pool);
+      rawGroupIndices_ = groupIndices_->asMutable<vector_size_t>();
+    }
+    groupIndices_->setSize(groupByteSize);
   }
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
@@ -372,6 +404,10 @@ class NonNumericArbitrary : public exec::Aggregate {
 
   // Copy ranges used when extracting from ClusteredNonNumericAccumulator.
   std::vector<BaseVector::CopyRange> copyRanges_;
+
+  // Reusable buffers.
+  BufferPtr groupIndices_;
+  vector_size_t* rawGroupIndices_;
 };
 
 } // namespace
