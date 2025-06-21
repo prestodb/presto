@@ -18,9 +18,11 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
 import com.facebook.presto.common.Subfield.PathElement;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -89,14 +91,18 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
+import static com.facebook.presto.SystemSessionProperties.isPushSubfieldsForMapSubsetEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFromArrayLambdasEnabled;
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Subfield.noSubfield;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -151,7 +157,7 @@ public class PushdownSubfields
     {
         private final Session session;
         private final Metadata metadata;
-        private final StandardFunctionResolution functionResolution;
+        private final FunctionResolution functionResolution;
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
         private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "arbitrary");
@@ -169,7 +175,7 @@ public class PushdownSubfields
                     expressionOptimizer,
                     session.toConnectorSession(),
                     metadata.getFunctionAndTypeManager(),
-                    isPushdownSubfieldsFromArrayLambdasEnabled(session));
+                    session);
         }
 
         public boolean isPlanChanged()
@@ -663,24 +669,27 @@ public class PushdownSubfields
         private static final class SubfieldExtractor
                 extends DefaultRowExpressionTraversalVisitor<Context>
         {
-            private final StandardFunctionResolution functionResolution;
+            private final FunctionResolution functionResolution;
             private final ExpressionOptimizer expressionOptimizer;
             private final ConnectorSession connectorSession;
             private final FunctionAndTypeManager functionAndTypeManager;
             private final boolean isPushDownSubfieldsFromLambdasEnabled;
+            private final boolean isPushdownSubfieldsForMapSubsetEnabled;
 
             private SubfieldExtractor(
-                    StandardFunctionResolution functionResolution,
+                    FunctionResolution functionResolution,
                     ExpressionOptimizer expressionOptimizer,
                     ConnectorSession connectorSession,
                     FunctionAndTypeManager functionAndTypeManager,
-                    boolean isPushDownSubfieldsFromLambdasEnabled)
+                    Session session)
             {
                 this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
                 this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
                 this.connectorSession = connectorSession;
                 this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-                this.isPushDownSubfieldsFromLambdasEnabled = isPushDownSubfieldsFromLambdasEnabled;
+                requireNonNull(session);
+                this.isPushDownSubfieldsFromLambdasEnabled = isPushdownSubfieldsFromArrayLambdasEnabled(session);
+                this.isPushdownSubfieldsForMapSubsetEnabled = isPushSubfieldsForMapSubsetEnabled(session);
             }
 
             @Override
@@ -704,7 +713,23 @@ public class PushdownSubfields
                 }
                 if (!isPushDownSubfieldsFromLambdasEnabled) {
                     context.setLambdaSubfields(Context.ALL_SUBFIELDS_OF_ARRAY_ELEMENT_OR_MAP_VALUE);
-                    call.getArguments().forEach(argument -> argument.accept(this, context));
+                    // map_subset(feature, constant_array) is only accessing fields specified in feature map.
+                    // For example map_subset(feature, array[1, 2]) is equivalent to calling element_at(feature, 1) and element_at(feature, 2) for subfield extraction
+                    if (isPushdownSubfieldsForMapSubsetEnabled && functionResolution.isMapSubSetFunction(call.getFunctionHandle()) && call.getArguments().get(0) instanceof VariableReferenceExpression && call.getArguments().get(1) instanceof ConstantExpression) {
+                        ConstantExpression constantArray = (ConstantExpression) call.getArguments().get(1);
+                        checkState(constantArray.getValue() instanceof Block && constantArray.getType() instanceof ArrayType);
+                        Block arrayValue = (Block) constantArray.getValue();
+                        Type arrayElementType = ((ArrayType) constantArray.getType()).getElementType();
+                        ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+                        for (int i = 0; i < arrayValue.getPositionCount(); ++i) {
+                            ConstantExpression mapIndex = constant(readNativeValue(arrayElementType, arrayValue, i), arrayElementType);
+                            arguments.add(call(functionAndTypeManager, "element_at", ((MapType) call.getArguments().get(0).getType()).getValueType(), call.getArguments().get(0), mapIndex));
+                        }
+                        arguments.build().forEach(argument -> argument.accept(this, context));
+                    }
+                    else {
+                        call.getArguments().forEach(argument -> argument.accept(this, context));
+                    }
                     return null;
                 }
                 Set<Subfield> lambdaSubfieldsOriginal = context.getLambdaSubfields();
