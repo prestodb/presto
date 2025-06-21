@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSystemTableFilterRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
@@ -114,6 +115,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDi
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantCastToVarcharInJoinClause;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantExchangeRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
@@ -922,6 +924,22 @@ public class PlanOptimizers
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
         builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()));
+
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        new ExtractSystemTableFilterRuleSet(metadata.getFunctionAndTypeManager()).rules()));
+
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        new RemoveRedundantExchangeRuleSet(metadata.getFunctionAndTypeManager()).rules()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, featuresConfig.isNativeExecutionEnabled()));
