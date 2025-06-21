@@ -225,7 +225,7 @@ public class ClusterManager
                 return config.getScheduler().getDestination(requestInfo.toRouterRequestInfo());
             }
             catch (Exception e) {
-                log.error("Custom Plugin Scheduler failed to schedule the query!", e);
+                log.error("Custom Plugin Scheduler failed to schedule the query! Failed because of : %s", e);
                 return Optional.empty();
             }
         }

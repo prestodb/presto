@@ -37,11 +37,6 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
@@ -92,17 +87,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
         </dependency>
 
         <dependency>
@@ -148,6 +133,12 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -200,6 +191,18 @@
             <scope>test</scope>
             <type>test-jar</type>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
