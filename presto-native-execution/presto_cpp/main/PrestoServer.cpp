@@ -1486,8 +1486,7 @@ void PrestoServer::checkOverload() {
 
   const auto overloadedThresholdCpuPct =
       systemConfig->workerOverloadedThresholdCpuPct();
-  const auto overloadedThresholdQueuedDrivers =
-      systemConfig->driverNumCpuThreadsHwMultiplier() *
+  const auto overloadedThresholdQueuedDrivers = numDriverThreads() *
       systemConfig->workerOverloadedThresholdNumQueuedDriversHwMultiplier();
   if (overloadedThresholdCpuPct > 0 && overloadedThresholdQueuedDrivers > 0) {
     const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
