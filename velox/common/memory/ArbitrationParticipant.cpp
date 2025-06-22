@@ -348,14 +348,16 @@ uint64_t ArbitrationParticipant::abort(
 
 uint64_t ArbitrationParticipant::abortLocked(
     const std::exception_ptr& error) noexcept {
+  TestValue::adjust(
+      "facebook::velox::memory::ArbitrationParticipant::abortLocked", this);
   {
     std::lock_guard<std::mutex> l(stateLock_);
     if (aborted_) {
       return 0;
     }
+    aborted_ = true;
   }
-  TestValue::adjust(
-      "facebook::velox::memory::ArbitrationParticipant::abortLocked", this);
+
   try {
     VELOX_MEM_LOG(WARNING) << "Memory pool " << pool_->name()
                            << " is being aborted";
@@ -370,7 +372,6 @@ uint64_t ArbitrationParticipant::abortLocked(
   VELOX_CHECK(pool_->aborted());
 
   std::lock_guard<std::mutex> l(stateLock_);
-  aborted_ = true;
   return shrinkLocked(/*reclaimAll=*/true);
 }
 
