@@ -94,6 +94,19 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
+    public static void createSidecarConfigProperties(int coordinatorPort, String nodeId)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        properties.setProperty("system-memory-gb", "2");
+        properties.setProperty("native.sidecar", "true");
+        properties.setProperty("presto.default-namespace", "native.default");
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
+    }
+
     public static void createCoordinatorConfigProperties(int port)
             throws IOException
     {
@@ -112,6 +125,47 @@ public class ContainerQueryRunnerUtils
         }
 
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
+    public static void createCoordinatorConfigProperties(int port, boolean isNativeCluster, boolean isSidecarEnabled)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("coordinator", "true");
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("http-server.http.port", Integer.toString(port));
+        properties.setProperty("discovery-server.enabled", "true");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
+
+        if (isNativeCluster) {
+            // Get native worker system properties and add them to the coordinator properties
+            Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
+            for (Map.Entry<String, String> entry : nativeWorkerProperties.entrySet()) {
+                properties.setProperty(entry.getKey(), entry.getValue());
+            }
+        }
+
+        if (isSidecarEnabled) {
+            properties.setProperty("presto.default-namespace", "native.default");
+            properties.setProperty("coordinator-sidecar-enabled", "true");
+            properties.setProperty("exclude-invalid-worker-session-properties", "true");
+        }
+
+        createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
+    }
+
+
+    public static void createJavaWorkerConfigProperties(int coordinatorPort, String nodeId)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("coordinator", "false");
+        properties.setProperty("presto.version", "testversion");
+        properties.setProperty("node-scheduler.include-coordinator", "false");
+        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
+        createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
     public static void createCoordinatorJvmConfig()
@@ -182,6 +236,15 @@ public class ContainerQueryRunnerUtils
         String scriptContent = "#!/bin/sh\n\n" +
                 "GLOG_logtostderr=1 presto_server \\\n" +
                 "    --etc-dir=/opt/presto-server/etc\n";
+        createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
+    }
+
+    public static void createJavaWorkerEntryPointScript(String nodeId)
+            throws IOException
+    {
+        String scriptContent =  "#!/bin/sh\n" +
+                "set -e\n" +
+                "$PRESTO_HOME/bin/launcher run\n";
         createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
     }
 
@@ -353,6 +416,10 @@ public class ContainerQueryRunnerUtils
             case java.sql.Types.VARBINARY:
             case java.sql.Types.LONGVARBINARY:
                 return VarbinaryType.VARBINARY;
+            case java.sql.Types.NULL:
+                // Log or comment that this happens in fail() or similar cases
+                // You can map it to a generic type just for testing
+                return VarcharType.createUnboundedVarcharType();
             case java.sql.Types.OTHER:
                 // Attempt to map based on type name
                 return mapSqlTypeNameToType(typeName);
