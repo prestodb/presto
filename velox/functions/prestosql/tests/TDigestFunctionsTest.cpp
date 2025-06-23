@@ -133,9 +133,9 @@ TEST_F(TDigestFunctionsTest, valuesAtQuantilesWithNulls) {
   auto arg0 = makeFlatVector<std::string>({input}, TDIGEST_DOUBLE);
   auto arg1 = makeNullableArrayVector<double>({{0.1, std::nullopt, 0.9, 0.99}});
 
-  ASSERT_THROW(
+  VELOX_ASSERT_THROW(
       evaluate("values_at_quantiles(c0, c1)", makeRowVector({arg0, arg1})),
-      VeloxUserError);
+      "All quantiles should be non-null.");
 }
 
 TEST_F(TDigestFunctionsTest, testMergeTDigestNullInput) {
@@ -442,6 +442,29 @@ TEST_F(TDigestFunctionsTest, quantileAtValueExponentialDistribution) {
       ASSERT_GE(quantileValue.value(), lowerBound);
     }
   }
+}
+
+// Test quantiles_at_values
+TEST_F(TDigestFunctionsTest, quantilesAtValues) {
+  const std::string input = decodeBase64(
+      "AQAAAAAAAADwPwAAAAAAABRAAAAAAAAALkAAAAAAAABZQAAAAAAAABRABQAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAABAAAAAAAAACEAAAAAAAAAQQAAAAAAAABRA");
+  auto arg0 = makeFlatVector<std::string>({input}, TDIGEST_DOUBLE);
+  auto arg1 = makeNullableArrayVector<double>({{1.0, 3.0, 5.0}});
+  auto expected = makeNullableArrayVector<double>({{0.1, 0.5, 0.9}});
+  auto result =
+      evaluate("quantiles_at_values(c0, c1)", makeRowVector({arg0, arg1}));
+  test::assertEqualVectors(expected, result);
+}
+
+// Test quantiles_at_values
+TEST_F(TDigestFunctionsTest, quantilesAtValuesNull) {
+  const std::string input = decodeBase64(
+      "AQAAAAAAAADwPwAAAAAAABRAAAAAAAAALkAAAAAAAABZQAAAAAAAABRABQAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAABAAAAAAAAACEAAAAAAAAAQQAAAAAAAABRA");
+  auto arg0 = makeFlatVector<std::string>({input}, TDIGEST_DOUBLE);
+  auto arg1 = makeNullableArrayVector<double>({{1.0, std::nullopt, 3.0, 5.0}});
+  VELOX_ASSERT_THROW(
+      evaluate("quantiles_at_values(c0, c1)", makeRowVector({arg0, arg1})),
+      "All values should be non-null.");
 }
 
 TEST_F(TDigestFunctionsTest, testConstructTDigest) {

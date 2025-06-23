@@ -46,6 +46,11 @@ void registerTDigestFunctions(const std::string& prefix) {
       SimpleTDigest<double>,
       double>({prefix + "quantile_at_value"});
   registerFunction<
+      QuantilesAtValuesFunction,
+      Array<double>,
+      SimpleTDigest<double>,
+      Array<double>>({prefix + "quantiles_at_values"});
+  registerFunction<
       ConstructTDigestFunction,
       SimpleTDigest<double>,
       Array<double>,

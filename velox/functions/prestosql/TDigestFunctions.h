@@ -47,7 +47,7 @@ struct ValuesAtQuantilesFunction {
     result.resize(quantiles.size());
     for (size_t i = 0; i < quantiles.size(); ++i) {
       VELOX_USER_CHECK(
-          quantiles[i].has_value(), "All values should be non-null.");
+          quantiles[i].has_value(), "All quantiles should be non-null.");
       double quantile = quantiles[i].value();
       VELOX_USER_CHECK(0 <= quantile && quantile <= 1);
       result[i] = digest.estimateQuantile(quantile);
@@ -115,7 +115,23 @@ struct QuantileAtValueFunction {
     return true;
   }
 };
+template <typename T>
+struct QuantilesAtValuesFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<double>>& result,
+      const arg_type<SimpleTDigest<double>>& input,
+      const arg_type<Array<double>>& values) {
+    auto digest = TDigest<>::fromSerialized(input.data());
+    result.resize(values.size());
+    for (size_t i = 0; i < values.size(); ++i) {
+      VELOX_USER_CHECK(values[i].has_value(), "All values should be non-null.");
+      double value = values[i].value();
+      result[i] = digest.getCdf(value);
+    }
+  }
+};
 template <typename T>
 struct ConstructTDigestFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

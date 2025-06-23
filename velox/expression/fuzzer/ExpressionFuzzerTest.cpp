@@ -93,6 +93,7 @@ int main(int argc, char** argv) {
       // alias to VARBINARY).
       "merge_tdigest",
       "construct_tdigest",
+      "quantiles_at_values",
       // https://github.com/facebookincubator/velox/issues/13551
       "values_at_quantiles",
       // Fuzzer cannot generate valid 'comparator' lambda.
