@@ -312,9 +312,9 @@ class CastBaseTest : public FunctionBaseTest {
   std::shared_ptr<core::CastTypedExpr> makeCastExpr(
       const core::TypedExprPtr& input,
       const TypePtr& toType,
-      bool nullOnFailure) {
+      bool isTryCast) {
     std::vector<core::TypedExprPtr> inputs = {input};
-    return std::make_shared<core::CastTypedExpr>(toType, inputs, nullOnFailure);
+    return std::make_shared<core::CastTypedExpr>(toType, inputs, isTryCast);
   }
 
   const float kInf = std::numeric_limits<float>::infinity();

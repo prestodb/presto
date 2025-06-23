@@ -1094,8 +1094,8 @@ core::TypedExprPtr ExpressionFuzzer::generateCastExpression(
   markSelected("cast");
 
   // Generate try_cast expression with 50% chance.
-  bool nullOnFailure = vectorFuzzer_->coinToss(0.5);
-  return std::make_shared<core::CastTypedExpr>(returnType, args, nullOnFailure);
+  bool isTryCast = vectorFuzzer_->coinToss(0.5);
+  return std::make_shared<core::CastTypedExpr>(returnType, args, isTryCast);
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateRowConstructorExpression(

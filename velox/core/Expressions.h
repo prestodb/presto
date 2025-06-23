@@ -623,18 +623,15 @@ class CastTypedExpr : public ITypedExpr {
   /// expresion.
   /// @param input Single input. The type of input is referred to as from-type
   /// and expected to be different from to-type.
-  /// @param nullOnFailure Whether to suppress cast errors and return null.
-  CastTypedExpr(
-      const TypePtr& type,
-      const TypedExprPtr& input,
-      bool nullOnFailure)
-      : ITypedExpr{type, {input}}, nullOnFailure_(nullOnFailure) {}
+  /// @param isTryCast Whether this expression is used for `try_cast`.
+  CastTypedExpr(const TypePtr& type, const TypedExprPtr& input, bool isTryCast)
+      : ITypedExpr{type, {input}}, isTryCast_(isTryCast) {}
 
   CastTypedExpr(
       const TypePtr& type,
       const std::vector<TypedExprPtr>& inputs,
-      bool nullOnFailure)
-      : ITypedExpr{type, inputs}, nullOnFailure_(nullOnFailure) {
+      bool isTryCast)
+      : ITypedExpr{type, inputs}, isTryCast_(isTryCast) {
     VELOX_USER_CHECK_EQ(
         1, inputs.size(), "Cast expression requires exactly one input");
   }
@@ -643,11 +640,11 @@ class CastTypedExpr : public ITypedExpr {
       const std::unordered_map<std::string, TypedExprPtr>& mapping)
       const override {
     return std::make_shared<CastTypedExpr>(
-        type(), rewriteInputsRecursive(mapping), nullOnFailure_);
+        type(), rewriteInputsRecursive(mapping), isTryCast_);
   }
 
   std::string toString() const override {
-    if (nullOnFailure_) {
+    if (isTryCast_) {
       return fmt::format(
           "try_cast {} as {}", inputs()[0]->toString(), type()->toString());
     } else {
@@ -658,7 +655,7 @@ class CastTypedExpr : public ITypedExpr {
 
   size_t localHash() const override {
     static const size_t kBaseHash = std::hash<const char*>()("CastTypedExpr");
-    return bits::hashMix(kBaseHash, std::hash<bool>()(nullOnFailure_));
+    return bits::hashMix(kBaseHash, std::hash<bool>()(isTryCast_));
   }
 
   void accept(
@@ -672,15 +669,15 @@ class CastTypedExpr : public ITypedExpr {
     }
     if (inputs().empty()) {
       return type() == otherCast->type() && otherCast->inputs().empty() &&
-          nullOnFailure_ == otherCast->nullOnFailure();
+          isTryCast_ == otherCast->isTryCast();
     }
     return *type() == *otherCast->type() &&
         *inputs()[0] == *otherCast->inputs()[0] &&
-        nullOnFailure_ == otherCast->nullOnFailure();
+        isTryCast_ == otherCast->isTryCast();
   }
 
-  bool nullOnFailure() const {
-    return nullOnFailure_;
+  bool isTryCast() const {
+    return isTryCast_;
   }
 
   folly::dynamic serialize() const override;
@@ -688,8 +685,9 @@ class CastTypedExpr : public ITypedExpr {
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
-  // Suppress exception and return null on failure to cast.
-  const bool nullOnFailure_;
+  // Whether this expression is used for `try_cast`. When true, Presto cast
+  // suppresses exception and return null on failure to case.
+  const bool isTryCast_;
 };
 
 using CastTypedExprPtr = std::shared_ptr<const CastTypedExpr>;

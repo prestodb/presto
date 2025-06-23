@@ -996,7 +996,7 @@ void CastExpr::evalSpecialForm(
   auto toType = std::const_pointer_cast<const Type>(type_);
 
   inTopLevel = true;
-  if (nullOnFailure()) {
+  if (isTryCast()) {
     ScopedVarSetter holder{context.mutableThrowOnError(), false};
     ScopedVarSetter captureErrorDetails(
         context.mutableCaptureErrorDetails(), false);

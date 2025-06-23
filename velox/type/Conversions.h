@@ -46,6 +46,12 @@ struct SparkCastPolicy {
   static constexpr bool throwOnUnicode = false;
 };
 
+struct SparkTryCastPolicy {
+  static constexpr bool truncate = false;
+  static constexpr bool legacyCast = false;
+  static constexpr bool throwOnUnicode = false;
+};
+
 struct LegacyCastPolicy {
   static constexpr bool truncate = false;
   static constexpr bool legacyCast = true;
@@ -82,7 +88,9 @@ Expected<bool> castToBoolean(const char* data, size_t len) {
     if (character == 'F' || character == '0') {
       return false;
     }
-    if constexpr (std::is_same_v<TPolicy, SparkCastPolicy>) {
+    if constexpr (
+        std::is_same_v<TPolicy, SparkCastPolicy> ||
+        std::is_same_v<TPolicy, SparkTryCastPolicy>) {
       if (character == 'Y') {
         return true;
       }
@@ -104,7 +112,9 @@ Expected<bool> castToBoolean(const char* data, size_t len) {
     return false;
   }
 
-  if constexpr (std::is_same_v<TPolicy, SparkCastPolicy>) {
+  if constexpr (
+      std::is_same_v<TPolicy, SparkCastPolicy> ||
+      std::is_same_v<TPolicy, SparkTryCastPolicy>) {
     // Case-insensitive 'yes'.
     if ((len == 3) && (TU(data[0]) == 'Y') && (TU(data[1]) == 'E') &&
         (TU(data[2]) == 'S')) {
@@ -410,6 +420,9 @@ struct Converter<
         return folly::makeUnexpected(
             Status::UserError("Cannot cast NaN to an integral value."));
       }
+      if constexpr (std::is_same_v<TPolicy, SparkTryCastPolicy>) {
+        return detail::callFollyTo<T>(std::trunc(v));
+      }
       return detail::callFollyTo<T>(std::round(v));
     }
   }
@@ -433,6 +446,9 @@ struct Converter<
       if (std::isnan(v)) {
         return folly::makeUnexpected(
             Status::UserError("Cannot cast NaN to an integral value."));
+      }
+      if constexpr (std::is_same_v<TPolicy, SparkTryCastPolicy>) {
+        return detail::callFollyTo<T>(std::trunc(v));
       }
       return detail::callFollyTo<T>(std::round(v));
     }

@@ -30,14 +30,10 @@ class SparkCastExpr : public exec::CastExpr {
       TypePtr type,
       exec::ExprPtr&& expr,
       bool trackCpuUsage,
-      bool nullOnFailure,
+      bool isTryCast,
       std::shared_ptr<SparkCastHooks> hooks)
-      : exec::CastExpr(
-            type,
-            std::move(expr),
-            trackCpuUsage,
-            nullOnFailure,
-            hooks) {}
+      : exec::CastExpr(type, std::move(expr), trackCpuUsage, isTryCast, hooks) {
+  }
 };
 
 class SparkCastCallToSpecialForm : public exec::CastCallToSpecialForm {

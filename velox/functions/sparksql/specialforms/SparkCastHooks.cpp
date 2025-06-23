@@ -21,8 +21,10 @@
 
 namespace facebook::velox::functions::sparksql {
 
-SparkCastHooks::SparkCastHooks(const velox::core::QueryConfig& config)
-    : config_(config) {
+SparkCastHooks::SparkCastHooks(
+    const velox::core::QueryConfig& config,
+    bool allowOverflow)
+    : config_(config), allowOverflow_(allowOverflow) {
   const auto sessionTzName = config.sessionTimezone();
   if (!sessionTzName.empty()) {
     timestampToStringOptions_.timeZone = tz::locateZone(sessionTzName);
@@ -125,6 +127,9 @@ StringView SparkCastHooks::removeWhiteSpaces(const StringView& view) const {
 }
 
 exec::PolicyType SparkCastHooks::getPolicy() const {
+  if (!allowOverflow_) {
+    return exec::PolicyType::SparkTryCastPolicy;
+  }
   return exec::PolicyType::SparkCastPolicy;
 }
 } // namespace facebook::velox::functions::sparksql

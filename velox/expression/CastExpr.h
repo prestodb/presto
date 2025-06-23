@@ -87,15 +87,15 @@ class CastExpr : public SpecialForm {
       TypePtr type,
       ExprPtr&& expr,
       bool trackCpuUsage,
-      bool nullOnFailure,
+      bool isTryCast,
       std::shared_ptr<CastHooks> hooks)
       : SpecialForm(
             type,
             std::vector<ExprPtr>({expr}),
-            nullOnFailure ? kTryCast.data() : kCast.data(),
+            isTryCast ? kTryCast.data() : kCast.data(),
             false /* supportsFlatNoNullsFastPath */,
             trackCpuUsage),
-        nullOnFailure_(nullOnFailure),
+        isTryCast_(isTryCast),
         hooks_(std::move(hooks)) {}
 
   void evalSpecialForm(
@@ -303,12 +303,12 @@ class CastExpr : public SpecialForm {
       exec::EvalCtx& context,
       const BaseVector& input);
 
-  bool nullOnFailure() const {
-    return nullOnFailure_;
+  bool isTryCast() const {
+    return isTryCast_;
   }
 
   bool setNullInResultAtError() const {
-    return nullOnFailure() && inTopLevel;
+    return isTryCast() && inTopLevel;
   }
 
   CastOperatorPtr getCastOperator(const TypePtr& type);
@@ -316,7 +316,7 @@ class CastExpr : public SpecialForm {
   // Custom cast operators for to and from top-level as well as nested types.
   folly::F14FastMap<std::string, CastOperatorPtr> castOperators_;
 
-  bool nullOnFailure_;
+  bool isTryCast_;
   std::shared_ptr<CastHooks> hooks_;
 
   bool inTopLevel = false;

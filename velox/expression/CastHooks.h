@@ -21,7 +21,12 @@
 
 namespace facebook::velox::exec {
 
-enum PolicyType { LegacyCastPolicy = 1, PrestoCastPolicy, SparkCastPolicy };
+enum PolicyType {
+  LegacyCastPolicy = 1,
+  PrestoCastPolicy,
+  SparkCastPolicy,
+  SparkTryCastPolicy
+};
 
 fmt::underlying_t<PolicyType> format_as(PolicyType f);
 

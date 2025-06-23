@@ -251,7 +251,7 @@ void CastTypedExpr::accept(
 
 folly::dynamic CastTypedExpr::serialize() const {
   auto obj = ITypedExpr::serializeBase("CastTypedExpr");
-  obj["nullOnFailure"] = nullOnFailure_;
+  obj["isTryCast"] = isTryCast_;
   return obj;
 }
 
@@ -261,7 +261,7 @@ TypedExprPtr CastTypedExpr::create(const folly::dynamic& obj, void* context) {
   auto inputs = deserializeInputs(obj, context);
 
   return std::make_shared<CastTypedExpr>(
-      std::move(type), std::move(inputs), obj["nullOnFailure"].asBool());
+      std::move(type), std::move(inputs), obj["isTryCast"].asBool());
 }
 
 } // namespace facebook::velox::core

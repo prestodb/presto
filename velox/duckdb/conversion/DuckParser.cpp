@@ -586,9 +586,9 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
     }
   }
 
-  const bool nullOnFailure = castExpr.try_cast;
+  const bool isTryCast = castExpr.try_cast;
   return std::make_shared<const core::CastExpr>(
-      targetType, params[0], nullOnFailure, getAlias(expr));
+      targetType, params[0], isTryCast, getAlias(expr));
 }
 
 std::shared_ptr<const core::IExpr> parseLambdaExpr(

@@ -408,7 +408,7 @@ ExprPtr compileRewrittenExpression(
     } else {
       result = getSpecialForm(
           config,
-          cast->nullOnFailure() ? "try_cast" : "cast",
+          cast->isTryCast() ? "try_cast" : "cast",
           resultType,
           std::move(compiledInputs),
           trackCpuUsage);

@@ -1668,10 +1668,10 @@ TEST_F(CastExprTest, testNullOnFailure) {
   auto expected = makeNullableFlatVector<int32_t>(
       {1, 2, std::nullopt, std::nullopt, std::nullopt});
 
-  // nullOnFailure is true, so we should return null instead of throwing.
+  // isTryCast is true, so we should return null instead of throwing.
   testCast(input, expected, true);
 
-  // nullOnFailure is false, so we should throw.
+  // isTryCast is false, so we should throw.
   EXPECT_THROW(testCast(input, expected, false), VeloxUserError);
 }
 
@@ -1841,7 +1841,7 @@ TEST_F(CastExprTest, decimalToDecimal) {
       testCast(longFlat, expectedShort),
       "Cannot cast DECIMAL '-1000.000' to DECIMAL(6, 4)");
 
-  // nullOnFailure is true.
+  // isTryCast is true.
   testCast(longFlat, expectedShort, true);
 
   // long to short, big numbers.

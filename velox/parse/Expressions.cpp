@@ -143,7 +143,7 @@ TypedExprPtr createWithImplicitCast(
   if (adjusted) {
     return adjusted;
   }
-  auto type = resolveTypeImpl(inputs, expr, false /*nullOnFailure*/);
+  auto type = resolveTypeImpl(inputs, expr, /*isTryCast=*/false);
   return std::make_shared<CallTypedExpr>(
       type, std::move(inputs), std::string{expr->getFunctionName()});
 }
@@ -280,7 +280,7 @@ TypedExprPtr Expressions::inferTypes(
   }
   if (auto cast = std::dynamic_pointer_cast<const CastExpr>(expr)) {
     return std::make_shared<const CastTypedExpr>(
-        cast->type(), std::move(children), cast->nullOnFailure());
+        cast->type(), std::move(children), cast->isTryCast());
   }
   if (auto alreadyTyped = std::dynamic_pointer_cast<const ITypedExpr>(expr)) {
     return alreadyTyped;

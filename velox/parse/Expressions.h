@@ -237,19 +237,19 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
   const TypePtr type_;
   const std::shared_ptr<const IExpr> expr_;
   const std::vector<std::shared_ptr<const IExpr>> inputs_;
-  bool nullOnFailure_;
+  bool isTryCast_;
 
  public:
   explicit CastExpr(
       const TypePtr& type,
       const std::shared_ptr<const IExpr>& expr,
-      bool nullOnFailure,
+      bool isTryCast,
       std::optional<std::string> alias)
       : IExpr{std::move(alias)},
         type_(type),
         expr_(expr),
         inputs_({expr}),
-        nullOnFailure_(nullOnFailure) {}
+        isTryCast_(isTryCast) {}
 
   std::string toString() const override {
     return appendAliasIfExists(
@@ -268,8 +268,8 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
     return expr_;
   }
 
-  bool nullOnFailure() const {
-    return nullOnFailure_;
+  bool isTryCast() const {
+    return isTryCast_;
   }
 
   VELOX_DEFINE_CLASS_NAME(CastExpr)
