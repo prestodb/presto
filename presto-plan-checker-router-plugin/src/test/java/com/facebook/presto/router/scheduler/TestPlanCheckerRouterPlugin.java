@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.spi.router.RouterRequestInfo;
@@ -103,8 +104,8 @@ public class TestPlanCheckerRouterPlugin
     @Test
     public void testPlanCheckerPluginWithNativeCompatibleQueries()
     {
-        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient = new PlanCheckerRouterPluginPrestoClient(new CounterStat(), new CounterStat(), planCheckerRouterConfig);
+        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig, planCheckerRouterPluginPrestoClient);
 
         // native compatible query
         Optional<URI> target = scheduler.getDestination(
@@ -122,8 +123,8 @@ public class TestPlanCheckerRouterPlugin
     @Test
     public void testPlanCheckerPluginWithNativeIncompatibleQueries()
     {
-        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient = new PlanCheckerRouterPluginPrestoClient(new CounterStat(), new CounterStat(), planCheckerRouterConfig);
+        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig, planCheckerRouterPluginPrestoClient);
 
         // native incompatible query
         Optional<URI> target = scheduler.getDestination(

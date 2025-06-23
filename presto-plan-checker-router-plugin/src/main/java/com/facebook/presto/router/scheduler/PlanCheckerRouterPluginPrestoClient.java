@@ -25,6 +25,8 @@ import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.inject.Inject;
+
 import java.net.URI;
 import java.security.Principal;
 import java.util.List;
@@ -37,31 +39,39 @@ import static com.facebook.presto.client.StatementClientFactory.newStatementClie
 import static com.facebook.presto.router.scheduler.PlanCheckerPluginHttpRequestSessionContext.getResourceEstimates;
 import static com.facebook.presto.router.scheduler.PlanCheckerPluginHttpRequestSessionContext.getSerializedSessionFunctions;
 import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class PlanCheckerRouterPluginPrestoClient
 {
     private static final Logger log = Logger.get(PlanCheckerRouterPluginPrestoClient.class);
     private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
-    private static final CounterStat javaClusterRedirectRequests = new CounterStat();
-    private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
+    private final CounterStat javaClusterRedirectRequests;
+    private final CounterStat nativeClusterRedirectRequests;
     private final OkHttpClient httpClient = new OkHttpClient();
-    private final URI planCheckerClusterURI;
     private final URI javaRouterURI;
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
 
-    public PlanCheckerRouterPluginPrestoClient(URI planCheckerClusterURI, URI javaRouterURI, URI nativeRouterURI, Duration clientRequestTimeout)
+    @Inject
+    public PlanCheckerRouterPluginPrestoClient(
+            @JavaClusterRedirectRequestsCounter CounterStat javaClusterRedirectRequests,
+            @NativeClustersRedirectRequestsCounter CounterStat nativeClusterRedirectRequests,
+            PlanCheckerRouterPluginConfig planCheckerRouterConfig)
     {
-        this.planCheckerClusterURI = planCheckerClusterURI;
-        this.javaRouterURI = javaRouterURI;
-        this.nativeRouterURI = nativeRouterURI;
-        this.clientRequestTimeout = clientRequestTimeout;
+        requireNonNull(planCheckerRouterConfig, "PlanCheckerRouterPluginConfig is null");
+        this.javaRouterURI =
+                requireNonNull(planCheckerRouterConfig.getJavaRouterURI(), "javaRouterURI is null");
+        this.nativeRouterURI =
+                requireNonNull(planCheckerRouterConfig.getNativeRouterURI(), "nativeRouterURI is null");
+        this.clientRequestTimeout = planCheckerRouterConfig.getClientRequestTimeout();
+        this.javaClusterRedirectRequests = javaClusterRedirectRequests;
+        this.nativeClusterRedirectRequests = nativeClusterRedirectRequests;
     }
 
-    public Optional<URI> getCompatibleClusterURI(Map<String, List<String>> headers, String statement, Principal principal, String remoteUserAddr)
+    public Optional<URI> getCompatibleClusterURI(URI planCheckerClusterURI, Map<String, List<String>> headers, String statement, Principal principal, String remoteUserAddr)
     {
         String newSql = ANALYZE_CALL + statement;
-        ClientSession clientSession = parseHeadersToClientSession(headers, principal, remoteUserAddr);
+        ClientSession clientSession = parseHeadersToClientSession(planCheckerClusterURI, headers, principal, remoteUserAddr);
         boolean isNativeCompatible = true;
         // submit initial query
         try (StatementClient client = newStatementClient(httpClient, clientSession, newSql)) {
@@ -115,7 +125,7 @@ public class PlanCheckerRouterPluginPrestoClient
         return nativeClusterRedirectRequests;
     }
 
-    private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal, String remoteUserAddr)
+    private ClientSession parseHeadersToClientSession(URI planCheckerClusterURI, Map<String, List<String>> headers, Principal principal, String remoteUserAddr)
     {
         PlanCheckerPluginHttpRequestSessionContext sessionContext =
                 new PlanCheckerPluginHttpRequestSessionContext(

@@ -21,6 +21,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.router.RouterModule;
 import com.facebook.presto.router.scheduler.CustomSchedulerManager;
@@ -85,11 +86,8 @@ public class TestPlanCheckerRouterPlugin
                 .setJavaRouterURI(javaClusterURI)
                 .setNativeRouterURI(nativeClusterURI);
 
-        planCheckerRouterPluginPrestoClient = new PlanCheckerRouterPluginPrestoClient(
-                planCheckerRouterConfig.getPlanCheckClustersURIs().get(0),
-                planCheckerRouterConfig.getJavaRouterURI(),
-                planCheckerRouterConfig.getNativeRouterURI(),
-                planCheckerRouterConfig.getClientRequestTimeout());
+        planCheckerRouterPluginPrestoClient =
+                new PlanCheckerRouterPluginPrestoClient(new CounterStat(), new CounterStat(), planCheckerRouterConfig);
 
         Path tempFile = Files.createTempFile("temp-config", ".json");
         File configFile = getConfigFile(singletonList(planCheckerRouterConfig.getNativeRouterURI()), tempFile.toFile());
