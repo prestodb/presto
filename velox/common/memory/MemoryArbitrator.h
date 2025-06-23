@@ -368,7 +368,7 @@ class MemoryReclaimer {
   /// rec3 -> rec6 -> rec7
   virtual int32_t priority() const {
     return priority_;
-  };
+  }
 
   /// Invoked by the memory arbitrator to get the amount of memory bytes that
   /// can be reclaimed from 'pool'. The function returns true if 'pool' is
@@ -404,7 +404,7 @@ class MemoryReclaimer {
   virtual void abort(MemoryPool* pool, const std::exception_ptr& error);
 
  protected:
-  explicit MemoryReclaimer(int32_t priority) : priority_(priority){};
+  explicit MemoryReclaimer(int32_t priority) : priority_(priority) {}
 
  private:
   const int32_t priority_;

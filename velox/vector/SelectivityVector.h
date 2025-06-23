@@ -364,7 +364,7 @@ class SelectivityVector {
 
     // Intentionally going from zero to avoid surprises debugging if begin() and
     // end() not correct
-    for (size_t i = 0; i < selectivityVector.size(); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(selectivityVector.size()); ++i) {
       if (selectivityVector.isValid(i)) {
         if (!firstValidEncountered) {
           os << ", ";

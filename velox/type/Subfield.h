@@ -244,7 +244,7 @@ class Subfield {
 
   bool isPrefix(const Subfield& other) const {
     if (path_.size() < other.path_.size()) {
-      for (int i = 0; i < path_.size(); ++i) {
+      for (size_t i = 0; i < path_.size(); ++i) {
         if (!(*path_[i].get() == *other.path_[i].get())) {
           return false;
         }
@@ -260,7 +260,7 @@ class Subfield {
     }
     std::ostringstream out;
     out << static_cast<const NestedField*>(path_[0].get())->name();
-    for (int i = 1; i < path_.size(); i++) {
+    for (size_t i = 1; i < path_.size(); i++) {
       out << path_[i]->toString();
     }
     return out.str();
@@ -274,7 +274,7 @@ class Subfield {
     if (path_.size() != other.path_.size()) {
       return false;
     }
-    for (int i = 0; i < path_.size(); ++i) {
+    for (size_t i = 0; i < path_.size(); ++i) {
       if (!(*path_[i].get() == *other.path_[i].get())) {
         return false;
       }
@@ -284,7 +284,7 @@ class Subfield {
 
   size_t hash() const {
     size_t result = 1;
-    for (int i = 0; i < path_.size(); ++i) {
+    for (size_t i = 0; i < path_.size(); ++i) {
       result = result * 31 + path_[i]->hash();
     }
     return result;

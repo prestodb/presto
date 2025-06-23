@@ -277,7 +277,7 @@ struct StringView {
 //
 //   auto myStringView = "my string"_sv;
 //   auto vec = {"str1"_sv, "str2"_sv};
-inline StringView operator"" _sv(const char* str, size_t len) {
+inline StringView operator""_sv(const char* str, size_t len) {
   return StringView(str, len);
 }
 

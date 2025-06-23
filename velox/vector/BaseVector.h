@@ -107,7 +107,7 @@ class BaseVector {
 
   inline bool isIndexInRange(vector_size_t index) const {
     // This compiles better than index >= 0 && index < length_.
-    return static_cast<uint32_t>(index) < length_;
+    return static_cast<uint32_t>(index) < static_cast<uint32_t>(length_);
   }
 
   template <typename T>
@@ -781,7 +781,7 @@ class BaseVector {
       velox::memory::MemoryPool* pool,
       BufferPtr* buffer,
       RawT** raw) {
-    vector_size_t minBytes = byteSize<T>(size);
+    auto minBytes = static_cast<uint64_t>(byteSize<T>(size));
     if (*buffer && (*buffer)->capacity() >= minBytes && (*buffer)->unique()) {
       (*buffer)->setSize(minBytes);
       if (raw) {

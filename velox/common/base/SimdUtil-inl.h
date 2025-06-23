@@ -341,7 +341,7 @@ struct CopyWord<xsimd::batch<int8_t, A>, A> {
 // sizeof(T). Returns false if 'bytes' went to 0.
 template <typename T, typename A>
 inline bool copyNextWord(void*& to, const void*& from, int64_t& bytes) {
-  if (bytes >= sizeof(T)) {
+  if (bytes >= static_cast<int64_t>(sizeof(T))) {
     CopyWord<T, A>::apply(to, from);
     bytes -= sizeof(T);
     if (!bytes) {
@@ -362,7 +362,7 @@ inline void memcpy(void* to, const void* from, int64_t bytes, const A& arch) {
       return;
     }
   }
-  while (bytes >= sizeof(int64_t)) {
+  while (bytes >= static_cast<int64_t>(sizeof(int64_t))) {
     if (!detail::copyNextWord<int64_t, A>(to, from, bytes)) {
       return;
     }
@@ -417,7 +417,7 @@ void memset(void* to, char data, int32_t bytes, const A& arch) {
     }
   }
   int64_t data64 = *reinterpret_cast<int64_t*>(&v);
-  while (bytes >= sizeof(int64_t)) {
+  while (bytes >= static_cast<int64_t>(sizeof(int64_t))) {
     if (!detail::setNextWord<int64_t>(to, data64, bytes, arch)) {
       return;
     }
@@ -795,7 +795,7 @@ template <typename T>
 Batch64<T> genericPermute(Batch64<T> data, Batch64<int32_t> idx) {
   static_assert(data.size >= idx.size);
   Batch64<T> ans;
-  for (int i = 0; i < idx.size; ++i) {
+  for (size_t i = 0; i < idx.size; ++i) {
     ans.data[i] = data.data[idx.data[i]];
   }
   return ans;
@@ -1458,7 +1458,7 @@ size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
     const char* s,
     int64_t n,
     const char* needle,
-    size_t needleSize) {
+    int64_t needleSize) {
   static_assert(kNeedleSize >= 2);
   VELOX_DCHECK_GT(needleSize, 1);
   VELOX_DCHECK_GT(n, 0);
@@ -1506,7 +1506,7 @@ size_t FOLLY_ALWAYS_INLINE smidStrstrMemcmp(
   }
 
   return std::string::npos;
-};
+}
 
 #endif
 

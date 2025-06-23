@@ -703,7 +703,7 @@ class AsyncDataCache : public memory::Cache {
         int32_t _minSsdSavableBytes = 1 << 24)
         : maxWriteRatio(_maxWriteRatio),
           ssdSavableRatio(_ssdSavableRatio),
-          minSsdSavableBytes(_minSsdSavableBytes){};
+          minSsdSavableBytes(_minSsdSavableBytes) {}
 
     /// The max ratio of the number of in-memory cache entries being written to
     /// SSD cache over the total number of cache entries. This is to control SSD
@@ -845,7 +845,7 @@ class AsyncDataCache : public memory::Cache {
       const std::vector<RawFileCacheKey>& keys,
       const SizeFunc& sizeFunc,
       const ProcessPin& processPin) {
-    for (auto i = 0; i < keys.size(); ++i) {
+    for (size_t i = 0; i < keys.size(); ++i) {
       auto pin = findOrCreate(keys[i], sizeFunc(i), nullptr);
       if (pin.empty() || pin.checkedEntry()->isShared()) {
         continue;

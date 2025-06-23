@@ -36,7 +36,7 @@ struct IndexRange {
 namespace row {
 class CompactRow;
 class UnsafeRowFast;
-}; // namespace row
+} // namespace row
 
 struct CompressionStats {
   // Number of times compression was not attempted.

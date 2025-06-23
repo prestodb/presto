@@ -59,7 +59,7 @@ class RowVector : public BaseVector {
 
     // Check child vector types.
     // This can be an expensive operation, so it's only done at debug time.
-    for (auto i = 0; i < children_.size(); i++) {
+    for (size_t i = 0; i < children_.size(); i++) {
       const auto& child = children_[i];
       if (child) {
         VELOX_DCHECK(
@@ -168,7 +168,7 @@ class RowVector : public BaseVector {
       velox::memory::MemoryPool* pool = nullptr) const override {
     std::vector<VectorPtr> copiedChildren(children_.size());
 
-    for (auto i = 0; i < children_.size(); ++i) {
+    for (size_t i = 0; i < children_.size(); ++i) {
       copiedChildren[i] = children_[i]->testingCopyPreserveEncodings(pool);
     }
 

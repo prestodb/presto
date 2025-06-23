@@ -75,19 +75,20 @@ FOLLY_ALWAYS_INLINE bool isAscii(const char* str, size_t length) {
 FOLLY_ALWAYS_INLINE static void
 reverseAscii(char* output, const char* input, size_t length) {
   auto j = length - 1;
-  VECTORIZE_LOOP_IF_POSSIBLE for (auto i = 0; i < length; ++i, --j) {
+  VECTORIZE_LOOP_IF_POSSIBLE for (size_t i = 0; i < length; ++i, --j) {
     output[i] = input[j];
   }
 }
 
 /// Perform reverse for utf8 string input
 FOLLY_ALWAYS_INLINE static void
-reverseUnicode(char* output, const char* input, size_t length) {
-  auto inputIdx = 0;
-  auto outputIdx = length;
+reverseUnicode(char* output, const char* input, int64_t length) {
+  int64_t inputIdx = 0;
+  int64_t outputIdx = static_cast<int64_t>(length);
   while (inputIdx < length) {
     int size = 1;
-    auto valid = utf8proc_codepoint(&input[inputIdx], input + length, size);
+    const auto valid =
+        utf8proc_codepoint(&input[inputIdx], input + length, size);
 
     // if invalid utf8 gets byte sequence with nextCodePoint==-1 and size==1,
     // continue reverse invalid sequence byte by byte.
@@ -107,7 +108,7 @@ reverseUnicode(char* output, const char* input, size_t length) {
 /// Perform upper for ascii string input
 FOLLY_ALWAYS_INLINE static void
 upperAscii(char* output, const char* input, size_t length) {
-  VECTORIZE_LOOP_IF_POSSIBLE for (auto i = 0; i < length; i++) {
+  VECTORIZE_LOOP_IF_POSSIBLE for (size_t i = 0; i < length; i++) {
     if (input[i] >= 'a' && input[i] <= 'z') {
       output[i] = input[i] - 32;
     } else {
@@ -119,7 +120,7 @@ upperAscii(char* output, const char* input, size_t length) {
 /// Perform lower for ascii string input
 FOLLY_ALWAYS_INLINE static void
 lowerAscii(char* output, const char* input, size_t length) {
-  VECTORIZE_LOOP_IF_POSSIBLE for (auto i = 0; i < length; i++) {
+  VECTORIZE_LOOP_IF_POSSIBLE for (size_t i = 0; i < length; i++) {
     if (input[i] >= 'A' && input[i] <= 'Z') {
       output[i] = input[i] + 32;
     } else {
@@ -137,8 +138,8 @@ FOLLY_ALWAYS_INLINE size_t upperUnicode(
     size_t outputLength,
     const char* input,
     size_t inputLength) {
-  auto inputIdx = 0;
-  auto outputIdx = 0;
+  size_t inputIdx = 0;
+  size_t outputIdx = 0;
 
   while (inputIdx < inputLength) {
     utf8proc_int32_t nextCodePoint;
@@ -178,8 +179,8 @@ FOLLY_ALWAYS_INLINE size_t lowerUnicode(
     size_t outputLength,
     const char* input,
     size_t inputLength) {
-  auto inputIdx = 0;
-  auto outputIdx = 0;
+  size_t inputIdx = 0;
+  size_t outputIdx = 0;
 
   while (inputIdx < inputLength) {
     utf8proc_int32_t nextCodePoint;
@@ -279,7 +280,7 @@ lengthUnicode(const char* inputBuffer, size_t bufferLength) {
  * @return the number of characters represented by the input utf8 string
  */
 FOLLY_ALWAYS_INLINE int64_t
-cappedLengthUnicode(const char* input, size_t size, size_t maxChars) {
+cappedLengthUnicode(const char* input, size_t size, int64_t maxChars) {
   // First address after the last byte in the input
   auto end = input + size;
   auto currentChar = input;
@@ -313,9 +314,9 @@ cappedLengthUnicode(const char* input, size_t size, size_t maxChars) {
 /// maxChars
 ///
 FOLLY_ALWAYS_INLINE int64_t
-cappedByteLengthUnicode(const char* input, size_t size, int64_t maxChars) {
-  size_t utf8Position = 0;
-  size_t numCharacters = 0;
+cappedByteLengthUnicode(const char* input, int64_t size, int64_t maxChars) {
+  int64_t utf8Position = 0;
+  int64_t numCharacters = 0;
   while (utf8Position < size && numCharacters < maxChars) {
     auto charSize = utf8proc_char_length(input + utf8Position);
     utf8Position += UNLIKELY(charSize < 0) ? 1 : charSize;
@@ -495,7 +496,7 @@ inline static size_t replace(
     }
 
     // add replacement before and after each char in inputString
-    for (auto i = 0; i < inputString.size(); i++) {
+    for (size_t i = 0; i < inputString.size(); i++) {
       writeReplacement();
 
       outputString[writePosition] = inputString[i];
@@ -580,7 +581,7 @@ static inline std::pair<size_t, size_t> getByteRange(
     skipContBytes();
 
     // Find startByteIndex
-    for (auto i = 0; nextCharOffset < strLength && i < startCharPosition - 1;
+    for (size_t i = 0; nextCharOffset < strLength && i < startCharPosition - 1;
          i++) {
       nextCharOffset++;
 
@@ -591,7 +592,7 @@ static inline std::pair<size_t, size_t> getByteRange(
     size_t charCountInRange = 0;
 
     // Find endByteIndex
-    for (auto i = 0; nextCharOffset < strLength && i < length; i++) {
+    for (size_t i = 0; nextCharOffset < strLength && i < length; i++) {
       nextCharOffset++;
       charCountInRange++;
 

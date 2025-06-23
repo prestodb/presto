@@ -26,7 +26,7 @@
 
 namespace facebook::velox {
 class Config;
-};
+}
 
 namespace facebook::velox::core {
 

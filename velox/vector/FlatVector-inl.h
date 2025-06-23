@@ -79,20 +79,21 @@ xsimd::batch<T> FlatVector<T>::loadSIMDValueBufferAt(size_t byteOffset) const {
 
 template <typename T>
 std::unique_ptr<SimpleVector<uint64_t>> FlatVector<T>::hashAll() const {
+  using len_type = decltype(BaseVector::length_);
   BufferPtr hashBuffer =
       AlignedBuffer::allocate<uint64_t>(BaseVector::length_, BaseVector::pool_);
   auto hashData = hashBuffer->asMutable<uint64_t>();
 
   if (rawValues_ != nullptr) { // non all-null case
     folly::hasher<T> hasher;
-    for (size_t i = 0; i < BaseVector::length_; ++i) {
+    for (len_type i = 0; i < BaseVector::length_; ++i) {
       hashData[i] = hasher(valueAtFast(i));
     }
   }
 
   // overwrite the null hash values
   if (BaseVector::rawNulls_ != nullptr) {
-    for (size_t i = 0; i < BaseVector::length_; ++i) {
+    for (len_type i = 0; i < BaseVector::length_; ++i) {
       if (bits::isBitNull(BaseVector::rawNulls_, i)) {
         hashData[i] = BaseVector::kNullHash;
       }

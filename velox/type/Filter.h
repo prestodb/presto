@@ -1742,7 +1742,7 @@ class BytesRange final : public AbstractRange {
   }
 
   bool testLength(int length) const final {
-    return !singleValue_ || lower_.size() == length;
+    return !singleValue_ || static_cast<int64_t>(lower_.size()) == length;
   }
 
   std::unique_ptr<Filter> mergeWith(const Filter* other) const final;

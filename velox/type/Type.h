@@ -1979,7 +1979,7 @@ static inline T to(const U& value) {
 }
 
 template <>
-inline Timestamp to(const std::string& value) {
+inline Timestamp to(const std::string&) {
   return Timestamp(0, 0);
 }
 
@@ -2004,7 +2004,7 @@ inline std::string to(const velox::StringView& value) {
 }
 
 template <>
-inline std::string to(const ComplexType& value) {
+inline std::string to(const ComplexType&) {
   return std::string("ComplexType");
 }
 

@@ -637,7 +637,7 @@ struct Converter<TypeKind::VARCHAR, void, TPolicy> {
     }
     str[pos++] = 'E';
 
-    int startExp = idxE + 1;
+    size_t startExp = idxE + 1;
     if (str[startExp] == '-') {
       str[pos++] = '-';
       startExp++;

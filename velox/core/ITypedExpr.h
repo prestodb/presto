@@ -64,7 +64,7 @@ class ITypedExpr : public ISerializable {
 
   size_t hash() const {
     size_t hash = bits::hashMix(type_->hashKind(), localHash());
-    for (int32_t i = 0; i < inputs_.size(); ++i) {
+    for (size_t i = 0; i < inputs_.size(); ++i) {
       hash = bits::hashMix(hash, inputs_[i]->hash());
     }
     return hash;
