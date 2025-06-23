@@ -45,6 +45,7 @@ import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.dec
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleColumnMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realColumnMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintColumnMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryColumnMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharColumnMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -138,6 +139,8 @@ public class OracleClient
         switch (typeHandle.getJdbcType()) {
             case Types.CLOB:
                 return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+            case Types.BLOB:
+                return Optional.of(varbinaryColumnMapping());
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
             case Types.FLOAT:
