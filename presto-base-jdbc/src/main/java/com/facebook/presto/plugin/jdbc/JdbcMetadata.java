@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.expressions.translator.TranslatedExpression;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcJoinPredicateToSqlTranslator;
+import com.facebook.presto.plugin.jdbc.optimization.function.JoinOperatorTranslators;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -25,16 +29,21 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -45,6 +54,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
+import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -57,11 +68,13 @@ public class JdbcMetadata
     private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final FunctionMetadataManager functionMetadataManager;
 
-    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable)
+    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, FunctionMetadataManager functionMetadataManager)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.allowDropTable = allowDropTable;
     }
 
@@ -272,5 +285,23 @@ public class JdbcMetadata
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return jdbcClient.normalizeIdentifier(session, identifier);
+    }
+
+    public boolean isPushdownSupportedForFilter(ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            RowExpression filter,
+            Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
+    {
+        if (tableHandle instanceof JoinTableSet) {
+            JdbcJoinPredicateToSqlTranslator jdbcJoinPredicateToSqlTranslator = new JdbcJoinPredicateToSqlTranslator(
+                    functionMetadataManager,
+                    buildFunctionTranslator(ImmutableSet.of(JoinOperatorTranslators.class)), "");
+            TranslatedExpression<JdbcExpression> jdbcExpression = translateWith(
+                    filter,
+                    jdbcJoinPredicateToSqlTranslator,
+                    symbolToColumnHandleMap);
+            return jdbcExpression.getTranslated().isPresent();
+        }
+        return false;
     }
 }

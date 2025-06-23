@@ -44,6 +44,7 @@ public class BaseJdbcConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
     private boolean caseSensitiveNameMatchingEnabled;
+    private boolean partialPredicatePushDown;
 
     @NotNull
     public String getConnectionUrl()
@@ -176,5 +177,17 @@ public class BaseJdbcConfig
             throw new ConfigurationException(ImmutableList.of(new Message("Only one of 'case-insensitive-name-matching=true' or 'case-sensitive-name-matching=true' can be set. " +
                     "These options are mutually exclusive.")));
         }
+    }
+
+    public boolean isPartialPredicatePushDown()
+    {
+        return partialPredicatePushDown;
+    }
+
+    @Config("partial-predicate-push-down")
+    public BaseJdbcConfig setPartialPredicatePushDown(boolean partialPredicatePushDown)
+    {
+        this.partialPredicatePushDown = partialPredicatePushDown;
+        return this;
     }
 }
