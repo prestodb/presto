@@ -13,17 +13,11 @@
  */
 package com.facebook.presto.router.scheduler;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.server.HttpRequestSessionContext;
-import com.facebook.presto.server.SessionContext;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -31,28 +25,22 @@ import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.servlet.http.HttpServletRequest;
-
 import java.net.URI;
+import java.security.Principal;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
-import static com.facebook.presto.spi.session.ResourceEstimates.CPU_TIME;
-import static com.facebook.presto.spi.session.ResourceEstimates.EXECUTION_TIME;
-import static com.facebook.presto.spi.session.ResourceEstimates.PEAK_MEMORY;
+import static com.facebook.presto.router.scheduler.HttpRequestSessionContext.getResourceEstimates;
+import static com.facebook.presto.router.scheduler.HttpRequestSessionContext.getSerializedSessionFunctions;
 import static com.google.common.base.Verify.verify;
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.toMap;
 
 public class PlanCheckerRouterPluginPrestoClient
 {
     private static final Logger log = Logger.get(PlanCheckerRouterPluginPrestoClient.class);
-    private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
-    private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
     private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
     private static final CounterStat javaClusterRedirectRequests = new CounterStat();
     private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
@@ -70,10 +58,10 @@ public class PlanCheckerRouterPluginPrestoClient
         this.clientRequestTimeout = clientRequestTimeout;
     }
 
-    public Optional<URI> getCompatibleClusterURI(HttpServletRequest httpServletRequest, String statement)
+    public Optional<URI> getCompatibleClusterURI(Map<String, List<String>> headers, String statement, Principal principal)
     {
         String newSql = ANALYZE_CALL + statement;
-        ClientSession clientSession = parseHeadersToClientSession(httpServletRequest);
+        ClientSession clientSession = parseHeadersToClientSession(headers, principal);
         boolean isNativeCompatible = true;
         // submit initial query
         try (StatementClient client = newStatementClient(httpClient, clientSession, newSql)) {
@@ -127,17 +115,19 @@ public class PlanCheckerRouterPluginPrestoClient
         return nativeClusterRedirectRequests;
     }
 
-    private ClientSession parseHeadersToClientSession(HttpServletRequest httpServletRequest)
+    private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal)
     {
-        SessionContext sessionContext = new HttpRequestSessionContext(
-                httpServletRequest,
-                new SqlParserOptions());
+        HttpRequestSessionContext sessionContext =
+                new HttpRequestSessionContext(
+                        headers,
+                        new SqlParserOptions(),
+                        principal);
 
         return new ClientSession(
                 planCheckerClusterURI,
                 sessionContext.getIdentity().getUser(),
                 sessionContext.getSource(),
-                sessionContext.getTraceToken(),
+                Optional.empty(),
                 sessionContext.getClientTags(),
                 sessionContext.getClientInfo(),
                 sessionContext.getCatalog(),
@@ -149,29 +139,11 @@ public class PlanCheckerRouterPluginPrestoClient
                 sessionContext.getPreparedStatements(),
                 sessionContext.getIdentity().getRoles(),
                 sessionContext.getIdentity().getExtraCredentials(),
-                httpServletRequest.getHeader(PRESTO_TRANSACTION_ID),
+                sessionContext.getHeader(PRESTO_TRANSACTION_ID),
                 clientRequestTimeout,
                 true,
                 getSerializedSessionFunctions(sessionContext),
                 ImmutableMap.of(), // todo: do we need custom headers?
                 true);
-    }
-
-    private static Map<String, String> getResourceEstimates(SessionContext sessionContext)
-    {
-        ImmutableMap.Builder<String, String> resourceEstimates = ImmutableMap.builder();
-        ResourceEstimates estimates = sessionContext.getResourceEstimates();
-        estimates.getExecutionTime().ifPresent(e -> resourceEstimates.put(EXECUTION_TIME, e.toString()));
-        estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
-        estimates.getPeakMemory().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
-        return resourceEstimates.build();
-    }
-
-    private static Map<String, String> getSerializedSessionFunctions(SessionContext sessionContext)
-    {
-        return sessionContext.getSessionFunctions().entrySet().stream()
-                .collect(collectingAndThen(
-                        toMap(e -> SQL_FUNCTION_ID_JSON_CODEC.toJson(e.getKey()), e -> SQL_INVOKED_FUNCTION_JSON_CODEC.toJson(e.getValue())),
-                        ImmutableMap::copyOf));
     }
 }
