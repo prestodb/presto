@@ -30,6 +30,20 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-native-execution</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
@@ -56,8 +70,62 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>json</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>jaxrs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>node</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>stats</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -73,6 +141,20 @@
             <scope>test</scope>
             <type>test-jar</type>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto.router</groupId>
+            <artifactId>presto-plan-checker-router-plugin</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-router</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
