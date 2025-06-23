@@ -186,15 +186,6 @@
     </dependencies>
 
     <!-- dependencyManagement is to fix the Require upper bound dependencies error for slf4j -->
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>1.7.36</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <build>
         <plugins>
