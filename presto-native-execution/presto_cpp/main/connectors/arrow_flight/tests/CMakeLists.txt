@@ -23,6 +23,7 @@ target_link_libraries(
 add_executable(
   presto_flight_connector_test
   ArrowFlightConnectorTest.cpp ArrowFlightConnectorAuthTest.cpp
+  ArrowFlightConnectorMTlsTest.cpp
   ArrowFlightConnectorTlsTest.cpp ArrowFlightConnectorDataTypeTest.cpp
   ArrowFlightConfigTest.cpp)
 
