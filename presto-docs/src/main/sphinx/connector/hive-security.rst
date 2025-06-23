@@ -349,12 +349,6 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
-Impersonation Accessing the Hive Metastore
-------------------------------------------
-
-Presto does not currently support impersonating the end user when accessing the
-Hive metastore.
-
 .. _configuring-hadoop-impersonation:
 
 Impersonation in Hadoop
