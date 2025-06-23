@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.spi.router;
 
+import java.security.Principal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class RouterRequestInfo
@@ -23,20 +25,22 @@ public class RouterRequestInfo
     private final Optional<String> source;
     private final List<String> clientTags;
     private final String query;
-    private final Object servletRequest;
+    private final Map<String, List<String>> headers;
+    private final Principal principal;
 
     public RouterRequestInfo(String user)
     {
-        this(user, Optional.empty(), Collections.emptyList(), "", null);
+        this(user, Optional.empty(), Collections.emptyList(), "", Collections.emptyMap(), null);
     }
 
-    public RouterRequestInfo(String user, Optional<String> source, List<String> clientTags, String query, Object servletRequest)
+    public RouterRequestInfo(String user, Optional<String> source, List<String> clientTags, String query, Map<String, List<String>> headersMap, Principal principal)
     {
         this.user = user;
         this.source = source;
         this.clientTags = clientTags;
         this.query = query;
-        this.servletRequest = servletRequest;
+        this.headers = headersMap;
+        this.principal = principal;
     }
 
     public String getUser()
@@ -59,8 +63,13 @@ public class RouterRequestInfo
         return clientTags;
     }
 
-    public Object getServletRequest()
+    public Map<String, List<String>> getHeaders()
     {
-        return servletRequest;
+        return headers;
+    }
+
+    public Principal getPrincipal()
+    {
+        return principal;
     }
 }

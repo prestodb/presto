@@ -18,7 +18,6 @@ import com.facebook.presto.spi.router.Scheduler;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.List;
@@ -55,13 +54,7 @@ public class PlanCheckerRouterPluginScheduler
     public Optional<URI> getDestination(RouterRequestInfo routerRequestInfo)
     {
         PlanCheckerRouterPluginPrestoClient planCheckerPrestoClient = new PlanCheckerRouterPluginPrestoClient(getValidatorDestination(), javaRouterURI, nativeRouterURI, clientRequestTimeout);
-        Object servletRequest = routerRequestInfo.getServletRequest();
-        if (!(servletRequest instanceof HttpServletRequest)) {
-            throw new IllegalArgumentException(
-                    "Expected an instance of HttpServletRequest but got : " +
-                            (servletRequest == null ? "null" : servletRequest.getClass().getName()));
-        }
-        return planCheckerPrestoClient.getCompatibleClusterURI((HttpServletRequest) servletRequest, routerRequestInfo.getQuery());
+        return planCheckerPrestoClient.getCompatibleClusterURI(routerRequestInfo.getHeaders(), routerRequestInfo.getQuery(), routerRequestInfo.getPrincipal());
     }
 
     @Override
