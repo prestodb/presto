@@ -77,7 +77,7 @@ class TableWriteTraits {
   static constexpr std::string_view klastPageContextKey = "lastPage";
 
   static const RowTypePtr outputType(
-      const std::shared_ptr<core::AggregationNode>& aggregationNode = nullptr);
+      const core::AggregationNodePtr& aggregationNode = nullptr);
 
   /// Returns the parsed commit context from table writer 'output'.
   static folly::dynamic getTableCommitContext(const RowVectorPtr& output);

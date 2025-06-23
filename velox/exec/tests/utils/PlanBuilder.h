@@ -736,7 +736,7 @@ class PlanBuilder {
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
-      const std::shared_ptr<core::AggregationNode>& aggregationNode = nullptr);
+      const core::AggregationNodePtr& aggregationNode = nullptr);
 
   /// Add an AggregationNode representing partial aggregation with the
   /// specified grouping keys, aggregates and optional masks.

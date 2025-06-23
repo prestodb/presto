@@ -473,7 +473,7 @@ const TypePtr& TableWriteTraits::contextColumnType() {
 }
 
 const RowTypePtr TableWriteTraits::outputType(
-    const std::shared_ptr<core::AggregationNode>& aggregationNode) {
+    const core::AggregationNodePtr& aggregationNode) {
   static const auto kOutputTypeWithoutStats =
       ROW({rowCountColumnName(), fragmentColumnName(), contextColumnName()},
           {rowCountColumnType(), fragmentColumnType(), contextColumnType()});
