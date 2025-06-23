@@ -1484,9 +1484,10 @@ void PrestoServer::checkOverload() {
     memOverloaded_ = memOverloaded;
   }
 
+  static const auto hwConcurrency = std::thread::hardware_concurrency();
   const auto overloadedThresholdCpuPct =
       systemConfig->workerOverloadedThresholdCpuPct();
-  const auto overloadedThresholdQueuedDrivers = numDriverThreads() *
+  const auto overloadedThresholdQueuedDrivers = hwConcurrency *
       systemConfig->workerOverloadedThresholdNumQueuedDriversHwMultiplier();
   if (overloadedThresholdCpuPct > 0 && overloadedThresholdQueuedDrivers > 0) {
     const auto currentUsedCpuPct = cpuMon_.getCPULoadPct();
