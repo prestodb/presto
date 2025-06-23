@@ -147,15 +147,17 @@ bool cachePeriodicPersistenceEnabled() {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
- facebook::velox::cudf_velox::registerCudf();
- PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+  facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
+      SystemConfig::instance()->prestoDefaultNamespacePrefix());
+  facebook::velox::cudf_velox::registerCudf();
+  PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
 #endif
 }
 
 void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
- facebook::velox::cudf_velox::unregisterCudf();
- PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  facebook::velox::cudf_velox::unregisterCudf();
+  PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
 #endif
 }
 
