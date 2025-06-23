@@ -14,9 +14,11 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.spi.router.Scheduler;
 import com.facebook.presto.spi.router.SchedulerFactory;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 
 import java.util.Map;
 
@@ -43,7 +45,15 @@ public class PlanCheckerRouterPluginSchedulerFactory
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
-            return injector.getInstance(PlanCheckerRouterPluginScheduler.class);
+            PlanCheckerRouterPluginScheduler planCheckerRouterPluginScheduler =
+                    injector.getInstance(PlanCheckerRouterPluginScheduler.class);
+            CounterStat javaRedirectCounter = injector.getInstance(Key.get(CounterStat.class, JavaClusterRedirectRequestsCounter.class));
+            CounterStat nativeRedirectCounter = injector.getInstance(Key.get(CounterStat.class, NativeClustersRedirectRequestsCounter.class));
+
+            JmxRegistrationUtil.register("com.facebook.presto.router.scheduler", "Java", new ExportedPlanCheckerRouterPluginCounter(javaRedirectCounter));
+            JmxRegistrationUtil.register("com.facebook.presto.router.scheduler", "Native", new ExportedPlanCheckerRouterPluginCounter(nativeRedirectCounter));
+
+            return planCheckerRouterPluginScheduler;
         }
         catch (Exception e) {
             throwIfUnchecked(e);

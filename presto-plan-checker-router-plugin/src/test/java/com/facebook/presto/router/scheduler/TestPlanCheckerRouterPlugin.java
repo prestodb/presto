@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.spi.router.RouterRequestInfo;
@@ -22,11 +23,17 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.servlet.http.HttpServletRequest;
+
 import java.net.URI;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
@@ -37,6 +44,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLine
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.list;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -96,8 +104,8 @@ public class TestPlanCheckerRouterPlugin
     @Test
     public void testPlanCheckerPluginWithNativeCompatibleQueries()
     {
-        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient = new PlanCheckerRouterPluginPrestoClient(new CounterStat(), new CounterStat(), planCheckerRouterConfig);
+        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig, planCheckerRouterPluginPrestoClient);
 
         // native compatible query
         Optional<URI> target = scheduler.getDestination(
@@ -115,8 +123,8 @@ public class TestPlanCheckerRouterPlugin
     @Test
     public void testPlanCheckerPluginWithNativeIncompatibleQueries()
     {
-        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig);
-        scheduler.setCandidates(planCheckerRouterConfig.getPlanCheckClustersURIs());
+        PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient = new PlanCheckerRouterPluginPrestoClient(new CounterStat(), new CounterStat(), planCheckerRouterConfig);
+        Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterConfig, planCheckerRouterPluginPrestoClient);
 
         // native incompatible query
         Optional<URI> target = scheduler.getDestination(
@@ -133,6 +141,19 @@ public class TestPlanCheckerRouterPlugin
 
     private static RouterRequestInfo getMockRouterRequestInfo(ListMultimap<String, String> headers, String query)
     {
-        return new RouterRequestInfo("test", Optional.empty(), emptyList(), query, new MockHttpServletRequest(headers));
+        HttpServletRequest servletRequest = new MockHttpServletRequest(headers);
+        return new RouterRequestInfo("test", Optional.empty(), emptyList(), query, parseHeaders(servletRequest), servletRequest.getUserPrincipal(), servletRequest.getRemoteAddr());
+    }
+
+    private static Map<String, List<String>> parseHeaders(HttpServletRequest httpServletRequest)
+    {
+        ImmutableMap.Builder<String, List<String>> builder = ImmutableMap.builder();
+        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            Enumeration<String> values = httpServletRequest.getHeaders(headerName);
+            builder.put(headerName, list(values));
+        }
+        return builder.build();
     }
 }

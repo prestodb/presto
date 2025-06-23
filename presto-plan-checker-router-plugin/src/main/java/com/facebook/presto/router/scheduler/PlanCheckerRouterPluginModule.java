@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.router.scheduler;
 
+import com.facebook.airlift.stats.CounterStat;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -25,7 +26,10 @@ public class PlanCheckerRouterPluginModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(CounterStat.class).annotatedWith(JavaClusterRedirectRequestsCounter.class).toInstance(new CounterStat());
+        binder.bind(CounterStat.class).annotatedWith(NativeClustersRedirectRequestsCounter.class).toInstance(new CounterStat());
         configBinder(binder).bindConfig(PlanCheckerRouterPluginConfig.class);
+        binder.bind(PlanCheckerRouterPluginPrestoClient.class).in(SINGLETON);
         binder.bind(PlanCheckerRouterPluginScheduler.class).in(SINGLETON);
     }
 }
