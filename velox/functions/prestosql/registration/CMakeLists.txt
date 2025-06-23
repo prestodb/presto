@@ -37,6 +37,7 @@ velox_add_library(
   RegistrationFunctions.cpp
   StringFunctionsRegistration.cpp
   TDigestFunctionsRegistration.cpp
+  QDigestFunctionsRegistration.cpp
   URLFunctionsRegistration.cpp)
 
 if(VELOX_ENABLE_FAISS)

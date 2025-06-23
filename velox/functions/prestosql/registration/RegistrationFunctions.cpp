@@ -30,6 +30,7 @@ extern void registerDateTimeFunctions(const std::string& prefix);
 extern void registerGeneralFunctions(const std::string& prefix);
 extern void registerHyperLogFunctions(const std::string& prefix);
 extern void registerTDigestFunctions(const std::string& prefix);
+extern void registerQDigestFunctions(const std::string& prefix);
 extern void registerIntegerFunctions(const std::string& prefix);
 extern void registerFloatingPointFunctions(const std::string& prefix);
 extern void registerJsonFunctions(const std::string& prefix);
@@ -78,6 +79,10 @@ void registerHyperLogFunctions(const std::string& prefix) {
 
 void registerTDigestFunctions(const std::string& prefix) {
   functions::registerTDigestFunctions(prefix);
+}
+
+void registerQDigestFunctions(const std::string& prefix) {
+  functions::registerQDigestFunctions(prefix);
 }
 
 void registerIntegerFunctions(const std::string& prefix) {
@@ -129,6 +134,7 @@ void registerAllScalarFunctions(const std::string& prefix) {
   registerJsonFunctions(prefix);
   registerHyperLogFunctions(prefix);
   registerTDigestFunctions(prefix);
+  registerQDigestFunctions(prefix);
   registerIntegerFunctions(prefix);
   registerFloatingPointFunctions(prefix);
   registerBingTileFunctions(prefix);
