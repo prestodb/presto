@@ -27,6 +27,7 @@ import java.util.Map;
 
 import static com.facebook.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestMongoClientConfig
 {
@@ -43,8 +44,7 @@ public class TestMongoClientConfig
                 .setConnectionTimeout(10_000)
                 .setSocketTimeout(0)
                 .setSocketKeepAlive(false)
-                .setSslEnabled(false)
-                .setTlsEnabled(false)
+                .setTlsEnabled(false) // Only set TLS, not both SSL and TLS
                 .setKeystorePath(null)
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
@@ -73,8 +73,7 @@ public class TestMongoClientConfig
                 .put("mongodb.connection-timeout", "9999")
                 .put("mongodb.socket-timeout", "1")
                 .put("mongodb.socket-keep-alive", "true")
-                .put("mongodb.ssl.enabled", "true")
-                .put("mongodb.tls.enabled", "true")
+                .put("mongodb.tls.enabled", "true") // Use the primary TLS config
                 .put("mongodb.tls.keystore-path", keystoreFile.toString())
                 .put("mongodb.tls.keystore-password", "keystore-password")
                 .put("mongodb.tls.truststore-path", truststoreFile.toString())
@@ -97,8 +96,7 @@ public class TestMongoClientConfig
                 .setConnectionTimeout(9_999)
                 .setSocketTimeout(1)
                 .setSocketKeepAlive(true)
-                .setSslEnabled(true)
-                .setTlsEnabled(true)
+                .setTlsEnabled(true) // Only set TLS, not both
                 .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
                 .setTruststorePath(truststoreFile.toFile())
@@ -114,6 +112,28 @@ public class TestMongoClientConfig
     }
 
     @Test
+    public void testLegacySslPropertyMapping() throws IOException
+    {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
+        MongoClientConfig config = new MongoClientConfig()
+                .setSslEnabled(true)
+                .setKeystorePath(keystoreFile.toFile())
+                .setKeystorePassword("keystore-password")
+                .setTruststorePath(truststoreFile.toFile())
+                .setTruststorePassword("truststore-password");
+
+        assertTrue(config.isTlsEnabled(), "Legacy setSslEnabled should enable TLS");
+        assertTrue(config.getSslEnabled(), "getSslEnabled should return true when set");
+
+        assertEquals(config.getKeystorePath().get(), keystoreFile.toFile());
+        assertEquals(config.getKeystorePassword().get(), "keystore-password");
+        assertEquals(config.getTruststorePath().get(), truststoreFile.toFile());
+        assertEquals(config.getTruststorePassword().get(), "truststore-password");
+    }
+
+    @Test
     public void testSpecialCharacterCredential()
     {
         MongoClientConfig config = new MongoClientConfig()
@@ -125,7 +145,7 @@ public class TestMongoClientConfig
     }
 
     @Test
-    public void testValidation()
+    public void testTlsPropertyValidationFailsIfTlsIsDisabled()
             throws Exception
     {
         Path keystoreFile = Files.createTempFile(null, null);
@@ -135,6 +155,35 @@ public class TestMongoClientConfig
         assertFailsTlsValidation(new MongoClientConfig().setKeystorePassword("keystore password"));
         assertFailsTlsValidation(new MongoClientConfig().setTruststorePath(truststoreFile.toFile()));
         assertFailsTlsValidation(new MongoClientConfig().setTruststorePassword("truststore password"));
+    }
+
+    @Test
+    public void testTlsPropertyValidationPassesIfTlsIsEnabled()
+            throws Exception
+    {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
+        // These should all pass validation when TLS is enabled
+        MongoClientConfig config1 = new MongoClientConfig()
+                .setTlsEnabled(true)
+                .setKeystorePath(keystoreFile.toFile())
+                .setKeystorePassword("keystore password");
+        assertTrue(config1.isValidTlsConfig());
+
+        MongoClientConfig config2 = new MongoClientConfig()
+                .setTlsEnabled(true)
+                .setTruststorePath(truststoreFile.toFile())
+                .setTruststorePassword("truststore password");
+        assertTrue(config2.isValidTlsConfig());
+
+        MongoClientConfig config3 = new MongoClientConfig()
+                .setTlsEnabled(true)
+                .setKeystorePath(keystoreFile.toFile())
+                .setKeystorePassword("keystore password")
+                .setTruststorePath(truststoreFile.toFile())
+                .setTruststorePassword("truststore password");
+        assertTrue(config3.isValidTlsConfig());
     }
 
     private static void assertFailsTlsValidation(MongoClientConfig config)

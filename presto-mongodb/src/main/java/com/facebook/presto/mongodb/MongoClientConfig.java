@@ -14,9 +14,9 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
@@ -78,12 +78,13 @@ public class MongoClientConfig
         return true;
     }
 
-    public boolean getTlsEnabled()
+    public boolean isTlsEnabled()
     {
         return this.tlsEnabled;
     }
 
     @Config("mongodb.tls.enabled")
+    @LegacyConfig("mongodb.ssl.enabled")
     public MongoClientConfig setTlsEnabled(boolean tlsEnabled)
     {
         this.tlsEnabled = tlsEnabled;
@@ -396,15 +397,19 @@ public class MongoClientConfig
         return this;
     }
 
+    /**
+     * @deprecated Use {@link #isTlsEnabled()} instead. This method is kept for backward compatibility.
+     */
     @Deprecated
     public boolean getSslEnabled()
     {
         return this.tlsEnabled;
     }
 
-    @Config("mongodb.ssl.enabled")
+    /**
+     * @deprecated Use {@link #setTlsEnabled(boolean)} instead. This method is kept for backward compatibility.
+     */
     @Deprecated
-    @ConfigDescription("Deprecated: Use mongodb.tls.enabled instead. This config will be made defunct in a future release")
     public MongoClientConfig setSslEnabled(boolean sslEnabled)
     {
         this.tlsEnabled = sslEnabled;
