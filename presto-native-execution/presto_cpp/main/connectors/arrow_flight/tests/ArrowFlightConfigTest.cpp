@@ -27,6 +27,8 @@ TEST(ArrowFlightConfigTest, defaultConfig) {
   ASSERT_EQ(config.defaultServerSslEnabled(), false);
   ASSERT_EQ(config.serverVerify(), true);
   ASSERT_EQ(config.serverSslCertificate(), std::nullopt);
+  ASSERT_EQ(config.clientSslCertificate(), std::nullopt);
+  ASSERT_EQ(config.clientSslKey(), std::nullopt);
 }
 
 TEST(ArrowFlightConfigTest, overrideConfig) {
@@ -45,4 +47,19 @@ TEST(ArrowFlightConfigTest, overrideConfig) {
   ASSERT_EQ(config.defaultServerSslEnabled(), true);
   ASSERT_EQ(config.serverVerify(), false);
   ASSERT_EQ(config.serverSslCertificate(), "my-cert.crt");
+  ASSERT_EQ(config.clientSslCertificate(), std::nullopt);
+  ASSERT_EQ(config.clientSslKey(), std::nullopt);
+}
+
+TEST(FlightConfigTest, MTlsConfig) {
+  std::unordered_map<std::string, std::string> configMap = {
+      {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
+      {ArrowFlightConfig::kClientSslCertificate, "/path/to/client.crt"},
+      {ArrowFlightConfig::kClientSslKey, "/path/to/client.key"}};
+  auto config =
+      ArrowFlightConfig(std::make_shared<config::ConfigBase>(std::move(configMap)));
+  ASSERT_EQ(config.clientSslCertificate(), "/path/to/client.crt");
+  ASSERT_EQ(config.clientSslKey(), "/path/to/client.key");
+  ASSERT_EQ(config.defaultServerSslEnabled(), true);
+  ASSERT_EQ(config.serverVerify(), true);
 }
