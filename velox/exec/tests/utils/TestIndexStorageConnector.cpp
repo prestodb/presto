@@ -25,6 +25,80 @@
 
 using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::exec::test {
+
+// static
+std::shared_ptr<TestIndexTable> TestIndexTable::create(
+    size_t numEqualJoinKeys,
+    const RowVectorPtr& keyData,
+    const RowVectorPtr& valueData,
+    velox::memory::MemoryPool& pool) {
+  VELOX_CHECK_GE(numEqualJoinKeys, 1);
+  VELOX_CHECK_NOT_NULL(keyData);
+  VELOX_CHECK_NOT_NULL(valueData);
+
+  auto keyType = asRowType(keyData->type());
+  VELOX_CHECK_GE(keyType->size(), numEqualJoinKeys);
+
+  auto valueType = asRowType(valueData->type());
+  VELOX_CHECK_GE(valueType->size(), 1);
+
+  const auto numRows = keyData->size();
+  VELOX_CHECK_EQ(numRows, valueData->size());
+
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.reserve(numEqualJoinKeys);
+  std::vector<VectorPtr> keyVectors;
+  keyVectors.reserve(numEqualJoinKeys);
+  for (auto i = 0; i < numEqualJoinKeys; ++i) {
+    hashers.push_back(std::make_unique<VectorHasher>(keyType->childAt(i), i));
+    keyVectors.push_back(keyData->childAt(i));
+  }
+
+  std::vector<TypePtr> dependentTypes;
+  std::vector<VectorPtr> dependentVectors;
+  for (auto i = numEqualJoinKeys; i < keyType->size(); ++i) {
+    dependentTypes.push_back(keyType->childAt(i));
+    dependentVectors.push_back(keyData->childAt(i));
+  }
+
+  for (auto i = 0; i < valueType->size(); ++i) {
+    dependentTypes.push_back(valueType->childAt(i));
+    dependentVectors.push_back(valueData->childAt(i));
+  }
+
+  // Create the table.
+  auto table = HashTable<false>::createForJoin(
+      std::move(hashers),
+      /*dependentTypes=*/dependentTypes,
+      /*allowDuplicates=*/true,
+      /*hasProbedFlag=*/false,
+      /*minTableSizeForParallelJoinBuild=*/1,
+      &pool);
+
+  // Insert data into the row container.
+  auto* rowContainer = table->rows();
+  std::vector<DecodedVector> decodedVectors;
+  for (auto& vector : keyData->children()) {
+    decodedVectors.emplace_back(*vector);
+  }
+  for (auto& vector : valueData->children()) {
+    decodedVectors.emplace_back(*vector);
+  }
+
+  for (auto row = 0; row < numRows; ++row) {
+    auto* newRow = rowContainer->newRow();
+
+    for (auto col = 0; col < decodedVectors.size(); ++col) {
+      rowContainer->store(decodedVectors[col], row, newRow, col);
+    }
+  }
+
+  // Build the table index.
+  table->prepareJoinTable({}, BaseHashTable::kNoSpillInputStartPartitionBit);
+  return std::make_shared<TestIndexTable>(
+      std::move(keyType), std::move(valueType), std::move(table));
+}
+
 namespace {
 core::TypedExprPtr toJoinConditionExpr(
     const std::vector<std::shared_ptr<core::IndexLookupCondition>>&

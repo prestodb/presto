@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/exec/HashTable.h"
-#include "velox/exec/OperatorUtils.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec::test {
@@ -38,6 +37,13 @@ struct TestIndexTable {
       : keyType(std::move(_keyType)),
         dataType(std::move(_dataType)),
         table(std::move(_table)) {}
+
+  // Create index table with the given key and value inputs.
+  static std::shared_ptr<TestIndexTable> create(
+      size_t numEqualJoinKeys,
+      const RowVectorPtr& keyData,
+      const RowVectorPtr& valueData,
+      velox::memory::MemoryPool& pool);
 };
 
 // The index table handle which provides the index table for index lookup.
