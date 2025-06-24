@@ -283,7 +283,7 @@ IndexLookupJoinTestBase::makeIndexScanNode(
     const std::shared_ptr<facebook::velox::connector::ConnectorTableHandle>
         indexTableHandle,
     const facebook::velox::RowTypePtr& outputType,
-    std::unordered_map<
+    const std::unordered_map<
         std::string,
         std::shared_ptr<facebook::velox::connector::ColumnHandle>>&
         assignments) {

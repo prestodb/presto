@@ -176,6 +176,9 @@ TestIndexSource::TestIndexSource(
     size_t numEqualJoinKeys,
     const core::TypedExprPtr& joinConditionExpr,
     const std::shared_ptr<TestIndexTableHandle>& tableHandle,
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<TestIndexColumnHandle>>& columnHandles,
     connector::ConnectorQueryCtx* connectorQueryCtx,
     folly::Executor* executor)
     : tableHandle_(tableHandle),
@@ -192,7 +195,9 @@ TestIndexSource::TestIndexSource(
               : nullptr),
       pool_(connectorQueryCtx_->memoryPool()->shared_from_this()),
       executor_(executor) {
-  VELOX_CHECK_NOT_NULL(executor_);
+  if (tableHandle_->asyncLookup()) {
+    VELOX_CHECK_NOT_NULL(executor_);
+  }
   VELOX_CHECK_LE(outputType_->size(), valueType_->size() + keyType_->size());
   VELOX_CHECK_LE(numEqualJoinKeys_, keyType_->size());
   for (int i = 0; i < numEqualJoinKeys_; ++i) {
@@ -202,7 +207,7 @@ TestIndexSource::TestIndexSource(
         keyType_->toString(),
         inputType_->toString());
   }
-  initOutputProjections();
+  initOutputProjections(columnHandles);
   initConditionProjections();
 }
 
@@ -260,20 +265,25 @@ void TestIndexSource::initConditionProjections() {
   conditionInputType_ = ROW(std::move(names), std::move(types));
 }
 
-void TestIndexSource::initOutputProjections() {
+void TestIndexSource::initOutputProjections(
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<TestIndexColumnHandle>>& columnHandles) {
   VELOX_CHECK(lookupOutputProjections_.empty());
+
   lookupOutputProjections_.reserve(outputType_->size());
   for (auto outputChannel = 0; outputChannel < outputType_->size();
        ++outputChannel) {
     const auto outputName = outputType_->nameOf(outputChannel);
-    if (valueType_->containsChild(outputName)) {
-      const auto tableValueChannel = valueType_->getChildIdx(outputName);
+    const auto columnName = columnHandles.at(outputName)->name();
+    if (valueType_->containsChild(columnName)) {
+      const auto tableValueChannel = valueType_->getChildIdx(columnName);
       // The hash table layout is: index columns, value columns.
       lookupOutputProjections_.emplace_back(
           keyType_->size() + tableValueChannel, outputChannel);
       continue;
     }
-    const auto tableKeyChannel = keyType_->getChildIdx(outputName);
+    const auto tableKeyChannel = keyType_->getChildIdx(columnName);
     lookupOutputProjections_.emplace_back(tableKeyChannel, outputChannel);
   }
   VELOX_CHECK_EQ(lookupOutputProjections_.size(), outputType_->size());
@@ -547,12 +557,24 @@ std::shared_ptr<connector::IndexSource> TestIndexConnector::createIndexSource(
   const auto& indexTable = testIndexTableHandle->indexTable();
   auto joinConditionExpr =
       toJoinConditionExpr(joinConditions, indexTable, inputType, columnHandles);
+
+  std::unordered_map<std::string, std::shared_ptr<TestIndexColumnHandle>>
+      testColumnHandles;
+  for (const auto& [name, handle] : columnHandles) {
+    auto testColumnHandle =
+        std::dynamic_pointer_cast<TestIndexColumnHandle>(handle);
+    VELOX_CHECK_NOT_NULL(testColumnHandle);
+
+    testColumnHandles.emplace(name, testColumnHandle);
+  }
+
   return std::make_shared<TestIndexSource>(
       inputType,
       outputType,
       numJoinKeys,
-      std::move(joinConditionExpr),
-      std::move(testIndexTableHandle),
+      joinConditionExpr,
+      testIndexTableHandle,
+      testColumnHandles,
       connectorQueryCtx,
       executor_);
 }
