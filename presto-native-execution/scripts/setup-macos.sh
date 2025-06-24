@@ -26,7 +26,7 @@ source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 GPERF_VERSION="3.1"
 
 function install_proxygen {
-  github_checkout facebook/proxygen "${FB_OS_VERSION}"
+  github_checkout facebook/proxygen "${FB_OS_VERSION}" --depth 1
   # Folly Portability.h being used to decide whether or not support coroutines
   # causes issues (build, lin) if the selection is not consistent across users of folly.
   EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
