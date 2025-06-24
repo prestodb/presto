@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/sparksql/fuzzer/SparkQueryRunnerToSqlPlanNodeVisitor.h"
+#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
 namespace facebook::velox::functions::sparksql::fuzzer {
 
@@ -57,7 +58,13 @@ void SparkQueryRunnerToSqlPlanNodeVisitor::visit(
     }
   }
 
-  sql << " FROM tmp";
+  // AggregationNode should have a single source.
+  const auto source = toSql(node.sources()[0]);
+  if (!source) {
+    visitorContext.sql = std::nullopt;
+    return;
+  }
+  sql << " FROM (" << *source << ")";
 
   if (!groupingKeys.empty()) {
     sql << " GROUP BY " << folly::join(", ", groupingKeys);
@@ -104,6 +111,14 @@ void SparkQueryRunnerToSqlPlanNodeVisitor::visit(
 
   sql << " FROM (" << sourceSql.value() << ")";
   visitorContext.sql = sql.str();
+}
+
+void SparkQueryRunnerToSqlPlanNodeVisitor::visit(
+    const core::ValuesNode& node,
+    core::PlanNodeVisitorContext& ctx) const {
+  exec::test::PrestoSqlPlanNodeVisitorContext& visitorContext =
+      static_cast<exec::test::PrestoSqlPlanNodeVisitorContext&>(ctx);
+  visitorContext.sql = exec::test::ReferenceQueryRunner::getTableName(node);
 }
 
 } // namespace facebook::velox::functions::sparksql::fuzzer

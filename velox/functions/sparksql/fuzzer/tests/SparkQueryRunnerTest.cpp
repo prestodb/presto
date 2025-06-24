@@ -21,6 +21,7 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 #include "velox/functions/sparksql/fuzzer/SparkQueryRunner.h"
 #include "velox/functions/sparksql/registration/Register.h"
@@ -44,6 +45,7 @@ class SparkQueryRunnerTest : public ::testing::Test,
 
   void SetUp() override {
     velox::functions::sparksql::registerFunctions("");
+    velox::aggregate::prestosql::registerAllAggregateFunctions();
     velox::functions::aggregate::sparksql::registerAggregateFunctions("");
     velox::parse::registerTypeResolver();
   }
@@ -59,13 +61,16 @@ TEST_F(SparkQueryRunnerTest, DISABLED_basic) {
   auto input = makeRowVector({
       makeConstant<int64_t>(1, 25),
   });
-  auto outputType = ROW({"a"}, {BIGINT()});
-  auto sparkResults =
-      queryRunner->execute("SELECT count(*) FROM tmp", {input}, outputType);
+  auto plan = exec::test::PlanBuilder()
+                  .values({input})
+                  .singleAggregation({}, {"count(c0)"})
+                  .planNode();
+  auto sparkResults = queryRunner->executeAndReturnVector(plan);
   auto expected = makeRowVector({
       makeConstant<int64_t>(25, 1),
   });
-  exec::test::assertEqualResults(sparkResults, outputType, {expected});
+  ASSERT_EQ(sparkResults.second, exec::test::ReferenceQueryErrorCode::kSuccess);
+  exec::test::assertEqualResults(sparkResults.first.value(), {expected});
 
   input = makeRowVector({
       makeFlatVector<int64_t>({0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 0, 1, 2,
@@ -73,14 +78,17 @@ TEST_F(SparkQueryRunnerTest, DISABLED_basic) {
       makeFlatVector<int64_t>({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}),
   });
-  outputType = ROW({"a", "b"}, {BIGINT(), BIGINT()});
-  sparkResults = queryRunner->execute(
-      "SELECT c0, count(*) FROM tmp GROUP BY 1", {input}, outputType);
+  plan = exec::test::PlanBuilder()
+             .values({input})
+             .singleAggregation({"c0"}, {"count(c1)"})
+             .planNode();
+  sparkResults = queryRunner->executeAndReturnVector(plan);
   expected = makeRowVector({
       makeFlatVector<int64_t>({0, 1, 2, 3, 4}),
       makeFlatVector<int64_t>({5, 5, 5, 5, 5}),
   });
-  exec::test::assertEqualResults(sparkResults, outputType, {expected});
+  ASSERT_EQ(sparkResults.second, exec::test::ReferenceQueryErrorCode::kSuccess);
+  exec::test::assertEqualResults(sparkResults.first.value(), {expected});
 }
 
 // This test requires a Spark coordinator running at localhost, so disable it
@@ -92,10 +100,11 @@ TEST_F(SparkQueryRunnerTest, DISABLED_decimal) {
   auto input = makeRowVector({
       makeConstant<int128_t>(123456789, 25, DECIMAL(34, 2)),
   });
-  auto outputType = ROW({"a"}, {DECIMAL(34, 2)});
-  auto sparkResults =
-      queryRunner->execute("SELECT abs(c0) FROM tmp", {input}, outputType);
-  exec::test::assertEqualResults(sparkResults, outputType, {input});
+  auto plan =
+      exec::test::PlanBuilder().values({input}).project({"abs(c0)"}).planNode();
+  auto sparkResults = queryRunner->executeAndReturnVector(plan);
+  ASSERT_EQ(sparkResults.second, exec::test::ReferenceQueryErrorCode::kSuccess);
+  exec::test::assertEqualResults(sparkResults.first.value(), {input});
 }
 
 // This test requires a Spark coordinator running at localhost, so disable it
@@ -118,12 +127,9 @@ TEST_F(SparkQueryRunnerTest, DISABLED_fuzzer) {
   auto sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
 
-  auto sparkResults = queryRunner->execute(
-      sql.value(), {data}, ROW({"a", "b"}, {BIGINT(), ARRAY(BIGINT())}));
-
+  auto sparkResults = queryRunner->executeAndReturnVector(plan);
   auto veloxResults = exec::test::AssertQueryBuilder(plan).copyResults(pool());
-  exec::test::assertEqualResults(
-      sparkResults, plan->outputType(), {veloxResults});
+  exec::test::assertEqualResults(sparkResults.first.value(), {veloxResults});
 }
 
 TEST_F(SparkQueryRunnerTest, toSql) {
@@ -138,7 +144,7 @@ TEST_F(SparkQueryRunnerTest, toSql) {
                   .planNode();
   EXPECT_EQ(
       queryRunner->toSql(plan),
-      "SELECT c1, avg(c0) as a0 FROM tmp GROUP BY c1");
+      "SELECT c1, avg(c0) as a0 FROM (tmp) GROUP BY c1");
 
   plan = exec::test::PlanBuilder()
              .tableScan("tmp", dataType)
@@ -147,7 +153,7 @@ TEST_F(SparkQueryRunnerTest, toSql) {
              .planNode();
   EXPECT_EQ(
       queryRunner->toSql(plan),
-      "SELECT (a0 / c1) as p0 FROM (SELECT c1, sum(c0) as a0 FROM tmp GROUP BY c1)");
+      "SELECT (a0 / c1) as p0 FROM (SELECT c1, sum(c0) as a0 FROM (tmp) GROUP BY c1)");
 
   plan = exec::test::PlanBuilder()
              .tableScan("tmp", dataType)
@@ -155,7 +161,7 @@ TEST_F(SparkQueryRunnerTest, toSql) {
              .planNode();
   EXPECT_EQ(
       queryRunner->toSql(plan),
-      "SELECT avg(c0) filter (where c2) as a0, avg(c1) as a1 FROM tmp");
+      "SELECT avg(c0) filter (where c2) as a0, avg(c1) as a1 FROM (tmp)");
 
   auto data =
       makeRowVector({makeFlatVector<int64_t>({}), makeFlatVector<int64_t>({})});
@@ -163,7 +169,8 @@ TEST_F(SparkQueryRunnerTest, toSql) {
              .values({data})
              .singleAggregation({}, {"sum(distinct c0)"})
              .planNode();
-  EXPECT_EQ(queryRunner->toSql(plan), "SELECT sum(distinct c0) as a0 FROM tmp");
+  EXPECT_EQ(
+      queryRunner->toSql(plan), "SELECT sum(distinct c0) as a0 FROM (t_0)");
 }
 
 } // namespace

@@ -25,8 +25,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "grpc/grpc.h" // @manual
-#include "spark/connect/base.pb.h"
-#include "spark/connect/relations.pb.h"
 #include "velox/common/base/Fs.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/parquet/writer/Writer.h"
@@ -35,6 +33,8 @@
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/functions/sparksql/fuzzer/SparkQueryRunnerToSqlPlanNodeVisitor.h"
+#include "velox/functions/sparksql/fuzzer/spark/connect/base.pb.h"
+#include "velox/functions/sparksql/fuzzer/spark/connect/relations.pb.h"
 #include "velox/vector/arrow/Bridge.h"
 
 using namespace spark::connect;
@@ -109,34 +109,70 @@ std::optional<std::string> SparkQueryRunner::toSql(
   return context.sql;
 }
 
-std::multiset<std::vector<variant>> SparkQueryRunner::execute(
-    const std::string& sql,
-    const std::vector<RowVectorPtr>& input,
-    const RowTypePtr& resultType) {
-  return exec::test::materialize(executeVector(sql, input, resultType));
+std::pair<
+    std::optional<std::multiset<std::vector<variant>>>,
+    exec::test::ReferenceQueryErrorCode>
+SparkQueryRunner::execute(const core::PlanNodePtr& plan) {
+  std::pair<
+      std::optional<std::vector<RowVectorPtr>>,
+      exec::test::ReferenceQueryErrorCode>
+      result = executeAndReturnVector(plan);
+  if (result.first) {
+    return std::make_pair(
+        exec::test::materialize(*result.first), result.second);
+  }
+  return std::make_pair(std::nullopt, result.second);
 }
 
-std::vector<RowVectorPtr> SparkQueryRunner::executeVector(
-    const std::string& sql,
-    const std::vector<RowVectorPtr>& input,
-    const RowTypePtr& resultType) {
-  auto inputType = asRowType(input[0]->type());
-  if (inputType->size() == 0) {
-    auto rowVector = exec::test::makeNullRows(input, "x", pool());
-    return executeVector(sql, {rowVector}, resultType);
+std::pair<
+    std::optional<std::vector<RowVectorPtr>>,
+    exec::test::ReferenceQueryErrorCode>
+SparkQueryRunner::executeAndReturnVector(const core::PlanNodePtr& plan) {
+  if (std::optional<std::string> sql = toSql(plan)) {
+    try {
+      std::unordered_map<std::string, std::vector<RowVectorPtr>> inputMap =
+          getAllTables(plan);
+      for (const auto& [tableName, input] : inputMap) {
+        auto inputType = asRowType(input[0]->type());
+        if (inputType->size() == 0) {
+          inputMap[tableName] = {exec::test::makeNullRows(
+              input, fmt::format("{}x", tableName), pool())};
+        }
+      }
+
+      auto writerPool = aggregatePool()->addAggregateChild("writer");
+      std::vector<std::shared_ptr<exec::test::TempFilePath>> tempFiles;
+      tempFiles.reserve(inputMap.size());
+      for (const auto& [tableName, input] : inputMap) {
+        auto tempFile = exec::test::TempFilePath::create();
+        tempFiles.emplace_back(tempFile);
+        const auto& filePath = tempFile->getPath();
+        writeToFile(filePath, input, writerPool.get());
+        // Create temporary view for this table in Spark by reading the
+        // generated Parquet file.
+        execute(fmt::format(
+            "CREATE OR REPLACE TEMPORARY VIEW {} AS (SELECT * from parquet.`file://{}`);",
+            tableName,
+            filePath));
+      }
+
+      // Run the query.
+      return std::make_pair(
+          execute(*sql), exec::test::ReferenceQueryErrorCode::kSuccess);
+    } catch (const VeloxRuntimeError& e) {
+      throw;
+    } catch (...) {
+      LOG(WARNING) << "Query failed in Spark";
+      return std::make_pair(
+          std::nullopt,
+          exec::test::ReferenceQueryErrorCode::kReferenceQueryFail);
+    }
   }
 
-  // Write the input to a Parquet file.
-  auto tempFile = exec::test::TempFilePath::create();
-  const auto& filePath = tempFile->getPath();
-  auto writerPool = aggregatePool()->addAggregateChild("writer");
-  writeToFile(filePath, input, writerPool.get());
-
-  // Create temporary view 'tmp' in Spark by reading the generated Parquet file.
-  execute(fmt::format(
-      "CREATE OR REPLACE TEMPORARY VIEW tmp AS (SELECT * from parquet.`file://{}`);",
-      filePath));
-  return execute(sql);
+  LOG(INFO) << "Query not supported in Spark";
+  return std::make_pair(
+      std::nullopt,
+      exec::test::ReferenceQueryErrorCode::kReferenceQueryUnsupported);
 }
 
 std::vector<RowVectorPtr> SparkQueryRunner::execute(

@@ -365,6 +365,8 @@ void setupMemory(
 void registerHiveConnector(
     const std::unordered_map<std::string, std::string>& hiveConfigs) {
   auto configs = hiveConfigs;
+  // Make sure not to run out of open file descriptors.
+  configs[connector::hive::HiveConfig::kNumCacheFileHandles] = "1000";
   if (!connector::hasConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
     connector::registerConnectorFactory(

@@ -493,7 +493,7 @@ jobs:
   spark-aggregate-fuzzer-run:
     name: Spark Aggregate Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos9
+    container: ghcr.io/facebookincubator/velox-dev:spark-server
     needs: compile
     timeout-minutes: 60
     steps:
@@ -505,6 +505,9 @@ jobs:
 
       - name: Run Spark Aggregate Fuzzer
         run: |
+          bash /opt/start-spark.sh
+          # Sleep for 60 seconds to allow Spark server to start.
+          sleep 60
           mkdir -p /tmp/spark_aggregate_fuzzer_repro/logs/
           chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
           chmod +x spark_aggregation_fuzzer_test
@@ -513,6 +516,7 @@ jobs:
           ./spark_aggregation_fuzzer_test \
                 --seed ${random_seed} \
                 --duration_sec $DURATION \
+                --enable_sorted_aggregations=false \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
                 --log_dir=/tmp/spark_aggregate_fuzzer_repro/logs \
