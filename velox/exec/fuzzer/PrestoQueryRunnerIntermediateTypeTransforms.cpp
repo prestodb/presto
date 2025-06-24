@@ -18,6 +18,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunnerJsonTransform.h"
 #include "velox/exec/fuzzer/PrestoQueryRunnerTimestampWithTimeZoneTransform.h"
 #include "velox/expression/Expr.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/functions/prestosql/types/QDigestType.h"
@@ -50,7 +51,10 @@ intermediateTypeTransforms() {
           {QDIGEST(REAL()),
            std::make_shared<IntermediateTypeTransformUsingCast>(
                QDIGEST(REAL()), VARBINARY())},
-          {JSON(), std::make_shared<JsonTransform>()}};
+          {JSON(), std::make_shared<JsonTransform>()},
+          {BINGTILE(),
+           std::make_shared<IntermediateTypeTransformUsingCast>(
+               BINGTILE(), BIGINT())}};
   return intermediateTypeTransforms;
 }
 

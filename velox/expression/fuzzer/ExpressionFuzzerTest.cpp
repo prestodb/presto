@@ -273,6 +273,8 @@ int main(int argc, char** argv) {
         "inverse_poisson_cdf", // https://github.com/facebookincubator/velox/issues/12982
         "inverse_f_cdf", // https://github.com/facebookincubator/velox/issues/13715
         "inverse_chi_squared_cdf", // https://github.com/facebookincubator/velox/issues/13788
+        "bing_tile_children", // Velox limits the max zoom shift
+                              // https://github.com/facebookincubator/velox/pull/13604
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(

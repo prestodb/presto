@@ -149,6 +149,12 @@ struct BingTileParentFunction {
       out_type<BingTile>& result,
       const arg_type<BingTile>& tile,
       const arg_type<int32_t>& parentZoom) {
+    if (FOLLY_UNLIKELY(parentZoom > BingTileType::kBingTileMaxZoomLevel)) {
+      return Status::UserError(fmt::format(
+          "newZoom {} is greater than max zoom {}",
+          parentZoom,
+          BingTileType::kBingTileMaxZoomLevel));
+    }
     return call(result, tile, static_cast<int8_t>(parentZoom));
   }
 };

@@ -32,6 +32,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunnerToSqlPlanNodeVisitor.h"
 #include "velox/exec/fuzzer/PrestoSql.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/GeometryType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
@@ -307,7 +308,7 @@ bool PrestoQueryRunner::isConstantExprSupported(
         !isJsonType(type) && !type->isIntervalDayTime() &&
         !isIPAddressType(type) && !isIPPrefixType(type) && !isUuidType(type) &&
         !isTimestampWithTimeZoneType(type) && !isHyperLogLogType(type) &&
-        !isTDigestType(type) && !isQDigestType(type);
+        !isTDigestType(type) && !isQDigestType(type) && !isBingTileType(type);
     ;
   }
   return true;
@@ -323,7 +324,6 @@ bool PrestoQueryRunner::isSupported(const exec::FunctionSignature& signature) {
   // special handling, because Presto requires literals of these types to be
   // valid, and doesn't allow creating HIVE columns of these types.
   return !(
-      usesTypeName(signature, "bingtile") ||
       usesTypeName(signature, "interval year to month") ||
       usesTypeName(signature, "hugeint") ||
       usesInputTypeName(signature, "ipaddress") ||
