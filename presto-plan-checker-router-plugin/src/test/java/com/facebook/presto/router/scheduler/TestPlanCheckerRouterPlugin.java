@@ -51,6 +51,7 @@ public class TestPlanCheckerRouterPlugin
         extends AbstractTestQueryFramework
 {
     private PlanCheckerRouterPluginConfig planCheckerRouterConfig;
+    private final RequestStats requestStats = new RequestStats();
 
     @BeforeClass
     public void setup()
@@ -104,7 +105,7 @@ public class TestPlanCheckerRouterPlugin
     public void testPlanCheckerPluginWithNativeCompatibleQueries()
     {
         PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient =
-                new PlanCheckerRouterPluginPrestoClient(planCheckerRouterConfig);
+                new PlanCheckerRouterPluginPrestoClient(planCheckerRouterConfig, requestStats);
         Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterPluginPrestoClient);
 
         // native compatible query
@@ -124,7 +125,7 @@ public class TestPlanCheckerRouterPlugin
     public void testPlanCheckerPluginWithNativeIncompatibleQueries()
     {
         PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient =
-                new PlanCheckerRouterPluginPrestoClient(planCheckerRouterConfig);
+                new PlanCheckerRouterPluginPrestoClient(planCheckerRouterConfig, requestStats);
         Scheduler scheduler = new PlanCheckerRouterPluginScheduler(planCheckerRouterPluginPrestoClient);
 
         // native incompatible query

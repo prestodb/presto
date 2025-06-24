@@ -25,6 +25,7 @@ public class PlanCheckerRouterPluginModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(RequestStats.class).in(SINGLETON);
         configBinder(binder).bindConfig(PlanCheckerRouterPluginConfig.class);
         binder.bind(PlanCheckerRouterPluginPrestoClient.class).in(SINGLETON);
         binder.bind(PlanCheckerRouterPluginScheduler.class).in(SINGLETON);

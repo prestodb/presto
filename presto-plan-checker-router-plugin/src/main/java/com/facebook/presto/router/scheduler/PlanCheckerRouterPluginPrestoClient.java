@@ -14,7 +14,6 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementClient;
@@ -22,8 +21,6 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -46,8 +43,6 @@ public class PlanCheckerRouterPluginPrestoClient
 {
     private static final Logger log = Logger.get(PlanCheckerRouterPluginPrestoClient.class);
     private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
-    private static final CounterStat javaClusterRedirectRequests = new CounterStat();
-    private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
     private final OkHttpClient httpClient = new OkHttpClient();
     private final AtomicInteger planCheckerClusterCandidateIndex = new AtomicInteger(0);
     private final List<URI> planCheckerClusterCandidates;
@@ -55,9 +50,10 @@ public class PlanCheckerRouterPluginPrestoClient
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
     private final boolean javaClusterFallbackEnabled;
+    private final RequestStats requestStats;
 
     @Inject
-    public PlanCheckerRouterPluginPrestoClient(PlanCheckerRouterPluginConfig planCheckerRouterPluginConfig)
+    public PlanCheckerRouterPluginPrestoClient(PlanCheckerRouterPluginConfig planCheckerRouterPluginConfig, RequestStats requestStats)
     {
         requireNonNull(planCheckerRouterPluginConfig, "planCheckerRouterPluginConfig is null");
         this.planCheckerClusterCandidates =
@@ -68,6 +64,7 @@ public class PlanCheckerRouterPluginPrestoClient
                 requireNonNull(planCheckerRouterPluginConfig.getNativeRouterURI(), "nativeRouterURI is null");
         this.clientRequestTimeout = planCheckerRouterPluginConfig.getClientRequestTimeout();
         this.javaClusterFallbackEnabled = planCheckerRouterPluginConfig.isJavaClusterFallbackEnabled();
+        this.requestStats = requireNonNull(requestStats, "requestStats is null");
     }
 
     public Optional<URI> getCompatibleClusterURI(Map<String, List<String>> headers, String statement, Principal principal)
@@ -106,6 +103,7 @@ public class PlanCheckerRouterPluginPrestoClient
             if (javaClusterFallbackEnabled) {
                 // If any exception is thrown, log the message and re-route to a Java clusters router.
                 isNativeCompatible = false;
+                requestStats.updateFallBackToJavaClusterRequests(1L);
                 log.info(e.getMessage());
             }
             else {
@@ -116,26 +114,12 @@ public class PlanCheckerRouterPluginPrestoClient
 
         if (isNativeCompatible) {
             log.debug("Native compatible, routing to native-clusters router: [%s]", nativeRouterURI);
-            nativeClusterRedirectRequests.update(1L);
+            requestStats.updateNativeRequests(1L);
             return Optional.of(nativeRouterURI);
         }
         log.debug("Native incompatible, routing to java-clusters router: [%s]", javaRouterURI);
-        javaClusterRedirectRequests.update(1L);
+        requestStats.updateJavaRequests(1L);
         return Optional.of(javaRouterURI);
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getJavaClusterRedirectRequests()
-    {
-        return javaClusterRedirectRequests;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getNativeClusterRedirectRequests()
-    {
-        return nativeClusterRedirectRequests;
     }
 
     private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal)

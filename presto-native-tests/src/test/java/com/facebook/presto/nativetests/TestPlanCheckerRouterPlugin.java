@@ -25,7 +25,6 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.router.RouterModule;
 import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.router.scheduler.PlanCheckerRouterPluginConfig;
-import com.facebook.presto.router.scheduler.PlanCheckerRouterPluginPrestoClient;
 import com.facebook.presto.router.scheduler.PlanCheckerRouterPluginSchedulerFactory;
 import com.facebook.presto.router.security.RouterSecurityModule;
 import com.facebook.presto.router.spec.GroupSpec;
@@ -66,8 +65,6 @@ public class TestPlanCheckerRouterPlugin
     private URI httpServerUri;
     private String storageFormat;
     private boolean sidecarEnabled;
-    // mock object only to check the redirect requests counters.
-    private PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient;
     private QueryRunner nativeQueryRunner;
 
     @BeforeClass
@@ -89,9 +86,6 @@ public class TestPlanCheckerRouterPlugin
                 .setJavaRouterURI(javaClusterURI)
                 .setNativeRouterURI(nativeClusterURI)
                 .setJavaClusterFallbackEnabled(true);
-
-        planCheckerRouterPluginPrestoClient =
-                new PlanCheckerRouterPluginPrestoClient(planCheckerRouterConfig);
 
         Path tempFile = Files.createTempFile("temp-config", ".json");
         File configFile = getConfigFile(singletonList(planCheckerRouterConfig.getNativeRouterURI()), tempFile.toFile());
@@ -147,7 +141,6 @@ public class TestPlanCheckerRouterPlugin
             for (String query : queries) {
                 runQuery(query, httpServerUri);
             }
-            assertEquals(planCheckerRouterPluginPrestoClient.getNativeClusterRedirectRequests().getTotalCount(), queries.size());
         }
     }
 
