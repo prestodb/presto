@@ -3,6 +3,8 @@ name: prestocpp-linux-build
 on:
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - 'presto-docs/**'
 
 jobs:
   prestocpp-linux-build-engine:
