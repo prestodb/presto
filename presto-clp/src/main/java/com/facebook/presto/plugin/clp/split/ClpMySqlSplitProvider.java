@@ -38,10 +38,10 @@ public class ClpMySqlSplitProvider
     public static final String ARCHIVES_TABLE_COLUMN_ID = "id";
 
     // Table suffixes
-    public static final String ARCHIVE_TABLE_SUFFIX = "_archives";
+    public static final String ARCHIVES_TABLE_SUFFIX = "_archives";
 
     // SQL templates
-    private static final String SQL_SELECT_ARCHIVES_TEMPLATE = format("SELECT `%s` FROM `%%s%%s%s`", ARCHIVES_TABLE_COLUMN_ID, ARCHIVE_TABLE_SUFFIX);
+    private static final String SQL_SELECT_ARCHIVES_TEMPLATE = format("SELECT `%s` FROM `%%s%%s%s`", ARCHIVES_TABLE_COLUMN_ID, ARCHIVES_TABLE_SUFFIX);
 
     private static final Logger log = Logger.get(ClpMySqlSplitProvider.class);
 

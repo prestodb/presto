@@ -37,7 +37,7 @@ import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.D
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_COLUMN_NAME;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_SUFFIX;
 import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVES_TABLE_COLUMN_ID;
-import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVE_TABLE_SUFFIX;
+import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVES_TABLE_SUFFIX;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.fail;
@@ -52,7 +52,7 @@ public final class ClpMetadataDbSetUp
 
     private static final Logger log = Logger.get(ClpMetadataDbSetUp.class);
     private static final String DATASETS_TABLE_NAME = METADATA_DB_TABLE_PREFIX + DATASETS_TABLE_SUFFIX;
-    private static final String ARCHIVE_TABLE_COLUMN_PAGINATION_ID = "pagination_id";
+    private static final String ARCHIVES_TABLE_COLUMN_PAGINATION_ID = "pagination_id";
 
     private ClpMetadataDbSetUp()
     {
@@ -121,7 +121,7 @@ public final class ClpMetadataDbSetUp
     public static ClpMySqlSplitProvider setupSplit(DbHandle dbHandle, Map<String, List<String>> splits)
     {
         final String metadataDbUrl = format(METADATA_DB_URL_TEMPLATE, dbHandle.dbPath);
-        final String archiveTableFormat = METADATA_DB_TABLE_PREFIX + "%s" + ARCHIVE_TABLE_SUFFIX;
+        final String archiveTableFormat = METADATA_DB_TABLE_PREFIX + "%s" + ARCHIVES_TABLE_SUFFIX;
 
         try (Connection conn = DriverManager.getConnection(metadataDbUrl, METADATA_DB_USER, METADATA_DB_PASSWORD); Statement stmt = conn.createStatement()) {
             createDatasetsTable(stmt);
@@ -137,7 +137,7 @@ public final class ClpMetadataDbSetUp
                                 "%s BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, " +
                                 "%s VARCHAR(64) NOT NULL)",
                         archiveTableName,
-                        ARCHIVE_TABLE_COLUMN_PAGINATION_ID,
+                        ARCHIVES_TABLE_COLUMN_PAGINATION_ID,
                         ARCHIVES_TABLE_COLUMN_ID);
 
                 stmt.execute(createArchiveTableSQL);
