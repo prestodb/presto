@@ -91,6 +91,7 @@
         <dep.arrow.version>17.0.0</dep.arrow.version>
         <dep.mariadb.version>3.5.4</dep.mariadb.version>
         <dep.spark.version>2.0.2-6</dep.spark.version>
+        <dep.google-oauth-client.version>1.39.0</dep.google-oauth-client.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1895,6 +1896,30 @@
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.oauth-client</groupId>
+                <artifactId>google-oauth-client</artifactId>
+                <version>${dep.google-oauth-client.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.http-client</groupId>
+                        <artifactId>google-http-client</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.oauth-client</groupId>
+                <artifactId>google-oauth-client-java6</artifactId>
+                <version>${dep.google-oauth-client.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.http-client</groupId>
+                        <artifactId>google-http-client</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
