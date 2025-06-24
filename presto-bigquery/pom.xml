@@ -126,6 +126,12 @@
                 <artifactId>opencensus-contrib-http-util</artifactId>
                 <version>0.31.1</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.json</groupId>
+                <artifactId>json</artifactId>
+                <version>20250517</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
