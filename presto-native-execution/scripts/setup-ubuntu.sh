@@ -24,7 +24,7 @@ function install_proxygen {
   # proxygen requires python and gperf
   ${SUDO} apt update
   ${SUDO} apt install -y gperf python3
-  github_checkout facebook/proxygen "${FB_OS_VERSION}"
+  github_checkout facebook/proxygen "${FB_OS_VERSION}" --depth 1
   # Folly Portability.h being used to decide whether or not support coroutines
   # causes issues (build, lin) if the selection is not consistent across users of folly.
   EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
