@@ -39,7 +39,6 @@ public class ClpMySqlMetadataProvider
     public static final String COLUMN_METADATA_TABLE_COLUMN_NAME = "name";
     public static final String COLUMN_METADATA_TABLE_COLUMN_TYPE = "type";
     public static final String DATASETS_TABLE_COLUMN_NAME = "name";
-    public static final String DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_TYPE = "archive_storage_type";
     public static final String DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY = "archive_storage_directory";
 
     // Table suffixes
@@ -49,9 +48,8 @@ public class ClpMySqlMetadataProvider
     // SQL templates
     private static final String SQL_SELECT_COLUMN_METADATA_TEMPLATE = "SELECT * FROM `%s%s" + COLUMN_METADATA_TABLE_SUFFIX + "`";
     private static final String SQL_SELECT_DATASETS_TEMPLATE = format(
-            "SELECT `%s`, `%s`, `%s` FROM `%%s%s`",
+            "SELECT `%s`, `%s` FROM `%%s%s`",
             DATASETS_TABLE_COLUMN_NAME,
-            DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_TYPE,
             DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY,
             DATASETS_TABLE_SUFFIX);
 
@@ -102,14 +100,9 @@ public class ClpMySqlMetadataProvider
                 ResultSet resultSet = statement.executeQuery(query)) {
             while (resultSet.next()) {
                 String tableName = resultSet.getString(DATASETS_TABLE_COLUMN_NAME);
-                String archiveStorageType = resultSet.getString(DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_TYPE);
                 String archiveStorageDirectory = resultSet.getString(DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY);
                 if (isValidIdentifier(tableName) && archiveStorageDirectory != null && !archiveStorageDirectory.isEmpty()) {
-                    tableHandles.add(
-                            new ClpTableHandle(
-                                    new SchemaTableName(schemaName, tableName),
-                                    archiveStorageDirectory,
-                                    ClpTableHandle.StorageType.valueOf(archiveStorageType.toUpperCase())));
+                    tableHandles.add(new ClpTableHandle(new SchemaTableName(schemaName, tableName), archiveStorageDirectory));
                 }
                 else {
                     log.warn("Ignoring invalid table name found in metadata: %s", tableName);

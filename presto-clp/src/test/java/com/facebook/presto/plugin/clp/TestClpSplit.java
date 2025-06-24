@@ -31,7 +31,6 @@ import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.ARCHIVE_STORAGE_
 import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.DbHandle;
 import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.getDbHandle;
 import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.setupSplit;
-import static com.facebook.presto.plugin.clp.ClpTableHandle.StorageType.FS;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -77,9 +76,7 @@ public class TestClpSplit
             String tablePath = ARCHIVE_STORAGE_DIRECTORY_BASE + tableName;
             List<String> expectedSplits = entry.getValue();
             ClpTableLayoutHandle layoutHandle = new ClpTableLayoutHandle(
-                    new ClpTableHandle(new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName),
-                            tablePath, FS),
-                    Optional.empty());
+                    new ClpTableHandle(new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName), tablePath), Optional.empty());
             List<ClpSplit> splits = clpSplitProvider.listSplits(layoutHandle);
             assertEquals(splits.size(), expectedSplits.size());
 

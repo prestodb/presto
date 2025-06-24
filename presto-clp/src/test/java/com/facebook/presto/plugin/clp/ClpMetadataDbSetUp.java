@@ -34,7 +34,6 @@ import java.util.Map;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.COLUMN_METADATA_TABLE_COLUMN_NAME;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.COLUMN_METADATA_TABLE_COLUMN_TYPE;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY;
-import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_TYPE;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_COLUMN_NAME;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_SUFFIX;
 import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVES_TABLE_COLUMN_ID;
@@ -184,13 +183,9 @@ public final class ClpMetadataDbSetUp
             throws SQLException
     {
         final String createDatasetsTableSql = format(
-                "CREATE TABLE IF NOT EXISTS %s (" +
-                        " %s VARCHAR(255) PRIMARY KEY," +
-                        " %s VARCHAR(64) NOT NULL," +
-                        " %s VARCHAR(4096) NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS %s (%s VARCHAR(255) PRIMARY KEY, %s VARCHAR(4096) NOT NULL)",
                 DATASETS_TABLE_NAME,
                 DATASETS_TABLE_COLUMN_NAME,
-                DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_TYPE,
                 DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY);
         stmt.execute(createDatasetsTableSql);
     }
@@ -199,15 +194,13 @@ public final class ClpMetadataDbSetUp
             throws SQLException
     {
         final String insertDatasetsTableSql = format(
-                "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
+                "INSERT INTO %s (%s, %s) VALUES (?, ?)",
                 DATASETS_TABLE_NAME,
                 DATASETS_TABLE_COLUMN_NAME,
-                DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_TYPE,
                 DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY);
         try (PreparedStatement pstmt = conn.prepareStatement(insertDatasetsTableSql)) {
             pstmt.setString(1, tableName);
-            pstmt.setString(2, "fs");
-            pstmt.setString(3, ARCHIVE_STORAGE_DIRECTORY_BASE + tableName);
+            pstmt.setString(2, ARCHIVE_STORAGE_DIRECTORY_BASE + tableName);
             pstmt.executeUpdate();
         }
     }
