@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.dispatcher.DispatchInfo;
+import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -46,6 +47,7 @@ public class LocalExecutingQueryResponseProvider
             QueryId queryId,
             String slug,
             DispatchInfo dispatchInfo,
+            TrackedQuery trackedQuery,
             UriInfo uriInfo,
             String xPrestoPrefixUrl,
             String scheme,
@@ -64,7 +66,7 @@ public class LocalExecutingQueryResponseProvider
         }
         return Optional.of(transform(
                 query.waitForResults(0, uriInfo, scheme, maxWait, targetResultSize, binaryResults),
-                results -> QueryResourceUtil.toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
+                results -> QueryResourceUtil.toResponse(query, results, trackedQuery, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
                 directExecutor()));
     }
 }

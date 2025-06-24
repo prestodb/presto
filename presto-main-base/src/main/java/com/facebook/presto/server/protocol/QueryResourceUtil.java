@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
@@ -39,6 +40,7 @@ import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.CacheControl;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
@@ -61,6 +63,7 @@ import java.util.Set;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static com.facebook.presto.SystemSessionProperties.getQueryClientTimeout;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
@@ -83,6 +86,7 @@ import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -100,7 +104,7 @@ public final class QueryResourceUtil
 
     private QueryResourceUtil() {}
 
-    public static Response toResponse(Query query, QueryResults queryResults, boolean compressionEnabled)
+    public static Response toResponse(Query query, QueryResults queryResults, TrackedQuery trackedQuery, boolean compressionEnabled)
     {
         Response.ResponseBuilder response = Response.ok(queryResults);
 
@@ -158,10 +162,12 @@ public final class QueryResourceUtil
             response.header(PRESTO_REMOVED_SESSION_FUNCTION, urlEncode(SQL_FUNCTION_ID_JSON_CODEC.toJson(signature)));
         }
 
+        response.cacheControl(getCacheControlFromTracked(trackedQuery));
+
         return response.build();
     }
 
-    public static Response toResponse(Query query, QueryResults queryResults, String xPrestoPrefixUri, boolean compressionEnabled, boolean nestedDataSerializationEnabled)
+    public static Response toResponse(Query query, QueryResults queryResults, TrackedQuery trackedQuery, String xPrestoPrefixUri, boolean compressionEnabled, boolean nestedDataSerializationEnabled)
     {
         Iterable<List<Object>> queryResultsData = queryResults.getData();
         if (nestedDataSerializationEnabled) {
@@ -181,7 +187,15 @@ public final class QueryResourceUtil
                 queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
 
-        return toResponse(query, resultsClone, compressionEnabled);
+        return toResponse(query, resultsClone, trackedQuery, compressionEnabled);
+    }
+
+    public static CacheControl getCacheControlFromTracked(TrackedQuery trackedQuery)
+    {
+        Duration queryClientTimeout = getQueryClientTimeout(trackedQuery.getSession());
+        long expireTime = trackedQuery.getLastHeartbeatInMillis() + queryClientTimeout.toMillis();
+        long ageInSeconds = MILLISECONDS.toSeconds(Math.max(0, expireTime - currentTimeMillis()));
+        return CacheControl.valueOf("max-age=" + ageInSeconds);
     }
 
     public static void abortIfPrefixUrlInvalid(String xPrestoPrefixUrl)
