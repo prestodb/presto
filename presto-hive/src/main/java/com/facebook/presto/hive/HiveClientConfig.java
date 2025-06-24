@@ -202,7 +202,7 @@ public class HiveClientConfig
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
 
-    private boolean copyOnFirstWriteConfigurationEnabled = true;
+    private boolean copyOnFirstWriteConfigurationEnabled;
 
     private boolean partitionFilteringFromMetastoreEnabled = true;
 
