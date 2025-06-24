@@ -49,13 +49,15 @@ public class PlanCheckerRouterPluginPrestoClient
     private final URI javaRouterURI;
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
+    private final boolean javaClusterFallbackEnabled;
 
-    public PlanCheckerRouterPluginPrestoClient(URI planCheckerClusterURI, URI javaRouterURI, URI nativeRouterURI, Duration clientRequestTimeout)
+    public PlanCheckerRouterPluginPrestoClient(URI planCheckerClusterURI, URI javaRouterURI, URI nativeRouterURI, Duration clientRequestTimeout, boolean javaClusterFallbackEnabled)
     {
         this.planCheckerClusterURI = planCheckerClusterURI;
         this.javaRouterURI = javaRouterURI;
         this.nativeRouterURI = nativeRouterURI;
         this.clientRequestTimeout = clientRequestTimeout;
+        this.javaClusterFallbackEnabled = javaClusterFallbackEnabled;
     }
 
     public Optional<URI> getCompatibleClusterURI(Map<String, List<String>> headers, String statement, Principal principal)
@@ -88,6 +90,17 @@ public class PlanCheckerRouterPluginPrestoClient
             if (resultsError != null) {
                 isNativeCompatible = false;
                 log.info(resultsError.getMessage());
+            }
+        }
+        catch (Exception e) {
+            if (javaClusterFallbackEnabled) {
+                // If any exception is thrown, log the message and re-route to a Java clusters router.
+                isNativeCompatible = false;
+                log.info(e.getMessage());
+            }
+            else {
+                // hard failure
+                throw e;
             }
         }
 

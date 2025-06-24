@@ -89,7 +89,8 @@ public class TestPlanCheckerRouterPlugin
                 planCheckerRouterConfig.getPlanCheckClustersURIs().get(0),
                 planCheckerRouterConfig.getJavaRouterURI(),
                 planCheckerRouterConfig.getNativeRouterURI(),
-                planCheckerRouterConfig.getClientRequestTimeout());
+                planCheckerRouterConfig.getClientRequestTimeout(),
+                planCheckerRouterConfig.isJavaClusterFallbackEnabled());
 
         Path tempFile = Files.createTempFile("temp-config", ".json");
         File configFile = getConfigFile(singletonList(planCheckerRouterConfig.getNativeRouterURI()), tempFile.toFile());
@@ -218,7 +219,8 @@ public class TestPlanCheckerRouterPlugin
         String planCheckerClusterURIs = format("plan-check-clusters-uris=%s", planCheckerRouterConfig.getPlanCheckClustersURIs().get(0));
         String javaClusterURI = format("router-java-url=%s", planCheckerRouterConfig.getJavaRouterURI());
         String nativeClusterURI = format("router-native-url=%s", planCheckerRouterConfig.getNativeRouterURI());
-        Files.write(tempPluginSchedulerConfigFile, ImmutableList.of(schedulerName, planCheckerClusterURIs, javaClusterURI, nativeClusterURI));
+        String javaClusterFallbackEnabled = format("enable-java-cluster-fallback=%s", planCheckerRouterConfig.isJavaClusterFallbackEnabled());
+        Files.write(tempPluginSchedulerConfigFile, ImmutableList.of(schedulerName, planCheckerClusterURIs, javaClusterURI, nativeClusterURI, javaClusterFallbackEnabled));
         return tempPluginSchedulerConfigFile.toFile();
     }
 
