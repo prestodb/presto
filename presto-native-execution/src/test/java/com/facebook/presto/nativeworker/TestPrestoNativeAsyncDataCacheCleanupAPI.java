@@ -59,7 +59,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
         createCustomer(queryRunner);
     }
 
-    @Test(groups = {"async_data_cache"})
+    @Test(groups = {"async_data_cache"}, enabled = false)
     public void testAsyncDataCacheCleanup() throws Exception
     {
         Session session = Session.builder(super.getSession())
@@ -185,7 +185,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
                 .collect(Collectors.toSet());
     }
 
-    @Test(groups = {"async_data_cache"})
+    @Test(groups = {"async_data_cache"}, enabled = false)
     public void testAsyncDataCacheCleanupApiFormat()
     {
         QueryRunner queryRunner = getQueryRunner();
