@@ -35,7 +35,8 @@ public class TestPlanCheckerProviderRouterPluginConfig
                 .setJavaRouterURI(null)
                 .setNativeRouterURI(null)
                 .setPlanCheckClustersURIs(null)
-                .setClientRequestTimeout(new Duration(2, MINUTES)));
+                .setClientRequestTimeout(new Duration(2, MINUTES))
+                .setJavaClusterFallbackEnabled(false));
     }
 
     @Test
@@ -47,12 +48,14 @@ public class TestPlanCheckerProviderRouterPluginConfig
                 .put("router-native-url", "192.168.0.2")
                 .put("plan-check-clusters-uris", "192.168.0.3, 192.168.0.4")
                 .put("client-request-timeout", "5m")
+                .put("enable-java-cluster-fallback", "true")
                 .build();
         PlanCheckerRouterPluginConfig expected = new PlanCheckerRouterPluginConfig()
                 .setJavaRouterURI(new URI("192.168.0.1"))
                 .setNativeRouterURI(new URI("192.168.0.2"))
                 .setPlanCheckClustersURIs("192.168.0.3, 192.168.0.4")
-                .setClientRequestTimeout(new Duration(5, MINUTES));
+                .setClientRequestTimeout(new Duration(5, MINUTES))
+                .setJavaClusterFallbackEnabled(true);
         assertFullMapping(properties, expected);
     }
 }
