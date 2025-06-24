@@ -350,8 +350,8 @@ public class RandomizeNullKeyInOuterJoin
             rightAssignments.putAll(rewrittenRight.getOutputVariables().stream().collect(toImmutableMap(identity(), identity())));
             rightAssignments.putAll(rightIsNullCheckAssignment.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
 
-            ProjectNode newLeft = new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenLeft, leftAssignments.build(), LOCAL);
-            ProjectNode newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), rewrittenRight, rightAssignments.build(), LOCAL);
+            ProjectNode newLeft = new ProjectNode(rewrittenLeft.getSourceLocation(), planNodeIdAllocator.getNextId(), joinNode.getLeft().getStatsEquivalentPlanNode(), rewrittenLeft, leftAssignments.build(), LOCAL);
+            ProjectNode newRight = new ProjectNode(rewrittenRight.getSourceLocation(), planNodeIdAllocator.getNextId(), joinNode.getRight().getStatsEquivalentPlanNode(), rewrittenRight, rightAssignments.build(), LOCAL);
             ImmutableList.Builder<VariableReferenceExpression> joinOutputBuilder = ImmutableList.builder();
             joinOutputBuilder.addAll(leftKeyRandomVariableMap.keySet());
             // Input from left side should be before input from right side in join output
