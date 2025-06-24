@@ -394,11 +394,12 @@ class MergeJoin : public Operator {
     // rows that correspond to a single left-side row. Use
     // 'noMoreFilterResults' to make sure 'onMiss' is called for the last
     // left-side row.
-    template <typename TOnMiss>
+    template <typename TOnMiss, typename TOnMatch>
     void processFilterResult(
         vector_size_t outputIndex,
         bool passed,
-        TOnMiss onMiss) {
+        const TOnMiss& onMiss,
+        const TOnMatch& onMatch) {
       const auto rowNumber = rawLeftRowNumbers_[outputIndex];
       if (currentLeftRowNumber_ != rowNumber) {
         if (currentRow_ != -1 && !currentRowPassed_) {
@@ -412,6 +413,7 @@ class MergeJoin : public Operator {
       }
 
       if (passed) {
+        onMatch(outputIndex, /*firstMatch=*/!currentRowPassed_);
         currentRowPassed_ = true;
       }
     }
