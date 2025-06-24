@@ -74,9 +74,8 @@ class HdfsFileSystem : public FileSystem {
     VELOX_UNSUPPORTED("exists for HDFS not implemented");
   }
 
-  virtual std::vector<std::string> list(std::string_view path) override {
-    VELOX_UNSUPPORTED("list for HDFS not implemented");
-  }
+  /// List the objects associated to a path.
+  std::vector<std::string> list(std::string_view path) override;
 
   void mkdir(std::string_view path, const DirectoryOptions& options = {})
       override {
