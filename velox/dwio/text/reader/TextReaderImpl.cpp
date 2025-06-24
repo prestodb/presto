@@ -164,6 +164,7 @@ uint64_t TextRowReaderImpl::next(
     rowsRead++;
     if (pos_ >= getLength()) {
       atEOF_ = true;
+      rowVecPtr->resize(rowsRead);
     }
 
     // handle empty file
