@@ -25,10 +25,6 @@
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/exec/MemoryReclaimer.h"
 
-namespace facebook::velox::dwrf {
-class Writer;
-}
-
 namespace facebook::velox::connector::hive {
 
 class LocationHandle;
