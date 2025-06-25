@@ -82,7 +82,6 @@ void VectorHasher::hashValues(
     const SelectivityVector& rows,
     bool mix,
     uint64_t* result) {
-  using T = typename TypeTraits<Kind>::NativeType;
   if (decoded_.isConstantMapping()) {
     auto hash = decoded_.isNullAt(rows.begin())
         ? kNullHash
