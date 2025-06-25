@@ -75,6 +75,37 @@ TEST_F(QueryContextCacheTest, basic) {
   EXPECT_EQ(queryContextCache.size(), 0);
 }
 
+TEST_F(QueryContextCacheTest, hasStartedTasks) {
+  QueryContextCache queryContextCache;
+
+  // Create and add 16 query contexts.
+  std::unordered_map<protocol::QueryId, std::shared_ptr<core::QueryCtx>>
+      queryCtxs;
+  for (int i = 0; i < 16; ++i) {
+    const auto queryId = fmt::format("query-{}", i);
+    auto queryCtx = core::QueryCtx::create(
+        static_cast<folly::Executor*>(nullptr), core::QueryConfig({}));
+    queryCtxs[queryId] = queryCtx;
+    queryContextCache.insert(queryId, queryCtx);
+  }
+
+  // Check that all of them do not have started tasks.
+  // Mark each even context as having started tasks.
+  for (int i = 0; i < 16; ++i) {
+    auto queryId = fmt::format("query-{}", i);
+    EXPECT_FALSE(queryContextCache.hasStartedTasks(queryId));
+    if (i % 2 == 0) {
+      queryContextCache.setHasStartedTasks(queryId);
+    }
+  }
+
+  // Ensure that each even context has started tasks and each odd does not.
+  for (int i = 0; i < 16; ++i) {
+    auto queryId = fmt::format("query-{}", i);
+    EXPECT_EQ(queryContextCache.hasStartedTasks(queryId), (i % 2 == 0));
+  }
+}
+
 TEST_F(QueryContextCacheTest, eviction) {
   QueryContextCache queryContextCache(8);
 

@@ -37,7 +37,11 @@ class BinarySortableSerializer {
 
   /// Serialize the data into an raw buffer, the caller needs to ensure there
   /// serialized data won't overflow the buffer.
-  void serialize(velox::vector_size_t rowId, velox::StringVectorBuffer* out);
+  void serialize(velox::vector_size_t rowId, velox::StringVectorBuffer* out)
+      const;
+
+  /// Returns the serialized byte size of a given input row at 'rowId'.
+  size_t serializedSizeInBytes(velox::vector_size_t rowId) const;
 
  private:
   const velox::RowVectorPtr input_;

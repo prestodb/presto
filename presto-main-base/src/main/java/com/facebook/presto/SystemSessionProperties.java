@@ -328,10 +328,12 @@ public final class SystemSessionProperties
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
+    public static final String BROADCAST_SEMI_JOIN_FOR_DELETE = "broadcast_semi_join_for_delete";
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
     public static final String ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID = "add_exchange_below_partial_aggregation_over_group_id";
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
     public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
+    public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -344,7 +346,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
-    private static final String NATIVE_EXECUTION_TYPE_REWRITE_ENABLED = "native_execution_type_rewrite_enabled";
+    public static final String NATIVE_EXECUTION_TYPE_REWRITE_ENABLED = "native_execution_type_rewrite_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -547,7 +549,7 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
-                        value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
+                        featuresConfig.isNativeExecutionEnabled() ? value -> validateIntegerValue(value, TASK_CONCURRENCY, 1, false) : value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
                         value -> value),
                 booleanProperty(
                         TASK_SHARE_INDEX_LOADING,
@@ -1894,6 +1896,10 @@ public final class SystemSessionProperties
                         "Configure which expression optimizer to use",
                         featuresConfig.getExpressionOptimizerName(),
                         false),
+                booleanProperty(BROADCAST_SEMI_JOIN_FOR_DELETE,
+                        "Enforce broadcast join for semi join in delete",
+                        featuresConfig.isBroadcastSemiJoinForDelete(),
+                        false),
                 booleanProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID,
                         "Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance",
                         featuresConfig.getAddExchangeBelowPartialAggregationOverGroupId(),
@@ -1906,7 +1912,11 @@ public final class SystemSessionProperties
                         queryManagerConfig.getClientTimeout(),
                         false,
                         value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        Duration::toString),
+                booleanProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD,
+                        "Add distinct aggregation below semi join build",
+                        featuresConfig.isAddDistinctBelowSemiJoinBuild(),
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3233,9 +3243,19 @@ public final class SystemSessionProperties
         return session.getSystemProperty(EXPRESSION_OPTIMIZER_NAME, String.class);
     }
 
+    public static boolean isBroadcastSemiJoinForDeleteEnabled(Session session)
+    {
+        return session.getSystemProperty(BROADCAST_SEMI_JOIN_FOR_DELETE, Boolean.class);
+    }
+
     public static boolean isEnabledAddExchangeBelowGroupId(Session session)
     {
         return session.getSystemProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID, Boolean.class);
+    }
+
+    public static boolean isAddDistinctBelowSemiJoinBuildEnabled(Session session)
+    {
+        return session.getSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, Boolean.class);
     }
 
     public static boolean isCanonicalizedJsonExtract(Session session)

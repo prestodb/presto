@@ -61,6 +61,7 @@ extern const char* const PRESTO_PAGE_NEXT_TOKEN_HEADER;
 extern const char* const PRESTO_BUFFER_COMPLETE_HEADER;
 extern const char* const PRESTO_GET_DATA_SIZE_HEADER;
 extern const char* const PRESTO_BUFFER_REMAINING_BYTES_HEADER;
+extern const char* const PRESTO_BUFFER_REMAINING_FROM_SPILL_HEADER;
 
 extern const char* const PRESTO_MAX_WAIT_DEFAULT;
 extern const char* const PRESTO_MAX_SIZE_DEFAULT;
@@ -107,12 +108,13 @@ using Type = std::string;
 
 using DateTime = std::string;
 using Locale = std::string;
-using TimeZoneKey = long;
+using TimeZoneKey = int16_t;
 using URI = std::string;
 using SqlFunctionId = std::string;
 
 using QualifiedObjectName = std::string;
 using TypeSignature = std::string;
+using HostAddress = std::string;
 
 using ConnectorId = std::string;
 using MemoryPoolId = std::string;

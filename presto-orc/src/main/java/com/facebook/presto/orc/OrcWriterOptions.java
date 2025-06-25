@@ -49,6 +49,7 @@ public class OrcWriterOptions
     public static final boolean DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED = false;
     public static final boolean DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED = true;
     public static final boolean DEFAULT_STRING_DICTIONARY_SORTING_ENABLED = true;
+    public static final boolean DEFAULT_RESET_OUTPUT_BUFFER = false;
 
     private final OrcWriterFlushPolicy flushPolicy;
     private final int rowGroupMaxRowCount;
@@ -74,6 +75,7 @@ public class OrcWriterOptions
     private final int preserveDirectEncodingStripeCount;
     private final boolean mapStatisticsEnabled;
     private final int maxFlattenedMapKeyCount;
+    private final boolean resetOutputBuffer;
 
     /**
      * Contains indexes of columns (not nodes!) for which writer should use flattened encoding, e.g. flat maps.
@@ -101,7 +103,8 @@ public class OrcWriterOptions
             int preserveDirectEncodingStripeCount,
             Set<Integer> flattenedColumns,
             boolean mapStatisticsEnabled,
-            int maxFlattenedMapKeyCount)
+            int maxFlattenedMapKeyCount,
+            boolean resetOutputBuffer)
     {
         requireNonNull(flushPolicy, "flushPolicy is null");
         checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
@@ -139,6 +142,7 @@ public class OrcWriterOptions
         this.flattenedColumns = flattenedColumns;
         this.mapStatisticsEnabled = mapStatisticsEnabled;
         this.maxFlattenedMapKeyCount = maxFlattenedMapKeyCount;
+        this.resetOutputBuffer = resetOutputBuffer;
     }
 
     public OrcWriterFlushPolicy getFlushPolicy()
@@ -246,6 +250,11 @@ public class OrcWriterOptions
         return maxFlattenedMapKeyCount;
     }
 
+    public boolean isResetOutputBuffer()
+    {
+        return resetOutputBuffer;
+    }
+
     @Override
     public String toString()
     {
@@ -269,6 +278,7 @@ public class OrcWriterOptions
                 .add("flattenedColumns", flattenedColumns)
                 .add("mapStatisticsEnabled", mapStatisticsEnabled)
                 .add("maxFlattenedMapKeyCount", maxFlattenedMapKeyCount)
+                .add("resetOutputBuffer", resetOutputBuffer)
                 .toString();
     }
 
@@ -307,6 +317,7 @@ public class OrcWriterOptions
         private Set<Integer> flattenedColumns = ImmutableSet.of();
         private boolean mapStatisticsEnabled;
         private int maxFlattenedMapKeyCount = DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
+        private boolean resetOutputBuffer = DEFAULT_RESET_OUTPUT_BUFFER;
 
         public Builder withFlushPolicy(OrcWriterFlushPolicy flushPolicy)
         {
@@ -448,6 +459,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withResetOutputBuffer(boolean resetOutputBuffer)
+        {
+            this.resetOutputBuffer = resetOutputBuffer;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
@@ -479,7 +496,8 @@ public class OrcWriterOptions
                     preserveDirectEncodingStripeCount,
                     flattenedColumns,
                     mapStatisticsEnabled,
-                    maxFlattenedMapKeyCount);
+                    maxFlattenedMapKeyCount,
+                    resetOutputBuffer);
         }
     }
 }

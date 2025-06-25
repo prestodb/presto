@@ -13,59 +13,54 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
-import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestEngineOnlyQueries;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Parameters;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Boolean.parseBoolean;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    private static final String timeTypeUnsupportedError = ".*Failed to parse type \\[time.*";
+    private String timeTypeUnsupportedError;
+    private String storageFormat;
+    private boolean sidecarEnabled;
 
-    @Parameters("storageFormat")
+    @BeforeClass
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    public void init()
+            throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(System.getProperty("storageFormat"))
-                .setAddStorageFormatToPath(true)
-                .setUseThrift(true)
-                .build();
+        storageFormat = System.getProperty("storageFormat", "PARQUET");
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        if (sidecarEnabled) {
+            timeTypeUnsupportedError = "^Unknown type time.*";
+        }
+        else {
+            timeTypeUnsupportedError = ".*Failed to parse type \\[time.*";
+        }
+        super.init();
     }
 
-    @Parameters("storageFormat")
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
+    }
+
     @Override
     protected void createTables()
     {
-        try {
-            String storageFormat = System.getProperty("storageFormat");
-            QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                    .setStorageFormat(storageFormat)
-                    .setAddStorageFormatToPath(true)
-                    .build();
-            if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
-            }
-            else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
-            }
-            javaQueryRunner.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        NativeTestsUtils.createTables(storageFormat);
     }
 
     /// TIME datatype is not supported in Prestissimo. See issue: https://github.com/prestodb/presto/issues/18844.
@@ -92,10 +87,9 @@ public class TestDistributedEngineOnlyQueries
     @Test
     public void testLocallyUnrepresentableTimeLiterals()
     {
-        LocalTime localTimeThatDidNotOccurOn19700101 = LocalTime.of(0, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn19700101.atDate(LocalDate.ofEpochDay(0))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn19700101).toLocalTime(), localTimeThatDidNotOccurOn19700101), "This test assumes certain JVM time zone");
-        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn19700101);
+        LocalTime localTimeThatDidNotOccurOn20120401 = LocalTime.of(2, 10);
+        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn20120401.atDate(LocalDate.of(2012, 4, 1))).isEmpty(), "This test assumes certain JVM time zone");
+        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn20120401);
         assertQueryFails(sql, timeTypeUnsupportedError);
     }
 }

@@ -296,6 +296,7 @@ public class FeaturesConfig
     private boolean innerJoinPushdownEnabled;
     private boolean inEqualityJoinPushdownEnabled;
     private boolean rewriteMinMaxByToTopNEnabled;
+    private boolean broadcastSemiJoinForDelete = true;
 
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
@@ -303,6 +304,7 @@ public class FeaturesConfig
     private boolean nativeExecutionTypeRewriteEnabled;
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
+    private boolean addDistinctBelowSemiJoinBuild;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2923,6 +2925,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isBroadcastSemiJoinForDelete()
+    {
+        return broadcastSemiJoinForDelete;
+    }
+
+    @Config("optimizer.broadcast-semi-join-for-delete")
+    @ConfigDescription("Enforce broadcast semi join in delete queries")
+    public FeaturesConfig setBroadcastSemiJoinForDelete(boolean broadcastSemiJoinForDelete)
+    {
+        this.broadcastSemiJoinForDelete = broadcastSemiJoinForDelete;
+        return this;
+    }
+
     public boolean isInEqualityJoinPushdownEnabled()
     {
         return inEqualityJoinPushdownEnabled;
@@ -3013,5 +3028,18 @@ public class FeaturesConfig
     public boolean getAddExchangeBelowPartialAggregationOverGroupId()
     {
         return addExchangeBelowPartialAggregationOverGroupId;
+    }
+
+    @Config("optimizer.add-distinct-below-semi-join-build")
+    @ConfigDescription("Add a distinct aggregation below build side of semi join")
+    public FeaturesConfig setAddDistinctBelowSemiJoinBuild(boolean addDistinctBelowSemiJoinBuild)
+    {
+        this.addDistinctBelowSemiJoinBuild = addDistinctBelowSemiJoinBuild;
+        return this;
+    }
+
+    public boolean isAddDistinctBelowSemiJoinBuild()
+    {
+        return addDistinctBelowSemiJoinBuild;
     }
 }

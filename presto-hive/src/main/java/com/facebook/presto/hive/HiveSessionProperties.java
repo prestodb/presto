@@ -134,6 +134,8 @@ public final class HiveSessionProperties
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
     public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
+    public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES = "optimize_parsing_of_partition_values";
+    public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD = "optimize_parsing_of_partition_values_threshold";
 
     public static final String NATIVE_STATS_BASED_FILTER_REORDER_DISABLED = "native_stats_based_filter_reorder_disabled";
 
@@ -657,6 +659,15 @@ public final class HiveSessionProperties
                         hiveClientConfig.isLegacyTimestampBucketing(),
                         false),
                 booleanProperty(
+                        OPTIMIZE_PARSING_OF_PARTITION_VALUES,
+                        "Optimize partition values parsing when number of candidates are large",
+                        hiveClientConfig.isOptimizeParsingOfPartitionValues(),
+                        false),
+                integerProperty(OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD,
+                        "When OPTIMIZE_PARSING_OF_PARTITION_VALUES is set to true, enable this optimizations when number of partitions exceed the threshold here",
+                        hiveClientConfig.getOptimizeParsingOfPartitionValuesThreshold(),
+                        false),
+                booleanProperty(
                         NATIVE_STATS_BASED_FILTER_REORDER_DISABLED,
                         "Native Execution only. Disable stats based filter reordering.",
                         false,
@@ -1147,5 +1158,15 @@ public final class HiveSessionProperties
     public static boolean isLegacyTimestampBucketing(ConnectorSession session)
     {
         return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
+    }
+
+    public static boolean isOptimizeParsingOfPartitionValues(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZE_PARSING_OF_PARTITION_VALUES, Boolean.class);
+    }
+
+    public static int getOptimizeParsingOfPartitionValuesThreshold(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD, Integer.class);
     }
 }

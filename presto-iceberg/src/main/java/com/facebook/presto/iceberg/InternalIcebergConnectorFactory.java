@@ -29,6 +29,7 @@ import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -99,6 +100,7 @@ public final class InternalIcebergConnectorFactory
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                         binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
+                        binder.bind(ConnectorSystemConfig.class).toInstance(context.getConnectorSystemConfig());
                     });
 
             Injector injector = app

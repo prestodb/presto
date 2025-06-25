@@ -323,6 +323,32 @@ struct ZombieTaskStatsSet {
     }
   }
 };
+
+// Add task to the task queue.
+void enqueueTask(
+    TaskQueue& taskQueue,
+    std::shared_ptr<PrestoTask>& prestoTask) {
+  auto execTask = prestoTask->task;
+  if (execTask == nullptr) {
+    return;
+  }
+
+  // If an entry exists with tasks for the same query, then add the task to it.
+  for (auto& entry : taskQueue) {
+    if (!entry.empty()) {
+      if (auto queuedTask = entry[0].lock()) {
+        auto queuedExecTask = queuedTask->task;
+        if (queuedExecTask &&
+            (queuedExecTask->queryCtx() == execTask->queryCtx())) {
+          entry.emplace_back(prestoTask);
+          return;
+        }
+      }
+    }
+  }
+  // Otherwise create a new entry.
+  taskQueue.push_back({prestoTask});
+}
 } // namespace
 
 TaskManager::TaskManager(
@@ -589,7 +615,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
               << " for node " << source.planNodeId;
       // Keep track of the max sequence for this batch of splits.
-      long maxSplitSequenceId{-1};
+      int64_t maxSplitSequenceId{-1};
       for (const auto& protocolSplit : source.splits) {
         auto split = toVeloxSplit(protocolSplit);
         if (split.hasConnectorSplit()) {
@@ -642,8 +668,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
 void TaskManager::maybeStartTaskLocked(
     std::shared_ptr<PrestoTask>& prestoTask,
     bool& startNextQueuedTask) {
-  // Default behavior (no task queuing) is to start the new task immediately.
-  if (!SystemConfig::instance()->workerOverloadedTaskQueuingEnabled()) {
+  // Start the new task if the task queuing is disabled.
+  // Also start it if some tasks from this query have already started.
+  if (!SystemConfig::instance()->workerOverloadedTaskQueuingEnabled() ||
+      getQueryContextManager()->queryHasStartedTasks(prestoTask->info.taskId)) {
     startTaskLocked(prestoTask);
     return;
   }
@@ -652,10 +680,11 @@ void TaskManager::maybeStartTaskLocked(
     // If server is overloaded, we don't start anything, but queue the new task.
     LOG(INFO) << "TASK QUEUE: Server is overloaded. Queueing task "
               << prestoTask->info.taskId;
-    taskQueue_.wlock()->emplace(prestoTask);
+    auto lockedTaskQueue = taskQueue_.wlock();
+    enqueueTask(*lockedTaskQueue, prestoTask);
   } else {
     // If server is not overloaded, then we start the new task if the task queue
-    // is empty, otherwise we queue the new task and start the next queued task
+    // is empty, otherwise we queue the new task and start the first queued task
     // instead.
     {
       auto lockedTaskQueue = taskQueue_.wlock();
@@ -663,9 +692,9 @@ void TaskManager::maybeStartTaskLocked(
         LOG(INFO) << "TASK QUEUE: "
                      "Server is not overloaded, but "
                   << lockedTaskQueue->size()
-                  << "queued tasks detected. Queueing task "
+                  << " queued queries detected. Queueing task "
                   << prestoTask->info.taskId;
-        lockedTaskQueue->emplace(prestoTask);
+        enqueueTask(*lockedTaskQueue, prestoTask);
         startNextQueuedTask = true;
       }
     }
@@ -680,6 +709,8 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
   if (execTask == nullptr) {
     return;
   }
+
+  getQueryContextManager()->setQueryHasStartedTasks(prestoTask->info.taskId);
 
   const uint32_t maxDrivers = execTask->queryCtx()->queryConfig().get<int32_t>(
       kMaxDriversPerTask.data(), SystemConfig::instance()->maxDriversPerTask());
@@ -717,48 +748,65 @@ void TaskManager::maybeStartNextQueuedTask() {
     return;
   }
 
-  std::shared_ptr<PrestoTask> taskToStart;
-  size_t numQueuedTasks{0};
+  // We will start all queued tasks from a single query.
+  std::vector<std::shared_ptr<PrestoTask>> tasksToStart;
 
   // We run the loop here because some tasks might have failed or were aborted
   // or cancelled. Despite that we want to start at least one task.
   {
     auto lockedTaskQueue = taskQueue_.wlock();
     while (!lockedTaskQueue->empty()) {
-      taskToStart = lockedTaskQueue->front().lock();
-      lockedTaskQueue->pop();
+      // Get the next entry.
+      auto queuedTasks = std::move(lockedTaskQueue->front());
+      lockedTaskQueue->pop_front();
 
-      // Task is already gone or no Velox task (the latter will never happen).
-      if (taskToStart == nullptr || taskToStart->task == nullptr) {
-        LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
-        continue;
+      // Get all the still valid tasks from the entry.
+      bool queryTasksAreGoodToStart{true};
+      tasksToStart.clear();
+      for (auto& queuedTask : queuedTasks) {
+        auto taskToStart = queuedTask.lock();
+
+        // Task is already gone or no Velox task (the latter will never happen).
+        if (taskToStart == nullptr || taskToStart->task == nullptr) {
+          LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
+          queryTasksAreGoodToStart = false;
+          continue;
+        }
+
+        // Sanity check.
+        VELOX_CHECK(
+            !taskToStart->taskStarted,
+            "TASK QUEUE: "
+            "The queued task must not be started, but it is already started");
+
+        const auto taskState = taskToStart->taskState();
+        // If the status is not 'planned' then the tasks were likely aborted.
+        if (taskState != PrestoTaskState::kPlanned) {
+          LOG(INFO) << "TASK QUEUE: Discarding (not starting) queued task "
+                    << taskToStart->info.taskId << " because state is "
+                    << prestoTaskStateString(taskState);
+          queryTasksAreGoodToStart = false;
+          continue;
+        }
+
+        tasksToStart.emplace_back(taskToStart);
       }
 
-      // Sanity check.
-      VELOX_CHECK(
-          !taskToStart->taskStarted,
-          "TASK QUEUE: "
-          "The queued task must not be started yet, but it is already started");
-
-      const auto taskState = taskToStart->taskState();
-      // If the status is 'planned' then we got a task to start, exit the loop.
-      if (taskState == PrestoTaskState::kPlanned) {
+      if (queryTasksAreGoodToStart) {
         break;
       }
-
-      LOG(INFO) << "TASK QUEUE: Discarding (not starting) queued task "
-                << taskToStart->info.taskId << " because state is "
-                << prestoTaskStateString(taskState);
     }
-    numQueuedTasks = lockedTaskQueue->size();
   }
 
-  if (taskToStart) {
+  for (auto& taskToStart : tasksToStart) {
     std::lock_guard<std::mutex> l(taskToStart->mutex);
     LOG(INFO) << "TASK QUEUE: Picking task to start from the queue: "
-              << taskToStart->info.taskId << ". " << numQueuedTasks
-              << " queued tasks left";
+              << taskToStart->info.taskId;
     startTaskLocked(taskToStart);
+  }
+  const auto queuedTasksLeft = numQueuedTasks();
+  if (queuedTasksLeft > 0) {
+    LOG(INFO) << "TASK QUEUE: " << numQueuedTasks() << " queued tasks left";
   }
 }
 
@@ -1236,7 +1284,7 @@ std::string TaskManager::toString() const {
   return out.str();
 }
 
-velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
+velox::exec::Task::DriverCounts TaskManager::getDriverCounts() {
   const auto taskMap = *taskMap_.rlock();
   velox::exec::Task::DriverCounts ret;
   for (const auto& pair : taskMap) {
@@ -1251,6 +1299,7 @@ velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
       }
     }
   }
+  numQueuedDrivers_ = ret.numQueuedDrivers;
   return ret;
 }
 
@@ -1337,7 +1386,12 @@ std::array<size_t, 6> TaskManager::getTaskNumbers(size_t& numTasks) const {
 }
 
 size_t TaskManager::numQueuedTasks() const {
-  return this->taskQueue_.rlock()->size();
+  size_t num = 0;
+  auto lockedTaskQueue = taskQueue_.rlock();
+  for (const auto& entry : *lockedTaskQueue) {
+    num += entry.size();
+  }
+  return num;
 }
 
 int64_t TaskManager::getBytesProcessed() const {

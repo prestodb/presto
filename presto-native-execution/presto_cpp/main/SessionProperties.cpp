@@ -489,6 +489,22 @@ SessionProperties::SessionProperties() {
       10,
       QueryConfig::kRequestDataSizesMaxWaitSec,
       std::to_string(c.requestDataSizesMaxWaitSec()));
+
+  addSessionProperty(
+      kNativeQueryMemoryReclaimerPriority,
+      "Memory pool reclaimer priority.",
+      INTEGER(),
+      2147483647,
+      QueryConfig::kQueryMemoryReclaimerPriority,
+      std::to_string(c.queryMemoryReclaimerPriority()));
+
+  addSessionProperty(
+      kMaxNumSplitsListenedTo,
+      "Maximum number of splits to listen to by SplitListener on native workers.",
+      INTEGER(),
+      0,
+      QueryConfig::kMaxNumSplitsListenedTo,
+      std::to_string(c.maxNumSplitsListenedTo()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

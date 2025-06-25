@@ -313,6 +313,12 @@ public final class FunctionResolution
     }
 
     @Override
+    public boolean isCountIfFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("count_if")));
+    }
+
+    @Override
     public FunctionHandle countFunction()
     {
         return functionAndTypeResolver.lookupFunction("count", ImmutableList.of());

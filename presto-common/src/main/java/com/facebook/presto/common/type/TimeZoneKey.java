@@ -157,7 +157,6 @@ public final class TimeZoneKey
 
     private final short key;
 
-    @ThriftConstructor
     public TimeZoneKey(String id, short key)
     {
         this.id = requireNonNull(id, "id is null");
@@ -167,13 +166,20 @@ public final class TimeZoneKey
         this.key = key;
     }
 
-    @ThriftField(1)
+    @ThriftConstructor
+    public TimeZoneKey(short timeZoneKey)
+    {
+        TimeZoneKey parsedTimeZoneKey = getTimeZoneKey(timeZoneKey);
+        this.id = parsedTimeZoneKey.getId();
+        this.key = parsedTimeZoneKey.getKey();
+    }
+
     public String getId()
     {
         return id;
     }
 
-    @ThriftField(2)
+    @ThriftField(value = 1, name = "timeZoneKey")
     @JsonValue
     public short getKey()
     {

@@ -14,13 +14,18 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.ConfigurationException;
+import com.google.inject.spi.Message;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.annotation.Nullable;
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
 
 import java.util.Set;
@@ -38,6 +43,7 @@ public class BaseJdbcConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public String getConnectionUrl()
@@ -105,12 +111,18 @@ public class BaseJdbcConfig
         return this;
     }
 
+    @Deprecated
     public boolean isCaseInsensitiveNameMatching()
     {
         return caseInsensitiveNameMatching;
     }
 
+    @Deprecated
     @Config("case-insensitive-name-matching")
+    @ConfigDescription("Deprecated: This will be removed in future releases. Use 'case-sensitive-name-matching=true' instead for mysql. " +
+            "This configuration setting converts all schema/table names to lowercase. " +
+            "If your source database contains names differing only by case (e.g., 'Testdb' and 'testdb'), " +
+            "this setting can lead to conflicts and query failures.")
     public BaseJdbcConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
@@ -141,5 +153,28 @@ public class BaseJdbcConfig
     {
         this.listSchemasIgnoredSchemas = ImmutableSet.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(listSchemasIgnoredSchemas.toLowerCase(ENGLISH)));
         return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public BaseJdbcConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        return this;
+    }
+
+    @PostConstruct
+    public void validateConfig()
+    {
+        if (isCaseInsensitiveNameMatching() && isCaseSensitiveNameMatching()) {
+            throw new ConfigurationException(ImmutableList.of(new Message("Only one of 'case-insensitive-name-matching=true' or 'case-sensitive-name-matching=true' can be set. " +
+                    "These options are mutually exclusive.")));
+        }
     }
 }

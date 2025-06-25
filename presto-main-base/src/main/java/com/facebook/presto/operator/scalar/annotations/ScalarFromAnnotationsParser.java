@@ -19,6 +19,7 @@ import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.FunctionDescriptor;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.Signature;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.checkPushdownSubfieldArgIndex;
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -88,7 +90,7 @@ public final class ScalarFromAnnotationsParser
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         for (Method method : FunctionsParserHelper.findPublicMethods(
                 annotated,
-                ImmutableSet.of(SqlType.class, ScalarFunction.class, ScalarOperator.class),
+                ImmutableSet.of(SqlType.class, ScalarFunction.class, ScalarOperator.class, FunctionDescriptor.class),
                 ImmutableSet.of(SqlInvokedScalarFunction.class, CodegenScalarFunction.class))) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
@@ -106,6 +108,7 @@ public final class ScalarFromAnnotationsParser
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
         for (Method method : scalar.getMethods()) {
             ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header, method, constructor);
+            checkPushdownSubfieldArgIndex(method, implementation.getSignature(), header.getHeader().getComplexTypeFunctionDescriptor().getPushdownSubfieldArgIndex());
             if (!signatures.containsKey(implementation.getSpecializedSignature())) {
                 ParametricScalarImplementation.Builder builder = new ParametricScalarImplementation.Builder(
                         implementation.getSignature(),

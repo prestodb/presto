@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.router.cluster;
 
+import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.servlet.http.HttpServletRequest;
 
+import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
@@ -26,6 +30,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
 public class RequestInfo
@@ -36,13 +41,17 @@ public class RequestInfo
     private final Optional<String> source;
     private final List<String> clientTags;
     private final String query;
+    private final HttpServletRequest servletRequest;
+    private final Map<String, List<String>> headersMap;
 
     public RequestInfo(HttpServletRequest servletRequest, String query)
     {
+        this.servletRequest = requireNonNull(servletRequest, "servletRequest is null");
         this.user = parseHeader(servletRequest, PRESTO_USER);
         this.source = Optional.ofNullable(parseHeader(servletRequest, PRESTO_SOURCE));
         this.clientTags = requireNonNull(parseClientTags(servletRequest), "clientTags is null");
         this.query = query;
+        this.headersMap = requireNonNull(parseHeaders(servletRequest), "headersMap is null");
     }
 
     public String getUser()
@@ -65,6 +74,16 @@ public class RequestInfo
         return clientTags;
     }
 
+    public Map<String, List<String>> getHeadersMap()
+    {
+        return headersMap;
+    }
+
+    public RouterRequestInfo toRouterRequestInfo()
+    {
+        return new RouterRequestInfo(user, source, clientTags, query, headersMap, servletRequest.getUserPrincipal());
+    }
+
     private static List<String> parseClientTags(HttpServletRequest servletRequest)
     {
         return ImmutableList.copyOf(SPLITTER.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
@@ -78,5 +97,17 @@ public class RequestInfo
     private static String trimEmptyToNull(String value)
     {
         return emptyToNull(nullToEmpty(value).trim());
+    }
+
+    private static Map<String, List<String>> parseHeaders(HttpServletRequest httpServletRequest)
+    {
+        ImmutableMap.Builder<String, List<String>> builder = ImmutableMap.builder();
+        Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            Enumeration<String> values = httpServletRequest.getHeaders(headerName);
+            builder.put(headerName, list(values));
+        }
+        return builder.build();
     }
 }

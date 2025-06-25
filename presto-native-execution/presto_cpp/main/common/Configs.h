@@ -313,6 +313,12 @@ class SystemConfig : public ConfigBase {
   /// Ignored if zero. Default is zero.
   static constexpr std::string_view kWorkerOverloadedThresholdCpuPct{
       "worker-overloaded-threshold-cpu-pct"};
+  /// Floating point number used in calculating how many drivers must be queued
+  /// for the worker to be considered overloaded.
+  /// Ignored if zero. Default is zero.
+  static constexpr std::string_view
+      kWorkerOverloadedThresholdNumQueuedDriversHwMultiplier{
+          "worker-overloaded-threshold-num-queued-drivers-hw-multiplier"};
   /// Specifies how many seconds worker has to be not overloaded (in terms of
   /// memory and CPU) before its status changes to not overloaded.
   /// This is to prevent spiky fluctuation of the overloaded status.
@@ -850,6 +856,8 @@ class SystemConfig : public ConfigBase {
 
   uint32_t workerOverloadedThresholdCpuPct() const;
 
+  double workerOverloadedThresholdNumQueuedDriversHwMultiplier() const;
+
   uint32_t workerOverloadedCooldownPeriodSec() const;
 
   bool workerOverloadedTaskQueuingEnabled() const;
@@ -1025,6 +1033,7 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
+  static constexpr std::string_view kNodePrometheusExecutorThreads{"node.prometheus.num-executor-threads"};
 
   NodeConfig();
 
@@ -1033,6 +1042,8 @@ class NodeConfig : public ConfigBase {
   static NodeConfig* instance();
 
   std::string nodeEnvironment() const;
+
+  int prometheusExecutorThreads() const;
 
   std::string nodeId() const;
 

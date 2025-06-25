@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -51,7 +51,6 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggr
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
@@ -214,10 +213,10 @@ public class OptimizeMixedDistinctAggregations
                             Optional.empty(),
                             false,
                             Optional.empty());
-                    QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
-                    if (functionName.equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "count")) ||
-                            functionName.equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "count_if")) ||
-                            functionName.equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "approx_distinct"))) {
+                    FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
+                    if (functionResolution.isCountFunction(functionHandle) ||
+                            functionResolution.isCountIfFunction(functionHandle) ||
+                            functionResolution.isApproximateCountDistinctFunction(functionHandle)) {
                         VariableReferenceExpression newVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), "expr", entry.getKey().getType());
                         aggregations.put(newVariable, aggregation);
                         coalesceVariablesBuilder.put(newVariable, entry.getKey());

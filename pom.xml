@@ -55,7 +55,7 @@
         <dep.drift.version>1.43</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
-        <dep.joda.version>2.12.7</dep.joda.version>
+        <dep.joda.version>2.13.1</dep.joda.version>
         <dep.tempto.version>1.54</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.11.3</dep.lucene.version>
@@ -67,7 +67,7 @@
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>1.7.36</dep.slf4j.version>
-        <dep.kafka.version>3.9.0</dep.kafka.version>
+        <dep.kafka.version>3.9.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -93,7 +93,7 @@
 
         <!--
           America/Bahia_Banderas has:
-           - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
+           - offset change since 1970 (offset Jan 1970: -07:00, offset Jan 2018: -06:00)
            - DST (e.g. at 2017-04-02 02:00:00 clocks turned forward 1 hour; 2017-10-29 02:00:00 clocks turned backward 1 hour)
            - has forward offset change on first day of epoch (1970-01-01 00:00:00 clocks turned forward 1 hour)
            - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
@@ -215,6 +215,7 @@
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
+        <module>presto-plan-checker-router-plugin</module>
     </modules>
 
     <dependencyManagement>

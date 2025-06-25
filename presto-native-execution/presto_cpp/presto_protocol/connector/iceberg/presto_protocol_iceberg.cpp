@@ -25,12 +25,11 @@ namespace facebook::presto::protocol::iceberg {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ChangelogOperation, json>
-    ChangelogOperation_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {ChangelogOperation::INSERT, "INSERT"},
-            {ChangelogOperation::DELETE, "DELETE"},
-            {ChangelogOperation::UPDATE_BEFORE, "UPDATE_BEFORE"},
-            {ChangelogOperation::UPDATE_AFTER, "UPDATE_AFTER"}};
+    ChangelogOperation_enum_table[] = { // NOLINT: cert-err58-cpp
+        {ChangelogOperation::INSERT, "INSERT"},
+        {ChangelogOperation::DELETE, "DELETE"},
+        {ChangelogOperation::UPDATE_BEFORE, "UPDATE_BEFORE"},
+        {ChangelogOperation::UPDATE_AFTER, "UPDATE_AFTER"}};
 void to_json(json& j, const ChangelogOperation& e) {
   static_assert(
       std::is_enum<ChangelogOperation>::value,
@@ -505,6 +504,88 @@ void from_json(const json& j, IcebergTableName& p) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<PartitionTransformType, json>
+    PartitionTransformType_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {PartitionTransformType::IDENTITY, "IDENTITY"},
+            {PartitionTransformType::YEAR, "YEAR"},
+            {PartitionTransformType::MONTH, "MONTH"},
+            {PartitionTransformType::DAY, "DAY"},
+            {PartitionTransformType::HOUR, "HOUR"},
+            {PartitionTransformType::BUCKET, "BUCKET"},
+            {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
+void to_json(json& j, const PartitionTransformType& e) {
+  static_assert(
+      std::is_enum<PartitionTransformType>::value,
+      "PartitionTransformType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(PartitionTransformType_enum_table),
+      std::end(PartitionTransformType_enum_table),
+      [e](const std::pair<PartitionTransformType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(PartitionTransformType_enum_table))
+           ? it
+           : std::begin(PartitionTransformType_enum_table))
+          ->second;
+}
+void from_json(const json& j, PartitionTransformType& e) {
+  static_assert(
+      std::is_enum<PartitionTransformType>::value,
+      "PartitionTransformType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(PartitionTransformType_enum_table),
+      std::end(PartitionTransformType_enum_table),
+      [&j](const std::pair<PartitionTransformType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(PartitionTransformType_enum_table))
+           ? it
+           : std::begin(PartitionTransformType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const IcebergPartitionField& p) {
+  j = json::object();
+  to_json_key(
+      j, "sourceId", p.sourceId, "IcebergPartitionField", "int", "sourceId");
+  to_json_key(
+      j, "fieldId", p.fieldId, "IcebergPartitionField", "int", "fieldId");
+  to_json_key(
+      j, "parameter", p.parameter, "IcebergPartitionField", "int", "parameter");
+  to_json_key(
+      j,
+      "transform",
+      p.transform,
+      "IcebergPartitionField",
+      "PartitionTransformType",
+      "transform");
+  to_json_key(j, "name", p.name, "IcebergPartitionField", "String", "name");
+}
+
+void from_json(const json& j, IcebergPartitionField& p) {
+  from_json_key(
+      j, "sourceId", p.sourceId, "IcebergPartitionField", "int", "sourceId");
+  from_json_key(
+      j, "fieldId", p.fieldId, "IcebergPartitionField", "int", "fieldId");
+  from_json_key(
+      j, "parameter", p.parameter, "IcebergPartitionField", "int", "parameter");
+  from_json_key(
+      j,
+      "transform",
+      p.transform,
+      "IcebergPartitionField",
+      "PartitionTransformType",
+      "transform");
+  from_json_key(j, "name", p.name, "IcebergPartitionField", "String", "name");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 
 void to_json(json& j, const PrestoIcebergNestedField& p) {
   j = json::object();
@@ -635,7 +716,7 @@ void to_json(json& j, const PrestoIcebergPartitionSpec& p) {
       "fields",
       p.fields,
       "PrestoIcebergPartitionSpec",
-      "List<String>",
+      "List<IcebergPartitionField>",
       "fields");
 }
 
@@ -654,7 +735,7 @@ void from_json(const json& j, PrestoIcebergPartitionSpec& p) {
       "fields",
       p.fields,
       "PrestoIcebergPartitionSpec",
-      "List<String>",
+      "List<IcebergPartitionField>",
       "fields");
 }
 } // namespace facebook::presto::protocol::iceberg

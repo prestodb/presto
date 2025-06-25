@@ -25,6 +25,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.Ar
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CodegenScalarFunction;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.IsNull;
@@ -51,7 +52,9 @@ import java.util.Set;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.checkPushdownSubfieldArgIndex;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseFunctionDescriptor;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
@@ -122,6 +125,8 @@ public class CodegenScalarFromAnnotationsParser
                 Arrays.stream(method.getParameters()).map(p -> parseTypeSignature(p.getAnnotation(SqlType.class).value())).collect(toImmutableList()),
                 false);
 
+        ComplexTypeFunctionDescriptor descriptor = parseAndCheckFunctionDescriptor(method, signature);
+
         return new SqlScalarFunction(signature)
         {
             @Override
@@ -166,6 +171,19 @@ public class CodegenScalarFromAnnotationsParser
             {
                 return codegenScalarFunction.calledOnNullInput();
             }
+
+            @Override
+            public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+            {
+                return descriptor;
+            }
         };
+    }
+
+    private static ComplexTypeFunctionDescriptor parseAndCheckFunctionDescriptor(Method method, Signature signature)
+    {
+        ComplexTypeFunctionDescriptor descriptor = parseFunctionDescriptor(method);
+        checkPushdownSubfieldArgIndex(method, signature, descriptor.getPushdownSubfieldArgIndex());
+        return descriptor;
     }
 }

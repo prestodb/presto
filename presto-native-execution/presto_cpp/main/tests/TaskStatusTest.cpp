@@ -79,8 +79,7 @@ TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsEmpty) {
 
   ASSERT_EQ(thriftExecutionFailureInfo.type(), "type");
   ASSERT_EQ(thriftExecutionFailureInfo.errorLocation()->columnNumber(), 2);
-  ASSERT_EQ(thriftExecutionFailureInfo.remoteHost()->host(), "localhost");
-  ASSERT_EQ(thriftExecutionFailureInfo.remoteHost()->port(), 8080);
+  ASSERT_EQ(thriftExecutionFailureInfo.remoteHost()->hostPortString(), "localhost:8080");
   ASSERT_EQ(thriftExecutionFailureInfo.errorCode()->type(), facebook::presto::thrift::ErrorType::INTERNAL_ERROR);
   ASSERT_EQ(thriftExecutionFailureInfo.errorCode()->retriable(), false);
   ASSERT_EQ(thriftExecutionFailureInfo.errorCause(), facebook::presto::thrift::ErrorCause::EXCEEDS_BROADCAST_MEMORY_LIMIT);

@@ -30,11 +30,13 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -63,12 +65,17 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestCursorProcessorCompiler
 {
     private static final Metadata METADATA = createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_MANAGER = METADATA.getFunctionAndTypeManager();
+
+    // Constants for testing JVM limits
+    private static final int CONSTANT_POOL_STRESS_PROJECTION_COUNT = 8000;
 
     private static final CallExpression ADD_X_Y = call(
             ADD.name(),
@@ -167,6 +174,97 @@ public class TestCursorProcessorCompiler
         Page pageFromNoCSE = pageBuilder.build();
 
         checkPageEqual(pageFromCSE, pageFromNoCSE);
+    }
+
+    @DataProvider(name = "projectionCounts")
+    public Object[][] projectionCounts()
+    {
+        return new Object[][] {
+                {1},
+                {10},
+                {1000},
+                {1500},
+                {5000},
+                {6000}
+        };
+    }
+
+    @Test(dataProvider = "projectionCounts")
+    public void testProjectionBatching(int projectionCount)
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, functionCompiler);
+
+        List<RowExpression> projections = IntStream.range(0, projectionCount)
+                .mapToObj(i -> field(i % 2, BIGINT))
+                .collect(toImmutableList());
+
+        Supplier<CursorProcessor> cursorProcessorSupplier = expressionCompiler.compileCursorProcessor(
+                SESSION.getSqlFunctionProperties(),
+                Optional.empty(),
+                projections,
+                "testProjectionBatching_" + projectionCount,
+                false);
+
+        CursorProcessor processor = cursorProcessorSupplier.get();
+        assertNotNull(processor, "CursorProcessor should be created successfully for projectionCount = " + projectionCount);
+
+        Page input = createLongBlockPage(2, 1L, 2L, 3L, 4L, 5L);
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        PageBuilder pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(toList()));
+        RecordSet recordSet = new PageRecordSet(types, input);
+
+        processor.process(SESSION.getSqlFunctionProperties(), new DriverYieldSignal(), recordSet.cursor(), pageBuilder);
+        Page result = pageBuilder.build();
+
+        assertEquals(result.getChannelCount(), projectionCount, "Mismatch in projected column count");
+        assertEquals(result.getPositionCount(), input.getPositionCount(), "Mismatch in row count");
+    }
+
+    /**
+     * NEW NEGATIVE TEST CASE:
+     * This test demonstrates that while we can handle MethodTooLarge exceptions through batching,
+     * the JVM constant pool size limit remains a constraint when projections contain many unique constants.
+     *
+     * This test creates projections with random constants generated via Java code, which fills up
+     * the constant pool and should still cause compilation failures even with our batching approach.
+     * This clearly shows the scope of what we're solving (MethodTooLarge) vs. what remains a JVM constraint.
+     */
+    @Test
+    public void testConstantPoolLimitStillConstrainsLargeProjections()
+    {
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(METADATA, new PageFunctionCompiler(METADATA, 0));
+
+        List<RowExpression> projectionsWithRandomConstants = createProjectionsWithRandomConstants(CONSTANT_POOL_STRESS_PROJECTION_COUNT);
+
+        expectThrows(RuntimeException.class, () -> {
+            expressionCompiler.compileCursorProcessor(
+                    SESSION.getSqlFunctionProperties(),
+                    Optional.empty(),
+                    projectionsWithRandomConstants,
+                    "testConstantPoolLimit",
+                    false);
+        });
+    }
+
+    /**
+     * Helper method to create projections with many unique random constants.
+     * This is designed to stress the JVM constant pool limit.
+     */
+    private List<RowExpression> createProjectionsWithRandomConstants(int count)
+    {
+        Random random = new Random(42);
+        return IntStream.range(0, count)
+                .mapToObj(i -> {
+                    long randomConstant = random.nextLong();
+                    return call(
+                            ADD.name(),
+                            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                            BIGINT,
+                            field(0, BIGINT),
+                            constant(randomConstant, BIGINT)); // Each projection gets a unique constant
+                })
+                .collect(toImmutableList());
     }
 
     private static Page createLongBlockPage(int blockCount, long... values)

@@ -54,3 +54,8 @@ podman compose build centos-native-runtime
 # For a debug build, specify the BUILD_TYPE argument.
 podman compose build --build-arg BUILD_TYPE=Debug centos-native-runtime
 ```
+
+If you would like to enable GPU support, you can set set GPU to ON:
+```bash
+GPU=ON podman compose build centos-native-runtime
+```

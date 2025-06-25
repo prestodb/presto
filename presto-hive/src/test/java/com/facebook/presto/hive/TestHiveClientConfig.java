@@ -152,7 +152,7 @@ public class TestHiveClientConfig
                 .setHudiTablesUseMergedView(null)
                 .setThriftProtocol(Protocol.BINARY)
                 .setThriftBufferSize(new DataSize(128, BYTE))
-                .setCopyOnFirstWriteConfigurationEnabled(true)
+                .setCopyOnFirstWriteConfigurationEnabled(false)
                 .setPartitionFilteringFromMetastoreEnabled(true)
                 .setParallelParsingOfPartitionValuesEnabled(false)
                 .setMaxParallelParsingConcurrency(100)
@@ -166,6 +166,8 @@ public class TestHiveClientConfig
                 .setMaxConcurrentParquetQuickStatsCalls(500)
                 .setCteVirtualBucketCount(128)
                 .setSkipEmptyFilesEnabled(false)
+                .setOptimizeParsingOfPartitionValues(false)
+                .setOptimizeParsingOfPartitionValuesThreshold(500)
                 .setLegacyTimestampBucketing(false));
     }
 
@@ -278,7 +280,7 @@ public class TestHiveClientConfig
                 .put("hive.hudi-tables-use-merged-view", "default.user")
                 .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
                 .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
-                .put("hive.copy-on-first-write-configuration-enabled", "false")
+                .put("hive.copy-on-first-write-configuration-enabled", "true")
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
                 .put("hive.parallel-parsing-of-partition-values-enabled", "true")
                 .put("hive.max-parallel-parsing-concurrency", "200")
@@ -292,6 +294,8 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.cte-virtual-bucket-count", "256")
                 .put("hive.skip-empty-files", "true")
+                .put("hive.optimize-parsing-of-partition-values-enabled", "true")
+                .put("hive.optimize-parsing-of-partition-values-threshold", "100")
                 .put("hive.legacy-timestamp-bucketing", "true")
                 .build();
 
@@ -400,7 +404,7 @@ public class TestHiveClientConfig
                 .setHudiTablesUseMergedView("default.user")
                 .setThriftProtocol(Protocol.COMPACT)
                 .setThriftBufferSize(new DataSize(256, BYTE))
-                .setCopyOnFirstWriteConfigurationEnabled(false)
+                .setCopyOnFirstWriteConfigurationEnabled(true)
                 .setPartitionFilteringFromMetastoreEnabled(false)
                 .setParallelParsingOfPartitionValuesEnabled(true)
                 .setMaxParallelParsingConcurrency(200)
@@ -414,6 +418,8 @@ public class TestHiveClientConfig
                 .setMaxConcurrentQuickStatsCalls(101)
                 .setSkipEmptyFilesEnabled(true)
                 .setCteVirtualBucketCount(256)
+                .setOptimizeParsingOfPartitionValues(true)
+                .setOptimizeParsingOfPartitionValuesThreshold(100)
                 .setLegacyTimestampBucketing(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

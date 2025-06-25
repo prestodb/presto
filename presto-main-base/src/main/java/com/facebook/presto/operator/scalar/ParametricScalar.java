@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.annotations.VisibleForTesting;
@@ -65,6 +66,12 @@ public class ParametricScalar
     public boolean isCalledOnNullInput()
     {
         return details.isCalledOnNullInput();
+    }
+
+    @Override
+    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return details.getComplexTypeFunctionDescriptor();
     }
 
     @Override

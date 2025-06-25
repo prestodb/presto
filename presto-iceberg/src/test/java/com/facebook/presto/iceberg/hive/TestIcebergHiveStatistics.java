@@ -31,6 +31,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.CatalogType;
+import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergMetadataColumn;
@@ -592,6 +593,7 @@ public class TestIcebergHiveStatistics
 
     private Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName, ICEBERG_CATALOG);
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
 
@@ -600,6 +602,7 @@ public class TestIcebergHiveStatistics
                 new IcebergHiveTableOperationsConfig(),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
+                new IcebergCatalogName(ICEBERG_CATALOG),
                 SchemaTableName.valueOf("tpch." + tableName));
     }
 

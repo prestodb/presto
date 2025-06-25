@@ -74,17 +74,19 @@ PrestoTaskState toPrestoTaskState(exec::TaskState state) {
   return PrestoTaskState::kAborted;
 }
 
-protocol::TaskState toProtocolTaskState(exec::TaskState state) {
+protocol::TaskState toProtocolTaskState(PrestoTaskState state) {
   switch (state) {
-    case exec::TaskState::kRunning:
+    case PrestoTaskState::kRunning:
       return protocol::TaskState::RUNNING;
-    case exec::TaskState::kFinished:
+    case PrestoTaskState::kFinished:
       return protocol::TaskState::FINISHED;
-    case exec::TaskState::kCanceled:
+    case PrestoTaskState::kCanceled:
       return protocol::TaskState::CANCELED;
-    case exec::TaskState::kFailed:
+    case PrestoTaskState::kFailed:
       return protocol::TaskState::FAILED;
-    case exec::TaskState::kAborted:
+    case PrestoTaskState::kPlanned:
+      return protocol::TaskState::PLANNED;
+    case PrestoTaskState::kAborted:
       [[fallthrough]];
     default:
       return protocol::TaskState::ABORTED;
@@ -557,14 +559,6 @@ void PrestoTask::recordProcessCpuTime() {
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
-  if (!taskStarted && (error == nullptr)) {
-    protocol::TaskStatus ret = info.taskStatus;
-    if (ret.state != protocol::TaskState::ABORTED) {
-      ret.state = protocol::TaskState::PLANNED;
-    }
-    return ret;
-  }
-
   // Error occurs when creating task or even before task is created. Set error
   // and return immediately
   if (error != nullptr) {
@@ -575,11 +569,16 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
     recordProcessCpuTime();
     return info.taskStatus;
   }
-  VELOX_CHECK_NOT_NULL(task, "task is null when updating status");
+
+  // We can be here before the fragment plan is received and exec task created.
+  if (task == nullptr) {
+    VELOX_CHECK(!taskStarted);
+    return info.taskStatus;
+  }
 
   const auto veloxTaskStats = task->taskStats();
 
-  info.taskStatus.state = toProtocolTaskState(task->state());
+  info.taskStatus.state = toProtocolTaskState(taskState());
 
   // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent

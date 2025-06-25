@@ -661,4 +661,10 @@ public abstract class DelegatingMetadataManager
     {
         return delegate.applyTableFunction(session, handle);
     }
+
+    @Override
+    public String normalizeIdentifier(Session session, String catalogName, String identifier)
+    {
+        return delegate.normalizeIdentifier(session, catalogName, identifier);
+    }
 }

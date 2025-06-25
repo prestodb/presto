@@ -137,20 +137,23 @@ class PartitionAndSerializeOperator : public Operator {
       return nullptr;
     }
     vector_size_t endOutputRow;
-    uint32_t outputBufferSize{0};
-    prepareNextOutput(endOutputRow, outputBufferSize);
+    size_t valueOutputBufferSize{0};
+    size_t keyOutputBufferSize{0};
+    prepareNextOutput(endOutputRow, valueOutputBufferSize, keyOutputBufferSize);
     VELOX_CHECK_LT(nextOutputRow_, endOutputRow);
 
     const auto batchSize = endOutputRow - nextOutputRow_;
     auto dataVector = BaseVector::create<FlatVector<StringView>>(
         VARBINARY(), batchSize, pool());
-    serializeRows(*dataVector, outputBufferSize, nextOutputRow_, endOutputRow);
+    serializeRows(
+        nextOutputRow_, endOutputRow, valueOutputBufferSize, *dataVector);
 
     // keyVector is initiallized to be an empty vector.
     // If sorted_ is true, write serialized keys into keyVector.
     auto keyVector = BaseVector::create<FlatVector<StringView>>(
         VARBINARY(), batchSize, pool());
-    serializeKeys(nextOutputRow_, endOutputRow, *keyVector);
+    serializeKeys(
+        nextOutputRow_, endOutputRow, keyOutputBufferSize, *keyVector);
 
     // Extract slice from output_ and construct the output vector.
     std::vector<VectorPtr> childrenVectors;
@@ -211,27 +214,35 @@ class PartitionAndSerializeOperator : public Operator {
 
   // Invoked to calculate how many rows to output: ['nextOutputRow_',
   // 'endOutputRow_') and the corresponding output buffer size returns in
-  // 'outputBufferSize'.
-  size_t prepareNextOutput(
+  // 'valueOutputBufferSize', 'keyOutputBufferSize'.
+  void prepareNextOutput(
       vector_size_t& endOutputRow,
-      uint32_t& outputBufferSize) {
+      size_t& valueOutputBufferSize,
+      size_t& keyOutputBufferSize) {
     const auto& queryConfig = operatorCtx_->driverCtx()->queryConfig();
     auto preferredOutputBytes = queryConfig.preferredOutputBatchBytes();
     const auto preferredOutputRows = queryConfig.preferredOutputBatchRows();
     endOutputRow = nextOutputRow_;
 
+    VELOX_CHECK_EQ(
+        rowSizes_.size(), input_->size(), "rowSizes_ must match input_ size");
     if (sorted_) {
-      // substract key buffer size from preferredOutputBytes.
-      preferredOutputBytes -= kMaxSortKeyBufferSize_;
+      VELOX_CHECK_EQ(
+          sortKeySizes_.size(),
+          input_->size(),
+          "sortKeySizes_ must match input_ size");
     }
-    VELOX_DCHECK(!rowSizes_.empty(), "rowSizes_ can not be empty");
-    do {
-      outputBufferSize += rowSizes_[endOutputRow++];
-    } while (endOutputRow < input_->size() &&
-             outputBufferSize < preferredOutputBytes &&
-             (endOutputRow - nextOutputRow_) < preferredOutputRows);
 
-    return outputBufferSize;
+    do {
+      valueOutputBufferSize += rowSizes_[endOutputRow];
+      if (sorted_) {
+        keyOutputBufferSize += sortKeySizes_[endOutputRow];
+      }
+      ++endOutputRow;
+    } while (endOutputRow < input_->size() &&
+             (valueOutputBufferSize + keyOutputBufferSize) <
+                 preferredOutputBytes &&
+             (endOutputRow - nextOutputRow_) < preferredOutputRows);
   }
 
   // Calculates the size of each row. This is done once per input and reused for
@@ -324,10 +335,10 @@ class PartitionAndSerializeOperator : public Operator {
   // Since serialization can be memory intensive, we process only one batch at
   // a time.
   void serializeRows(
-      FlatVector<StringView>& dataVector,
-      size_t outputBufferSize,
       vector_size_t from,
-      vector_size_t to) {
+      vector_size_t to,
+      size_t outputBufferSize,
+      FlatVector<StringView>& dataVector) {
     vector_size_t batchSize = to - from;
     // Allocate memory.
     auto buffer = dataVector.getBufferWithSpace(outputBufferSize);
@@ -364,11 +375,21 @@ class PartitionAndSerializeOperator : public Operator {
     VELOX_CHECK(sortingOrders_.has_value() && sortingKeys_.has_value());
     binarySortableSerializer_ = std::make_unique<BinarySortableSerializer>(
         input_, sortingOrders_.value(), sortingKeys_.value());
+
+    // Calculate sort key size for each row.
+    const auto numInput = input_->size();
+    sortKeySizes_.resize(numInput);
+    for (auto i = 0; i < numInput; ++i) {
+      const size_t keySize =
+          binarySortableSerializer_->serializedSizeInBytes(i);
+      sortKeySizes_[i] = keySize;
+    }
   }
 
   void serializeKeys(
       vector_size_t from,
       vector_size_t to,
+      size_t keyBufferSize,
       FlatVector<StringView>& keyVector) {
     if (!sorted_) {
       return;
@@ -377,17 +398,18 @@ class PartitionAndSerializeOperator : public Operator {
     const vector_size_t batchSize = to - from;
 
     // Serialize keys.
+    // Note: avoid reallocating memory for keyVectorBuffer by setting
+    // initialCapacity to be keyBufferSize.
     auto keyVectorBuffer = std::make_unique<velox::StringVectorBuffer>(
-        &keyVector, kInitialSortKeyBufferSize_, kMaxSortKeyBufferSize_);
+        &keyVector,
+        /*initialCapacity=*/keyBufferSize,
+        /*maxCapacity=*/keyBufferSize);
     for (size_t row = 0; row < batchSize; ++row) {
       binarySortableSerializer_->serialize(from + row, keyVectorBuffer.get());
       keyVectorBuffer->flushRow(row);
+      VELOX_CHECK_EQ(keyVector.valueAt(row).size(), sortKeySizes_[from + row]);
     }
   }
-
-  // TODO: Dynamically set the buffer size based on encoded key size estimation.
-  static constexpr size_t kInitialSortKeyBufferSize_ = 1 << 16; // 64 KB;
-  static constexpr size_t kMaxSortKeyBufferSize_ = 1 << 20; // 1 MB;
 
   const uint32_t numPartitions_;
   const RowTypePtr serializedRowType_;
@@ -411,6 +433,8 @@ class PartitionAndSerializeOperator : public Operator {
   std::vector<uint32_t> partitions_;
   // Reusable vector for storing serialised row size for each input row.
   std::vector<uint32_t> rowSizes_;
+  // Reusable vector for storing sort key buffer size for each input row.
+  std::vector<size_t> sortKeySizes_;
   vector_size_t nextOutputRow_{0};
 };
 } // namespace

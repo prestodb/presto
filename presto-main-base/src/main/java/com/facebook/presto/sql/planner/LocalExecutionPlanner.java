@@ -135,6 +135,7 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -321,6 +322,7 @@ import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionProp
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -333,6 +335,7 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.gen.CursorProcessorCompiler.HIGH_PROJECTION_WARNING_THRESHOLD;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.getSortExpressionContext;
@@ -1615,6 +1618,13 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
 
             try {
+                if (projections.size() >= HIGH_PROJECTION_WARNING_THRESHOLD) {
+                    session.getWarningCollector().add(new PrestoWarning(
+                            PERFORMANCE_WARNING.toWarningCode(),
+                            String.format("Query contains %d projections, which exceeds the recommended threshold of %d. " +
+                                            "Queries with very high projection counts may encounter JVM constant pool limits or performance issues.",
+                                    projections.size(), HIGH_PROJECTION_WARNING_THRESHOLD)));
+                }
                 if (columns != null) {
                     Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(
                             session.getSqlFunctionProperties(),

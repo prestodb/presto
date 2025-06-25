@@ -27,6 +27,7 @@ import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
 import com.facebook.presto.spi.router.SchedulerFactory;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -136,13 +137,7 @@ public class TestCustomSchedulerManager
         private int requestsMade;
 
         @Override
-        public Optional<URI> getDestination(String user)
-        {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<URI> getDestination(String user, String query)
+        public Optional<URI> getDestination(RouterRequestInfo routerRequestInfo)
         {
             ++requestsMade;
             return Optional.of(candidates.get(0));
@@ -203,7 +198,7 @@ public class TestCustomSchedulerManager
         Scheduler scheduler = schedulerManager.getScheduler();
         scheduler.setCandidates(serverURIs);
 
-        URI target = scheduler.getDestination("test", null).orElse(new URI("invalid"));
+        URI target = scheduler.getDestination(new RouterRequestInfo("test")).orElse(new URI("invalid"));
         assertTrue(serverURIs.contains(target));
     }
 

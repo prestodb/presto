@@ -185,6 +185,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kSystemMemPushbackAbortEnabled, false),
           NUM_PROP(kWorkerOverloadedThresholdMemGb, 0),
           NUM_PROP(kWorkerOverloadedThresholdCpuPct, 0),
+          NUM_PROP(kWorkerOverloadedThresholdNumQueuedDriversHwMultiplier, 0.0),
           NUM_PROP(kWorkerOverloadedCooldownPeriodSec, 5),
           BOOL_PROP(kWorkerOverloadedTaskQueuingEnabled, false),
           NUM_PROP(kMallocHeapDumpThresholdGb, 20),
@@ -509,6 +510,13 @@ uint64_t SystemConfig::workerOverloadedThresholdMemGb() const {
 
 uint32_t SystemConfig::workerOverloadedThresholdCpuPct() const {
   return optionalProperty<uint32_t>(kWorkerOverloadedThresholdCpuPct).value();
+}
+
+double SystemConfig::workerOverloadedThresholdNumQueuedDriversHwMultiplier()
+    const {
+  return optionalProperty<double>(
+             kWorkerOverloadedThresholdNumQueuedDriversHwMultiplier)
+      .value();
 }
 
 uint32_t SystemConfig::workerOverloadedCooldownPeriodSec() const {
@@ -892,6 +900,7 @@ NodeConfig::NodeConfig() {
           NONE_PROP(kNodeIp),
           NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
+          NONE_PROP(kNodePrometheusExecutorThreads),
       };
 }
 
@@ -902,6 +911,16 @@ NodeConfig* NodeConfig::instance() {
 
 std::string NodeConfig::nodeEnvironment() const {
   return requiredProperty(kNodeEnvironment);
+}
+
+int NodeConfig::prometheusExecutorThreads() const {
+  static constexpr int
+      kNodePrometheusExecutorThreadsDefault = 2;
+  auto resultOpt = optionalProperty<int>(kNodePrometheusExecutorThreads);
+  if (resultOpt.hasValue()) {
+    return resultOpt.value();
+  }
+  return kNodePrometheusExecutorThreadsDefault;
 }
 
 std::string NodeConfig::nodeId() const {

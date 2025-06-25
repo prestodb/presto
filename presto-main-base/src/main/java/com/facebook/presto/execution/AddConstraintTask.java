@@ -89,7 +89,7 @@ public class AddConstraintTask
     @Override
     public ListenableFuture<?> execute(AddConstraint statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             if (!statement.isTableExists()) {

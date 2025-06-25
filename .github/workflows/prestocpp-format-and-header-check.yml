@@ -10,6 +10,9 @@ on:
 jobs:
   prestocpp-format-and-header-check:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-prestocpp-format-header-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     container:
       image: public.ecr.aws/oss-presto/velox-dev:check
     steps:

@@ -58,6 +58,7 @@ extern const char* const PRESTO_PAGE_NEXT_TOKEN_HEADER;
 extern const char* const PRESTO_BUFFER_COMPLETE_HEADER;
 extern const char* const PRESTO_GET_DATA_SIZE_HEADER;
 extern const char* const PRESTO_BUFFER_REMAINING_BYTES_HEADER;
+extern const char* const PRESTO_BUFFER_REMAINING_FROM_SPILL_HEADER;
 
 extern const char* const PRESTO_MAX_WAIT_DEFAULT;
 extern const char* const PRESTO_MAX_SIZE_DEFAULT;
@@ -67,21 +68,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message) {};
+      : std::runtime_error(message){};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message) {};
+  explicit TypeError(const std::string& message) : Exception(message){};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message) {};
+  explicit OutOfRange(const std::string& message) : Exception(message){};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message) {};
+  explicit ParseError(const std::string& message) : Exception(message){};
 };
 
 using String = std::string;
@@ -106,12 +107,13 @@ using Type = std::string;
 
 using DateTime = std::string;
 using Locale = std::string;
-using TimeZoneKey = long;
+using TimeZoneKey = int16_t;
 using URI = std::string;
 using SqlFunctionId = std::string;
 
 using QualifiedObjectName = std::string;
 using TypeSignature = std::string;
+using HostAddress = std::string;
 
 using ConnectorId = std::string;
 using MemoryPoolId = std::string;
@@ -727,7 +729,7 @@ namespace facebook::presto::protocol {
 
 struct Lifespan {
   bool isgroup = false;
-  long groupid = 0;
+  int groupid = 0;
 
   bool operator<(const Lifespan& o) const {
     return groupid < o.groupid;
@@ -759,7 +761,7 @@ void from_json(const json& j, Split& p);
 namespace facebook::presto::protocol {
 
 struct ScheduledSplit {
-  long sequenceId = {};
+  int64_t sequenceId = {};
   PlanNodeId planNodeId = {}; // dependency
   Split split = {};
 
@@ -1243,11 +1245,6 @@ enum class ErrorCause {
 };
 extern void to_json(json& j, const ErrorCause& e);
 extern void from_json(const json& j, ErrorCause& e);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-using HostAddress = std::string;
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ExecutionFailureInfo {

@@ -36,6 +36,7 @@ import com.facebook.presto.hive.metastore.file.DatabaseMetadata;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastoreConfig;
 import com.facebook.presto.hive.metastore.file.TableMetadata;
 import com.facebook.presto.iceberg.CommitTaskData;
+import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergHiveMetadata;
 import com.facebook.presto.iceberg.IcebergHiveMetadataFactory;
@@ -405,6 +406,7 @@ public class TestRenameTableOnFragileFileSystem
     {
         HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment();
         IcebergHiveMetadataFactory icebergHiveMetadataFactory = new IcebergHiveMetadataFactory(
+                new IcebergCatalogName("unimportant"),
                 metastore,
                 hdfsEnvironment,
                 FUNCTION_AND_TYPE_MANAGER,
@@ -416,7 +418,8 @@ public class TestRenameTableOnFragileFileSystem
                 new IcebergHiveTableOperationsConfig(),
                 new StatisticsFileCache(CacheBuilder.newBuilder().build()),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
-                new IcebergTableProperties(new IcebergConfig()));
+                new IcebergTableProperties(new IcebergConfig()),
+                () -> false);
         return icebergHiveMetadataFactory.create();
     }
 

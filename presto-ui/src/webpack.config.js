@@ -11,6 +11,7 @@ module.exports = (env) => {
     const apiHost = env.apiHost || 'localhost';
     const apiPort = env.apiPort || '8080';
     const outputDir = 'target/webapp';
+    const routerOutputDir = 'target/webapp-router';
     const baseConfig = {
         entry: {
             'css_loader': path.join(__dirname, 'static', 'vendor', 'css-loaders', 'loader.css'),
@@ -128,6 +129,31 @@ module.exports = (env) => {
         devServer,
     };
 
+    const routerConfig = {
+        ...baseConfig,
+        entry: {
+            'index': './router/index.jsx',
+        },
+        optimization: {
+            ...baseConfig.optimization,
+            splitChunks: {
+                ...mainConfig.optimization.splitChunks,
+            }
+        },
+        output: {
+            path: path.join(__dirname, '..', routerOutputDir),
+            filename: '[name].js',
+            chunkFilename: '[name].chunk.js',
+        },
+        plugins: [
+            new CopyPlugin({
+                patterns: [
+                    {from: "static/index.html", to: path.join(__dirname, "..", routerOutputDir)},
+                ]
+            }),
+        ],
+    };
+
     const spaConfig = {
         ...baseConfig,
         plugins: [
@@ -161,7 +187,7 @@ module.exports = (env) => {
     };
 
     if (env.config === 'all') {
-        return [mainConfig, spaConfig];
+        return [mainConfig, spaConfig, routerConfig];
     }
     if (env.config === 'spa') {
         return {
@@ -169,5 +195,5 @@ module.exports = (env) => {
             devServer,
         }
     }
-    return mainConfig;
+    return [mainConfig, routerConfig];
 };

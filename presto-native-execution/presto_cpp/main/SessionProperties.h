@@ -313,6 +313,16 @@ class SessionProperties {
   static constexpr const char* kRequestDataSizesMaxWaitSec = 
       "native_request_data_sizes_max_wait_sec";
 
+  /// Priority of memory pool reclaimer when deciding on memory pool to abort.
+  /// Lower value has higher priority and less likely to be chosen as candidate
+  /// for memory pool abort.
+  static constexpr const char* kNativeQueryMemoryReclaimerPriority =
+      "native_query_memory_reclaimer_priority";
+
+  /// Maximum number of splits to listen to by SplitListener on native workers.
+  static constexpr const char* kMaxNumSplitsListenedTo =
+      "native_max_num_splits_listened_to";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

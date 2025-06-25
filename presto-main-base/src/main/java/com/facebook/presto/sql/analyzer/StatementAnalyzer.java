@@ -440,7 +440,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget(), metadata);
 
             MetadataHandle metadataHandle = analysis.getMetadataHandle();
             if (getViewDefinition(session, metadataResolver, metadataHandle, targetTable).isPresent()) {
@@ -630,7 +630,7 @@ class StatementAnalyzer
         protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
             if (getViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {
@@ -675,7 +675,7 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             analysis.setUpdateType("ANALYZE");
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
             MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
             // verify the target table exists, and it's not a view
@@ -712,7 +712,7 @@ class StatementAnalyzer
             analysis.setUpdateType("CREATE TABLE");
 
             // turn this into a query that has a new table writer node on top.
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), metadata);
             analysis.setCreateTableDestination(targetTable);
 
             if (metadataResolver.tableExists(targetTable)) {
@@ -758,7 +758,7 @@ class StatementAnalyzer
         {
             analysis.setUpdateType("CREATE VIEW");
 
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
@@ -778,7 +778,7 @@ class StatementAnalyzer
         {
             analysis.setUpdateType("CREATE MATERIALIZED VIEW");
 
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
             analysis.setCreateTableDestination(viewName);
 
             if (metadataResolver.tableExists(viewName)) {
@@ -810,7 +810,7 @@ class StatementAnalyzer
         {
             analysis.setUpdateType("INSERT");
 
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName());
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName(), metadata);
 
             MaterializedViewDefinition view = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
@@ -870,14 +870,14 @@ class StatementAnalyzer
             checkState(analysis.getStatement() instanceof RefreshMaterializedView, "Not analyzing RefreshMaterializedView statement");
 
             RefreshMaterializedView refreshMaterializedView = (RefreshMaterializedView) analysis.getStatement();
-            QualifiedObjectName viewName = createQualifiedObjectName(session, refreshMaterializedView.getTarget(), refreshMaterializedView.getTarget().getName());
+            QualifiedObjectName viewName = createQualifiedObjectName(session, refreshMaterializedView.getTarget(), refreshMaterializedView.getTarget().getName(), metadata);
 
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere(), viewScope, metadata, session);
 
-            SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
+            SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
             if (tablePredicates.containsKey(baseTableName)) {
                 Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
                 analysis.registerNamedQuery(baseTable, tableSubquery, true);
@@ -1201,7 +1201,7 @@ class StatementAnalyzer
         private void validateBaseTables(List<Table> baseTables, Node node)
         {
             for (Table baseTable : baseTables) {
-                QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName());
+                QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata);
 
                 Optional<MaterializedViewDefinition> optionalMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), baseName);
                 if (optionalMaterializedView.isPresent()) {
@@ -1797,7 +1797,7 @@ class StatementAnalyzer
                     if (candidates.isEmpty()) {
                         // qualify the name using current schema and catalog
                         // Since we lost the Identifier context, create a new one here
-                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, new Identifier(name.getOriginalParts().get(0)), name);
+                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, new Identifier(name.getOriginalParts().get(0)), name, metadata);
                         candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.getCatalogName(), fullyQualifiedName.getSchemaName(), fullyQualifiedName.getObjectName()));
                     }
                     if (candidates.isEmpty()) {
@@ -1929,8 +1929,9 @@ class StatementAnalyzer
                 }
             }
 
-            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName(), metadata);
             analysis.setRelationName(table, QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()));
+
             if (name.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
             }
@@ -2085,7 +2086,7 @@ class StatementAnalyzer
 
         private Scope getScopeFromTable(Table table, Optional<Scope> scope)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), tableName);
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
@@ -2114,7 +2115,7 @@ class StatementAnalyzer
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView) {
                 CreateView viewStatement = (CreateView) statement;
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName(), metadata);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
@@ -2216,7 +2217,7 @@ class StatementAnalyzer
                 baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
             }
 
-            Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates).process(createSqlStatement, new PredicateStitcherContext());
+            Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates, metadata).process(createSqlStatement, new PredicateStitcherContext());
 
             // TODO: consider materialized view predicates https://github.com/prestodb/presto/issues/16034
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
@@ -2806,7 +2807,7 @@ class StatementAnalyzer
         protected Scope visitUpdate(Update update, Optional<Scope> scope)
         {
             Table table = update.getTable();
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
             MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
             if (getViewDefinition(session, metadataResolver, metadataHandle, tableName).isPresent()) {

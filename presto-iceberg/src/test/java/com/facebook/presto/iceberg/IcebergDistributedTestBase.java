@@ -636,6 +636,21 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    protected void testCreateTableAndValidateIcebergTableName()
+    {
+        String tableName = "test_create_table_for_validate_name";
+        Session session = getSession();
+        assertUpdate(session, format("CREATE TABLE %s (col1 INTEGER, aDate DATE)", tableName));
+        Table icebergTable = loadTable(tableName);
+
+        String catalog = session.getCatalog().get();
+        String schemaName = session.getSchema().get();
+        assertEquals(icebergTable.name(), catalog + "." + schemaName + "." + tableName);
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
     public void testPartitionedByTimeType()
     {
         // create iceberg table partitioned by column of TimestampType, and insert some data
@@ -1406,6 +1421,36 @@ public abstract class IcebergDistributedTestBase
                 ImmutableMap.of("c_bucket", partitionsBlock.getInt(0), "d_trunc", "th"));
         testCheckDeleteFiles(icebergTable, 3, ImmutableList.of(EQUALITY_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
         assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, '1001', NULL, NULL), (3, '1003', NULL, NULL), (6, '1004', 1, NULL), (6, '1006', 2, 'th002')");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithDataSequenceNumber(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        String tableName2 = "test_v2_row_delete_2_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, data varchar) WITH (\"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        assertUpdate("CREATE TABLE " + tableName2 + "(id int, data varchar) WITH (\"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES (1, 'a')", 1);
+
+        Table icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("id", 1));
+
+        Table icebergTable2 = updateTable(tableName2);
+        writeEqualityDeleteToNationTable(icebergTable2, ImmutableMap.of("id", 1));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'b'), (2, 'a'), (3, 'a')", 3);
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES (1, 'b'), (2, 'a'), (3, 'a')", 3);
+
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, 'b'), (2, 'a'), (3, 'a')");
+
+        assertQuery(session, "SELECT \"$data_sequence_number\", * FROM " + tableName, "VALUES (3, 1, 'b'), (3, 2, 'a'), (3, 3, 'a')");
+
+        assertQuery(session, "SELECT a.\"$data_sequence_number\", b.\"$data_sequence_number\" from " + tableName + " as a, " + tableName2 + " as b where a.id = b.id",
+                "VALUES (3, 3), (3, 3), (3, 3)");
     }
 
     @Test
@@ -2533,7 +2578,8 @@ public abstract class IcebergDistributedTestBase
 
     protected Table loadTable(String tableName)
     {
-        Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), "test-hive", getProperties(), new Configuration());
+        tableName = normalizeIdentifier(tableName, ICEBERG_CATALOG);
+        Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.loadTable(TableIdentifier.of("tpch", tableName));
     }
 

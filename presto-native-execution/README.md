@@ -124,6 +124,19 @@ by running the following script from the `presto/presto-native-execution` direct
 
 `./scripts/setup-adapters.sh arrow_flight`
 
+#### Nvidia cuDF GPU Support
+
+To enable support with [cuDF](https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf),
+add to the extra cmake flags:
+`EXTRA_CMAKE_FLAGS = -DPRESTO_ENABLE_CUDF=ON`
+
+In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER location must be explicitly set.
+The make command will look like:
+
+`CUDA_ARCHITECTURES=80 CUDA_COMPILER=/usr/local/cuda/bin/nvcc EXTRA_CMAKE_FLAGS=" -DPRESTO_ENABLE_CUDF=ON" make`
+
+The required dependencies are bundled from the Velox setup scripts.
+
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
 ```

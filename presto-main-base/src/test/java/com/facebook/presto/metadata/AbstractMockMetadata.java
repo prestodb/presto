@@ -60,6 +60,7 @@ import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 
 public abstract class AbstractMockMetadata
         implements Metadata
@@ -685,5 +686,11 @@ public abstract class AbstractMockMetadata
     public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public String normalizeIdentifier(Session session, String catalogName, String identifier)
+    {
+        return identifier.toLowerCase(ENGLISH);
     }
 }

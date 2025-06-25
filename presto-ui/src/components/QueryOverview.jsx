@@ -779,8 +779,9 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                     </thead>
                                     <tbody>
                                         <tr>
+                                            // Planned is the first state of a task. There is no "Pending" state. Also see line 787.
                                             <td className="stage-table-stat-title">
-                                                Pending
+                                                Planned
                                             </td>
                                             <td className="stage-table-stat-text">
                                                 {prestoStage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "PLANNED").length}

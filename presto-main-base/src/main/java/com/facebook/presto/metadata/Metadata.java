@@ -543,4 +543,6 @@ public interface Metadata
     }
 
     Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
+
+    String normalizeIdentifier(Session session, String catalogName, String identifier);
 }

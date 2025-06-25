@@ -39,6 +39,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -156,14 +157,17 @@ public class IcebergHiveMetadata
 {
     public static final int MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE = 1000;
 
+    private final IcebergCatalogName catalogName;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
     private final IcebergHiveTableOperationsConfig hiveTableOeprationsConfig;
+    private final ConnectorSystemConfig connectorSystemConfig;
     private final Cache<SchemaTableName, Optional<Table>> tableCache;
     private final ManifestFileCache manifestFileCache;
 
     public IcebergHiveMetadata(
+            IcebergCatalogName catalogName,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
@@ -175,14 +179,17 @@ public class IcebergHiveMetadata
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
         this.tableCache = CacheBuilder.newBuilder().maximumSize(MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE).build();
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
     public ExtendedHiveMetastore getMetastore()
@@ -206,7 +213,7 @@ public class IcebergHiveMetadata
     @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, manifestFileCache, session, schemaTableName);
+        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, manifestFileCache, session, catalogName, schemaTableName);
     }
 
     @Override
@@ -549,7 +556,8 @@ public class IcebergHiveMetadata
         Set<ColumnStatisticMetadata> supportedStatistics = ImmutableSet.<ColumnStatisticMetadata>builder()
                 .addAll(hiveColumnStatistics)
                 // iceberg table-supported statistics
-                .addAll(super.getStatisticsCollectionMetadata(session, tableMetadata).getColumnStatistics())
+                .addAll(!connectorSystemConfig.isNativeExecution() ?
+                        super.getStatisticsCollectionMetadata(session, tableMetadata).getColumnStatistics() : ImmutableSet.of())
                 .build();
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
         return new TableStatisticsMetadata(supportedStatistics, tableStatistics, emptyList());

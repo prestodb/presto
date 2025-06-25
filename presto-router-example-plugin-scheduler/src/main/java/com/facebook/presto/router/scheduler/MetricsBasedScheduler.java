@@ -14,6 +14,7 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.presto.spi.router.ClusterInfo;
+import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
 
 import java.net.URI;
@@ -31,17 +32,11 @@ public class MetricsBasedScheduler
 {
     private Map<URI, ClusterInfo> clusterInfos;
 
-    @Override
-    public Optional<URI> getDestination(String user)
-    {
-        return Optional.empty();
-    }
-
     /**
      * Returns the destination cluster URI with the fewest number of active and queued queries.
      */
     @Override
-    public Optional<URI> getDestination(String user, String query)
+    public Optional<URI> getDestination(RouterRequestInfo routerRequestInfo)
     {
         if (clusterInfos != null && !clusterInfos.isEmpty()) {
             //Cluster with the fewest number of queries will be returned

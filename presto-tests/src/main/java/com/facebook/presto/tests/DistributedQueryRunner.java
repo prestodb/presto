@@ -1032,6 +1032,14 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void loadPlanCheckerProviderManager(String planCheckerProviderName, Map<String, String> properties)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getPlanCheckerProviderManager().loadPlanCheckerProvider(planCheckerProviderName, properties, server.getPluginNodeManager());
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {

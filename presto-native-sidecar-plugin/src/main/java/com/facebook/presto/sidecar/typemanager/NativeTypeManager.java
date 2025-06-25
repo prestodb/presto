@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sidecar.typemanager;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.ParametricType;
@@ -54,9 +53,11 @@ import static com.facebook.presto.common.type.StandardTypes.IPADDRESS;
 import static com.facebook.presto.common.type.StandardTypes.IPPREFIX;
 import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
@@ -74,8 +75,6 @@ import static java.util.Objects.requireNonNull;
 public class NativeTypeManager
         implements TypeManager
 {
-    private static final Logger log = Logger.get(NativeTypeManager.class);
-
     private static final Set<String> NATIVE_ENGINE_SUPPORTED_TYPES =
             ImmutableSet.of(
                     BIGINT,
@@ -104,7 +103,9 @@ public class NativeTypeManager
                     ARRAY,
                     DECIMAL,
                     MAP,
+                    QDIGEST,
                     ROW,
+                    TDIGEST,
                     FunctionType.NAME);
 
     private final TypeManager typeManager;
