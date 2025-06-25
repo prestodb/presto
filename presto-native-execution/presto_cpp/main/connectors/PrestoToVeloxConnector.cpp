@@ -1091,8 +1091,8 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     // this never happens - if PRESTO_ENABLE_CUDF is not defined,
     // canUseCudfTableScan() will always return false
     return nullptr;
-  } else {
 #endif
+  } else {
     return std::make_unique<connector::hive::HiveTableHandle>(
         tableHandle.connectorId,
         tableName,
