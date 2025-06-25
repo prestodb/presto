@@ -220,6 +220,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.prestodb.tempto</groupId>
+            <artifactId>tempto-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>

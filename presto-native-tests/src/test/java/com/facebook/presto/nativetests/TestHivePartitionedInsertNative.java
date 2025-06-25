@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
@@ -22,6 +21,7 @@ import org.testng.annotations.Test;
 
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static java.lang.Boolean.parseBoolean;
+import static org.testng.Assert.assertEquals;
 
 public class TestHivePartitionedInsertNative
         extends AbstractTestQueryFramework
@@ -35,7 +35,7 @@ public class TestHivePartitionedInsertNative
     public void init() throws Exception
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
         super.init();
     }
 
@@ -75,16 +75,12 @@ public class TestHivePartitionedInsertNative
                 ")";
         queryRunner.execute(createTableSql);
 
-
         // Insert data twice
-        queryRunner.execute("INSERT INTO "+ tableName + " VALUES(0, 'ALGERIA', 0, 'haggle. carefully final deposits detect slyly again.'),\n" +
-                "(1, 'ARGENTINA', 1, 'al foxes promise slyly according to the regular accounts.')");
-        System.out.println(computeActual("SELECT count(*) FROM " + tableName));
-
+        queryRunner.execute("INSERT INTO "+ tableName + " SELECT * FROM "+NATION.getName());
+        queryRunner.execute("INSERT INTO "+ tableName + " SELECT * FROM "+NATION.getName());
         // Validate total row count
-//        queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName, "VALUES 50");
-//
-//        // Validate filtered row count
-//        queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName + " WHERE n_regionkey = 0", "VALUES 10");
+        assertEquals(queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName).toString(), "MaterializedResult{rows=[[50]], types=[bigint], setSessionProperties={}, resetSessionProperties=[]}");
+        // Validate filtered row count
+        assertEquals(queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName + " WHERE n_regionkey = 0").toString(), "MaterializedResult{rows=[[1g0]], types=[bigint], setSessionProperties={}, resetSessionProperties=[]}");
     }
 }
