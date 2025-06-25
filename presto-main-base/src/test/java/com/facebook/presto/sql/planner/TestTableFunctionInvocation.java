@@ -204,7 +204,7 @@ public class TestTableFunctionInvocation
                                                 ImmutableList.of(ImmutableList.of("a", "b")))
                                         .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                project(ImmutableMap.of("a", expression("INTEGER'1'"), "b", expression("BOOLEAN'true'")), anyTree(values(1))))));
+                                project(ImmutableMap.of("a", expression("INTEGER'1'"), "b", expression("BOOLEAN'true'")), values(1)))));
 
         // no table function outputs are referenced. All pass-through symbols are pruned from the TableFunctionProcessorNode. The unused symbol "b" is pruned from the source values node.
         assertPlan("SELECT 'constant' c FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",

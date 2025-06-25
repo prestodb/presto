@@ -128,7 +128,6 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarAp
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
-import com.facebook.presto.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilter;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
@@ -428,7 +427,6 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
-                                        new ReplaceRedundantJoinWithProject(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),

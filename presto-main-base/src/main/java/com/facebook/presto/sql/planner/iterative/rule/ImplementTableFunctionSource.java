@@ -343,13 +343,22 @@ public class ImplementTableFunctionSource
         // as if it was a single partition. Alternatively, it could be split into smaller partitions of arbitrary size.
         DataOrganizationSpecification specification = argumentProperties.specification().orElse(UNORDERED_SINGLE_PARTITION);
 
-        PlanNode window = new WindowNode(
+        PlanNode innerWindow = new WindowNode(
                 source.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 source,
                 specification,
                 ImmutableMap.of(
-                        rowNumber, new WindowNode.Function(rowNumberFunction, FULL_FRAME, false),
+                        rowNumber, new WindowNode.Function(rowNumberFunction, FULL_FRAME, false)),
+                Optional.empty(),
+                ImmutableSet.of(),
+                0);
+        PlanNode window = new WindowNode(
+                innerWindow.getSourceLocation(),
+                context.getIdAllocator().getNextId(),
+                innerWindow,
+                specification,
+                ImmutableMap.of(
                         partitionSize, new WindowNode.Function(countFunction, FULL_FRAME, false)),
                 Optional.empty(),
                 ImmutableSet.of(),
