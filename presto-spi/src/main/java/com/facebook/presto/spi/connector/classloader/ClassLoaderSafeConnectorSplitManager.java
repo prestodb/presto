@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +40,14 @@ public final class ClassLoaderSafeConnectorSplitManager
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplits(transactionHandle, session, layout, splitSchedulingContext);
+        }
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplits(transaction, session, function);
         }
     }
 }
