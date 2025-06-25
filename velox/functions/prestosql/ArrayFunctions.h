@@ -1161,7 +1161,7 @@ struct ArrayRemoveFunctionString {
       if (item.has_value()) {
         auto result = element.compare(item.value());
         if (result) {
-          out.push_back(item.value());
+          out.add_item().setNoCopy(item.value());
         }
       } else {
         out.add_null();
