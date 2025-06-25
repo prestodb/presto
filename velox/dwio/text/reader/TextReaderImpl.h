@@ -25,7 +25,6 @@
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/TypeWithId.h"
-#include "velox/dwio/common/exception/Exceptions.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -166,6 +165,7 @@ class TextRowReaderImpl : public RowReader {
 
   const std::shared_ptr<FileContents> contents_;
   const std::shared_ptr<const TypeWithId> schemaWithId_;
+  const std::shared_ptr<velox::common::ScanSpec>& scanSpec_;
 
   mutable std::shared_ptr<const TypeWithId> selectedSchema_;
 
@@ -178,7 +178,7 @@ class TextRowReaderImpl : public RowReader {
   bool atSOL_;
   uint8_t depth_;
   std::string unreadData_;
-  uint64_t limit_;
+  uint64_t limit_; // lowest offset not in the range
   uint64_t fileLength_;
   StringViewBufferHolder stringViewBuffer_;
 };

@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/text/reader/TextReaderImpl.h"
+#include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 #include <string>
@@ -35,7 +36,13 @@ void unsupportedBatchType(BaseVector* FOLLY_NULLABLE data) {
       (data == nullptr) ? "null" : typeid(*data).name());
 }
 
-void resizeVector(BaseVector* data, vector_size_t insertionIdx) {
+void resizeVector(
+    BaseVector* FOLLY_NULLABLE data,
+    const vector_size_t insertionIdx) {
+  if (data == nullptr) {
+    return;
+  }
+
   auto dataSize = data->size();
   if (dataSize == 0) {
     data->resize(10);
@@ -64,29 +71,53 @@ TextRowReaderImpl::TextRowReaderImpl(
     : RowReader(),
       contents_{fileContents},
       schemaWithId_{TypeWithId::create(fileContents->schema)},
+      scanSpec_{opts.scanSpec()},
       selectedSchema_{nullptr},
       options_{opts},
       columnSelector_{
           ColumnSelector::apply(opts.selector(), contents_->schema)},
       currentRow_{0},
-      pos_{0},
+      pos_{opts.offset()},
       atEOL_{false},
       atEOF_{false},
       atSOL_{false},
       depth_{0},
+      limit_{opts.limit()},
+      fileLength_{getStreamLength()},
       stringViewBuffer_{StringViewBufferHolder(&contents_->pool)} {
-  limit_ = options_.limit();
-  fileLength_ = getStreamLength();
-  // seek to first line at or after the specified region.
-  auto offset = opts.offset();
+  // Seek to first line at or after the specified region.
   if (contents_->compression == CompressionKind::CompressionKind_NONE) {
-    if (offset != 0) {
-      pos_ = offset;
+    /**
+     * TODO: Inconsistent row skipping behavior (kept for Presto compatibility)
+     *
+     * Issue: When reading from byte offset > 0, we skip rows inclusively at the
+     * start position, but when reading from byte 0, no rows are skipped. This
+     * creates inconsistent behavior where a row at the boundary may be skipped
+     * when it should be included.
+     *
+     * Example: If pos_ = 10 is the first byte of row 2, that entire row gets
+     * skipped, even though it should be read.
+     *
+     * Proposed fix: streamPosition_ = (pos_ == 0) ? 0 : --pos_;
+     * This would skip rows exclusively of pos_, ensuring consistent behavior.
+     */
+    const auto streamPosition_ = pos_;
+
+    contents_->inputStream = contents_->input->read(
+        streamPosition_,
+        contents_->fileLength - streamPosition_,
+        LogType::STREAM);
+
+    if (pos_ != 0) {
+      unreadData_.clear();
       (void)skipLine();
+    }
+    if (opts.skipRows() > 0) {
+      (void)seekToRow(opts.skipRows());
     }
   } else {
     // compressed text files, the first split reads the whole file, rest read 0
-    if (offset != 0) {
+    if (pos_ != 0) {
       atEOF_ = true;
     }
     limit_ = std::numeric_limits<uint64_t>::max();
@@ -96,15 +127,9 @@ TextRowReaderImpl::TextRowReaderImpl(
 uint64_t TextRowReaderImpl::next(
     uint64_t rows,
     VectorPtr& result,
-    const Mutation* /*mutation*/) {
+    const Mutation* mutation) {
   if (atEOF_) {
     return 0;
-  }
-
-  // initialize stream
-  if (!contents_->inputStream) {
-    contents_->inputStream =
-        contents_->input->read(pos_, contents_->fileLength, LogType::STREAM);
   }
 
   auto& t = schemaWithId_;
@@ -141,13 +166,24 @@ uint64_t TextRowReaderImpl::next(
       DelimType delim = DelimTypeNone;
       const auto& ct = t->childAt(i);
       const auto& rct = reqT->childAt(i);
-
-      /// TODO: PROJECTION
-
       auto childVector = rowVecPtr->childAt(i).get();
+
+      if (isSelectedField(ct)) {
+        ++colIndex;
+      } else if (colIndex < reqChildCount && !projectSelectedType) {
+        // not selected and not projecting: set to null
+        if (childVector != nullptr) {
+          rowVecPtr->setNull(i, true);
+          childVector = nullptr;
+        }
+        ++colIndex;
+      } else {
+        // not selected and projecting: just discard the field
+        childVector = nullptr;
+      }
+
       resizeVector(childVector, rowsRead);
       readElement(ct->type(), rct->type(), childVector, rowsRead, delim);
-      ++colIndex;
     }
 
     // set null property
@@ -155,7 +191,7 @@ uint64_t TextRowReaderImpl::next(
       auto childVector = rowVecPtr->childAt(i).get();
 
       if (childVector != nullptr) {
-        rowVecPtr->setNullCount(rowVecPtr->getNullCount().value_or(0) + 1);
+        rowVecPtr->setNull(i, true);
       }
     }
     (void)skipLine();
@@ -172,9 +208,7 @@ uint64_t TextRowReaderImpl::next(
       currentRow_ = 0;
     }
   }
-
-  result = rowVecPtr;
-
+  result = projectColumns(rowVecPtr, *scanSpec_, mutation);
   return rowsRead;
 }
 
@@ -214,7 +248,7 @@ uint64_t TextRowReaderImpl::getRowNumber() const {
 }
 
 uint64_t TextRowReaderImpl::seekToRow(uint64_t rowNumber) {
-  VELOX_CHECK_LT(
+  VELOX_CHECK_GT(
       rowNumber, currentRow_, "Text file cannot seek to earlier row");
 
   while (currentRow_ < rowNumber && !skipLine()) {
@@ -397,6 +431,7 @@ bool TextRowReaderImpl::skipLine() {
   while (!atEOL_) {
     (void)getByte(delim);
   }
+  // logically should be >=, kept as it is to align with presto reader
   if (pos_ > limit_) {
     atEOF_ = true;
   }
@@ -480,7 +515,7 @@ T TextRowReaderImpl::getInteger(
     TextRowReaderImpl& th,
     bool& isNull,
     DelimType& delim) {
-  auto s = getStringView(th, isNull, delim);
+  const auto& s = getStringView(th, isNull, delim);
 
   if (s.empty()) {
     isNull = true;
@@ -491,8 +526,8 @@ T TextRowReaderImpl::getInteger(
 
   // Test if s is not acceptable integer format for
   // the warehouse, for cases accepted by stol().
-  auto strRef = s.data();
-  auto c = strRef[0];
+  const auto& strRef = s.data();
+  char c = strRef[0];
   if (c != '-' && !std::isdigit(static_cast<unsigned char>(c))) {
     isNull = true;
     return 0;
@@ -540,7 +575,7 @@ bool TextRowReaderImpl::getBoolean(
     TextRowReaderImpl& th,
     bool& isNull,
     DelimType& delim) {
-  auto s = getStringView(th, isNull, delim);
+  const auto& s = getStringView(th, isNull, delim);
   if (s.empty()) {
     isNull = true;
   }
@@ -554,7 +589,7 @@ bool TextRowReaderImpl::getBoolean(
     return false;
   }
 
-  auto strRef = s.data();
+  const auto& strRef = s.data();
   switch (s.size()) {
     case 4:
       if (folly::StringPiece(strRef).equals(
@@ -578,7 +613,7 @@ bool TextRowReaderImpl::getBoolean(
 
 namespace {
 
-bool unacceptableFloatingPoint(std::string& s) {
+bool unacceptableFloatingPoint(const std::string& s) {
   for (auto c : s) {
     if (!(std::isalpha(c) || c == '-')) {
       return false;
@@ -593,7 +628,7 @@ float TextRowReaderImpl::getFloat(
     TextRowReaderImpl& th,
     bool& isNull,
     DelimType& delim) {
-  auto strView = getStringView(th, isNull, delim);
+  const auto& strView = getStringView(th, isNull, delim);
   if (strView.empty()) {
     isNull = true;
   }
@@ -631,7 +666,7 @@ double TextRowReaderImpl::getDouble(
     TextRowReaderImpl& th,
     bool& isNull,
     DelimType& delim) {
-  auto strView = getStringView(th, isNull, delim);
+  const auto& strView = getStringView(th, isNull, delim);
   if (strView.empty()) {
     isNull = true;
   }
@@ -728,10 +763,13 @@ void TextRowReaderImpl::readElement(
 
     case TypeKind::VARBINARY:
     case TypeKind::VARCHAR: {
-      auto strView = getStringView(*this, isNull, delim);
-      auto flatVector = data->asChecked<FlatVector<StringView>>();
+      const auto& strView = getStringView(*this, isNull, delim);
+      const auto& flatVector =
+          data ? data->asChecked<FlatVector<StringView>>() : nullptr;
       if (!flatVector) {
-        VELOX_FAIL("Expected FlatVector but got {}", typeid(*data).name());
+        VELOX_FAIL(
+            "Vector for column type does not match: expected FlatVector<StringView>, got {}",
+            data ? data->type()->toString() : "null");
         return;
       }
 
@@ -743,7 +781,6 @@ void TextRowReaderImpl::readElement(
 
       if (isNull) {
         flatVector->setNull(insertionRow, true);
-        flatVector->setNullCount(flatVector->getNullCount().value_or(0) + 1);
       }
 
       break;
@@ -798,7 +835,8 @@ void TextRowReaderImpl::readElement(
 
     case TypeKind::ARRAY: {
       const auto& ct = t->childAt(0);
-      const auto arrayVector = data->asChecked<ArrayVector>();
+      const auto& arrayVector = data ? data->asChecked<ArrayVector>() : nullptr;
+
       incrementDepth();
       (void)getEOR(delim, isNull);
 
@@ -810,8 +848,6 @@ void TextRowReaderImpl::readElement(
 
         if (isNull) {
           arrayVector->setNull(insertionRow, isNull);
-          arrayVector->setNullCount(
-              arrayVector->getNullCount().value_or(0) + 1);
         } else {
           // Read elements until we reach the end of the array
           while (!isOuterEOR(delim)) {
@@ -856,13 +892,12 @@ void TextRowReaderImpl::readElement(
 
     case TypeKind::ROW: {
       const auto& childCount = t->size();
-      const auto& rowVector = data->asChecked<RowVector>();
+      const auto& rowVector = data ? data->asChecked<RowVector>() : nullptr;
       incrementDepth();
 
       if (rowVector != nullptr) {
         if (isNull) {
           rowVector->setNull(insertionRow, isNull);
-          rowVector->setNullCount(rowVector->getNullCount().value_or(0) + 1);
         } else {
           for (uint64_t j = 0; j < childCount; j++) {
             if (!isOuterEOR(delim)) {
@@ -904,10 +939,10 @@ void TextRowReaderImpl::readElement(
     }
 
     case TypeKind::MAP: {
-      auto& mapt = t->asMap();
+      const auto& mapt = t->asMap();
       const auto& key = mapt.keyType();
       const auto& value = mapt.valueType();
-      auto mapVector = data->asChecked<MapVector>();
+      const auto& mapVector = data ? data->asChecked<MapVector>() : nullptr;
       incrementDepth();
       (void)getEOR(delim, isNull);
 
@@ -918,7 +953,6 @@ void TextRowReaderImpl::readElement(
         vector_size_t elementCount = 0;
         if (isNull) {
           mapVector->setNull(insertionRow, isNull);
-          mapVector->setNullCount(mapVector->getNullCount().value_or(0) + 1);
         } else {
           while (!isOuterEOR(delim)) {
             // decode another element
@@ -1001,22 +1035,24 @@ void TextRowReaderImpl::readElement(
       break;
 
     case TypeKind::TIMESTAMP: {
-      auto s = getStringView(*this, isNull, delim);
+      const auto& s = getStringView(*this, isNull, delim);
       // Early return if no data vector or at EOF
       if ((atEOF_ && atSOL_) || (data == nullptr)) {
         return;
       }
 
-      auto flatVector = data->asChecked<FlatVector<Timestamp>>();
+      auto flatVector =
+          data ? data->asChecked<FlatVector<Timestamp>>() : nullptr;
       if (!flatVector) {
-        VELOX_FAIL("Expected FlatVector but got {}", typeid(*data).name());
+        VELOX_FAIL(
+            "Vector for column type does not match: expected FlatVector<Timestamp>, got {}",
+            data ? data->type()->toString() : "null");
         return;
       }
 
       if (s.empty()) {
         isNull = true;
         flatVector->setNull(insertionRow, true);
-        flatVector->setNullCount(flatVector->getNullCount().value_or(0) + 1);
       } else {
         auto ts = util::Converter<TypeKind::TIMESTAMP>::tryCast(s).thenOrThrow(
             folly::identity,
@@ -1076,9 +1112,9 @@ void TextRowReaderImpl::putValue(
   }
 
   // Cast to FlatVector<reqT>
-  auto flatVector = data->asChecked<FlatVector<reqT>>();
+  auto flatVector = data ? data->asChecked<FlatVector<reqT>>() : nullptr;
   if (!flatVector) {
-    VELOX_FAIL("Expected FlatVector but got {}", typeid(*data).name());
+    VELOX_FAIL("Vector for column type does not match");
     return;
   }
 
@@ -1086,8 +1122,7 @@ void TextRowReaderImpl::putValue(
 
   // handle null property
   if (isNull) {
-    flatVector->setNull(insertionRow, true);
-    flatVector->setNullCount(flatVector->getNullCount().value_or(0) + 1);
+    flatVector->setNull(insertionRow, isNull);
   }
 }
 
@@ -1158,6 +1193,8 @@ DelimType TextRowReaderImpl::getDelimType(uint8_t v) {
   if (v == '\n') {
     atEOL_ = true;
     delim = DelimTypeEOR; // top level EOR
+
+    // logically should be >=, kept as it is to align with presto reader
     if (pos_ > limit_) {
       atEOF_ = true;
     }
