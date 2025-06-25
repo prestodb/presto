@@ -94,8 +94,9 @@ int main(int argc, char** argv) {
       "merge_tdigest",
       "construct_tdigest",
       "quantiles_at_values",
-      // https://github.com/facebookincubator/velox/issues/13551
-      "values_at_quantiles",
+      "values_at_quantiles", // Skip until
+                             // https://github.com/prestodb/presto/pull/25291 is
+                             // released
       // Fuzzer cannot generate valid 'comparator' lambda.
       "array_sort(array(T),constant function(T,T,bigint)) -> array(T)",
       "split_to_map(varchar,varchar,varchar,function(varchar,varchar,varchar,varchar)) -> map(varchar,varchar)",
@@ -191,6 +192,9 @@ int main(int argc, char** argv) {
           {"value_at_quantile",
            std::make_shared<UnifiedDigestArgValuesGenerator>(
                "value_at_quantile")},
+          {"values_at_quantiles",
+           std::make_shared<UnifiedDigestArgValuesGenerator>(
+               "values_at_quantiles")},
           {"scale_tdigest",
            std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")},
           {"quantile_at_value",
