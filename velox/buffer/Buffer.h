@@ -367,6 +367,7 @@ class AlignedBuffer : public Buffer {
     }
 
     void* memory = pool->allocate(preferredSize);
+    VELOX_CHECK_NOT_NULL(memory);
     auto* buffer = new (memory) ImplClass<T>(pool, preferredSize - kPaddedSize);
     // set size explicitly instead of setSize because `fillNewMemory` already
     // called the constructors
