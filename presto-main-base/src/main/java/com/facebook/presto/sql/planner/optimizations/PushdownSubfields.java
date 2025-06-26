@@ -91,7 +91,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
-import static com.facebook.presto.SystemSessionProperties.isPushSubfieldsForMapSubsetEnabled;
+import static com.facebook.presto.SystemSessionProperties.isPushSubfieldsForMapFunctionsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFromArrayLambdasEnabled;
 import static com.facebook.presto.common.Subfield.allSubscripts;
@@ -100,6 +100,7 @@ import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -311,7 +312,7 @@ public class PushdownSubfields
                     continue;
                 }
 
-                Optional<List<Subfield>> subfield = toSubfield(expression, functionResolution, expressionOptimizer, session.toConnectorSession(), metadata.getFunctionAndTypeManager(), isPushSubfieldsForMapSubsetEnabled(session));
+                Optional<List<Subfield>> subfield = toSubfield(expression, functionResolution, expressionOptimizer, session.toConnectorSession(), metadata.getFunctionAndTypeManager(), isPushSubfieldsForMapFunctionsEnabled(session));
                 if (subfield.isPresent()) {
                     subfield.get().forEach(element -> context.get().addAssignment(variable, element));
                     continue;
@@ -580,7 +581,7 @@ public class PushdownSubfields
                 ExpressionOptimizer expressionOptimizer,
                 ConnectorSession connectorSession,
                 FunctionAndTypeManager functionAndTypeManager,
-                boolean isPushdownSubfieldsForMapSubsetEnabled)
+                boolean isPushdownSubfieldsForMapFunctionsEnabled)
         {
             ImmutableList.Builder<Subfield.PathElement> elements = ImmutableList.builder();
             while (true) {
@@ -657,30 +658,84 @@ public class PushdownSubfields
                 }
                 // map_subset(feature, constant_array) is only accessing fields specified in feature map.
                 // For example map_subset(feature, array[1, 2]) is equivalent to calling element_at(feature, 1) and element_at(feature, 2) for subfield extraction
-                if (isPushdownSubfieldsForMapSubsetEnabled && expression instanceof CallExpression && isMapSubSetWithConstantArray((CallExpression) expression, functionResolution)) {
+                if (isPushdownSubfieldsForMapFunctionsEnabled && expression instanceof CallExpression && isMapSubSetWithConstantArray((CallExpression) expression, functionResolution)) {
                     CallExpression call = (CallExpression) expression;
                     ConstantExpression constantArray = (ConstantExpression) call.getArguments().get(1);
-                    checkState(constantArray.getValue() instanceof Block && constantArray.getType() instanceof ArrayType);
-                    Block arrayValue = (Block) constantArray.getValue();
-                    Type arrayElementType = ((ArrayType) constantArray.getType()).getElementType();
-                    ImmutableList.Builder<Subfield> arguments = ImmutableList.builder();
-                    for (int i = 0; i < arrayValue.getPositionCount(); ++i) {
-                        Object mapKey = readNativeValue(arrayElementType, arrayValue, i);
-                        if (mapKey == null) {
-                            return Optional.empty();
-                        }
-                        if (mapKey instanceof Number) {
-                            arguments.add(new Subfield(((VariableReferenceExpression) call.getArguments().get(0)).getName(), ImmutableList.of(new Subfield.LongSubscript(((Number) mapKey).longValue()))));
-                        }
-                        if (isVarcharType(arrayElementType)) {
-                            arguments.add(new Subfield(((VariableReferenceExpression) call.getArguments().get(0)).getName(), ImmutableList.of(new Subfield.StringSubscript(((Slice) mapKey).toStringUtf8()))));
-                        }
-                    }
-                    return Optional.of(arguments.build());
+                    return extractSubfieldsFromArray(constantArray, (VariableReferenceExpression) call.getArguments().get(0));
                 }
 
+                // map_filter(feature, (k, v) -> k in (1, 2, 3)), map_filter(feature, (k, v) -> contains(array[1, 2, 3], k)), map_filter(feature, (k, v) -> k = 2) only access specified elements
+                if (isPushdownSubfieldsForMapFunctionsEnabled && expression instanceof CallExpression && isMapFilterWithConstantFilterInMapKey((CallExpression) expression, functionResolution)) {
+                    CallExpression call = (CallExpression) expression;
+                    VariableReferenceExpression mapVariable = (VariableReferenceExpression) call.getArguments().get(0);
+                    ImmutableList.Builder<Subfield> arguments = ImmutableList.builder();
+                    if (((LambdaDefinitionExpression) call.getArguments().get(1)).getBody() instanceof SpecialFormExpression) {
+                        List<RowExpression> mapKeys = ((SpecialFormExpression) ((LambdaDefinitionExpression) call.getArguments().get(1)).getBody()).getArguments().stream().skip(1).collect(toImmutableList());
+                        for (RowExpression mapKey : mapKeys) {
+                            Optional<Subfield> mapKeySubfield = extractSubfieldsFromSingleValue((ConstantExpression) mapKey, mapVariable);
+                            if (!mapKeySubfield.isPresent()) {
+                                return Optional.empty();
+                            }
+                            arguments.add(mapKeySubfield.get());
+                        }
+                        return Optional.of(arguments.build());
+                    }
+                    else if (((LambdaDefinitionExpression) call.getArguments().get(1)).getBody() instanceof CallExpression) {
+                        CallExpression callExpression = (CallExpression) ((LambdaDefinitionExpression) call.getArguments().get(1)).getBody();
+                        if (functionResolution.isArrayContainsFunction(callExpression.getFunctionHandle())) {
+                            return extractSubfieldsFromArray((ConstantExpression) callExpression.getArguments().get(0), mapVariable);
+                        }
+                        else if (functionResolution.isEqualFunction(callExpression.getFunctionHandle())) {
+                            ConstantExpression mapKey;
+                            if (callExpression.getArguments().get(0) instanceof ConstantExpression) {
+                                mapKey = (ConstantExpression) callExpression.getArguments().get(0);
+                            }
+                            else {
+                                mapKey = (ConstantExpression) callExpression.getArguments().get(1);
+                            }
+                            Optional<Subfield> mapKeySubfield = extractSubfieldsFromSingleValue(mapKey, mapVariable);
+                            return mapKeySubfield.map(ImmutableList::of);
+                        }
+                    }
+                }
                 return Optional.empty();
             }
+        }
+
+        private static Optional<List<Subfield>> extractSubfieldsFromArray(ConstantExpression constantArray, VariableReferenceExpression mapVariable)
+        {
+            ImmutableList.Builder<Subfield> arguments = ImmutableList.builder();
+            checkState(constantArray.getValue() instanceof Block && constantArray.getType() instanceof ArrayType);
+            Block arrayValue = (Block) constantArray.getValue();
+            Type arrayElementType = ((ArrayType) constantArray.getType()).getElementType();
+            for (int i = 0; i < arrayValue.getPositionCount(); ++i) {
+                Object mapKey = readNativeValue(arrayElementType, arrayValue, i);
+                if (mapKey == null) {
+                    return Optional.empty();
+                }
+                if (mapKey instanceof Number) {
+                    arguments.add(new Subfield(mapVariable.getName(), ImmutableList.of(new Subfield.LongSubscript(((Number) mapKey).longValue()))));
+                }
+                if (isVarcharType(arrayElementType)) {
+                    arguments.add(new Subfield(mapVariable.getName(), ImmutableList.of(new Subfield.StringSubscript(((Slice) mapKey).toStringUtf8()))));
+                }
+            }
+            return Optional.of(arguments.build());
+        }
+
+        private static Optional<Subfield> extractSubfieldsFromSingleValue(ConstantExpression mapKey, VariableReferenceExpression mapVariable)
+        {
+            Object value = mapKey.getValue();
+            if (value == null) {
+                return Optional.empty();
+            }
+            if (value instanceof Number) {
+                return Optional.of(new Subfield(mapVariable.getName(), ImmutableList.of(new Subfield.LongSubscript(((Number) value).longValue()))));
+            }
+            if (isVarcharType(mapKey.getType())) {
+                return Optional.of(new Subfield(mapVariable.getName(), ImmutableList.of(new Subfield.StringSubscript(((Slice) value).toStringUtf8()))));
+            }
+            return Optional.empty();
         }
 
         private static NestedField nestedField(String name)
@@ -696,7 +751,7 @@ public class PushdownSubfields
             private final ConnectorSession connectorSession;
             private final FunctionAndTypeManager functionAndTypeManager;
             private final boolean isPushDownSubfieldsFromLambdasEnabled;
-            private final boolean isPushdownSubfieldsForMapSubsetEnabled;
+            private final boolean isPushdownSubfieldsForMapFunctionsEnabled;
 
             private SubfieldExtractor(
                     FunctionResolution functionResolution,
@@ -711,15 +766,15 @@ public class PushdownSubfields
                 this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
                 requireNonNull(session);
                 this.isPushDownSubfieldsFromLambdasEnabled = isPushdownSubfieldsFromArrayLambdasEnabled(session);
-                this.isPushdownSubfieldsForMapSubsetEnabled = isPushSubfieldsForMapSubsetEnabled(session);
+                this.isPushdownSubfieldsForMapFunctionsEnabled = isPushSubfieldsForMapFunctionsEnabled(session);
             }
 
             @Override
             public Void visitCall(CallExpression call, Context context)
             {
                 ComplexTypeFunctionDescriptor functionDescriptor = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getDescriptor();
-                if (isSubscriptOrElementAtFunction(call, functionResolution, functionAndTypeManager) || isMapSubSetWithConstantArray(call, functionResolution)) {
-                    Optional<List<Subfield>> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapSubsetEnabled);
+                if (isSubscriptOrElementAtFunction(call, functionResolution, functionAndTypeManager) || isMapSubSetWithConstantArray(call, functionResolution) || isMapFilterWithConstantFilterInMapKey(call, functionResolution)) {
+                    Optional<List<Subfield>> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapFunctionsEnabled);
                     if (subfield.isPresent()) {
                         if (context.isPruningLambdaSubfieldsPossible()) {
                             subfield.get().forEach(item -> addRequiredLambdaSubfields(context, item));
@@ -878,7 +933,7 @@ public class PushdownSubfields
                     return null;
                 }
 
-                Optional<List<Subfield>> subfield = toSubfield(specialForm, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapSubsetEnabled);
+                Optional<List<Subfield>> subfield = toSubfield(specialForm, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapFunctionsEnabled);
 
                 if (subfield.isPresent()) {
                     if (context.isPruningLambdaSubfieldsPossible()) {
@@ -918,7 +973,7 @@ public class PushdownSubfields
             public Void visitVariableReference(VariableReferenceExpression reference, Context context)
             {
                 if (context.isPruningLambdaSubfieldsPossible()) {
-                    toSubfield(reference, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapSubsetEnabled).get().forEach(item -> addRequiredLambdaSubfields(context, item));
+                    toSubfield(reference, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapFunctionsEnabled).get().forEach(item -> addRequiredLambdaSubfields(context, item));
                     return null;
                 }
                 context.variables.add(reference);
@@ -1015,5 +1070,36 @@ public class PushdownSubfields
         return functionResolution.isMapSubSetFunction(expression.getFunctionHandle())
                 && expression.getArguments().get(0) instanceof VariableReferenceExpression
                 && expression.getArguments().get(1) instanceof ConstantExpression;
+    }
+
+    private static boolean isMapFilterWithConstantFilterInMapKey(CallExpression expression, FunctionResolution functionResolution)
+    {
+        if (functionResolution.isMapFilterFunction(expression.getFunctionHandle())
+                && expression.getArguments().get(0) instanceof VariableReferenceExpression && expression.getArguments().get(1) instanceof LambdaDefinitionExpression) {
+            LambdaDefinitionExpression lambdaDefinitionExpression = (LambdaDefinitionExpression) expression.getArguments().get(1);
+            if (lambdaDefinitionExpression.getBody() instanceof SpecialFormExpression) {
+                SpecialFormExpression specialFormExpression = (SpecialFormExpression) lambdaDefinitionExpression.getBody();
+                if (specialFormExpression.getForm().equals(IN) && specialFormExpression.getArguments().get(0) instanceof VariableReferenceExpression
+                        && ((VariableReferenceExpression) specialFormExpression.getArguments().get(0)).getName().equals(lambdaDefinitionExpression.getArguments().get(0))) {
+                    return specialFormExpression.getArguments().stream().skip(1).allMatch(x -> x instanceof ConstantExpression);
+                }
+            }
+            else if (lambdaDefinitionExpression.getBody() instanceof CallExpression) {
+                CallExpression callExpression = (CallExpression) lambdaDefinitionExpression.getBody();
+                if (functionResolution.isArrayContainsFunction(callExpression.getFunctionHandle())) {
+                    return callExpression.getArguments().get(0) instanceof ConstantExpression && callExpression.getArguments().get(1) instanceof VariableReferenceExpression
+                            && ((VariableReferenceExpression) callExpression.getArguments().get(1)).getName().equals(lambdaDefinitionExpression.getArguments().get(0));
+                }
+                else if (functionResolution.isEqualFunction(callExpression.getFunctionHandle())) {
+                    return (callExpression.getArguments().get(0) instanceof VariableReferenceExpression
+                            && ((VariableReferenceExpression) callExpression.getArguments().get(0)).getName().equals(lambdaDefinitionExpression.getArguments().get(0))
+                            && callExpression.getArguments().get(1) instanceof ConstantExpression)
+                            || (callExpression.getArguments().get(1) instanceof VariableReferenceExpression
+                            && ((VariableReferenceExpression) callExpression.getArguments().get(1)).getName().equals(lambdaDefinitionExpression.getArguments().get(0))
+                            && callExpression.getArguments().get(0) instanceof ConstantExpression);
+                }
+            }
+        }
+        return false;
     }
 }
