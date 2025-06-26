@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.facebook.presto.common.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
@@ -24,8 +24,8 @@ public class ScoreColumnDecoder
         implements Decoder
 {
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(Hit hit, Supplier<Object> getter, BlockBuilder output)
     {
-        REAL.writeLong(output, Float.floatToRawIntBits(hit.getScore()));
+        REAL.writeLong(output, Double.doubleToRawLongBits(hit.score()));
     }
 }
