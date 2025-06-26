@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
@@ -24,9 +25,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.apache.hc.core5.http.HttpHost;
 
 import java.util.Map;
 
@@ -53,7 +52,7 @@ public final class ElasticsearchQueryRunner
             Map<String, String> extraConnectorProperties)
             throws Exception
     {
-        RestHighLevelClient client = null;
+        Rest5Client client = null;
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
@@ -72,7 +71,7 @@ public final class ElasticsearchQueryRunner
 
             LOG.info("Loading data...");
 
-            client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
+            client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
 
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
@@ -114,7 +113,7 @@ public final class ElasticsearchQueryRunner
         queryRunner.createCatalog("elasticsearch", "elasticsearch", newconfig);
     }
 
-    private static void loadTpchTopic(RestHighLevelClient client, TestingPrestoClient prestoClient, TpchTable<?> table)
+    private static void loadTpchTopic(Rest5Client client, TestingPrestoClient prestoClient, TpchTable<?> table)
     {
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());
@@ -132,7 +131,7 @@ public final class ElasticsearchQueryRunner
             throws Exception
     {
         // To start Elasticsearch:
-        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:9.1.0
 
         Logging.initialize();
 
