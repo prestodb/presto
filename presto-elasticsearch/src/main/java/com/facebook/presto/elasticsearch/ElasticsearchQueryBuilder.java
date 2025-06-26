@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.ExistsQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchAllQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryStringQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermRangeQuery;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.slice.Slice;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.ExistsQueryBuilder;
-import org.elasticsearch.index.query.MatchAllQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermQueryBuilder;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -53,9 +54,9 @@ public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
+    public static Query buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
     {
-        BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        BoolQuery.Builder queryBuilder = new BoolQuery.Builder();
         if (constraint.getDomains().isPresent()) {
             for (Map.Entry<ElasticsearchColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
                 ElasticsearchColumnHandle column = entry.getKey();
@@ -63,42 +64,39 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
                 if (!domain.isAll()) {
-                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(session, column.getName(), domain, column.getType())));
+                    queryBuilder.filter(new BoolQuery.Builder().must(buildPredicate(session, column.getName(), domain, column.getType())).build());
                 }
             }
         }
 
-        query.map(QueryStringQueryBuilder::new)
-                .ifPresent(queryBuilder::must);
+        query.map(q -> new QueryStringQuery.Builder().query(q).build()).ifPresent(queryBuilder::must);
 
         if (queryBuilder.hasClauses()) {
-            return queryBuilder;
+            return queryBuilder.build()._toQuery();
         }
-        return new MatchAllQueryBuilder();
+        return new MatchAllQuery.Builder().build()._toQuery();
     }
 
-    private static QueryBuilder buildPredicate(ConnectorSession session, String columnName, Domain domain, Type type)
+    private static Query buildPredicate(ConnectorSession session, String columnName, Domain domain, Type type)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
-        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
         if (domain.getValues().isNone()) {
-            boolQueryBuilder.mustNot(new ExistsQueryBuilder(columnName));
-            return boolQueryBuilder;
+            return new BoolQuery.Builder().mustNot(new ExistsQuery.Builder().field(columnName).build()._toQuery()).build()._toQuery();
         }
 
         if (domain.getValues().isAll()) {
-            boolQueryBuilder.must(new ExistsQueryBuilder(columnName));
-            return boolQueryBuilder;
+            return new BoolQuery.Builder().must(new ExistsQuery.Builder().field(columnName).build()._toQuery()).build()._toQuery();
         }
 
-        return buildTermQuery(boolQueryBuilder, session, columnName, domain, type);
+        return buildTermQuery(session, columnName, domain, type);
     }
 
-    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, ConnectorSession session, String columnName, Domain domain, Type type)
+    private static Query buildTermQuery(ConnectorSession session, String columnName, Domain domain, Type type)
     {
+        BoolQuery.Builder outerBuilder = new BoolQuery.Builder();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-            BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
+            BoolQuery.Builder rangeQueryBuilder = new BoolQuery.Builder();
             Set<Object> valuesToInclude = new HashSet<>();
             checkState(!range.isAll(), "Invalid range for column: " + columnName);
             if (range.isSingleValue()) {
@@ -106,62 +104,71 @@ public final class ElasticsearchQueryBuilder
             }
             else {
                 if (!range.isLowUnbounded()) {
-                    Object lowBound = getValue(session, type, range.getLowBoundedValue());
+                    FieldValue lowBound = getValue(session, type, range.getLowBoundedValue());
                     if (range.isLowInclusive()) {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(lowBound));
+                        rangeQueryBuilder.filter(new TermRangeQuery.Builder().field(columnName).gte(String.valueOf(lowBound)).build()._toRangeQuery());
                     }
                     else {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(lowBound));
+                        rangeQueryBuilder.filter(new TermRangeQuery.Builder().field(columnName).gt(String.valueOf(lowBound)).build()._toRangeQuery());
                     }
                 }
                 if (!range.isHighUnbounded()) {
-                    Object highBound = getValue(session, type, range.getHighBoundedValue());
+                    FieldValue highBound = getValue(session, type, range.getHighBoundedValue());
                     if (range.isHighInclusive()) {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(highBound));
+                        rangeQueryBuilder.filter(new TermRangeQuery.Builder().field(columnName).lte(String.valueOf(highBound)).build()._toRangeQuery());
                     }
                     else {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(highBound));
+                        rangeQueryBuilder.filter(new TermRangeQuery.Builder().field(columnName).lt(highBound.stringValue()).build()._toRangeQuery());
                     }
                 }
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQuery.Builder().field(columnName).value(getValue(session, type, getOnlyElement(valuesToInclude))).build());
             }
-            queryBuilder.should(rangeQueryBuilder);
+            outerBuilder.should(rangeQueryBuilder.build()._toQuery());
         }
         if (domain.isNullAllowed()) {
-            queryBuilder.should(new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(columnName)));
+            outerBuilder.should(new BoolQuery.Builder().mustNot(new ExistsQuery.Builder().field(columnName).build()._toQuery()).build());
         }
-        return queryBuilder;
+        return outerBuilder.build()._toQuery();
     }
 
-    private static Object getValue(ConnectorSession session, Type type, Object value)
+    private static FieldValue getValue(ConnectorSession session, Type type, Object value)
     {
-        if (type.equals(BOOLEAN) ||
-                type.equals(TINYINT) ||
+        if (type.equals(BOOLEAN)) {
+            return FieldValue.of((boolean) value);
+        }
+
+        if (type.equals(TINYINT) ||
                 type.equals(SMALLINT) ||
                 type.equals(INTEGER) ||
-                type.equals(BIGINT) ||
-                type.equals(DOUBLE)) {
-            return value;
+                type.equals(BIGINT)) {
+            return FieldValue.of(((Number) value).longValue());
+        }
+        if (type.equals(DOUBLE)) {
+            return FieldValue.of((double) value);
         }
 
         if (type.equals(REAL)) {
-            return Float.intBitsToFloat(toIntExact(((Long) value)));
+            float realValue = Float.intBitsToFloat(toIntExact((Long) value));
+            return FieldValue.of(realValue);
         }
 
         if (type.equals(VARCHAR)) {
-            return ((Slice) value).toStringUtf8();
+            String stringValue = ((Slice) value).toStringUtf8();
+            return FieldValue.of(stringValue);
         }
 
         if (type.equals(TIMESTAMP)) {
             checkState(session.getSqlFunctionProperties().isLegacyTimestamp(), "New timestamp semantics not yet supported");
 
-            return Instant.ofEpochMilli((Long) value)
+            String dateValue = Instant.ofEpochMilli((Long) value)
                     .atZone(ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()))
                     .toLocalDateTime()
                     .format(ISO_DATE_TIME);
+
+            return FieldValue.of(dateValue);
         }
         throw new IllegalArgumentException("Unhandled type: " + type);
     }

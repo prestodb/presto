@@ -101,21 +101,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-high-level-client</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-client</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+            <version>9.0.1</version>
         </dependency>
 
         <dependency>
@@ -343,37 +331,6 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-core</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-x-content</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch.plugin</groupId>
-            <artifactId>transport-netty4-client</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.elasticsearch</groupId>
-                    <artifactId>jna</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
     </dependencies>
 
