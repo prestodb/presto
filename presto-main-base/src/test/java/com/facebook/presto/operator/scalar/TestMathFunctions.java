@@ -1408,6 +1408,64 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testArrayL2Squared()
+    {
+        assertFunction(
+                "l2_squared(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, 0.0f);
+        assertFunction(
+                "l2_squared(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '4.0', REAL '5.0', REAL '6.0'])",
+                REAL, 27.0f);
+        assertFunction(
+                "l2_squared(array[REAL '-1.0', REAL '-2.0', REAL '-3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, 56.0f);
+        assertFunction(
+                "l2_squared(array[REAL '0.0', REAL '0.0', REAL '0.0'], array[REAL '0.0', REAL '0.0', REAL '0.0'])",
+                REAL, 0.0f);
+        assertInvalidFunction(
+                "l2_squared(array[REAL '1.0', REAL '2.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                "Both array arguments need to have identical size");
+        assertFunction(
+                "l2_squared(CAST(null AS array(real)), array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, null);
+        assertFunction(
+                "l2_squared(array[REAL '1.0', REAL '2.0', REAL '3.0'], CAST(null AS array(real)))",
+                REAL, null);
+        assertFunction(
+                "l2_squared(CAST(null AS array(real)), CAST(null AS array(real)))",
+                REAL, null);
+    }
+
+    @Test
+    public void testArrayL2SquaredDouble()
+    {
+        assertFunction(
+                "l2_squared(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, 0.0d);
+        assertFunction(
+                "l2_squared(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '4.0', DOUBLE '5.0', DOUBLE '6.0'])",
+                DOUBLE, 27.0d);
+        assertFunction(
+                "l2_squared(array[DOUBLE '-1.0', DOUBLE '-2.0', DOUBLE '-3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, 56.0d);
+        assertFunction(
+                "l2_squared(array[DOUBLE '0.0', DOUBLE '0.0', DOUBLE '0.0'], array[DOUBLE '0.0', DOUBLE '0.0', DOUBLE '0.0'])",
+                DOUBLE, 0.0d);
+        assertInvalidFunction(
+                "l2_squared(array[DOUBLE '1.0', DOUBLE '2.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                "Both array arguments need to have identical size");
+        assertFunction(
+                "l2_squared(CAST(null AS array(double)), array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, null);
+        assertFunction(
+                "l2_squared(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], CAST(null AS array(double)))",
+                DOUBLE, null);
+        assertFunction(
+                "l2_squared(CAST(null AS array(double)), CAST(null AS array(double)))",
+                DOUBLE, null);
+    }
+
+    @Test
     public void testInverseNormalCdf()
     {
         assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);

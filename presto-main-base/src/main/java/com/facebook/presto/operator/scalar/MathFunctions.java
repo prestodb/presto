@@ -1643,6 +1643,48 @@ public final class MathFunctions
         return dotProduct / (normLeftArray * normRightArray);
     }
 
+    @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
+    @ScalarFunction("l2_squared")
+    @SqlType(StandardTypes.REAL)
+    public static long arrayL2Squared(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments need to have identical size");
+
+        float sum = 0.0f;
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            float left = intBitsToFloat((int) leftArray.getInt(i));
+            float right = intBitsToFloat((int) rightArray.getInt(i));
+            float diff = left - right;
+            sum += diff * diff;
+        }
+
+        return floatToRawIntBits(sum);
+    }
+
+    @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
+    @ScalarFunction("l2_squared")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double arrayL2SquaredDouble(
+            @SqlType("array(double)") Block leftArray,
+            @SqlType("array(double)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments need to have identical size");
+        double sum = 0.0;
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            double left = DOUBLE.getDouble(leftArray, i);
+            double right = DOUBLE.getDouble(rightArray, i);
+            double diff = left - right;
+            sum += diff * diff;
+        }
+        return sum;
+    }
+
     private static double mapDotProduct(Block leftMap, Block rightMap)
     {
         TypedSet rightMapKeys = new TypedSet(VARCHAR, rightMap.getPositionCount(), "cosine_similarity");
