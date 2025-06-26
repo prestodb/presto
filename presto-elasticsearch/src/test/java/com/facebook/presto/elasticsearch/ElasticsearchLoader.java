@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.transport.rest5_client.low_level.Request;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryData;
@@ -22,13 +24,11 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.xcontent.XContentBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,18 +42,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
-import static org.elasticsearch.client.RequestOptions.DEFAULT;
-import static org.elasticsearch.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
         extends AbstractTestingPrestoClient<Void>
 {
     private final String tableName;
-    RestHighLevelClient restClient;
+    Rest5Client restClient;
 
     public ElasticsearchLoader(
-            RestHighLevelClient client,
+            Rest5Client client,
             String tableName,
             TestingPrestoServer prestoServer,
             Session defaultSession)
@@ -79,7 +76,9 @@ public class ElasticsearchLoader
         private ElasticsearchLoadingSession() {}
 
         @Override
-        public void setWarnings(List<PrestoWarning> warnings) {}
+        public void setWarnings(List<PrestoWarning> warnings)
+        {
+        }
 
         @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)
@@ -91,30 +90,39 @@ public class ElasticsearchLoader
             if (data.getData() == null) {
                 return;
             }
+
             checkState(types.get() != null, "Type information is missing");
             List<Column> columns = statusInfo.getColumns();
-            BulkRequest request = new BulkRequest();
+
+            StringBuilder bulkPayload = new StringBuilder();
+            ObjectMapper mapper = new ObjectMapper();
+
             for (List<Object> fields : data.getData()) {
-                try {
-                    XContentBuilder dataBuilder = jsonBuilder().startObject();
-                    for (int i = 0; i < fields.size(); i++) {
-                        Type type = types.get().get(i);
-                        Object value = convertValue(fields.get(i), type);
-                        dataBuilder.field(columns.get(i).getName(), value);
-                    }
-                    dataBuilder.endObject();
-                    request.add(new IndexRequest(tableName, "_doc").source(dataBuilder));
+                Map<String, Object> doc = new HashMap<>();
+                for (int i = 0; i < fields.size(); i++) {
+                    Type type = types.get().get(i);
+                    Object value = convertValue(fields.get(i), type);
+                    doc.put(columns.get(i).getName(), value);
                 }
-                catch (IOException e) {
-                    throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
+
+                bulkPayload.append("{\"index\":{\"_index\":\"").append(tableName).append("\"}}\n");
+                try {
+                    bulkPayload.append(mapper.writeValueAsString(doc)).append("\n");
+                }
+                catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
                 }
             }
-            request.setRefreshPolicy(IMMEDIATE);
+
+            Request request = new Request("POST", "/_bulk");
+            request.setJsonEntity(bulkPayload.toString());
+            request.addParameter("refresh", "true");
+
             try {
-                restClient.bulk(request, DEFAULT);
+                restClient.performRequest(request);
             }
             catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new RuntimeException("Error loading data into Elasticsearch index: " + tableName, e);
             }
         }
 

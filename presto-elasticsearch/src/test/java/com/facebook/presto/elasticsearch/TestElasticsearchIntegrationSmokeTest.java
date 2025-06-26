@@ -13,22 +13,19 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.transport.rest5_client.low_level.Request;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -46,7 +43,6 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.elasticsearch.client.RequestOptions.DEFAULT;
 
 @Test(singleThreaded = true)
 public class TestElasticsearchIntegrationSmokeTest
@@ -54,7 +50,7 @@ public class TestElasticsearchIntegrationSmokeTest
 {
     private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private Rest5Client client;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -63,7 +59,7 @@ public class TestElasticsearchIntegrationSmokeTest
         elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of());
 
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
 
         return createElasticsearchQueryRunner(elasticsearch.getAddress(),
                 TpchTable.getTables(),
@@ -722,8 +718,12 @@ public class TestElasticsearchIntegrationSmokeTest
     @Test
     public void testQueryStringError()
     {
-        assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
-        assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
+        assertQueryFails(
+                "SELECT orderkey FROM \"orders: ++foo AND\"",
+                "\\[es/search] failed: \\[search_phase_execution_exception] all shards failed");
+        assertQueryFails(
+                "SELECT count(*) FROM \"orders: ++foo AND\"",
+                "\\[es/count] failed: \\[search_phase_execution_exception] all shards failed");
     }
 
     @Test
@@ -754,9 +754,14 @@ public class TestElasticsearchIntegrationSmokeTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "_doc")
-                .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE), DEFAULT);
+        ObjectMapper mapper = new ObjectMapper();
+        String json = mapper.writeValueAsString(document);
+
+        Request request = new Request("POST", "/" + index + "/_doc");
+        request.setJsonEntity(json);
+        request.addParameter("refresh", "true");
+
+        client.performRequest(request);
     }
 
     @Test
@@ -802,7 +807,11 @@ public class TestElasticsearchIntegrationSmokeTest
     private void createIndex(String indexName, @Language("JSON") String mapping)
             throws IOException
     {
-        performRequest("PUT", "/" + indexName, ImmutableMap.of("include_type_name", "true"), new NStringEntity(mapping, ContentType.APPLICATION_JSON), client);
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(mapping);
+        request.addParameter("include_type_name", "true"); // Optional in ES 9, usually not needed
+
+        client.performRequest(request);
     }
 
     @Test

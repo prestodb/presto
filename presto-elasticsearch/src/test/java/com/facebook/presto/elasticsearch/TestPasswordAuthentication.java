@@ -13,18 +13,16 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.transport.rest5_client.low_level.Request;
+import co.elastic.clients.transport.rest5_client.low_level.RequestOptions;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.amazonaws.util.Base64;
 import com.facebook.presto.sql.query.QueryAssertions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
-import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.apache.hc.core5.http.HttpHost;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -32,22 +30,20 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils.performRequest;
 import static com.google.common.io.Resources.getResource;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestPasswordAuthentication
 {
-    // We use 7.8.0 because security became a non-commercial feature in recent versions
-    private final String elasticsearchImage = "docker.elastic.co/elasticsearch/elasticsearch:7.8.0";
+    private final String elasticsearchImage = "docker.elastic.co/elasticsearch/elasticsearch:9.0.1";
     private static final String USER = "elastic_user";
     private static final String PASSWORD = "123456";
 
     private final ElasticsearchServer elasticsearch;
-    private final RestHighLevelClient client;
+    private final Rest5Client client;
     private final QueryAssertions assertions;
 
     public TestPasswordAuthentication()
@@ -61,7 +57,7 @@ public class TestPasswordAuthentication
                 .build());
 
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
 
         DistributedQueryRunner runner = createElasticsearchQueryRunner(
                 elasticsearch.getAddress(),
@@ -89,20 +85,20 @@ public class TestPasswordAuthentication
     public void test()
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(ImmutableMap.<String, Object>builder()
-                .put("value", 42L)
+        String json = new ObjectMapper().writeValueAsString(Map.of("value", 42L));
+
+        Request request = new Request("POST", "/test/_doc");
+        request.setJsonEntity(json);
+        request.addParameter("refresh", "true");
+
+        String auth = Base64.encodeAsString((USER + ":" + PASSWORD).getBytes(StandardCharsets.UTF_8));
+        request.setOptions(RequestOptions.DEFAULT.toBuilder()
+                .addHeader("Authorization", "Basic " + auth)
                 .build());
 
-        performRequest(
-                        "POST",
-                        "/test/_doc?refresh",
-                        ImmutableMap.of(),
-                        new NStringEntity(json, ContentType.APPLICATION_JSON),
-                        client,
-                        new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+        client.performRequest(request);
 
-        assertions.assertQuery("SELECT * FROM test",
-                "VALUES BIGINT '42'");
+        assertions.assertQuery("SELECT * FROM test", "VALUES BIGINT '42'");
     }
 
     private static String loadResource(String file)
