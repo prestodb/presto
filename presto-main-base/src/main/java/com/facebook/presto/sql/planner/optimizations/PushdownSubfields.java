@@ -638,7 +638,7 @@ public class PushdownSubfields
                         if (index instanceof Number) {
                             //Fix for issue https://github.com/prestodb/presto/issues/22690
                             //Avoid negative index pushdown
-                            if (((Number) index).longValue() < 0) {
+                            if (((Number) index).longValue() < 0 && arguments.get(0).getType() instanceof ArrayType) {
                                 return Optional.empty();
                             }
 

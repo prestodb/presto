@@ -1164,6 +1164,32 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testMapSubscriptPushdown()
+    {
+        Session session = enablePushdownFilterAndSubfield(getQueryRunner().getDefaultSession());
+        getQueryRunner().execute(session,
+                "CREATE TABLE test_neg_map_sub_pushdown AS \n" +
+                        "select map(ARRAY[-10,20,30,0], array['a', 'b', 'c', 'd']) numbers");
+
+        try {
+            assertQuery("select element_at(numbers,-10) as number from test_neg_map_sub_pushdown", "SELECT 'a'");
+            assertQuery("select element_at(numbers,20) as number from test_neg_map_sub_pushdown", "SELECT 'b'");
+            assertQuery("select element_at(numbers,30) as number from test_neg_map_sub_pushdown", "SELECT 'c'");
+            assertQuery("select element_at(numbers,0) as number from test_neg_map_sub_pushdown", "SELECT 'd'");
+            assertQuery("select element_at(numbers,40) as number from test_neg_map_sub_pushdown", "SELECT cast(NULL as varchar)");
+
+            assertQuery("select numbers[-10] as number from test_neg_map_sub_pushdown", "SELECT 'a'");
+            assertQuery("select numbers[20] as number from test_neg_map_sub_pushdown", "SELECT 'b'");
+            assertQuery("select numbers[30] as number from test_neg_map_sub_pushdown", "SELECT 'c'");
+            assertQuery("select numbers[0] as number from test_neg_map_sub_pushdown", "SELECT 'd'");
+            assertQueryFails("select numbers[40] as number from test_neg_map_sub_pushdown", "Key not present in map: 40");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_neg_map_sub_pushdown");
+        }
+    }
+
+    @Test
     public void testArraySubscriptPushdownEmptyArray()
     {
         Session session = enablePushdownFilterAndSubfield(getQueryRunner().getDefaultSession());
