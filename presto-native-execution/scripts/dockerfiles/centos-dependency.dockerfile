@@ -22,7 +22,7 @@ COPY velox/scripts /velox/scripts
 RUN bash -c "mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
                  ../velox/scripts/setup-centos9.sh install_adapters && \
-                 ../scripts/setup-adapters.sh && \
+                 PROMPT_ALWAYS_RESPOND="Y" ../scripts/setup-adapters.sh && \
                  source ../velox/scripts/setup-centos9.sh && \
                  install_clang15 && \
                  install_cuda 12.8) && \
