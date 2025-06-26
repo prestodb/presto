@@ -112,7 +112,6 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
@@ -161,6 +160,7 @@ import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -494,7 +494,7 @@ final class ShowQueriesRewrite
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
                 CreateView.Security security = (viewDefinition.get().isRunAsInvoker()) ? CreateView.Security.INVOKER : CreateView.Security.DEFINER;
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.of(security)), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(getQualifiedName(node, objectName), query, false, Optional.of(security)), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -520,7 +520,7 @@ final class ShowQueriesRewrite
 
                 CreateMaterializedView createMaterializedView = new CreateMaterializedView(
                         Optional.empty(),
-                        createQualifiedName(objectName),
+                        getQualifiedName(node, objectName),
                         query,
                         false,
                         propertyNodes,
@@ -663,6 +663,16 @@ final class ShowQueriesRewrite
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
                     ordering(ascending("argument_types")));
+        }
+
+        private QualifiedName getQualifiedName(ShowCreate node, QualifiedObjectName objectName)
+        {
+            List<Identifier> parts = node.getName().getOriginalParts();
+            Identifier tableName = getLast(parts);
+            Identifier schemaName = parts.size() > 1 ? parts.get(parts.size() - 2) : new Identifier(objectName.getSchemaName());
+            Identifier catalogName = (parts.size() > 2) ? parts.get(0) : new Identifier(objectName.getCatalogName());
+
+            return QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName));
         }
 
         private List<Property> buildProperties(

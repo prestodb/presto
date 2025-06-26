@@ -2320,11 +2320,7 @@ class AstBuilder
 
     private QualifiedName getQualifiedName(SqlBaseParser.QualifiedNameContext context)
     {
-        List<String> parts = visit(context.identifier(), Identifier.class).stream()
-                .map(Identifier::getValue) // TODO: preserve quotedness
-                .collect(Collectors.toList());
-
-        return QualifiedName.of(parts);
+        return QualifiedName.of(visit(context.identifier(), Identifier.class));
     }
 
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
