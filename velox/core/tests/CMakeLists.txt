@@ -18,6 +18,7 @@ add_executable(
   PlanFragmentTest.cpp
   PlanNodeTest.cpp
   QueryConfigTest.cpp
+  QueryCtxTest.cpp
   StringTest.cpp
   TypeAnalysisTest.cpp
   TypedExprSerdeTest.cpp)

@@ -945,7 +945,7 @@ TEST_P(MemoryPoolTest, childUsageTest) {
 
 TEST_P(MemoryPoolTest, getPreferredSize) {
   MemoryManager& manager = *getMemoryManager();
-  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.testingDefaultRoot());
+  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.deprecatedSysRootPool());
 
   // size < 8
   EXPECT_EQ(8, pool.preferredSize(1));
@@ -1047,7 +1047,7 @@ TEST_P(MemoryPoolTest, customizedGetPreferredSize) {
 
 TEST_P(MemoryPoolTest, getPreferredSizeOverflow) {
   MemoryManager& manager = *getMemoryManager();
-  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.testingDefaultRoot());
+  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.deprecatedSysRootPool());
 
   EXPECT_EQ(1ULL << 32, pool.preferredSize((1ULL << 32) - 1));
   EXPECT_EQ(1ULL << 63, pool.preferredSize((1ULL << 62) - 1 + (1ULL << 62)));
@@ -1055,7 +1055,7 @@ TEST_P(MemoryPoolTest, getPreferredSizeOverflow) {
 
 TEST_P(MemoryPoolTest, allocatorOverflow) {
   MemoryManager& manager = *getMemoryManager();
-  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.testingDefaultRoot());
+  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.deprecatedSysRootPool());
   StlAllocator<int64_t> alloc(pool);
   EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
   EXPECT_THROW(alloc.deallocate(nullptr, 1ULL << 62), VeloxException);

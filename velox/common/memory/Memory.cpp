@@ -117,6 +117,50 @@ std::vector<std::shared_ptr<MemoryPool>> createSharedLeafMemoryPools(
   }
   return leafPools;
 }
+
+// Used by sys root memory pool for use case that expect a memory reclaimer to
+// set like QueryCtx.
+class SysMemoryReclaimer : public memory::MemoryReclaimer {
+ public:
+  static std::unique_ptr<memory::MemoryReclaimer> create() {
+    return std::unique_ptr<memory::MemoryReclaimer>(new SysMemoryReclaimer());
+  }
+
+  uint64_t reclaim(
+      memory::MemoryPool* pool,
+      uint64_t targetBytes,
+      uint64_t maxWaitMs,
+      memory::MemoryReclaimer::Stats& stats) override {
+    return 0;
+  }
+
+  void enterArbitration() override {}
+
+  void leaveArbitration() noexcept override {}
+
+  int32_t priority() const override {
+    return 0;
+  }
+
+  bool reclaimableBytes(const MemoryPool& pool, uint64_t& reclaimableBytes)
+      const override {
+    return false;
+  }
+
+  /// Invoked by the memory arbitrator to abort memory 'pool' and the associated
+  /// query execution when encounters non-recoverable memory reclaim error or
+  /// fails to reclaim enough free capacity. The abort is a synchronous
+  /// operation and we expect most of used memory to be freed after the abort
+  /// completes. 'error' should be passed in as the direct cause of the
+  /// abortion. It will be propagated all the way to task level for accurate
+  /// error exposure.
+  void abort(MemoryPool* pool, const std::exception_ptr& error) override {
+    VELOX_UNSUPPORTED("SysMemoryReclaimer::abort is not supported");
+  }
+
+ private:
+  SysMemoryReclaimer() : MemoryReclaimer{0} {};
+};
 } // namespace
 
 MemoryManager::MemoryManager(const MemoryManager::Options& options)
@@ -147,6 +191,7 @@ MemoryManager::MemoryManager(const MemoryManager::Options& options)
       cachePool_{addLeafPool("__sys_caching__")},
       tracePool_{addLeafPool("__sys_tracing__")},
       sharedLeafPools_(createSharedLeafMemoryPools(*sysRoot_)) {
+  sysRoot_->setReclaimer(SysMemoryReclaimer::create());
   VELOX_CHECK_NOT_NULL(allocator_);
   VELOX_CHECK_NOT_NULL(arbitrator_);
   VELOX_USER_CHECK_GE(capacity(), 0);
@@ -493,6 +538,10 @@ std::shared_ptr<MemoryPool> deprecatedAddDefaultLeafMemoryPool(
 
 MemoryPool& deprecatedSharedLeafPool() {
   return deprecatedDefaultMemoryManager().deprecatedSharedLeafPool();
+}
+
+MemoryPool& deprecatedRootPool() {
+  return deprecatedDefaultMemoryManager().deprecatedSysRootPool();
 }
 
 memory::MemoryPool* spillMemoryPool() {

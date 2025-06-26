@@ -240,7 +240,7 @@ class MemoryArbitrationFuzzer {
           memory::kMaxMemory,
           memory::MemoryReclaimer::create())};
   std::shared_ptr<memory::MemoryPool> pool_{
-      memory::memoryManager()->testingDefaultRoot().addLeafChild(
+      memory::memoryManager()->deprecatedSysRootPool().addLeafChild(
           "memoryArbitrationFuzzerLeaf",
           true)};
   std::shared_ptr<memory::MemoryPool> writerPool_{rootPool_->addAggregateChild(
