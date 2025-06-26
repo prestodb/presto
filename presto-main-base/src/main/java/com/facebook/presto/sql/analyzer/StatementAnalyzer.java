@@ -310,7 +310,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -2764,7 +2763,7 @@ class StatementAnalyzer
 
                     if (!field.isPresent()) {
                         if (name != null) {
-                            field = Optional.of(new Identifier(getLast(name.getOriginalParts())));
+                            field = Optional.of(name.getOriginalSuffix());
                         }
                     }
 
