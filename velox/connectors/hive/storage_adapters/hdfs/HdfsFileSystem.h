@@ -70,9 +70,7 @@ class HdfsFileSystem : public FileSystem {
     VELOX_UNSUPPORTED("rename for HDFs not implemented");
   }
 
-  bool exists(std::string_view path) override {
-    VELOX_UNSUPPORTED("exists for HDFS not implemented");
-  }
+  bool exists(std::string_view path) override;
 
   /// List the objects associated to a path.
   std::vector<std::string> list(std::string_view path) override;
