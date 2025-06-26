@@ -998,6 +998,69 @@ TEST_P(StreamingAggregationTest, clusteredInputWithOutputSplit) {
   }
 }
 
+TEST_P(StreamingAggregationTest, clusteredInputWithNulls) {
+  std::vector<VectorPtr> keyVectors = {
+      makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2, 3, 3, 3, 3}),
+      makeFlatVector<int32_t>({4, 4, 4, 4, 5, 5, 5, 5, 6, 6}),
+      makeFlatVector<int32_t>({7, 7, 7, 8}),
+      makeFlatVector<int32_t>({8, 8, 8, 9, 9, 9, 10, 10, 10}),
+      makeFlatVector<int32_t>({11, 11, 11}),
+  };
+  std::vector<VectorPtr> dataVectors = {
+      makeRowVector(
+          {makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2, 3, 3, 3, 3}),
+           makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2, 3, 3, 3, 3})},
+          [](auto row) { return row < 3; }),
+      makeRowVector(
+          {makeFlatVector<int32_t>({4, 4, 4, 4, 5, 5, 5, 5, 6, 6}),
+           makeFlatVector<int32_t>({4, 4, 4, 4, 5, 5, 5, 5, 6, 6})},
+          [](auto row) { return row < 4 || row > 7; }),
+
+      makeRowVector(
+          {makeFlatVector<int32_t>({7, 7, 7, 8}),
+           makeFlatVector<int32_t>({7, 7, 7, 8})},
+          [](auto row) { return row > 2; }),
+
+      makeRowVector(
+          {makeFlatVector<int32_t>({8, 8, 8, 9, 9, 9, 10, 10, 10}),
+           makeFlatVector<int32_t>({8, 8, 8, 9, 9, 9, 10, 10, 10})},
+          [](auto row) { return row < 3; }),
+
+      makeRowVector(
+          {makeFlatVector<int32_t>({11, 11, 11}),
+           makeFlatVector<int32_t>({11, 11, 11})},
+          [](auto /*unused*/) { return true; })};
+  ASSERT_EQ(keyVectors.size(), dataVectors.size());
+  std::vector<RowVectorPtr> rowVectors;
+  for (int i = 0; i < keyVectors.size(); ++i) {
+    rowVectors.emplace_back(makeRowVector({keyVectors[i], dataVectors[i]}));
+  }
+
+  const auto plan =
+      PlanBuilder()
+          .values(rowVectors)
+          .partialStreamingAggregation({"c0"}, {"count(c1)", "arbitrary(c1)"})
+          .finalAggregation()
+          .planNode();
+
+  const auto expected = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+       makeFlatVector<int64_t>({0, 3, 4, 0, 4, 0, 3, 0, 3, 3, 0}),
+       makeRowVector(
+           {makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+            makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11})},
+           [](auto row) {
+             if (row == 0 || row == 3 || row == 5 || row == 7 || row == 10) {
+               return true;
+             }
+             return false;
+           })});
+  for (auto batchSize : {20}) {
+    SCOPED_TRACE(fmt::format("batchSize={}", batchSize));
+    config(AssertQueryBuilder(plan), batchSize).assertResults(expected);
+  }
+}
+
 TEST_P(StreamingAggregationTest, sortedAggregationsWithBarrier) {
   const auto size = 1024;
   const std::vector<VectorPtr> keys = {
