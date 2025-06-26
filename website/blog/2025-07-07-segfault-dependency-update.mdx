@@ -1,0 +1,82 @@
+---
+slug: segfault-dependency-update
+title: "SEGFAULT due to Dependency Update"
+authors: [majetideepak, czentgr]
+tags: [tech-blog, build]
+---
+
+## Background
+Velox depends on several [libraries](https://github.com/facebookincubator/velox/blob/main/CMake/resolve_dependency_modules/README.md).
+Some of these dependencies include open-source libraries from Meta, including [Folly](https://github.com/facebook/folly) and
+[Facebook Thrift](https://github.com/facebook/fbthrift). These libraries are in active development and also depend on each other, so they all have to be updated to the same version at the same time.
+
+Updating these dependencies typically involves modifying the Velox code to align with any public API or semantic changes in these dependencies.
+However, a recent upgrade of Folly and Facebook Thrift to version *v2025.04.28.00* caused a *SEGFAULT* only in one unit test in Velox
+named *velox_functions_remote_client_test*.
+
+## Investigation
+We immediately put on our [gdb](https://en.wikipedia.org/wiki/GNU_Debugger) gloves and looked at the stack traces. This issue was also reproducible in a debug build.
+The SEGFAULT occurred in Facebook Thrift's *ThriftServer* Class during it's initialization but the offending call was invoking a destructor of a certain handler.
+However, the corresponding source code was pointing to an invocation of a different function. And this code was present inside a Facebook Thrift
+header called *AsyncProcessor.h*.
+
+This handler (*RemoteServer*) was implemented in Velox as a Thrift definition. Velox compiled this thrift file using Facebook Thrift, and the generated code
+was using the *ServerInterface* class in Facebook Thrift. This *ServerInterface* class was further extended from both the *AsyncProcessorFactory* and
+*ServiceHandlerBase* interfaces in Facebook Thrift.
+
+One of the culprits resulting in SEGFAULTs in the past was the conflict due to the usage of Apache Thrift and Facebook Thrift.
+However, this was not the root cause this time because we were able to reproduce this issue by just building the test without the Apache Thrift dependency installed.
+We were entering a new territory to investigate, and we were not sure where to start.
+
+We then compiled an example called *EchoService* in Facebook Thrift that was very similar to the *RemoteServer*, and it worked. Then we copied and compiled the Velox *RemoteServer*
+in Facebook Thrift and that worked too! So the culprit was likely in the compilation flags, which likely differed between Facebook Thrift and Velox.
+We enabled the verbose logging for both builds and were able to spot one difference. We saw the GCC *coroutines* flag being used in the Facebook Thrift build.
+
+We were also curious about the invocation of the destructor instead of the actual function. We put our gdb gloves back on and dumped the entire
+[vtable](https://en.wikipedia.org/wiki/Virtual_method_table) for the *RemoteServer* class and its base classes. The vtables were different when it was built in Velox vs. Facebook Thrift.
+Specifically, the list of functions inherited from *ServiceHandlerBase* was different.
+
+The vtable for the *RemoteServer* handler in the Velox build had the following entries:
+
+```
+folly::SemiFuture<folly::Unit> semifuture_onStartServing()
+folly::SemiFuture<folly::Unit> semifuture_onStopRequested()
+Thunk ServiceHandlerBase::~ServiceHandlerBase
+```
+
+The vtable for the *RemoteServer* handler in the Facebook Thrift build had the following entries:
+
+```
+folly::coro::Task<void> co_onStartServing()
+folly::coro::Task<void> co_onStopRequested()
+folly::SemiFuture<folly::Unit> semifuture_onStartServing()
+folly::SemiFuture<folly::Unit> semifuture_onStopRequested()
+Thunk ServiceHandlerBase::~ServiceHandlerBase
+```
+
+Tying up both pieces of evidence, we could conclude that Velox generated a different vtable structure compared to what Facebook Thrift (and thus ThriftServer) was built with.
+Looking around further, we noticed that the ServiceHandlerBase was conditionally adding functions based on the *coroutines* compile flag that influences the *FOLLY_HAS_COROUTINES* macro from the portability header.
+
+```
+class ServiceHandlerBase {
+  ....
+ public:
+#if FOLLY_HAS_COROUTINES
+  virtual folly::coro::Task<void> co_onStartServing() { co_return; }
+  virtual folly::coro::Task<void> co_onStopRequested() {
+    throw MethodNotImplemented();
+  }
+#endif
+
+  virtual folly::SemiFuture<folly::Unit> semifuture_onStartServing() {
+#if FOLLY_HAS_COROUTINES
+    return co_onStartServing().semi();
+#else
+    return folly::makeSemiFuture();
+#endif
+  }
+```
+
+As a result, the ThriftServer would access an incorrect function (*~ServiceHandlerBase* destructor at offset 3 in the first vtable above) instead of the expected
+initialization function (*semifuture_onStartServing* at offset 3 in the second vtable above), thus resulting in a SEGFAULT.
+We recompiled the Facebook Thrift dependency for Velox with the *coroutines* compile flag disabled, and the test passed.
