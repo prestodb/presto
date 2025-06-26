@@ -454,8 +454,38 @@ struct ExtractJsonTypeImpl {
     SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
     switch (type) {
       case simdjson::ondemand::json_type::number: {
-        SIMDJSON_ASSIGN_OR_RAISE(auto num, value.get_double());
-        return convertIfInRange<T>(num, writer);
+        auto result = value.get_double();
+        if (result.error() == simdjson::SUCCESS) {
+          auto num = result.value_unsafe();
+          writer.castTo<T>() = num;
+        } else if (result.error() == simdjson::NUMBER_ERROR) {
+          // simdjson parses floating point numbers in the range
+          // [std::numeric_limits<double>::lowest(),
+          // std::numeric_limits<double>::max()], i.e., from approximately
+          // -1.7976e308 to 1.7975e308. Values outside this range
+          // (<= -1e308 or >= 1e308) are rejected and simdjson returns
+          // NUMBER_ERROR. However, our expected behavior is to convert such
+          // extreme values to -INF or +INF, so we add extra logic here to
+          // handle NUMBER_ERROR and perform the conversion.
+          std::string_view s = value.raw_json_token();
+          if (s.length() > 0 && s.back() == '.') {
+            // If the number ends with a dot, it is not a valid JSON number,
+            // so we return NUMBER_ERROR.
+            return simdjson::NUMBER_ERROR;
+          }
+          if (s.length() > 1 && s.front() == '0') {
+            // If the number starts with '0' and has more than one character,
+            // it is not a valid JSON number, so we return NUMBER_ERROR.
+            return simdjson::NUMBER_ERROR;
+          }
+          auto castResult = util::Converter<TypeKind::DOUBLE>::tryCast(s);
+          if (!castResult.hasError()) {
+            writer.castTo<T>() = castResult.value();
+            return simdjson::SUCCESS;
+          }
+        }
+
+        return result.error();
       }
       case simdjson::ondemand::json_type::string: {
         SIMDJSON_ASSIGN_OR_RAISE(auto s, value.get_string());
