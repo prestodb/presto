@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -21,9 +22,7 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -41,9 +40,9 @@ import static java.lang.String.format;
 public class ElasticsearchConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:9.1.0";
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private Rest5Client client;
     private ElasticSearchClientUtils elasticSearchClientUtils;
 
     @AfterClass(alwaysRun = true)
@@ -157,9 +156,11 @@ public class ElasticsearchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of());
+        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of(), ImmutableMap.of(
+                "xpack.security.enabled", "false"));
+
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
 
         return createElasticsearchQueryRunner(elasticsearch.getAddress(),
                 TpchTable.getTables(),

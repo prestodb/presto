@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slices;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
@@ -36,7 +36,7 @@ public class VarcharDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(Hit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
         if (value == null) {
