@@ -126,7 +126,11 @@ class TextRowReaderImpl : public RowReader {
   template <bool skipLF = false>
   char getByteUnchecked(DelimType& delim);
 
+  template <bool skipLF = false>
+  char getByteUncheckedOptimized(DelimType& delim);
+
   uint8_t getByte(DelimType& delim);
+  uint8_t getByteOptimized(DelimType& delim);
 
   bool getEOR(DelimType& delim, bool& isNull);
 
@@ -146,8 +150,6 @@ class TextRowReaderImpl : public RowReader {
 
   static double
   getDouble(TextRowReaderImpl& th, bool& isNull, DelimType& delim);
-
-  static void trim(std::string& s);
 
   void readElement(
       const std::shared_ptr<const Type>& t,
@@ -178,8 +180,10 @@ class TextRowReaderImpl : public RowReader {
   bool atSOL_;
   uint8_t depth_;
   std::string unreadData_;
+  int unreadIdx_;
   uint64_t limit_; // lowest offset not in the range
   uint64_t fileLength_;
+  std::string ownedString_;
   StringViewBufferHolder stringViewBuffer_;
 };
 

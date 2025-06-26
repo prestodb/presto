@@ -196,8 +196,8 @@ uint64_t TextRowReaderImpl::next(
     }
     (void)skipLine();
     ++currentRow_;
+    ++rowsRead;
 
-    rowsRead++;
     if (pos_ >= getLength()) {
       atEOF_ = true;
       rowVecPtr->resize(rowsRead);
@@ -363,6 +363,76 @@ bool TextRowReaderImpl::isNone(DelimType delim) {
   return (delim == DelimTypeNone);
 }
 
+StringView TextRowReaderImpl::getStringView(
+    TextRowReaderImpl& th,
+    bool& isNull,
+    DelimType& delim) {
+  if (th.atEOL_) {
+    delim = DelimTypeEOR; // top-level EOR
+  }
+
+  if (th.isEOEorEOR(delim)) {
+    isNull = true;
+    return StringView("");
+  }
+
+  bool wasEscaped = false;
+  th.ownedString_.clear();
+  /**
+  Processing has to be done character by characater instad of chunk by chunk.
+  This is to avoid edge case handling if escape character(s) are cut off at
+  the end of the chunk.
+  */
+  while (true) {
+    auto v = th.getByteOptimized(delim);
+    if (!th.isNone(delim)) {
+      break;
+    }
+
+    if (th.contents_->serDeOptions.isEscaped &&
+        v == th.contents_->serDeOptions.escapeChar) {
+      wasEscaped = true;
+      th.ownedString_.append(1, static_cast<char>(v));
+      v = th.getByteUncheckedOptimized(delim);
+      if (!th.isNone(delim)) {
+        break;
+      }
+    }
+    th.ownedString_.append(1, static_cast<char>(v));
+  }
+
+  if (th.ownedString_ == th.contents_->serDeOptions.nullString) {
+    isNull = true;
+    return StringView("");
+  }
+
+  if (wasEscaped) {
+    // We need to copy the data byte by byte only if there is at least one
+    // escaped byte.
+    uint64_t j = 0;
+    for (uint64_t i = 0; i < th.ownedString_.length(); i++) {
+      if (th.ownedString_[i] == th.contents_->serDeOptions.escapeChar &&
+          i < th.ownedString_.length() - 1) {
+        // Check if it's '\r' or '\n'.
+        i++;
+        if (th.ownedString_[i] == 'r') {
+          th.ownedString_[j++] = '\r';
+        } else if (th.ownedString_[i] == 'n') {
+          th.ownedString_[j++] = '\n';
+        } else {
+          // Keep the next byte.
+          th.ownedString_[j++] = th.ownedString_[i];
+        }
+      } else {
+        th.ownedString_[j++] = th.ownedString_[i];
+      }
+    }
+    th.ownedString_.resize(j);
+  }
+
+  return th.stringViewBuffer_.getOwnedValue(th.ownedString_);
+}
+
 uint8_t TextRowReaderImpl::getByte(DelimType& delim) {
   setNone(delim);
   auto v = getByteUnchecked(delim);
@@ -373,6 +443,133 @@ uint8_t TextRowReaderImpl::getByte(DelimType& delim) {
     delim = getDelimType(v);
   }
   return v;
+}
+
+uint8_t TextRowReaderImpl::getByteOptimized(DelimType& delim) {
+  setNone(delim);
+  auto v = getByteUncheckedOptimized(delim);
+  if (isNone(delim)) {
+    if (v == '\r') {
+      v = getByteUncheckedOptimized<true>(
+          delim); // always returns '\n' in this case
+    }
+    delim = getDelimType(v);
+  }
+  return v;
+}
+
+DelimType TextRowReaderImpl::getDelimType(uint8_t v) {
+  DelimType delim = DelimTypeNone;
+
+  if (v == '\n') {
+    atEOL_ = true;
+    delim = DelimTypeEOR; // top level EOR
+
+    // logically should be >=, kept as it is to align with presto reader
+    if (pos_ > limit_) {
+      atEOF_ = true;
+    }
+  } else if (v == contents_->serDeOptions.separators.at(depth_)) {
+    setEOE(delim);
+  } else {
+    setNone(delim);
+    uint64_t i = depth_;
+    while (i > 0) {
+      i--;
+      if (v == contents_->serDeOptions.separators.at(i)) {
+        delim = i + DelimTypeEOR; // level-based EOR
+        break;
+      }
+    }
+  }
+  return delim;
+}
+
+template <bool skipLF>
+char TextRowReaderImpl::getByteUnchecked(DelimType& delim) {
+  if (atEOL_) {
+    if (!skipLF) {
+      delim = DelimTypeEOR; // top level EOR
+    }
+    return '\n';
+  }
+
+  try {
+    char v;
+    if (!unreadData_.empty()) {
+      v = unreadData_[0];
+      unreadData_.erase(0, 1);
+    } else {
+      contents_->inputStream->readFully(&v, 1);
+    }
+    pos_++;
+
+    // only when previous char == '\r'
+    if (skipLF) {
+      if (v != '\n') {
+        pos_--;
+        return '\n';
+      }
+    } else {
+      atSOL_ = false;
+    }
+    return v;
+  } catch (EOFError&) {
+  } catch (std::runtime_error& e) {
+    if (std::string(e.what()).find("Short read of") != 0 && !skipLF) {
+      throw;
+    }
+  }
+  if (!skipLF) {
+    setEOF();
+    delim = 1;
+  }
+  return '\n';
+}
+
+template <bool skipLF>
+char TextRowReaderImpl::getByteUncheckedOptimized(DelimType& delim) {
+  if (atEOL_) {
+    if (!skipLF) {
+      delim = DelimTypeEOR; // top level EOR
+    }
+    return '\n';
+  }
+
+  try {
+    char v;
+    if (unreadData_.empty()) {
+      int length;
+      const void* buffer;
+      contents_->inputStream->Next(&buffer, &length);
+      unreadData_ = std::string(reinterpret_cast<const char*>(buffer), length);
+      unreadIdx_ = 0;
+    }
+
+    v = unreadData_[unreadIdx_++];
+    pos_++;
+
+    // only when previous char == '\r'
+    if (skipLF) {
+      if (v != '\n') {
+        pos_--;
+        return '\n';
+      }
+    } else {
+      atSOL_ = false;
+    }
+    return v;
+  } catch (EOFError&) {
+  } catch (std::runtime_error& e) {
+    if (std::string(e.what()).find("Short read of") != 0 && !skipLF) {
+      throw;
+    }
+  }
+  if (!skipLF) {
+    setEOF();
+    delim = 1;
+  }
+  return '\n';
 }
 
 bool TextRowReaderImpl::getEOR(DelimType& delim, bool& isNull) {
@@ -387,38 +584,40 @@ bool TextRowReaderImpl::getEOR(DelimType& delim, bool& isNull) {
   }
   bool wasAtSOL = atSOL_;
   setNone(delim);
-  std::string s;
+  ownedString_.clear();
   const auto& ns = contents_->serDeOptions.nullString;
   uint8_t v = 0;
   while (true) {
-    v = getByteUnchecked(delim);
+    v = getByteUncheckedOptimized(delim);
     if (isNone(delim)) {
       if (v == '\r') {
-        v = getByteUnchecked<true>(delim); // always returns '\n' in this case
+        // always returns '\n' in this case
+        v = getByteUncheckedOptimized<true>(delim);
       }
       delim = getDelimType(v);
     }
 
     if (isEOR(delim) || atEOL_) {
-      if (s == ns) {
+      if (ownedString_ == ns) {
         isNull = true;
-      } else if (!s.empty()) {
+      } else if (!ownedString_.empty()) {
         break;
       }
       setEOR(delim);
       return true;
     }
-    if (s.size() >= ns.size() || static_cast<char>(v) != ns[s.size()]) {
+    if (ownedString_.size() >= ns.size() ||
+        static_cast<char>(v) != ns[ownedString_.size()]) {
       break;
     }
-    s.push_back(static_cast<char>(v));
+    ownedString_.push_back(static_cast<char>(v));
   }
 
   unreadData_.insert(0, 1, static_cast<char>(v));
   pos_--;
-  if (!s.empty()) {
-    unreadData_.insert(0, s);
-    pos_ -= s.size();
+  if (!ownedString_.empty()) {
+    unreadData_.insert(0, ownedString_);
+    pos_ -= ownedString_.size();
   }
   atEOL_ = false;
   atSOL_ = wasAtSOL;
@@ -429,7 +628,7 @@ bool TextRowReaderImpl::getEOR(DelimType& delim, bool& isNull) {
 bool TextRowReaderImpl::skipLine() {
   DelimType delim = DelimTypeNone;
   while (!atEOL_) {
-    (void)getByte(delim);
+    (void)getByteOptimized(delim);
   }
   // logically should be >=, kept as it is to align with presto reader
   if (pos_ > limit_) {
@@ -442,72 +641,9 @@ void TextRowReaderImpl::resetLine() {
   stringViewBuffer_ = StringViewBufferHolder(&contents_->pool);
   if (!atEOF_) {
     atEOL_ = false;
-    DWIO_ENSURE_EQ(depth_, 0);
+    VELOX_CHECK_EQ(depth_, 0);
   }
   atSOL_ = true;
-}
-
-StringView TextRowReaderImpl::getStringView(
-    TextRowReaderImpl& th,
-    bool& isNull,
-    DelimType& delim) {
-  if (th.atEOL_) {
-    delim = DelimTypeEOR; // top-level EOR
-  }
-
-  if (th.isEOEorEOR(delim)) {
-    isNull = true;
-    return StringView("");
-  }
-
-  std::string s;
-  bool wasEscaped = false;
-  while (true) {
-    auto v = th.getByte(delim);
-    if (!th.isNone(delim)) {
-      break;
-    }
-    if (th.contents_->serDeOptions.isEscaped &&
-        v == th.contents_->serDeOptions.escapeChar) {
-      wasEscaped = true;
-      s.append(1, static_cast<char>(v));
-      v = th.getByteUnchecked(delim);
-      if (!th.isNone(delim)) {
-        break;
-      }
-    }
-    s.append(1, static_cast<char>(v));
-  }
-
-  if (s == th.contents_->serDeOptions.nullString) {
-    isNull = true;
-    return StringView("");
-  }
-
-  if (wasEscaped) {
-    // We need to copy the data byte by byte only if there is at least one
-    // escaped byte.
-    uint64_t j = 0;
-    for (uint64_t i = 0; i < s.length(); i++) {
-      if (s[i] == th.contents_->serDeOptions.escapeChar && i < s.length() - 1) {
-        // Check if it's '\r' or '\n'.
-        i++;
-        if (s[i] == 'r') {
-          s[j++] = '\r';
-        } else if (s[i] == 'n') {
-          s[j++] = '\n';
-        } else {
-          // Keep the next byte.
-          s[j++] = s[i];
-        }
-      } else {
-        s[j++] = s[i];
-      }
-    }
-    s.resize(j);
-  }
-
-  return th.stringViewBuffer_.getOwnedValue(s);
 }
 
 template <typename T>
@@ -613,13 +749,54 @@ bool TextRowReaderImpl::getBoolean(
 
 namespace {
 
-bool unacceptableFloatingPoint(const std::string& s) {
-  for (auto c : s) {
+static const StringView NaNStringView = StringView{"NaN"};
+static const StringView InfinityStringView = StringView{"Infinity"};
+static const StringView NegInfinityStringView = StringView{"-Infinity"};
+
+bool unacceptableFloatingPoint(StringView& s) {
+  bool seenPeriod = false;
+  for (int i = 0; i < s.size(); ++i) {
+    char c = s.data()[i];
+    if (c == '.') {
+      if (seenPeriod) {
+        return false;
+      } else {
+        seenPeriod = true;
+      }
+      continue;
+    }
+
     if (!(std::isalpha(c) || c == '-')) {
       return false;
     }
   }
-  return (s != "NaN" && s != "Infinity" && s != "-Infinity");
+
+  return (
+      s != NaNStringView && s != InfinityStringView &&
+      s != NegInfinityStringView);
+}
+
+StringView trimStringView(StringView& s) {
+  const auto isNotSpace = [](unsigned char ch) { return ch > 0x20; };
+  auto strView = std::string_view(s.data(), s.size());
+
+  // Find first non-whitespace character
+  size_t start = 0;
+  while (start < strView.size() && !isNotSpace(strView[start])) {
+    ++start;
+  }
+
+  if (start == strView.size()) {
+    return StringView("");
+  }
+
+  // Find last non-whitespace character
+  size_t end = strView.size() - 1;
+  while (end > start && !isNotSpace(strView[end])) {
+    --end;
+  }
+
+  return StringView(strView.data() + start, end - start + 1);
 }
 
 } // namespace
@@ -628,7 +805,7 @@ float TextRowReaderImpl::getFloat(
     TextRowReaderImpl& th,
     bool& isNull,
     DelimType& delim) {
-  const auto& strView = getStringView(th, isNull, delim);
+  auto strView = getStringView(th, isNull, delim);
   if (strView.empty()) {
     isNull = true;
   }
@@ -636,16 +813,8 @@ float TextRowReaderImpl::getFloat(
     return 0;
   }
 
-  auto str = strView.getString();
-  trim(str);
-  if (str[0] == '.') {
-    str.insert(0, 1, '0');
-  }
-
-  // Filter out values from non-warehouse sources which
-  // other readers translate to null. Warehouse
-  // readers require upper-case values.
-  if (unacceptableFloatingPoint(str)) {
+  strView = trimStringView(strView);
+  if (unacceptableFloatingPoint(strView)) {
     isNull = true;
     return 0.0;
   }
@@ -654,8 +823,8 @@ float TextRowReaderImpl::getFloat(
   unsigned long long scanPos = 0;
   // We ignore ERANGE, since denormalized floats and
   // infinities are acceptable.
-  auto scanCount = sscanf(str.data(), "%f%lln", &v, &scanPos);
-  if (scanCount != 1 || scanPos < str.size()) {
+  auto scanCount = sscanf(strView.data(), "%f%lln", &v, &scanPos);
+  if (scanCount != 1 || scanPos < strView.size()) {
     isNull = true;
     return 0.0;
   }
@@ -666,7 +835,7 @@ double TextRowReaderImpl::getDouble(
     TextRowReaderImpl& th,
     bool& isNull,
     DelimType& delim) {
-  const auto& strView = getStringView(th, isNull, delim);
+  auto strView = getStringView(th, isNull, delim);
   if (strView.empty()) {
     isNull = true;
   }
@@ -674,17 +843,11 @@ double TextRowReaderImpl::getDouble(
     return 0;
   }
 
-  auto str = strView.getString();
-  trim(str);
-
-  if (str[0] == '.') {
-    str.insert(0, 1, '0');
-  }
-
+  strView = trimStringView(strView);
   // Filter out values from non-warehouse sources which
   // other readers translate to null. Warehouse
   // readers require upper-case values.
-  if (unacceptableFloatingPoint(str)) {
+  if (unacceptableFloatingPoint(strView)) {
     isNull = true;
     return 0.0;
   }
@@ -692,23 +855,12 @@ double TextRowReaderImpl::getDouble(
   unsigned long long scanPos = 0;
   // We ignore ERANGE, since denormalized doubles and
   // infinities are acceptable.
-  auto scanCount = sscanf(str.data(), "%lf%lln", &v, &scanPos);
-  if (scanCount != 1 || scanPos < str.size()) {
+  auto scanCount = sscanf(strView.data(), "%lf%lln", &v, &scanPos);
+  if (scanCount != 1 || scanPos < strView.size()) {
     isNull = true;
     return 0.0;
   }
   return v;
-}
-
-void TextRowReaderImpl::trim(std::string& s) {
-  const auto isNotSpace = [](unsigned char ch) { return ch > 0x20; };
-  const auto strBegin = std::find_if(s.begin(), s.end(), isNotSpace);
-  if (strBegin == s.end()) {
-    s = ""; // The string is all whitespace.
-    return;
-  }
-  s.erase(0, strBegin - s.begin());
-  s.erase(std::find_if(s.rbegin(), s.rend(), isNotSpace).base(), s.end());
 }
 
 void TextRowReaderImpl::readElement(
@@ -873,7 +1025,7 @@ void TextRowReaderImpl::readElement(
 
         /**
         TODO: Redundant rawOffsets update. Only update the next rawOffsets,
-        remember to update rawOffsets even if its null forthis to work
+        remember to update rawOffsets even if its null for this to work
         */
         for (auto i = insertionRow + 1; i <= arrayVector->size(); ++i) {
           rawOffsets[i] = startElementIdx + elementCount;
@@ -1161,6 +1313,14 @@ TextReaderImpl::TextReaderImpl(
     contents_->needsEscape.at(contents_->serDeOptions.escapeChar) = true;
   }
 
+  // Validate SerDe options
+  VELOX_CHECK(
+      contents_->serDeOptions.nullString.compare("\r") != 0,
+      "\'\\r\' is not allowed to be nullString");
+  VELOX_CHECK(
+      contents_->serDeOptions.nullString.compare("\n") != 0,
+      "\'\\n\n is not allowed to be nullString");
+
   // Set up the compression codec
   contents_->compression = CompressionKind::CompressionKind_NONE;
   auto& filename = contents_->input->getName();
@@ -1185,75 +1345,6 @@ TextReaderImpl::TextReaderImpl(
 
 const std::shared_ptr<const RowType>& TextRowReaderImpl::getType() const {
   return contents_->schema;
-}
-
-DelimType TextRowReaderImpl::getDelimType(uint8_t v) {
-  DelimType delim = DelimTypeNone;
-
-  if (v == '\n') {
-    atEOL_ = true;
-    delim = DelimTypeEOR; // top level EOR
-
-    // logically should be >=, kept as it is to align with presto reader
-    if (pos_ > limit_) {
-      atEOF_ = true;
-    }
-  } else if (v == contents_->serDeOptions.separators.at(depth_)) {
-    setEOE(delim);
-  } else {
-    setNone(delim);
-    uint64_t i = depth_;
-    while (i > 0) {
-      i--;
-      if (v == contents_->serDeOptions.separators.at(i)) {
-        delim = i + DelimTypeEOR; // level-based EOR
-        break;
-      }
-    }
-  }
-  return delim;
-}
-
-template <bool skipLF>
-char TextRowReaderImpl::getByteUnchecked(DelimType& delim) {
-  if (atEOL_) {
-    if (!skipLF) {
-      delim = DelimTypeEOR; // top level EOR
-    }
-    return '\n';
-  }
-
-  try {
-    char v;
-    if (!unreadData_.empty()) {
-      v = unreadData_[0];
-      unreadData_.erase(0, 1);
-    } else {
-      contents_->inputStream->readFully(&v, 1);
-    }
-    pos_++;
-
-    // only when previous char == '\r'
-    if (skipLF) {
-      if (v != '\n') {
-        pos_--;
-        return '\n';
-      }
-    } else {
-      atSOL_ = false;
-    }
-    return v;
-  } catch (EOFError&) {
-  } catch (std::runtime_error& e) {
-    if (std::string(e.what()).find("Short read of") != 0 && !skipLF) {
-      throw;
-    }
-  }
-  if (!skipLF) {
-    setEOF();
-    delim = 1;
-  }
-  return '\n';
 }
 
 std::optional<uint64_t> TextReaderImpl::numberOfRows() const {
