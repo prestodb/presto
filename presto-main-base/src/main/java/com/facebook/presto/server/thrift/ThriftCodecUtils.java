@@ -38,9 +38,9 @@ import static java.lang.String.format;
 /***
  * When we need a custom codec for a primitive type, we need a wrapper to pass the needsCodec check within ThriftCodecByteCodeGenerator.java
  */
-public class CustomCodecUtils
+public class ThriftCodecUtils
 {
-    private CustomCodecUtils() {}
+    private ThriftCodecUtils() {}
 
     public static ThriftStructMetadata createSyntheticMetadata(short fieldId, String fieldName, Class<?> originalType, Class<?> referencedType, ThriftType thriftType)
     {

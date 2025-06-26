@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,6 +31,7 @@ import static java.util.Objects.requireNonNull;
  * An object of {@link EncryptionInformation} will be passed to the readers and writers. The readers and writers
  * can decide which fields they want to read and how to use it.
  */
+@ThriftStruct
 public class EncryptionInformation
 {
     // Add a field for new file format encryption types
@@ -35,12 +39,14 @@ public class EncryptionInformation
 
     // Only to be used by Jackson. Otherwise use {@link this#fromEncryptionMetadata}
     @JsonCreator
+    @ThriftConstructor
     public EncryptionInformation(@JsonProperty Optional<DwrfEncryptionMetadata> dwrfEncryptionMetadata)
     {
         this.dwrfEncryptionMetadata = requireNonNull(dwrfEncryptionMetadata, "dwrfEncryptionMetadata is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Optional<DwrfEncryptionMetadata> getDwrfEncryptionMetadata()
     {
         return dwrfEncryptionMetadata;
