@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(velox_dwio_text_reader TextReaderImpl.cpp)
+velox_add_library(velox_dwio_text_reader TextReader.cpp)
 
 velox_link_libraries(velox_dwio_text_reader velox_dwio_common fmt::fmt)

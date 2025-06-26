@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/text/TextReader.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
+#include "velox/dwio/text/RegisterTextReader.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 extern int daylight;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/text/reader/TextReaderImpl.h"
+#include "velox/dwio/text/reader/TextReader.h"
 #include "velox/dwio/common/exception/Exceptions.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -65,7 +65,7 @@ FileContents::FileContents(
   needsEscape.at(0) = true;
 }
 
-TextRowReaderImpl::TextRowReaderImpl(
+TextRowReader::TextRowReader(
     std::shared_ptr<FileContents> fileContents,
     const RowReaderOptions& opts)
     : RowReader(),
@@ -124,7 +124,7 @@ TextRowReaderImpl::TextRowReaderImpl(
   }
 }
 
-uint64_t TextRowReaderImpl::next(
+uint64_t TextRowReader::next(
     uint64_t rows,
     VectorPtr& result,
     const Mutation* mutation) {
@@ -158,7 +158,7 @@ uint64_t TextRowReaderImpl::next(
   while (!atEOF_ && rowsRead < rows) {
     resetLine();
     uint64_t colIndex = 0;
-    for (uint32_t i = 0; i < childCount; i++) {
+    for (vector_size_t i = 0; i < childCount; i++) {
       if (colIndex >= reqT->size()) {
         break;
       }
@@ -187,7 +187,7 @@ uint64_t TextRowReaderImpl::next(
     }
 
     // set null property
-    for (uint32_t i = colIndex; i < reqChildCount; i++) {
+    for (uint64_t i = colIndex; i < reqChildCount; i++) {
       auto childVector = rowVecPtr->childAt(i).get();
 
       if (childVector != nullptr) {
@@ -212,42 +212,42 @@ uint64_t TextRowReaderImpl::next(
   return rowsRead;
 }
 
-int64_t TextRowReaderImpl::nextRowNumber() {
+int64_t TextRowReader::nextRowNumber() {
   return atEOF_ ? -1 : static_cast<int64_t>(currentRow_) + 1;
 }
 
-int64_t TextRowReaderImpl::nextReadSize(uint64_t size) {
+int64_t TextRowReader::nextReadSize(uint64_t size) {
   return std::min(fileLength_ - currentRow_, size);
 }
 
-void TextRowReaderImpl::updateRuntimeStats(RuntimeStatistics& /*stats*/) const {
+void TextRowReader::updateRuntimeStats(RuntimeStatistics& /*stats*/) const {
   // No-op for non-selective reader.
 }
 
-void TextRowReaderImpl::resetFilterCaches() {
+void TextRowReader::resetFilterCaches() {
   // No-op for non-selective reader.
 }
 
-std::optional<size_t> TextRowReaderImpl::estimatedRowSize() const {
+std::optional<size_t> TextRowReader::estimatedRowSize() const {
   return std::nullopt;
 }
 
-const ColumnSelector& TextRowReaderImpl::getColumnSelector() const {
+const ColumnSelector& TextRowReader::getColumnSelector() const {
   return columnSelector_;
 }
 
-std::shared_ptr<const TypeWithId> TextRowReaderImpl::getSelectedType() const {
+std::shared_ptr<const TypeWithId> TextRowReader::getSelectedType() const {
   if (!selectedSchema_) {
     selectedSchema_ = columnSelector_.buildSelected();
   }
   return selectedSchema_;
 }
 
-uint64_t TextRowReaderImpl::getRowNumber() const {
+uint64_t TextRowReader::getRowNumber() const {
   return currentRow_;
 }
 
-uint64_t TextRowReaderImpl::seekToRow(uint64_t rowNumber) {
+uint64_t TextRowReader::seekToRow(uint64_t rowNumber) {
   VELOX_CHECK_GT(
       rowNumber, currentRow_, "Text file cannot seek to earlier row");
 
@@ -259,17 +259,22 @@ uint64_t TextRowReaderImpl::seekToRow(uint64_t rowNumber) {
   return currentRow_;
 }
 
-bool TextRowReaderImpl::isSelectedField(
+const RowReaderOptions& TextRowReader::getDefaultOpts() {
+  static RowReaderOptions defaultOpts;
+  return defaultOpts;
+}
+
+bool TextRowReader::isSelectedField(
     const std::shared_ptr<const TypeWithId>& type) {
   auto ci = type->id();
   return columnSelector_.shouldReadNode(ci);
 }
 
-const char* TextRowReaderImpl::getStreamNameData() const {
+const char* TextRowReader::getStreamNameData() const {
   return contents_->input->getName().data();
 }
 
-uint64_t TextRowReaderImpl::getLength() {
+uint64_t TextRowReader::getLength() {
   if (fileLength_ == std::numeric_limits<uint64_t>::max()) {
     fileLength_ = getStreamLength();
   }
@@ -277,23 +282,23 @@ uint64_t TextRowReaderImpl::getLength() {
 }
 
 /// TODO: COMPLETE IMPLEMENTATION WITH DECOMPRESSED STREAM
-uint64_t TextRowReaderImpl::getStreamLength() {
+uint64_t TextRowReader::getStreamLength() {
   return contents_->input->getInputStream()->getLength();
 }
 
-void TextRowReaderImpl::setEOF() {
+void TextRowReader::setEOF() {
   atEOF_ = true;
   atEOL_ = true;
 }
 
-void TextRowReaderImpl::incrementDepth() {
+void TextRowReader::incrementDepth() {
   if (depth_ >= 6) {
     parse_error("Schema nesting too deep");
   }
   depth_++;
 }
 
-void TextRowReaderImpl::decrementDepth(DelimType& delim) {
+void TextRowReader::decrementDepth(DelimType& delim) {
   if (depth_ == 0) {
     logic_error("Attempt to decrement nesting depth of 0");
   }
@@ -304,7 +309,7 @@ void TextRowReaderImpl::decrementDepth(DelimType& delim) {
   }
 }
 
-void TextRowReaderImpl::setEOE(DelimType& delim) {
+void TextRowReader::setEOE(DelimType& delim) {
   // Set delim if it is currently None or a more deeply
   // delimiter, to simply the code where aggregates
   // parse nested aggregates.
@@ -314,7 +319,7 @@ void TextRowReaderImpl::setEOE(DelimType& delim) {
   }
 }
 
-void TextRowReaderImpl::resetEOE(DelimType& delim) {
+void TextRowReader::resetEOE(DelimType& delim) {
   // Reset delim it is EOE or above.
   auto d = depth_ + DelimTypeEOE;
   if (delim >= d) {
@@ -322,12 +327,12 @@ void TextRowReaderImpl::resetEOE(DelimType& delim) {
   }
 }
 
-bool TextRowReaderImpl::isEOE(DelimType delim) {
+bool TextRowReader::isEOE(DelimType delim) {
   // Test if delim is the EOE at the current depth.
   return (delim == (depth_ + DelimTypeEOE));
 }
 
-void TextRowReaderImpl::setEOR(DelimType& delim) {
+void TextRowReader::setEOR(DelimType& delim) {
   // Set delim if it is currently None or a more
   // deeply nested delimiter.
   auto d = depth_ + DelimTypeEOR;
@@ -336,13 +341,13 @@ void TextRowReaderImpl::setEOR(DelimType& delim) {
   }
 }
 
-bool TextRowReaderImpl::isEOR(DelimType delim) {
+bool TextRowReader::isEOR(DelimType delim) {
   // Return true if delim is the EOR for the current depth
   // or a less deeply nested depth.
   return (delim != DelimTypeNone && delim <= (depth_ + DelimTypeEOR));
 }
 
-bool TextRowReaderImpl::isOuterEOR(DelimType delim) {
+bool TextRowReader::isOuterEOR(DelimType delim) {
   // Return true if delim is the EOR for the enclosing object.
   // For example, when parsing ARRAY elements, which leave delim
   // set to the EOR for their depth on return, isOuterEOR will
@@ -351,20 +356,20 @@ bool TextRowReaderImpl::isOuterEOR(DelimType delim) {
   return (delim != DelimTypeNone && delim < (depth_ + DelimTypeEOR));
 }
 
-bool TextRowReaderImpl::isEOEorEOR(DelimType delim) {
+bool TextRowReader::isEOEorEOR(DelimType delim) {
   return (!isNone(delim) && delim <= (depth_ + DelimTypeEOE));
 }
 
-void TextRowReaderImpl::setNone(DelimType& delim) {
+void TextRowReader::setNone(DelimType& delim) {
   delim = DelimTypeNone;
 }
 
-bool TextRowReaderImpl::isNone(DelimType delim) {
+bool TextRowReader::isNone(DelimType delim) {
   return (delim == DelimTypeNone);
 }
 
-StringView TextRowReaderImpl::getStringView(
-    TextRowReaderImpl& th,
+StringView TextRowReader::getStringView(
+    TextRowReader& th,
     bool& isNull,
     DelimType& delim) {
   if (th.atEOL_) {
@@ -433,7 +438,7 @@ StringView TextRowReaderImpl::getStringView(
   return th.stringViewBuffer_.getOwnedValue(th.ownedString_);
 }
 
-uint8_t TextRowReaderImpl::getByte(DelimType& delim) {
+uint8_t TextRowReader::getByte(DelimType& delim) {
   setNone(delim);
   auto v = getByteUnchecked(delim);
   if (isNone(delim)) {
@@ -445,7 +450,7 @@ uint8_t TextRowReaderImpl::getByte(DelimType& delim) {
   return v;
 }
 
-uint8_t TextRowReaderImpl::getByteOptimized(DelimType& delim) {
+uint8_t TextRowReader::getByteOptimized(DelimType& delim) {
   setNone(delim);
   auto v = getByteUncheckedOptimized(delim);
   if (isNone(delim)) {
@@ -458,7 +463,7 @@ uint8_t TextRowReaderImpl::getByteOptimized(DelimType& delim) {
   return v;
 }
 
-DelimType TextRowReaderImpl::getDelimType(uint8_t v) {
+DelimType TextRowReader::getDelimType(uint8_t v) {
   DelimType delim = DelimTypeNone;
 
   if (v == '\n') {
@@ -486,7 +491,7 @@ DelimType TextRowReaderImpl::getDelimType(uint8_t v) {
 }
 
 template <bool skipLF>
-char TextRowReaderImpl::getByteUnchecked(DelimType& delim) {
+char TextRowReader::getByteUnchecked(DelimType& delim) {
   if (atEOL_) {
     if (!skipLF) {
       delim = DelimTypeEOR; // top level EOR
@@ -528,7 +533,7 @@ char TextRowReaderImpl::getByteUnchecked(DelimType& delim) {
 }
 
 template <bool skipLF>
-char TextRowReaderImpl::getByteUncheckedOptimized(DelimType& delim) {
+char TextRowReader::getByteUncheckedOptimized(DelimType& delim) {
   if (atEOL_) {
     if (!skipLF) {
       delim = DelimTypeEOR; // top level EOR
@@ -572,7 +577,7 @@ char TextRowReaderImpl::getByteUncheckedOptimized(DelimType& delim) {
   return '\n';
 }
 
-bool TextRowReaderImpl::getEOR(DelimType& delim, bool& isNull) {
+bool TextRowReader::getEOR(DelimType& delim, bool& isNull) {
   if (isEOR(delim)) {
     isNull = true;
     return true;
@@ -625,7 +630,7 @@ bool TextRowReaderImpl::getEOR(DelimType& delim, bool& isNull) {
   return false;
 }
 
-bool TextRowReaderImpl::skipLine() {
+bool TextRowReader::skipLine() {
   DelimType delim = DelimTypeNone;
   while (!atEOL_) {
     (void)getByteOptimized(delim);
@@ -637,7 +642,7 @@ bool TextRowReaderImpl::skipLine() {
   return atEOF_;
 }
 
-void TextRowReaderImpl::resetLine() {
+void TextRowReader::resetLine() {
   stringViewBuffer_ = StringViewBufferHolder(&contents_->pool);
   if (!atEOF_) {
     atEOL_ = false;
@@ -647,10 +652,7 @@ void TextRowReaderImpl::resetLine() {
 }
 
 template <typename T>
-T TextRowReaderImpl::getInteger(
-    TextRowReaderImpl& th,
-    bool& isNull,
-    DelimType& delim) {
+T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
   const auto& s = getStringView(th, isNull, delim);
 
   if (s.empty()) {
@@ -707,8 +709,8 @@ static const StringView falseStringView = StringView{"FALSE"};
 
 } // namespace
 
-bool TextRowReaderImpl::getBoolean(
-    TextRowReaderImpl& th,
+bool TextRowReader::getBoolean(
+    TextRowReader& th,
     bool& isNull,
     DelimType& delim) {
   const auto& s = getStringView(th, isNull, delim);
@@ -801,8 +803,8 @@ StringView trimStringView(StringView& s) {
 
 } // namespace
 
-float TextRowReaderImpl::getFloat(
-    TextRowReaderImpl& th,
+float TextRowReader::getFloat(
+    TextRowReader& th,
     bool& isNull,
     DelimType& delim) {
   auto strView = getStringView(th, isNull, delim);
@@ -831,10 +833,8 @@ float TextRowReaderImpl::getFloat(
   return v;
 }
 
-double TextRowReaderImpl::getDouble(
-    TextRowReaderImpl& th,
-    bool& isNull,
-    DelimType& delim) {
+double
+TextRowReader::getDouble(TextRowReader& th, bool& isNull, DelimType& delim) {
   auto strView = getStringView(th, isNull, delim);
   if (strView.empty()) {
     isNull = true;
@@ -863,7 +863,7 @@ double TextRowReaderImpl::getDouble(
   return v;
 }
 
-void TextRowReaderImpl::readElement(
+void TextRowReader::readElement(
     const std::shared_ptr<const Type>& t,
     const std::shared_ptr<const Type>& reqT,
     BaseVector* FOLLY_NULLABLE data,
@@ -1244,8 +1244,8 @@ uint64_t maxStreamsForType(const std::shared_ptr<const Type>& type) {
 }
 
 template <class T, class reqT>
-void TextRowReaderImpl::putValue(
-    std::function<T(TextRowReaderImpl& th, bool& isNull, DelimType& delim)> f,
+void TextRowReader::putValue(
+    std::function<T(TextRowReader& th, bool& isNull, DelimType& delim)> f,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim) {
@@ -1278,11 +1278,17 @@ void TextRowReaderImpl::putValue(
   }
 }
 
-TextReaderImpl::TextReaderImpl(
-    std::unique_ptr<BufferedInput> input,
-    const ReaderOptions& opts)
-    : options_{opts} {
+const std::shared_ptr<const RowType>& TextRowReader::getType() const {
+  return contents_->schema;
+}
+
+TextReader::TextReader(
+    const ReaderOptions& options,
+    std::unique_ptr<BufferedInput> input)
+    : options_{options} {
   auto schema = options_.fileSchema();
+  VELOX_USER_CHECK_NOT_NULL(schema, "File schema for TEXT must be set.");
+
   if (!schema) {
     // create dummy for testing.
     internalSchema_ = std::dynamic_pointer_cast<const RowType>(
@@ -1343,41 +1349,40 @@ TextReaderImpl::TextReaderImpl(
   }
 }
 
-const std::shared_ptr<const RowType>& TextRowReaderImpl::getType() const {
-  return contents_->schema;
-}
-
-std::optional<uint64_t> TextReaderImpl::numberOfRows() const {
+std::optional<uint64_t> TextReader::numberOfRows() const {
   return std::nullopt;
 }
 
-std::unique_ptr<ColumnStatistics> TextReaderImpl::columnStatistics(
+std::unique_ptr<ColumnStatistics> TextReader::columnStatistics(
     uint32_t /*index*/) const {
   return nullptr;
 }
 
-const std::shared_ptr<const RowType>& TextReaderImpl::rowType() const {
+const std::shared_ptr<const RowType>& TextReader::rowType() const {
   return contents_->schema;
 }
 
-CompressionKind TextReaderImpl::getCompression() const {
+CompressionKind TextReader::getCompression() const {
   return contents_->compression;
 }
 
-const std::shared_ptr<const TypeWithId>& TextReaderImpl::typeWithId() const {
-  VELOX_UNSUPPORTED("Do not access from reader_");
+const std::shared_ptr<const TypeWithId>& TextReader::typeWithId() const {
+  if (!typeWithId_) {
+    typeWithId_ = TypeWithId::create(rowType());
+  }
+  return typeWithId_;
 }
 
-std::unique_ptr<RowReader> TextReaderImpl::createRowReader(
+std::unique_ptr<RowReader> TextReader::createRowReader(
     const RowReaderOptions& opts) const {
-  return std::make_unique<TextRowReaderImpl>(contents_, opts);
+  return std::make_unique<TextRowReader>(contents_, opts);
 }
 
-uint64_t TextReaderImpl::getFileLength() const {
+uint64_t TextReader::getFileLength() const {
   return contents_->fileLength;
 }
 
-uint64_t TextReaderImpl::getMemoryUse() {
+uint64_t TextReader::getMemoryUse() {
   uint64_t memory = std::min(
       uint64_t(contents_->fileLength),
       contents_->input->getInputStream()->getNaturalReadSize());

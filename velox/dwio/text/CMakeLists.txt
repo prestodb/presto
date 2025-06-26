@@ -24,6 +24,6 @@ velox_link_libraries(velox_dwio_text_writer_register velox_dwio_text_writer)
 
 add_subdirectory(reader)
 
-velox_add_library(velox_dwio_text_reader_register TextReader.cpp)
+velox_add_library(velox_dwio_text_reader_register RegisterTextReader.cpp)
 
 velox_link_libraries(velox_dwio_text_reader_register velox_dwio_text_reader)
