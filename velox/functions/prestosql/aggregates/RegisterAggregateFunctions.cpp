@@ -43,6 +43,7 @@
 #include "velox/functions/prestosql/aggregates/MultiMapAggAggregate.h"
 #include "velox/functions/prestosql/aggregates/NoisyCountGaussianAggregate.h"
 #include "velox/functions/prestosql/aggregates/NoisyCountIfGaussianAggregate.h"
+#include "velox/functions/prestosql/aggregates/NoisySumGaussianAggregate.h"
 #include "velox/functions/prestosql/aggregates/QDigestAggAggregate.h"
 #include "velox/functions/prestosql/aggregates/ReduceAgg.h"
 #include "velox/functions/prestosql/aggregates/SetAggregates.h"
@@ -97,6 +98,7 @@ void registerAllAggregateFunctions(
       prefix, withCompanionFunctions, overwrite);
   registerNoisyCountGaussianAggregate(
       prefix, withCompanionFunctions, overwrite);
+  registerNoisySumGaussianAggregate(prefix, withCompanionFunctions, overwrite);
   registerReduceAgg(prefix, withCompanionFunctions, overwrite);
   registerSetAggAggregate(prefix, withCompanionFunctions, overwrite);
   registerSetUnionAggregate(prefix, withCompanionFunctions, overwrite);

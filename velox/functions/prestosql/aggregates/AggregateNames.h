@@ -59,6 +59,7 @@ const char* const kMinBy = "min_by";
 const char* const kMultiMapAgg = "multimap_agg";
 const char* const kNoisyCountIfGaussian = "noisy_count_if_gaussian";
 const char* const kNoisyCountGaussian = "noisy_count_gaussian";
+const char* const kNoisySumGaussian = "noisy_sum_gaussian";
 const char* const kReduceAgg = "reduce_agg";
 const char* const kRegrIntercept = "regr_intercept";
 const char* const kRegrSlop = "regr_slope";
