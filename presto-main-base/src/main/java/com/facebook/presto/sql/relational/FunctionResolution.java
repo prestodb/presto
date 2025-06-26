@@ -431,6 +431,11 @@ public final class FunctionResolution
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("map_subset")));
     }
 
+    public boolean isMapFilterFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("map_filter")));
+    }
+
     @Override
     public FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes)
     {
