@@ -896,6 +896,35 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testViewWithReservedKeywords()
+    {
+        skipTestUnless(supportsViews());
+
+        assertUpdate("CREATE TABLE \"group\" AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+        @Language("SQL") String groupQuery = "SELECT orderkey, orderstatus, totalprice / 2 half FROM \"group\"";
+
+        assertUpdate("CREATE OR REPLACE VIEW test_view_with_reserved_keywords AS " + groupQuery);
+
+        assertQuery("SELECT * FROM test_view_with_reserved_keywords", query);
+
+        String expectedSql = formatSqlText(format(
+                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_view_with_reserved_keywords",
+                "DEFINER",
+                groupQuery)).trim();
+
+        MaterializedResult actual = computeActual("SHOW CREATE VIEW test_view_with_reserved_keywords");
+
+        assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
+
+        assertUpdate("DROP VIEW test_view_with_reserved_keywords");
+    }
+
+    @Test
     public void testViewCaseSensitivity()
     {
         skipTestUnless(supportsViews());

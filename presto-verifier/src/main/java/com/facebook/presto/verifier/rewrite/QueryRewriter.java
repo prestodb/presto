@@ -343,14 +343,15 @@ public class QueryRewriter
 
     private QualifiedName generateTemporaryName(Optional<QualifiedName> originalName, QualifiedName prefix)
     {
-        List<String> parts = new ArrayList<>();
+        List<Identifier> parts = new ArrayList<>();
         int originalSize = originalName.map(QualifiedName::getOriginalParts).map(List::size).orElse(0);
         int prefixSize = prefix.getOriginalParts().size();
         if (originalName.isPresent() && originalSize > prefixSize) {
             parts.addAll(originalName.get().getOriginalParts().subList(0, originalSize - prefixSize));
         }
         parts.addAll(prefix.getOriginalParts());
-        parts.set(parts.size() - 1, prefix.getOriginalSuffix() + "_" + randomUUID().toString().replace("-", ""));
+        parts.set(parts.size() - 1, new Identifier(prefix.getOriginalSuffix().getValue() + "_" + randomUUID().toString().replace("-", ""),
+                prefix.getOriginalSuffix().isDelimited()));
         return QualifiedName.of(parts);
     }
 
