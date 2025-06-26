@@ -29,6 +29,8 @@ using ConnectorSplitPtr = std::shared_ptr<connector::ConnectorSplit>;
 
 class PrestoQueryReplayRunner {
  public:
+  enum class Status { kSuccess, kUnsupported, kError };
+
   /// Create a QueryReplayRunner with the given memory pool.
   /// @param taskPrefixExtractor A function that extracts the task prefix from a
   /// task id contained in the serialized plan fragment.
@@ -43,10 +45,11 @@ class PrestoQueryReplayRunner {
       const std::unordered_map<std::string, std::string>& config = {},
       const std::unordered_map<std::string, std::string>& hiveConfig = {});
 
-  /// Runs a query with the given serialized plan fragments and returns the
-  /// results. The serialized plan fragments should have the same query id as
-  /// 'queryId'.
-  std::vector<RowVectorPtr> run(
+  /// Runs a query with the given serialized plan fragments and returns a pair
+  /// of the results and execution status. The result is std::nullopt if the
+  /// status is not kSuccess. The serialized plan fragments should have the same
+  /// query id as 'queryId'.
+  std::pair<std::optional<std::vector<RowVectorPtr>>, Status> run(
       const std::string& queryId,
       const std::vector<std::string>& serializedPlanFragments,
       const std::vector<std::string>& serializedConnectorSplits);
@@ -62,7 +65,9 @@ class PrestoQueryReplayRunner {
   std::vector<std::string> getTaskPrefixes(
       const std::vector<folly::dynamic>& jsonRecords);
 
-  MultiFragmentPlanPtr deserializePlan(
+  /// Deserialize a list of plan fragments into a MultiFragmentPlanPtr. If any
+  /// of the plan fragment is unsupported, return a nullptr.
+  MultiFragmentPlanPtr deserializeSupportedPlan(
       const std::string& queryId,
       const std::vector<std::string>& serializedPlanFragments);
 

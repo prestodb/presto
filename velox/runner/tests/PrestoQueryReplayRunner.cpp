@@ -217,7 +217,33 @@ std::vector<std::string> PrestoQueryReplayRunner::getTaskPrefixes(
   return taskPrefixes;
 }
 
-MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
+bool isSupportedImpl(const core::PlanNodePtr& node) {
+  // We don't support arbitrary partitioning yet.
+  if (auto partitionedOutput =
+          std::dynamic_pointer_cast<const core::PartitionedOutputNode>(node)) {
+    if (partitionedOutput->isArbitrary()) {
+      return false;
+    }
+  }
+  for (const auto& child : node->sources()) {
+    if (!isSupportedImpl(child)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isSupported(
+    const folly::dynamic& jsonPlan,
+    const core::PlanNodePtr& plan) {
+  // We don't support grouped execution yet.
+  if (jsonPlan.at("execution_strategy").getString() != "UNGROUPED") {
+    return false;
+  }
+  return isSupportedImpl(plan);
+}
+
+MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializeSupportedPlan(
     const std::string& queryId,
     const std::vector<std::string>& serializedPlanFragments) {
   auto jsonRecords = getJsonRecords(serializedPlanFragments);
@@ -236,6 +262,9 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializePlan(
     VELOX_CHECK_EQ(planFragments.count(taskPrefix), 0);
 
     const auto plan = getDeserializedPlan(jsonRecords[i], pool_);
+    if (!isSupported(jsonRecords[i], plan)) {
+      return nullptr;
+    }
     planFragments[taskPrefix].scans = getScanNodes(plan);
     planFragments[taskPrefix].plan = plan;
   }
@@ -320,22 +349,35 @@ PrestoQueryReplayRunner::deserializeConnectorSplits(
   return nodeSplitsMap;
 }
 
-std::vector<RowVectorPtr> PrestoQueryReplayRunner::run(
+std::pair<
+    std::optional<std::vector<RowVectorPtr>>,
+    PrestoQueryReplayRunner::Status>
+PrestoQueryReplayRunner::run(
     const std::string& queryId,
     const std::vector<std::string>& serializedPlanFragments,
     const std::vector<std::string>& serializedConnectorSplits) {
   auto queryRootPool = makeRootPool(queryId);
-  auto multiFragmentPlan = deserializePlan(queryId, serializedPlanFragments);
+  auto multiFragmentPlan =
+      deserializeSupportedPlan(queryId, serializedPlanFragments);
+  if (multiFragmentPlan == nullptr) {
+    return std::make_pair(std::nullopt, Status::kUnsupported);
+  }
+
   auto nodeSplitMap = deserializeConnectorSplits(serializedConnectorSplits);
   auto localRunner = std::make_shared<LocalRunner>(
       std::move(multiFragmentPlan),
       makeQueryCtx(queryId, queryRootPool),
       std::make_shared<runner::SimpleSplitSourceFactory>(nodeSplitMap));
 
-  auto result = readCursor(localRunner, pool_);
-  localRunner->waitForCompletion(kWaitTimeoutUs);
-
-  return result;
+  std::vector<RowVectorPtr> result;
+  try {
+    result = readCursor(localRunner, pool_);
+    localRunner->waitForCompletion(kWaitTimeoutUs);
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to run query " << queryId << ": " << e.what();
+    return std::make_pair(std::nullopt, Status::kError);
+  }
+  return std::make_pair(result, Status::kSuccess);
 }
 
 } // namespace facebook::velox::runner
