@@ -29,7 +29,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static scala.collection.JavaConversions.asScalaBuffer;
+import static scala.collection.JavaConverters.asScalaBuffer;
 
 public class PrestoSparkTaskSourceRdd
         extends RDD<SerializedPrestoSparkTaskSource>
