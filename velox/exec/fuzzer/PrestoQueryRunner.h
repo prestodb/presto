@@ -121,6 +121,7 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   // Creates an empty table with given data type and table name. The function
   // returns the root directory of table files.
   std::string createTable(const std::string& name, const TypePtr& type);
+  void cleanUp(const std::string& name);
 
   const std::string coordinatorUri_;
   const std::string user_;

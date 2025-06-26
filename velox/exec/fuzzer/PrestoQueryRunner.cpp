@@ -377,6 +377,10 @@ std::string PrestoQueryRunner::createTable(
   return tableDirectoryPath;
 }
 
+void PrestoQueryRunner::cleanUp(const std::string& name) {
+  execute(fmt::format("DROP TABLE IF EXISTS {}", name));
+}
+
 std::pair<
     std::optional<std::vector<velox::RowVectorPtr>>,
     ReferenceQueryErrorCode>
@@ -406,8 +410,13 @@ PrestoQueryRunner::executeAndReturnVector(const core::PlanNodePtr& plan) {
         writeToFile(filePath, input, writerPool.get());
       }
 
-      // Run the query.
-      return std::make_pair(execute(*sql), ReferenceQueryErrorCode::kSuccess);
+      // Run the query. If successful, delete the table.
+      auto result = execute(*sql);
+      for (const auto& [tableName, _] : inputMap) {
+        cleanUp(tableName);
+      }
+
+      return std::make_pair(result, ReferenceQueryErrorCode::kSuccess);
     } catch (const VeloxRuntimeError& e) {
       // Throw if connection to Presto server is unsuccessful.
       if (e.message().find("Couldn't connect to server") != std::string::npos) {
