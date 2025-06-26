@@ -23,6 +23,8 @@
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 #include "velox/experimental/cudf/vector/CudfVector.h"
 
+#include "velox/expression/FieldReference.h"
+
 #include <cudf/io/parquet.hpp>
 #include <cudf/io/types.hpp>
 #include <cudf/stream_compaction.hpp>
@@ -81,14 +83,50 @@ ParquetDataSource::ParquetDataSource(
   auto subfieldFilter = tableHandle_->subfieldFilterExpr();
   if (subfieldFilter) {
     subfieldFilterExprSet_ = expressionEvaluator_->compile(subfieldFilter);
+    // Add fields in the filter to the columns to read if not there
+    for (const auto& field : subfieldFilterExprSet_->distinctFields()) {
+      if (std::find(
+              readColumnNames_.begin(),
+              readColumnNames_.end(),
+              field->name()) == readColumnNames_.end()) {
+        readColumnNames_.push_back(field->name());
+      }
+    }
   }
 
   // Create remaining filter
   auto remainingFilter = tableHandle_->remainingFilter();
   if (remainingFilter) {
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
+    for (const auto& field : remainingFilterExprSet_->distinctFields()) {
+      // Add fields in the filter to the columns to read if not there
+      if (std::find(
+              readColumnNames_.begin(),
+              readColumnNames_.end(),
+              field->name()) == readColumnNames_.end()) {
+        readColumnNames_.push_back(field->name());
+      }
+    }
+
+    const RowTypePtr remainingFilterType_ = [&] {
+      if (tableHandle_->dataColumns()) {
+        std::vector<std::string> new_names;
+        std::vector<TypePtr> new_types;
+
+        for (const auto& name : readColumnNames_) {
+          auto parsedType = tableHandle_->dataColumns()->findChild(name);
+          new_names.emplace_back(std::move(name));
+          new_types.push_back(parsedType);
+        }
+
+        return ROW(std::move(new_names), std::move(new_types));
+      } else {
+        return outputType_;
+      }
+    }();
+
     cudfExpressionEvaluator_ = velox::cudf_velox::ExpressionEvaluator(
-        remainingFilterExprSet_->exprs(), outputType_);
+        remainingFilterExprSet_->exprs(), remainingFilterType_);
     // TODO(kn): Get column names and subfields from remaining filter and add to
     // readColumnNames_
   }
@@ -111,7 +149,7 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
   auto cudfTable = std::move(table);
   // Fill in the column names if reading the first chunk.
   if (columnNames_.empty()) {
-    for (auto schema : metadata.schema_info) {
+    for (const auto& schema : metadata.schema_info) {
       columnNames_.emplace_back(schema.name);
     }
   }
@@ -218,24 +256,46 @@ ParquetDataSource::createSplitReader() {
     readerOptions.set_num_rows(parquetConfig_->numRows().value());
   }
 
-  // Set column projection if needed
-  if (readColumnNames_.size()) {
-    readerOptions.set_columns(readColumnNames_);
-  }
   if (subfieldFilterExprSet_) {
     auto subfieldFilterExpr = subfieldFilterExprSet_->expr(0);
+
     // non-ast instructions in filter is not supported for SubFieldFilter.
     // precomputeInstructions which are non-ast instructions should be empty.
     std::vector<PrecomputeInstruction> precomputeInstructions;
+
+    const RowTypePtr readerFilterType_ = [&] {
+      if (tableHandle_->dataColumns()) {
+        std::vector<std::string> new_names;
+        std::vector<TypePtr> new_types;
+
+        for (const auto& name : readColumnNames_) {
+          // Ensure all columns being read are available to the filter
+          auto parsedType = tableHandle_->dataColumns()->findChild(name);
+          new_names.emplace_back(std::move(name));
+          new_types.push_back(parsedType);
+        }
+
+        return ROW(std::move(new_names), std::move(new_types));
+      } else {
+        return outputType_;
+      }
+    }();
+
     createAstTree(
         subfieldFilterExpr,
         subfieldTree_,
         subfieldScalars_,
-        outputType_,
+        readerFilterType_,
         precomputeInstructions);
     VELOX_CHECK_EQ(precomputeInstructions.size(), 0);
     readerOptions.set_filter(subfieldTree_.back());
   }
+
+  // Set column projection if needed
+  if (readColumnNames_.size()) {
+    readerOptions.set_columns(readColumnNames_);
+  }
+
   stream_ = cudfGlobalStreamPool().get_stream();
   // Create a parquet reader
   return std::make_unique<cudf::io::chunked_parquet_reader>(
