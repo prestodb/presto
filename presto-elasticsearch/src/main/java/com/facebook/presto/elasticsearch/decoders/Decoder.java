@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.facebook.presto.common.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
 public interface Decoder
 {
-    void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output);
+    void decode(Hit hit, Supplier<Object> getter, BlockBuilder output);
 }
