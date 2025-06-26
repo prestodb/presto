@@ -651,10 +651,12 @@ class NonPODAlignedBuffer : public Buffer {
     int oldNum = oldBytes / sizeof(T);
     int newNum = newBytes / sizeof(T);
     auto data = asMutable<T>();
-    for (int i = oldNum; i < newNum; ++i) {
-      if (initValue) {
+    if (initValue) {
+      for (int i = oldNum; i < newNum; ++i) {
         new (data + i) T(*initValue);
-      } else {
+      }
+    } else {
+      for (int i = oldNum; i < newNum; ++i) {
         new (data + i) T();
       }
     }
