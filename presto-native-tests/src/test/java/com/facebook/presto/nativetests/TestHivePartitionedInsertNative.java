@@ -35,7 +35,7 @@ public class TestHivePartitionedInsertNative
     public void init() throws Exception
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
         super.init();
     }
 
@@ -81,6 +81,6 @@ public class TestHivePartitionedInsertNative
         // Validate total row count
         assertEquals(queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName).toString(), "MaterializedResult{rows=[[50]], types=[bigint], setSessionProperties={}, resetSessionProperties=[]}");
         // Validate filtered row count
-        assertEquals(queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName + " WHERE n_regionkey = 0").toString(), "MaterializedResult{rows=[[1g0]], types=[bigint], setSessionProperties={}, resetSessionProperties=[]}");
+        assertEquals(queryRunner.execute(queryRunner.getDefaultSession(), "SELECT count(*) FROM " + tableName + " WHERE n_regionkey = 0").toString(), "MaterializedResult{rows=[[10]], types=[bigint], setSessionProperties={}, resetSessionProperties=[]}");
     }
 }
