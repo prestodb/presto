@@ -59,6 +59,19 @@ Property Name                               Description
 ``arrow-flight.server-ssl-enabled``         Port is ssl enabled
 ========================================== ==============================================================
 
+Mutual TLS (mTLS) Support
+-------------------------
+
+To enable mutual TLS (mTLS) authentication between the Presto client and the Arrow Flight server, you must configure the client to present a valid certificate and key that the server can validate. This enhances security by ensuring both the client and server authenticate each other.
+
+To enable mTLS, the following properties must be configured:
+
+- ``arrow-flight.client-ssl-certificate``: Path to the client’s SSL certificate.
+- ``arrow-flight.client-ssl-key``: Path to the client’s SSL private key.
+
+These properties must be used alongside the existing SSL configurations for the server, such as `arrow-flight.server-ssl-certificate` and `arrow-flight.server-ssl-enabled=true`. Make sure the server is configured to trust the client certificates (typically via a shared CA).
+
+
 Querying Arrow-Flight
 ---------------------
 
