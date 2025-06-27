@@ -16,6 +16,10 @@
 #include "velox/exec/ExchangeQueue.h"
 #include <algorithm>
 
+#include "velox/common/testutil/TestValue.h"
+
+using facebook::velox::common::testutil::TestValue;
+
 namespace facebook::velox::exec {
 
 SerializedPage::SerializedPage(
@@ -136,6 +140,8 @@ std::vector<std::unique_ptr<SerializedPage>> ExchangeQueue::dequeueLocked(
     ContinueFuture* future,
     ContinuePromise* stalePromise) {
   VELOX_CHECK_NOT_NULL(future);
+  TestValue::adjust(
+      "facebook::velox::exec::ExchangeQueue::dequeueLocked", this);
   if (!error_.empty()) {
     *atEnd = true;
     VELOX_FAIL(error_);

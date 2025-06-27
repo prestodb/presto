@@ -91,6 +91,10 @@ BlockingReason Merge::isBlocked(ContinueFuture* future) {
 
   maybeStartNextMergeSourceGroup();
 
+  if (sourceMerger_ != nullptr) {
+    sourceMerger_->isBlocked(sourceBlockingFutures_);
+  }
+
   if (sourceBlockingFutures_.empty()) {
     return BlockingReason::kNotBlocked;
   }
@@ -176,12 +180,6 @@ void Merge::setupSpillMerger() {
 }
 
 void Merge::maybeStartNextMergeSourceGroup() {
-  SCOPE_EXIT {
-    if (sourceMerger_ != nullptr) {
-      sourceMerger_->isBlocked(sourceBlockingFutures_);
-    }
-  };
-
   if (sourceMerger_ != nullptr || numStartedSources_ >= sources_.size()) {
     return;
   }
