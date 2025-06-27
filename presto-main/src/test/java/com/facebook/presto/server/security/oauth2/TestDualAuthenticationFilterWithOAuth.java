@@ -43,6 +43,7 @@ import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static io.airlift.units.Duration.nanosSince;
+import static java.io.File.createTempFile;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.Response.Status.OK;
@@ -92,6 +93,7 @@ public class TestDualAuthenticationFilterWithOAuth
     }
 
     protected ImmutableMap<String, String> getConfig(String idpUrl)
+            throws IOException
     {
         return ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.allow-forwarded-https", "true")
@@ -106,6 +108,7 @@ public class TestDualAuthenticationFilterWithOAuth
                 .put("http-server.authentication.oauth2.max-clock-skew", "0s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .build();
     }
