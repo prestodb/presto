@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.router.scheduler.SchedulerType.CUSTOM_PLUGIN_SCHEDULER;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
@@ -67,6 +68,7 @@ public class TestPlanCheckerRouterPlugin
     private boolean sidecarEnabled;
     // mock object only to check the redirect requests counters.
     private PlanCheckerRouterPluginPrestoClient planCheckerRouterPluginPrestoClient;
+    private QueryRunner nativeQueryRunner;
 
     @BeforeClass
     public void init()
@@ -77,20 +79,19 @@ public class TestPlanCheckerRouterPlugin
         super.init();
         Logging.initialize();
 
+        nativeQueryRunner = getQueryRunner();
+
         // for testing purposes, we can skip the router chaining part and specify the native/java clusters directly here
         URI nativeClusterURI = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getBaseUrl();
         URI javaClusterURI = ((DistributedQueryRunner) getExpectedQueryRunner()).getCoordinator().getBaseUrl();
         PlanCheckerRouterPluginConfig planCheckerRouterConfig = new PlanCheckerRouterPluginConfig()
                 .setPlanCheckClustersURIs(nativeClusterURI.toString())
                 .setJavaRouterURI(javaClusterURI)
-                .setNativeRouterURI(nativeClusterURI);
+                .setNativeRouterURI(nativeClusterURI)
+                .setJavaClusterFallbackEnabled(true);
 
-        planCheckerRouterPluginPrestoClient = new PlanCheckerRouterPluginPrestoClient(
-                planCheckerRouterConfig.getPlanCheckClustersURIs().get(0),
-                planCheckerRouterConfig.getJavaRouterURI(),
-                planCheckerRouterConfig.getNativeRouterURI(),
-                planCheckerRouterConfig.getClientRequestTimeout(),
-                planCheckerRouterConfig.isJavaClusterFallbackEnabled());
+        planCheckerRouterPluginPrestoClient =
+                new PlanCheckerRouterPluginPrestoClient(planCheckerRouterConfig);
 
         Path tempFile = Files.createTempFile("temp-config", ".json");
         File configFile = getConfigFile(singletonList(planCheckerRouterConfig.getNativeRouterURI()), tempFile.toFile());
@@ -171,6 +172,22 @@ public class TestPlanCheckerRouterPlugin
     {
         if (sidecarEnabled) {
             runQuery(query, httpServerUri, Optional.of(exceptionMessage));
+        }
+    }
+
+    @Test(dependsOnMethods =
+            {"testFailingQueriesOnBothClusters",
+                    "testNativeCompatibleQueries",
+                    "testNativeIncompatibleQueries"})
+    public void testPlanCheckerClusterNotAvailable()
+            throws SQLException
+    {
+        if (sidecarEnabled) {
+            closeAllRuntimeException(nativeQueryRunner);
+            nativeQueryRunner = null;
+            for (String query : getNativeIncompatibleQueries()) {
+                runQuery(query, httpServerUri);
+            }
         }
     }
 

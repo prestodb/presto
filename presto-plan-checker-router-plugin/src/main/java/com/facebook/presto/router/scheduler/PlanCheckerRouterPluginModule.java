@@ -26,6 +26,7 @@ public class PlanCheckerRouterPluginModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(PlanCheckerRouterPluginConfig.class);
+        binder.bind(PlanCheckerRouterPluginPrestoClient.class).in(SINGLETON);
         binder.bind(PlanCheckerRouterPluginScheduler.class).in(SINGLETON);
     }
 }
