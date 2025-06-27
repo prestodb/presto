@@ -13,6 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -43,8 +45,6 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.security.Principal;
 import java.util.HashMap;

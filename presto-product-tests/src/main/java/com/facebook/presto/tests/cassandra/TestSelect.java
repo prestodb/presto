@@ -14,7 +14,7 @@
 package com.facebook.presto.tests.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.RequirementsProvider;
