@@ -224,6 +224,7 @@ public class HiveClientConfig
     private boolean legacyTimestampBucketing;
     private boolean optimizeParsingOfPartitionValues;
     private int optimizeParsingOfPartitionValuesThreshold = 500;
+    private boolean symlinkOptimizedReaderEnabled = true;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1859,5 +1860,18 @@ public class HiveClientConfig
     public int getOptimizeParsingOfPartitionValuesThreshold()
     {
         return optimizeParsingOfPartitionValuesThreshold;
+    }
+
+    public boolean isSymlinkOptimizedReaderEnabled()
+    {
+        return symlinkOptimizedReaderEnabled;
+    }
+
+    @Config("hive.experimental.symlink.optimized-reader.enabled")
+    @ConfigDescription("Experimental: Enable optimized SymlinkTextInputFormat reader")
+    public HiveClientConfig setSymlinkOptimizedReaderEnabled(boolean symlinkOptimizedReaderEnabled)
+    {
+        this.symlinkOptimizedReaderEnabled = symlinkOptimizedReaderEnabled;
+        return this;
     }
 }
