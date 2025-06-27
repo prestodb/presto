@@ -52,11 +52,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitMetadataDelete(MetadataDeleteNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitUpdate(UpdateNode node, C context)
     {
         return visitPlan(node, context);

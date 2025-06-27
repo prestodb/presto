@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class MetadataDeleteNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final TableHandle tableHandle;
     private final VariableReferenceExpression output;
@@ -74,17 +72,17 @@ public class MetadataDeleteNode
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.of(output);
+        return Collections.singletonList(output);
     }
 
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        return Collections.emptyList();
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMetadataDelete(this, context);
     }
