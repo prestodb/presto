@@ -16,6 +16,7 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/prestosql/RegexpReplace.h"
+#include "velox/functions/prestosql/RegexpSplit.h"
 #include "velox/functions/prestosql/SplitPart.h"
 #include "velox/functions/prestosql/SplitToMap.h"
 #include "velox/functions/prestosql/SplitToMultiMap.h"
