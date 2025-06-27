@@ -439,12 +439,13 @@ folly::dynamic AggregationNode::Aggregate::serialize() const {
 AggregationNode::Aggregate AggregationNode::Aggregate::deserialize(
     const folly::dynamic& obj,
     void* context) {
-  auto call = ISerializable::deserialize<CallTypedExpr>(obj["call"]);
+  auto call = ISerializable::deserialize<CallTypedExpr>(obj["call"], context);
   auto rawInputTypes =
       ISerializable::deserialize<std::vector<Type>>(obj["rawInputTypes"]);
   FieldAccessTypedExprPtr mask;
   if (obj.count("mask")) {
-    mask = ISerializable::deserialize<FieldAccessTypedExpr>(obj["mask"]);
+    mask =
+        ISerializable::deserialize<FieldAccessTypedExpr>(obj["mask"], context);
   }
   auto sortingKeys = deserializeFields(obj["sortingKeys"], context);
   auto sortingOrders = deserializeSortingOrders(obj["sortingOrders"]);
@@ -701,7 +702,8 @@ PlanNodePtr GroupIdNode::create(const folly::dynamic& obj, void* context) {
   for (const auto& info : obj["groupingKeyInfos"]) {
     groupingKeyInfos.push_back(
         {info["output"].asString(),
-         ISerializable::deserialize<FieldAccessTypedExpr>(info["input"])});
+         ISerializable::deserialize<FieldAccessTypedExpr>(
+             info["input"], context)});
   }
 
   auto groupingSets =
@@ -1120,7 +1122,7 @@ PlanNodePtr TableScanNode::create(const folly::dynamic& obj, void* context) {
   for (const auto& pair : obj["assignments"]) {
     auto assign = pair["assign"].asString();
     auto columnHandle = ISerializable::deserialize<connector::ColumnHandle>(
-        pair["columnHandle"]);
+        pair["columnHandle"], context);
     assignments[assign] =
         std::const_pointer_cast<connector::ColumnHandle>(columnHandle);
   }
@@ -1442,7 +1444,7 @@ PlanNodePtr HashJoinNode::create(const folly::dynamic& obj, void* context) {
 
   TypedExprPtr filter;
   if (obj.count("filter")) {
-    filter = ISerializable::deserialize<ITypedExpr>(obj["filter"]);
+    filter = ISerializable::deserialize<ITypedExpr>(obj["filter"], context);
   }
 
   auto outputType = deserializeRowType(obj["outputType"]);
@@ -1520,7 +1522,7 @@ PlanNodePtr MergeJoinNode::create(const folly::dynamic& obj, void* context) {
 
   TypedExprPtr filter;
   if (obj.count("filter")) {
-    filter = ISerializable::deserialize<ITypedExpr>(obj["filter"]);
+    filter = ISerializable::deserialize<ITypedExpr>(obj["filter"], context);
   }
 
   auto outputType = deserializeRowType(obj["outputType"]);
@@ -2448,7 +2450,8 @@ PlanNodePtr TableWriteMergeNode::create(
   std::shared_ptr<AggregationNode> aggregationNode;
   if (obj.count("aggregationNode") != 0) {
     aggregationNode = std::const_pointer_cast<AggregationNode>(
-        ISerializable::deserialize<AggregationNode>(obj["aggregationNode"]));
+        ISerializable::deserialize<AggregationNode>(
+            obj["aggregationNode"], context));
   }
   return std::make_shared<TableWriteMergeNode>(
       id, outputType, aggregationNode, deserializeSingleSource(obj, context));
@@ -2534,7 +2537,7 @@ PlanNodePtr LocalPartitionNode::create(
       typeFromName(obj["type"].asString()),
       obj["scaleWriter"].asBool(),
       ISerializable::deserialize<PartitionFunctionSpec>(
-          obj["partitionFunctionSpec"]),
+          obj["partitionFunctionSpec"], context),
       deserializeSources(obj, context));
 }
 
@@ -3165,7 +3168,7 @@ void AggregationNode::addSummaryDetails(
 PlanNodePtr FilterNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
 
-  auto filter = ISerializable::deserialize<ITypedExpr>(obj["filter"]);
+  auto filter = ISerializable::deserialize<ITypedExpr>(obj["filter"], context);
   return std::make_shared<FilterNode>(
       deserializePlanNodeId(obj), filter, std::move(source));
 }
