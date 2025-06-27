@@ -47,7 +47,43 @@ void resizeVector(
   if (dataSize == 0) {
     data->resize(10);
   } else if (dataSize <= insertionIdx) {
-    data->resize(dataSize * 2);
+    if (data->type()->kind() == TypeKind::ARRAY) {
+      auto oldSize = dataSize;
+      auto newSize = dataSize * 2;
+      data->resize(newSize);
+
+      auto arrayVector = data->asChecked<ArrayVector>();
+      auto rawOffsets = arrayVector->offsets()->asMutable<vector_size_t>();
+      auto rawSizes = arrayVector->sizes()->asMutable<vector_size_t>();
+
+      auto lastOffset = oldSize > 0 ? rawOffsets[oldSize - 1] : 0;
+      auto lastSize = oldSize > 0 ? rawSizes[oldSize - 1] : 0;
+      auto newOffset = oldSize > 0 ? lastOffset + lastSize : 0;
+
+      for (auto i = oldSize; i < newSize; ++i) {
+        rawSizes[i] = 0;
+        rawOffsets[i] = newOffset;
+      }
+    } else if (data->type()->kind() == TypeKind::MAP) {
+      auto oldSize = dataSize;
+      auto newSize = dataSize * 2;
+      data->resize(newSize);
+
+      auto mapVector = data->asChecked<MapVector>();
+      auto rawOffsets = mapVector->offsets()->asMutable<vector_size_t>();
+      auto rawSizes = mapVector->sizes()->asMutable<vector_size_t>();
+
+      auto lastOffset = oldSize > 0 ? rawOffsets[oldSize - 1] : 0;
+      auto lastSize = oldSize > 0 ? rawSizes[oldSize - 1] : 0;
+      auto newOffset = oldSize > 0 ? lastOffset + lastSize : 0;
+
+      for (auto i = oldSize; i < newSize; ++i) {
+        rawSizes[i] = 0;
+        rawOffsets[i] = newOffset;
+      }
+    } else {
+      data->resize(dataSize * 2);
+    }
   }
 }
 
@@ -470,7 +506,7 @@ DelimType TextRowReader::getDelimType(uint8_t v) {
     atEOL_ = true;
     delim = DelimTypeEOR; // top level EOR
 
-    // logically should be >=, kept as it is to align with presto reader
+    /// TODO: Logically should be >=, kept as it is to align with presto reader.
     if (pos_ > limit_) {
       atEOF_ = true;
     }
@@ -635,7 +671,7 @@ bool TextRowReader::skipLine() {
   while (!atEOL_) {
     (void)getByteOptimized(delim);
   }
-  // logically should be >=, kept as it is to align with presto reader
+  /// TODO: Logically should be >=, kept as it is to align with presto reader
   if (pos_ > limit_) {
     atEOF_ = true;
   }
@@ -782,7 +818,7 @@ StringView trimStringView(StringView& s) {
   const auto isNotSpace = [](unsigned char ch) { return ch > 0x20; };
   auto strView = std::string_view(s.data(), s.size());
 
-  // Find first non-whitespace character
+  // Find first non-whitespace character.
   size_t start = 0;
   while (start < strView.size() && !isNotSpace(strView[start])) {
     ++start;
@@ -792,7 +828,7 @@ StringView trimStringView(StringView& s) {
     return StringView("");
   }
 
-  // Find last non-whitespace character
+  // Find last non-whitespace character.
   size_t end = strView.size() - 1;
   while (end > start && !isNotSpace(strView[end])) {
     --end;
@@ -870,7 +906,6 @@ void TextRowReader::readElement(
     vector_size_t insertionRow,
     DelimType& delim) {
   bool isNull = false;
-
   switch (t->kind()) {
     case TypeKind::INTEGER:
       switch (reqT->kind()) {
@@ -995,44 +1030,43 @@ void TextRowReader::readElement(
       if (arrayVector != nullptr) {
         auto rawSizes = arrayVector->sizes()->asMutable<vector_size_t>();
         auto rawOffsets = arrayVector->offsets()->asMutable<vector_size_t>();
-        const int startElementIdx = rawOffsets[insertionRow];
-        vector_size_t elementCount = 0;
 
+        rawOffsets[insertionRow] = insertionRow > 0
+            ? rawOffsets[insertionRow - 1] + rawSizes[insertionRow - 1]
+            : 0;
+        const int startElementIdx = rawOffsets[insertionRow];
+
+        vector_size_t elementCount = 0;
         if (isNull) {
           arrayVector->setNull(insertionRow, isNull);
+          rawSizes[insertionRow] = 0;
         } else {
-          // Read elements until we reach the end of the array
+          // Read elements until we reach the end of the array.
           while (!isOuterEOR(delim)) {
             setNone(delim);
             auto elementsVector = arrayVector->elements().get();
             resizeVector(elementsVector, startElementIdx + elementCount);
+
             readElement(
                 ct,
                 reqT->childAt(0),
                 elementsVector,
                 startElementIdx + elementCount,
                 delim);
-            elementCount++;
+
+            // Update size on every iteration to allow the right size
+            // inheritance in resizeVector.
+            rawSizes[insertionRow] = ++elementCount;
 
             if (atEOF_ && atSOL_) {
               decrementDepth(delim);
               return;
             }
           }
-
-          rawSizes[insertionRow] = elementCount;
-        }
-
-        /**
-        TODO: Redundant rawOffsets update. Only update the next rawOffsets,
-        remember to update rawOffsets even if its null for this to work
-        */
-        for (auto i = insertionRow + 1; i <= arrayVector->size(); ++i) {
-          rawOffsets[i] = startElementIdx + elementCount;
         }
 
       } else {
-        // skip over array data to maintain correct stream position
+        // Skip over array data to maintain correct stream position.
         while (!isOuterEOR(delim)) {
           setNone(delim);
           readElement(ct, reqT->childAt(0), nullptr, 0, delim);
@@ -1056,7 +1090,7 @@ void TextRowReader::readElement(
               setNone(delim);
             }
 
-            // Get the child vector for this field
+            // Get the child vector for this field.
             BaseVector* childVector = nullptr;
             if (j < reqT->size()) {
               childVector = rowVector->childAt(j).get();
@@ -1076,7 +1110,7 @@ void TextRowReader::readElement(
           }
         }
       } else {
-        // Skip over row data to maintain correct stream position
+        // Skip over row data to maintain correct stream position.
         for (uint64_t j = 0; j < childCount; j++) {
           if (!isOuterEOR(delim)) {
             setNone(delim);
@@ -1101,19 +1135,26 @@ void TextRowReader::readElement(
       if (mapVector != nullptr) {
         auto rawOffsets = mapVector->offsets()->asMutable<vector_size_t>();
         auto rawSizes = mapVector->sizes()->asMutable<vector_size_t>();
-        const auto startElementIdx = rawOffsets[insertionRow];
+
+        rawOffsets[insertionRow] = insertionRow > 0
+            ? rawOffsets[insertionRow - 1] + rawSizes[insertionRow - 1]
+            : 0;
+        const int startElementIdx = rawOffsets[insertionRow];
+
         vector_size_t elementCount = 0;
         if (isNull) {
           mapVector->setNull(insertionRow, isNull);
+          rawSizes[insertionRow] = 0;
         } else {
           while (!isOuterEOR(delim)) {
-            // decode another element
+            // Decode another element.
             setNone(delim);
             incrementDepth();
 
             // insert key
             auto keysVector = mapVector->mapKeys().get();
             resizeVector(keysVector, startElementIdx + elementCount);
+
             readElement(
                 key,
                 reqT->childAt(0),
@@ -1121,9 +1162,10 @@ void TextRowReader::readElement(
                 startElementIdx + elementCount,
                 delim);
 
-            // case for no value key
+            // Case for no value key.
             if (atEOF_ && atSOL_) {
               rawSizes[insertionRow] = elementCount;
+              rawOffsets[insertionRow + 1] = startElementIdx + elementCount;
               decrementDepth(delim);
               decrementDepth(delim);
               return;
@@ -1133,6 +1175,7 @@ void TextRowReader::readElement(
             // insert value
             auto valsVector = mapVector->mapValues().get();
             resizeVector(valsVector, startElementIdx + elementCount);
+
             readElement(
                 value,
                 reqT->childAt(1),
@@ -1140,21 +1183,14 @@ void TextRowReader::readElement(
                 startElementIdx + elementCount,
                 delim);
 
-            ++elementCount;
+            rawSizes[insertionRow] = ++elementCount;
+
             decrementDepth(delim);
           }
+        }
 
-          rawSizes[insertionRow] = elementCount;
-        }
-        /**
-        TODO: Redundant rawOffsets update. Only update the next
-        rawOffsets, similar to Array
-        */
-        for (auto i = insertionRow + 1; i <= mapVector->size(); ++i) {
-          rawOffsets[i] = startElementIdx + elementCount;
-        }
       } else {
-        // skip over map data to maintain correct stream position
+        // Skip over map data to maintain correct stream position.
         while (!isOuterEOR(delim)) {
           setNone(delim);
           incrementDepth();
@@ -1272,7 +1308,7 @@ void TextRowReader::putValue(
 
   flatVector->set(insertionRow, v);
 
-  // handle null property
+  // Handle null property.
   if (isNull) {
     flatVector->setNull(insertionRow, isNull);
   }
@@ -1290,7 +1326,7 @@ TextReader::TextReader(
   VELOX_USER_CHECK_NOT_NULL(schema, "File schema for TEXT must be set.");
 
   if (!schema) {
-    // create dummy for testing.
+    // Create dummy for testing.
     internalSchema_ = std::dynamic_pointer_cast<const RowType>(
         type::fbhive::HiveTypeParser().parse("struct<col0:string>"));
     DWIO_ENSURE_NOT_NULL(internalSchema_.get());
@@ -1305,10 +1341,30 @@ TextReader::TextReader(
 
   contents_->input = std::move(input);
 
-  // Find the size of the file using the option or filesystem
+  // Find the size of the file using the option or filesystem.
   contents_->fileLength = std::min(
       options_.tailLocation(),
       static_cast<uint64_t>(contents_->input->getInputStream()->getLength()));
+
+  /**
+   * We are now allowing delimiters/separators and escape characters to be the
+   * same. This could be error prone because we are checking for delimiters
+   * before escape characters.
+   *
+   * Example:
+   * delim = ','; escapeChar = ','
+   * dataToParse = "1,,2"
+   * Schema = ROW(ARRAY(VARCHAR()))
+   *
+   * Scenario 1: Check delimiter before escape (current implementation)
+   * Output: ["1", NULL, "2"]
+   *
+   * Scenario 2: Check escape before delim
+   * Output: ["1,2"]
+   *
+   * TODO: This is not a bug but would be good to be able to handle this
+   * ambiguity
+   */
 
   // Set the SerDe options.
   contents_->serDeOptions = options_.serDeOptions();
@@ -1319,7 +1375,7 @@ TextReader::TextReader(
     contents_->needsEscape.at(contents_->serDeOptions.escapeChar) = true;
   }
 
-  // Validate SerDe options
+  // Validate SerDe options.
   VELOX_CHECK(
       contents_->serDeOptions.nullString.compare("\r") != 0,
       "\'\\r\' is not allowed to be nullString");
@@ -1327,7 +1383,7 @@ TextReader::TextReader(
       contents_->serDeOptions.nullString.compare("\n") != 0,
       "\'\\n\n is not allowed to be nullString");
 
-  // Set up the compression codec
+  // Set up the compression codec.
   contents_->compression = CompressionKind::CompressionKind_NONE;
   auto& filename = contents_->input->getName();
 
@@ -1387,7 +1443,7 @@ uint64_t TextReader::getMemoryUse() {
       uint64_t(contents_->fileLength),
       contents_->input->getInputStream()->getNaturalReadSize());
 
-  // Decompressor needs a buffer
+  // Decompressor needs a buffer.
   if (contents_->compression != CompressionKind::CompressionKind_NONE) {
     memory *= 3;
   }

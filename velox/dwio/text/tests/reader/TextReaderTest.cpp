@@ -1083,6 +1083,310 @@ TEST_F(TextReaderTest, simpleTypes) {
   }
 }
 
+TEST_F(TextReaderTest, DISABLED_nestedComplexTypesWithCustomDelimiters) {
+  // Inner maps for the arrays
+  const auto innerMapKeys1 = makeFlatVector<int64_t>({1, 11, 22});
+  const auto innerMapValues1 = makeFlatVector<bool>({true, false, true});
+  const auto innerMapKeys2 = makeFlatVector<int64_t>({33, 44});
+  const auto innerMapValues2 = makeFlatVector<bool>({false, true});
+  const auto innerMapKeys3 = makeFlatVector<int64_t>({55, 66, 77, 88});
+  const auto innerMapValues3 = makeFlatVector<bool>({true, true, false, true});
+  const auto innerMapKeys4 = makeFlatVector<int64_t>(std::vector<int64_t>{99});
+  const auto innerMapValues4 = makeFlatVector<bool>(std::vector<bool>{false});
+  const auto innerMapKeys5 = makeFlatVector<int64_t>({100, 200});
+  const auto innerMapValues5 = makeFlatVector<bool>({true, false});
+  const auto innerMapKeys6 = makeFlatVector<int64_t>({300, 400, 500});
+  const auto innerMapValues6 = makeFlatVector<bool>({false, false, true});
+
+  // Combine all inner map keys and values
+  const auto allInnerMapKeys = makeFlatVector<int64_t>(
+      {1, 11, 22, 33, 44, 55, 66, 77, 88, 99, 100, 200, 300, 400, 500});
+  const auto allInnerMapValues = makeFlatVector<bool>(
+      {true,
+       false,
+       true,
+       false,
+       true,
+       true,
+       true,
+       false,
+       true,
+       false,
+       true,
+       false,
+       false,
+       false,
+       true});
+
+  // Create inner maps with proper offsets and sizes
+  BufferPtr innerMapSizes = allocateOffsets(6, pool());
+  BufferPtr innerMapOffsets = allocateOffsets(6, pool());
+  auto rawInnerMapSizes = innerMapSizes->asMutable<vector_size_t>();
+  auto rawInnerMapOffsets = innerMapOffsets->asMutable<vector_size_t>();
+
+  rawInnerMapSizes[0] = 3; // {1:true, 11:false, 22:true}
+  rawInnerMapSizes[1] = 2; // {33:false, 44:true}
+  rawInnerMapSizes[2] = 4; // {55:true, 66:true, 77:false, 88:true}
+  rawInnerMapSizes[3] = 1; // {99:false}
+  rawInnerMapSizes[4] = 2; // {100:true, 200:false}
+  rawInnerMapSizes[5] = 3; // {300:false, 400:false, 500:true}
+
+  rawInnerMapOffsets[0] = 0;
+  for (int i = 1; i < 6; i++) {
+    rawInnerMapOffsets[i] = rawInnerMapOffsets[i - 1] + rawInnerMapSizes[i - 1];
+  }
+
+  auto innerMapsVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BOOLEAN()),
+      nullptr,
+      6,
+      innerMapOffsets,
+      innerMapSizes,
+      allInnerMapKeys,
+      allInnerMapValues);
+
+  // Create arrays containing the inner maps
+  // Array 1: [innerMap0, innerMap1] (maps at indices 0, 1)
+  // Array 2: [innerMap2, innerMap3, innerMap4] (maps at indices 2, 3, 4)
+  // Array 3: [innerMap5] (map at index 5)
+  auto arrayVector = makeArrayVector({0, 2, 5, 6}, innerMapsVector);
+
+  // Create the outer map keys
+  const auto outerMapKeys = makeFlatVector<int64_t>({10, 20, 30});
+
+  // Create the final data structure
+  auto outerMapOffsets = allocateOffsets(3, pool());
+  auto outerMapSizes = allocateOffsets(3, pool());
+  auto rawOuterMapOffsets = outerMapOffsets->asMutable<vector_size_t>();
+  auto rawOuterMapSizes = outerMapSizes->asMutable<vector_size_t>();
+
+  // Set offsets: [0, 1, 2]
+  rawOuterMapOffsets[0] = 0;
+  rawOuterMapOffsets[1] = 1;
+  rawOuterMapOffsets[2] = 2;
+
+  // Set sizes: [1, 1, 1] (each outer map entry contains 1 array)
+  rawOuterMapSizes[0] = 1;
+  rawOuterMapSizes[1] = 1;
+  rawOuterMapSizes[2] = 1;
+
+  const auto expected = makeRowVector({std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), ARRAY(MAP(BIGINT(), BOOLEAN()))),
+      nullptr,
+      3,
+      outerMapOffsets,
+      outerMapSizes,
+      outerMapKeys,
+      arrayVector)});
+
+  const auto type =
+      ROW({{"col_nested_map", MAP(BIGINT(), ARRAY(MAP(BIGINT(), BOOLEAN())))}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/",
+      "examples/custom_delimiter_nested_complex_types");
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  // Set up custom delimiters:
+  // - Tab ('\t') for field separation (depth 0)
+  // - Pipe ('|') for array element separation (depth 1)
+  // - Hash ('#') for map key-value separation (depth 2)
+  // - ',' for inner map key-value pair separation (depth 3)
+  auto serDeOptions = dwio::common::SerDeOptions('\t', '=', '|', '\\', true);
+  serDeOptions.separators[3] = ',';
+  serDeOptions.separators[4] = ':';
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+  auto rowReaderOptions = dwio::common::RowReaderOptions();
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+
+  // Read all 3 rows
+  ASSERT_EQ(rowReader->next(10, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    LOG(INFO) << "Row " << i << ":\n"
+              << std::static_pointer_cast<RowVector>(result)->toString(i)
+              << "\nVS\n"
+              << expected->toString(i);
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
+TEST_F(TextReaderTest, nestedArraysWithCustomDelimiters) {
+  // Create expected nested array structure
+  // Row 1: [[1,2,3], [4,5], [6,7,8,9]]
+  // Row 2: [[10,20], [30,40,50], [60]]
+  // Row 3: [[100], [200,300,400], [500,600]]
+
+  // Create inner arrays for each row
+  auto innerArraysRow1 =
+      makeArrayVector<int64_t>({{1, 2, 3}, {4, 5}, {6, 7, 8, 9}});
+  auto innerArraysRow2 =
+      makeArrayVector<int64_t>({{10, 20}, {30, 40, 50}, {60}});
+  auto innerArraysRow3 =
+      makeArrayVector<int64_t>({{100}, {200, 300, 400}, {500, 600}});
+
+  // Combine all inner arrays into a single vector
+  auto allInnerArrays = makeArrayVector<int64_t>({
+      {1, 2, 3},
+      {4, 5},
+      {6, 7, 8, 9}, // Row 1 inner arrays
+      {10, 20},
+      {30, 40, 50},
+      {60}, // Row 2 inner arrays
+      {100},
+      {200, 300, 400},
+      {500, 600} // Row 3 inner arrays
+  });
+
+  // Create the outer array structure with proper offsets
+  // Row 1: uses inner arrays 0, 1, 2
+  // Row 2: uses inner arrays 3, 4, 5
+  // Row 3: uses inner arrays 6, 7, 8
+  auto outerArray = makeArrayVector({0, 3, 6, 9}, allInnerArrays);
+
+  const auto expected = makeRowVector({outerArray});
+
+  const auto type = ROW({{"col_nested_array", ARRAY(ARRAY(BIGINT()))}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/nested_arrays_file");
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  // Set up custom delimiters for nested arrays:
+  // - Tab ('\t') for field separation (depth 0) - not used in single-column
+  // case
+  // - Pipe ('|') for outer array element separation (depth 1)
+  // - Comma (',') for inner array element separation (depth 2)
+  auto serDeOptions = dwio::common::SerDeOptions('\t', '|', ',', '\\', true);
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+  auto rowReaderOptions = dwio::common::RowReaderOptions();
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+
+  // Read all 3 rows
+  ASSERT_EQ(rowReader->next(10, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
+TEST_F(TextReaderTest, tripleNestedArraysWithCustomDelimiters) {
+  // Create expected triple nested array structure
+  // Row 1: [[[1,2], [3,4]], [[5,6,7], [8,9]], [[10,11,12,13], [14,15]]]
+  // Row 2: [[[20,21], [22,23,24]], [[25,26]], [[27,28,29], [30,31,32]]]
+  // Row 3: [[[100,101,102]], [[200,201], [300,301,302,303]], [[400,401,402],
+  // [500,501]]]
+
+  // Create the innermost arrays (level 3)
+  auto innermostArrays = makeArrayVector<int64_t>({
+      {1, 2},
+      {3, 4}, // Row 1, outer array 0
+      {5, 6, 7},
+      {8, 9}, // Row 1, outer array 1
+      {10, 11, 12, 13},
+      {14, 15}, // Row 1, outer array 2
+      {20, 21},
+      {22, 23, 24}, // Row 2, outer array 0
+      {25, 26}, // Row 2, outer array 1
+      {27, 28, 29},
+      {30, 31, 32}, // Row 2, outer array 2
+      {100, 101, 102}, // Row 3, outer array 0
+      {200, 201},
+      {300, 301, 302, 303}, // Row 3, outer array 1
+      {400, 401, 402},
+      {500, 501} // Row 3, outer array 2
+  });
+
+  // Create middle level arrays (level 2) - each contains innermost arrays
+  auto middleArrays = makeArrayVector(
+      {
+          0, // Row 1, outer array 0: contains innermost arrays [0,1]
+          2, // Row 1, outer array 1: contains innermost arrays [2,3]
+          4, // Row 1, outer array 2: contains innermost arrays [4,5]
+          6, // Row 2, outer array 0: contains innermost arrays [6,7]
+          8, // Row 2, outer array 1: contains innermost arrays [8]
+          9, // Row 2, outer array 2: contains innermost arrays [9,10]
+          11, // Row 3, outer array 0: contains innermost arrays [11]
+          12, // Row 3, outer array 1: contains innermost arrays [12,13]
+          14, // Row 3, outer array 2: contains innermost arrays [14,15]
+          16 // End marker
+      },
+      innermostArrays);
+
+  // Create outermost arrays (level 1) - each row contains middle arrays
+  auto outerArray = makeArrayVector(
+      {
+          0, 3, 6, 9 // Row boundaries: Row 1 [0-2], Row 2 [3-5], Row 3 [6-8]
+      },
+      middleArrays);
+
+  const auto expected = makeRowVector({outerArray});
+
+  const auto type =
+      ROW({{"col_triple_nested_array", ARRAY(ARRAY(ARRAY(BIGINT())))}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/triple_nested_arrays_file");
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  // Set up custom delimiters for triple nested arrays:
+  // - Tab ('\t') for field separation (depth 0) - not used in single-column
+  // case
+  // - Pipe ('|') for outermost array element separation (depth 1)
+  // - Comma (',') for middle array element separation (depth 2)
+  // - Hash ('#') for innermost array element separation (depth 3)
+  auto serDeOptions = dwio::common::SerDeOptions('\t', '|', ',', '\\', true);
+  serDeOptions.separators[3] = '#';
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+  auto rowReaderOptions = dwio::common::RowReaderOptions();
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+
+  // Read all 3 rows
+  ASSERT_EQ(rowReader->next(10, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
 } // namespace
 
 } // namespace facebook::velox::text
