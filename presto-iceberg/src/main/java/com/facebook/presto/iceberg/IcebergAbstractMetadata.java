@@ -695,9 +695,9 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<ColumnHandle> getDeleteRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR);
+        return Optional.of(IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR));
     }
 
     @Override
@@ -1271,7 +1271,7 @@ public abstract class IcebergAbstractMetadata
      * @return A column handle for the Row ID update column.
      */
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public Optional<ColumnHandle> getUpdateRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         List<NestedField> unmodifiedColumns = new ArrayList<>();
         unmodifiedColumns.add(ROW_POSITION);
@@ -1287,7 +1287,7 @@ public abstract class IcebergAbstractMetadata
             }
         }
         NestedField field = NestedField.required(UPDATE_ROW_DATA.getId(), UPDATE_ROW_DATA.getColumnName(), Types.StructType.of(unmodifiedColumns));
-        return IcebergColumnHandle.create(field, typeManager, SYNTHESIZED);
+        return Optional.of(IcebergColumnHandle.create(field, typeManager, SYNTHESIZED));
     }
 
     @Override
