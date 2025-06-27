@@ -51,7 +51,7 @@ public class TestAnnotationEngineForSqlInvokedScalars
                 new ArrayType(BIGINT).getTypeSignature(),
                 ImmutableList.of(INTEGER.getTypeSignature()));
 
-        List<SqlInvokedFunction> functions = SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(SingleImplementationSQLInvokedScalarFunction.class);
+        List<SqlInvokedFunction> functions = SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(SingleImplementationSQLInvokedScalarFunction.class, JAVA_BUILTIN_NAMESPACE);
         assertEquals(functions.size(), 1);
         SqlInvokedFunction f = functions.get(0);
 
@@ -75,7 +75,7 @@ public class TestAnnotationEngineForSqlInvokedScalars
                 ImmutableList.of(new TypeSignature("T")),
                 false);
 
-        List<SqlInvokedFunction> functions = SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(SingleImplementationSQLInvokedScalarFunctionWithTypeParameter.class);
+        List<SqlInvokedFunction> functions = SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(SingleImplementationSQLInvokedScalarFunctionWithTypeParameter.class, JAVA_BUILTIN_NAMESPACE);
         assertEquals(functions.size(), 1);
         SqlInvokedFunction f = functions.get(0);
 

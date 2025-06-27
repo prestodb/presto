@@ -455,6 +455,13 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-transport</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-sql-invoked-functions-plugin</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -204,11 +204,6 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
 import com.facebook.presto.operator.scalar.queryplan.JsonPrestoQueryPlanFunctions;
-import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
-import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
-import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
-import com.facebook.presto.operator.scalar.sql.SimpleSamplingPercent;
-import com.facebook.presto.operator.scalar.sql.StringSqlFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction;
@@ -987,12 +982,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(ThetaSketchAggregationFunction.class)
                 .scalars(ThetaSketchFunctions.class)
                 .function(MergeTDigestFunction.MERGE)
-                .sqlInvokedScalar(MapNormalizeFunction.class)
-                .sqlInvokedScalars(ArraySqlFunctions.class)
-                .sqlInvokedScalars(ArrayIntersectFunction.class)
-                .sqlInvokedScalars(MapSqlFunctions.class)
-                .sqlInvokedScalars(SimpleSamplingPercent.class)
-                .sqlInvokedScalars(StringSqlFunctions.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
@@ -1133,7 +1122,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     @Override
     public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
-        return new BuiltInFunctionHandle(signature);
+        return new BuiltInFunctionHandle(signature, false);
     }
 
     @Override
@@ -1396,7 +1385,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
     }
 
-    private static class FunctionMap
+    public static class FunctionMap
     {
         private final Multimap<QualifiedObjectName, SqlFunction> functions;
 

@@ -40,6 +40,7 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -238,6 +239,8 @@ public final class FunctionAssertions
     {
         requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session, featuresConfig, functionsConfig);
+        runner.installPlugin(new SqlInvokedFunctionsPlugin());
+
         if (refreshSession) {
             this.session = runner.getDefaultSession();
         }

@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.annotations.CodegenScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
-import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.WindowFunction;
@@ -57,18 +56,6 @@ public class FunctionListBuilder
     public FunctionListBuilder scalars(Class<?> clazz)
     {
         functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
-        return this;
-    }
-
-    public FunctionListBuilder sqlInvokedScalar(Class<?> clazz)
-    {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
-        return this;
-    }
-
-    public FunctionListBuilder sqlInvokedScalars(Class<?> clazz)
-    {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
         return this;
     }
 
