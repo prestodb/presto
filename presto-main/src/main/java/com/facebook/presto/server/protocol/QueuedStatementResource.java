@@ -21,6 +21,7 @@ import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.dispatcher.DispatchQuery;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
@@ -56,6 +57,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.CacheControl;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -77,6 +79,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.NO_DURATION;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.createQueuedQueryResults;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.getCacheControlFromTracked;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.getQueuedUri;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.getScheme;
 import static com.facebook.presto.server.security.RoleType.USER;
@@ -91,6 +94,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -221,7 +225,9 @@ public class QueuedStatementResource
         Query query = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0);
         queries.put(query.getQueryId(), query);
 
-        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled)
+                .cacheControl(query.getDefaultCacheControl())
+                .build();
     }
 
     /**
@@ -273,7 +279,9 @@ public class QueuedStatementResource
             throw badRequest(CONFLICT, "Query already exists");
         }
 
-        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled)
+                .cacheControl(query.getDefaultCacheControl())
+                .build();
     }
 
     /**
@@ -322,7 +330,9 @@ public class QueuedStatementResource
             }
         }
 
-        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled).build();
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled)
+                .cacheControl(query.getDefaultCacheControl())
+                .build();
     }
 
     /**
@@ -435,6 +445,7 @@ public class QueuedStatementResource
 
     private static final class Query
     {
+        private static final int CACHE_CONTROL_MAX_AGE_SEC = 60;
         private final String query;
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
@@ -443,6 +454,7 @@ public class QueuedStatementResource
         private final String slug;
         private final AtomicLong lastToken = new AtomicLong();
         private final int retryCount;
+        private final long expirationTime;
 
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
@@ -468,6 +480,7 @@ public class QueuedStatementResource
             this.retryCount = retryCount;
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.slug = requireNonNull(slug, "slug is null");
+            this.expirationTime = currentTimeMillis() + SECONDS.toMillis(CACHE_CONTROL_MAX_AGE_SEC);
         }
 
         /**
@@ -516,6 +529,15 @@ public class QueuedStatementResource
         public int getRetryCount()
         {
             return retryCount;
+        }
+
+        /**
+         * Returns a cache control with the default max age value
+         */
+        public CacheControl getDefaultCacheControl()
+        {
+            long maxAgeMillis = Math.max(0, expirationTime - currentTimeMillis());
+            return CacheControl.valueOf("max-age=" + MILLISECONDS.toSeconds(maxAgeMillis));
         }
 
         /**
@@ -591,7 +613,10 @@ public class QueuedStatementResource
                             xPrestoPrefixUrl,
                             DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION),
                             binaryResults);
-                    return immediateFuture(withCompressionConfiguration(Response.ok(queryResults), compressionEnabled).build());
+
+                    return immediateFuture(withCompressionConfiguration(Response.ok(queryResults), compressionEnabled)
+                            .cacheControl(getDefaultCacheControl())
+                            .build());
                 }
             }
 
@@ -602,12 +627,14 @@ public class QueuedStatementResource
                         .status(NOT_FOUND)
                         .build()));
             }
+            DispatchQuery dispatchQuery = dispatchManager.getDispatchQuery(queryId);
 
             if (waitForDispatched().isDone()) {
                 Optional<ListenableFuture<Response>> executingQueryResponse = executingQueryResponseProvider.waitForExecutingResponse(
                         queryId,
                         slug,
                         dispatchInfo.get(),
+                        dispatchQuery,
                         uriInfo,
                         xPrestoPrefixUrl,
                         getScheme(xForwardedProto, uriInfo),
@@ -624,6 +651,7 @@ public class QueuedStatementResource
 
             return immediateFuture(withCompressionConfiguration(Response.ok(
                     createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get(), binaryResults)), compressionEnabled)
+                    .cacheControl(getCacheControlFromTracked(dispatchQuery))
                     .build());
         }
 

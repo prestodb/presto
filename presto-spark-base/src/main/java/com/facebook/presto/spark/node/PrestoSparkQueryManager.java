@@ -73,6 +73,12 @@ public class PrestoSparkQueryManager
     }
 
     @Override
+    public QueryExecution getQueryExecution(QueryId queryId) throws NoSuchElementException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Session getQuerySession(QueryId queryId)
     {
         throw new UnsupportedOperationException();

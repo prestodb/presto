@@ -253,6 +253,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public QueryExecution getQueryExecution(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId);
+    }
+
+    @Override
     public Session getQuerySession(QueryId queryId)
             throws NoSuchElementException
     {

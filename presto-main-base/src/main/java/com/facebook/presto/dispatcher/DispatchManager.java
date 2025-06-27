@@ -412,6 +412,11 @@ public class DispatchManager
                 });
     }
 
+    public DispatchQuery getDispatchQuery(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId);
+    }
+
     /**
      * Check if a given queryId exists in query tracker
      *

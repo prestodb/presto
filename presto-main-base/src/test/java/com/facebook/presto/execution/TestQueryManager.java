@@ -53,6 +53,12 @@ public class TestQueryManager
         return null;
     }
 
+    @Override
+    public QueryExecution getQueryExecution(QueryId queryId)
+    {
+        return null;
+    }
+
     public Session getQuerySession(QueryId queryId)
     {
         return null;
