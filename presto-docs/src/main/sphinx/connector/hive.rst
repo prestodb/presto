@@ -208,6 +208,10 @@ Property Name                                      Description                  
  ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
 
  ``hive.metastore.catalog.name``                   Specifies the catalog name to be passed to the metastore.
+ 
+ ``hive.orc.use-column-names``                     Enable accessing ORC columns by name in the ORC file         ``false``
+                                                   metadata, instead of their ordinal position. Also toggleable 
+                                                   through the ``hive.orc_use_column_names`` session property.
 ================================================== ============================================================ ============
 
 Avro Configuration Properties
