@@ -146,7 +146,8 @@ public abstract class BaseOAuth2AuthenticationFilterTest
                 "https://untrusted.com/callback");
     }
 
-    protected abstract ImmutableMap<String, String> getOAuth2Config(String idpUrl);
+    protected abstract ImmutableMap<String, String> getOAuth2Config(String idpUrl)
+            throws IOException;
 
     protected abstract TestingHydraIdentityProvider getHydraIdp()
             throws Exception;
