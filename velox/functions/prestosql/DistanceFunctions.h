@@ -164,6 +164,66 @@ struct CosineSimilarityFunctionFloatArray {
   }
 };
 
+template <typename T>
+struct L2SquaredFunctionFloatArray {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void callNullFree(
+      out_type<float>& result,
+      const facebook::velox::exec::ArrayView<false, float>& leftArray,
+      const facebook::velox::exec::ArrayView<false, float>& rightArray) {
+    VELOX_USER_CHECK(
+        leftArray.size() == rightArray.size(),
+        "Both arrays need to have identical size");
+    size_t d = leftArray.size();
+    if (d == 0) {
+      result = std::numeric_limits<float>::quiet_NaN();
+      return;
+    }
+
+    std::vector<float> leftBuffer, rightBuffer;
+    const float* x = getArrayDataOrCopy(leftArray, leftBuffer);
+    const float* y = getArrayDataOrCopy(rightArray, rightBuffer);
+    result = faiss::fvec_L2sqr(x, y, d);
+  }
+};
+
+template <typename T>
+struct L2SquaredFunctionDoubleArray {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void callNullFree(
+      out_type<double>& result,
+      const facebook::velox::exec::ArrayView<false, double>& leftArray,
+      const facebook::velox::exec::ArrayView<false, double>& rightArray) {
+    VELOX_USER_CHECK(
+        leftArray.size() == rightArray.size(),
+        "Both arrays need to have identical size");
+    size_t d = leftArray.size();
+    if (d == 0) {
+      result = std::numeric_limits<double>::quiet_NaN();
+      return;
+    }
+
+    std::vector<float> x(static_cast<std::vector<float>::size_type>(d), 0);
+    std::vector<float> y(static_cast<std::vector<float>::size_type>(d), 0);
+
+    for (size_t i = 0; i < leftArray.size(); i++) {
+      if (i < x.size()) {
+        x[i] = static_cast<float>(leftArray[i]);
+      }
+    }
+    for (size_t i = 0; i < rightArray.size(); i++) {
+      if (i < x.size()) {
+        y[i] = static_cast<float>(rightArray[i]);
+      }
+    }
+
+    float l2_sqr = faiss::fvec_L2sqr(x.data(), y.data(), d);
+    result = static_cast<double>(l2_sqr);
+  }
+};
+
 #else // VELOX_ENABLE_FAISS
 
 template <typename T>

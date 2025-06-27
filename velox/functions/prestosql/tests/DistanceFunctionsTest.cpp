@@ -147,6 +147,54 @@ TEST_F(DistanceFunctionsTest, cosineSimilarityFloatArray) {
   EXPECT_TRUE(std::isnan(cosineSimilarity({1, 3}, {kNanFloat, 1})));
   EXPECT_TRUE(std::isnan(cosineSimilarity({1, 3}, {kInfFloat, 1})));
 }
+
+TEST_F(DistanceFunctionsTest, l2SquaredFunctionFloatArray) {
+  const auto l2Squared = [&](const std::vector<float>& left,
+                             const std::vector<float>& right) {
+    auto leftArray = makeArrayVector<float>({left});
+    auto rightArray = makeArrayVector<float>({right});
+    return evaluateOnce<float>(
+               "l2_squared(c0,c1)", makeRowVector({leftArray, rightArray}))
+        .value();
+  };
+
+  EXPECT_NEAR(
+      (1.234 - 2.345) * (1.234 - 2.345) + (2.456 - 3.567) * (2.456 - 3.567),
+      l2Squared({1.234, 2.456}, {2.345, 3.567}),
+      1e-6);
+  EXPECT_NEAR(
+      (1.789 - 4.012) * (1.789 - 4.012) + (2.345 * 2.345) +
+          (-1.678 - 5.901) * (-1.678 - 5.901),
+      l2Squared({1.789, 2.345, -1.678}, {4.012, 0.0, 5.901}),
+      1e-5);
+  EXPECT_TRUE(std::isnan(l2Squared({}, {})));
+  VELOX_ASSERT_THROW(
+      l2Squared({1.234, 3.456}, {}), "Both arrays need to have identical size");
+}
+
+TEST_F(DistanceFunctionsTest, l2SquaredFunctionDoubleArray) {
+  const auto l2Squared = [&](const std::vector<double>& left,
+                             const std::vector<double>& right) {
+    auto leftArray = makeArrayVector<double>({left});
+    auto rightArray = makeArrayVector<double>({right});
+    return evaluateOnce<double>(
+               "l2_squared(c0,c1)", makeRowVector({leftArray, rightArray}))
+        .value();
+  };
+
+  EXPECT_NEAR(
+      (1.5 - 2.3) * (1.5 - 2.3) + (2.7 - 3.8) * (2.7 - 3.8),
+      l2Squared({1.5, 2.7}, {2.3, 3.8}),
+      1e-6);
+  EXPECT_NEAR(
+      (1.1 - 4.2) * (1.1 - 4.2) + (2.5 * 2.5) + (-1.3 - 5.6) * (-1.3 - 5.6),
+      l2Squared({1.1, 2.5, -1.3}, {4.2, 0.0, 5.6}),
+      1e-5);
+  EXPECT_TRUE(std::isnan(l2Squared({}, {})));
+  VELOX_ASSERT_THROW(
+      l2Squared({1.0, 3.0}, {}), "Both arrays need to have identical size");
+}
+
 #endif // VELOX_ENABLE_FAISS
 
 } // namespace
