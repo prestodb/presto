@@ -227,29 +227,28 @@ RowVectorPtr Merge::getOutputFromSource() {
   VELOX_CHECK_NULL(spillMerger_);
   bool atEnd = false;
   output_ = sourceMerger_->getOutput(sourceBlockingFutures_, atEnd);
-  SCOPE_EXIT {
-    if (!atEnd) {
-      return;
-    }
-
-    finishMergeSourceGroup();
-    if (numStartedSources_ < sources_.size()) {
-      return;
-    }
-
-    if (numSpilledRows_ > 0) {
-      setupSpillMerger();
-      return;
-    }
-    finished_ = true;
-  };
-
   if (needSpill()) {
     spill();
-    return nullptr;
+    VELOX_CHECK_NULL(output_);
   }
 
-  VELOX_CHECK_EQ(numSpilledRows_, 0);
+  if (!atEnd) {
+    return std::move(output_);
+  }
+
+  finishMergeSourceGroup();
+  if (numStartedSources_ < sources_.size()) {
+    VELOX_CHECK_NULL(output_);
+    return std::move(output_);
+  }
+
+  if (numSpilledRows_ > 0) {
+    setupSpillMerger();
+    VELOX_CHECK_NULL(output_);
+    return std::move(output_);
+  }
+
+  finished_ = true;
   return std::move(output_);
 }
 
