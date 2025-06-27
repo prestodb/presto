@@ -159,7 +159,7 @@ VectorPtr BaseVector::wrapInDictionary(
     shouldFlatten = !isLazyNotLoaded(*base) && (base->size() / 8) > size;
   }
 
-  auto kind = vector->typeKind();
+  const auto kind = vector->typeKind();
   auto result = VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       addDictionary,
       kind,
