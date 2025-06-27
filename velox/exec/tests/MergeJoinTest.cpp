@@ -1915,3 +1915,65 @@ TEST_F(MergeJoinTest, barrier) {
     }
   }
 }
+
+TEST_F(MergeJoinTest, antiJoinWithFilterWithMultiMatchedRows) {
+  auto left = makeRowVector({"t0"}, {makeNullableFlatVector<int64_t>({1, 2})});
+
+  auto right =
+      makeRowVector({"u0"}, {makeNullableFlatVector<int64_t>({1, 2, 2, 2})});
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  // Anti join.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .values({left})
+          .mergeJoin(
+              {"t0"},
+              {"u0"},
+              PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+              "t0 > 2",
+              {"t0"},
+              core::JoinType::kAnti)
+          .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT t0 FROM t WHERE NOT exists (select 1 from u where t0 = u0 AND t.t0 > 2 ) ");
+}
+
+TEST_F(MergeJoinTest, antiJoinWithTwoJoinKeysInDifferentBatch) {
+  auto left = makeRowVector(
+      {"a", "b"},
+      {makeNullableFlatVector<int32_t>({1, 1, 1, 1}),
+       makeNullableFlatVector<double>({3.0, 3.0, 3.0, 3.0})});
+
+  auto right = makeRowVector(
+      {"c", "d"},
+      {makeNullableFlatVector<int32_t>({1, 1, 1}),
+       makeNullableFlatVector<double>({2.0, 2.0, 4.0})});
+
+  createDuckDbTable("t", {left});
+  createDuckDbTable("u", {right});
+
+  // Anti join.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values({split(left, 2)})
+                  .mergeJoin(
+                      {"a"},
+                      {"c"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values({split(right, 2)})
+                          .planNode(),
+                      "b < d",
+                      {"a", "b"},
+                      core::JoinType::kAnti)
+                  .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT * FROM t WHERE NOT exists (select * from u where t.a = u.c and t.b < u.d)");
+}

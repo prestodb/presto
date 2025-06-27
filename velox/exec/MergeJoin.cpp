@@ -1281,7 +1281,7 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
     // If all matches for a given left-side row fail the filter, add a row to
     // the output with nulls for the right-side columns.
     const auto onMiss = [&](auto row) {
-      if (isAntiJoin(joinType_) || isSemiFilterJoin(joinType_)) {
+      if (isSemiFilterJoin(joinType_)) {
         return;
       }
       rawIndices[numPassed++] = row;
@@ -1368,12 +1368,6 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
             decodedFilterResult_.valueAt<bool>(i);
 
         joinTracker_->processFilterResult(i, passed, onMiss, onMatch);
-
-        if (isAntiJoin(joinType_)) {
-          if (!passed) {
-            rawIndices[numPassed++] = i;
-          }
-        }
       } else {
         // This row doesn't have a match on the right side. Keep it
         // unconditionally.
