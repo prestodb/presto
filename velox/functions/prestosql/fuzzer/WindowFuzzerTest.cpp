@@ -126,7 +126,9 @@ int main(int argc, char** argv) {
       "noisy_sum_gaussian",
       // https://github.com/facebookincubator/velox/issues/13547
       "merge",
-
+      // Will be added in follow up PR:
+      // https://github.com/facebookincubator/velox/pull/13301
+      "tdigest_agg",
   };
 
   if (!FLAGS_presto_url.empty()) {

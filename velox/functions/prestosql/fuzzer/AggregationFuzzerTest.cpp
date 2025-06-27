@@ -145,6 +145,9 @@ int main(int argc, char** argv) {
       // Skip non-deterministic functions.
       // https://github.com/facebookincubator/velox/issues/13547
       "merge",
+      // Will be added in follow up PR:
+      // https://github.com/facebookincubator/velox/pull/13301
+      "tdigest_agg",
   };
 
   static const std::unordered_set<std::string> functionsRequireSortedInput = {

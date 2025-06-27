@@ -81,7 +81,13 @@ TEST_F(AggregationFunctionRegTest, orderSensitive) {
 
   // Test some but not all order sensitive functions
   std::set<std::string> orderSensitiveFunctions = {
-      "array_agg", "arbitrary", "any_value", "map_agg", "map_union", "set_agg"};
+      "array_agg",
+      "arbitrary",
+      "any_value",
+      "map_agg",
+      "map_union",
+      "set_agg",
+      "tdigest_agg"};
   for (const auto& entry : orderSensitiveFunctions) {
     ASSERT_TRUE(exec::getAggregateFunctionMetadata(entry).orderSensitive);
   }
@@ -106,6 +112,8 @@ TEST_F(AggregationFunctionRegTest, prestoSupportedSignatures) {
   EXPECT_EQ(aggrFuncMapBase[kBitwiseAnd].signatures.size(), 1);
   EXPECT_EQ(aggrFuncMapBase[kBitwiseOr].signatures.size(), 1);
   EXPECT_EQ(aggrFuncMapBase[kBitwiseXor].signatures.size(), 1);
+
+  EXPECT_EQ(aggrFuncMapBase[kTDigestAgg].signatures.size(), 3);
 
   // Revert to previous state.
   clearAndCheckRegistry();
