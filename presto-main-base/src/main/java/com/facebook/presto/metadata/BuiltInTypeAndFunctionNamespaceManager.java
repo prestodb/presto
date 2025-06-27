@@ -1133,7 +1133,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     @Override
     public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
-        return new BuiltInFunctionHandle(signature);
+        return new BuiltInFunctionHandle(signature, false);
     }
 
     @Override
@@ -1396,7 +1396,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
     }
 
-    private static class FunctionMap
+    public static class FunctionMap
     {
         private final Multimap<QualifiedObjectName, SqlFunction> functions;
 
