@@ -61,7 +61,7 @@ VectorPtr RowReader::projectColumns(
       childType = inputRowType.childAt(childIdx);
       child = inputRow->childAt(childIdx);
       if (child) {
-        childSpec->applyFilter(*child, passed.data());
+        childSpec->applyFilter(*child, inputRow->size(), passed.data());
       }
     }
     if (!childSpec->projectOut()) {

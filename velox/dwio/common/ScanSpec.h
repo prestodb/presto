@@ -355,10 +355,17 @@ class ScanSpec {
     }
   }
 
-  /// Apply filter to the input `vector' and set the passed bits in `result'.
+  /// Apply filter to the first `size' rows of input `vector' and set the passed
+  /// bits in `result'.  `size' is usually the size of top most RowVector, since
+  /// the child could be larger in some suboptimal/corrupted cases and we do not
+  /// want to crash the process for it.
+  ///
   /// This method is used by non-selective reader and delta update, so it
   /// ignores the filterDisabled_ state.
-  void applyFilter(const BaseVector& vector, uint64_t* result) const;
+  void applyFilter(
+      const BaseVector& vector,
+      vector_size_t size,
+      uint64_t* result) const;
 
   bool isFlatMapAsStruct() const {
     return isFlatMapAsStruct_;
