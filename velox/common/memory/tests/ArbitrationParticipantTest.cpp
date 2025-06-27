@@ -1543,7 +1543,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, concurrentAbort) {
   std::atomic_bool firstAbortStarted{false};
   std::atomic_bool secondAbortWaitFlag{true};
   folly::EventCount secondAbortWait;
-  std::atomic_bool firstAbortWaitFlag{false};
+  std::atomic_bool firstAbortWaitFlag{true};
   folly::EventCount firstAbortWait;
 
   SCOPED_TESTVALUE_SET(
@@ -1580,7 +1580,7 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, concurrentAbort) {
   try {
     VELOX_FAIL("test abort 2");
   } catch (const VeloxRuntimeError& e) {
-    ASSERT_EQ(scopedParticipant->abort(std::current_exception()), 0);
+    ASSERT_EQ(scopedParticipant->abort(std::current_exception()), 32 * MB);
   }
 
   // Signal first abort to continue
@@ -1595,9 +1595,9 @@ DEBUG_ONLY_TEST_F(ArbitrationParticipantTest, concurrentAbort) {
   ASSERT_TRUE(scopedParticipant->aborted());
   ASSERT_EQ(scopedParticipant->capacity(), 0);
 
-  // Verify the error message is from the first abort
+  // Verify the error message is from the second abort
   VELOX_ASSERT_THROW(
-      std::rethrow_exception(task->abortError()), "reclaim abort message");
+      std::rethrow_exception(task->abortError()), "test abort 2");
 }
 
 TEST_F(ArbitrationParticipantTest, capacityCheck) {
