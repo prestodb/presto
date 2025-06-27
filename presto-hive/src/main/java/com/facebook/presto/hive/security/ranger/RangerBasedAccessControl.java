@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -63,6 +64,8 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCreateTable;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
@@ -278,6 +281,20 @@ public class RangerBasedAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkAccess(identity, tableName, null, HiveAccessType.SELECT)) {
+            denyShowCreateTable(tableName.getTableName(), format("Access denied - User [ %s ] does not have [SELECT] " +
+                    "privilege on [ %s/%s ] ", identity.getUser(), tableName.getSchemaName(), tableName.getTableName()));
+        }
+    }
+
+    /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -307,6 +324,33 @@ public class RangerBasedAccessControl
             }
         }
         return allowedTables;
+    }
+
+    /**
+     * Check if identity is allowed to show columns of tables by executing SHOW COLUMNS, DESCRIBE etc.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterColumns} method must filter all results for unauthorized users,
+     * since there are multiple ways to list columns.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkAccess(identity, tableName, null, HiveAccessType.SELECT)) {
+            denyShowColumnsMetadata(tableName.getTableName(), format("Access denied - User [ %s ] does not have [SELECT] " +
+                    "privilege on [ %s/%s ] ", identity.getUser(), tableName.getSchemaName(), tableName.getTableName()));
+        }
+    }
+
+    /**
+     * Filter the list of columns to those visible to the identity.
+     */
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return columns;
     }
 
     /**
