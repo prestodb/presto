@@ -36,6 +36,14 @@ public class BasicStageExecutionStats
             0,
             0,
             0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
 
             0L,
             0,
@@ -60,6 +68,14 @@ public class BasicStageExecutionStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
+    private final int totalNativeDrivers;
+    private final int queuedNativeDrivers;
+    private final int runningNativeDrivers;
+    private final int completedNativeDrivers;
+    private final int totalSplits;
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
     private final long rawInputDataSizeInBytes;
     private final long rawInputPositions;
     private final double cumulativeUserMemory;
@@ -80,6 +96,16 @@ public class BasicStageExecutionStats
             int queuedDrivers,
             int runningDrivers,
             int completedDrivers,
+
+            int totalNativeDrivers,
+            int queuedNativeDrivers,
+            int runningNativeDrivers,
+            int completedNativeDrivers,
+
+            int totalSplits,
+            int queuedSplits,
+            int runningSplits,
+            int completedSplits,
 
             long rawInputDataSizeInBytes,
             long rawInputPositions,
@@ -104,6 +130,14 @@ public class BasicStageExecutionStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
+        this.totalNativeDrivers = totalNativeDrivers;
+        this.queuedNativeDrivers = queuedNativeDrivers;
+        this.runningNativeDrivers = runningNativeDrivers;
+        this.completedNativeDrivers = completedNativeDrivers;
+        this.totalSplits = totalSplits;
+        this.queuedSplits = queuedSplits;
+        this.runningSplits = runningSplits;
+        this.completedSplits = completedSplits;
         checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
         this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
         this.rawInputPositions = rawInputPositions;
@@ -145,6 +179,46 @@ public class BasicStageExecutionStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    public int getTotalNativeDrivers()
+    {
+        return totalNativeDrivers;
+    }
+
+    public int getQueuedNativeDrivers()
+    {
+        return queuedNativeDrivers;
+    }
+
+    public int getRunningNativeDrivers()
+    {
+        return runningNativeDrivers;
+    }
+
+    public int getCompletedNativeDrivers()
+    {
+        return completedNativeDrivers;
+    }
+
+    public int getTotalSplits()
+    {
+        return totalSplits;
+    }
+
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    public int getCompletedSplits()
+    {
+        return completedSplits;
     }
 
     public long getRawInputDataSizeInBytes()
@@ -214,6 +288,16 @@ public class BasicStageExecutionStats
         int runningDrivers = 0;
         int completedDrivers = 0;
 
+        int totalNativeDrivers = 0;
+        int queuedNativeDrivers = 0;
+        int runningNativeDrivers = 0;
+        int completedNativeDrivers = 0;
+
+        int totalSplits = 0;
+        int queuedSplits = 0;
+        int runningSplits = 0;
+        int completedSplits = 0;
+
         double cumulativeUserMemory = 0;
         double cumulativeTotalMemory = 0;
         long userMemoryReservation = 0;
@@ -237,6 +321,16 @@ public class BasicStageExecutionStats
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
+
+            totalNativeDrivers += stageStats.getTotalNativeDrivers();
+            queuedNativeDrivers += stageStats.getQueuedNativeDrivers();
+            runningNativeDrivers += stageStats.getRunningNativeDrivers();
+            completedNativeDrivers += stageStats.getCompletedNativeDrivers();
+
+            totalSplits += stageStats.getTotalSplits();
+            queuedSplits += stageStats.getQueuedSplits();
+            runningSplits += stageStats.getRunningSplits();
+            completedSplits += stageStats.getCompletedSplits();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
             cumulativeTotalMemory += stageStats.getCumulativeTotalMemory();
@@ -269,6 +363,16 @@ public class BasicStageExecutionStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+
+                totalNativeDrivers,
+                queuedNativeDrivers,
+                runningNativeDrivers,
+                completedNativeDrivers,
+
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
 
                 rawInputDataSize,
                 rawInputPositions,
