@@ -23,14 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import jakarta.inject.Qualifier;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.inject.Qualifier;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.Path;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -44,8 +43,8 @@ import static com.facebook.airlift.http.client.TraceTokenRequestFilter.TRACETOKE
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

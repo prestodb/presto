@@ -14,8 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.google.common.collect.ImmutableSet;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Set;
 
