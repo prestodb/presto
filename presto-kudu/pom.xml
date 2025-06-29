@@ -29,9 +29,13 @@
             </exclusions>
         </dependency>
 
+<!--        <dependency>-->
+<!--            <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--            <artifactId>hadoop-apache2</artifactId>-->
+<!--        </dependency>-->
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hadoop-apache2</artifactId>
         </dependency>
 
         <dependency>
