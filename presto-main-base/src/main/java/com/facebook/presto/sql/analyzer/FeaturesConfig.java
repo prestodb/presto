@@ -195,7 +195,7 @@ public class FeaturesConfig
     private boolean treatLowConfidenceZeroEstimationAsUnknownEnabled;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
-    private boolean checkAccessControlOnUtilizedColumnsOnly;
+    private boolean checkAccessControlOnUtilizedColumnsOnly = true;
     private boolean checkAccessControlWithSubfields;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
