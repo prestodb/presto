@@ -2,12 +2,9 @@ name: prestocpp-linux-build-and-unit-test
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *' # Runs at 00:30 UTC daily on master(default) branch
   pull_request:
-  push:
-    branches:
-      - master
-    paths-ignore:
-      - 'presto-docs/**'
 
 jobs:
   changes:
@@ -20,7 +17,9 @@ jobs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
     # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
+    - name: Run changes check for PRs
+      if: github.event_name != 'schedule'
+      uses: dorny/paths-filter@v2
       id: filter
       with:
         filters: |
@@ -39,31 +38,45 @@ jobs:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
       - uses: actions/checkout@v4
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
 
       - name: Fix git permissions
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Update velox
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           cd presto-native-execution
           make velox-submodule
 
       - name: Install Github CLI for using apache/infrastructure-actions/stash
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
           rpm -iv gh_2.63.2_linux_amd64.rpm
 
       - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-for-test
 
       - name: Zero ccache statistics
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: ccache -sz
 
       - name: Build engine
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           source /opt/rh/gcc-toolset-12/enable
           cd presto-native-execution
@@ -85,14 +98,20 @@ jobs:
           ninja -C _build/release -j 4
 
       - name: Ccache after
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: ccache -s
 
       - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-for-test
 
       - name: Run Unit Tests
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           # Ensure transitive dependency libboost-iostreams is found.
           ldconfig /usr/local/lib
@@ -100,6 +119,8 @@ jobs:
           ctest -j 4 -VV --output-on-failure --exclude-regex velox.*
 
       - name: Upload artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: presto-native-build
@@ -118,13 +139,19 @@ jobs:
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
     steps:
       - uses: actions/checkout@v4
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
 
       - name: Fix git permissions
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Download artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/download-artifact@v4
         with:
           name: presto-native-build
@@ -132,6 +159,8 @@ jobs:
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
@@ -139,15 +168,21 @@ jobs:
           ldconfig /usr/local/lib
 
       - name: Install OpenJDK8
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 8.0.452
           cache: 'maven'
       - name: Download nodejs to maven cache
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
 
       - name: Maven install
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
@@ -155,6 +190,8 @@ jobs:
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
       - name: Run presto-native e2e tests
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
           export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoNative*.java'`
@@ -198,13 +235,19 @@ jobs:
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
     steps:
       - uses: actions/checkout@v4
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
 
       - name: Fix git permissions
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Download artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/download-artifact@v4
         with:
           name: presto-native-build
@@ -212,6 +255,8 @@ jobs:
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
@@ -219,15 +264,21 @@ jobs:
           ldconfig /usr/local/lib
 
       - name: Install OpenJDK8
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '8.0.452'
           cache: 'maven'
       - name: Download nodejs to maven cache
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
 
       - name: Maven install
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
@@ -235,6 +286,8 @@ jobs:
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-tests' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
       - name: Run presto-native tests
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
           export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java'`
@@ -271,12 +324,18 @@ jobs:
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
     steps:
       - uses: actions/checkout@v4
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
       - name: Fix git permissions
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Download artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/download-artifact@v4
         with:
           name: presto-native-build
@@ -284,6 +343,8 @@ jobs:
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
@@ -291,15 +352,21 @@ jobs:
           ldconfig /usr/local/lib
 
       - name: Install OpenJDK8
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '8.0.452'
           cache: 'maven'
       - name: Download nodejs to maven cache
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
 
       - name: Maven install
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
@@ -307,6 +374,8 @@ jobs:
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
       - name: Run presto-native sidecar tests
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
           export TESTFILES=`find ./presto-native-sidecar-plugin/src/test -type f -name 'Test*.java'`
@@ -340,12 +409,18 @@ jobs:
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
     steps:
       - uses: actions/checkout@v4
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
       - name: Fix git permissions
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Download artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/download-artifact@v4
         with:
           name: presto-native-build
@@ -353,6 +428,8 @@ jobs:
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
           chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
@@ -360,15 +437,21 @@ jobs:
           ldconfig /usr/local/lib
 
       - name: Install OpenJDK8
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '8.0.452'
           cache: 'maven'
       - name: Download nodejs to maven cache
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
 
       - name: Maven install
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
@@ -376,6 +459,8 @@ jobs:
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-plan-checker-router-plugin' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
       - name: Run presto-native plan checker router plugin tests
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
           mvn test \
