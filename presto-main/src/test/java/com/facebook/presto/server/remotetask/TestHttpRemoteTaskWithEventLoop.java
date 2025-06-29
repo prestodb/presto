@@ -343,7 +343,8 @@ public class TestHttpRemoteTaskWithEventLoop
                 new NodeTaskMap.NodeStatsTracker(i -> {}, i -> {}, (age, i) -> {}),
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty()),
-                SchedulerStatsTracker.NOOP);
+                SchedulerStatsTracker.NOOP,
+                null);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean useThriftEncoding)
