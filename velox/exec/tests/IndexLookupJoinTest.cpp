@@ -40,18 +40,25 @@ struct TestParam {
   bool asyncLookup;
   int32_t numPrefetches;
   bool serialExecution;
+  bool hasNullKeys;
 
-  TestParam(bool _asyncLookup, int32_t _numPrefetches, bool _serialExecution)
+  TestParam(
+      bool _asyncLookup,
+      int32_t _numPrefetches,
+      bool _serialExecution,
+      bool _hasNullKeys)
       : asyncLookup(_asyncLookup),
         numPrefetches(_numPrefetches),
-        serialExecution(_serialExecution) {}
+        serialExecution(_serialExecution),
+        hasNullKeys(_hasNullKeys) {}
 
   std::string toString() const {
     return fmt::format(
-        "asyncLookup={}, numPrefetches={}, serialExecution={}",
+        "asyncLookup={}, numPrefetches={}, serialExecution={}, hasNullKeys={}",
         asyncLookup,
         numPrefetches,
-        serialExecution);
+        serialExecution,
+        hasNullKeys);
   }
 };
 
@@ -60,14 +67,16 @@ class IndexLookupJoinTest : public IndexLookupJoinTestBase,
  public:
   static std::vector<TestParam> getTestParams() {
     std::vector<TestParam> testParams;
-    testParams.emplace_back(true, 0, true);
-    testParams.emplace_back(true, 0, false);
-    testParams.emplace_back(false, 0, true);
-    testParams.emplace_back(false, 0, false);
-    testParams.emplace_back(true, 3, true);
-    testParams.emplace_back(true, 3, false);
-    testParams.emplace_back(false, 3, true);
-    testParams.emplace_back(false, 3, false);
+    for (bool asyncLookup : {false, true}) {
+      for (int numPrefetches : {0, 3}) {
+        for (bool serialExecution : {false, true}) {
+          for (bool hasNullKeys : {false, true}) {
+            testParams.emplace_back(
+                asyncLookup, numPrefetches, serialExecution, hasNullKeys);
+          }
+        }
+      }
+    }
     return testParams;
   }
 
@@ -718,6 +727,7 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         tableData,
         pool_,
         {"t0", "t1", "t2"},
+        GetParam().hasNullKeys,
         {},
         {},
         testData.matchPct);
@@ -1172,6 +1182,7 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         tableData,
         pool_,
         {"t0", "t1"},
+        GetParam().hasNullKeys,
         {},
         {{"t2", "t3"}},
         /*eqaulityMatchPct=*/80,
@@ -1495,6 +1506,7 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         tableData,
         pool_,
         {"t0", "t1"},
+        GetParam().hasNullKeys,
         {{"t4"}},
         {},
         /*eqaulityMatchPct=*/80,
@@ -1626,6 +1638,7 @@ TEST_P(IndexLookupJoinTest, prefixKeysEqualJoin) {
         tableData,
         pool_,
         probeKeys,
+        GetParam().hasNullKeys,
         {},
         {},
         testData.matchPct);
@@ -1753,6 +1766,7 @@ TEST_P(IndexLookupJoinTest, prefixKeysbetweenJoinCondition) {
         tableData,
         pool_,
         {"t0"},
+        GetParam().hasNullKeys,
         {},
         {{"t1", "t2"}},
         /*eqaulityMatchPct=*/80,
@@ -1876,6 +1890,7 @@ TEST_P(IndexLookupJoinTest, prefixInJoinCondition) {
         tableData,
         pool_,
         {"t0"},
+        GetParam().hasNullKeys,
         {{"t4"}},
         {},
         /*eqaulityMatchPct=*/80,
@@ -1923,7 +1938,16 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
   SequenceTableData tableData;
   generateIndexTableData({100, 1, 1}, tableData, pool_);
   const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
-      20, 100, 1, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
+      20,
+      100,
+      1,
+      tableData,
+      pool_,
+      {"t0", "t1", "t2"},
+      GetParam().hasNullKeys,
+      {},
+      {},
+      100);
   std::vector<std::shared_ptr<TempFilePath>> probeFiles =
       createProbeFiles(probeVectors);
 
@@ -1985,6 +2009,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
       tableData,
       pool_,
       {"t0", "t1", "t2"},
+      GetParam().hasNullKeys,
       {},
       {},
       100);
@@ -2093,6 +2118,7 @@ TEST_P(IndexLookupJoinTest, outputBatchSizeWithInnerJoin) {
         tableData,
         pool_,
         {"t0", "t1", "t2"},
+        GetParam().hasNullKeys,
         {},
         {},
         /*equalMatchPct=*/100);
@@ -2200,6 +2226,7 @@ TEST_P(IndexLookupJoinTest, outputBatchSizeWithLeftJoin) {
         tableData,
         pool_,
         {"t0", "t1", "t2"},
+        GetParam().hasNullKeys,
         {},
         {},
         /*equalMatchPct=*/100);
@@ -2268,6 +2295,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       tableData,
       pool_,
       {"t0", "t1", "t2"},
+      GetParam().hasNullKeys,
       {},
       {},
       100);
@@ -2362,6 +2390,7 @@ TEST_P(IndexLookupJoinTest, barrier) {
       tableData,
       pool_,
       {"t0", "t1", "t2"},
+      GetParam().hasNullKeys,
       {},
       {},
       100);
@@ -2428,11 +2457,89 @@ TEST_P(IndexLookupJoinTest, barrier) {
   }
 }
 
+TEST_P(IndexLookupJoinTest, nullKeys) {
+  SequenceTableData tableData;
+  generateIndexTableData({100, 1, 1}, tableData, pool_);
+  const int numProbeSplits{5};
+  const int probeBatchSize{256};
+  const auto probeVectors = generateProbeInput(
+      numProbeSplits,
+      probeBatchSize,
+      1,
+      tableData,
+      pool_,
+      {"t0", "t1", "t2"},
+      /*hasNullKeys=*/true,
+      {},
+      {},
+      /*equalMatchPct=*/100);
+  // Set some probe key vector to all nulls to trigger the case that entire
+  // probe input is skipped.
+  for (int i = 0; i < numProbeSplits; i += 2) {
+    for (int row = 0; row < probeBatchSize; ++row) {
+      probeVectors[i]->childAt(i % keyType_->size())->setNull(row, true);
+    }
+  }
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", {tableData.tableData});
+
+  const auto indexTable = TestIndexTable::create(
+      /*numEqualJoinKeys=*/3, tableData.keyData, tableData.valueData, *pool());
+  const auto indexTableHandle =
+      makeIndexTableHandle(indexTable, GetParam().asyncLookup);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      columnHandles;
+  const auto indexScanNode = makeIndexScanNode(
+      planNodeIdGenerator,
+      indexTableHandle,
+      makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
+      makeIndexColumnHandles({"u0", "u1", "u2", "u3", "u5"}));
+
+  const auto innerPlan = makeLookupPlan(
+      planNodeIdGenerator,
+      indexScanNode,
+      {"t0", "t1", "t2"},
+      {"u0", "u1", "u2"},
+      {},
+      core::JoinType::kInner,
+      {"u3", "t5"});
+
+  runLookupQuery(
+      innerPlan,
+      probeFiles,
+      true,
+      true,
+      32,
+      GetParam().numPrefetches,
+      "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+
+  const auto leftPlan = makeLookupPlan(
+      planNodeIdGenerator,
+      indexScanNode,
+      {"t0", "t1", "t2"},
+      {"u0", "u1", "u2"},
+      {},
+      core::JoinType::kLeft,
+      {"u3", "t5"});
+
+  runLookupQuery(
+      leftPlan,
+      probeFiles,
+      true,
+      true,
+      32,
+      GetParam().numPrefetches,
+      "SELECT u.c3, t.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+}
+
 TEST_P(IndexLookupJoinTest, joinFuzzer) {
   SequenceTableData tableData;
   generateIndexTableData({1024, 1, 1}, tableData, pool_);
-  const auto probeVectors =
-      generateProbeInput(50, 256, 1, tableData, pool_, {"t0", "t1", "t2"});
+  const auto probeVectors = generateProbeInput(
+      50, 256, 1, tableData, pool_, {"t0", "t1", "t2"}, GetParam().hasNullKeys);
   std::vector<std::shared_ptr<TempFilePath>> probeFiles =
       createProbeFiles(probeVectors);
 
@@ -2479,9 +2586,10 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     testing::ValuesIn(IndexLookupJoinTest::getTestParams()),
     [](const testing::TestParamInfo<TestParam>& info) {
       return fmt::format(
-          "{}_{}prefetches_{}",
+          "{}_{}prefetches_{}_{}",
           info.param.asyncLookup ? "async" : "sync",
           info.param.numPrefetches,
-          info.param.serialExecution ? "serial" : "parallel");
+          info.param.serialExecution ? "serial" : "parallel",
+          info.param.hasNullKeys ? "nullKeys" : "noNullKeys");
     });
 } // namespace fecebook::velox::exec::test

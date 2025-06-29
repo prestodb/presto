@@ -15,6 +15,7 @@
  */
 #pragma once
 #include "velox/exec/Operator.h"
+#include "velox/exec/VectorHasher.h"
 
 namespace facebook::velox::exec {
 
@@ -89,6 +90,16 @@ class IndexLookupJoin : public Operator {
   struct InputBatchState {
     // The input batch to process.
     RowVectorPtr input;
+
+    // If true, it indicates that the probe input has null join keys.
+    bool lookupInputHasNullKeys{false};
+    // Select input rows with non-null join keys.
+    SelectivityVector nonNullInputRows;
+    // The map from lookup input row to the corresponding probe input row. It is
+    // used to handle the case that probe input has null keys.
+    BufferPtr nonNullInputMappings;
+    vector_size_t* rawNonNullInputMappings{nullptr};
+
     // The reusable vector projected from 'input' as index lookup input.
     RowVectorPtr lookupInput;
     // Used to fetch lookup results for an input batch.
@@ -100,6 +111,15 @@ class IndexLookupJoin : public Operator {
     // output processing. We might split the output result into multiple output
     // batches based on the operator's output batch size limit.
     std::unique_ptr<LookupResult> lookupResult;
+    // Specifies the indices of input row in 'input' that have matches in
+    // 'output' from 'lookupResult'. This is only used in case
+    // 'lookupInputHasNullKeys' is true in which 'inputHits' in 'lookupResult'
+    // points to rows in 'lookupInput' which might be different from 'input'.
+    // To ease the rest of index lookup join result processing, we need to
+    // redirect the lookup input hit row from 'lookupInput' to the corresponding
+    // row in 'input' through the mapping specified by 'nonNullInputMappings'.
+    // The redirect input hit indices are stored in 'resultInputHitIndices'.
+    BufferPtr resultInputHitIndices;
 
     InputBatchState() : lookupFuture(ContinueFuture::makeEmpty()) {}
 
@@ -158,6 +178,15 @@ class IndexLookupJoin : public Operator {
   // Prepare 'output_' for the next output batch with size of 'numOutputRows'.
   void prepareOutput(vector_size_t numOutputRows);
 
+  // Invoked to decode the probe input keys to detect if there are any null
+  // keys.
+  void decodeAndDetectNonNullKeys(InputBatchState& batch);
+
+  // Invoked to prepare the lookup result for processing. If the probe input has
+  // null keys, it maps the hit rows in lookup result to the corresponding probe
+  // input rows.
+  void prepareLookupResult(InputBatchState& batch);
+
   // Invoked at operator close to record the lookup stats.
   void recordConnectorStats();
 
@@ -214,6 +243,10 @@ class IndexLookupJoin : public Operator {
   RowTypePtr lookupInputType_;
   // The column channels in probe 'input_' referenced by 'lookupInputType_'.
   std::vector<column_index_t> lookupInputChannels_;
+
+  // Used to decode and check if any probe-side input key or condition columns
+  // have nulls.
+  std::vector<std::unique_ptr<VectorHasher>> lookupKeyOrConditionHashers_;
 
   // The input batches to process with ranges pointed by 'startBatchIndex_' and
   // 'endBatchIndex_'.

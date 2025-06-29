@@ -50,6 +50,7 @@ class IndexLookupJoinTestBase
   /// @param tableData: contains the sequence table data including key vectors
   /// and min/max key values.
   /// @param probeJoinKeys: the prefix key colums used for equality joins.
+  /// @param hasNullKeys: whether the probe input has null keys.
   /// @param inColumns: the ordered list of in conditions.
   /// @param betweenColumns: the ordered list of between conditions.
   /// @param equalMatchPct: percentage of rows in the probe input that matches
@@ -65,7 +66,8 @@ class IndexLookupJoinTestBase
       SequenceTableData& tableData,
       std::shared_ptr<facebook::velox::memory::MemoryPool>& pool,
       const std::vector<std::string>& probeJoinKeys,
-      const std::vector<std::string> inColumns = {},
+      bool hasNullKeys = false,
+      const std::vector<std::string>& inColumns = {},
       const std::vector<std::pair<std::string, std::string>>& betweenColumns =
           {},
       std::optional<int> equalMatchPct = std::nullopt,

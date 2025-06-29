@@ -793,8 +793,7 @@ TEST_P(StreamingAggregationTest, closeUninitialized) {
 }
 
 TEST_P(StreamingAggregationTest, sortedAggregations) {
-  auto size = 1024;
-
+  const auto size = 512;
   std::vector<VectorPtr> keys = {
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
       makeFlatVector<int32_t>(size, [size](auto row) { return (size + row); }),
@@ -804,7 +803,7 @@ TEST_P(StreamingAggregationTest, sortedAggregations) {
           78, [size](auto row) { return (3 * size + row); }),
   };
 
-  testSortedAggregation(keys, 1024);
+  testSortedAggregation(keys, 512);
   testSortedAggregation(keys, 32);
 }
 

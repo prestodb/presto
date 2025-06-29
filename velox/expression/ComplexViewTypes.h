@@ -427,7 +427,7 @@ class OptionalAccessor {
  private:
   const VectorReader<T>* reader_;
   // Index of element within the reader.
-  int64_t index_;
+  const int64_t index_;
 
   template <bool nullable, typename V>
   friend class ArrayView;
