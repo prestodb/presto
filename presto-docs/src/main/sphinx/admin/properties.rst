@@ -117,6 +117,16 @@ Note: The default value can cause errors when large session properties
 or other large session information is involved. 
 See :ref:`troubleshoot/query:\`\`Request Header Fields Too Large\`\``.
 
+``offset-clause-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+To enable the ``OFFSET`` clause in SQL query expressions, set this property to ``true``.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`offset_clause_enabled\`\``. 
+
 Memory Management Properties
 ----------------------------
 

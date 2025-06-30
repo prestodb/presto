@@ -93,6 +93,16 @@ be executed within a single node.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`single-node-execution-enabled\`\``.
 
+``offset_clause_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+To enable the ``OFFSET`` clause in SQL query expressions, set this property to ``true``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`offset-clause-enabled\`\``.
+
 Spilling Properties
 -------------------
 
