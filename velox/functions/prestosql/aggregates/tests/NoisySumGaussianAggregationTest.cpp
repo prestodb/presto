@@ -70,7 +70,7 @@ TEST_F(NoisySumGaussianAggregationTest, inValidNoise) {
       vectors,
       {},
       {"noisy_sum_gaussian(c2, -1.0)"},
-      "Noise scale must be non-negative value.");
+      "Noise scale must be a non-negative value.");
 }
 
 TEST_F(NoisySumGaussianAggregationTest, nullTestNoNoise) {

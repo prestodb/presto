@@ -48,6 +48,7 @@ velox_add_library(
   NoisyAvgGaussianAggregate.cpp
   NoisyCountIfGaussianAggregate.cpp
   NoisyCountGaussianAggregate.cpp
+  NoisyHelperFunctionFactory.cpp
   NoisySumGaussianAggregate.cpp
   SetAggregates.cpp
   SumAggregate.cpp

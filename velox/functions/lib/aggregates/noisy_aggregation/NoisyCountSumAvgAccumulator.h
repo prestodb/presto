@@ -23,22 +23,22 @@
 
 namespace facebook::velox::functions::aggregate {
 
-class NoisyAvgAccumulator {
+class NoisyCountSumAvgAccumulator {
  public:
-  NoisyAvgAccumulator() = default;
-  NoisyAvgAccumulator(
+  NoisyCountSumAvgAccumulator() = default;
+  NoisyCountSumAvgAccumulator(
       double sum,
       uint64_t count,
       double noiseScale,
+      std::optional<int64_t> randomSeed,
       std::optional<double> lowerBound,
-      std::optional<double> upperBound,
-      std::optional<int64_t> randomSeed)
+      std::optional<double> upperBound)
       : sum_{sum},
         count_{count},
         noiseScale_{noiseScale},
+        randomSeed_(randomSeed),
         lowerBound_(lowerBound),
-        upperBound_(upperBound),
-        randomSeed_(randomSeed) {}
+        upperBound_(upperBound) {}
 
   void updateCount(uint64_t value) {
     count_ = facebook::velox::checkedPlus<uint64_t>(count_, value);
@@ -128,7 +128,7 @@ class NoisyAvgAccumulator {
     stream.appendOne(randomSeed_.has_value() ? *randomSeed_ : 0);
   }
 
-  static NoisyAvgAccumulator deserialize(const char* buffer) {
+  static NoisyCountSumAvgAccumulator deserialize(const char* buffer) {
     common::InputByteStream stream(buffer);
     double sum = stream.read<double>();
     uint64_t count = stream.read<uint64_t>();
@@ -138,22 +138,22 @@ class NoisyAvgAccumulator {
     std::optional<double> upperBound = stream.read<double>();
     bool hasRandomSeed = stream.read<bool>();
     std::optional<int32_t> randomSeed = stream.read<int64_t>();
-    return NoisyAvgAccumulator(
+    return NoisyCountSumAvgAccumulator(
         sum,
         count,
         noiseScale,
+        hasRandomSeed ? randomSeed : std::nullopt,
         hasBounds ? lowerBound : std::nullopt,
-        hasBounds ? upperBound : std::nullopt,
-        hasRandomSeed ? randomSeed : std::nullopt);
+        hasBounds ? upperBound : std::nullopt);
   }
 
  private:
   double sum_{0};
   uint64_t count_{0};
   double noiseScale_{-1};
+  std::optional<int64_t> randomSeed_{std::nullopt};
   std::optional<double> lowerBound_{std::nullopt};
   std::optional<double> upperBound_{std::nullopt};
-  std::optional<int64_t> randomSeed_{std::nullopt};
 };
 
 } // namespace facebook::velox::functions::aggregate
