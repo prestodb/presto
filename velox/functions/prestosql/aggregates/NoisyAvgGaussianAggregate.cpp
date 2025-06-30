@@ -219,8 +219,12 @@ class NoisyAvgGaussianAggregate : public exec::Aggregate {
       noiseScale = static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i));
     }
     accumulator->checkAndSetNoiseScale(noiseScale);
-    accumulator->updateCount(1);
-    accumulator->updateSum(decodedValue_.valueAt<double>(i));
+
+    // Update sum and count. check input value and dispatch to corresponding
+    // type.
+    auto inputType = args[0]->typeKind();
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        updateTemplate, inputType, accumulator, decodedValue_, i);
   }
 
   void updateAccumulatorFromIntermediateResult(
@@ -239,6 +243,42 @@ class NoisyAvgGaussianAggregate : public exec::Aggregate {
       accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
     }
   }
+
+  // Template helper function to update accumulator, can support all numeric
+  // data types. Only used in this class.
+  template <TypeKind TData>
+  void updateTemplate(
+      AccumulatorType* accumulator,
+      const DecodedVector& decodedValue,
+      vector_size_t i) {
+    using T = typename TypeTraits<TData>::NativeType;
+    // Handle decimal types separately.
+    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, int128_t>) {
+      const auto& type = decodedValue.base()->type();
+      if (type->isDecimal()) {
+        auto value = decodedValue.valueAt<T>(i);
+        auto scale = type->isShortDecimal() ? type->asShortDecimal().scale()
+                                            : type->asLongDecimal().scale();
+        double doubleValue = static_cast<double>(value) / pow(10, scale);
+
+        accumulator->updateSum(doubleValue);
+        accumulator->updateCount(1);
+        return;
+      }
+    }
+    // Handle other types.
+    if constexpr (
+        std::is_same_v<T, TypeTraits<TypeKind::TIMESTAMP>> ||
+        std::is_same_v<T, TypeTraits<TypeKind::VARBINARY>> ||
+        std::is_same_v<T, TypeTraits<TypeKind::VARCHAR>> ||
+        std::is_same_v<T, facebook::velox::StringView> ||
+        std::is_same_v<T, facebook::velox::Timestamp>) {
+      VELOX_FAIL("NoisyAvgGaussianAggregate does not support this data type.");
+    } else {
+      accumulator->updateSum(static_cast<double>(decodedValue.valueAt<T>(i)));
+      accumulator->updateCount(1);
+    }
+  }
 };
 } // namespace
 
@@ -246,19 +286,41 @@ void registerNoisyAvgGaussianAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
     bool overwrite) {
-  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
-      exec::AggregateFunctionSignatureBuilder()
-          .returnType("double")
-          .intermediateType("varbinary")
-          .argumentType("double") // input type
-          .argumentType("double") // noise scale
-          .build(),
-      exec::AggregateFunctionSignatureBuilder()
-          .returnType("double")
-          .intermediateType("varbinary")
-          .argumentType("double") // input type
-          .argumentType("bigint") // noise scale
-          .build()};
+  // Helper function to create a signature builder with return and
+  // intermediate types
+  auto createBuilder = []() {
+    return exec::AggregateFunctionSignatureBuilder()
+        .returnType("double")
+        .intermediateType("varbinary");
+  };
+
+  // List of possible argument types.
+  const std::vector<std::string> simpleDataTypes = {
+      "tinyint", "smallint", "integer", "bigint", "real", "double"};
+  const std::vector<std::string> noiseScaleTypes = {"double", "bigint"};
+
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+
+  // Generate signatures for all type combinations.
+  for (const auto& noiseScaleType : noiseScaleTypes) {
+    // Handle simple types.
+    for (const auto& dataType : simpleDataTypes) {
+      signatures.push_back(createBuilder()
+                               .argumentType(dataType)
+                               .argumentType(noiseScaleType)
+                               .build());
+    }
+
+    // Handle decimal types separately.
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .integerVariable("a_precision")
+                             .integerVariable("a_scale")
+                             .returnType("double")
+                             .intermediateType("varbinary")
+                             .argumentType("DECIMAL(a_precision, a_scale)")
+                             .argumentType(noiseScaleType)
+                             .build());
+  }
 
   auto name = prefix + kNoisyAvgGaussian;
   exec::registerAggregateFunction(

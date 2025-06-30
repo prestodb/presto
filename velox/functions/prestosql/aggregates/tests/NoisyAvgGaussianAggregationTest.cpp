@@ -29,6 +29,18 @@ class NoisyAvgGaussianAggregationTest
 
   RowTypePtr doubleRowType_{
       ROW({"c0", "c1", "c2"}, {DOUBLE(), DOUBLE(), DOUBLE()})};
+  RowTypePtr bigintRowType_{
+      ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), BIGINT()})};
+  RowTypePtr decimalRowType_{
+      ROW({"c0", "c1", "c2"},
+          {DECIMAL(20, 5), DECIMAL(20, 5), DECIMAL(20, 5)})};
+  RowTypePtr realRowType_{ROW({"c0", "c1", "c2"}, {REAL(), REAL(), REAL()})};
+  RowTypePtr integerRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()})};
+  RowTypePtr smallintRowType_{
+      ROW({"c0", "c1", "c2"}, {SMALLINT(), SMALLINT(), SMALLINT()})};
+  RowTypePtr tinyintRowType_{
+      ROW({"c0", "c1", "c2"}, {TINYINT(), TINYINT(), TINYINT()})};
 };
 
 TEST_F(NoisyAvgGaussianAggregationTest, basicNoNoise) {
@@ -182,6 +194,28 @@ TEST_F(NoisyAvgGaussianAggregationTest, bigintNoiseScaleType) {
 
   testAggregations(
       vectors, {}, {"noisy_avg_gaussian(c2, 0)"}, "SELECT AVG(c2) FROM tmp");
+}
+
+TEST_F(NoisyAvgGaussianAggregationTest, numericInputTypeTestNoNoise) {
+  auto rowTypes = {
+      doubleRowType_,
+      bigintRowType_,
+      decimalRowType_,
+      realRowType_,
+      integerRowType_,
+      smallintRowType_,
+      tinyintRowType_};
+
+  for (const auto& rowType : rowTypes) {
+    auto vectors = makeVectors(rowType, 3, 3);
+    createDuckDbTable(vectors);
+
+    testAggregations(
+        vectors,
+        {},
+        {"noisy_avg_gaussian(c2, 0.0)"},
+        "SELECT AVG(c2) FROM tmp");
+  }
 }
 
 } // namespace facebook::velox::aggregate::test
