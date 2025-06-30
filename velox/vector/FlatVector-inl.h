@@ -84,18 +84,18 @@ std::unique_ptr<SimpleVector<uint64_t>> FlatVector<T>::hashAll() const {
       AlignedBuffer::allocate<uint64_t>(BaseVector::length_, BaseVector::pool_);
   auto hashData = hashBuffer->asMutable<uint64_t>();
 
-  if (rawValues_ != nullptr) { // non all-null case
-    folly::hasher<T> hasher;
+  folly::hasher<T> hasher;
+  if (!BaseVector::rawNulls_) {
+    VELOX_DCHECK_NOT_NULL(rawValues_);
     for (len_type i = 0; i < BaseVector::length_; ++i) {
       hashData[i] = hasher(valueAtFast(i));
     }
-  }
-
-  // overwrite the null hash values
-  if (BaseVector::rawNulls_ != nullptr) {
+  } else {
     for (len_type i = 0; i < BaseVector::length_; ++i) {
       if (bits::isBitNull(BaseVector::rawNulls_, i)) {
         hashData[i] = BaseVector::kNullHash;
+      } else {
+        hashData[i] = hasher(valueAtFast(i));
       }
     }
   }
