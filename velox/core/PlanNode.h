@@ -38,7 +38,7 @@ struct InsertTableHandle {
  public:
   InsertTableHandle(
       const std::string& connectorId,
-      const std::shared_ptr<connector::ConnectorInsertTableHandle>&
+      const connector::ConnectorInsertTableHandlePtr&
           connectorInsertTableHandle)
       : connectorId_(connectorId),
         connectorInsertTableHandle_(connectorInsertTableHandle) {}
@@ -47,8 +47,8 @@ struct InsertTableHandle {
     return connectorId_;
   }
 
-  const std::shared_ptr<connector::ConnectorInsertTableHandle>&
-  connectorInsertTableHandle() const {
+  const connector::ConnectorInsertTableHandlePtr& connectorInsertTableHandle()
+      const {
     return connectorInsertTableHandle_;
   }
 
@@ -57,8 +57,7 @@ struct InsertTableHandle {
   const std::string connectorId_;
 
   // Write request to a DataSink of that connector type
-  const std::shared_ptr<connector::ConnectorInsertTableHandle>
-      connectorInsertTableHandle_;
+  const connector::ConnectorInsertTableHandlePtr connectorInsertTableHandle_;
 };
 
 class SortOrder {
@@ -889,14 +888,28 @@ class TableScanNode : public PlanNode {
   TableScanNode(
       const PlanNodeId& id,
       RowTypePtr outputType,
+      const connector::ConnectorTableHandlePtr& tableHandle,
+      const connector::ColumnHandleMap& assignments)
+      : PlanNode(id),
+        outputType_(std::move(outputType)),
+        tableHandle_(tableHandle),
+        assignments_(assignments) {}
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  TableScanNode(
+      const PlanNodeId& id,
+      RowTypePtr outputType,
       const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& assignments)
       : PlanNode(id),
         outputType_(std::move(outputType)),
-        tableHandle_(tableHandle),
-        assignments_(assignments) {}
+        tableHandle_(
+            std::static_pointer_cast<const connector::ConnectorTableHandle>(
+                tableHandle)),
+        assignments_(toColumnHandleMap(assignments)) {}
+#endif
 
   class Builder {
    public:
@@ -919,16 +932,12 @@ class TableScanNode : public PlanNode {
       return *this;
     }
 
-    Builder& tableHandle(
-        std::shared_ptr<connector::ConnectorTableHandle> tableHandle) {
+    Builder& tableHandle(connector::ConnectorTableHandlePtr tableHandle) {
       tableHandle_ = std::move(tableHandle);
       return *this;
     }
 
-    Builder& assignments(
-        std::unordered_map<
-            std::string,
-            std::shared_ptr<connector::ColumnHandle>> assignments) {
+    Builder& assignments(connector::ColumnHandleMap assignments) {
       assignments_ = std::move(assignments);
       return *this;
     }
@@ -952,12 +961,8 @@ class TableScanNode : public PlanNode {
    private:
     std::optional<PlanNodeId> id_;
     std::optional<RowTypePtr> outputType_;
-    std::optional<std::shared_ptr<connector::ConnectorTableHandle>>
-        tableHandle_;
-    std::optional<std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>>
-        assignments_;
+    std::optional<connector::ConnectorTableHandlePtr> tableHandle_;
+    std::optional<connector::ColumnHandleMap> assignments_;
   };
 
   bool supportsBarrier() const override {
@@ -977,13 +982,11 @@ class TableScanNode : public PlanNode {
     return true;
   }
 
-  const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle() const {
+  const connector::ConnectorTableHandlePtr& tableHandle() const {
     return tableHandle_;
   }
 
-  const std::
-      unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
-      assignments() const {
+  const connector::ColumnHandleMap& assignments() const {
     return assignments_;
   }
 
@@ -996,13 +999,26 @@ class TableScanNode : public PlanNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
  private:
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  connector::ColumnHandleMap toColumnHandleMap(
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<connector::ColumnHandle>>& handles) {
+    connector::ColumnHandleMap constHandles;
+    for (const auto& [name, handle] : handles) {
+      constHandles.emplace(
+          name,
+          std::static_pointer_cast<const connector::ColumnHandle>(handle));
+    }
+    return constHandles;
+  }
+#endif
+
   void addDetails(std::stringstream& stream) const override;
 
   const RowTypePtr outputType_;
-  const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
-  const std::
-      unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-          assignments_;
+  const connector::ConnectorTableHandlePtr tableHandle_;
+  const connector::ColumnHandleMap assignments_;
 };
 
 using TableScanNodePtr = std::shared_ptr<const TableScanNode>;
@@ -1333,7 +1349,7 @@ class TableWriteNode : public PlanNode {
       const RowTypePtr& columns,
       const std::vector<std::string>& columnNames,
       AggregationNodePtr aggregationNode,
-      std::shared_ptr<InsertTableHandle> insertTableHandle,
+      std::shared_ptr<const InsertTableHandle> insertTableHandle,
       bool hasPartitioningScheme,
       RowTypePtr outputType,
       connector::CommitStrategy commitStrategy,
@@ -1460,7 +1476,7 @@ class TableWriteNode : public PlanNode {
     std::optional<RowTypePtr> columns_;
     std::optional<std::vector<std::string>> columnNames_;
     std::optional<AggregationNodePtr> aggregationNode_;
-    std::optional<std::shared_ptr<InsertTableHandle>> insertTableHandle_;
+    std::optional<std::shared_ptr<const InsertTableHandle>> insertTableHandle_;
     std::optional<bool> hasPartitioningScheme_;
     std::optional<RowTypePtr> outputType_;
     std::optional<connector::CommitStrategy> commitStrategy_;
@@ -1490,7 +1506,7 @@ class TableWriteNode : public PlanNode {
     return columnNames_;
   }
 
-  const std::shared_ptr<InsertTableHandle>& insertTableHandle() const {
+  const std::shared_ptr<const InsertTableHandle>& insertTableHandle() const {
     return insertTableHandle_;
   }
 
@@ -1531,7 +1547,7 @@ class TableWriteNode : public PlanNode {
   const RowTypePtr columns_;
   const std::vector<std::string> columnNames_;
   const AggregationNodePtr aggregationNode_;
-  const std::shared_ptr<InsertTableHandle> insertTableHandle_;
+  const std::shared_ptr<const InsertTableHandle> insertTableHandle_;
   const bool hasPartitioningScheme_;
   const RowTypePtr outputType_;
   const connector::CommitStrategy commitStrategy_;

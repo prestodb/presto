@@ -120,11 +120,9 @@ class IndexLookupJoinTest : public IndexLookupJoinTestBase,
         kTestIndexConnectorName, indexTable, asyncLookup);
   }
 
-  static std::
-      unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      makeIndexColumnHandles(const std::vector<std::string>& names) {
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-        handles;
+  static connector::ColumnHandleMap makeIndexColumnHandles(
+      const std::vector<std::string>& names) {
+    connector::ColumnHandleMap handles;
     for (const auto& name : names) {
       handles.emplace(name, std::make_shared<TestIndexColumnHandle>(name));
     }

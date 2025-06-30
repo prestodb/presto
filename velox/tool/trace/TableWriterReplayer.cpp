@@ -33,7 +33,7 @@ makeHiveInsertTableHandle(
     const core::TableWriteNode* node,
     std::string targetDir) {
   const auto tracedHandle =
-      std::dynamic_pointer_cast<connector::hive::HiveInsertTableHandle>(
+      std::dynamic_pointer_cast<const connector::hive::HiveInsertTableHandle>(
           node->insertTableHandle()->connectorInsertTableHandle());
   const auto inputColumns = tracedHandle->inputColumns();
   const auto compressionKind =

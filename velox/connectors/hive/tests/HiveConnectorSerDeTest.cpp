@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 #include "velox/connectors/Connector.h"
-#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
+#include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 namespace facebook::velox::connector::hive::test {
 namespace {

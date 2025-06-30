@@ -32,10 +32,9 @@ ParquetConnector::ParquetConnector(
 }
 
 std::unique_ptr<DataSource> ParquetConnector::createDataSource(
-    const std::shared_ptr<const RowType>& outputType,
-    const std::shared_ptr<ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<std::string, std::shared_ptr<ColumnHandle>>&
-        columnHandles,
+    const RowTypePtr& outputType,
+    const ConnectorTableHandlePtr& tableHandle,
+    const ColumnHandleMap& columnHandles,
     ConnectorQueryCtx* connectorQueryCtx) {
   return std::make_unique<ParquetDataSource>(
       outputType,
@@ -48,11 +47,11 @@ std::unique_ptr<DataSource> ParquetConnector::createDataSource(
 
 std::unique_ptr<DataSink> ParquetConnector::createDataSink(
     RowTypePtr inputType,
-    std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
+    ConnectorInsertTableHandlePtr connectorInsertTableHandle,
     ConnectorQueryCtx* connectorQueryCtx,
     CommitStrategy /*commitStrategy*/) {
   auto parquetInsertHandle =
-      std::dynamic_pointer_cast<ParquetInsertTableHandle>(
+      std::dynamic_pointer_cast<const ParquetInsertTableHandle>(
           connectorInsertTableHandle);
   VELOX_CHECK_NOT_NULL(
       parquetInsertHandle, "Parquet connector expecting parquet write handle!");

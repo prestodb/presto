@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/WindowFunction.h"
-#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include <gtest/gtest.h>
 
-using namespace facebook;
-using namespace facebook::velox;
-using namespace facebook::velox::common::test;
-
 using facebook::velox::exec::test::PlanBuilder;
+
+namespace facebook::velox::exec {
+namespace {
 
 class PlanNodeToStringTest : public testing::Test,
                              public velox::test::VectorTestBase {
@@ -971,3 +971,6 @@ TEST_F(PlanNodeToStringTest, markDistinct) {
       "-- MarkDistinct[1][a, b] -> a:VARCHAR, b:BIGINT, c:BIGINT, marker:BOOLEAN\n",
       op->toString(true, false));
 }
+
+} // namespace
+} // namespace facebook::velox::exec

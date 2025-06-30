@@ -32,18 +32,15 @@ class TestConnector : public connector::Connector {
 
   std::unique_ptr<connector::DataSource> createDataSource(
       const RowTypePtr& /* outputType */,
-      const std::shared_ptr<ConnectorTableHandle>& /* tableHandle */,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& /* columnHandles */,
+      const ConnectorTableHandlePtr& /* tableHandle */,
+      const connector::ColumnHandleMap& /* columnHandles */,
       connector::ConnectorQueryCtx* connectorQueryCtx) override {
     VELOX_NYI();
   }
 
   std::unique_ptr<connector::DataSink> createDataSink(
       RowTypePtr /*inputType*/,
-      std::shared_ptr<
-          ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
+      ConnectorInsertTableHandlePtr /*connectorInsertTableHandle*/,
       ConnectorQueryCtx* /*connectorQueryCtx*/,
       CommitStrategy /*commitStrategy*/) override final {
     VELOX_NYI();

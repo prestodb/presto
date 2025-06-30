@@ -58,10 +58,8 @@ bool shouldEagerlyMaterialize(
 
 HiveDataSource::HiveDataSource(
     const RowTypePtr& outputType,
-    const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+    const connector::ConnectorTableHandlePtr& tableHandle,
+    const connector::ColumnHandleMap& columnHandles,
     FileHandleFactory* fileHandleFactory,
     folly::Executor* executor,
     const ConnectorQueryCtx* connectorQueryCtx,
@@ -75,7 +73,8 @@ HiveDataSource::HiveDataSource(
       expressionEvaluator_(connectorQueryCtx->expressionEvaluator()) {
   // Column handled keyed on the column alias, the name used in the query.
   for (const auto& [canonicalizedName, columnHandle] : columnHandles) {
-    auto handle = std::dynamic_pointer_cast<HiveColumnHandle>(columnHandle);
+    auto handle =
+        std::dynamic_pointer_cast<const HiveColumnHandle>(columnHandle);
     VELOX_CHECK_NOT_NULL(
         handle,
         "ColumnHandle must be an instance of HiveColumnHandle for {}",
@@ -118,7 +117,8 @@ HiveDataSource::HiveDataSource(
     }
   }
 
-  hiveTableHandle_ = std::dynamic_pointer_cast<HiveTableHandle>(tableHandle);
+  hiveTableHandle_ =
+      std::dynamic_pointer_cast<const HiveTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(
       hiveTableHandle_, "TableHandle must be an instance of HiveTableHandle");
   if (hiveConfig_->isFileColumnNamesReadAsLowerCase(

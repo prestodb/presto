@@ -36,8 +36,9 @@ void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type);
 
 void checkColumnNameLowerCase(
     const common::SubfieldFilters& filters,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        infoColumns);
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<const HiveColumnHandle>>& infoColumns);
 
 void checkColumnNameLowerCase(const core::TypedExprPtr& typeExpr);
 
@@ -52,10 +53,12 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
         outputSubfields,
     const common::SubfieldFilters& filters,
     const RowTypePtr& dataColumns,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        partitionKeys,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        infoColumns,
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<const HiveColumnHandle>>& partitionKeys,
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<const HiveColumnHandle>>& infoColumns,
     const SpecialColumnNames& specialColumns,
     bool disableStatsBasedFilterReorder,
     memory::MemoryPool* pool);
@@ -91,8 +94,9 @@ bool testFilters(
     const std::string& filePath,
     const std::unordered_map<std::string, std::optional<std::string>>&
         partitionKey,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        partitionKeysHandle,
+    const std::unordered_map<
+        std::string,
+        std::shared_ptr<const HiveColumnHandle>>& partitionKeysHandle,
     bool asLocalTime);
 
 std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(

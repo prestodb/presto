@@ -99,10 +99,8 @@ class TableScan : public SourceOperator {
   // processing or not.
   void tryScaleUp();
 
-  const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
-  const std::
-      unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-          columnHandles_;
+  const connector::ConnectorTableHandlePtr tableHandle_;
+  const connector::ColumnHandleMap columnHandles_;
   DriverCtx* const driverCtx_;
   const int32_t maxSplitPreloadPerDriver_{0};
   const vector_size_t maxReadBatchSize_;

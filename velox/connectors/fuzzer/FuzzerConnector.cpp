@@ -20,12 +20,12 @@
 namespace facebook::velox::connector::fuzzer {
 
 FuzzerDataSource::FuzzerDataSource(
-    const std::shared_ptr<const RowType>& outputType,
-    const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
+    const RowTypePtr& outputType,
+    const connector::ConnectorTableHandlePtr& tableHandle,
     velox::memory::MemoryPool* pool)
     : outputType_(outputType), pool_(pool) {
   auto fuzzerTableHandle =
-      std::dynamic_pointer_cast<FuzzerTableHandle>(tableHandle);
+      std::dynamic_pointer_cast<const FuzzerTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(
       fuzzerTableHandle,
       "TableHandle must be an instance of FuzzerTableHandle");

@@ -16,7 +16,6 @@
 
 #include "velox/connectors/Connector.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/parse/PlanNodeIdGenerator.h"
 
@@ -124,13 +123,10 @@ class IndexLookupJoinTestBase
   facebook::velox::core::TableScanNodePtr makeIndexScanNode(
       const std::shared_ptr<facebook::velox::core::PlanNodeIdGenerator>&
           planNodeIdGenerator,
-      const std::shared_ptr<facebook::velox::connector::ConnectorTableHandle>
+      const facebook::velox::connector::ConnectorTableHandlePtr&
           indexTableHandle,
       const facebook::velox::RowTypePtr& outputType,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<facebook::velox::connector::ColumnHandle>>&
-          assignments);
+      const facebook::velox::connector::ColumnHandleMap& assignments);
 
   /// Generate sequence storage table which will be persisted by mock zippydb
   /// client for testing.

@@ -15,7 +15,6 @@
  */
 
 #include "velox/exec/tests/utils/TableScanTestBase.h"
-
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -159,7 +158,7 @@ void TableScanTestBase::testPartitionedTableImpl(
                    .build();
   auto outputType =
       ROW({"pkey", "c0", "c1"}, {partitionType, BIGINT(), DOUBLE()});
-  ColumnHandleMap assignments = {
+  connector::ColumnHandleMap assignments = {
       {"pkey", partitionKey("pkey", partitionType)},
       {"c0", regularColumn("c0", BIGINT())},
       {"c1", regularColumn("c1", DOUBLE())}};

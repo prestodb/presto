@@ -22,14 +22,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/core/PlanNode.h"
-#include "velox/dwio/dwrf/RegisterDwrfReader.h"
-#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/parse/TypeResolver.h"
 #include "velox/python/vector/PyVector.h"
 #include "velox/tpch/gen/TpchGen.h"
 
@@ -138,8 +131,7 @@ PyPlanBuilder& PyPlanBuilder::tableScan(
   // If there are subfields, create the appropriate structures and add to the
   // scan.
   if (!subfields.empty() || !rowIndexColumnName.empty()) {
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-        assignments;
+    connector::ColumnHandleMap assignments;
 
     for (size_t i = 0; i < outputRowSchema->size(); ++i) {
       auto name = outputRowSchema->nameOf(i);

@@ -69,8 +69,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
 
   void assertSelectWithAssignments(
       std::vector<std::string>&& outputColumnNames,
-      std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
-          assignments,
+      const connector::ColumnHandleMap& assignments,
       const std::string& sql) {
     auto rowType = getRowType(std::move(outputColumnNames));
     auto plan = PlanBuilder()
@@ -84,9 +83,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
       const std::vector<std::string>& subfieldFilters,
       const std::string& remainingFilter,
       const std::string& sql,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& assignments = {}) {
+      const connector::ColumnHandleMap& assignments = {}) {
     auto rowType = getRowType(std::move(outputColumnNames));
     parse::ParseOptions options;
     options.parseDecimalAsDouble = false;
@@ -730,8 +727,7 @@ TEST_F(ParquetTableScanTest, rowIndex) {
           }),
       std::nullopt,
       std::unordered_map<std::string, std::string>{{kPath, filePath}});
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments;
+  connector::ColumnHandleMap assignments;
   assignments["a"] = std::make_shared<connector::hive::HiveColumnHandle>(
       "a",
       connector::hive::HiveColumnHandle::ColumnType::kRegular,
@@ -828,16 +824,14 @@ TEST_F(ParquetTableScanTest, filterNullIcebergPartition) {
       {"c1 IS NOT NULL"},
       "",
       "SELECT c0, c1 FROM tmp WHERE c1 IS NOT NULL",
-      std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>{
-          {"c0", c0}, {"c1", c1}});
+      connector::ColumnHandleMap{{"c0", c0}, {"c1", c1}});
 
   assertSelectWithFilter(
       {"c0", "c1"},
       {"c1 IS NULL"},
       "",
       "SELECT c0, c1 FROM tmp WHERE c1 IS NULL",
-      std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>{
-          {"c0", c0}, {"c1", c1}});
+      connector::ColumnHandleMap{{"c0", c0}, {"c1", c1}});
 }
 
 TEST_F(ParquetTableScanTest, sessionTimezone) {

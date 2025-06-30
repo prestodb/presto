@@ -36,10 +36,8 @@ class HiveDataSource : public DataSource {
  public:
   HiveDataSource(
       const RowTypePtr& outputType,
-      const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+      const connector::ConnectorTableHandlePtr& tableHandle,
+      const connector::ColumnHandleMap& columnHandles,
       FileHandleFactory* fileHandleFactory,
       folly::Executor* executor,
       const ConnectorQueryCtx* connectorQueryCtx,
@@ -80,11 +78,10 @@ class HiveDataSource : public DataSource {
 
   using WaveDelegateHookFunction =
       std::function<std::shared_ptr<wave::WaveDataSource>(
-          const std::shared_ptr<HiveTableHandle>& hiveTableHandle,
+          const HiveTableHandlePtr& hiveTableHandle,
           const std::shared_ptr<common::ScanSpec>& scanSpec,
           const RowTypePtr& readerOutputType,
-          std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
-              partitionKeys,
+          std::unordered_map<std::string, HiveColumnHandlePtr>* partitionKeys,
           FileHandleFactory* fileHandleFactory,
           folly::Executor* executor,
           const ConnectorQueryCtx* connectorQueryCtx,
@@ -111,7 +108,7 @@ class HiveDataSource : public DataSource {
   memory::MemoryPool* const pool_;
 
   std::shared_ptr<HiveConnectorSplit> split_;
-  std::shared_ptr<HiveTableHandle> hiveTableHandle_;
+  HiveTableHandlePtr hiveTableHandle_;
   std::shared_ptr<common::ScanSpec> scanSpec_;
   VectorPtr output_;
   std::unique_ptr<SplitReader> splitReader_;
@@ -123,8 +120,7 @@ class HiveDataSource : public DataSource {
 
   // Column handles for the partition key columns keyed on partition key column
   // name.
-  std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
-      partitionKeys_;
+  std::unordered_map<std::string, HiveColumnHandlePtr> partitionKeys_;
 
   std::shared_ptr<io::IoStatistics> ioStats_;
   std::shared_ptr<filesystems::File::IoStats> fsStats_;
@@ -156,8 +152,7 @@ class HiveDataSource : public DataSource {
   core::ExpressionEvaluator* const expressionEvaluator_;
 
   // Column handles for the Split info columns keyed on their column names.
-  std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
-      infoColumns_;
+  std::unordered_map<std::string, HiveColumnHandlePtr> infoColumns_;
   SpecialColumnNames specialColumns_{};
   std::vector<common::Subfield> remainingFilterSubfields_;
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>

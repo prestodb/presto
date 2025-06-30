@@ -36,12 +36,12 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
-using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::common::testutil;
 
 using facebook::velox::test::BatchMaker;
 
+namespace facebook::velox::exec {
 namespace {
 
 class HashJoinTest : public HashJoinTestBase {
@@ -3722,7 +3722,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
   {
     SCOPED_TRACE("Inner join column rename");
     auto scanOutputType = ROW({"a", "b"}, {INTEGER(), BIGINT()});
-    ColumnHandleMap assignments;
+    connector::ColumnHandleMap assignments;
     assignments["a"] = regularColumn("c0", INTEGER());
     assignments["b"] = regularColumn("c1", BIGINT());
 
@@ -4512,7 +4512,7 @@ TEST_F(HashJoinTest, dynamicFiltersAppliedToPreloadedSplits) {
   }
 
   auto outputType = ROW({"p0", "p1"}, {BIGINT(), BIGINT()});
-  ColumnHandleMap assignments = {
+  connector::ColumnHandleMap assignments = {
       {"p0", regularColumn("p0", BIGINT())},
       {"p1", partitionKey("p1", BIGINT())}};
   createDuckDbTable("p", probeVectors);
@@ -4906,7 +4906,7 @@ TEST_F(HashJoinTest, dynamicFilterOnPartitionKey) {
                    .partitionKey("k", "0")
                    .build();
   auto outputType = ROW({"n1_0", "n1_1"}, {BIGINT(), BIGINT()});
-  ColumnHandleMap assignments = {
+  connector::ColumnHandleMap assignments = {
       {"n1_0", regularColumn("c0", BIGINT())},
       {"n1_1", partitionKey("k", BIGINT())}};
 
@@ -8151,4 +8151,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashTableCleanupAfterProbeFinish) {
       .run();
   ASSERT_TRUE(tableEmpty);
 }
+
 } // namespace
+} // namespace facebook::velox::exec

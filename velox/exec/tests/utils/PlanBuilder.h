@@ -140,9 +140,7 @@ class PlanBuilder {
       const std::vector<std::string>& subfieldFilters = {},
       const std::string& remainingFilter = "",
       const RowTypePtr& dataColumns = nullptr,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& assignments = {});
+      const connector::ColumnHandleMap& assignments = {});
 
   /// Add a TableScanNode to scan a Hive table.
   ///
@@ -172,9 +170,7 @@ class PlanBuilder {
       const std::vector<std::string>& subfieldFilters = {},
       const std::string& remainingFilter = "",
       const RowTypePtr& dataColumns = nullptr,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& assignments = {});
+      const connector::ColumnHandleMap& assignments = {});
 
   /// Add a TableScanNode to scan a Hive table with direct SubfieldFilters.
   ///
@@ -189,9 +185,7 @@ class PlanBuilder {
       const PushdownConfig& pushdownConfig,
       const std::string& remainingFilter = "",
       const RowTypePtr& dataColumns = nullptr,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& assignments = {});
+      const connector::ColumnHandleMap& assignments = {});
 
   /// Add a TableScanNode to scan a TPC-H table.
   ///
@@ -297,7 +291,7 @@ class PlanBuilder {
     /// @param tableHandle Optional tableHandle. Other builder arguments such as
     /// the `subfieldFilters` and `remainingFilter` will be ignored.
     TableScanBuilder& tableHandle(
-        std::shared_ptr<connector::ConnectorTableHandle> tableHandle) {
+        connector::ConnectorTableHandlePtr tableHandle) {
       tableHandle_ = std::move(tableHandle);
       return *this;
     }
@@ -306,10 +300,7 @@ class PlanBuilder {
     /// outputType names should match the keys in the 'assignments' map. The
     /// 'assignments' map may contain more columns than 'outputType' if some
     /// columns are only used by pushed-down filters.
-    TableScanBuilder& assignments(
-        std::unordered_map<
-            std::string,
-            std::shared_ptr<connector::ColumnHandle>> assignments) {
+    TableScanBuilder& assignments(connector::ColumnHandleMap assignments) {
       assignments_ = std::move(assignments);
       return *this;
     }
@@ -332,9 +323,8 @@ class PlanBuilder {
     core::ExprPtr remainingFilter_;
     RowTypePtr dataColumns_;
     std::unordered_map<std::string, std::string> columnAliases_;
-    std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-        assignments_;
+    connector::ConnectorTableHandlePtr tableHandle_;
+    connector::ColumnHandleMap assignments_;
 
     // produce filters as a FilterNode instead of pushdown.
     bool filtersAsNode_{false};

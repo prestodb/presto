@@ -17,8 +17,6 @@
 #include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Task.h"
-#include "velox/exec/TraceUtil.h"
-#include "velox/expression/Expr.h"
 
 using facebook::velox::common::testutil::TestValue;
 
@@ -30,10 +28,8 @@ std::unique_ptr<connector::DataSource> createDataSource(
     folly::Synchronized<PushdownFilters>& pushdownFilters,
     connector::Connector& connector,
     const RowTypePtr& outputType,
-    const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+    const connector::ConnectorTableHandlePtr& tableHandle,
+    const connector::ColumnHandleMap& columnHandles,
     connector::ConnectorQueryCtx* connectorQueryCtx) {
   auto dataSource = connector.createDataSource(
       outputType, tableHandle, columnHandles, connectorQueryCtx);

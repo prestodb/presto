@@ -38,10 +38,9 @@ using namespace facebook::velox::connector;
 class ParquetDataSource : public DataSource, public NvtxHelper {
  public:
   ParquetDataSource(
-      const std::shared_ptr<const RowType>& outputType,
-      const std::shared_ptr<ConnectorTableHandle>& tableHandle,
-      const std::unordered_map<std::string, std::shared_ptr<ColumnHandle>>&
-          columnHandles,
+      const RowTypePtr& outputType,
+      const ConnectorTableHandlePtr& tableHandle,
+      const ColumnHandleMap& columnHandles,
       folly::Executor* executor,
       const ConnectorQueryCtx* connectorQueryCtx,
       const std::shared_ptr<ParquetConfig>& ParquetConfig);
@@ -90,7 +89,7 @@ class ParquetDataSource : public DataSource, public NvtxHelper {
   RowVectorPtr emptyOutput_;
 
   std::shared_ptr<ParquetConnectorSplit> split_;
-  std::shared_ptr<ParquetTableHandle> tableHandle_;
+  std::shared_ptr<const ParquetTableHandle> tableHandle_;
 
   const std::shared_ptr<ParquetConfig> parquetConfig_;
 

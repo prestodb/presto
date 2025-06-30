@@ -250,8 +250,7 @@ TEST_F(IndexLookupJoinReplayerTest, test) {
   auto indexTableHandle = makeIndexTableHandle(indexTable);
 
   // Create a table scan node with the TestIndexTableHandle
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      columnHandles;
+  connector::ColumnHandleMap columnHandles;
   for (const auto& name : indexType_->names()) {
     columnHandles[name] = std::make_shared<TestIndexColumnHandle>(name);
   }

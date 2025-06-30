@@ -58,8 +58,9 @@ class SplitReader {
   static std::unique_ptr<SplitReader> create(
       const std::shared_ptr<hive::HiveConnectorSplit>& hiveSplit,
       const std::shared_ptr<const HiveTableHandle>& hiveTableHandle,
-      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
-          partitionKeys,
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<const HiveColumnHandle>>* partitionKeys,
       const ConnectorQueryCtx* connectorQueryCtx,
       const std::shared_ptr<const HiveConfig>& hiveConfig,
       const RowTypePtr& readerOutputType,
@@ -110,8 +111,9 @@ class SplitReader {
   SplitReader(
       const std::shared_ptr<const hive::HiveConnectorSplit>& hiveSplit,
       const std::shared_ptr<const HiveTableHandle>& hiveTableHandle,
-      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
-          partitionKeys,
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<const HiveColumnHandle>>* partitionKeys,
       const ConnectorQueryCtx* connectorQueryCtx,
       const std::shared_ptr<const HiveConfig>& hiveConfig,
       const RowTypePtr& readerOutputType,
@@ -176,7 +178,7 @@ class SplitReader {
   const std::shared_ptr<const HiveTableHandle> hiveTableHandle_;
   const std::unordered_map<
       std::string,
-      std::shared_ptr<HiveColumnHandle>>* const partitionKeys_;
+      std::shared_ptr<const HiveColumnHandle>>* const partitionKeys_;
   const ConnectorQueryCtx* connectorQueryCtx_;
   const std::shared_ptr<const HiveConfig> hiveConfig_;
 

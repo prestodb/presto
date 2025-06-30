@@ -16,6 +16,7 @@
 
 #include "velox/exec/tests/utils/LocalRunnerTestBase.h"
 #include "velox/connectors/hive/HiveConfig.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 
 namespace facebook::velox::exec::test {

@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/tests/utils/IndexLookupJoinTestBase.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 namespace fecebook::velox::exec::test {
@@ -319,13 +320,9 @@ facebook::velox::core::TableScanNodePtr
 IndexLookupJoinTestBase::makeIndexScanNode(
     const std::shared_ptr<facebook::velox::core::PlanNodeIdGenerator>&
         planNodeIdGenerator,
-    const std::shared_ptr<facebook::velox::connector::ConnectorTableHandle>
-        indexTableHandle,
+    const facebook::velox::connector::ConnectorTableHandlePtr& indexTableHandle,
     const facebook::velox::RowTypePtr& outputType,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<facebook::velox::connector::ColumnHandle>>&
-        assignments) {
+    const facebook::velox::connector::ColumnHandleMap& assignments) {
   auto planBuilder = facebook::velox::exec::test::PlanBuilder(
       planNodeIdGenerator, pool_.get());
   auto indexTableScan =

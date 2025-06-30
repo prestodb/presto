@@ -721,8 +721,7 @@ TEST_F(HiveIcebergTest, testPartitionedRead) {
     splits.insert(splits.end(), icebergSplits.begin(), icebergSplits.end());
   }
 
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments;
+  connector::ColumnHandleMap assignments;
   assignments.insert(
       {"c0",
        std::make_shared<HiveColumnHandle>(

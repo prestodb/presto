@@ -40,10 +40,9 @@ class ParquetConnector final : public Connector {
       folly::Executor* executor);
 
   std::unique_ptr<DataSource> createDataSource(
-      const std::shared_ptr<const RowType>& outputType,
-      const std::shared_ptr<ConnectorTableHandle>& tableHandle,
-      const std::unordered_map<std::string, std::shared_ptr<ColumnHandle>>&
-          columnHandles,
+      const RowTypePtr& outputType,
+      const ConnectorTableHandlePtr& tableHandle,
+      const ColumnHandleMap& columnHandles,
       ConnectorQueryCtx* connectorQueryCtx) override final;
 
   const std::shared_ptr<const ConfigBase>& connectorConfig() const override {
@@ -52,7 +51,7 @@ class ParquetConnector final : public Connector {
 
   std::unique_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
-      std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
+      ConnectorInsertTableHandlePtr connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx,
       CommitStrategy commitStrategy) override final;
 

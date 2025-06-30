@@ -242,8 +242,7 @@ inline uint8_t parseDelimiter(const std::string& delim) {
 
 inline bool isSynthesizedColumn(
     const std::string& name,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        infoColumns) {
+    const std::unordered_map<std::string, HiveColumnHandlePtr>& infoColumns) {
   return infoColumns.count(name) != 0;
 }
 
@@ -263,7 +262,7 @@ const std::string& getColumnName(const common::Subfield& subfield) {
   return field->name();
 }
 
-void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type) {
+void checkColumnNameLowerCase(const TypePtr& type) {
   switch (type->kind()) {
     case TypeKind::ARRAY:
       checkColumnNameLowerCase(type->asArray().elementType());
@@ -289,8 +288,7 @@ void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type) {
 
 void checkColumnNameLowerCase(
     const common::SubfieldFilters& filters,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        infoColumns) {
+    const std::unordered_map<std::string, HiveColumnHandlePtr>& infoColumns) {
   for (const auto& filterIt : filters) {
     const auto name = filterIt.first.toString();
     if (isSynthesizedColumn(name, infoColumns)) {
@@ -355,10 +353,8 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
         outputSubfields,
     const common::SubfieldFilters& filters,
     const RowTypePtr& dataColumns,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        partitionKeys,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
-        infoColumns,
+    const std::unordered_map<std::string, HiveColumnHandlePtr>& partitionKeys,
+    const std::unordered_map<std::string, HiveColumnHandlePtr>& infoColumns,
     const SpecialColumnNames& specialColumns,
     bool disableStatsBasedFilterReorder,
     memory::MemoryPool* pool) {
@@ -696,7 +692,7 @@ bool testFilters(
     const std::string& filePath,
     const std::unordered_map<std::string, std::optional<std::string>>&
         partitionKeys,
-    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+    const std::unordered_map<std::string, HiveColumnHandlePtr>&
         partitionKeysHandle,
     bool asLocalTime) {
   const auto totalRows = reader->numberOfRows();

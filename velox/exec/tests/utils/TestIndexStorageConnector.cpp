@@ -105,9 +105,7 @@ core::TypedExprPtr toJoinConditionExpr(
         joinConditions,
     const std::shared_ptr<TestIndexTable>& indexTable,
     const RowTypePtr& inputType,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& columnHandles) {
+    const connector::ColumnHandleMap& columnHandles) {
   if (joinConditions.empty()) {
     return nullptr;
   }
@@ -175,10 +173,9 @@ TestIndexSource::TestIndexSource(
     const RowTypePtr& outputType,
     size_t numEqualJoinKeys,
     const core::TypedExprPtr& joinConditionExpr,
-    const std::shared_ptr<TestIndexTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<TestIndexColumnHandle>>& columnHandles,
+    const TestIndexTableHandlePtr& tableHandle,
+    const std::unordered_map<std::string, TestIndexColumnHandlePtr>&
+        columnHandles,
     connector::ConnectorQueryCtx* connectorQueryCtx,
     folly::Executor* executor)
     : tableHandle_(tableHandle),
@@ -266,9 +263,8 @@ void TestIndexSource::initConditionProjections() {
 }
 
 void TestIndexSource::initOutputProjections(
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<TestIndexColumnHandle>>& columnHandles) {
+    const std::unordered_map<std::string, TestIndexColumnHandlePtr>&
+        columnHandles) {
   VELOX_CHECK(lookupOutputProjections_.empty());
 
   lookupOutputProjections_.reserve(outputType_->size());
@@ -545,24 +541,21 @@ std::shared_ptr<connector::IndexSource> TestIndexConnector::createIndexSource(
     size_t numJoinKeys,
     const std::vector<core::IndexLookupConditionPtr>& joinConditions,
     const RowTypePtr& outputType,
-    const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+    const connector::ConnectorTableHandlePtr& tableHandle,
+    const connector::ColumnHandleMap& columnHandles,
     connector::ConnectorQueryCtx* connectorQueryCtx) {
   VELOX_CHECK_GE(inputType->size(), numJoinKeys + joinConditions.size());
   auto testIndexTableHandle =
-      std::dynamic_pointer_cast<TestIndexTableHandle>(tableHandle);
+      std::dynamic_pointer_cast<const TestIndexTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(testIndexTableHandle);
   const auto& indexTable = testIndexTableHandle->indexTable();
   auto joinConditionExpr =
       toJoinConditionExpr(joinConditions, indexTable, inputType, columnHandles);
 
-  std::unordered_map<std::string, std::shared_ptr<TestIndexColumnHandle>>
-      testColumnHandles;
+  std::unordered_map<std::string, TestIndexColumnHandlePtr> testColumnHandles;
   for (const auto& [name, handle] : columnHandles) {
     auto testColumnHandle =
-        std::dynamic_pointer_cast<TestIndexColumnHandle>(handle);
+        std::dynamic_pointer_cast<const TestIndexColumnHandle>(handle);
     VELOX_CHECK_NOT_NULL(testColumnHandle);
 
     testColumnHandles.emplace(name, testColumnHandle);

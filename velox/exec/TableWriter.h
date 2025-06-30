@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "OperatorUtils.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/Operator.h"
@@ -102,7 +101,7 @@ class TableWriter : public Operator {
   TableWriter(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
+      const core::TableWriteNodePtr& tableWriteNode);
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
@@ -214,8 +213,7 @@ class TableWriter : public Operator {
 
   // Sets type mappings in `inputMapping_`, `mappedInputType_`, and
   // `mappedOutputType_`.
-  void setTypeMappings(
-      const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
+  void setTypeMappings(const core::TableWriteNodePtr& tableWriteNode);
 
   std::string createTableCommitContext(bool lastOutput);
 
@@ -223,8 +221,7 @@ class TableWriter : public Operator {
 
   const DriverCtx* const driverCtx_;
   memory::MemoryPool* const connectorPool_;
-  const std::shared_ptr<connector::ConnectorInsertTableHandle>
-      insertTableHandle_;
+  const connector::ConnectorInsertTableHandlePtr insertTableHandle_;
   const connector::CommitStrategy commitStrategy_;
   // Records the writer operator creation time in ns. This is used to record
   // the running wall time of a writer operator. This can helps to detect the

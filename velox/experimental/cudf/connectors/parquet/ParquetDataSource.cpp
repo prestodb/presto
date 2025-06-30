@@ -41,10 +41,9 @@ namespace facebook::velox::cudf_velox::connector::parquet {
 using namespace facebook::velox::connector;
 
 ParquetDataSource::ParquetDataSource(
-    const std::shared_ptr<const RowType>& outputType,
-    const std::shared_ptr<ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<std::string, std::shared_ptr<ColumnHandle>>&
-        columnHandles,
+    const RowTypePtr& outputType,
+    const ConnectorTableHandlePtr& tableHandle,
+    const ColumnHandleMap& columnHandles,
     folly::Executor* executor,
     const ConnectorQueryCtx* connectorQueryCtx,
     const std::shared_ptr<ParquetConfig>& parquetConfig)
@@ -72,7 +71,8 @@ ParquetDataSource::ParquetDataSource(
   }
 
   // Dynamic cast tableHandle to ParquetTableHandle
-  tableHandle_ = std::dynamic_pointer_cast<ParquetTableHandle>(tableHandle);
+  tableHandle_ =
+      std::dynamic_pointer_cast<const ParquetTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(
       tableHandle_, "TableHandle must be an instance of ParquetTableHandle");
 

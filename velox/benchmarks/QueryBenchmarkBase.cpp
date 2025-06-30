@@ -15,6 +15,7 @@
  */
 
 #include "velox/benchmarks/QueryBenchmarkBase.h"
+#include "velox/connectors/hive/HiveConnector.h"
 
 DEFINE_string(data_format, "parquet", "Data format");
 

@@ -24,12 +24,11 @@ namespace facebook::velox::wave {
 class WaveHiveDataSource : public WaveDataSource {
  public:
   WaveHiveDataSource(
-      const std::shared_ptr<connector::hive::HiveTableHandle>& hiveTableHandle,
+      const connector::hive::HiveTableHandlePtr& hiveTableHandle,
       const std::shared_ptr<common::ScanSpec>& scanSpec,
       const RowTypePtr& readerOutputType,
-      std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::hive::HiveColumnHandle>>* partitionKeys,
+      std::unordered_map<std::string, connector::hive::HiveColumnHandlePtr>*
+          partitionKeys,
       FileHandleFactory* fileHandleFactory,
       folly::Executor* executor,
       const connector::ConnectorQueryCtx* connectorQueryCtx,

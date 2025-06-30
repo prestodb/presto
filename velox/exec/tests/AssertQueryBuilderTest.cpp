@@ -125,7 +125,7 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
   }
 
   // Split with partition key.
-  ColumnHandleMap assignments = {
+  connector::ColumnHandleMap assignments = {
       {"ds", partitionKey("ds", VARCHAR())},
       {"c0", regularColumn("c0", BIGINT())}};
 

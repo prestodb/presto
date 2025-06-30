@@ -16,13 +16,10 @@
 
 #include "velox/connectors/hive/HiveConnector.h"
 
-#include "velox/common/base/Fs.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/HiveDataSource.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
-#include "velox/expression/ExprToSubfieldFilter.h"
-#include "velox/expression/FieldReference.h"
 
 #include <boost/lexical_cast.hpp>
 #include <memory>
@@ -72,10 +69,8 @@ HiveConnector::HiveConnector(
 
 std::unique_ptr<DataSource> HiveConnector::createDataSource(
     const RowTypePtr& outputType,
-    const std::shared_ptr<ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+    const ConnectorTableHandlePtr& tableHandle,
+    const std::unordered_map<std::string, ColumnHandlePtr>& columnHandles,
     ConnectorQueryCtx* connectorQueryCtx) {
   return std::make_unique<HiveDataSource>(
       outputType,
@@ -89,11 +84,12 @@ std::unique_ptr<DataSource> HiveConnector::createDataSource(
 
 std::unique_ptr<DataSink> HiveConnector::createDataSink(
     RowTypePtr inputType,
-    std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
+    ConnectorInsertTableHandlePtr connectorInsertTableHandle,
     ConnectorQueryCtx* connectorQueryCtx,
     CommitStrategy commitStrategy) {
-  auto hiveInsertHandle = std::dynamic_pointer_cast<HiveInsertTableHandle>(
-      connectorInsertTableHandle);
+  auto hiveInsertHandle =
+      std::dynamic_pointer_cast<const HiveInsertTableHandle>(
+          connectorInsertTableHandle);
   VELOX_CHECK_NOT_NULL(
       hiveInsertHandle, "Hive connector expecting hive write handle!");
   return std::make_unique<HiveDataSink>(
