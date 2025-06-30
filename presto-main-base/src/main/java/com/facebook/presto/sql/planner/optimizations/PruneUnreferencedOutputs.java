@@ -816,7 +816,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
-            builder.add(node.getRowId());
+            node.getRowId().ifPresent(r -> builder.add(r));
             if (node.getInputDistribution().isPresent()) {
                 builder.addAll(node.getInputDistribution().get().getInputVariables());
             }

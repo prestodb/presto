@@ -524,18 +524,41 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the column handle that will generate row IDs for the delete operation.
-     * These IDs will be passed to the {@code deleteRows()} method of the
-     * {@link com.facebook.presto.spi.UpdatablePageSource} that created them.
+     * @deprecated Replaced by {@link #getDeleteRowIdColumn(ConnectorSession, ConnectorTableHandle)}
      */
+    @Deprecated
     default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
+    /**
+     * Get the column handle that will generate row IDs for the delete operation, if this connector requires row IDs to support delete.
+     * These IDs will be passed to the {@code deleteRows()} method of the
+     * {@link com.facebook.presto.spi.UpdatablePageSource} that created them.  If the connector does not require row IDs to perform deletes,
+     * then {@code Optional.empty()} may be returned.
+     */
+    default Optional<ColumnHandle> getDeleteRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.ofNullable(getDeleteRowIdColumnHandle(session, tableHandle));
+    }
+
+    /**
+     * @deprecated Replaced by {@link #getUpdateRowIdColumn(ConnectorSession, ConnectorTableHandle, List)}
+     */
+    @Deprecated
     default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates");
+    }
+
+    /**
+     * Get the column handle that will generate row IDs for the update operation, if this connector requires rowIDs to support update. If the connector
+     * does not require row IDs to perform updates, then {@code Optional.empty()} may be returned.
+     */
+    default Optional<ColumnHandle> getUpdateRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        return Optional.ofNullable(getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns));
     }
 
     /**

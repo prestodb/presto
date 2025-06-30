@@ -943,7 +943,7 @@ void from_json(const json& j, DeleteHandle& p);
 namespace facebook::presto::protocol {
 struct DeleteNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
-  VariableReferenceExpression rowId = {};
+  std::shared_ptr<VariableReferenceExpression> rowId = {};
   List<VariableReferenceExpression> outputVariables = {};
   std::shared_ptr<InputDistribution> inputDistribution = {};
 

@@ -590,7 +590,7 @@ public class PlanBuilder
                                 deleteSource.getSourceLocation(),
                                 idAllocator.getNextId(),
                                 deleteSource,
-                                deleteRowId,
+                                Optional.of(deleteRowId),
                                 ImmutableList.of(deleteRowId),
                                 Optional.empty()))
                         .addInputsSet(deleteRowId)

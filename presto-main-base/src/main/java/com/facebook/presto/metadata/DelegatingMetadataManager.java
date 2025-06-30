@@ -361,15 +361,15 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
+    public Optional<ColumnHandle> getDeleteRowIdColumn(Session session, TableHandle tableHandle)
     {
-        return delegate.getDeleteRowIdColumnHandle(session, tableHandle);
+        return delegate.getDeleteRowIdColumn(session, tableHandle);
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public Optional<ColumnHandle> getUpdateRowIdColumn(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
-        return delegate.getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns);
+        return delegate.getUpdateRowIdColumn(session, tableHandle, updatedColumns);
     }
 
     @Override
