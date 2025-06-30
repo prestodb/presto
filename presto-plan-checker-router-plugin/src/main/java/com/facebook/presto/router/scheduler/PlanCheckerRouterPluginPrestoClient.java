@@ -25,18 +25,22 @@ import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.inject.Inject;
+
 import java.net.URI;
 import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.facebook.presto.router.scheduler.HttpRequestSessionContext.getResourceEstimates;
 import static com.facebook.presto.router.scheduler.HttpRequestSessionContext.getSerializedSessionFunctions;
 import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class PlanCheckerRouterPluginPrestoClient
 {
@@ -45,17 +49,25 @@ public class PlanCheckerRouterPluginPrestoClient
     private static final CounterStat javaClusterRedirectRequests = new CounterStat();
     private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
     private final OkHttpClient httpClient = new OkHttpClient();
-    private final URI planCheckerClusterURI;
+    private final AtomicInteger planCheckerClusterCandidateIndex = new AtomicInteger(0);
+    private final List<URI> planCheckerClusterCandidates;
     private final URI javaRouterURI;
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
+    private final boolean javaClusterFallbackEnabled;
 
-    public PlanCheckerRouterPluginPrestoClient(URI planCheckerClusterURI, URI javaRouterURI, URI nativeRouterURI, Duration clientRequestTimeout)
+    @Inject
+    public PlanCheckerRouterPluginPrestoClient(PlanCheckerRouterPluginConfig planCheckerRouterPluginConfig)
     {
-        this.planCheckerClusterURI = planCheckerClusterURI;
-        this.javaRouterURI = javaRouterURI;
-        this.nativeRouterURI = nativeRouterURI;
-        this.clientRequestTimeout = clientRequestTimeout;
+        requireNonNull(planCheckerRouterPluginConfig, "planCheckerRouterPluginConfig is null");
+        this.planCheckerClusterCandidates =
+                requireNonNull(planCheckerRouterPluginConfig.getPlanCheckClustersURIs(), "planCheckerClusterCandidates is null");
+        this.javaRouterURI =
+                requireNonNull(planCheckerRouterPluginConfig.getJavaRouterURI(), "javaRouterURI is null");
+        this.nativeRouterURI =
+                requireNonNull(planCheckerRouterPluginConfig.getNativeRouterURI(), "nativeRouterURI is null");
+        this.clientRequestTimeout = planCheckerRouterPluginConfig.getClientRequestTimeout();
+        this.javaClusterFallbackEnabled = planCheckerRouterPluginConfig.isJavaClusterFallbackEnabled();
     }
 
     public Optional<URI> getCompatibleClusterURI(Map<String, List<String>> headers, String statement, Principal principal)
@@ -88,6 +100,17 @@ public class PlanCheckerRouterPluginPrestoClient
             if (resultsError != null) {
                 isNativeCompatible = false;
                 log.info(resultsError.getMessage());
+            }
+        }
+        catch (Exception e) {
+            if (javaClusterFallbackEnabled) {
+                // If any exception is thrown, log the message and re-route to a Java clusters router.
+                isNativeCompatible = false;
+                log.info(e.getMessage());
+            }
+            else {
+                // hard failure
+                throw e;
             }
         }
 
@@ -124,7 +147,7 @@ public class PlanCheckerRouterPluginPrestoClient
                         principal);
 
         return new ClientSession(
-                planCheckerClusterURI,
+                getPlanCheckerClusterDestination(),
                 sessionContext.getIdentity().getUser(),
                 sessionContext.getSource(),
                 Optional.empty(),
@@ -145,5 +168,11 @@ public class PlanCheckerRouterPluginPrestoClient
                 getSerializedSessionFunctions(sessionContext),
                 ImmutableMap.of(), // todo: do we need custom headers?
                 true);
+    }
+
+    private URI getPlanCheckerClusterDestination()
+    {
+        int currentIndex = planCheckerClusterCandidateIndex.getAndUpdate(i -> (i + 1) % planCheckerClusterCandidates.size());
+        return planCheckerClusterCandidates.get(currentIndex);
     }
 }
