@@ -336,7 +336,7 @@ public final class SystemSessionProperties
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
     public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
-    public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET = "pushdown_subfields_for_map_subset";
+    public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1917,9 +1917,9 @@ public final class SystemSessionProperties
                         "Optimize out APPROX_DISTINCT operations over constant conditionals",
                         featuresConfig.isOptimizeConditionalApproxDistinct(),
                         false),
-                booleanProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET,
-                        "Enable subfield pruning for map_subset function",
-                        featuresConfig.isPushdownSubfieldForMapSubset(),
+                booleanProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS,
+                        "Enable subfield pruning for map functions, currently include map_subset and map_filter",
+                        featuresConfig.isPushdownSubfieldForMapFunctions(),
                         false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
@@ -3275,9 +3275,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID, Boolean.class);
     }
 
-    public static boolean isPushSubfieldsForMapSubsetEnabled(Session session)
+    public static boolean isPushSubfieldsForMapFunctionsEnabled(Session session)
     {
-        return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET, Boolean.class);
+        return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, Boolean.class);
     }
 
     public static boolean isAddDistinctBelowSemiJoinBuildEnabled(Session session)
