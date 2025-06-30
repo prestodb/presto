@@ -1176,9 +1176,7 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+    velox::connector::ColumnHandleMap& assignments) const {
   auto addSynthesizedColumn = [&](const std::string& name,
                                   protocol::hive::ColumnType columnType,
                                   const protocol::ColumnHandle& column) {
@@ -1430,9 +1428,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+    velox::connector::ColumnHandleMap& assignments) const {
   auto addSynthesizedColumn = [&](const std::string& name,
                                   protocol::hive::ColumnType columnType,
                                   const protocol::ColumnHandle& column) {
@@ -1528,9 +1524,7 @@ TpchPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+    velox::connector::ColumnHandleMap& assignments) const {
   auto tpchLayout =
       std::dynamic_pointer_cast<const protocol::tpch::TpchTableLayoutHandle>(
           tableHandle.connectorTableLayout);

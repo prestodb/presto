@@ -26,9 +26,7 @@ class ArrowFlightPlanBuilder : public velox::exec::test::PlanBuilder {
   /// for the columns which don't have an entry in assignments
   velox::exec::test::PlanBuilder& flightTableScan(
       const velox::RowTypePtr& outputType,
-      std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>> assignments = {},
+      velox::connector::ColumnHandleMap assignments = {},
       bool createDefaultColumnHandles = true);
 };
 

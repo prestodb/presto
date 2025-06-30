@@ -26,7 +26,6 @@ public abstract class AbstractTestAggregationsNative
     private String storageFormat;
     private String approxDistinctUnsupportedSignatureError;
     private String charTypeUnsupportedError;
-    private String tdigestAggFunctionUnsupportedError;
     private String timeTypeUnsupportedError;
 
     public void init(String storageFormat, boolean sidecarEnabled)
@@ -36,13 +35,11 @@ public abstract class AbstractTestAggregationsNative
             charTypeUnsupportedError = ".*Unknown type: char.*";
             timeTypeUnsupportedError = ".*Unknown type: time.*";
             approxDistinctUnsupportedSignatureError = ".*Unexpected parameters \\(timestamp with time zone.*\\) for function.*";
-            tdigestAggFunctionUnsupportedError = ".*Function native.default.tdigest_agg not registered.*";
         }
         else {
             charTypeUnsupportedError = "Failed to parse type.*char";
             timeTypeUnsupportedError = "Failed to parse type.*time";
             approxDistinctUnsupportedSignatureError = ".*Aggregate function signature is not supported.*";
-            tdigestAggFunctionUnsupportedError = ".*Aggregate function not registered: presto.default.tdigest_agg.*";
         }
     }
 
@@ -180,20 +177,19 @@ public abstract class AbstractTestAggregationsNative
         // max_data_size_for_stats is not needed for array, map and row
     }
 
-    /// Function `tdigest_agg` is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24811.
     @Override
     @Test(dataProvider = "getType")
     public void testStatisticalDigest(String type)
     {
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), type, "SELECT true", tdigestAggFunctionUnsupportedError);
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
     }
 
     /// Function `tdigest_agg` is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24811.
@@ -201,59 +197,47 @@ public abstract class AbstractTestAggregationsNative
     @Test(dataProvider = "getType")
     public void testStatisticalDigestGroupBy(String type)
     {
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-        testDigestQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type), type,
-                    "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                    "SELECT partkey, true FROM lineitem GROUP BY partkey");
     }
 
-    /// Function `tdigest_agg` is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24811.
     @Override
     @Test(dataProvider = "getType", enabled = false)
     public void testStatisticalDigestMerge(String type)
     {
-        testDigestQuery(format("SELECT value_at_quantile(merge(%s), 0.5E0) > 0 FROM (SELECT partkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey)",
+        assertQuery(format("SELECT value_at_quantile(merge(%s), 0.5E0) > 0 FROM (SELECT partkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey)",
                         type,
                         type,
-                        type), type,
-                "SELECT true", tdigestAggFunctionUnsupportedError);
+                        type),
+                "SELECT true");
     }
 
-    /// Function `tdigest_agg` is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24811.
     @Override
     @Test(dataProvider = "getType", enabled = false)
     public void testStatisticalDigestMergeGroupBy(String type)
     {
-        testDigestQuery(format("SELECT partkey, value_at_quantile(merge(%s), 0.5E0) > 0 " +
+        assertQuery(format("SELECT partkey, value_at_quantile(merge(%s), 0.5E0) > 0 " +
                                 "FROM (SELECT partkey, suppkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey, suppkey)" +
                                 "GROUP BY partkey",
                         type,
                         type,
-                        type), type,
-                "SELECT partkey, true FROM lineitem GROUP BY partkey", tdigestAggFunctionUnsupportedError);
-    }
-
-    public void testDigestQuery(String query, String type, String resultQuery, String errorMessage)
-    {
-        if (type.equals(QDIGEST_TYPE)) {
-            assertQuery(query, resultQuery);
-        }
-        else {
-            assertQueryFails(query, errorMessage, true);
-        }
+                        type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
     }
 }

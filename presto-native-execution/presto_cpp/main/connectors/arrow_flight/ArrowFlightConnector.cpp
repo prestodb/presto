@@ -76,8 +76,7 @@ ArrowFlightConnector::initClientOpts(
 
 ArrowFlightDataSource::ArrowFlightDataSource(
     const velox::RowTypePtr& outputType,
-    const std::unordered_map<std::string, std::shared_ptr<ColumnHandle>>&
-        columnHandles,
+    const velox::connector::ColumnHandleMap& columnHandles,
     std::shared_ptr<Authenticator> authenticator,
     const ConnectorQueryCtx* connectorQueryCtx,
     const std::shared_ptr<ArrowFlightConfig>& flightConfig,
@@ -103,7 +102,7 @@ ArrowFlightDataSource::ArrowFlightDataSource(
         columnName);
 
     auto handle =
-        std::dynamic_pointer_cast<ArrowFlightColumnHandle>(it->second);
+        std::dynamic_pointer_cast<const ArrowFlightColumnHandle>(it->second);
     VELOX_CHECK_NOT_NULL(
         handle,
         "handle for column '{}' is not an ArrowFlightColumnHandle",
@@ -195,10 +194,8 @@ velox::RowVectorPtr ArrowFlightDataSource::projectOutputColumns(
 std::unique_ptr<velox::connector::DataSource>
 ArrowFlightConnector::createDataSource(
     const velox::RowTypePtr& outputType,
-    const std::shared_ptr<velox::connector::ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
+    const velox::connector::ConnectorTableHandlePtr& tableHandle,
+    const velox::connector::ColumnHandleMap& columnHandles,
     velox::connector::ConnectorQueryCtx* connectorQueryCtx) {
   return std::make_unique<ArrowFlightDataSource>(
       outputType,

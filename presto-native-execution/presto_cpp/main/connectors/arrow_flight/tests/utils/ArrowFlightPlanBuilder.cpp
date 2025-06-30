@@ -21,9 +21,7 @@ const std::string kFlightConnectorId = "test-flight";
 
 velox::exec::test::PlanBuilder& ArrowFlightPlanBuilder::flightTableScan(
     const velox::RowTypePtr& outputType,
-    std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>> assignments,
+    velox::connector::ColumnHandleMap assignments,
     bool createDefaultColumnHandles) {
   if (createDefaultColumnHandles) {
     for (const auto& name : outputType->names()) {
