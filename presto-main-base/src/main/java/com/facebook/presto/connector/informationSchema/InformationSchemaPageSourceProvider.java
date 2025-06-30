@@ -18,6 +18,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
@@ -53,6 +56,8 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
+import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.decimalDigits;
+import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.numPrecRadix;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
 import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
@@ -167,7 +172,10 @@ public class InformationSchemaPageSourceProvider
                             column.isNullable() ? "YES" : "NO",
                             column.getType().getDisplayName(),
                             column.getComment().orElse(null),
-                            column.getExtraInfo().orElse(null));
+                            column.getExtraInfo().orElse(null),
+                            numPrecRadix(column.getType()),
+                            decimalDigits(column.getType()),
+                            getCharVarcharLength(column.getType()));
                     ordinalPosition++;
                 }
             }
@@ -280,5 +288,16 @@ public class InformationSchemaPageSourceProvider
             table.add(role);
         }
         return table.build();
+    }
+
+    public static Integer getCharVarcharLength(Type type)
+    {
+        if (type instanceof VarcharType) {
+            return ((VarcharType) type).getLength();
+        }
+        if (type instanceof CharType) {
+            return (((CharType) type).getLength());
+        }
+        return null;
     }
 }
