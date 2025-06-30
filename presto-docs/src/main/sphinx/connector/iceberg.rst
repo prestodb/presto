@@ -358,6 +358,23 @@ Property Name                                           Description             
 
 ``iceberg.delete-as-join-rewrite-enabled``              When enabled, equality delete row filtering is applied        ``true``                           Yes                 No, Equality delete read is not supported
                                                         as a join with the data of the equality delete files.
+                                                        Deprecated: This property is deprecated and will be removed
+                                                        in a future release. Use the
+                                                        ``iceberg.delete-as-join-rewrite-max-delete-columns``
+                                                        configuration property instead.
+
+``iceberg.delete-as-join-rewrite-max-delete-columns``   When set to a number greater than 0, this property enables    ``400``                            Yes                 No, Equality delete read is not supported
+                                                        equality delete row filtering as a join with the data of the
+                                                        equality delete files. The value of this property is the
+                                                        maximum number of columns that can be used in the equality
+                                                        delete files. If the number of columns in the equality delete
+                                                        files exceeds this value, then the optimization is not
+                                                        applied and the equality delete files are applied directly to
+                                                        each row in the data files.
+
+                                                        This property is only applicable when
+                                                        ``iceberg.delete-as-join-rewrite-enabled`` is set to
+                                                        ``true``.
 
 ``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``                           Yes                 No
 
@@ -499,6 +516,12 @@ Property Name                                         Description               
 ===================================================== ======================================================================= =================== =============================================
 ``iceberg.delete_as_join_rewrite_enabled``            Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
                                                       ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+
+                                                      Deprecated: This property is deprecated and will be removed.  Use
+                                                      ``iceberg.delete_as_join_rewrite_max_delete_columns`` instead.
+``iceberg.delete_as_join_rewrite_max_delete_columns`` Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
+                                                      ``iceberg.delete-as-join-rewrite-max-delete-columns`` in the
+                                                      current session.
 ``iceberg.hive_statistics_merge_strategy``            Overrides the behavior of the connector property                        Yes                 Yes
                                                       ``iceberg.hive-statistics-merge-strategy`` in the current session.
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property                        Yes                 Yes
