@@ -45,17 +45,14 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       [[maybe_unused]] bool mayPushdown) override {
     decodeInputData(rows, args);
     bool hasRandomSeed = checkRandomSeed(args);
+    bool hasBounds = checkBounds(args);
 
     rows.applyToSelected([&](vector_size_t i) {
-      auto* accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
-      // Update random seed if provided.
-      if (hasRandomSeed) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
-      }
-
       if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
         return;
       }
+
+      auto* accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
 
       // Update noise scale.
       auto noiseScaleType = args[1]->typeKind();
@@ -65,6 +62,34 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       } else if (noiseScaleType == TypeKind::BIGINT) {
         accumulator->checkAndSetNoiseScale(
             static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i)));
+      }
+
+      // Update lower and upper bound if provided. support both double and
+      // bigint type.
+      if (hasBounds) {
+        auto lowerBoundType = args[2]->typeKind();
+        auto upperBoundType = args[3]->typeKind();
+        double lowerBound = 0.0;
+        double upperBound = 0.0;
+        if (lowerBoundType == TypeKind::DOUBLE) {
+          lowerBound = decodedLowerBound_.valueAt<double>(i);
+        } else if (lowerBoundType == TypeKind::BIGINT) {
+          lowerBound =
+              static_cast<double>(decodedLowerBound_.valueAt<int64_t>(i));
+        }
+
+        if (upperBoundType == TypeKind::DOUBLE) {
+          upperBound = decodedUpperBound_.valueAt<double>(i);
+        } else if (upperBoundType == TypeKind::BIGINT) {
+          upperBound =
+              static_cast<double>(decodedUpperBound_.valueAt<int64_t>(i));
+        }
+        accumulator->checkAndSetBounds(lowerBound, upperBound);
+      }
+
+      // Update random seed if provided.
+      if (hasRandomSeed) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
       }
 
       // Update sum. check input value and dispatch to corresponding type.
@@ -81,6 +106,7 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       [[maybe_unused]] bool mayPushdown) override {
     decodeInputData(rows, args);
     bool hasRandomSeed = checkRandomSeed(args);
+    bool hasBounds = checkBounds(args);
 
     auto* accumulator = exec::Aggregate::value<AccumulatorType>(group);
 
@@ -102,6 +128,34 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       } else if (noiseScaleType == TypeKind::BIGINT) {
         accumulator->checkAndSetNoiseScale(
             static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i)));
+      }
+
+      // Update lower and upper bound if provided. support both double and
+      // bigint type.
+      if (hasBounds) {
+        auto lowerBoundType = args[2]->typeKind();
+        auto upperBoundType = args[3]->typeKind();
+        double lowerBound = 0.0;
+        double upperBound = 0.0;
+        if (lowerBoundType == TypeKind::DOUBLE) {
+          lowerBound = decodedLowerBound_.valueAt<double>(i);
+        } else if (lowerBoundType == TypeKind::BIGINT) {
+          lowerBound =
+              static_cast<double>(decodedLowerBound_.valueAt<int64_t>(i));
+        }
+
+        if (upperBoundType == TypeKind::DOUBLE) {
+          upperBound = decodedUpperBound_.valueAt<double>(i);
+        } else if (upperBoundType == TypeKind::BIGINT) {
+          upperBound =
+              static_cast<double>(decodedUpperBound_.valueAt<int64_t>(i));
+        }
+        accumulator->checkAndSetBounds(lowerBound, upperBound);
+      }
+
+      // Update random seed if provided.
+      if (hasRandomSeed) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
       }
 
       // Update sum. check input value and dispatch to corresponding type.
@@ -205,7 +259,11 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
           continue;
         }
         double noise = addNoise ? dist(rng) : 0;
-        flatResult->set(i, accumulator->getSum() + noise);
+
+        // Check the sign of noisy sum is consistent with the bounds.
+        double nosiySum = accumulator->getSum() + noise;
+        auto finalResult = postProcessNoisySum(nosiySum, accumulator);
+        flatResult->set(i, finalResult);
       }
     }
   }
@@ -231,6 +289,14 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       // Update noise scale.
       if (otherAccumulator.getNoiseScale() >= 0) {
         accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
+      }
+
+      // Update lower and upper bound.
+      if (otherAccumulator.getLowerBound().has_value() &&
+          otherAccumulator.getUpperBound().has_value()) {
+        accumulator->checkAndSetBounds(
+            *otherAccumulator.getLowerBound(),
+            *otherAccumulator.getUpperBound());
       }
 
       // Update random seed.
@@ -262,6 +328,14 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
         accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
       }
 
+      // Update lower and upper bound.
+      if (otherAccumulator.getLowerBound().has_value() &&
+          otherAccumulator.getUpperBound().has_value()) {
+        accumulator->checkAndSetBounds(
+            *otherAccumulator.getLowerBound(),
+            *otherAccumulator.getUpperBound());
+      }
+
       // Update random seed.
       if (otherAccumulator.getRandomSeed().has_value()) {
         accumulator->setRandomSeed(*otherAccumulator.getRandomSeed());
@@ -282,6 +356,8 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
  private:
   DecodedVector decodedValue_;
   DecodedVector decodedNoiseScale_;
+  DecodedVector decodedLowerBound_;
+  DecodedVector decodedUpperBound_;
   DecodedVector decodedRandomSeed_;
 
   /// Helper function to process input data. Used in addRawInput and
@@ -294,14 +370,47 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
     decodedValue_.decode(*args[0], rows);
     decodedNoiseScale_.decode(*args[1], rows);
 
+    // If intput has random seed, decode it
     if (args.size() == 3) {
       decodedRandomSeed_.decode(*args[2], rows);
+    }
+
+    if (args.size() == 5) {
+      decodedRandomSeed_.decode(*args[4], rows);
+    }
+
+    // If intput has lower and upper bounds, decode them
+    if (args.size() > 3) {
+      decodedLowerBound_.decode(*args[2], rows);
+      decodedUpperBound_.decode(*args[3], rows);
     }
   }
 
   bool checkRandomSeed(const std::vector<VectorPtr>& args) {
     // If size of args is 3, it means random seed is provided.
-    return args.size() == 3;
+    return args.size() == 3 || args.size() == 5;
+  }
+
+  bool checkBounds(const std::vector<VectorPtr>& args) {
+    // If size of args is GREATER THAN 3, it means lower and upper bounds are
+    // provided.
+    return args.size() > 3;
+  }
+
+  // Helper function to process noisy sum after adding noise. Used in
+  // extractValues.
+  double postProcessNoisySum(
+      double noisySum,
+      const AccumulatorType* accumulator) {
+    if (accumulator->getLowerBound().has_value() &&
+        accumulator->getUpperBound().has_value()) {
+      if (accumulator->getLowerBound().value() >= 0) {
+        noisySum = std::max(noisySum, 0.0);
+      } else if (accumulator->getUpperBound().value() <= 0) {
+        noisySum = std::min(noisySum, 0.0);
+      }
+    }
+    return noisySum;
   }
 
   // Template helper function to update accumulator, can support all numeric
@@ -321,7 +430,7 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
                                             : type->asLongDecimal().scale();
         double doubleValue = static_cast<double>(value) / pow(10, scale);
 
-        accumulator->update(doubleValue);
+        accumulator->clipUpdate(doubleValue);
         return;
       }
     }
@@ -338,7 +447,7 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       if (std::isnan(decodedValue.valueAt<T>(i))) {
         return;
       }
-      accumulator->update(static_cast<double>(decodedValue.valueAt<T>(i)));
+      accumulator->clipUpdate(static_cast<double>(decodedValue.valueAt<T>(i)));
     }
   }
 };
@@ -361,6 +470,7 @@ void registerNoisySumGaussianAggregate(
       "tinyint", "smallint", "integer", "bigint", "real", "double"};
   const std::vector<std::string> noiseScaleTypes = {"double", "bigint"};
   const std::string randomSeedType = "bigint";
+  const std::vector<std::string> boundTypes = {"double", "bigint"};
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
@@ -379,9 +489,30 @@ void registerNoisySumGaussianAggregate(
                                .argumentType(noiseScaleType)
                                .argumentType(randomSeedType)
                                .build());
-    }
 
+      for (const auto& lowerBoundType : boundTypes) {
+        for (const auto& upperBoundType : boundTypes) {
+          // Signature 3: (col, noise_scale, lower_bound, upper_bound)
+          signatures.push_back(createBuilder()
+                                   .argumentType(dataType)
+                                   .argumentType(noiseScaleType)
+                                   .argumentType(lowerBoundType)
+                                   .argumentType(upperBoundType)
+                                   .build());
+          // Signature 4: (col, noise_scale, lower_bound, upper_bound,
+          // random_seed)
+          signatures.push_back(createBuilder()
+                                   .argumentType(dataType)
+                                   .argumentType(noiseScaleType)
+                                   .argumentType(lowerBoundType)
+                                   .argumentType(upperBoundType)
+                                   .argumentType(randomSeedType)
+                                   .build());
+        }
+      }
+    }
     // Handle decimal types separately.
+    // Signature 1: (col, noise_scale)
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .integerVariable("a_precision")
                              .integerVariable("a_scale")
@@ -390,6 +521,7 @@ void registerNoisySumGaussianAggregate(
                              .argumentType("DECIMAL(a_precision, a_scale)")
                              .argumentType(noiseScaleType)
                              .build());
+    // Signature 2: (col, noise_scale, random_seed)
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .integerVariable("a_precision")
                              .integerVariable("a_scale")
@@ -399,6 +531,35 @@ void registerNoisySumGaussianAggregate(
                              .argumentType(noiseScaleType)
                              .argumentType(randomSeedType)
                              .build());
+
+    for (const auto& lowerBoundType : boundTypes) {
+      for (const auto& upperBoundType : boundTypes) {
+        // Signature 3: (col, noise_scale, lower_bound, upper_bound)
+        signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                                 .integerVariable("a_precision")
+                                 .integerVariable("a_scale")
+                                 .returnType("double")
+                                 .intermediateType("varbinary")
+                                 .argumentType("DECIMAL(a_precision, a_scale)")
+                                 .argumentType(noiseScaleType)
+                                 .argumentType(lowerBoundType)
+                                 .argumentType(upperBoundType)
+                                 .build());
+        // Signature 4: (col, noise_scale, lower_bound, upper_bound,
+        // random_seed)
+        signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                                 .integerVariable("a_precision")
+                                 .integerVariable("a_scale")
+                                 .returnType("double")
+                                 .intermediateType("varbinary")
+                                 .argumentType("DECIMAL(a_precision, a_scale)")
+                                 .argumentType(noiseScaleType)
+                                 .argumentType(lowerBoundType)
+                                 .argumentType(upperBoundType)
+                                 .argumentType(randomSeedType)
+                                 .build());
+      }
+    }
   }
 
   auto name = prefix + kNoisySumGaussian;
@@ -414,7 +575,7 @@ void registerNoisySumGaussianAggregate(
         VELOX_CHECK_GE(
             argTypes.size(), 2, "{} takes at least 2 arguments", name);
         VELOX_CHECK_LE(
-            argTypes.size(), 3, "{} takes at most 3 arguments", name);
+            argTypes.size(), 5, "{} takes at most 5 arguments", name);
 
         if (exec::isPartialOutput(step)) {
           return std::make_unique<NoisySumGaussianAggregate>(VARBINARY());

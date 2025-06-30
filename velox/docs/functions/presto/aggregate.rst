@@ -724,7 +724,8 @@ Noisy Aggregate Functions
     value with 0 mean and standard deviation of ``noise_scale`` to the true count.
     The noisy count is post-processed to be non-negative and rounded to bigint.
 
-    If provided, ``random_seed`` is used to seed the random number generator. Otherwise, noise is drawn from a secure random.
+    If provided, ``random_seed`` is used to seed the random number generator.
+    Otherwise, noise is drawn from a secure random.
 
     ::
 
@@ -741,7 +742,8 @@ Noisy Aggregate Functions
     value with 0 mean and standard deviation of ``noise_scale`` to the true count.
     The noisy count is post-processed to be non-negative and rounded to bigint.
 
-    If provided, ``random_seed`` is used to seed the random number generator. Otherwise, noise is drawn from a secure random.
+    If provided, ``random_seed`` is used to seed the random number generator.
+    Otherwise, noise is drawn from a secure random.
 
     ::
 
@@ -753,7 +755,18 @@ Noisy Aggregate Functions
     Calculates the sum over the input values in ``col`` and then adds a normally distributed
     random double value with 0 mean and standard deviation of ``noise_scale``.
 
-    If provided, ``random_seed`` is used to seed the random number generator. Otherwise, noise is drawn from a secure random.
+    If provided, ``random_seed`` is used to seed the random number generator.
+    Otherwise, noise is drawn from a secure random.
+
+.. function:: noisy_sum_gaussian(col, noise_scale, lower, upper[, random_seed]) -> double
+
+    Calculates the sum over the input values in ``col`` and then adds a normally distributed
+    random double value with 0 mean and standard deviation of ``noise_scale``.
+    Each value is clipped to the range of [``lower``, ``upper``] before adding to the sum.
+
+    If provided, ``random_seed`` is used to seed the random number generator.
+    Otherwise, noise is drawn from a secure random.
+
 
 Miscellaneous
 -------------

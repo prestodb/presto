@@ -27,8 +27,14 @@ class NoisySumAccumulator {
   NoisySumAccumulator(
       double sum,
       double noiseScale,
+      std::optional<double> lowerBound,
+      std::optional<double> upperBound,
       std::optional<int32_t> randomSeed)
-      : sum_{sum}, noiseScale_{noiseScale}, randomSeed_{randomSeed} {}
+      : sum_{sum},
+        noiseScale_{noiseScale},
+        lowerBound_{lowerBound},
+        upperBound_{upperBound},
+        randomSeed_{randomSeed} {}
 
   NoisySumAccumulator() = default;
 
@@ -38,11 +44,30 @@ class NoisySumAccumulator {
     this->noiseScale_ = noiseScale;
   }
 
+  void checkAndSetBounds(double lowerBound, double upperBound) {
+    VELOX_USER_CHECK_LE(
+        lowerBound,
+        upperBound,
+        "Lower bound must be less than or equal to upper bound.");
+    this->lowerBound_ = lowerBound;
+    this->upperBound_ = upperBound;
+  }
+
   void setRandomSeed(int64_t randomSeed) {
     this->randomSeed_ = randomSeed;
   }
 
-  // This function is used to update the sum
+  // This function is used to update the sum with a new input value.
+  void clipUpdate(double value) {
+    if (lowerBound_.has_value() && upperBound_.has_value()) {
+      auto clippedValue = std::max(*lowerBound_, std::min(*upperBound_, value));
+      this->sum_ += clippedValue;
+    } else {
+      this->sum_ += value;
+    }
+  }
+
+  // This function is used to update the sum with intermediate accumulator.
   void update(double value) {
     this->sum_ += value;
   }
@@ -59,13 +84,25 @@ class NoisySumAccumulator {
     return this->randomSeed_;
   }
 
+  std::optional<double> getLowerBound() const {
+    return this->lowerBound_;
+  }
+
+  std::optional<double> getUpperBound() const {
+    return this->upperBound_;
+  }
+
   static size_t serializedSize() {
     // The serialized size should be the sum of:
     // - sizeof(double) for sum_
     // - sizeof(double) for noiseScale_
+    // - sizeof(bool) for has_bound flag
+    // - sizeof(double) for lowerBound_ value
+    // - sizeof(double) for upperBound_ value
     // - sizeof(bool) for randomSeed_ has_value flag
     // - sizeof(int64_t) for randomSeed_ value
-    return sizeof(double) + sizeof(double) + sizeof(bool) + sizeof(int64_t);
+    return sizeof(double) + sizeof(double) + sizeof(bool) + sizeof(double) +
+        sizeof(double) + sizeof(bool) + sizeof(int64_t);
   }
 
   void serialize(char* buffer) {
@@ -73,7 +110,13 @@ class NoisySumAccumulator {
     stream.appendOne(sum_);
     stream.appendOne(noiseScale_);
 
-    // Serialize randomSeed_.(append 0 if has_value is false)
+    // Serialize lowerBound_ and upperBound_(append 0 if has_value is false).
+    bool hasBounds = lowerBound_.has_value() && upperBound_.has_value();
+    stream.appendOne(hasBounds);
+    stream.appendOne(hasBounds ? *lowerBound_ : 0.0);
+    stream.appendOne(hasBounds ? *upperBound_ : 0.0);
+
+    // Serialize randomSeed_(append 0 if has_value is false).
     stream.appendOne(randomSeed_.has_value());
     stream.appendOne(randomSeed_.has_value() ? randomSeed_.value() : 0);
   }
@@ -83,12 +126,21 @@ class NoisySumAccumulator {
     auto sum = stream.read<double>();
     auto noiseScale = stream.read<double>();
 
+    // Deserialize lowerBound_ and upperBound_.
+    bool hasBounds = stream.read<bool>();
+    std::optional<double> lowerBound = stream.read<double>();
+    std::optional<double> upperBound = stream.read<double>();
+
     // Deserialize randomSeed_
     bool hasRandomSeed = stream.read<bool>();
-    int64_t randomSeed = stream.read<int64_t>();
+    std::optional<int64_t> randomSeed = stream.read<int64_t>();
 
-    return hasRandomSeed ? NoisySumAccumulator{sum, noiseScale, randomSeed}
-                         : NoisySumAccumulator{sum, noiseScale, std::nullopt};
+    return NoisySumAccumulator(
+        sum,
+        noiseScale,
+        hasBounds ? lowerBound : std::nullopt,
+        hasBounds ? upperBound : std::nullopt,
+        hasRandomSeed ? randomSeed : std::nullopt);
   }
 
  private:
@@ -96,6 +148,8 @@ class NoisySumAccumulator {
   // Initial noise scale is an invalid noise scale,
   // indicating that we have not updated it yet
   double noiseScale_{-1.0};
+  std::optional<double> lowerBound_{std::nullopt};
+  std::optional<double> upperBound_{std::nullopt};
   std::optional<int64_t> randomSeed_{std::nullopt};
 };
 

@@ -271,4 +271,121 @@ TEST_F(NoisySumGaussianAggregationTest, randomSeedTestWithNoise) {
         vectors, {}, {"noisy_sum_gaussian(c2, 20, 12345)"}, {expectedResult});
   }
 }
+
+TEST_F(NoisySumGaussianAggregationTest, boundsTestNoNoise) {
+  // Test easy case with lower and upper bounds.
+  auto vectors1 = {makeRowVector(
+      {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+       makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+       makeFlatVector<double>({1.0, 2.0, 3.0, 4.0, 5.0})})};
+
+  // With lower bound = 3.0 and upper bound = 5.0
+  // Expect the result to be 18.0
+  auto expectedResult = makeRowVector({makeConstant(18.0, 1)});
+  testAggregations(
+      {vectors1},
+      {},
+      {"noisy_sum_gaussian(c2, 0.0, 3.0, 5.0)"},
+      {expectedResult});
+
+  // Test against DuckDB.
+  auto vectors2 = makeVectors(doubleRowType_, 5, 3);
+  createDuckDbTable(vectors2);
+
+  // Test double lower bound and double upper bound.
+  testAggregations(
+      vectors2,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0, 0.1, 0.8)"},
+      "SELECT SUM(CASE WHEN c2 IS NOT NULL THEN GREATEST(LEAST(c2, 0.8), 0.1) END) FROM tmp");
+
+  // Test double lower bound and bigint upper bound.
+  testAggregations(
+      vectors2,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0, 0.1, 800)"},
+      "SELECT SUM(CASE WHEN c2 IS NOT NULL THEN GREATEST(LEAST(c2, 800), 0.1) END) FROM tmp");
+
+  // Test bigint lower bound and double upper bound.
+  testAggregations(
+      vectors2,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0, 10, 50.8)"},
+      "SELECT SUM(CASE WHEN c2 IS NOT NULL THEN GREATEST(LEAST(c2, 50.8), 10) END) FROM tmp");
+
+  // Test bigint lower bound and bigint upper bound.
+  testAggregations(
+      vectors2,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0, 100, 800)"},
+      "SELECT SUM(CASE WHEN c2 IS NOT NULL THEN GREATEST(LEAST(c2, 800), 100) END) FROM tmp");
+
+  // Test lower bound > upper bound.
+  testFailingAggregations(
+      vectors2,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0, 100, 80)"},
+      "Lower bound must be less than or equal to upper bound.");
+}
+
+TEST_F(NoisySumGaussianAggregationTest, boundsTestWithNoise) {
+  auto vectors = makeVectors(integerRowType_, 5, 3);
+  createDuckDbTable(vectors);
+  // Test that the noise is deterministic given the same noise_scale,
+  // random_seed. noisy_sum_gaussian(col, noise_scale, lower_bound, upper_bound,
+  // randon_seed)
+  auto expectedResult =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              .singleAggregation(
+                  {}, {"noisy_sum_gaussian(c2, 20, 10, 100, 12345)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  for (int i = 0; i < 10; i++) {
+    testAggregations(
+        vectors,
+        {},
+        {"noisy_sum_gaussian(c2, 20, 10, 100, 12345)"},
+        {expectedResult});
+  }
+}
+
+TEST_F(NoisySumGaussianAggregationTest, noisySumAndBoundConsistencyTest) {
+  // True sum of c0 is always 0.
+  auto vectors = {
+      makeRowVector({makeFlatVector<double>({0.0, 0.0, 0.0, 0.0, 0.0})})};
+
+  // Test that if upper bound <= 0, then the noisy sum is always <= 0.
+  for (int i = 0; i < 10; i++) {
+    auto result =
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(vectors)
+                .singleAggregation(
+                    {}, {"noisy_sum_gaussian(c0, 2, -2, -0.1, 12345)"}, {})
+                .planNode(),
+            duckDbQueryRunner_)
+            .copyResults(pool());
+
+    ASSERT_TRUE(result->childAt(0)->asFlatVector<double>()->valueAt(0) <= 0);
+  }
+
+  // Test that if lower bound >= 0, then the noisy sum is always >= 0.
+  for (int i = 0; i < 10; i++) {
+    auto result =
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(vectors)
+                .singleAggregation(
+                    {}, {"noisy_sum_gaussian(c0, 2, 0.1, 2, 12345)"}, {})
+                .planNode(),
+            duckDbQueryRunner_)
+            .copyResults(pool());
+
+    ASSERT_TRUE(result->childAt(0)->asFlatVector<double>()->valueAt(0) >= 0);
+  }
+}
 } // namespace facebook::velox::aggregate::test
