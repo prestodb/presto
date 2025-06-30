@@ -176,4 +176,12 @@ TEST_F(NoisyAvgGaussianAggregationTest, emptyInputTest) {
       vectors, {}, {"noisy_avg_gaussian(c2, 0.0)"}, "SELECT AVG(c2) FROM tmp");
 }
 
+TEST_F(NoisyAvgGaussianAggregationTest, bigintNoiseScaleType) {
+  auto vectors = makeVectors(doubleRowType_, 3, 3);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors, {}, {"noisy_avg_gaussian(c2, 0)"}, "SELECT AVG(c2) FROM tmp");
+}
+
 } // namespace facebook::velox::aggregate::test
