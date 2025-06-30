@@ -44,13 +44,18 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       [[maybe_unused]] bool mayPushdown) override {
     decodeInputData(rows, args);
+    bool hasRandomSeed = checkRandomSeed(args);
 
     rows.applyToSelected([&](vector_size_t i) {
+      auto* accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
+      // Update random seed if provided.
+      if (hasRandomSeed) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
+      }
+
       if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
         return;
       }
-
-      auto* accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
 
       // Update noise scale.
       auto noiseScaleType = args[1]->typeKind();
@@ -75,10 +80,16 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       [[maybe_unused]] bool mayPushdown) override {
     decodeInputData(rows, args);
+    bool hasRandomSeed = checkRandomSeed(args);
 
     auto* accumulator = exec::Aggregate::value<AccumulatorType>(group);
 
     rows.applyToSelected([&](vector_size_t i) {
+      // Update random seed if provided.
+      if (hasRandomSeed) {
+        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
+      }
+
       if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
         return;
       }
@@ -157,9 +168,23 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       return;
     }
 
-    // Initialize the random generator and seed with randomly generated seed.
+    // Initialize the random generator and seed with random_seed if provided.
     folly::Random::DefaultGenerator rng;
-    rng.seed(folly::Random::secureRand32());
+    bool hasRandomSeed = false;
+    for (auto i = 0; i < numGroups; ++i) {
+      if (!isNull(groups[i])) {
+        auto accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
+        if (accumulator->getRandomSeed().has_value()) {
+          rng.seed(accumulator->getRandomSeed().value());
+          hasRandomSeed = true;
+          break;
+        }
+      }
+    }
+
+    if (!hasRandomSeed) {
+      rng.seed(folly::Random::secureRand32());
+    }
 
     std::normal_distribution<double> dist;
     bool addNoise = false;
@@ -207,6 +232,11 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       if (otherAccumulator.getNoiseScale() >= 0) {
         accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
       }
+
+      // Update random seed.
+      if (otherAccumulator.getRandomSeed().has_value()) {
+        accumulator->setRandomSeed(*otherAccumulator.getRandomSeed());
+      }
     });
   }
 
@@ -231,6 +261,11 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
       if (otherAccumulator.getNoiseScale() >= 0) {
         accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
       }
+
+      // Update random seed.
+      if (otherAccumulator.getRandomSeed().has_value()) {
+        accumulator->setRandomSeed(*otherAccumulator.getRandomSeed());
+      }
     });
   }
 
@@ -247,6 +282,7 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
  private:
   DecodedVector decodedValue_;
   DecodedVector decodedNoiseScale_;
+  DecodedVector decodedRandomSeed_;
 
   /// Helper function to process input data. Used in addRawInput and
   /// addSingleGroupRawInput.
@@ -257,6 +293,15 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
     // Decode input values and noise scale
     decodedValue_.decode(*args[0], rows);
     decodedNoiseScale_.decode(*args[1], rows);
+
+    if (args.size() == 3) {
+      decodedRandomSeed_.decode(*args[2], rows);
+    }
+  }
+
+  bool checkRandomSeed(const std::vector<VectorPtr>& args) {
+    // If size of args is 3, it means random seed is provided.
+    return args.size() == 3;
   }
 
   // Template helper function to update accumulator, can support all numeric
@@ -315,6 +360,7 @@ void registerNoisySumGaussianAggregate(
   const std::vector<std::string> simpleDataTypes = {
       "tinyint", "smallint", "integer", "bigint", "real", "double"};
   const std::vector<std::string> noiseScaleTypes = {"double", "bigint"};
+  const std::string randomSeedType = "bigint";
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
@@ -322,9 +368,16 @@ void registerNoisySumGaussianAggregate(
   for (const auto& noiseScaleType : noiseScaleTypes) {
     // Handle simple types.
     for (const auto& dataType : simpleDataTypes) {
+      // Signature 1: (col, noise_scale)
       signatures.push_back(createBuilder()
                                .argumentType(dataType)
                                .argumentType(noiseScaleType)
+                               .build());
+      // Signature 2: (col, noise_scale, random_seed)
+      signatures.push_back(createBuilder()
+                               .argumentType(dataType)
+                               .argumentType(noiseScaleType)
+                               .argumentType(randomSeedType)
                                .build());
     }
 
@@ -336,6 +389,15 @@ void registerNoisySumGaussianAggregate(
                              .intermediateType("varbinary")
                              .argumentType("DECIMAL(a_precision, a_scale)")
                              .argumentType(noiseScaleType)
+                             .build());
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .integerVariable("a_precision")
+                             .integerVariable("a_scale")
+                             .returnType("double")
+                             .intermediateType("varbinary")
+                             .argumentType("DECIMAL(a_precision, a_scale)")
+                             .argumentType(noiseScaleType)
+                             .argumentType(randomSeedType)
                              .build());
   }
 
@@ -349,7 +411,10 @@ void registerNoisySumGaussianAggregate(
           [[maybe_unused]] const TypePtr& resultType,
           [[maybe_unused]] const core::QueryConfig&)
           -> std::unique_ptr<exec::Aggregate> {
-        VELOX_CHECK_EQ(argTypes.size(), 2, "{} takes 2 arguments", name);
+        VELOX_CHECK_GE(
+            argTypes.size(), 2, "{} takes at least 2 arguments", name);
+        VELOX_CHECK_LE(
+            argTypes.size(), 3, "{} takes at most 3 arguments", name);
 
         if (exec::isPartialOutput(step)) {
           return std::make_unique<NoisySumGaussianAggregate>(VARBINARY());

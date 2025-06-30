@@ -237,4 +237,38 @@ TEST_F(NoisySumGaussianAggregationTest, inputTypeTestNoNoise) {
       {"noisy_sum_gaussian(c2, 0)"},
       "SELECT sum(c2) FROM tmp");
 }
+
+TEST_F(NoisySumGaussianAggregationTest, randomSeedTestNoNoise) {
+  // Test that the function support random seed, no noise.
+  auto vectors = makeVectors(integerRowType_, 5, 3);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {},
+      // noisy_sum_gaussian(col, noise_scale, randon_seed)
+      {"noisy_sum_gaussian(c2, 0.0, 12345)"},
+      "SELECT SUM(CASE WHEN c2 IS NOT NULL THEN c2 END) FROM tmp");
+}
+
+TEST_F(NoisySumGaussianAggregationTest, randomSeedTestWithNoise) {
+  auto vectors = makeVectors(integerRowType_, 5, 3);
+  createDuckDbTable(vectors);
+  // Test that the noise is deterministic given the same noise_scale,
+  // random_seed. noisy_sum_gaussian(col, noise_scale, randon_seed)
+  auto expectedResult =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              .singleAggregation({}, {"noisy_sum_gaussian(c2, 20, 12345)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  int numRuns = 10;
+  for (int i = 0; i < numRuns; i++) {
+    testAggregations(
+        vectors, {}, {"noisy_sum_gaussian(c2, 20, 12345)"}, {expectedResult});
+  }
+}
 } // namespace facebook::velox::aggregate::test
