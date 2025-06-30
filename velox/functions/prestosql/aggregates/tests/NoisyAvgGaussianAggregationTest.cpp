@@ -309,4 +309,35 @@ TEST_F(NoisyAvgGaussianAggregationTest, boundsClipTestWithNoise) {
     ASSERT_TRUE(result->childAt(0)->asFlatVector<double>()->valueAt(0) >= 0);
   }
 }
+TEST_F(NoisyAvgGaussianAggregationTest, randomSeedNoNoise) {
+  auto vectors = makeVectors(doubleRowType_, 3, 3);
+  createDuckDbTable(vectors);
+
+  testAggregations(
+      vectors,
+      {},
+      {"noisy_avg_gaussian(c2, 0.0, 12345)"},
+      "SELECT AVG(c2) FROM tmp");
+}
+
+TEST_F(NoisyAvgGaussianAggregationTest, randomSeedDeterminismTestWithNoise) {
+  auto vectors = makeVectors(doubleRowType_, 10, 5);
+
+  auto result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              .singleAggregation({}, {"noisy_avg_gaussian(c2, 0.5, 12345)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  // Test that the noise is deterministic given the same noise_scale,
+  // random_seed.
+  for (int i = 0; i < 10; i++) {
+    testAggregations(
+        vectors, {}, {"noisy_avg_gaussian(c2, 0.5, 12345)"}, {result});
+  }
+}
+
 } // namespace facebook::velox::aggregate::test
