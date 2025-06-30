@@ -33,6 +33,8 @@
 #include "velox/functions/prestosql/fuzzer/MapUnionSumInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxByResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/NoisyAvgInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/NoisyAvgResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/NoisyCountIfInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/NoisyCountIfResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/NoisyCountInputGenerator.h"
@@ -91,6 +93,7 @@ getCustomInputGenerators() {
       {"tdigest_agg", std::make_shared<TDigestAggregateInputGenerator>()},
       {"qdigest_agg", std::make_shared<QDigestAggInputGenerator>()},
       {"map_union_sum", std::make_shared<MapUnionSumInputGenerator>()},
+      {"noisy_avg_gaussian", std::make_shared<NoisyAvgInputGenerator>()},
       {"noisy_count_if_gaussian",
        std::make_shared<NoisyCountIfInputGenerator>()},
       {"noisy_count_gaussian", std::make_shared<NoisyCountInputGenerator>()},
@@ -160,6 +163,7 @@ int main(int argc, char** argv) {
   using facebook::velox::exec::test::ArbitraryResultVerifier;
   using facebook::velox::exec::test::AverageResultVerifier;
   using facebook::velox::exec::test::MinMaxByResultVerifier;
+  using facebook::velox::exec::test::NoisyAvgResultVerifier;
   using facebook::velox::exec::test::NoisyCountIfResultVerifier;
   using facebook::velox::exec::test::NoisyCountResultVerifier;
   using facebook::velox::exec::test::NoisySumResultVerifier;
@@ -216,6 +220,7 @@ int main(int argc, char** argv) {
           // https://github.com/facebookincubator/velox/issues/6330
           {"max_data_size_for_stats", nullptr},
           {"sum_data_size_for_stats", nullptr},
+          {"noisy_avg_gaussian", std::make_shared<NoisyAvgResultVerifier>()},
           {"noisy_count_if_gaussian",
            std::make_shared<NoisyCountIfResultVerifier>()},
           {"noisy_count_gaussian",

@@ -220,7 +220,7 @@ class NoisySumResultVerifier : public ResultVerifier {
     clippedInput_.clear();
   }
 
- private:
+ protected:
   std::vector<RowVectorPtr> deduplicateInput(
       const std::vector<RowVectorPtr>& input,
       const core::FieldAccessTypedExprPtr& mask) {
