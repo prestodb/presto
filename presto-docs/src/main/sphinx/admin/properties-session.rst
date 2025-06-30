@@ -111,7 +111,17 @@ window functions, sorting and other join types.
 
 Be aware that this is an experimental feature and should be used with care.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.spill-enabled\`\``.
+
+``check_access_control_on_utilized_columns_only``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Apply access control rules on only those columns that are required to produce the query output.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`check-access-control-on-utilized-columns-only\`\``.
 
 ``join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^
