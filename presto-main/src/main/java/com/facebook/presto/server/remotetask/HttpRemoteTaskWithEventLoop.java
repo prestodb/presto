@@ -116,7 +116,6 @@ import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTra
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.RequestHelpers.setTaskInfoAcceptTypeHeaders;
 import static com.facebook.presto.server.RequestHelpers.setTaskUpdateRequestContentTypeHeaders;
-import static com.facebook.presto.server.TaskResourceUtils.convertFromThriftTaskInfo;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
@@ -851,7 +850,7 @@ public final class HttpRemoteTaskWithEventLoop
 
         //Setting the flag as false since TaskUpdateRequest is not on thrift yet.
         //Once it is converted to thrift we can use the isThrift enabled flag here.
-        updateTaskInfo(newValue, false);
+        updateTaskInfo(newValue);
 
         // remove acknowledged splits, which frees memory
         for (TaskSource source : sources) {
@@ -888,7 +887,7 @@ public final class HttpRemoteTaskWithEventLoop
         verify(taskEventLoop.inEventLoop());
 
         try {
-            updateTaskInfo(result, taskInfoThriftTransportEnabled);
+            updateTaskInfo(result);
         }
         finally {
             if (!getTaskInfo().getTaskStatus().getState().isDone()) {
@@ -897,14 +896,11 @@ public final class HttpRemoteTaskWithEventLoop
         }
     }
 
-    private void updateTaskInfo(TaskInfo taskInfo, boolean isTaskInfoThriftTransportEnabled)
+    private void updateTaskInfo(TaskInfo taskInfo)
     {
         verify(taskEventLoop.inEventLoop());
 
         taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
-        if (isTaskInfoThriftTransportEnabled) {
-            taskInfo = convertFromThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
-        }
         taskInfoFetcher.updateTaskInfo(taskInfo);
     }
 
@@ -927,7 +923,7 @@ public final class HttpRemoteTaskWithEventLoop
 
         // Since this TaskInfo is updated in the client the "complete" flag will not be set,
         // indicating that the stats may not reflect the final stats on the worker.
-        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()), taskInfoThriftTransportEnabled);
+        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
     }
 
     private void onFailureTaskInfo(
@@ -1154,7 +1150,7 @@ public final class HttpRemoteTaskWithEventLoop
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
             Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
             if (taskInfoThriftTransportEnabled) {
-                requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
+                requestBuilder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
             }
             Request request = requestBuilder
                     .setUri(uriBuilder.build())
@@ -1399,7 +1395,17 @@ public final class HttpRemoteTaskWithEventLoop
         public void onSuccess(ThriftResponse<TaskInfo> result)
         {
             verify(taskEventLoop.inEventLoop());
-            onSuccessTaskInfo(result.getValue());
+            if (result.getException() != null) {
+                onFailure(result.getException());
+                return;
+            }
+
+            TaskInfo taskInfo = result.getValue();
+            if (taskInfo == null) {
+                onFailure(new RuntimeException("TaskInfo is null"));
+                return;
+            }
+            onSuccessTaskInfo(taskInfo);
         }
 
         @Override

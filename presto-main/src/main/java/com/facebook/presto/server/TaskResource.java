@@ -17,7 +17,6 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -25,7 +24,6 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -68,8 +66,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_BYTES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
-import static com.facebook.presto.server.TaskResourceUtils.isThriftAcceptable;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
@@ -93,8 +89,6 @@ public class TaskResource
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
     private final Codec<PlanFragment> planFragmentCodec;
-    private final HandleResolver handleResolver;
-    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     @Inject
     public TaskResource(
@@ -102,17 +96,13 @@ public class TaskResource
             SessionPropertyManager sessionPropertyManager,
             @ForAsyncRpc BoundedExecutor responseExecutor,
             @ForAsyncRpc ScheduledExecutorService timeoutExecutor,
-            JsonCodec<PlanFragment> planFragmentJsonCodec,
-            HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            JsonCodec<PlanFragment> planFragmentJsonCodec)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.planFragmentCodec = planFragmentJsonCodec;
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
     }
 
     @GET
@@ -160,12 +150,9 @@ public class TaskResource
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
-            @Context HttpHeaders httpHeaders,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
-
-        boolean isThriftRequest = isThriftAcceptable(httpHeaders);
 
         if (currentState == null || maxWait == null) {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
@@ -173,9 +160,6 @@ public class TaskResource
                 taskInfo = taskInfo.summarize();
             }
 
-            if (isThriftRequest) {
-                taskInfo = convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
-            }
             asyncResponse.resume(taskInfo);
             return;
         }
@@ -189,13 +173,6 @@ public class TaskResource
 
         if (shouldSummarize(uriInfo)) {
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
-        }
-
-        if (isThriftRequest) {
-            futureTaskInfo = Futures.transform(
-                    futureTaskInfo,
-                    taskInfo -> convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver),
-                    directExecutor());
         }
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
@@ -271,10 +248,6 @@ public class TaskResource
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
-        }
-
-        if (isThriftAcceptable(httpHeaders)) {
-            taskInfo = convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
         }
 
         return taskInfo;
