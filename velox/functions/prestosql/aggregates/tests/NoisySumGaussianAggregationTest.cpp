@@ -30,6 +30,18 @@ class NoisySumGaussianAggregationTest
 
   RowTypePtr doubleRowType_{
       ROW({"c0", "c1", "c2"}, {DOUBLE(), DOUBLE(), DOUBLE()})};
+  RowTypePtr bigintRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), BIGINT()})};
+  RowTypePtr decimalRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), DECIMAL(20, 5)})};
+  RowTypePtr realRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), REAL()})};
+  RowTypePtr integerRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()})};
+  RowTypePtr smallintRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), SMALLINT()})};
+  RowTypePtr tinyintRowType_{
+      ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), TINYINT()})};
 };
 
 TEST_F(NoisySumGaussianAggregationTest, simpleTestNoNoise) {
@@ -166,4 +178,63 @@ TEST_F(NoisySumGaussianAggregationTest, groupByNullTestNoNoise) {
       {vectors}, {"c0"}, {"noisy_sum_gaussian(c2, 0.0)"}, {expectedResult2});
 }
 
+TEST_F(NoisySumGaussianAggregationTest, inputTypeTestNoNoise) {
+  // Test that the function supports various input types.
+  auto doubleVector = makeVectors(doubleRowType_, 5, 3);
+  auto bigintVector = makeVectors(bigintRowType_, 5, 3);
+  auto decimalVector = makeVectors(decimalRowType_, 5, 3);
+  auto realVector = makeVectors(realRowType_, 5, 3);
+  auto integerVector = makeVectors(integerRowType_, 5, 3);
+  auto smallintVector = makeVectors(smallintRowType_, 5, 3);
+  auto tinyintVector = makeVectors(tinyintRowType_, 5, 3);
+
+  createDuckDbTable(doubleVector);
+  testAggregations(
+      doubleVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0)"}, // double noise_scale
+      "SELECT sum(c2) FROM tmp");
+
+  createDuckDbTable(bigintVector);
+  testAggregations(
+      bigintVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0)"},
+      "SELECT sum(c2) FROM tmp");
+
+  createDuckDbTable(decimalVector);
+  testAggregations(
+      decimalVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0.0)"},
+      "SELECT sum(c2) FROM tmp");
+
+  createDuckDbTable(realVector);
+  testAggregations(
+      realVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0)"}, // bigint noise_scale
+      "SELECT sum(c2) FROM tmp");
+
+  createDuckDbTable(integerVector);
+  testAggregations(
+      integerVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0)"},
+      "SELECT sum(c2) FROM tmp");
+
+  createDuckDbTable(smallintVector);
+  testAggregations(
+      smallintVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0)"},
+      "SELECT sum(c2) FROM tmp");
+
+  createDuckDbTable(tinyintVector);
+  testAggregations(
+      tinyintVector,
+      {},
+      {"noisy_sum_gaussian(c2, 0)"},
+      "SELECT sum(c2) FROM tmp");
+}
 } // namespace facebook::velox::aggregate::test
