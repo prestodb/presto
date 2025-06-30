@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
       // array_agg requires a flag controlling whether to ignore nulls.
       "array_agg",
       // Skip non-deterministic functions.
+      "noisy_avg_gaussian",
       "noisy_count_if_gaussian",
       "noisy_count_gaussian",
       "noisy_sum_gaussian",

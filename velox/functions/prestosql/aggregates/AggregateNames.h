@@ -57,6 +57,7 @@ const char* const kMerge = "merge";
 const char* const kMin = "min";
 const char* const kMinBy = "min_by";
 const char* const kMultiMapAgg = "multimap_agg";
+const char* const kNoisyAvgGaussian = "noisy_avg_gaussian";
 const char* const kNoisyCountIfGaussian = "noisy_count_if_gaussian";
 const char* const kNoisyCountGaussian = "noisy_count_gaussian";
 const char* const kNoisySumGaussian = "noisy_sum_gaussian";
