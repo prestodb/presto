@@ -48,54 +48,9 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
     bool hasBounds = checkBounds(args);
 
     rows.applyToSelected([&](vector_size_t i) {
-      if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
-        return;
-      }
-
       auto* accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
-
-      // Update noise scale.
-      auto noiseScaleType = args[1]->typeKind();
-      if (noiseScaleType == TypeKind::DOUBLE) {
-        accumulator->checkAndSetNoiseScale(
-            decodedNoiseScale_.valueAt<double>(i));
-      } else if (noiseScaleType == TypeKind::BIGINT) {
-        accumulator->checkAndSetNoiseScale(
-            static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i)));
-      }
-
-      // Update lower and upper bound if provided. support both double and
-      // bigint type.
-      if (hasBounds) {
-        auto lowerBoundType = args[2]->typeKind();
-        auto upperBoundType = args[3]->typeKind();
-        double lowerBound = 0.0;
-        double upperBound = 0.0;
-        if (lowerBoundType == TypeKind::DOUBLE) {
-          lowerBound = decodedLowerBound_.valueAt<double>(i);
-        } else if (lowerBoundType == TypeKind::BIGINT) {
-          lowerBound =
-              static_cast<double>(decodedLowerBound_.valueAt<int64_t>(i));
-        }
-
-        if (upperBoundType == TypeKind::DOUBLE) {
-          upperBound = decodedUpperBound_.valueAt<double>(i);
-        } else if (upperBoundType == TypeKind::BIGINT) {
-          upperBound =
-              static_cast<double>(decodedUpperBound_.valueAt<int64_t>(i));
-        }
-        accumulator->checkAndSetBounds(lowerBound, upperBound);
-      }
-
-      // Update random seed if provided.
-      if (hasRandomSeed) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
-      }
-
-      // Update sum. check input value and dispatch to corresponding type.
-      auto inputType = args[0]->typeKind();
-      VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          updateSumTemplate, inputType, accumulator, decodedValue_, i);
+      updateAccumulatorFromInput(
+          args, accumulator, i, hasRandomSeed, hasBounds);
     });
   }
 
@@ -111,57 +66,8 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
     auto* accumulator = exec::Aggregate::value<AccumulatorType>(group);
 
     rows.applyToSelected([&](vector_size_t i) {
-      // Update random seed if provided.
-      if (hasRandomSeed) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
-      }
-
-      if (decodedValue_.isNullAt(i) || decodedNoiseScale_.isNullAt(i)) {
-        return;
-      }
-
-      // Update noise scale.
-      auto noiseScaleType = args[1]->typeKind();
-      if (noiseScaleType == TypeKind::DOUBLE) {
-        accumulator->checkAndSetNoiseScale(
-            decodedNoiseScale_.valueAt<double>(i));
-      } else if (noiseScaleType == TypeKind::BIGINT) {
-        accumulator->checkAndSetNoiseScale(
-            static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i)));
-      }
-
-      // Update lower and upper bound if provided. support both double and
-      // bigint type.
-      if (hasBounds) {
-        auto lowerBoundType = args[2]->typeKind();
-        auto upperBoundType = args[3]->typeKind();
-        double lowerBound = 0.0;
-        double upperBound = 0.0;
-        if (lowerBoundType == TypeKind::DOUBLE) {
-          lowerBound = decodedLowerBound_.valueAt<double>(i);
-        } else if (lowerBoundType == TypeKind::BIGINT) {
-          lowerBound =
-              static_cast<double>(decodedLowerBound_.valueAt<int64_t>(i));
-        }
-
-        if (upperBoundType == TypeKind::DOUBLE) {
-          upperBound = decodedUpperBound_.valueAt<double>(i);
-        } else if (upperBoundType == TypeKind::BIGINT) {
-          upperBound =
-              static_cast<double>(decodedUpperBound_.valueAt<int64_t>(i));
-        }
-        accumulator->checkAndSetBounds(lowerBound, upperBound);
-      }
-
-      // Update random seed if provided.
-      if (hasRandomSeed) {
-        accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
-      }
-
-      // Update sum. check input value and dispatch to corresponding type.
-      auto inputType = args[0]->typeKind();
-      VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          updateSumTemplate, inputType, accumulator, decodedValue_, i);
+      updateAccumulatorFromInput(
+          args, accumulator, i, hasRandomSeed, hasBounds);
     });
   }
 
@@ -276,33 +182,8 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
     DecodedVector decoded(*args[0], rows);
 
     rows.applyToSelected([&](vector_size_t i) {
-      if (decoded.isNullAt(i)) {
-        return;
-      }
-
-      // Update sum from intermediate result.
       auto* accumulator = exec::Aggregate::value<AccumulatorType>(groups[i]);
-      auto serialized = decoded.valueAt<StringView>(i);
-      auto otherAccumulator = AccumulatorType::deserialize(serialized.data());
-      accumulator->update(otherAccumulator.getSum());
-
-      // Update noise scale.
-      if (otherAccumulator.getNoiseScale() >= 0) {
-        accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
-      }
-
-      // Update lower and upper bound.
-      if (otherAccumulator.getLowerBound().has_value() &&
-          otherAccumulator.getUpperBound().has_value()) {
-        accumulator->checkAndSetBounds(
-            *otherAccumulator.getLowerBound(),
-            *otherAccumulator.getUpperBound());
-      }
-
-      // Update random seed.
-      if (otherAccumulator.getRandomSeed().has_value()) {
-        accumulator->setRandomSeed(*otherAccumulator.getRandomSeed());
-      }
+      updateAccumulatorFromIntermediateResult(accumulator, decoded, i);
     });
   }
 
@@ -315,31 +196,7 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
 
     auto* accumulator = exec::Aggregate::value<AccumulatorType>(group);
     rows.applyToSelected([&](vector_size_t i) {
-      if (decoded.isNullAt(i)) {
-        return;
-      }
-
-      auto serialized = decoded.valueAt<StringView>(i);
-      auto otherAccumulator = AccumulatorType::deserialize(serialized.data());
-      accumulator->update(otherAccumulator.getSum());
-
-      // Update noise scale.
-      if (otherAccumulator.getNoiseScale() >= 0) {
-        accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
-      }
-
-      // Update lower and upper bound.
-      if (otherAccumulator.getLowerBound().has_value() &&
-          otherAccumulator.getUpperBound().has_value()) {
-        accumulator->checkAndSetBounds(
-            *otherAccumulator.getLowerBound(),
-            *otherAccumulator.getUpperBound());
-      }
-
-      // Update random seed.
-      if (otherAccumulator.getRandomSeed().has_value()) {
-        accumulator->setRandomSeed(*otherAccumulator.getRandomSeed());
-      }
+      updateAccumulatorFromIntermediateResult(accumulator, decoded, i);
     });
   }
 
@@ -448,6 +305,92 @@ class NoisySumGaussianAggregate : public exec::Aggregate {
         return;
       }
       accumulator->clipUpdate(static_cast<double>(decodedValue.valueAt<T>(i)));
+    }
+  }
+
+  // Helper function toupdate the accumulator from input.
+  void updateAccumulatorFromInput(
+      const std::vector<VectorPtr>& args,
+      AccumulatorType* accumulator,
+      vector_size_t i,
+      bool hasRandomSeed,
+      bool hasBounds) {
+    // If value is null, we do not want to update the accumulator.
+    if (decodedValue_.isNullAt(i)) {
+      return;
+    }
+
+    // Update noise scale.
+    auto noiseScaleType = args[1]->typeKind();
+    if (noiseScaleType == TypeKind::DOUBLE) {
+      accumulator->checkAndSetNoiseScale(decodedNoiseScale_.valueAt<double>(i));
+    } else if (noiseScaleType == TypeKind::BIGINT) {
+      accumulator->checkAndSetNoiseScale(
+          static_cast<double>(decodedNoiseScale_.valueAt<uint64_t>(i)));
+    }
+
+    // Update lower and upper bound if provided. support both double and
+    // bigint type.
+    if (hasBounds) {
+      auto lowerBoundType = args[2]->typeKind();
+      auto upperBoundType = args[3]->typeKind();
+      double lowerBound = 0.0;
+      double upperBound = 0.0;
+      if (lowerBoundType == TypeKind::DOUBLE) {
+        lowerBound = decodedLowerBound_.valueAt<double>(i);
+      } else if (lowerBoundType == TypeKind::BIGINT) {
+        lowerBound =
+            static_cast<double>(decodedLowerBound_.valueAt<int64_t>(i));
+      }
+
+      if (upperBoundType == TypeKind::DOUBLE) {
+        upperBound = decodedUpperBound_.valueAt<double>(i);
+      } else if (upperBoundType == TypeKind::BIGINT) {
+        upperBound =
+            static_cast<double>(decodedUpperBound_.valueAt<int64_t>(i));
+      }
+      accumulator->checkAndSetBounds(lowerBound, upperBound);
+    }
+
+    // Update random seed if provided.
+    if (hasRandomSeed) {
+      accumulator->setRandomSeed(decodedRandomSeed_.valueAt<int64_t>(i));
+    }
+
+    // Update sum. check input value and dispatch to corresponding type.
+    auto inputType = args[0]->typeKind();
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        updateSumTemplate, inputType, accumulator, decodedValue_, i);
+  }
+
+  // Helper function to update the accumulator from intermediate result.
+  void updateAccumulatorFromIntermediateResult(
+      AccumulatorType* accumulator,
+      DecodedVector& decodedVector,
+      vector_size_t i) {
+    if (decodedVector.isNullAt(i)) {
+      return;
+    }
+
+    auto serialized = decodedVector.valueAt<StringView>(i);
+    auto otherAccumulator = AccumulatorType::deserialize(serialized.data());
+    accumulator->update(otherAccumulator.getSum());
+
+    // Update noise scale.
+    if (otherAccumulator.getNoiseScale() >= 0) {
+      accumulator->checkAndSetNoiseScale(otherAccumulator.getNoiseScale());
+    }
+
+    // Update lower and upper bound.
+    if (otherAccumulator.getLowerBound().has_value() &&
+        otherAccumulator.getUpperBound().has_value()) {
+      accumulator->checkAndSetBounds(
+          *otherAccumulator.getLowerBound(), *otherAccumulator.getUpperBound());
+    }
+
+    // Update random seed.
+    if (otherAccumulator.getRandomSeed().has_value()) {
+      accumulator->setRandomSeed(*otherAccumulator.getRandomSeed());
     }
   }
 };
