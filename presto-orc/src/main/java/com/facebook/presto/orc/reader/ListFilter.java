@@ -18,9 +18,8 @@ import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.predicate.TupleDomainFilter.NullsFilter;
 import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
 import com.facebook.presto.orc.StreamDescriptor;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Map;

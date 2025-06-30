@@ -15,7 +15,7 @@ package com.facebook.presto.hive.gcs;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 public class HiveGcsConfig
 {

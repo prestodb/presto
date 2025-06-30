@@ -16,11 +16,11 @@ package com.facebook.presto.execution.executor;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.SplitRunner;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;

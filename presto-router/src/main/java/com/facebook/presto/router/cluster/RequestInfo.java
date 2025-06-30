@@ -17,8 +17,7 @@ import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Enumeration;
 import java.util.List;
