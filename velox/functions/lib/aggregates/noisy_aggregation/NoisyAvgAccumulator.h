@@ -26,8 +26,17 @@ namespace facebook::velox::functions::aggregate {
 class NoisyAvgAccumulator {
  public:
   NoisyAvgAccumulator() = default;
-  NoisyAvgAccumulator(double sum, uint64_t count, double noiseScale)
-      : sum_{sum}, count_{count}, noiseScale_{noiseScale} {}
+  NoisyAvgAccumulator(
+      double sum,
+      uint64_t count,
+      double noiseScale,
+      std::optional<double> lowerBound,
+      std::optional<double> upperBound)
+      : sum_{sum},
+        count_{count},
+        noiseScale_{noiseScale},
+        lowerBound_(lowerBound),
+        upperBound_(upperBound) {}
 
   void updateCount(uint64_t value) {
     count_ = facebook::velox::checkedPlus<uint64_t>(count_, value);
@@ -37,10 +46,28 @@ class NoisyAvgAccumulator {
     sum_ += value;
   }
 
+  void clipUpdateSum(double value) {
+    if (lowerBound_.has_value() && upperBound_.has_value()) {
+      auto clippedValue = std::max(*lowerBound_, std::min(*upperBound_, value));
+      this->sum_ += clippedValue;
+    } else {
+      this->sum_ += value;
+    }
+  }
+
   void checkAndSetNoiseScale(double newNoiseScale) {
     VELOX_USER_CHECK_GE(
         newNoiseScale, 0, "Noise scale must be a non-negative value.");
     noiseScale_ = newNoiseScale;
+  }
+
+  void checkAndSetBounds(double lowerBound, double upperBound) {
+    VELOX_USER_CHECK_LE(
+        lowerBound,
+        upperBound,
+        "Lower bound must be less than or equal to upper bound.");
+    this->lowerBound_ = lowerBound;
+    this->upperBound_ = upperBound;
   }
 
   double getSum() const {
@@ -55,8 +82,23 @@ class NoisyAvgAccumulator {
     return noiseScale_;
   }
 
+  std::optional<double> getLowerBound() const {
+    return lowerBound_;
+  }
+
+  std::optional<double> getUpperBound() const {
+    return upperBound_;
+  }
+
+  // sizeof(double) for sum_
+  // sizeof(uint64_t) for count_
+  // sizeof(double) for noiseScale_
+  // sizeof(bool) for has_bound flag
+  // sizeof(double) for lowerBound_ value
+  // sizeof(double) for upperBound_ value
   static size_t serializedSize() {
-    return sizeof(double) + sizeof(uint64_t) + sizeof(double);
+    return sizeof(double) + sizeof(uint64_t) + sizeof(double) + sizeof(bool) +
+        sizeof(double) + sizeof(double);
   }
 
   void serialize(char* buffer) const {
@@ -64,6 +106,10 @@ class NoisyAvgAccumulator {
     stream.appendOne(sum_);
     stream.appendOne(count_);
     stream.appendOne(noiseScale_);
+    // Serialize lowerBound_ and upperBound_(append 0 if has_value is false).
+    stream.appendOne(lowerBound_.has_value());
+    stream.appendOne(lowerBound_.has_value() ? *lowerBound_ : 0.0);
+    stream.appendOne(upperBound_.has_value() ? *upperBound_ : 0.0);
   }
 
   static NoisyAvgAccumulator deserialize(const char* buffer) {
@@ -71,13 +117,23 @@ class NoisyAvgAccumulator {
     double sum = stream.read<double>();
     uint64_t count = stream.read<uint64_t>();
     double noiseScale = stream.read<double>();
-    return NoisyAvgAccumulator(sum, count, noiseScale);
+    bool hasBounds = stream.read<bool>();
+    std::optional<double> lowerBound = stream.read<double>();
+    std::optional<double> upperBound = stream.read<double>();
+    return NoisyAvgAccumulator(
+        sum,
+        count,
+        noiseScale,
+        hasBounds ? lowerBound : std::nullopt,
+        hasBounds ? upperBound : std::nullopt);
   }
 
  private:
   double sum_{0};
   uint64_t count_{0};
   double noiseScale_{-1};
+  std::optional<double> lowerBound_{std::nullopt};
+  std::optional<double> upperBound_{std::nullopt};
 };
 
 } // namespace facebook::velox::functions::aggregate

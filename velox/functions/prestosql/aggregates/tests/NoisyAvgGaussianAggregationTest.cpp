@@ -218,4 +218,95 @@ TEST_F(NoisyAvgGaussianAggregationTest, numericInputTypeTestNoNoise) {
   }
 }
 
+TEST_F(NoisyAvgGaussianAggregationTest, boundsClipTestNoNoise) {
+  auto vectors = {makeRowVector({makeFlatVector<double>({1, 2, 3, 4, 5})})};
+
+  // set the bounds to [4, 4].
+  // The clipped sum should be 20 and the average should be 4.
+  auto result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              // lower bigint, upper bigint
+              .singleAggregation({}, {"noisy_avg_gaussian(c0, 0.0, 4, 4)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  ASSERT_EQ(result->size(), 1);
+  ASSERT_EQ(result->childAt(0)->asFlatVector<double>()->valueAt(0), 4);
+
+  result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              // lower double, upper bigint
+              .singleAggregation({}, {"noisy_avg_gaussian(c0, 0, 4.0, 4)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  ASSERT_EQ(result->size(), 1);
+  ASSERT_EQ(result->childAt(0)->asFlatVector<double>()->valueAt(0), 4);
+
+  result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values(vectors)
+              // lower bigint, upper double
+              .singleAggregation({}, {"noisy_avg_gaussian(c0, 0, 4, 4.0)"}, {})
+              .planNode(),
+          duckDbQueryRunner_)
+          .copyResults(pool());
+
+  ASSERT_EQ(result->size(), 1);
+  ASSERT_EQ(result->childAt(0)->asFlatVector<double>()->valueAt(0), 4);
+
+  result = AssertQueryBuilder(
+               PlanBuilder()
+                   .values(vectors)
+                   // lower double, upper double
+                   .singleAggregation(
+                       {}, {"noisy_avg_gaussian(c0, 0, 4.0, 4.0)"}, {})
+                   .planNode(),
+               duckDbQueryRunner_)
+               .copyResults(pool());
+
+  ASSERT_EQ(result->size(), 1);
+  ASSERT_EQ(result->childAt(0)->asFlatVector<double>()->valueAt(0), 4);
+}
+
+TEST_F(NoisyAvgGaussianAggregationTest, boundsClipTestWithNoise) {
+  // True AVG of c0 is always 0.
+  auto vectors = {
+      makeRowVector({makeFlatVector<double>({0.0, 0.0, 0.0, 0.0, 0.0})})};
+
+  // Test that if upper bound <= 0, then the noisy avg is always <= 0.
+  for (int i = 0; i < 10; i++) {
+    auto result = AssertQueryBuilder(
+                      PlanBuilder()
+                          .values(vectors)
+                          .singleAggregation(
+                              {}, {"noisy_avg_gaussian(c0, 2, -2, -0.1)"}, {})
+                          .planNode(),
+                      duckDbQueryRunner_)
+                      .copyResults(pool());
+
+    ASSERT_TRUE(result->childAt(0)->asFlatVector<double>()->valueAt(0) <= 0);
+  }
+
+  // Test that if lower bound >= 0, then the noisy avg is always >= 0.
+  for (int i = 0; i < 10; i++) {
+    auto result = AssertQueryBuilder(
+                      PlanBuilder()
+                          .values(vectors)
+                          .singleAggregation(
+                              {}, {"noisy_avg_gaussian(c0, 2, 0.1, 2)"}, {})
+                          .planNode(),
+                      duckDbQueryRunner_)
+                      .copyResults(pool());
+
+    ASSERT_TRUE(result->childAt(0)->asFlatVector<double>()->valueAt(0) >= 0);
+  }
+}
 } // namespace facebook::velox::aggregate::test

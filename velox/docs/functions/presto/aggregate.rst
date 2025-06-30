@@ -773,6 +773,11 @@ Noisy Aggregate Functions
     normally distributed random double value with 0 mean and standard deviation of noise_scale.
 
 
+.. function:: noisy_avg_gaussian(col, noise_scale, lower, upper) -> double
+    Calculates the average (arithmetic mean) of all the input values in ``col`` and then adds a
+    normally distributed random double value with 0 mean and standard deviation of ``noise_scale``.
+    Each value is clipped to the range of [``lower``, ``upper``] before averaging.
+
 Miscellaneous
 -------------
 
