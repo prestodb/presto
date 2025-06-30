@@ -33,6 +33,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -51,9 +52,11 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -80,6 +83,7 @@ import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.IsolationLevel;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionField;
@@ -99,13 +103,17 @@ import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.IntegerType;
+import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
 import org.apache.iceberg.view.View;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -142,6 +150,10 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NU
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_FILE_RECORD_COUNT;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_SPEC_ID;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
@@ -190,6 +202,7 @@ import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnfo
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -199,6 +212,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -700,6 +714,101 @@ public abstract class IcebergAbstractMetadata
         return Optional.of(IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR));
     }
 
+    /**
+     * Return the row change paradigm supported by the connector on the table.
+     */
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return DELETE_ROW_AND_INSERT_ROW;
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Types.StructType type = Types.StructType.of(ImmutableList.<NestedField>builder()
+                        .add(MetadataColumns.FILE_PATH)
+                        .add(MetadataColumns.ROW_POSITION)
+                        .add(NestedField.required(MERGE_FILE_RECORD_COUNT.getId(), MERGE_FILE_RECORD_COUNT.getColumnName(), LongType.get()))
+                        .add(NestedField.required(MERGE_PARTITION_SPEC_ID.getId(), MERGE_PARTITION_SPEC_ID.getColumnName(), IntegerType.get()))
+                        .add(NestedField.required(MERGE_PARTITION_DATA.getId(), MERGE_PARTITION_DATA.getColumnName(), StringType.get()))
+                        .build());
+
+        NestedField field = NestedField.required(MERGE_ROW_DATA.getId(), MERGE_ROW_DATA.getColumnName(), type);
+        return IcebergColumnHandle.create(field, typeManager, SYNTHESIZED);
+    }
+
+    @Override
+    public Optional<ConnectorPartitioningHandle> getMergeUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+//        return Optional.of(IcebergUpdateHandle.INSTANCE);
+        // TODO #20578: Using the IcebergUpdateHandle.INSTANCE causes the following error:
+        //  java.lang.IllegalArgumentException: com.facebook.presto.sql.planner.PlanFragment could not be converted to JSON
+        // Caused by: com.fasterxml.jackson.databind.JsonMappingException:
+        // No connector for handle: MERGE [update = iceberg:INSTANCE] (through reference chain:
+        //     com.facebook.presto.sql.planner.PlanFragment["partitioningScheme"]->
+        //     com.facebook.presto.spi.plan.PartitioningScheme["partitioning"]->
+        //     com.facebook.presto.spi.plan.Partitioning["handle"]->
+        //     com.facebook.presto.spi.plan.PartitioningHandle["connectorHandle"])
+
+        // TODO #20578: Temporary workaround:
+        return Optional.empty();
+
+        // TODO #20578: Zac Blanco's suggestion
+//        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+//        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+//        return tryGetSchema(icebergTable)
+//                .flatMap(schema -> getWriteLayout(schema, icebergTable.spec(), false))
+//                .map(ConnectorNewTableLayout::getPartitioning);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+                !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
+                        .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
+                        .orElse(false)) {
+            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+        }
+        validateTableMode(session, icebergTable);
+        transaction = icebergTable.newTransaction();
+
+        IcebergInsertTableHandle insertHandle = new IcebergInsertTableHandle(
+                icebergTableHandle.getSchemaName(),
+                icebergTableHandle.getIcebergTableName(),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                // TODO #20578: Do we need to use "icebergTable.spec()" or "icebergTable.specs()"?
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
+                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                getCompressionCodec(session),
+                icebergTable.properties(),
+                getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()));
+
+        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle);
+    }
+
+    @Override
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        // TODO #20578:  debug this method.
+        IcebergWritableTableHandle insertTableHandle =
+                ((IcebergMergeTableHandle) tableHandle).getInsertTableHandle();
+
+        // TODO #20578: Check if UPDATE_AFTER is the correct value to pass to finishWrite() method.
+        finishWrite(session, insertTableHandle, fragments, UPDATE_AFTER);
+    }
+
     @Override
     public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -907,6 +1016,41 @@ public abstract class IcebergAbstractMetadata
             transaction.updateSpec().renameField(columnHandle.getName(), target).commit();
         }
         transaction.commitTransaction();
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        return getWriteLayout(icebergTable.schema(), icebergTable.spec(), false);
+    }
+
+    private Optional<ConnectorNewTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec, boolean forceRepartitioning)
+    {
+        if (partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        Map<Integer, IcebergColumnHandle> columnById = getColumns(tableSchema, partitionSpec, typeManager).stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
+
+        List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
+                .sorted(Comparator.comparing(PartitionField::sourceId))
+                .map(field -> requireNonNull(columnById.get(field.sourceId()), () -> "Cannot find source column for partitioning field " + field))
+                .distinct()
+                .collect(toImmutableList());
+        List<String> partitioningColumnNames = partitioningColumns.stream()
+                .map(IcebergColumnHandle::getName)
+                .collect(toImmutableList());
+
+        if (!forceRepartitioning && partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
+            // Do not set partitioningHandle, to let engine determine whether to repartition data or not, on stat-based basis.
+            return Optional.of(new ConnectorNewTableLayout(partitioningColumnNames));
+        }
+
+        IcebergPartitioningHandle partitioningHandle = new IcebergPartitioningHandle(toPartitionFields(partitionSpec), partitioningColumns);
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumnNames));
     }
 
     @Override
