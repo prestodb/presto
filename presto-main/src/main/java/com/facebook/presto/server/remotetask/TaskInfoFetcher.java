@@ -66,7 +66,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
-import static com.facebook.presto.server.TaskResourceUtils.convertFromThriftTaskInfo;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
@@ -346,9 +345,6 @@ public class TaskInfoFetcher
             }
             updateStats(startNanos);
             errorTracker.requestSucceeded();
-            if (isThriftTransportEnabled) {
-                newValue = convertFromThriftTaskInfo(newValue, connectorTypeSerdeManager, handleResolver);
-            }
             updateTaskInfo(newValue);
         }
     }
