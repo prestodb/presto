@@ -41,7 +41,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -124,13 +124,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-codec</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-protocol</artifactId>
             <scope>test</scope>
         </dependency>
