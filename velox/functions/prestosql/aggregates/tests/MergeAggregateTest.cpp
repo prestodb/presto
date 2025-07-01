@@ -130,14 +130,17 @@ class MergeAggregateTest : public AggregationTestBase {
     for (auto q : quantiles) {
       auto actualValue = actual.estimateQuantile(q);
       auto expectedValue = expected.estimateQuantile(q);
-      if (std::abs(expectedValue) > 1e-6) {
-        double relativeError =
-            std::abs((actualValue - expectedValue) / expectedValue);
+      // Use double to avoid overflow
+      double absExpected = std::abs(static_cast<double>(expectedValue));
+      if (absExpected > 1e-6) {
+        double relativeError = std::abs(
+            static_cast<double>(actualValue - expectedValue) / expectedValue);
         if (relativeError > epsilon) {
           return false;
         }
       } else {
-        if (std::abs(actualValue - expectedValue) > epsilon) {
+        if (std::abs(static_cast<double>(actualValue - expectedValue)) >
+            epsilon) {
           return false;
         }
       }
