@@ -21,7 +21,8 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
-import jakarta.inject.Provider;
+
+import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
