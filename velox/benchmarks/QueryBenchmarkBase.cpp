@@ -327,10 +327,14 @@ void QueryBenchmarkBase::runCombinations(int32_t level) {
       auto tvNanos = [](struct timeval tv) {
         return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
       };
-      stats.userNanos = tvNanos(final.ru_utime) - tvNanos(start.ru_utime);
-      stats.systemNanos = tvNanos(final.ru_stime) - tvNanos(start.ru_stime);
+      if (!stats.userNanos) {
+        stats.userNanos = tvNanos(final.ru_utime) - tvNanos(start.ru_utime);
+        stats.systemNanos = tvNanos(final.ru_stime) - tvNanos(start.ru_stime);
+      }
     }
-    stats.micros = micros;
+    if (!stats.micros) {
+      stats.micros = micros;
+    }
     stats.output = result.str();
     for (auto i = 0; i < parameters_.size(); ++i) {
       std::string name;
@@ -341,12 +345,19 @@ void QueryBenchmarkBase::runCombinations(int32_t level) {
   } else {
     auto& flag = parameters_[level].flag;
     for (auto& value : parameters_[level].values) {
-      std::string result =
-          gflags::SetCommandLineOption(flag.c_str(), value.c_str());
-      if (result.empty()) {
-        LOG(ERROR) << "Failed to set " << flag << "=" << value;
+      if (flag.substr(0, 2) == "s-") {
+        auto config = flag.substr(2, flag.size() - 2);
+        config_[config] = value;
+        std::cout << "Set session config " << config << " = " << value
+                  << std::endl;
+      } else {
+        std::string result =
+            gflags::SetCommandLineOption(flag.c_str(), value.c_str());
+        if (result.empty()) {
+          LOG(ERROR) << "Failed to set " << flag << "=" << value;
+        }
+        std::cout << result << std::endl;
       }
-      std::cout << result << std::endl;
       runCombinations(level + 1);
     }
   }
