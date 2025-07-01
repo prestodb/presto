@@ -15,9 +15,10 @@ package com.facebook.presto.verifier.source;
 
 import com.facebook.presto.verifier.framework.SourceQuery;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Provider;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+
+import javax.inject.Provider;
 
 import java.util.List;
 
