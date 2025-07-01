@@ -21,11 +21,9 @@
 namespace facebook::velox::fuzzer {
 class TimestampWithTimeZoneInputGenerator : public AbstractInputGenerator {
  public:
-  TimestampWithTimeZoneInputGenerator(
-      const size_t seed,
-      const double nullRatio);
+  TimestampWithTimeZoneInputGenerator(size_t seed, double nullRatio);
 
-  variant generate() override;
+  Variant generate() override;
 
  private:
   const std::vector<int16_t> timeZoneIds_;

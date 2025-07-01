@@ -53,19 +53,19 @@ T jsonValue(const folly::dynamic& jsonValue) {
 }
 
 template <typename T>
-void appendVariant(std::vector<variant>& values, const T& x) {
+void appendVariant(std::vector<Variant>& values, const T& x) {
   values.push_back(x);
 };
 
 template <typename TupleT, std::size_t... Is>
-variant toVariantRow(const TupleT& tp, std::index_sequence<Is...>) {
-  std::vector<variant> values;
+Variant toVariantRow(const TupleT& tp, std::index_sequence<Is...>) {
+  std::vector<Variant> values;
   (appendVariant(values, std::get<Is>(tp)), ...);
-  return variant::row(values);
+  return Variant::row(values);
 }
 
 template <typename TupleT, std::size_t TupleSize = std::tuple_size_v<TupleT>>
-variant toVariantRow(const TupleT& tp) {
+Variant toVariantRow(const TupleT& tp) {
   return toVariantRow(tp, std::make_index_sequence<TupleSize>{});
 }
 
@@ -455,7 +455,7 @@ class VectorMaker {
   /// Create an ArrayVector<ROW> from nested std::vectors of Variants.
   ArrayVectorPtr arrayOfRowVector(
       const RowTypePtr& rowType,
-      const std::vector<std::vector<variant>>& data);
+      const std::vector<std::vector<Variant>>& data);
 
   /// Creates an ARRAY(ROW(...)) vector from a list of lists of optional tuples.
   ///
@@ -478,14 +478,14 @@ class VectorMaker {
   ArrayVectorPtr arrayOfRowVector(
       const std::vector<std::vector<std::optional<TupleT>>>& data,
       const RowTypePtr& rowType) {
-    std::vector<std::vector<variant>> arrays;
+    std::vector<std::vector<Variant>> arrays;
     for (const auto& tuples : data) {
-      std::vector<variant> elements;
+      std::vector<Variant> elements;
       for (const auto& t : tuples) {
         if (t.has_value()) {
           elements.push_back(detail::toVariantRow(t.value()));
         } else {
-          elements.push_back(variant::null(TypeKind::ROW));
+          elements.push_back(Variant::null(TypeKind::ROW));
         }
       }
       arrays.push_back(elements);
@@ -920,9 +920,9 @@ class VectorMaker {
         jsonMapToVectorOfPairs<TKey, TValue>(jsonMaps), mapType);
   }
 
-  /// Create a FlatVector from a variant containing a scalar value.
+  /// Create a FlatVector from a Variant containing a scalar value.
   template <TypeKind kind>
-  VectorPtr toFlatVector(variant value) {
+  VectorPtr toFlatVector(const Variant& value) {
     using T = typename TypeTraits<kind>::NativeType;
     if constexpr (std::is_same_v<T, StringView>) {
       return flatVector<StringView>({StringView(value.value<const char*>())});
@@ -931,9 +931,9 @@ class VectorMaker {
     }
   }
 
-  /// Create constant vector of type ROW from a variant.
+  /// Create constant vector of type ROW from a Variant.
   VectorPtr
-  constantRow(const RowTypePtr& rowType, variant value, vector_size_t size) {
+  constantRow(const RowTypePtr& rowType, Variant value, vector_size_t size) {
     VELOX_CHECK_EQ(value.kind(), TypeKind::ROW);
 
     std::vector<VectorPtr> fields(rowType->size());

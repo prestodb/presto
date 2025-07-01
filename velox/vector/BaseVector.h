@@ -598,7 +598,7 @@ class BaseVector {
 
   static VectorPtr createConstant(
       const TypePtr& type,
-      variant value,
+      Variant value,
       vector_size_t size,
       velox::memory::MemoryPool* pool);
 

@@ -2022,7 +2022,7 @@ using CastOperatorPtr = std::shared_ptr<const CastOperator>;
 } // namespace exec
 
 /// Forward declaration.
-class variant;
+class Variant;
 class AbstractInputGenerator;
 
 namespace memory {
@@ -2072,7 +2072,7 @@ class AbstractInputGenerator {
 
   virtual ~AbstractInputGenerator();
 
-  virtual variant generate() = 0;
+  virtual Variant generate() = 0;
 
   TypePtr type() const {
     return type_;

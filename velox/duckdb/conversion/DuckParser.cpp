@@ -256,11 +256,11 @@ std::shared_ptr<const core::ConstantExpr> tryParseInterval(
     }
     return std::make_shared<core::ConstantExpr>(
         INTERVAL_YEAR_MONTH(),
-        variant((int32_t)(value.value() * multiplier)),
+        Variant((int32_t)(value.value() * multiplier)),
         alias);
   }
   return std::make_shared<core::ConstantExpr>(
-      INTERVAL_DAY_TIME(), variant(value.value() * multiplier), alias);
+      INTERVAL_DAY_TIME(), Variant(value.value() * multiplier), alias);
 }
 
 // Parse a function call (avg(a), func(1, b), etc).
@@ -376,7 +376,7 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
   // Code for array literal parsing (e.g. "ARRAY[1, 2, 3]")
   if (expr.GetExpressionType() == ExpressionType::ARRAY_CONSTRUCTOR) {
     if (areAllChildrenConstant(operExpr)) {
-      std::vector<variant> arrayElements;
+      std::vector<Variant> arrayElements;
       arrayElements.reserve(operExpr.children.size());
 
       TypePtr valueType = UNKNOWN();
@@ -397,7 +397,7 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
         }
       }
       return std::make_shared<const core::ConstantExpr>(
-          ARRAY(valueType), variant::array(arrayElements), getAlias(expr));
+          ARRAY(valueType), Variant::array(arrayElements), getAlias(expr));
     } else {
       std::vector<std::shared_ptr<const core::IExpr>> params;
       params.reserve(operExpr.children.size());
@@ -415,7 +415,7 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
       expr.GetExpressionType() == ExpressionType::COMPARE_NOT_IN) {
     auto numValues = operExpr.children.size() - 1;
 
-    std::vector<variant> values;
+    std::vector<Variant> values;
     values.reserve(numValues);
 
     TypePtr valueType = UNKNOWN();
@@ -453,7 +453,7 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
     std::vector<std::shared_ptr<const core::IExpr>> params;
     params.emplace_back(parseExpr(*operExpr.children[0], options));
     params.emplace_back(std::make_shared<const core::ConstantExpr>(
-        ARRAY(valueType), variant::array(values), std::nullopt));
+        ARRAY(valueType), Variant::array(values), std::nullopt));
     auto inExpr = callExpr("in", std::move(params), getAlias(expr), options);
     // Translate COMPARE_NOT_IN into NOT(IN()).
     return (expr.GetExpressionType() == ExpressionType::COMPARE_IN)
@@ -561,7 +561,7 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
           dynamic_cast<const core::ConstantExpr*>(params[0].get())) {
     if (constant->value().isNull()) {
       return std::make_shared<const core::ConstantExpr>(
-          targetType, variant::null(targetType->kind()), getAlias(expr));
+          targetType, Variant::null(targetType->kind()), getAlias(expr));
     }
 
     // DuckDB parses BOOLEAN literal as cast expression.  Try to restore it back
@@ -573,14 +573,14 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
       if (s == "t") {
         return std::make_shared<const core::ConstantExpr>(
             BOOLEAN(),
-            variant::create<TypeKind::BOOLEAN>(true),
+            Variant::create<TypeKind::BOOLEAN>(true),
             getAlias(expr));
       }
 
       if (s == "f") {
         return std::make_shared<const core::ConstantExpr>(
             BOOLEAN(),
-            variant::create<TypeKind::BOOLEAN>(false),
+            Variant::create<TypeKind::BOOLEAN>(false),
             getAlias(expr));
       }
     }

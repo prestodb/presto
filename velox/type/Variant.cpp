@@ -36,7 +36,7 @@ const folly::json::serialization_opts& getOpts() {
 } // namespace
 
 template <bool nullEqualsNull>
-bool evaluateNullEquality(const variant& a, const variant& b) {
+bool evaluateNullEquality(const Variant& a, const Variant& b) {
   if constexpr (nullEqualsNull) {
     if (a.isNull() && b.isNull()) {
       return true;
@@ -49,7 +49,7 @@ bool evaluateNullEquality(const variant& a, const variant& b) {
 template <TypeKind KIND>
 struct VariantEquality {
   template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
+  static bool equals(const Variant& a, const Variant& b) {
     if (a.isNull() || b.isNull()) {
       return evaluateNullEquality<NullEqualsNull>(a, b);
     }
@@ -61,7 +61,7 @@ struct VariantEquality {
 template <>
 struct VariantEquality<TypeKind::TIMESTAMP> {
   template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
+  static bool equals(const Variant& a, const Variant& b) {
     if (a.isNull() || b.isNull()) {
       return evaluateNullEquality<NullEqualsNull>(a, b);
     } else {
@@ -74,7 +74,7 @@ struct VariantEquality<TypeKind::TIMESTAMP> {
 template <>
 struct VariantEquality<TypeKind::ARRAY> {
   template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
+  static bool equals(const Variant& a, const Variant& b) {
     if (a.isNull() || b.isNull()) {
       return evaluateNullEquality<NullEqualsNull>(a, b);
     }
@@ -98,7 +98,7 @@ struct VariantEquality<TypeKind::ARRAY> {
 template <>
 struct VariantEquality<TypeKind::ROW> {
   template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
+  static bool equals(const Variant& a, const Variant& b) {
     if (a.isNull() || b.isNull()) {
       return evaluateNullEquality<NullEqualsNull>(a, b);
     }
@@ -124,7 +124,7 @@ struct VariantEquality<TypeKind::ROW> {
 template <>
 struct VariantEquality<TypeKind::MAP> {
   template <bool NullEqualsNull>
-  static bool equals(const variant& a, const variant& b) {
+  static bool equals(const Variant& a, const Variant& b) {
     if (a.isNull() || b.isNull()) {
       return evaluateNullEquality<NullEqualsNull>(a, b);
     }
@@ -153,8 +153,8 @@ struct VariantEquality<TypeKind::MAP> {
 };
 
 bool dispatchDynamicVariantEquality(
-    const variant& a,
-    const variant& b,
+    const Variant& a,
+    const Variant& b,
     const bool& enableNullEqualsNull) {
   if (enableNullEqualsNull) {
     return VELOX_DYNAMIC_TYPE_DISPATCH_METHOD(
@@ -181,25 +181,25 @@ std::string stringifyFloatingPointerValue(T val) {
   }
 }
 
-void variant::throwCheckIsKindError(TypeKind kind) const {
+void Variant::throwCheckIsKindError(TypeKind kind) const {
   throw std::invalid_argument{fmt::format(
       "wrong kind! {} != {}",
       mapTypeKindToName(kind_),
       mapTypeKindToName(kind))};
 }
 
-void variant::throwCheckPtrError() const {
-  throw std::invalid_argument{"missing variant value"};
+void Variant::throwCheckPtrError() const {
+  throw std::invalid_argument{"missing Variant value"};
 }
 
-std::string variant::toString(const TypePtr& type) const {
+std::string Variant::toString(const TypePtr& type) const {
   if (isNull()) {
     return "null";
   }
 
   VELOX_CHECK(type);
 
-  VELOX_CHECK_EQ(this->kind(), type->kind(), "Wrong type in variant::toString");
+  VELOX_CHECK_EQ(this->kind(), type->kind(), "Wrong type in Variant::toString");
 
   switch (type->kind()) {
     case TypeKind::VARBINARY: {
@@ -256,11 +256,11 @@ std::string variant::toString(const TypePtr& type) const {
   }
 
   VELOX_UNSUPPORTED(
-      "Given type {} is not supported in variant::toString()",
+      "Given type {} is not supported in Variant::toString()",
       mapTypeKindToName(kind_));
 }
 
-std::string variant::toJson(const TypePtr& type) const {
+std::string Variant::toJson(const TypePtr& type) const {
   // todo(youknowjack): consistent story around std::stringifying, converting,
   // and other basic operations. Stringification logic should not be specific
   // to variants; it should be consistent for all map representations
@@ -271,7 +271,7 @@ std::string variant::toJson(const TypePtr& type) const {
 
   VELOX_CHECK(type);
 
-  VELOX_CHECK_EQ(this->kind(), type->kind(), "Wrong type in variant::toJson");
+  VELOX_CHECK_EQ(this->kind(), type->kind(), "Wrong type in Variant::toJson");
 
   switch (kind_) {
     case TypeKind::MAP: {
@@ -302,7 +302,7 @@ std::string variant::toJson(const TypePtr& type) const {
       VELOX_CHECK_EQ(
           row.size(),
           type->size(),
-          "Wrong number of fields in a struct in variant::toJson");
+          "Wrong number of fields in a struct in Variant::toJson");
       for (auto& v : row) {
         if (!first) {
           b += ",";
@@ -399,7 +399,7 @@ std::string variant::toJson(const TypePtr& type) const {
 
 // This is the unsafe older implementation of toJson. It is kept here for
 // backward compatibility with Meta's internal python bindings.
-std::string variant::toJsonUnsafe(const TypePtr& type) const {
+std::string Variant::toJsonUnsafe(const TypePtr& type) const {
   if (isNull()) {
     return "null";
   }
@@ -539,7 +539,7 @@ void serializeOpaque(
   }
 }
 
-folly::dynamic variant::serialize() const {
+folly::dynamic Variant::serialize() const {
   folly::dynamic variantObj = folly::dynamic::object;
 
   variantObj["type"] = mapTypeKindToName(kind_);
@@ -635,7 +635,7 @@ folly::dynamic variant::serialize() const {
   return variantObj;
 }
 
-variant deserializeOpaque(const folly::dynamic& variantobj) {
+Variant deserializeOpaque(const folly::dynamic& variantobj) {
   auto typ = folly::parseJson(variantobj["opaque_type"].asString());
   auto opaqueType =
       std::dynamic_pointer_cast<const OpaqueType>(Type::create(typ));
@@ -643,7 +643,7 @@ variant deserializeOpaque(const folly::dynamic& variantobj) {
   try {
     auto deserializeFunc = opaqueType->getDeserializeFunc();
     auto value = variantobj["value"].asString();
-    return variant::opaque(deserializeFunc(value), opaqueType);
+    return Variant::opaque(deserializeFunc(value), opaqueType);
   } catch (VeloxRuntimeError& ex) {
     // Re-throw error for backwards compatibility.
     // Want to return error_code::kNotImplemented rather
@@ -652,58 +652,58 @@ variant deserializeOpaque(const folly::dynamic& variantobj) {
   }
 }
 
-variant variant::create(const folly::dynamic& variantobj) {
+Variant Variant::create(const folly::dynamic& variantobj) {
   TypeKind kind = mapNameToTypeKind(variantobj["type"].asString());
   const folly::dynamic& obj = variantobj["value"];
 
   if (obj.isNull()) {
-    return variant::null(kind);
+    return Variant::null(kind);
   }
   switch (kind) {
     case TypeKind::MAP: {
-      std::map<variant, variant> map;
+      std::map<Variant, Variant> map;
       const folly::dynamic& keys = obj["keys"];
       const folly::dynamic& values = obj["values"];
       VELOX_USER_CHECK(keys.isArray() && values.isArray());
       VELOX_USER_CHECK_EQ(keys.size(), values.size());
       for (size_t idx = 0; idx < keys.size(); ++idx) {
-        auto first = variant::create(keys[idx]);
-        auto second = variant::create(values[idx]);
-        map.insert(std::pair<variant, variant>(first, second));
+        auto first = Variant::create(keys[idx]);
+        auto second = Variant::create(values[idx]);
+        map.insert(std::pair<Variant, Variant>(first, second));
       }
-      return variant::map(map);
+      return Variant::map(map);
     }
     case TypeKind::ROW:
       [[fallthrough]];
     case TypeKind::ARRAY: {
       VELOX_USER_CHECK(kind == TypeKind::ARRAY || kind == TypeKind::ROW);
-      std::vector<variant> values;
+      std::vector<Variant> values;
       for (auto& val : obj) {
-        values.push_back(variant::create(val));
+        values.push_back(Variant::create(val));
       }
-      return kind == TypeKind::ARRAY ? variant::array(values)
-                                     : variant::row(values);
+      return kind == TypeKind::ARRAY ? Variant::array(values)
+                                     : Variant::row(values);
     }
 
     case TypeKind::VARBINARY: {
       auto str = obj.asString();
       auto result = encoding::Base64::decode(str);
-      return variant::binary(std::move(result));
+      return Variant::binary(std::move(result));
     }
     case TypeKind::VARCHAR:
-      return variant::create<TypeKind::VARCHAR>(obj.asString());
+      return Variant::create<TypeKind::VARCHAR>(obj.asString());
     case TypeKind::TINYINT:
-      return variant::create<TypeKind::TINYINT>(obj.asInt());
+      return Variant::create<TypeKind::TINYINT>(obj.asInt());
     case TypeKind::SMALLINT:
-      return variant::create<TypeKind::SMALLINT>(obj.asInt());
+      return Variant::create<TypeKind::SMALLINT>(obj.asInt());
     case TypeKind::INTEGER:
-      return variant::create<TypeKind::INTEGER>(obj.asInt());
+      return Variant::create<TypeKind::INTEGER>(obj.asInt());
     case TypeKind::BIGINT:
-      return variant::create<TypeKind::BIGINT>(obj.asInt());
+      return Variant::create<TypeKind::BIGINT>(obj.asInt());
     case TypeKind::HUGEINT:
-      return variant::create<TypeKind::HUGEINT>(obj.asInt());
+      return Variant::create<TypeKind::HUGEINT>(obj.asInt());
     case TypeKind::BOOLEAN: {
-      return variant(obj.asBool());
+      return Variant(obj.asBool());
     }
     case TypeKind::REAL:
       if (obj.isInt()) {
@@ -711,20 +711,20 @@ variant variant::create(const folly::dynamic& variantobj) {
         // to int64 instead of double, and asDouble() will throw
         // "folly::ConversionError: Loss of precision", so we do
         // the check here to make it more robust.
-        return variant::create<TypeKind::REAL>(obj.asInt());
+        return Variant::create<TypeKind::REAL>(obj.asInt());
       }
-      return variant::create<TypeKind::REAL>(obj.asDouble());
+      return Variant::create<TypeKind::REAL>(obj.asDouble());
     case TypeKind::DOUBLE: {
       if (obj.isInt()) {
-        return variant::create<TypeKind::DOUBLE>(obj.asInt());
+        return Variant::create<TypeKind::DOUBLE>(obj.asInt());
       }
-      return variant::create<TypeKind::DOUBLE>(obj.asDouble());
+      return Variant::create<TypeKind::DOUBLE>(obj.asDouble());
     }
     case TypeKind::OPAQUE: {
       return deserializeOpaque(variantobj);
     }
     case TypeKind::TIMESTAMP: {
-      return variant::create<TypeKind::TIMESTAMP>(Timestamp(
+      return Variant::create<TypeKind::TIMESTAMP>(Timestamp(
           variantobj["seconds"].asInt(), variantobj["nanos"].asInt()));
     }
     case TypeKind::INVALID:
@@ -732,13 +732,13 @@ variant variant::create(const folly::dynamic& variantobj) {
 
     default:
       VELOX_UNSUPPORTED(
-          "specified object can not be converted to variant ",
+          "specified object can not be converted to Variant: {}",
           variantobj["type"].asString());
   }
 }
 
 template <TypeKind KIND>
-bool variant::lessThan(const variant& other) const {
+bool Variant::lessThan(const Variant& other) const {
   using namespace facebook::velox::util::floating_point;
   if (isNull() && !other.isNull()) {
     return true;
@@ -761,7 +761,7 @@ bool variant::lessThan(const variant& other) const {
   return value<KIND>() < other.value<KIND>();
 }
 
-bool variant::operator<(const variant& other) const {
+bool Variant::operator<(const Variant& other) const {
   if (other.kind_ != this->kind_) {
     return other.kind_ < this->kind_;
   }
@@ -769,7 +769,7 @@ bool variant::operator<(const variant& other) const {
 }
 
 template <TypeKind KIND>
-bool variant::equals(const variant& other) const {
+bool Variant::equals(const Variant& other) const {
   using namespace facebook::velox::util::floating_point;
   if (isNull() || other.isNull()) {
     return false;
@@ -789,7 +789,7 @@ bool variant::equals(const variant& other) const {
   return value<KIND>() == other.value<KIND>();
 }
 
-bool variant::equals(const variant& other) const {
+bool Variant::equals(const Variant& other) const {
   if (other.kind_ != this->kind_) {
     return false;
   }
@@ -800,7 +800,7 @@ bool variant::equals(const variant& other) const {
 }
 
 template <TypeKind KIND>
-uint64_t variant::hash() const {
+uint64_t Variant::hash() const {
   using namespace facebook::velox::util::floating_point;
   using T = typename TypeTraits<KIND>::NativeType;
 
@@ -818,7 +818,7 @@ uint64_t variant::hash() const {
 }
 
 template <>
-uint64_t variant::hash<TypeKind::ARRAY>() const {
+uint64_t Variant::hash<TypeKind::ARRAY>() const {
   auto& arrayVariant = value<TypeKind::ARRAY>();
   auto hasher = folly::Hash{};
   uint64_t hash = 0;
@@ -830,7 +830,7 @@ uint64_t variant::hash<TypeKind::ARRAY>() const {
 }
 
 template <>
-uint64_t variant::hash<TypeKind::ROW>() const {
+uint64_t Variant::hash<TypeKind::ROW>() const {
   auto hasher = folly::Hash{};
   uint64_t hash = 0;
   auto& rowVariant = value<TypeKind::ROW>();
@@ -842,13 +842,13 @@ uint64_t variant::hash<TypeKind::ROW>() const {
 }
 
 template <>
-uint64_t variant::hash<TypeKind::TIMESTAMP>() const {
+uint64_t Variant::hash<TypeKind::TIMESTAMP>() const {
   auto timestampValue = value<TypeKind::TIMESTAMP>();
   return folly::Hash{}(timestampValue.getSeconds(), timestampValue.getNanos());
 }
 
 template <>
-uint64_t variant::hash<TypeKind::MAP>() const {
+uint64_t Variant::hash<TypeKind::MAP>() const {
   auto hasher = folly::Hash{};
   auto& mapVariant = value<TypeKind::MAP>();
   uint64_t combinedKeyHash = 0, combinedValueHash = 0;
@@ -866,7 +866,7 @@ uint64_t variant::hash<TypeKind::MAP>() const {
       folly::Hash{}, combinedKeyHash, combinedValueHash);
 }
 
-uint64_t variant::hash() const {
+uint64_t Variant::hash() const {
   if (isNull()) {
     return folly::Hash{}(static_cast<int32_t>(kind_));
   }
@@ -881,7 +881,7 @@ namespace {
 // https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 // for details.
 template <TypeKind KIND, typename TFloat>
-bool equalsFloatingPointWithEpsilonTyped(const variant& a, const variant& b) {
+bool equalsFloatingPointWithEpsilonTyped(const Variant& a, const Variant& b) {
   TFloat f1 = a.value<KIND>();
   TFloat f2 = b.value<KIND>();
 
@@ -906,7 +906,7 @@ bool equalsFloatingPointWithEpsilonTyped(const variant& a, const variant& b) {
   return fabs(f1 - f2) <= largest * 2 * FLT_EPSILON;
 }
 
-bool equalsFloatingPointWithEpsilon(const variant& a, const variant& b) {
+bool equalsFloatingPointWithEpsilon(const Variant& a, const Variant& b) {
   if (a.isNull() or b.isNull()) {
     return false;
   }
@@ -920,7 +920,7 @@ bool equalsFloatingPointWithEpsilon(const variant& a, const variant& b) {
 }
 } // namespace
 
-bool variant::lessThanWithEpsilon(const variant& other) const {
+bool Variant::lessThanWithEpsilon(const Variant& other) const {
   if (other.kind_ != this->kind_) {
     return other.kind_ < this->kind_;
   }
@@ -946,7 +946,7 @@ namespace {
 
 // Compare variants of Array or Row type.
 template <TypeKind KIND>
-bool compareComplexTypeWithEpsilon(const variant& left, const variant& right) {
+bool compareComplexTypeWithEpsilon(const Variant& left, const Variant& right) {
   auto& leftContainer = left.value<KIND>();
   auto& rightContainer = right.value<KIND>();
   if (leftContainer.size() != rightContainer.size()) {
@@ -963,8 +963,8 @@ bool compareComplexTypeWithEpsilon(const variant& left, const variant& right) {
 // Compare variants of Map type.
 template <>
 bool compareComplexTypeWithEpsilon<TypeKind::MAP>(
-    const variant& left,
-    const variant& right) {
+    const Variant& left,
+    const Variant& right) {
   auto& leftMap = left.value<TypeKind::MAP>();
   auto& rightMap = right.value<TypeKind::MAP>();
   if (leftMap.size() != rightMap.size()) {
@@ -985,7 +985,7 @@ bool compareComplexTypeWithEpsilon<TypeKind::MAP>(
 
 // Uses kEpsilon to compare floating point types (REAL and DOUBLE).
 // For testing purposes.
-bool variant::equalsWithEpsilon(const variant& other) const {
+bool Variant::equalsWithEpsilon(const Variant& other) const {
   if (other.kind_ != this->kind_) {
     return false;
   }
@@ -1008,7 +1008,7 @@ bool variant::equalsWithEpsilon(const variant& other) const {
   }
 }
 
-void variant::verifyArrayElements(const std::vector<variant>& inputs) {
+void Variant::verifyArrayElements(const std::vector<Variant>& inputs) {
   if (!inputs.empty()) {
     auto elementTypeKind = TypeKind::UNKNOWN;
     // Find the typeKind from the first non-null element.

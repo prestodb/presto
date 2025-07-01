@@ -32,21 +32,21 @@ using ::duckdb::dtime_t;
 using ::duckdb::string_t;
 using ::duckdb::timestamp_t;
 
-variant decimalVariant(const Value& val) {
+Variant decimalVariant(const Value& val) {
   VELOX_DCHECK(val.type().id() == LogicalTypeId::DECIMAL);
   switch (val.type().InternalType()) {
     case ::duckdb::PhysicalType::INT128: {
       auto unscaledValue = val.GetValueUnsafe<::duckdb::hugeint_t>();
-      return variant(HugeInt::build(unscaledValue.upper, unscaledValue.lower));
+      return Variant(HugeInt::build(unscaledValue.upper, unscaledValue.lower));
     }
     case ::duckdb::PhysicalType::INT16: {
-      return variant(static_cast<int64_t>(val.GetValueUnsafe<int16_t>()));
+      return Variant(static_cast<int64_t>(val.GetValueUnsafe<int16_t>()));
     }
     case ::duckdb::PhysicalType::INT32: {
-      return variant(static_cast<int64_t>(val.GetValueUnsafe<int32_t>()));
+      return Variant(static_cast<int64_t>(val.GetValueUnsafe<int32_t>()));
     }
     case ::duckdb::PhysicalType::INT64: {
-      return variant(val.GetValueUnsafe<int64_t>());
+      return Variant(val.GetValueUnsafe<int64_t>());
     }
     default:
       VELOX_UNSUPPORTED();
@@ -201,37 +201,37 @@ TypePtr toVeloxType(LogicalType type, bool fileColumnNamesReadAsLowerCase) {
   }
 }
 
-variant duckValueToVariant(const Value& val) {
+Variant duckValueToVariant(const Value& val) {
   switch (val.type().id()) {
     case LogicalTypeId::SQLNULL:
-      return variant(TypeKind::UNKNOWN);
+      return Variant(TypeKind::UNKNOWN);
     case LogicalTypeId::BOOLEAN:
-      return variant(val.GetValue<bool>());
+      return Variant(val.GetValue<bool>());
     case LogicalTypeId::TINYINT:
-      return variant(val.GetValue<int8_t>());
+      return Variant(val.GetValue<int8_t>());
     case LogicalTypeId::SMALLINT:
-      return variant(val.GetValue<int16_t>());
+      return Variant(val.GetValue<int16_t>());
     case LogicalTypeId::INTEGER:
-      return variant(val.GetValue<int32_t>());
+      return Variant(val.GetValue<int32_t>());
     case LogicalTypeId::BIGINT:
-      return variant(val.GetValue<int64_t>());
+      return Variant(val.GetValue<int64_t>());
     case LogicalTypeId::FLOAT:
-      return variant(val.GetValue<float>());
+      return Variant(val.GetValue<float>());
     case LogicalTypeId::DOUBLE:
-      return variant(val.GetValue<double>());
+      return Variant(val.GetValue<double>());
     case LogicalTypeId::TIMESTAMP:
-      return variant(duckdbTimestampToVelox(val.GetValue<timestamp_t>()));
+      return Variant(duckdbTimestampToVelox(val.GetValue<timestamp_t>()));
     case LogicalTypeId::DECIMAL:
       return decimalVariant(val);
     case LogicalTypeId::VARCHAR:
-      return variant(val.GetValue<std::string>());
+      return Variant(val.GetValue<std::string>());
     case LogicalTypeId::BLOB:
-      return variant::binary(val.GetValue<std::string>());
+      return Variant::binary(val.GetValue<std::string>());
     case LogicalTypeId::DATE:
-      return variant(val.GetValue<::duckdb::date_t>().days);
+      return Variant(val.GetValue<::duckdb::date_t>().days);
     default:
       throw std::runtime_error(
-          "unsupported type for duckdb value -> velox  variant conversion: " +
+          "unsupported type for duckdb value -> velox variant conversion: " +
           val.type().ToString());
   }
 }

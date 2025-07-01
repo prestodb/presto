@@ -60,8 +60,8 @@ std::vector<int16_t> excludeProblematicTimeZoneIds(
 } // namespace
 
 TimestampWithTimeZoneInputGenerator::TimestampWithTimeZoneInputGenerator(
-    const size_t seed,
-    const double nullRatio)
+    size_t seed,
+    double nullRatio)
     : AbstractInputGenerator(
           seed,
           TIMESTAMP_WITH_TIME_ZONE(),

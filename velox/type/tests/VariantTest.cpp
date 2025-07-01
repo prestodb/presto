@@ -23,46 +23,46 @@
 using namespace facebook::velox;
 
 namespace {
-void testSerDe(const variant& value) {
+void testSerDe(const Variant& value) {
   auto serialized = value.serialize();
-  auto copy = variant::create(serialized);
+  auto copy = Variant::create(serialized);
 
   ASSERT_EQ(value, copy);
 }
 } // namespace
 
 TEST(VariantTest, arrayInferType) {
-  EXPECT_EQ(*ARRAY(UNKNOWN()), *variant(TypeKind::ARRAY).inferType());
-  EXPECT_EQ(*ARRAY(UNKNOWN()), *variant::array({}).inferType());
+  EXPECT_EQ(*ARRAY(UNKNOWN()), *Variant(TypeKind::ARRAY).inferType());
+  EXPECT_EQ(*ARRAY(UNKNOWN()), *Variant::array({}).inferType());
   EXPECT_EQ(
       *ARRAY(BIGINT()),
-      *variant::array({variant(TypeKind::BIGINT)}).inferType());
+      *Variant::array({Variant(TypeKind::BIGINT)}).inferType());
   EXPECT_EQ(
       *ARRAY(VARCHAR()),
-      *variant::array({variant(TypeKind::VARCHAR)}).inferType());
+      *Variant::array({Variant(TypeKind::VARCHAR)}).inferType());
   EXPECT_EQ(
       *ARRAY(ARRAY(DOUBLE())),
-      *variant::array({variant::array({variant(TypeKind::DOUBLE)})})
+      *Variant::array({Variant::array({Variant(TypeKind::DOUBLE)})})
            .inferType());
   VELOX_ASSERT_THROW(
-      variant::array({variant(123456789), variant("velox")}),
+      Variant::array({Variant(123456789), Variant("velox")}),
       "All array elements must be of the same kind");
 }
 
 TEST(VariantTest, mapInferType) {
-  EXPECT_EQ(*variant::map({{1LL, 1LL}}).inferType(), *MAP(BIGINT(), BIGINT()));
-  EXPECT_EQ(*variant::map({}).inferType(), *MAP(UNKNOWN(), UNKNOWN()));
+  EXPECT_EQ(*Variant::map({{1LL, 1LL}}).inferType(), *MAP(BIGINT(), BIGINT()));
+  EXPECT_EQ(*Variant::map({}).inferType(), *MAP(UNKNOWN(), UNKNOWN()));
 
-  const variant nullBigint = variant::null(TypeKind::BIGINT);
-  const variant nullReal = variant::null(TypeKind::REAL);
+  const Variant nullBigint = Variant::null(TypeKind::BIGINT);
+  const Variant nullReal = Variant::null(TypeKind::REAL);
   EXPECT_EQ(
-      *variant::map({{nullBigint, nullReal}, {1LL, 1.0f}}).inferType(),
+      *Variant::map({{nullBigint, nullReal}, {1LL, 1.0f}}).inferType(),
       *MAP(BIGINT(), REAL()));
   EXPECT_EQ(
-      *variant::map({{nullBigint, 1.0f}, {1LL, nullReal}}).inferType(),
+      *Variant::map({{nullBigint, 1.0f}, {1LL, nullReal}}).inferType(),
       *MAP(BIGINT(), REAL()));
   EXPECT_EQ(
-      *variant::map({{nullBigint, 1.0f}}).inferType(), *MAP(UNKNOWN(), REAL()));
+      *Variant::map({{nullBigint, 1.0f}}).inferType(), *MAP(UNKNOWN(), REAL()));
 }
 
 struct Foo {};
@@ -74,7 +74,7 @@ TEST(VariantTest, opaque) {
   auto foo2 = std::make_shared<Foo>();
   auto bar = std::make_shared<Bar>();
   {
-    variant v = variant::opaque(foo);
+    Variant v = Variant::opaque(foo);
     EXPECT_TRUE(v.hasValue());
     EXPECT_EQ(TypeKind::OPAQUE, v.kind());
     EXPECT_EQ(foo, v.opaque<Foo>());
@@ -85,11 +85,11 @@ TEST(VariantTest, opaque) {
   // Check that the expected shared ptrs are acquired.
   {
     EXPECT_EQ(1, foo.use_count());
-    variant v = variant::opaque(foo);
+    Variant v = Variant::opaque(foo);
     EXPECT_EQ(2, foo.use_count());
-    variant vv = v;
+    Variant vv = v;
     EXPECT_EQ(3, foo.use_count());
-    { variant tmp = std::move(vv); }
+    { Variant tmp = std::move(vv); }
     EXPECT_EQ(2, foo.use_count());
     v = 0;
     EXPECT_EQ(1, foo.use_count());
@@ -97,11 +97,11 @@ TEST(VariantTest, opaque) {
 
   // Test opaque equality.
   {
-    variant v1 = variant::opaque(foo);
-    variant vv1 = variant::opaque(foo);
-    variant v2 = variant::opaque(foo2);
-    variant v3 = variant::opaque(bar);
-    variant vint = 123;
+    Variant v1 = Variant::opaque(foo);
+    Variant vv1 = Variant::opaque(foo);
+    Variant v2 = Variant::opaque(foo2);
+    Variant v3 = Variant::opaque(bar);
+    Variant vint = 123;
     EXPECT_EQ(v1, vv1);
     EXPECT_NE(v1, v2);
     EXPECT_NE(v1, v3);
@@ -111,11 +111,11 @@ TEST(VariantTest, opaque) {
   // Test hashes. The semantic of the hash follows the object it points to
   // (it hashes the pointer).
   {
-    variant v1 = variant::opaque(foo);
-    variant vv1 = variant::opaque(foo);
+    Variant v1 = Variant::opaque(foo);
+    Variant vv1 = Variant::opaque(foo);
 
-    variant v2 = variant::opaque(foo2);
-    variant v3 = variant::opaque(bar);
+    Variant v2 = Variant::opaque(foo2);
+    Variant v3 = Variant::opaque(bar);
 
     EXPECT_EQ(v1.hash(), vv1.hash());
     EXPECT_NE(v1.hash(), v2.hash());
@@ -127,9 +127,9 @@ TEST(VariantTest, opaque) {
 
   // Test opaque casting.
   {
-    variant fooOpaque = variant::opaque(foo);
-    variant barOpaque = variant::opaque(bar);
-    variant int1 = variant((int64_t)123);
+    Variant fooOpaque = Variant::opaque(foo);
+    Variant barOpaque = Variant::opaque(bar);
+    Variant int1 = Variant((int64_t)123);
 
     auto castFoo1 = fooOpaque.tryOpaque<Foo>();
     auto castBar1 = fooOpaque.tryOpaque<Bar>();
@@ -142,7 +142,7 @@ TEST(VariantTest, opaque) {
   }
 }
 
-/// Test variant::equalsWithEpsilon by summing up large 64-bit integers (> 15
+/// Test Variant::equalsWithEpsilon by summing up large 64-bit integers (> 15
 /// digits long) into double in different order to get slightly different
 /// results due to loss of precision.
 TEST(VariantTest, equalsWithEpsilonDouble) {
@@ -174,7 +174,7 @@ TEST(VariantTest, equalsWithEpsilonDouble) {
 
   ASSERT_NE(sum1, sum2);
   ASSERT_DOUBLE_EQ(sum1, sum2);
-  ASSERT_TRUE(variant(sum1).equalsWithEpsilon(variant(sum2)));
+  ASSERT_TRUE(Variant(sum1).equalsWithEpsilon(Variant(sum2)));
 
   // Add up all numbers but one. Make sure the result is not equal to sum1.
   double sum3 = 0;
@@ -185,10 +185,10 @@ TEST(VariantTest, equalsWithEpsilonDouble) {
   }
 
   ASSERT_NE(sum1, sum3);
-  ASSERT_FALSE(variant(sum1).equalsWithEpsilon(variant(sum3)));
+  ASSERT_FALSE(Variant(sum1).equalsWithEpsilon(Variant(sum3)));
 }
 
-/// Similar to equalsWithEpsilonDouble, test variant::equalsWithEpsilon by
+/// Similar to equalsWithEpsilonDouble, test Variant::equalsWithEpsilon by
 /// summing up large 32-bit integers into float in different order to get
 /// slightly different results due to loss of precision.
 TEST(VariantTest, equalsWithEpsilonFloat) {
@@ -221,7 +221,7 @@ TEST(VariantTest, equalsWithEpsilonFloat) {
 
   ASSERT_NE(sum1, sum2);
   ASSERT_FLOAT_EQ(sum1, sum2);
-  ASSERT_TRUE(variant(sum1).equalsWithEpsilon(variant(sum2)));
+  ASSERT_TRUE(Variant(sum1).equalsWithEpsilon(Variant(sum2)));
 
   // Add up all numbers but one. Make sure the result is not equal to sum1.
   float sum3 = 0;
@@ -232,7 +232,7 @@ TEST(VariantTest, equalsWithEpsilonFloat) {
   }
 
   ASSERT_NE(sum1, sum3);
-  ASSERT_FALSE(variant(sum1).equalsWithEpsilon(variant(sum3)));
+  ASSERT_FALSE(Variant(sum1).equalsWithEpsilon(Variant(sum3)));
 }
 
 TEST(VariantTest, mapWithNaNKey) {
@@ -242,54 +242,54 @@ TEST(VariantTest, mapWithNaNKey) {
   auto mapType = MAP(DOUBLE(), INTEGER());
   {
     // NaN added at the start of insertions.
-    std::map<variant, variant> mapVariant;
-    mapVariant.insert({variant(KNan), variant(1)});
-    mapVariant.insert({variant(1.2), variant(2)});
-    mapVariant.insert({variant(12.4), variant(3)});
+    std::map<Variant, Variant> mapVariant;
+    mapVariant.insert({Variant(KNan), Variant(1)});
+    mapVariant.insert({Variant(1.2), Variant(2)});
+    mapVariant.insert({Variant(12.4), Variant(3)});
     EXPECT_EQ(
         "[{\"key\":1.2,\"value\":2},{\"key\":12.4,\"value\":3},{\"key\":\"NaN\",\"value\":1}]",
-        variant::map(mapVariant).toJson(mapType));
+        Variant::map(mapVariant).toJson(mapType));
   }
   {
     // NaN added in the middle of insertions.
-    std::map<variant, variant> mapVariant;
-    mapVariant.insert({variant(1.2), variant(2)});
-    mapVariant.insert({variant(KNan), variant(1)});
-    mapVariant.insert({variant(12.4), variant(3)});
+    std::map<Variant, Variant> mapVariant;
+    mapVariant.insert({Variant(1.2), Variant(2)});
+    mapVariant.insert({Variant(KNan), Variant(1)});
+    mapVariant.insert({Variant(12.4), Variant(3)});
     EXPECT_EQ(
         "[{\"key\":1.2,\"value\":2},{\"key\":12.4,\"value\":3},{\"key\":\"NaN\",\"value\":1}]",
-        variant::map(mapVariant).toJson(mapType));
+        Variant::map(mapVariant).toJson(mapType));
   }
 }
 
 TEST(VariantTest, serialize) {
   // Null values.
-  testSerDe(variant(TypeKind::BOOLEAN));
-  testSerDe(variant(TypeKind::TINYINT));
-  testSerDe(variant(TypeKind::SMALLINT));
-  testSerDe(variant(TypeKind::INTEGER));
-  testSerDe(variant(TypeKind::BIGINT));
-  testSerDe(variant(TypeKind::REAL));
-  testSerDe(variant(TypeKind::DOUBLE));
-  testSerDe(variant(TypeKind::VARCHAR));
-  testSerDe(variant(TypeKind::VARBINARY));
-  testSerDe(variant(TypeKind::TIMESTAMP));
-  testSerDe(variant(TypeKind::ARRAY));
-  testSerDe(variant(TypeKind::MAP));
-  testSerDe(variant(TypeKind::ROW));
-  testSerDe(variant(TypeKind::UNKNOWN));
+  testSerDe(Variant(TypeKind::BOOLEAN));
+  testSerDe(Variant(TypeKind::TINYINT));
+  testSerDe(Variant(TypeKind::SMALLINT));
+  testSerDe(Variant(TypeKind::INTEGER));
+  testSerDe(Variant(TypeKind::BIGINT));
+  testSerDe(Variant(TypeKind::REAL));
+  testSerDe(Variant(TypeKind::DOUBLE));
+  testSerDe(Variant(TypeKind::VARCHAR));
+  testSerDe(Variant(TypeKind::VARBINARY));
+  testSerDe(Variant(TypeKind::TIMESTAMP));
+  testSerDe(Variant(TypeKind::ARRAY));
+  testSerDe(Variant(TypeKind::MAP));
+  testSerDe(Variant(TypeKind::ROW));
+  testSerDe(Variant(TypeKind::UNKNOWN));
 
   // Non-null values.
-  testSerDe(variant(true));
-  testSerDe(variant((int8_t)12));
-  testSerDe(variant((int16_t)1234));
-  testSerDe(variant((int32_t)12345));
-  testSerDe(variant((int64_t)1234567));
-  testSerDe(variant((float)1.2));
-  testSerDe(variant((double)1.234));
-  testSerDe(variant("This is a test."));
-  testSerDe(variant::binary("This is a test."));
-  testSerDe(variant(Timestamp(1, 2)));
+  testSerDe(Variant(true));
+  testSerDe(Variant((int8_t)12));
+  testSerDe(Variant((int16_t)1234));
+  testSerDe(Variant((int32_t)12345));
+  testSerDe(Variant((int64_t)1234567));
+  testSerDe(Variant((float)1.2));
+  testSerDe(Variant((double)1.234));
+  testSerDe(Variant("This is a test."));
+  testSerDe(Variant::binary("This is a test."));
+  testSerDe(Variant(Timestamp(1, 2)));
 }
 
 struct SerializableClass {
@@ -317,16 +317,16 @@ class VariantSerializationTest : public ::testing::Test {
                 obj["name"].asString(), obj["value"].asBool());
           });
     });
-    var_ = variant::opaque<SerializableClass>(
+    var_ = Variant::opaque<SerializableClass>(
         std::make_shared<SerializableClass>("test_class", false));
   }
 
-  variant var_;
+  Variant var_;
 };
 
 TEST_F(VariantSerializationTest, serializeOpaque) {
   auto serialized = var_.serialize();
-  auto deserialized_variant = variant::create(serialized);
+  auto deserialized_variant = Variant::create(serialized);
   auto opaque = deserialized_variant.value<TypeKind::OPAQUE>().obj;
   auto original_class = std::static_pointer_cast<SerializableClass>(opaque);
   EXPECT_EQ(original_class->name, "test_class");
@@ -343,35 +343,35 @@ TEST_F(VariantSerializationTest, opaqueToString) {
 
 TEST(VariantFloatingToJsonTest, normalTest) {
   // Zero
-  EXPECT_EQ(variant::create<float>(0).toJson(REAL()), "0");
-  EXPECT_EQ(variant::create<double>(0).toJson(DOUBLE()), "0");
+  EXPECT_EQ(Variant::create<float>(0).toJson(REAL()), "0");
+  EXPECT_EQ(Variant::create<double>(0).toJson(DOUBLE()), "0");
 
   // Infinite
   EXPECT_EQ(
-      variant::create<float>(std::numeric_limits<float>::infinity())
+      Variant::create<float>(std::numeric_limits<float>::infinity())
           .toJson(REAL()),
       "\"Infinity\"");
   EXPECT_EQ(
-      variant::create<double>(std::numeric_limits<double>::infinity())
+      Variant::create<double>(std::numeric_limits<double>::infinity())
           .toJson(DOUBLE()),
       "\"Infinity\"");
 
   // NaN
-  EXPECT_EQ(variant::create<float>(0.0 / 0.0).toJson(REAL()), "\"NaN\"");
-  EXPECT_EQ(variant::create<double>(0.0 / 0.0).toJson(DOUBLE()), "\"NaN\"");
+  EXPECT_EQ(Variant::create<float>(0.0 / 0.0).toJson(REAL()), "\"NaN\"");
+  EXPECT_EQ(Variant::create<double>(0.0 / 0.0).toJson(DOUBLE()), "\"NaN\"");
 }
 
 TEST(VariantTest, opaqueSerializationNotRegistered) {
   struct opaqueSerializationTestStruct {};
   auto opaqueBeforeRegistration =
-      variant::opaque<opaqueSerializationTestStruct>(
+      Variant::opaque<opaqueSerializationTestStruct>(
           std::make_shared<opaqueSerializationTestStruct>());
   EXPECT_THROW(opaqueBeforeRegistration.serialize(), VeloxException);
 
   OpaqueType::registerSerialization<opaqueSerializationTestStruct>(
       "opaqueSerializationStruct");
 
-  auto opaqueAfterRegistration = variant::opaque<opaqueSerializationTestStruct>(
+  auto opaqueAfterRegistration = Variant::opaque<opaqueSerializationTestStruct>(
       std::make_shared<opaqueSerializationTestStruct>());
   EXPECT_THROW(opaqueAfterRegistration.serialize(), VeloxException);
 }
@@ -380,56 +380,56 @@ TEST(VariantTest, toJsonRow) {
   auto rowType = ROW({{"c0", DECIMAL(20, 3)}});
   EXPECT_EQ(
       "[123456.789]",
-      variant::row({static_cast<int128_t>(123456789)}).toJson(rowType));
+      Variant::row({static_cast<int128_t>(123456789)}).toJson(rowType));
 
   rowType = ROW({{"c0", DECIMAL(10, 2)}});
-  EXPECT_EQ("[12345.67]", variant::row({1234567LL}).toJson(rowType));
+  EXPECT_EQ("[12345.67]", Variant::row({1234567LL}).toJson(rowType));
 
   rowType = ROW({{"c0", DECIMAL(20, 1)}, {"c1", BOOLEAN()}, {"c3", VARCHAR()}});
   EXPECT_EQ(
       "[1234567890.1,true,\"test works fine\"]",
-      variant::row({static_cast<int128_t>(12345678901),
-                    variant((bool)true),
-                    variant((std::string) "test works fine")})
+      Variant::row({static_cast<int128_t>(12345678901),
+                    Variant((bool)true),
+                    Variant((std::string) "test works fine")})
           .toJson(rowType));
 
-  // Row variant tests with wrong type passed to variant::toJson()
+  // Row Variant tests with wrong type passed to Variant::toJson()
   rowType = ROW({{"c0", DECIMAL(10, 3)}});
   VELOX_ASSERT_THROW(
-      variant::row({static_cast<int128_t>(123456789)}).toJson(rowType),
-      "(HUGEINT vs. BIGINT) Wrong type in variant::toJson");
+      Variant::row({static_cast<int128_t>(123456789)}).toJson(rowType),
+      "(HUGEINT vs. BIGINT) Wrong type in Variant::toJson");
 
   rowType = ROW({{"c0", DECIMAL(20, 3)}});
   VELOX_ASSERT_THROW(
-      variant::row({123456789LL}).toJson(rowType),
-      "(BIGINT vs. HUGEINT) Wrong type in variant::toJson");
+      Variant::row({123456789LL}).toJson(rowType),
+      "(BIGINT vs. HUGEINT) Wrong type in Variant::toJson");
   VELOX_ASSERT_THROW(
-      variant::row(
+      Variant::row(
           {static_cast<int128_t>(123456789),
-           variant((
+           Variant((
                std::
-                   string) "test confirms variant child count is greater than expected"),
-           variant((bool)false)})
+                   string) "test confirms Variant child count is greater than expected"),
+           Variant((bool)false)})
           .toJson(rowType),
-      "(3 vs. 1) Wrong number of fields in a struct in variant::toJson");
+      "(3 vs. 1) Wrong number of fields in a struct in Variant::toJson");
 
   rowType =
       ROW({{"c0", DECIMAL(19, 4)}, {"c1", VARCHAR()}, {"c2", DECIMAL(10, 3)}});
   VELOX_ASSERT_THROW(
-      variant::row(
+      Variant::row(
           {static_cast<int128_t>(12345678912),
-           variant((
+           Variant((
                std::
-                   string) "test confirms variant child count is lesser than expected")})
+                   string) "test confirms Variant child count is lesser than expected")})
           .toJson(rowType),
-      "(2 vs. 3) Wrong number of fields in a struct in variant::toJson");
+      "(2 vs. 3) Wrong number of fields in a struct in Variant::toJson");
 
-  // Row variant tests that contains NULL variants.
+  // Row Variant tests that contains NULL variants.
   EXPECT_EQ(
       "[null,null,null]",
-      variant::row({variant::null(TypeKind::HUGEINT),
-                    variant::null(TypeKind::VARCHAR),
-                    variant::null(TypeKind::BIGINT)})
+      Variant::row({Variant::null(TypeKind::HUGEINT),
+                    Variant::null(TypeKind::VARCHAR),
+                    Variant::null(TypeKind::BIGINT)})
           .toJson(rowType));
 }
 
@@ -437,36 +437,36 @@ TEST(VariantTest, toJsonArray) {
   auto arrayType = ARRAY(DECIMAL(9, 2));
   EXPECT_EQ(
       "[1234567.89,6345654.64,2345452.78]",
-      variant::array({123456789LL, 634565464LL, 234545278LL})
+      Variant::array({123456789LL, 634565464LL, 234545278LL})
           .toJson(arrayType));
 
   arrayType = ARRAY(DECIMAL(20, 3));
   EXPECT_EQ(
       "[123456.789,634565.464,234545.278]",
-      variant::array({static_cast<int128_t>(123456789),
+      Variant::array({static_cast<int128_t>(123456789),
                       static_cast<int128_t>(634565464),
                       static_cast<int128_t>(234545278)})
           .toJson(arrayType));
 
   // Array is empty.
-  EXPECT_EQ("[]", variant::array({}).toJson(arrayType));
+  EXPECT_EQ("[]", Variant::array({}).toJson(arrayType));
 
-  // Array variant tests that contains NULL variants.
+  // Array Variant tests that contains NULL variants.
   EXPECT_EQ(
       "[null,null,null]",
-      variant::array({variant::null(TypeKind::HUGEINT),
-                      variant::null(TypeKind::HUGEINT),
-                      variant::null(TypeKind::HUGEINT)})
+      Variant::array({Variant::null(TypeKind::HUGEINT),
+                      Variant::null(TypeKind::HUGEINT),
+                      Variant::null(TypeKind::HUGEINT)})
           .toJson(arrayType));
 }
 
 TEST(VariantTest, toJsonMap) {
   auto mapType = MAP(VARCHAR(), DECIMAL(6, 3));
-  std::map<variant, variant> mapValue = {
+  std::map<Variant, Variant> mapValue = {
       {(std::string) "key1", 235499LL}, {(std::string) "key2", 123456LL}};
   EXPECT_EQ(
       "[{\"key\":\"key1\",\"value\":235.499},{\"key\":\"key2\",\"value\":123.456}]",
-      variant::map(mapValue).toJson(mapType));
+      Variant::map(mapValue).toJson(mapType));
 
   mapType = MAP(VARCHAR(), DECIMAL(20, 3));
   mapValue = {
@@ -474,26 +474,26 @@ TEST(VariantTest, toJsonMap) {
       {(std::string) "key2", static_cast<int128_t>(12334581232456)}};
   EXPECT_EQ(
       "[{\"key\":\"key1\",\"value\":45464562323.423},{\"key\":\"key2\",\"value\":12334581232.456}]",
-      variant::map(mapValue).toJson(mapType));
+      Variant::map(mapValue).toJson(mapType));
 
-  // Map variant tests that contains NULL variants.
+  // Map Variant tests that contains NULL variants.
   mapValue = {
-      {variant::null(TypeKind::VARCHAR), variant::null(TypeKind::HUGEINT)}};
+      {Variant::null(TypeKind::VARCHAR), Variant::null(TypeKind::HUGEINT)}};
   EXPECT_EQ(
       "[{\"key\":null,\"value\":null}]",
-      variant::map(mapValue).toJson(mapType));
+      Variant::map(mapValue).toJson(mapType));
 }
 
 TEST(VariantTest, typeWithCustomComparison) {
-  auto zero = variant::typeWithCustomComparison<TypeKind::BIGINT>(
+  auto zero = Variant::typeWithCustomComparison<TypeKind::BIGINT>(
       0, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
-  auto one = variant::typeWithCustomComparison<TypeKind::BIGINT>(
+  auto one = Variant::typeWithCustomComparison<TypeKind::BIGINT>(
       1, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
-  auto zeroEquivalent = variant::typeWithCustomComparison<TypeKind::BIGINT>(
+  auto zeroEquivalent = Variant::typeWithCustomComparison<TypeKind::BIGINT>(
       256, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
-  auto oneEquivalent = variant::typeWithCustomComparison<TypeKind::BIGINT>(
+  auto oneEquivalent = Variant::typeWithCustomComparison<TypeKind::BIGINT>(
       257, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON());
-  auto null = variant::null(TypeKind::BIGINT);
+  auto null = Variant::null(TypeKind::BIGINT);
 
   ASSERT_TRUE(zero.equals(zeroEquivalent));
   ASSERT_TRUE(zero.equalsWithEpsilon(zeroEquivalent));

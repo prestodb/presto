@@ -58,8 +58,8 @@ class InputTypedExpr : public ITypedExpr {
 class ConstantTypedExpr : public ITypedExpr {
  public:
   // Creates constant expression. For complex types, only
-  // variant::null() value is supported.
-  ConstantTypedExpr(TypePtr type, variant value)
+  // Variant::null() value is supported.
+  ConstantTypedExpr(TypePtr type, Variant value)
       : ITypedExpr{std::move(type)}, value_{std::move(value)} {}
 
   // Creates constant expression of scalar or complex type. The value comes from
@@ -91,8 +91,8 @@ class ConstantTypedExpr : public ITypedExpr {
     return valueVector_ != nullptr;
   }
 
-  /// Returns scalar value as variant if hasValueVector() is false.
-  const variant& value() const {
+  /// Returns scalar value as Variant if hasValueVector() is false.
+  const Variant& value() const {
     return value_;
   }
 
@@ -172,7 +172,7 @@ class ConstantTypedExpr : public ITypedExpr {
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
-  const variant value_;
+  const Variant value_;
   const VectorPtr valueVector_;
 };
 

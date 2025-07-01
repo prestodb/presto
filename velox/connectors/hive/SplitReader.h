@@ -25,7 +25,6 @@
 
 namespace facebook::velox {
 class BaseVector;
-class variant;
 using VectorPtr = std::shared_ptr<BaseVector>;
 } // namespace facebook::velox
 

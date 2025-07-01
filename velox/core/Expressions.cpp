@@ -112,7 +112,7 @@ TypedExprPtr ConstantTypedExpr::create(
   auto type = core::deserializeType(obj, context);
 
   if (obj.count("value")) {
-    auto value = variant::create(obj["value"]);
+    auto value = Variant::create(obj["value"]);
     return std::make_shared<ConstantTypedExpr>(std::move(type), value);
   }
 

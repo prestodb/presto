@@ -24,7 +24,7 @@ namespace facebook::velox::core {
 // extracted from the input variant vector.
 ArrayVectorPtr variantArrayToVector(
     const TypePtr& arrayType,
-    const std::vector<variant>& variantArray,
+    const std::vector<Variant>& variantArray,
     velox::memory::MemoryPool* pool);
 
 } // namespace facebook::velox::core

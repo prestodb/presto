@@ -23,7 +23,7 @@ namespace {
 template <TypeKind KIND>
 ArrayVectorPtr variantArrayToVectorImpl(
     const TypePtr& arrayType,
-    const std::vector<variant>& variantArray,
+    const std::vector<Variant>& variantArray,
     velox::memory::MemoryPool* pool) {
   using T = typename TypeTraits<KIND>::NativeType;
 
@@ -60,7 +60,7 @@ ArrayVectorPtr variantArrayToVectorImpl(
 
 ArrayVectorPtr variantArrayToVector(
     const TypePtr& arrayType,
-    const std::vector<variant>& variantArray,
+    const std::vector<Variant>& variantArray,
     velox::memory::MemoryPool* pool) {
   VELOX_CHECK_EQ(TypeKind::ARRAY, arrayType->kind());
 

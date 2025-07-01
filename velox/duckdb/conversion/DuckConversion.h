@@ -20,7 +20,7 @@
 #include <duckdb.hpp> // @manual
 
 namespace facebook::velox {
-class variant;
+class Variant;
 }
 
 namespace facebook::velox::duckdb {
@@ -57,16 +57,16 @@ static Timestamp duckdbTimestampToVelox(
 }
 
 // Converts a duckDB Value (class that holds an arbitrary data type) into
-// Velox variant.
-variant duckValueToVariant(const ::duckdb::Value& val);
+// Velox Variant.
+Variant duckValueToVariant(const ::duckdb::Value& val);
 
-// Converts duckDB decimal Value into appropriate decimal variant.
+// Converts duckDB decimal Value into appropriate decimal Variant.
 // The duckdb::Value::GetValue() call for decimal type returns a double value.
 // To avoid this, this method uses the duckdb::Value::GetUnsafeValue<int>()
 // method.
 // @param val duckdb decimal value.
-// @return decimal variant.
-variant decimalVariant(const ::duckdb::Value& val);
+// @return decimal Variant.
+Variant decimalVariant(const ::duckdb::Value& val);
 
 // value conversion routines
 template <class T>
