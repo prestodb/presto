@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.router.scheduler;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.router.RouterRequestInfo;
 import com.facebook.presto.spi.router.Scheduler;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
