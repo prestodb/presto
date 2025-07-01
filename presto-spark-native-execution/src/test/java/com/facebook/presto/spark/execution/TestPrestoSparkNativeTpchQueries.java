@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
+import com.facebook.presto.nativeworker.AbstractTestNativeTpchQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
 
-public class TestPrestoSparkNativeGeneralQueries
-        extends AbstractTestNativeGeneralQueries
+public class TestPrestoSparkNativeTpchQueries
+        extends AbstractTestNativeTpchQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -35,40 +35,32 @@ public class TestPrestoSparkNativeGeneralQueries
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
+    // Following tests require broadcast join
     @Override
     @Ignore
-    public void testCatalogWithCacheEnabled() {}
+    public void testTpchQ7() {}
 
     @Override
     @Ignore
-    public void testInformationSchemaTables() {}
+    public void testTpchQ8() {}
 
     @Override
     @Ignore
-    public void testShowAndDescribe() {}
-
-    @Override
-    public void testSystemTables() {}
-
-    // @TODO Refer https://github.com/prestodb/presto/issues/20294
-    @Override
-    @Ignore
-    public void testAnalyzeStats() {}
-
-    // https://github.com/prestodb/presto/issues/22275
-    @Override
-    @Ignore
-    public void testUnionAllInsert() {}
+    public void testTpchQ11() {}
 
     @Override
     @Ignore
-    public void testShowSessionWithoutJavaSessionProperties() {}
+    public void testTpchQ15() {}
 
     @Override
     @Ignore
-    public void testSetSessionJavaWorkerSessionProperty() {}
+    public void testTpchQ18() {}
 
     @Override
     @Ignore
-    public void testRowWiseExchange() {}
+    public void testTpchQ21() {}
+
+    @Override
+    @Ignore
+    public void testTpchQ22() {}
 }

@@ -11,17 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.nativeworker.AbstractTestExpressionCompiler;
-import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.operator.scalar.TestCustomFunctions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 
-public class TestPrestoSparkExpressionCompiler
-        extends AbstractTestExpressionCompiler
+public class TestPrestoSparkSqlFunctions
+        extends TestCustomFunctions
 {
-    @Override
-    protected QueryRunner getQueryRunner()
+    public TestPrestoSparkSqlFunctions()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        super(new FeaturesConfig().setNativeExecutionEnabled(true));
     }
 }

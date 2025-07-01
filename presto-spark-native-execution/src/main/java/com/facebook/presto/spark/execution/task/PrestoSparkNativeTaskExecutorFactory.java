@@ -33,6 +33,8 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.ExchangeOperator;
+import com.facebook.presto.spark.PrestoSparkSessionProperties;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
@@ -58,6 +60,7 @@ import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanFragmentId;
@@ -67,12 +70,17 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.SchedulingOrderVisitor;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.sun.management.OperatingSystemMXBean;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
@@ -94,21 +102,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -276,9 +269,9 @@ public class PrestoSparkNativeTaskExecutorFactory
             throw new UnsupportedOperationException("Coordinator only fragment execution is not supported by native task executor");
         }
 
-        checkArgument(
+        Preconditions.checkArgument(
                 inputs instanceof PrestoSparkNativeTaskInputs,
-                format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
+                String.format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
 
         // 1. Start the native process if it hasn't already been started or dead
         createAndStartNativeExecutionProcess(session);
@@ -288,7 +281,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         // 2.a Populate Read info
         List<TaskSource> taskSources = getTaskSources(serializedTaskSources, fragment, session, nativeInputs);
 
-        boolean isFixedBroadcastDistribution = fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION);
+        boolean isFixedBroadcastDistribution = fragment.getPartitioningScheme().getPartitioning().getHandle().equals(SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION);
         // 2.b Populate Shuffle Write info
         Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor()
                 .map(descriptor -> shuffleInfoTranslator.createShuffleWriteInfo(session, descriptor));
@@ -298,8 +291,8 @@ public class PrestoSparkNativeTaskExecutorFactory
         Optional<String> broadcastDirectory =
                 isFixedBroadcastDistribution ? Optional.of(getBroadcastDirectoryPath(session)) : Optional.empty();
 
-        boolean terminateWithCoreWhenUnresponsive = isNativeTerminateWithCoreWhenUnresponsiveEnabled(session);
-        Duration terminateWithCoreTimeout = getNativeTerminateWithCoreTimeout(session);
+        boolean terminateWithCoreWhenUnresponsive = PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled(session);
+        Duration terminateWithCoreTimeout = PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout(session);
         try {
             // 3. Submit the task to cpp process for execution
             log.info("Submitting native execution task ");
@@ -338,7 +331,7 @@ public class PrestoSparkNativeTaskExecutorFactory
 
     private String getBroadcastDirectoryPath(Session session)
     {
-        return format("%s/%s", getNativeExecutionBroadcastBasePath(session), session.getQueryId().getId());
+        return String.format("%s/%s", PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath(session), session.getQueryId().getId());
     }
 
     @Override
@@ -368,7 +361,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         processCpuTime.ifPresent(cpuTime -> taskInfoOptional.get().getStats().getRuntimeStats()
                 .addMetricValue("javaProcessCpuTime", RuntimeUnit.NANO, cpuTime));
 
-        SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
+        SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(PrestoSparkUtils.serializeZstdCompressed(taskInfoCodec, taskInfoOptional.get()));
         taskInfoCollector.add(serializedTaskInfo);
 
         // Update Spark Accumulators for spark internal metrics
@@ -398,7 +391,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             RuntimeException failure = taskInfo.getTaskStatus().getFailures().stream()
                     .findFirst()
                     .map(ExecutionFailureInfo::toException)
-                    .orElseGet(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
+                    .orElseGet(() -> new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
             throw failure;
         }
 
@@ -432,7 +425,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         long totalSerializedSizeInBytes = 0;
         while (serializedTaskSources.hasNext()) {
             SerializedPrestoSparkTaskSource serializedTaskSource = serializedTaskSources.next();
-            taskSources.add(deserializeZstdCompressed(taskSourceCodec, serializedTaskSource.getBytes()));
+            taskSources.add(PrestoSparkUtils.deserializeZstdCompressed(taskSourceCodec, serializedTaskSource.getBytes()));
             totalSerializedSizeInBytes += serializedTaskSource.getBytes().length;
         }
 
@@ -440,12 +433,12 @@ public class PrestoSparkNativeTaskExecutorFactory
         // some tasks may not have splits for the bucketed table. In this case we still need
         // to send no-more-splits message to Velox.
         Set<PlanNodeId> planNodeIdsWithSources = taskSources.stream().map(TaskSource::getPlanNodeId).collect(Collectors.toSet());
-        Set<PlanNodeId> tableScanIds = Sets.newHashSet(scheduleOrder(fragment.getRoot()));
+        Set<PlanNodeId> tableScanIds = Sets.newHashSet(SchedulingOrderVisitor.scheduleOrder(fragment.getRoot()));
         tableScanIds.stream()
                 .filter(id -> !planNodeIdsWithSources.contains(id))
                 .forEach(id -> taskSources.add(new TaskSource(id, ImmutableSet.of(), true)));
 
-        log.info("Total serialized size of all table scan task sources: %s", succinctBytes(totalSerializedSizeInBytes));
+        log.info("Total serialized size of all table scan task sources: %s", DataSize.succinctBytes(totalSerializedSizeInBytes));
 
         // Populate remote sources - ShuffleRead & Broadcast.
         ImmutableList.Builder<TaskSource> shuffleTaskSources = ImmutableList.builder();
@@ -462,8 +455,8 @@ public class PrestoSparkNativeTaskExecutorFactory
                 PrestoSparkShuffleReadDescriptor shuffleReadDescriptor =
                         nativeTaskInputs.getShuffleReadDescriptors().get(sourceFragmentId.toString());
                 if (shuffleReadDescriptor != null) {
-                    ScheduledSplit split = new ScheduledSplit(nextSplitId.getAndIncrement(), remoteSource.getId(), new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(
-                            new Location(format("batch://%s?shuffleInfo=%s", DUMMY_TASK_ID,
+                    ScheduledSplit split = new ScheduledSplit(nextSplitId.getAndIncrement(), remoteSource.getId(), new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(
+                            new Location(String.format("batch://%s?shuffleInfo=%s", DUMMY_TASK_ID,
                                     shuffleInfoTranslator.createSerializedReadInfo(
                                             shuffleInfoTranslator.createShuffleReadInfo(session, shuffleReadDescriptor)))),
                             DUMMY_TASK_ID)));
@@ -475,25 +468,24 @@ public class PrestoSparkNativeTaskExecutorFactory
                 if (broadcast != null) {
                     Set<ScheduledSplit> splits =
                             ((List<?>) broadcast.value()).stream()
-                                    .map(PrestoSparkSerializedPage.class::cast)
-                                    .map(prestoSparkSerializedPage -> PrestoSparkUtils.toSerializedPage(prestoSparkSerializedPage))
-                                    .map(serializedPage -> pagesSerde.deserialize(serializedPage))
-                                    // Extract filePath.
-                                    .flatMap(page -> IntStream.range(0, page.getPositionCount())
-                                            .mapToObj(position -> VarcharType.VARCHAR.getObjectValue(null, page.getBlock(0), position)))
-                                    .map(String.class::cast)
-                                    .map(filePath -> new BroadcastFileInfo(filePath))
-                                    .map(broadcastFileInfo -> new ScheduledSplit(
+                            .map(PrestoSparkSerializedPage.class::cast)
+                            .map(prestoSparkSerializedPage -> PrestoSparkUtils.toSerializedPage(prestoSparkSerializedPage))
+                            .map(serializedPage -> pagesSerde.deserialize(serializedPage))
+                            .flatMap(page -> IntStream.range(0, page.getPositionCount())
+                                    .mapToObj(position -> VarcharType.VARCHAR.getObjectValue(null, page.getBlock(0), position)))
+                            .map(String.class::cast)
+                            .map(filePath -> new BroadcastFileInfo(filePath))
+                            .map(broadcastFileInfo -> new ScheduledSplit(
                                             nextSplitId.getAndIncrement(),
                                             remoteSource.getId(),
                                             new Split(
-                                                    REMOTE_CONNECTOR_ID,
+                                                    ExchangeOperator.REMOTE_CONNECTOR_ID,
                                                     new RemoteTransactionHandle(),
                                                     new RemoteSplit(
                                                             new Location(
-                                                                    format("batch://%s?broadcastInfo=%s", DUMMY_TASK_ID, broadcastFileInfoJsonCodec.toJson(broadcastFileInfo))),
+                                                                    String.format("batch://%s?broadcastInfo=%s", DUMMY_TASK_ID, broadcastFileInfoJsonCodec.toJson(broadcastFileInfo))),
                                                             DUMMY_TASK_ID))))
-                                    .collect(toImmutableSet());
+                                    .collect(ImmutableSet.toImmutableSet());
 
                     TaskSource source = new TaskSource(remoteSource.getId(), splits, ImmutableSet.of(Lifespan.taskWide()), true);
                     broadcastTaskSources.add(source);
@@ -508,7 +500,7 @@ public class PrestoSparkNativeTaskExecutorFactory
 
     private Optional<TableWriterNode> findTableWriteNode(PlanNode node)
     {
-        return searchFrom(node)
+        return PlanNodeSearcher.searchFrom(node)
                 .where(TableWriterNode.class::isInstance)
                 .findFirst();
     }
@@ -649,14 +641,14 @@ public class PrestoSparkNativeTaskExecutorFactory
         public Tuple2<MutablePartitionId, T> next()
         {
             // Result Tasks only have outputType of PrestoSparkSerializedPage.
-            checkArgument(outputType == PrestoSparkSerializedPage.class,
+            Preconditions.checkArgument(outputType == PrestoSparkSerializedPage.class,
                     format("PrestoSparkNativeTaskExecutorFactory only outputType=PrestoSparkSerializedPage " +
                             "But tried to extract outputType=%s", outputType));
 
             // Set partition ID to help match the results to the task on the driver for debugging.
             MutablePartitionId mutablePartitionId = new MutablePartitionId();
             mutablePartitionId.setPartition(partitionId);
-            return new Tuple2<>(mutablePartitionId, (T) toPrestoSparkSerializedPage(next.get()));
+            return new Tuple2<>(mutablePartitionId, (T) PrestoSparkUtils.toPrestoSparkSerializedPage(next.get()));
         }
     }
 
@@ -700,6 +692,6 @@ public class PrestoSparkNativeTaskExecutorFactory
             return false;
         }
         PrestoTransportException transportException = (PrestoTransportException) failure;
-        return TOO_MANY_REQUESTS_FAILED.toErrorCode().equals(transportException.getErrorCode());
+        return StandardErrorCode.TOO_MANY_REQUESTS_FAILED.toErrorCode().equals(transportException.getErrorCode());
     }
 }

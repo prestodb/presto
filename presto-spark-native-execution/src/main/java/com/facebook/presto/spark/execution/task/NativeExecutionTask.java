@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
@@ -31,10 +32,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.execution.TaskState.ABORTED;
-import static com.facebook.presto.execution.TaskState.CANCELED;
-import static com.facebook.presto.execution.TaskState.FAILED;
-import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -84,7 +81,7 @@ public class NativeExecutionTask
         this.broadcastBasePath = requireNonNull(broadcastBasePath, "broadcastBasePath is null");
         this.sources = requireNonNull(sources, "sources is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
-        this.outputBuffers = createInitialEmptyOutputBuffers(planFragment.getPartitioningScheme().getPartitioning().getHandle()).withNoMoreBufferIds();
+        this.outputBuffers = OutputBuffers.createInitialEmptyOutputBuffers(planFragment.getPartitioningScheme().getPartitioning().getHandle()).withNoMoreBufferIds();
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
@@ -155,7 +152,7 @@ public class NativeExecutionTask
         TaskInfo taskInfo = sendUpdateRequest();
 
         // We do not start taskInfo fetcher for failed tasks
-        if (!ImmutableList.of(CANCELED, FAILED, ABORTED).contains(taskInfo.getTaskStatus().getState())) {
+        if (!ImmutableList.of(TaskState.CANCELED, TaskState.FAILED, TaskState.ABORTED).contains(taskInfo.getTaskStatus().getState())) {
             log.info("Starting TaskInfoFetcher and TaskResultFetcher.");
             taskResultFetcher.ifPresent(fetcher -> fetcher.start());
             taskInfoFetcher.start();

@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeTpchQueries;
+import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
 
-public class TestPrestoSparkNativeTpchQueries
-        extends AbstractTestNativeTpchQueries
+public class TestPrestoSparkNativeGeneralQueries
+        extends AbstractTestNativeGeneralQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -35,32 +35,40 @@ public class TestPrestoSparkNativeTpchQueries
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
-    // Following tests require broadcast join
     @Override
     @Ignore
-    public void testTpchQ7() {}
+    public void testCatalogWithCacheEnabled() {}
 
     @Override
     @Ignore
-    public void testTpchQ8() {}
+    public void testInformationSchemaTables() {}
 
     @Override
     @Ignore
-    public void testTpchQ11() {}
+    public void testShowAndDescribe() {}
+
+    @Override
+    public void testSystemTables() {}
+
+    // @TODO Refer https://github.com/prestodb/presto/issues/20294
+    @Override
+    @Ignore
+    public void testAnalyzeStats() {}
+
+    // https://github.com/prestodb/presto/issues/22275
+    @Override
+    @Ignore
+    public void testUnionAllInsert() {}
 
     @Override
     @Ignore
-    public void testTpchQ15() {}
+    public void testShowSessionWithoutJavaSessionProperties() {}
 
     @Override
     @Ignore
-    public void testTpchQ18() {}
+    public void testSetSessionJavaWorkerSessionProperty() {}
 
     @Override
     @Ignore
-    public void testTpchQ21() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ22() {}
+    public void testRowWiseExchange() {}
 }

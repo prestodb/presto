@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeAggregations;
+import com.facebook.presto.nativeworker.AbstractTestNativeBitwiseFunctionQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoSparkNativeAggregations
-        extends AbstractTestNativeAggregations
+public class TestPrestoSparkNativeBitwiseFunctionQueries
+        extends AbstractTestNativeBitwiseFunctionQueries
 {
     @Override
     protected QueryRunner createQueryRunner()

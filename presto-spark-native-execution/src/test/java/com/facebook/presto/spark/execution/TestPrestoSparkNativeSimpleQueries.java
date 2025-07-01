@@ -11,32 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
+import com.facebook.presto.spark.PrestoSparkSessionProperties;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createEmptyTable;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartSupp;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
 
 public class TestPrestoSparkNativeSimpleQueries
         extends AbstractTestQueryFramework
@@ -45,22 +29,22 @@ public class TestPrestoSparkNativeSimpleQueries
     protected void createTables()
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
-        createLineitem(queryRunner);
-        createOrders(queryRunner);
-        createOrdersHll(queryRunner);
-        createOrdersEx(queryRunner);
-        createNation(queryRunner);
-        createRegion(queryRunner);
-        createPartitionedNation(queryRunner);
-        createBucketedCustomer(queryRunner);
-        createCustomer(queryRunner);
-        createPart(queryRunner);
-        createPartSupp(queryRunner);
-        createRegion(queryRunner);
-        createSupplier(queryRunner);
-        createEmptyTable(queryRunner);
-        createPrestoBenchTables(queryRunner);
-        createBucketedLineitemAndOrders(queryRunner);
+        NativeQueryRunnerUtils.createLineitem(queryRunner);
+        NativeQueryRunnerUtils.createOrders(queryRunner);
+        NativeQueryRunnerUtils.createOrdersHll(queryRunner);
+        NativeQueryRunnerUtils.createOrdersEx(queryRunner);
+        NativeQueryRunnerUtils.createNation(queryRunner);
+        NativeQueryRunnerUtils.createRegion(queryRunner);
+        NativeQueryRunnerUtils.createPartitionedNation(queryRunner);
+        NativeQueryRunnerUtils.createBucketedCustomer(queryRunner);
+        NativeQueryRunnerUtils.createCustomer(queryRunner);
+        NativeQueryRunnerUtils.createPart(queryRunner);
+        NativeQueryRunnerUtils.createPartSupp(queryRunner);
+        NativeQueryRunnerUtils.createRegion(queryRunner);
+        NativeQueryRunnerUtils.createSupplier(queryRunner);
+        NativeQueryRunnerUtils.createEmptyTable(queryRunner);
+        NativeQueryRunnerUtils.createPrestoBenchTables(queryRunner);
+        NativeQueryRunnerUtils.createBucketedLineitemAndOrders(queryRunner);
     }
 
     @Override
@@ -174,7 +158,7 @@ public class TestPrestoSparkNativeSimpleQueries
                 "Query exceeded per-node broadcast memory limit of 10B \\[Max serialized broadcast size: .*kB\\]");
 
         Session expectedSession = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, "BROADCAST")
                 .build();
         Session actualSession = getSessionWithBroadcastJoinDistribution("10B", true);
 
@@ -185,9 +169,9 @@ public class TestPrestoSparkNativeSimpleQueries
     private Session getSessionWithBroadcastJoinDistribution(String broadcastJoinMaxMemory, Boolean retryOnBroadcastOutOfMemory)
     {
         return Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
-                .setSystemProperty(SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE, broadcastJoinMaxMemory)
-                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.toString(retryOnBroadcastOutOfMemory))
+                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE, broadcastJoinMaxMemory)
+                .setSystemProperty(PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.toString(retryOnBroadcastOutOfMemory))
                 .build();
     }
 }

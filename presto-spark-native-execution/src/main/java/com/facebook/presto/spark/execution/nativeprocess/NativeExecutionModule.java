@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
+import com.facebook.presto.spark.ForNativeExecution;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
+import com.facebook.presto.spark.execution.BroadcastFileInfo;
+import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
@@ -20,9 +24,12 @@ import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTranslator;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
+import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -32,7 +39,9 @@ import io.airlift.units.Duration;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -58,13 +67,21 @@ public class NativeExecutionModule
     @Override
     public void configure(Binder binder)
     {
+        codecBinder(binder);
         bindWorkerProperties(binder);
-        bindNativeExecutionTaskFactory(binder);
         bindHttpClient(binder);
         bindNativeExecutionProcess(binder);
         bindShuffle(binder);
+        bindNativeExecutionTaskFactory(binder);
     }
 
+    protected void codecBinder(Binder binder)
+    {
+        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleReadInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleWriteInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(BroadcastFileInfo.class);
+    }
     protected void bindShuffle(Binder binder)
     {
         binder.bind(PrestoSparkLocalShuffleInfoTranslator.class).in(Scopes.SINGLETON);
@@ -73,6 +90,10 @@ public class NativeExecutionModule
 
     protected void bindWorkerProperties(Binder binder)
     {
+        configBinder(binder).bindConfig(NativeExecutionVeloxConfig.class);
+        configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
+        configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
+        configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
         newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         if (connectorConfig.isPresent()) {
             binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));
@@ -94,6 +115,9 @@ public class NativeExecutionModule
 
     protected void bindNativeExecutionTaskFactory(Binder binder)
     {
+        binder.bind(PrestoSparkNativeTaskExecutorFactory.class).in(Scopes.SINGLETON);
+        binder.bind(IPrestoSparkTaskExecutorFactory.class).annotatedWith(ForNativeExecution.class)
+                .to(PrestoSparkNativeTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(NativeExecutionTaskFactory.class).in(Scopes.SINGLETON);
     }
 

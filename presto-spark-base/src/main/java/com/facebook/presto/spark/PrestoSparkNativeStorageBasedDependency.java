@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.util.PrestoSparkUtils;
@@ -28,10 +29,6 @@ import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
-import static io.airlift.units.DataSize.succinctBytes;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -64,7 +61,7 @@ public class PrestoSparkNativeStorageBasedDependency
             throws SparkException, TimeoutException
     {
         // The page returned from native process contains filePath, maxSerializedBytes and numberOfRows in broadcast data.
-        List<PrestoSparkSerializedPage> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics).stream()
+        List<PrestoSparkSerializedPage> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(PrestoSparkUtils.computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics).stream()
                 .map(Tuple2::_2)
                 .collect(toList());
 
@@ -75,7 +72,7 @@ public class PrestoSparkNativeStorageBasedDependency
         long maxSerializedBytes = getNativeMaxSerializedBytes(broadcastValue, pagesSerde);
 
         if (maxSerializedBytes > maxBroadcastSizeInBytes) {
-            throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Max serialized broadcast size: %s", succinctBytes(maxSerializedBytes)));
+            throw ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit(maxBroadcastSize, String.format("Max serialized broadcast size: %s", DataSize.succinctBytes(maxSerializedBytes)));
         }
 
         broadcastVariable = sparkContext.broadcast(broadcastValue);

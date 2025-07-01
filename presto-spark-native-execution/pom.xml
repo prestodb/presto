@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
         <version>0.294-SNAPSHOT</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>presto-spark-base</artifactId>
+    <artifactId>presto-spark-native-execution</artifactId>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
     <dependencies>
@@ -33,16 +38,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-analyzer</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.luben</groupId>
-            <artifactId>zstd-jni</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto.spark</groupId>
             <artifactId>spark-core</artifactId>
             <scope>provided</scope>
@@ -56,11 +51,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spark-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
 
@@ -70,19 +60,25 @@
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-expressions</artifactId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpch</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-matching</artifactId>
+            <artifactId>presto-tpcds</artifactId>
+            <scope>test</scope>
         </dependency>
-
+        <!-- presto spark -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-memory-context</artifactId>
+            <artifactId>presto-spark-base</artifactId>
         </dependency>
 
+        <!-- airlift -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
@@ -95,12 +91,12 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>stats</artifactId>
+            <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>json</artifactId>
+            <artifactId>http-client</artifactId>
         </dependency>
 
         <dependency>
@@ -145,11 +141,6 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>node</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -164,28 +155,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.pcollections</groupId>
-            <artifactId>pcollections</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-text</artifactId>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
         </dependency>
 
         <dependency>
@@ -275,94 +251,43 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.roaringbitmap</groupId>
+                    <artifactId>RoaringBitmap</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hudi</groupId>
+                    <artifactId>hudi-presto-bundle</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto.hive</groupId>
+            <artifactId>hive-apache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-execution</artifactId>
+            <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredResourcePatterns>
-                        <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
-                    </ignoredResourcePatterns>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
-                        <ignoredClassPattern>module-info</ignoredClassPattern>
-                        <ignoredClassPattern>com.esotericsoftware.kryo.*</ignoredClassPattern>
-                        <ignoredClassPattern>com.esotericsoftware.minlog.Log</ignoredClassPattern>
-                        <ignoredClassPattern>com.esotericsoftware.reflectasm.*</ignoredClassPattern>
-                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                    </ignoredClassPatterns>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>presto-spark-tests-smoke</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludes>
-                                <exclude>**/TestPrestoSparkAggregations.java</exclude>
-                                <exclude>**/TestPrestoSparkJoinQueries.java</exclude>
-                                <exclude>**/TestPrestoSparkOrderByQueries.java</exclude>
-                                <exclude>**/TestPrestoSparkWindowQueries.java</exclude>
-                                <exclude>**/TestPrestoSparkSpilledAggregations.java</exclude>
-                                <exclude>**/TestPrestoSparkSpilledJoinQueries.java</exclude>
-                                <exclude>**/TestPrestoSparkNativeExecution.java</exclude>
-                            </excludes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>presto-spark-tests-all-queries</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestPrestoSparkAggregations.java</include>
-                                <include>**/TestPrestoSparkJoinQueries.java</include>
-                                <include>**/TestPrestoSparkOrderByQueries.java</include>
-                                <include>**/TestPrestoSparkWindowQueries.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>presto-spark-tests-spill-queries</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestPrestoSparkSpilledAggregations.java</include>
-                                <include>**/TestPrestoSparkSpilledJoinQueries.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

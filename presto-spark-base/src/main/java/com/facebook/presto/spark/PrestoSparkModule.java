@@ -115,18 +115,10 @@ import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlChecker;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
-import com.facebook.presto.spark.execution.BroadcastFileInfo;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
-import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
-import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
-import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
-import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
 import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
@@ -284,10 +276,6 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
         configBinder(binder).bindConfig(TracingConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionVeloxConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
         configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
         configBinder(binder).bindConfig(SecurityConfig.class);
 
@@ -308,10 +296,6 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(ServerInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleReadInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleWriteInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
-        jsonCodecBinder(binder).bindJsonCodec(BroadcastFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
         binder.bind(SimplePlanFragmentSerde.class).to(JsonCodecSimplePlanFragmentSerde.class).in(Scopes.SINGLETON);
 
@@ -558,8 +542,9 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkAccessControlChecker.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkPlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkRddFactory.class).in(Scopes.SINGLETON);
-        binder.bind(PrestoSparkNativeTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkTaskExecutorFactory.class).in(Scopes.SINGLETON);
+        binder.bind(IPrestoSparkTaskExecutorFactory.class)
+                .to(PrestoSparkTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkService.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkBroadcastTableCacheManager.class).in(Scopes.SINGLETON);

@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.hive.HiveTestUtils;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
@@ -34,11 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.log.Level.WARN;
-import static com.facebook.presto.hive.HiveTestUtils.getProperty;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
-import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static java.nio.file.Files.createTempDirectory;
 
 /**
@@ -87,7 +84,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {
-            builder.put("native-execution-executable-path", getNativeQueryRunnerParameters().serverBinary.toString());
+            builder.put("native-execution-executable-path", PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters().serverBinary.toString());
         }
 
         try {
@@ -101,15 +98,15 @@ public class PrestoSparkNativeQueryRunnerUtils
         return builder.build();
     }
 
-    public static PrestoSparkQueryRunner createHiveRunner()
+    public static PrestoSparkNativeQueryRunner createHiveRunner()
     {
-        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
+        PrestoSparkNativeQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
         PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner, "external_functions.json", "json");
 
         return queryRunner;
     }
 
-    private static PrestoSparkQueryRunner createRunner(String defaultCatalog, NativeExecutionModule nativeExecutionModule)
+    private static PrestoSparkNativeQueryRunner createRunner(String defaultCatalog, NativeExecutionModule nativeExecutionModule)
     {
         // Increases log level to reduce log spamming while running test.
         customizeLogging();
@@ -122,7 +119,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     }
 
     // Similar to createPrestoSparkNativeQueryRunner, but with custom connector config and without jsonFunctionNamespaceManager
-    public static PrestoSparkQueryRunner createTpchRunner()
+    public static PrestoSparkNativeQueryRunner createTpchRunner()
     {
         return createRunner(
                 "tpchstandard",
@@ -130,23 +127,23 @@ public class PrestoSparkNativeQueryRunnerUtils
                         Optional.of(new NativeExecutionConnectorConfig().setConnectorName("tpch"))));
     }
 
-    public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
+    public static PrestoSparkNativeQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
     {
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
-        configBuilder.putAll(getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
+        configBuilder.putAll(NativeQueryRunnerUtils.getNativeWorkerSystemProperties()).putAll(additionalConfigProperties);
         Optional<Path> dataDir = baseDir.map(path -> Paths.get(path.toString() + '/' + DEFAULT_STORAGE_FORMAT));
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner(
+        PrestoSparkNativeQueryRunner queryRunner = new PrestoSparkNativeQueryRunner(
                 defaultCatalog,
                 configBuilder.build(),
-                getNativeWorkerHiveProperties(),
+                NativeQueryRunnerUtils.getNativeWorkerHiveProperties(),
                 additionalSparkProperties,
                 dataDir,
                 nativeModules,
                 AVAILABLE_CPU_COUNT);
 
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
-        if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
-            metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
+        if (!metastore.getDatabase(PrestoSparkNativeQueryRunner.METASTORE_CONTEXT, "tpch").isPresent()) {
+            metastore.createDatabase(PrestoSparkNativeQueryRunner.METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
         }
         return queryRunner;
     }
@@ -190,7 +187,7 @@ public class PrestoSparkNativeQueryRunnerUtils
             return dataDirectory.get();
         }
 
-        Optional<String> dataDirectoryStr = getProperty("DATA_DIR");
+        Optional<String> dataDirectoryStr = HiveTestUtils.getProperty("DATA_DIR");
         if (!dataDirectoryStr.isPresent()) {
             try {
                 dataDirectory = Optional.of(createTempDirectory("PrestoTest").toAbsolutePath());
@@ -200,7 +197,7 @@ public class PrestoSparkNativeQueryRunnerUtils
             }
         }
         else {
-            dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
+            dataDirectory = Optional.of(PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters().dataDirectory);
         }
         return dataDirectory.get();
     }

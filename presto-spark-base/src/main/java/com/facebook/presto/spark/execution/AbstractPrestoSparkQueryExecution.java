@@ -884,6 +884,9 @@ public abstract class AbstractPrestoSparkQueryExecution
             maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
         }
 
+        // TODO: Rethink if Native only class PrestoSparkNativeStorageBasedDependency
+        // TODO: can be plugged in a way where we this module doesn't
+        // TODO: depend on presto-spark-native-execution
         if (featuresConfig.isNativeExecutionEnabled()) {
             return new PrestoSparkNativeStorageBasedDependency(
                     (RddAndMore<PrestoSparkSerializedPage>) childRdd,
