@@ -27,6 +27,7 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -445,6 +446,13 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // delete only outputs the row count
             return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitMetadataDelete(MetadataDeleteNode node, List<StreamProperties> inputProperties)
+        {
+            // MetadataDeleteNode is a leaf node (no input properties), similar to TableScanNode
+            return StreamProperties.singleStream();
         }
 
         @Override
