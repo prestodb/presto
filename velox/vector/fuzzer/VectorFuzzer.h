@@ -388,6 +388,10 @@ class VectorFuzzer {
     opaqueTypeGenerators_[std::type_index(typeid(Class))] = generator;
   }
 
+  // Maximum values allowed values by Presto for interval types.
+  static const int64_t kMaxAllowedIntervalDayTime = 2147483647;
+  static const int32_t kMaxAllowedIntervalYearMonth = 178956970;
+
  private:
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);

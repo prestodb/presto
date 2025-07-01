@@ -162,7 +162,14 @@ void fuzzFlatPrimitiveImpl(
     } else if constexpr (std::is_same_v<TCpp, Timestamp>) {
       flatVector->set(i, randTimestamp(rng, opts.timestampPrecision));
     } else if constexpr (std::is_same_v<TCpp, int64_t>) {
-      if (vector->type()->isShortDecimal()) {
+      if (vector->type()->isIntervalDayTime()) {
+        flatVector->set(
+            i,
+            rand<TCpp>(
+                rng,
+                -VectorFuzzer::kMaxAllowedIntervalDayTime,
+                VectorFuzzer::kMaxAllowedIntervalDayTime));
+      } else if (vector->type()->isShortDecimal()) {
         flatVector->set(i, randShortDecimal(vector->type(), rng));
       } else {
         flatVector->set(i, rand<TCpp>(rng, opts.dataSpec));
@@ -176,7 +183,14 @@ void fuzzFlatPrimitiveImpl(
         VELOX_NYI();
       }
     } else if constexpr (std::is_same_v<TCpp, int32_t>) {
-      if (vector->type()->isDate()) {
+      if (vector->type()->isIntervalYearMonth()) {
+        flatVector->set(
+            i,
+            rand<TCpp>(
+                rng,
+                -VectorFuzzer::kMaxAllowedIntervalYearMonth,
+                VectorFuzzer::kMaxAllowedIntervalYearMonth));
+      } else if (vector->type()->isDate()) {
         flatVector->set(i, randDate(rng));
       } else {
         flatVector->set(i, rand<TCpp>(rng));
