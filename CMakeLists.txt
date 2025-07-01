@@ -135,7 +135,6 @@ option(VELOX_ENABLE_EXPRESSION "Build expression." ON)
 option(
   VELOX_ENABLE_EXAMPLES
   "Build examples. This will enable VELOX_ENABLE_EXPRESSION automatically." OFF)
-option(VELOX_ENABLE_SUBSTRAIT "Build Substrait-to-Velox converter." OFF)
 option(VELOX_ENABLE_BENCHMARKS "Enable Velox top level benchmarks." OFF)
 option(VELOX_ENABLE_BENCHMARKS_BASIC "Enable Velox basic benchmarks." OFF)
 option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
@@ -182,7 +181,6 @@ if(${VELOX_BUILD_MINIMAL} OR ${VELOX_BUILD_MINIMAL_WITH_DWIO})
   set(VELOX_ENABLE_S3 OFF)
   set(VELOX_ENABLE_GCS OFF)
   set(VELOX_ENABLE_ABFS OFF)
-  set(VELOX_ENABLE_SUBSTRAIT OFF)
 endif()
 
 if(${VELOX_ENABLE_BENCHMARKS})
@@ -531,10 +529,9 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
   velox_resolve_dependency(pybind11 2.10.0)
 endif()
 
-# DWIO (ORC/DWRF) and Substrait depend on protobuf.
+# DWIO (ORC/DWRF) depends on protobuf.
 if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
    OR ${VELOX_ENABLE_HIVE_CONNECTOR}
-   OR ${VELOX_ENABLE_SUBSTRAIT}
    OR VELOX_ENABLE_GCS)
 
   # Locate or build protobuf.

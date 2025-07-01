@@ -80,11 +80,6 @@ if(VELOX_ENABLE_WAVE OR VELOX_ENABLE_CUDF)
   endif()
 endif()
 
-# substrait converter
-if(${VELOX_ENABLE_SUBSTRAIT})
-  add_subdirectory(substrait)
-endif()
-
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tool)
 endif()
