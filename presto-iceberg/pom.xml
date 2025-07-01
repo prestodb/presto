@@ -248,6 +248,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>jakarta.inject</groupId>
             <artifactId>jakarta.inject-api</artifactId>
         </dependency>
@@ -282,13 +287,13 @@
         </dependency>
 
         <dependency>
-          <groupId>com.amazonaws</groupId>
-          <artifactId>aws-java-sdk-core</artifactId>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-core</artifactId>
         </dependency>
 
         <dependency>
-          <groupId>com.amazonaws</groupId>
-          <artifactId>aws-java-sdk-s3</artifactId>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
 
         <dependency>
@@ -656,15 +661,15 @@
         </dependency>
 
         <dependency>
-          <groupId>org.testcontainers</groupId>
-          <artifactId>testcontainers</artifactId>
-          <scope>test</scope>
-          <exclusions>
-            <exclusion>
-              <groupId>org.slf4j</groupId>
-              <artifactId>slf4j-api</artifactId>
-            </exclusion>
-          </exclusions>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -720,16 +725,16 @@
                         <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-s3</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-core</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
-<!--                    <ignoredUsedUndeclaredDependencies>-->
-<!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner &ndash;&gt;-->
-<!--                        <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>-->
-<!--                        <dependency>org.eclipse.jetty:jetty-server:jar</dependency>-->
-<!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring REST catalog testing http server &ndash;&gt;-->
-<!--                        <dependency>com.facebook.airlift:http-server:jar</dependency>-->
-<!--                        <dependency>com.facebook.airlift:node:jar</dependency>-->
-<!--                        <dependency>javax.servlet:javax.servlet-api:jar</dependency>-->
-<!--                        <dependency>org.apache.httpcomponents.core5:httpcore5:jar</dependency>-->
-<!--                    </ignoredUsedUndeclaredDependencies>-->
+                    <!--                    <ignoredUsedUndeclaredDependencies>-->
+                    <!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner &ndash;&gt;-->
+                    <!--                        <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>-->
+                    <!--                        <dependency>org.eclipse.jetty:jetty-server:jar</dependency>-->
+                    <!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring REST catalog testing http server &ndash;&gt;-->
+                    <!--                        <dependency>com.facebook.airlift:http-server:jar</dependency>-->
+                    <!--                        <dependency>com.facebook.airlift:node:jar</dependency>-->
+                    <!--                        <dependency>javax.servlet:javax.servlet-api:jar</dependency>-->
+                    <!--                        <dependency>org.apache.httpcomponents.core5:httpcore5:jar</dependency>-->
+                    <!--                    </ignoredUsedUndeclaredDependencies>-->
                 </configuration>
             </plugin>
         </plugins>
