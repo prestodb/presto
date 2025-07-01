@@ -19,7 +19,8 @@ import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.google.common.collect.Streams;
 import jakarta.inject.Inject;
-import jakarta.inject.Provider;
+
+import javax.inject.Provider;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.google.common.collect.ImmutableList.toImmutableList;
