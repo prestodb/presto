@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.219</dep.airlift.version>
+        <dep.airlift.version>0.220-rschlussel-2</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -88,7 +88,7 @@
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.17.0</dep.commons.lang3.version>
-        <dep.guice.version>7.0.0</dep.guice.version>
+        <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
@@ -419,6 +419,12 @@
                 <groupId>jakarta.ws.rs</groupId>
                 <artifactId>jakarta.ws.rs-api</artifactId>
                 <version>4.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.inject</groupId>
+                <artifactId>javax.inject</artifactId>
+                <version>1</version>
             </dependency>
 
             <dependency>

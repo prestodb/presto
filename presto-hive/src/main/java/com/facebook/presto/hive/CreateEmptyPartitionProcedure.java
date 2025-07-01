@@ -27,8 +27,9 @@ import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import jakarta.inject.Inject;
-import jakarta.inject.Provider;
 import org.apache.hadoop.hive.common.FileUtils;
+
+import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -119,16 +120,16 @@ public class CreateEmptyPartitionProcedure
                 .collect(toImmutableList());
 
         if (metastore.getPartition(new MetastoreContext(
-                session.getIdentity(),
-                session.getQueryId(),
-                session.getClientInfo(),
-                session.getClientTags(),
-                session.getSource(),
-                getMetastoreHeaders(session),
-                false,
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                session.getWarningCollector(),
-                session.getRuntimeStats()),
+                        session.getIdentity(),
+                        session.getQueryId(),
+                        session.getClientInfo(),
+                        session.getClientTags(),
+                        session.getSource(),
+                        getMetastoreHeaders(session),
+                        false,
+                        HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                        session.getWarningCollector(),
+                        session.getRuntimeStats()),
                 schema,
                 table,
                 partitionStringValues).isPresent()) {

@@ -33,7 +33,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import jakarta.inject.Inject;
-import jakarta.inject.Provider;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -43,6 +42,8 @@ import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.log4j.JulAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
+
+import javax.inject.Provider;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
