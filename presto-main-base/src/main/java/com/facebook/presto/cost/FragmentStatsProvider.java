@@ -14,12 +14,12 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
-import io.airlift.units.DataSize;
 
 import java.util.Objects;
 import java.util.stream.IntStream;

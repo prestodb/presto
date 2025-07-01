@@ -23,6 +23,7 @@ import com.facebook.airlift.http.client.thrift.ThriftResponseHandler;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
@@ -43,7 +44,6 @@ import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 import io.netty.channel.EventLoop;
 
 import java.net.URI;
@@ -57,6 +57,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
@@ -67,7 +68,6 @@ import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFu
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

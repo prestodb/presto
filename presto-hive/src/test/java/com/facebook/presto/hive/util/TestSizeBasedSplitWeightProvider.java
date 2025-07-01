@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.SplitWeight;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

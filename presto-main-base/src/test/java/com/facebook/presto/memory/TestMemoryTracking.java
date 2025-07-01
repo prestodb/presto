@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -32,7 +33,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
-import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -46,9 +46,9 @@ import java.util.regex.Pattern;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

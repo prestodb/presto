@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.task;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
@@ -35,7 +36,6 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -47,13 +47,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
