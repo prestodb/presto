@@ -41,6 +41,7 @@ import java.util.Optional;
 import static com.facebook.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
 import static com.facebook.presto.server.security.oauth2.BaseOAuth2AuthenticationFilterTest.PRESTO_CLIENT_ID;
 import static com.facebook.presto.server.security.oauth2.BaseOAuth2AuthenticationFilterTest.PRESTO_CLIENT_SECRET;
+import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
@@ -63,7 +64,8 @@ public class TestOidcDiscovery
                     .put("http-server.authentication.oauth2.oidc.discovery", "false")
                     .put("http-server.authentication.oauth2.auth-url", issuer.resolve("/connect/authorize").toString())
                     .put("http-server.authentication.oauth2.token-url", issuer.resolve("/connect/token").toString())
-                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString());
+                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString())
+                    .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString());
             accessTokenIssuer.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.access-token-issuer", uri));
             userinfoUrl.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.userinfo-url", uri));
             try (TestingPrestoServer server = createServer(properties.build())) {
@@ -94,6 +96,7 @@ public class TestOidcDiscovery
                         ImmutableMap.<String, String>builder()
                                 .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                                 .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                                 .build())) {
             URI issuer = metadataServer.getBaseUrl();
             assertConfiguration(server, issuer, accessTokenIssuer.map(issuer::resolve), userinfoUrl.map(issuer::resolve));
@@ -123,6 +126,7 @@ public class TestOidcDiscovery
                             ImmutableMap.<String, String>builder()
                                     .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                                     .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                    .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                                     .build())) {
                 // should throw an exception
                 server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
@@ -141,6 +145,7 @@ public class TestOidcDiscovery
                             ImmutableMap.<String, String>builder()
                                     .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                                     .put("http-server.authentication.oauth2.oidc.discovery", "true")
+                                    .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                                     .build())) {
                 // should throw an exception
                 server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
@@ -162,6 +167,7 @@ public class TestOidcDiscovery
                                 .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                                 .put("http-server.authentication.oauth2.oidc.discovery", "true")
                                 .put("http-server.authentication.oauth2.oidc.discovery.timeout", "10s")
+                                .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                                 .build())) {
             URI issuer = metadataServer.getBaseUrl();
             assertConfiguration(server, issuer, Optional.empty(), Optional.of(issuer.resolve("/connect/userinfo")));
@@ -182,6 +188,7 @@ public class TestOidcDiscovery
                                     .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                                     .put("http-server.authentication.oauth2.oidc.discovery", "true")
                                     .put("http-server.authentication.oauth2.oidc.discovery.timeout", "5s")
+                                    .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                                     .build())) {
                 // should throw an exception
                 server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
@@ -203,6 +210,7 @@ public class TestOidcDiscovery
                                 .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                                 .put("http-server.authentication.oauth2.oidc.discovery", "true")
                                 .put("http-server.authentication.oauth2.oidc.use-userinfo-endpoint", "false")
+                                .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                                 .build())) {
             URI issuer = metadataServer.getBaseUrl();
             assertConfiguration(server, issuer, Optional.empty(), Optional.empty());
@@ -233,6 +241,7 @@ public class TestOidcDiscovery
                             .put("http-server.authentication.oauth2.jwks-url", jwksUrl.toString())
                             .put("http-server.authentication.oauth2.access-token-issuer", accessTokenIssuer)
                             .put("http-server.authentication.oauth2.userinfo-url", userinfoUrl.toString())
+                            .put("configuration-based-authorizer.role-regex-map.file-path", createTempFile("regex-map", null).getAbsolutePath().toString())
                             .build())) {
                 assertComponents(server);
                 OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
