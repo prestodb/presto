@@ -4,7 +4,7 @@ Oauth 2.0 Authentication
 
 Presto can be configured to enable frontend OAuth2 authentication over HTTPS for clients such as the CLI, JDBC, and ODBC drivers. OAuth2 provides a secure and flexible way to authenticate users by using an external identity provider (IdP), such as Okta, Auth0, Azure AD, or Google.
 
-OAuth2 authentication in Presto uses the Authorization Code Flow with PKCE and OpenID Connect (OIDC). The Presto coordinator initiates an OAuth2 challenge, and the client completes the flow by obtaining an access token from the IdP.
+OAuth2 authentication in Presto uses the Authorization Code Flow with PKCE and OpenID Connect (OIDC). The Presto coordinator initiates an OAuth2 challenge, and the client completes the flow by obtaining an access token from the identity provider.
 
 Presto Server Config
 --------------------
