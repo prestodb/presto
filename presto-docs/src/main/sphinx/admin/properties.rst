@@ -1103,3 +1103,5 @@ Query Manager Properties
 
 This property can be used to configure how long a query runs without contact
 from the client application, such as the CLI, before it's abandoned.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`query_client_timeout\`\``.
