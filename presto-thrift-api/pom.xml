@@ -36,7 +36,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -89,7 +89,7 @@
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>com.github.zacblanco.airlift.drift</groupId>
+                            <groupId>com.github.zacblanco.airlift</groupId>
                             <artifactId>drift-javadoc</artifactId>
                             <version>${dep.drift.version}</version>
                         </path>

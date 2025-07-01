@@ -369,6 +369,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <ignoredDependencies>javax.inject:javax.inject</ignoredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.github.zacblanco.airlift:log-manager</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>

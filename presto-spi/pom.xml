@@ -25,7 +25,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 

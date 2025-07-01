@@ -58,7 +58,7 @@
             <artifactId>stats</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>com.github.zacblanco.airlift.drift</groupId>
+                    <groupId>com.github.zacblanco.airlift</groupId>
                     <artifactId>drift-api</artifactId>
                 </exclusion>
             </exclusions>

@@ -150,13 +150,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-server</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -166,32 +166,32 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-codec-utils</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -536,7 +536,7 @@
                     </ignoredDependencies>
                     <!-- Not used, but required to compile due to use of an implementation which uses the "Address" type from this dependency -->
                     <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.github.zacblanco.airlift.drift:drift-transport-spi</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.zacblanco.airlift:drift-transport-spi</ignoredNonTestScopedDependency>
                         <!-- Used in tests, but required by drift-transport-netty which is in compile scope -->
                         <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>

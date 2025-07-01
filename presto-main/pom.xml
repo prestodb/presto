@@ -74,17 +74,17 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-codec-utils</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
@@ -144,7 +144,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
         <dependency>
@@ -156,11 +156,11 @@
             <artifactId>error_prone_annotations</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
         <dependency>
@@ -168,7 +168,7 @@
             <artifactId>netty-buffer</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
         <dependency>
@@ -200,7 +200,7 @@
             <artifactId>presto-client</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.zacblanco.airlift.drift</groupId>
+            <groupId>com.github.zacblanco.airlift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
         <dependency>
@@ -362,7 +362,7 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <!-- TTransportException needed from drift-protocol to compile -->
-                        <ignoredNonTestScopedDependency>com.github.zacblanco.airlift.drift:drift-protocol</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.zacblanco.airlift:drift-protocol</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
