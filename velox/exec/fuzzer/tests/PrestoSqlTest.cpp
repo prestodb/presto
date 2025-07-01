@@ -411,5 +411,14 @@ TEST(PrestoSqlTest, toCallInputsSql) {
   EXPECT_EQ(sql.str(), "c0.field0");
 }
 
+TEST(PrestoSqlTest, toConstantSql) {
+  EXPECT_EQ(
+      toConstantSql(core::ConstantTypedExpr(INTERVAL_YEAR_MONTH(), 123)),
+      "INTERVAL '123' YEAR TO MONTH");
+  EXPECT_EQ(
+      toConstantSql(core::ConstantTypedExpr(INTERVAL_DAY_TIME(), int64_t(123))),
+      "INTERVAL '123' DAY TO SECOND");
+}
+
 } // namespace
 } // namespace facebook::velox::exec::test

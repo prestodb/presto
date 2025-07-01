@@ -393,6 +393,10 @@ std::string toConstantSql(const core::ConstantTypedExpr& constant) {
       sql << typeSql << " ";
     }
     sql << std::quoted(getConstantValue<std::string>(constant), '\'', '\'');
+  } else if (type->isIntervalYearMonth()) {
+    sql << fmt::format("INTERVAL '{}' YEAR TO MONTH", constant.toString());
+  } else if (type->isIntervalDayTime()) {
+    sql << fmt::format("INTERVAL '{}' DAY TO SECOND", constant.toString());
   } else if (type->isBigint()) {
     sql << getConstantValue<int64_t>(constant);
   } else if (type->isPrimitiveType()) {
