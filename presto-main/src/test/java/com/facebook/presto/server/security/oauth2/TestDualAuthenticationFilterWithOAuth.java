@@ -58,10 +58,6 @@ public class TestDualAuthenticationFilterWithOAuth
     private static final String PRESTO_AUDIENCE = PRESTO_CLIENT_ID;
     private static final String ADDITIONAL_AUDIENCE = "https://external-service.com";
     protected static final String TRUSTED_CLIENT_ID = "trusted-client";
-    protected static final String TRUSTED_CLIENT_SECRET = "trusted-secret";
-    private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
-    private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
-    private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
 
     private final Logging logging = Logging.initialize();
     protected final OkHttpClient httpClient;
@@ -70,7 +66,6 @@ public class TestDualAuthenticationFilterWithOAuth
     private TestingPrestoServer server;
 
     private SimpleProxyServer simpleProxy;
-    private URI uiUri;
 
     private URI proxyURI;
 
@@ -128,7 +123,6 @@ public class TestDualAuthenticationFilterWithOAuth
         simpleProxy = new SimpleProxyServer(server.getHttpBaseUrl());
         MILLISECONDS.sleep(1000);
         proxyURI = simpleProxy.getHttpsBaseUrl();
-        uiUri = proxyURI.resolve("/");
 
         hydraIdP.createClient(
                 PRESTO_CLIENT_ID,
