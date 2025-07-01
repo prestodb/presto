@@ -33,6 +33,7 @@ public class PlanCheckerRouterPluginConfig
     private URI javaRouterURI;
     private URI nativeRouterURI;
     private Duration clientRequestTimeout = new Duration(2, MINUTES);
+    private boolean javaClusterFallbackEnabled;
 
     @Config("plan-check-clusters-uris")
     public PlanCheckerRouterPluginConfig setPlanCheckClustersURIs(String uris)
@@ -87,6 +88,18 @@ public class PlanCheckerRouterPluginConfig
     public PlanCheckerRouterPluginConfig setClientRequestTimeout(Duration clientRequestTimeout)
     {
         this.clientRequestTimeout = clientRequestTimeout;
+        return this;
+    }
+
+    public boolean isJavaClusterFallbackEnabled()
+    {
+        return javaClusterFallbackEnabled;
+    }
+
+    @Config("enable-java-cluster-fallback")
+    public PlanCheckerRouterPluginConfig setJavaClusterFallbackEnabled(boolean javaClusterFallbackEnabled)
+    {
+        this.javaClusterFallbackEnabled = javaClusterFallbackEnabled;
         return this;
     }
 }

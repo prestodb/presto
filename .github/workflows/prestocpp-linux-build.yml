@@ -3,12 +3,28 @@ name: prestocpp-linux-build
 on:
   workflow_dispatch:
   pull_request:
-    paths-ignore:
-      - 'presto-docs/**'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+    # For pull requests it's not necessary to checkout the code
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          codechange:
+            - '!presto-docs/**'
+
   prestocpp-linux-build-engine:
     runs-on: ubuntu-22.04
+    needs: changes
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     concurrency:

@@ -3,8 +3,6 @@ name: prestocpp-linux-build-and-unit-test
 on:
   workflow_dispatch:
   pull_request:
-    paths-ignore:
-      - 'presto-docs/**'
   push:
     branches:
       - master
@@ -12,8 +10,26 @@ on:
       - 'presto-docs/**'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+    # For pull requests it's not necessary to checkout the code
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          codechange:
+            - '!presto-docs/**'
+
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
+    needs: changes
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
     concurrency:
@@ -92,7 +108,7 @@ jobs:
             presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
 
   prestocpp-linux-presto-e2e-tests:
-    needs: prestocpp-linux-build-for-test
+    needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
@@ -167,7 +183,7 @@ jobs:
             -T1C
 
   prestocpp-linux-presto-native-tests:
-    needs: prestocpp-linux-build-for-test
+    needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -245,7 +261,7 @@ jobs:
             -T1C
 
   prestocpp-linux-presto-sidecar-tests:
-    needs: prestocpp-linux-build-for-test
+    needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
@@ -314,7 +330,7 @@ jobs:
             -T1C
 
   prestocpp-linux-presto-plan-checker-router-plugin-tests:
-    needs: prestocpp-linux-build-for-test
+    needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
