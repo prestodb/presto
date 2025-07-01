@@ -542,8 +542,7 @@ void serializeOpaque(
 folly::dynamic variant::serialize() const {
   folly::dynamic variantObj = folly::dynamic::object;
 
-  variantObj["type"] = std::string(
-      VELOX_STATIC_FIELD_DYNAMIC_DISPATCH_ALL(TypeTraits, name, kind_));
+  variantObj["type"] = mapTypeKindToName(kind_);
   auto& objValue = variantObj["value"];
   if (isNull()) {
     objValue = nullptr;
@@ -652,6 +651,7 @@ variant deserializeOpaque(const folly::dynamic& variantobj) {
     VELOX_NYI(ex.message());
   }
 }
+
 variant variant::create(const folly::dynamic& variantobj) {
   TypeKind kind = mapNameToTypeKind(variantobj["type"].asString());
   const folly::dynamic& obj = variantobj["value"];

@@ -37,8 +37,6 @@ constexpr double kEpsilon{0.00001};
 //       it's probably worthwhile to make it not completely suck
 // todo(youknowjack): make this class not completely suck
 
-struct VariantConverter;
-
 class variant;
 
 template <TypeKind KIND>
@@ -197,11 +195,6 @@ class variant {
     } else {
       VELOX_DYNAMIC_TEMPLATE_TYPE_DISPATCH_ALL(typedDestroy, false, kind_);
     }
-  }
-
-  template <TypeKind K>
-  static const std::shared_ptr<const Type> kind2type() {
-    return TypeFactory<K>::create();
   }
 
   [[noreturn]] void throwCheckIsKindError(TypeKind kind) const;
@@ -585,7 +578,7 @@ class variant {
     return nullptr;
   }
 
-  std::shared_ptr<const Type> inferType() const {
+  TypePtr inferType() const {
     switch (kind_) {
       case TypeKind::MAP: {
         TypePtr keyType;
@@ -607,7 +600,7 @@ class variant {
       }
       case TypeKind::ROW: {
         auto& r = row();
-        std::vector<std::shared_ptr<const Type>> children{};
+        std::vector<TypePtr> children{};
         children.reserve(r.size());
         for (auto& v : r) {
           children.push_back(v.inferType());
@@ -631,7 +624,7 @@ class variant {
         return UNKNOWN();
       }
       default:
-        return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(kind2type, kind_);
+        return createScalarType(kind_);
     }
   }
 
