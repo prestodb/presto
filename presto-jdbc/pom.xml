@@ -365,6 +365,10 @@
                                     <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>javax.inject</pattern>
+                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>jakarta.inject</pattern>
                                     <shadedPattern>${shadeBase}.jakarta.inject</shadedPattern>
                                 </relocation>

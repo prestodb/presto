@@ -31,7 +31,8 @@ import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.Column.Category;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
-import jakarta.inject.Provider;
+
+import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
