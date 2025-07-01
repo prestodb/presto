@@ -96,6 +96,14 @@ TEST_F(PlanNodeToSummaryStringTest, basic) {
           .maxOutputFields = 3,
           .maxChildTypes = 2,
       }));
+
+  ASSERT_EQ(
+      "-- Project[2]: 7 fields: p0 BIGINT, p1 BIGINT, p2 BIGINT, p3 BIGINT, p4 BIGINT, ...\n"
+      "  -- Filter[1]: 3 fields: a INTEGER, b ARRAY, c MAP\n"
+      "    -- TableScan[0]: 3 fields: a INTEGER, b ARRAY, c MAP\n",
+      plan->toSummaryString({
+          .nodeHeaderOnly = true,
+      }));
 }
 
 TEST_F(PlanNodeToSummaryStringTest, expressions) {
@@ -148,6 +156,13 @@ TEST_F(PlanNodeToSummaryStringTest, expressions) {
       "        table: hive_table\n",
       plan->toSummaryString(
           {.project = {.maxProjections = 3, .maxDereferences = 2}}));
+
+  ASSERT_EQ(
+      "-- Project[1]: 7 fields: a INTEGER, p1 ARRAY, c MAP, p3 BIGINT, y BIGINT, ...\n"
+      "  -- TableScan[0]: 4 fields: a INTEGER, b ARRAY, c MAP, d ROW(3)\n",
+      plan->toSummaryString({
+          .nodeHeaderOnly = true,
+      }));
 }
 
 TEST_F(PlanNodeToSummaryStringTest, aggregation) {
@@ -189,6 +204,14 @@ TEST_F(PlanNodeToSummaryStringTest, aggregation) {
       "  -- TableScan[0]: 3 fields: a INTEGER, b INTEGER, c INTEGER\n"
       "        table: hive_table\n",
       plan->toSummaryString({.aggregate = {.maxAggregations = 3}}));
+
+  ASSERT_EQ(
+      "-- Aggregation[1]: 6 fields: a INTEGER, a0 BIGINT, a1 DOUBLE, a2 BIGINT, a3"
+      " INTEGER, ...\n"
+      "  -- TableScan[0]: 3 fields: a INTEGER, b INTEGER, c INTEGER\n",
+      plan->toSummaryString({
+          .nodeHeaderOnly = true,
+      }));
 }
 
 } // namespace

@@ -143,6 +143,11 @@ struct PlanSummaryOptions {
   /// summary.
   size_t maxLength = 50;
 
+  /// To provide a simplified, skeleton view of the query plan by removing
+  /// additional details from node summaries. If true, the output contains just
+  /// one line per plan node.
+  bool nodeHeaderOnly = false;
+
   /// Options that apply specifically to AGGREGATION nodes.
   struct AggregateOptions {
     /// For a given AGGREGATION node, maximum number of aggregate expressions

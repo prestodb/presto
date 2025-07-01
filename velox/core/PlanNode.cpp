@@ -2997,9 +2997,9 @@ void PlanNode::toSummaryString(
 
   stream << indentation << "-- " << name() << "[" << id()
          << "]: " << summarizeOutputType(outputType(), options) << std::endl;
-
-  addSummaryDetails(indentation + "      ", options, stream);
-
+  if (!options.nodeHeaderOnly) {
+    addSummaryDetails(indentation + "      ", options, stream);
+  }
   for (auto& source : sources()) {
     source->toSummaryString(options, stream, indentationSize + 2);
   }
