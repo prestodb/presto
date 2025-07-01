@@ -358,6 +358,31 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 Enable push down inner join inequality predicates to database. For this configuration to be enabled, :ref:`admin/properties-session:\`\`optimizer_inner_join_pushdown_enabled\`\`` should be set to ``true``.
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.inequality-join-pushdown-enabled\`\``.
 
+``verbose_optimizer_info_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Use this and ``optimizers_to_enable_verbose_runtime_stats`` in development to collect valuable debugging information about the optimizer. 
+
+Set to ``true`` to use as shown in this example: 
+
+``SET SESSION verbose_optimizer_info_enabled=true;``
+
+``optimizers_to_enable_verbose_runtime_stats``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``ALL``, an optimizer rule name, or multiple comma-separated optimization rule names
+* **Default value:** ``none``
+
+Use this and ``verbose_optimizer_info_enabled`` in development to collect valuable debugging information about the optimizer. 
+
+Run the following command to use ``optimizers_to_enable_verbose_runtime_stats``: 
+
+``SET SESSION optimizers_to_enable_verbose_runtime_stats=ALL;``
+
 JDBC Properties
 ---------------
 
