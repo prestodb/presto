@@ -46,8 +46,8 @@ so make sure you have authentication enabled.
      http-server.authentication.type=CERTIFICATE
 
 - It is also possible to specify other authentication types such as
- ``KERBEROS``, ``PASSWORD``, ``JWT``, and ``OAUTH2``. Additional configuration may be
- needed.
+  ``KERBEROS``, ``PASSWORD``, ``JWT``, and ``OAUTH2``. Additional configuration may be
+  needed.
 
   .. code-block:: none
 
