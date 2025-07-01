@@ -6,4 +6,4 @@ Presto server configuration
 ---------------------------
 
 Refresh Tokens
----------------------------
+--------------
