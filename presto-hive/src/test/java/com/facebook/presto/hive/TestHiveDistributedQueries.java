@@ -31,6 +31,7 @@ import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_ST
 import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -125,10 +126,12 @@ public class TestHiveDistributedQueries
         Session enabled = Session.builder(getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, "true")
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED, "true")
                 .build();
         Session disabled = Session.builder(getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, "false")
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "false")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED, "false")
                 .build();
         try {
             getQueryRunner().execute(
