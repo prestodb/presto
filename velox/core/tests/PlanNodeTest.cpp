@@ -196,4 +196,114 @@ TEST_F(PlanNodeTest, isIndexLookupJoin) {
       outputType);
   ASSERT_TRUE(isIndexLookupJoin(indexJoinNode.get()));
 }
+
+TEST_F(PlanNodeTest, partitionedOutputNode) {
+  const PlanNodeId id{"partitionedOutputNode"};
+  const PartitionedOutputNode::Kind kind =
+      PartitionedOutputNode::Kind::kPartitioned;
+  const std::vector<TypedExprPtr> keys = {
+      std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
+  const PartitionFunctionSpecPtr partitionFunctionSpec =
+      std::make_shared<GatherPartitionFunctionSpec>();
+  const VectorSerde::Kind serdeKind = VectorSerde::Kind::kPresto;
+  PlanNodePtr source = std::make_shared<ValuesNode>("source", rowData_);
+
+  {
+    // Creating a PartitionedOutputNode with a single partition, empty keys, and
+    // a null partition function should succeed.
+    PartitionedOutputNode node(
+        id,
+        kind,
+        {},
+        1, // numPartitions
+        true, // replicateNullsAndAny
+        nullptr, // partitionFunctionSpec
+        rowType_,
+        serdeKind,
+        source);
+    // Attempting to dereference the nullptr should fail.
+    ASSERT_EQ(node.partitionFunctionSpecPtr(), nullptr);
+    VELOX_ASSERT_THROW(node.partitionFunctionSpec(), "");
+  }
+
+  // Creating a PartitionedOutputNode that is not partitioned and has empty keys
+  // and a partition function (even kinds other than partitioned still use a
+  // partition function) should succeed.
+  {
+    PartitionedOutputNode node(
+        id,
+        PartitionedOutputNode::Kind::kArbitrary,
+        {},
+        10, // numPartitions
+        true, // replicateNullsAndAny
+        partitionFunctionSpec,
+        rowType_,
+        serdeKind,
+        source);
+    // We should be able to dereference the partition function spec.
+    ASSERT_EQ(node.partitionFunctionSpecPtr(), partitionFunctionSpec);
+    ASSERT_EQ(
+        node.partitionFunctionSpec().toString(),
+        partitionFunctionSpec->toString());
+  }
+
+  // Creating a PartitionedOutputNode with numPartitions = 0 should throw.
+  VELOX_ASSERT_THROW(
+      PartitionedOutputNode(
+          id,
+          kind,
+          keys,
+          0, // numPartitions
+          true, // replicateNullsAndAny
+          partitionFunctionSpec,
+          rowType_,
+          serdeKind,
+          source),
+      "");
+
+  // Creating a PartitionedOutputNode with numPartitions = 1 and non-empty
+  // keys should throw.
+  VELOX_ASSERT_THROW(
+      PartitionedOutputNode(
+          id,
+          kind,
+          keys,
+          1, // numPartitions
+          true, // replicateNullsAndAny
+          partitionFunctionSpec,
+          rowType_,
+          serdeKind,
+          source),
+      "Non-empty partitioning keys require more than one partition");
+
+  // Creating a PartitionedOutputNode with numPartitions > 1 and no partition
+  // function should throw.
+  VELOX_ASSERT_THROW(
+      PartitionedOutputNode(
+          id,
+          kind,
+          keys,
+          5, // numPartitions
+          true, // replicateNullsAndAny
+          nullptr, // partitionFunctionSpec
+          rowType_,
+          serdeKind,
+          source),
+      "Partition function spec must be specified when the number of destinations is more than 1.");
+
+  // Creating a PartitionedOutputNode that is not partitioned with non-empty
+  // keys should throw.
+  VELOX_ASSERT_THROW(
+      PartitionedOutputNode(
+          id,
+          PartitionedOutputNode::Kind::kArbitrary,
+          keys,
+          5, // numPartitions
+          true, // replicateNullsAndAny
+          partitionFunctionSpec,
+          rowType_,
+          serdeKind,
+          source),
+      "partitioning doesn't allow for partitioning keys");
+}
 } // namespace

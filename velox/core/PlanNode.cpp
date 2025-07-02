@@ -2590,6 +2590,10 @@ PartitionedOutputNode::PartitionedOutputNode(
     VELOX_USER_CHECK(
         keys_.empty(),
         "Non-empty partitioning keys require more than one partition");
+  } else {
+    VELOX_USER_CHECK_NOT_NULL(
+        partitionFunctionSpec_,
+        "Partition function spec must be specified when the number of destinations is more than 1.");
   }
   if (!isPartitioned()) {
     VELOX_USER_CHECK(

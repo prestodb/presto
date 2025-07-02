@@ -2637,6 +2637,7 @@ class PartitionedOutputNode : public PlanNode {
   }
 
   const PartitionFunctionSpec& partitionFunctionSpec() const {
+    VELOX_CHECK_NOT_NULL(partitionFunctionSpec_);
     return *partitionFunctionSpec_;
   }
 
