@@ -44,6 +44,10 @@ add_executable(velox_benchmark_basic_decoded_vector DecodedVector.cpp)
 target_link_libraries(
   velox_benchmark_basic_decoded_vector ${velox_benchmark_deps})
 
+add_executable(velox_benchmark_estimate_flat_size EstimateFlatSizeBenchmark.cpp)
+target_link_libraries(
+  velox_benchmark_estimate_flat_size ${velox_benchmark_deps})
+
 add_executable(velox_benchmark_basic_selectivity_vector SelectivityVector.cpp)
 target_link_libraries(
   velox_benchmark_basic_selectivity_vector ${velox_benchmark_deps})
