@@ -101,7 +101,7 @@ public class TestJdbcExternalAuthentication
         Logging.initialize();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("http-server.authentication.type", "CUSTOM")
+                .put("http-server.authentication.type", "TEST_EXTERNAL")
                 .put("http-server.https.enabled", "true")
                 .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                 .put("http-server.https.keystore.key", "changeit")
