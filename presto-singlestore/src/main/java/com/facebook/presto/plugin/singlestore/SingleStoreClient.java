@@ -144,16 +144,19 @@ public class SingleStoreClient
             if (varcharType.isUnbounded()) {
                 return "longtext";
             }
-            if (varcharType.getLengthSafe() <= 255) {
-                return "tinytext";
+            if (varcharType.getLengthSafe() <= 21844) {
+                // 21844 is the maximum length a singlestore varchar supports.
+                return super.toSqlType(type);
             }
-            if (varcharType.getLengthSafe() <= 65535) {
-                return "text";
-            }
-            if (varcharType.getLengthSafe() <= 16777215) {
+            if (varcharType.getLengthSafe() <= 5592405) { // 16MB
                 return "mediumtext";
             }
-            return "longtext";
+            if (varcharType.getLengthSafe() <= 1431655765) { // 100MB to 1GB
+                return "longtext"; // max = 1431655765
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported column width: " + varcharType.getLengthSafe());
+            }
         }
 
         return super.toSqlType(type);
