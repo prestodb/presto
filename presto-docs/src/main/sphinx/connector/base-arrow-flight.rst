@@ -62,7 +62,8 @@ Property Name                               Description
 Mutual TLS (mTLS) Support
 -------------------------
 
-To enable mutual TLS (mTLS) authentication between the Presto client and the Arrow Flight server, you must configure the client to present a valid certificate and key that the server can validate. This enhances security by ensuring both the client and server authenticate each other.
+
+To connect the Presto client to an Arrow Flight server with mutual TLS (mTLS) enabled, you must configure the client to present a valid certificate and key that the server can validate. This enhances security by ensuring both the client and server authenticate each other.
 
 To enable mTLS, the following properties must be configured:
 
