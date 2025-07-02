@@ -87,11 +87,13 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_C
 import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getDeleteAsJoinRewriteMaxDeleteColumns;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isDeleteToJoinPushdownEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteFiles;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -132,7 +134,9 @@ public class IcebergEqualityDeleteAsJoin
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        if (!isDeleteToJoinPushdownEnabled(session)) {
+        int maxDeleteColumns = getDeleteAsJoinRewriteMaxDeleteColumns(session);
+        checkArgument(maxDeleteColumns >= 0, "maxDeleteColumns must be non-negative, got %s", maxDeleteColumns);
+        if (!isDeleteToJoinPushdownEnabled(session) || maxDeleteColumns == 0) {
             return maxSubplan;
         }
         return rewriteWith(new DeleteAsJoinRewriter(functionResolution,
@@ -195,6 +199,10 @@ public class IcebergEqualityDeleteAsJoin
 
             if (deleteSchemas.isEmpty()) {
                 // no equality deletes
+                return node;
+            }
+            if (deleteSchemas.keySet().stream().anyMatch(equalityIds -> equalityIds.size() > getDeleteAsJoinRewriteMaxDeleteColumns(session))) {
+                // Too many fields in the delete schema, don't rewrite
                 return node;
             }
 

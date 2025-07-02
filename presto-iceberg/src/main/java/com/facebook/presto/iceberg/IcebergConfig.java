@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
@@ -60,6 +61,7 @@ public class IcebergConfig
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
+    private int deleteAsJoinRewriteMaxDeleteColumns = 400;
     private int rowsForMetadataOptimizationThreshold = 1000;
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
@@ -267,17 +269,37 @@ public class IcebergConfig
         return pushdownFilterEnabled;
     }
 
-    @Config("iceberg.delete-as-join-rewrite-enabled")
-    @ConfigDescription("When enabled, equality delete row filtering will be implemented by rewriting the query plan to join with the delete keys.")
+    @LegacyConfig(value = "iceberg.delete-as-join-rewrite-enabled")
+    @Config("deprecated.iceberg.delete-as-join-rewrite-enabled")
+    @ConfigDescription("When enabled, equality delete row filtering will be implemented by rewriting the query plan to join with the delete keys. " +
+            "Deprecated: Set 'iceberg.delete-as-join-rewrite-max-delete-columns' to 0 to control the enabling of this feature.  This will be removed in a future release.")
+    @Deprecated
     public IcebergConfig setDeleteAsJoinRewriteEnabled(boolean deleteAsJoinPushdownEnabled)
     {
         this.deleteAsJoinRewriteEnabled = deleteAsJoinPushdownEnabled;
         return this;
     }
 
+    @Deprecated
     public boolean isDeleteAsJoinRewriteEnabled()
     {
         return deleteAsJoinRewriteEnabled;
+    }
+
+    @Config("iceberg.delete-as-join-rewrite-max-delete-columns")
+    @ConfigDescription("The maximum number of columns that can be used in a delete as join rewrite. " +
+            "If the number of columns exceeds this value, the delete as join rewrite will not be applied.")
+    @Min(0)
+    @Max(400)
+    public IcebergConfig setDeleteAsJoinRewriteMaxDeleteColumns(int deleteAsJoinRewriteMaxDeleteColumns)
+    {
+        this.deleteAsJoinRewriteMaxDeleteColumns = deleteAsJoinRewriteMaxDeleteColumns;
+        return this;
+    }
+
+    public int getDeleteAsJoinRewriteMaxDeleteColumns()
+    {
+        return deleteAsJoinRewriteMaxDeleteColumns;
     }
 
     @Config("iceberg.rows-for-metadata-optimization-threshold")

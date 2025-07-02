@@ -45,6 +45,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.ConnectorHistogram;
@@ -113,6 +114,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -143,12 +145,15 @@ import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -2905,5 +2910,150 @@ public abstract class IcebergDistributedTestBase
     {
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
+    @Test
+    public void testEqualityDeleteAsJoinWithMaximumFieldsLimitUnderLimit()
+            throws Exception
+    {
+        int maxColumns = 10;
+        String tableName = "test_eq_delete_under_max_cols_" + randomTableSuffix();
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, DELETE_AS_JOIN_REWRITE_ENABLED, "true")
+                // Make sure the max columns is set to one more than the number of columns in the table
+                .setCatalogSessionProperty(ICEBERG_CATALOG, DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS, "" + (maxColumns + 1))
+                .build();
+
+        try {
+            // Test with exactly max columns - should work fine
+            // Create table with specified number of columns
+            List<String> columnDefinitions = IntStream.range(0, maxColumns)
+                    .mapToObj(i -> "col_" + i + " varchar")
+                    .collect(Collectors.toList());
+            columnDefinitions.add(0, "id bigint");
+
+            String createTableSql = "CREATE TABLE " + tableName + " (" +
+                    String.join(", ", columnDefinitions) + ")";
+            assertUpdate(session, createTableSql);
+
+            // Insert test rows
+            for (int row = 1; row <= 3; row++) {
+                final int currentRow = row;
+                List<String> values = IntStream.range(0, maxColumns)
+                        .mapToObj(i -> "'val_" + currentRow + "_" + i + "'")
+                        .collect(Collectors.toList());
+                values.add(0, String.valueOf(currentRow));
+
+                String insertSql = "INSERT INTO " + tableName + " VALUES (" +
+                        String.join(", ", values) + ")";
+                assertUpdate(session, insertSql, 1);
+            }
+
+            // Verify all rows exist
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES (3)");
+
+            // Update table to format version 2 and create equality delete files
+            Table icebergTable = updateTable(tableName);
+
+            // Create equality delete using ALL columns
+            Map<String, Object> deleteRow = new HashMap<>();
+            deleteRow.put("id", 2L);
+            for (int i = 0; i < maxColumns; i++) {
+                deleteRow.put("col_" + i, "val_2_" + i);
+            }
+
+            // Write equality delete with ALL columns
+            writeEqualityDeleteToNationTable(icebergTable, deleteRow);
+
+            // Query should work correctly regardless of optimization
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES (2)");
+            assertQuery(session, "SELECT id FROM " + tableName + " ORDER BY id", "VALUES (1), (3)");
+
+            // With <= max columns, query plan should use JOIN (optimization enabled)
+            assertPlan(session, "SELECT * FROM " + tableName,
+                    anyTree(
+                        node(JoinNode.class,
+                            anyTree(tableScan(tableName)),
+                            anyTree(tableScan(tableName)))));
+        }
+        finally {
+            dropTable(session, tableName);
+        }
+    }
+
+    @Test
+    public void testEqualityDeleteAsJoinWithMaximumFieldsLimitOverLimit()
+            throws Exception
+    {
+        int maxColumns = 10;
+        String tableName = "test_eq_delete_max_cols_" + randomTableSuffix();
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, DELETE_AS_JOIN_REWRITE_ENABLED, "true")
+                .setCatalogSessionProperty(ICEBERG_CATALOG, DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS, "" + maxColumns)
+                .build();
+
+        try {
+            // Test with max columns - optimization should be disabled to prevent stack overflow
+            // Create table with specified number of columns
+            List<String> columnDefinitions = IntStream.range(0, maxColumns)
+                    .mapToObj(i -> "col_" + i + " varchar")
+                    .collect(Collectors.toList());
+            columnDefinitions.add(0, "id bigint");
+
+            String createTableSql = "CREATE TABLE " + tableName + " (" +
+                    String.join(", ", columnDefinitions) + ")";
+            assertUpdate(session, createTableSql);
+
+            // Insert test rows
+            for (int row = 1; row <= 3; row++) {
+                final int currentRow = row;
+                List<String> values = IntStream.range(0, maxColumns)
+                        .mapToObj(i -> "'val_" + currentRow + "_" + i + "'")
+                        .collect(Collectors.toList());
+                values.add(0, String.valueOf(currentRow));
+
+                String insertSql = "INSERT INTO " + tableName + " VALUES (" +
+                        String.join(", ", values) + ")";
+                assertUpdate(session, insertSql, 1);
+            }
+
+            // Verify all rows exist
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES (3)");
+
+            // Update table to format version 2 and create equality delete files
+            Table icebergTable = updateTable(tableName);
+
+            // Create equality delete using ALL columns
+            Map<String, Object> deleteRow = new HashMap<>();
+            deleteRow.put("id", 2L);
+            for (int i = 0; i < maxColumns; i++) {
+                deleteRow.put("col_" + i, "val_2_" + i);
+            }
+
+            // Write equality delete with ALL columns
+            writeEqualityDeleteToNationTable(icebergTable, deleteRow);
+
+            // Query should work correctly regardless of optimization
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES (2)");
+            assertQuery(session, "SELECT id FROM " + tableName + " ORDER BY id", "VALUES (1), (3)");
+
+            // With > max columns, optimization is disabled - no JOIN in plan
+            // Verify the query works but doesn't contain a join node
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE id = 1",
+                    "VALUES (" + Stream.concat(Stream.of("1"),
+                            IntStream.range(0, maxColumns).mapToObj(i -> "'val_1_" + i + "'"))
+                            .collect(Collectors.joining(", ")) + ")");
+
+            // To verify no join is present, we can check that the plan only contains table scan
+            assertPlan(session, "SELECT * FROM " + tableName,
+                    anyTree(
+                            anyNot(JoinNode.class,
+                                    tableScan(tableName))));
+        }
+        finally {
+            dropTable(session, tableName);
+        }
     }
 }
