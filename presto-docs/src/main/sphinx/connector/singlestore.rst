@@ -75,6 +75,50 @@ For :doc:`/sql/create-table` statement, the default table type is ``columnstore`
 The table type can be configured by setting the ``default_table_type`` engine variable, see 
 `Creating a Columnstore Table <https://docs.singlestore.com/cloud/create-a-database/creating-a-columnstore-table/>`_.
 
+SingleStore to PrestoDB type mapping
+------------------------------------
+
+Map of SingleStore types to the relevant PrestoDB types:
+
+.. list-table:: SingleStore to PrestoDB type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - SingleStore type
+    - PrestoDB type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``LARGETEXT``
+    - ``VARCHAR (unbounded)``
+  * - ``VARCHAR(len)``
+    - ``VARCHAR(len) len < 21845``
+  * - ``CHAR(len)``
+    - ``CHAR(len)``
+  * - ``MEDIUMTEXT``
+    - ``VARCHAR(len) 21845 <= len < 5592405``
+  * - ``LARGETEXT``
+    - ``VARCHAR(len) 5592405 <= len < 1431655765``
+  * - ``MEDIUMBLOB``
+    - ``VARBINARY``
+  * - ``UUID``
+    - ``UUID``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME``
+    - ``TIME``
+  * - ``DATETIME``
+    - ``TIMESTAMP``
+
+No other types are supported.
+
 The following SQL statements are not supported:
 
 * :doc:`/sql/alter-schema`
