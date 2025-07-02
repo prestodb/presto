@@ -194,8 +194,7 @@ TypePtr Type::create(const folly::dynamic& obj) {
         names.push_back(name.asString());
       }
 
-      return std::make_shared<const RowType>(
-          std::move(names), std::move(childTypes));
+      return ROW(std::move(names), std::move(childTypes));
     }
 
     case TypeKind::OPAQUE: {
@@ -514,18 +513,14 @@ void RowType::printChildren(std::stringstream& ss, std::string_view delimiter)
   }
 }
 
-std::shared_ptr<RowType> RowType::unionWith(
-    std::shared_ptr<const RowType> rowType) const {
+RowTypePtr RowType::unionWith(const RowTypePtr& other) const {
   std::vector<std::string> names;
   std::vector<TypePtr> types;
   copy(names_.begin(), names_.end(), back_inserter(names));
-  copy(rowType->names_.begin(), rowType->names_.end(), back_inserter(names));
+  copy(other->names_.begin(), other->names_.end(), back_inserter(names));
   copy(children_.begin(), children_.end(), back_inserter(types));
-  copy(
-      rowType->children_.begin(),
-      rowType->children_.end(),
-      back_inserter(types));
-  return std::make_shared<RowType>(std::move(names), std::move(types));
+  copy(other->children_.begin(), other->children_.end(), back_inserter(types));
+  return ROW(std::move(names), std::move(types));
 }
 
 std::string RowType::toString() const {
@@ -862,17 +857,15 @@ void OpaqueType::registerSerializationTypeErased(
   registry.reverse[persistentName] = type;
 }
 
-std::shared_ptr<const ArrayType> ARRAY(TypePtr elementType) {
-  return std::make_shared<const ArrayType>(std::move(elementType));
+ArrayTypePtr ARRAY(TypePtr elementType) {
+  return std::make_shared<ArrayType>(std::move(elementType));
 }
 
-std::shared_ptr<const RowType> ROW(
-    std::vector<std::string>&& names,
-    std::vector<TypePtr>&& types) {
+RowTypePtr ROW(std::vector<std::string> names, std::vector<TypePtr> types) {
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
-std::shared_ptr<const RowType> ROW(
+RowTypePtr ROW(
     std::initializer_list<std::pair<const std::string, TypePtr>>&& pairs) {
   std::vector<TypePtr> types;
   std::vector<std::string> names;
@@ -885,20 +878,19 @@ std::shared_ptr<const RowType> ROW(
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
-std::shared_ptr<const RowType> ROW(std::vector<TypePtr>&& types) {
+RowTypePtr ROW(std::vector<TypePtr>&& types) {
   std::vector<std::string> names(types.size(), "");
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
-std::shared_ptr<const MapType> MAP(TypePtr keyType, TypePtr valType) {
-  return std::make_shared<const MapType>(
-      std::move(keyType), std::move(valType));
+MapTypePtr MAP(TypePtr keyType, TypePtr valType) {
+  return std::make_shared<MapType>(std::move(keyType), std::move(valType));
 }
 
 std::shared_ptr<const FunctionType> FUNCTION(
     std::vector<TypePtr>&& argumentTypes,
     TypePtr returnType) {
-  return std::make_shared<const FunctionType>(
+  return std::make_shared<FunctionType>(
       std::move(argumentTypes), std::move(returnType));
 }
 
