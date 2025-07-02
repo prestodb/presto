@@ -32,6 +32,9 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+// #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
+#include "presto_cpp/main/tvf/core/TableFunctionNode.h"
+// #endif
 #include "presto_cpp/main/types/TypeParser.h"
 
 using namespace facebook::velox;
@@ -2263,6 +2266,11 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+
+  // #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
+  registry.Register(
+      "TableFunctionNode", presto::tvf::TableFunctionNode::create);
+  // #endif
 }
 
 void parseSqlFunctionHandle(
