@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -1263,6 +1264,16 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitIndexSource(IndexSourceNode node, PreferredProperties preferredProperties)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singleStreamPartition())
+                            .build());
+        }
+
+        @Override
+        public PlanWithProperties visitMetadataDelete(MetadataDeleteNode node, PreferredProperties preferredProperties)
         {
             return new PlanWithProperties(
                     node,
