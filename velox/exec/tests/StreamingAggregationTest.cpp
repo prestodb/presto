@@ -1185,5 +1185,21 @@ TEST_P(StreamingAggregationTest, distinctAggregationsWithBarrier) {
   testMultiKeyDistinctAggregationWithBarrier(multiKeys, 1024);
   testMultiKeyDistinctAggregationWithBarrier(multiKeys, 3);
 }
+
+TEST_P(StreamingAggregationTest, constantInput) {
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 1, 2, 2})});
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .partialStreamingAggregation({"c0"}, {"array_agg(3)"})
+                  .finalAggregation()
+                  .planNode();
+  auto expected = makeRowVector({
+      makeFlatVector<int32_t>({1, 2}),
+      makeArrayVector<int64_t>({{3, 3}, {3, 3}}),
+  });
+  config(AssertQueryBuilder(plan), 1).assertResults(expected);
+  config(AssertQueryBuilder(plan), 10).assertResults(expected);
+}
+
 } // namespace
 } // namespace facebook::velox::exec

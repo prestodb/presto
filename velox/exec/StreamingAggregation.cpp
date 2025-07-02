@@ -283,7 +283,8 @@ void StreamingAggregation::evaluateAggregates() {
     std::vector<VectorPtr> args;
     for (auto j = 0; j < inputs.size(); ++j) {
       if (inputs[j] == kConstantChannel) {
-        args.push_back(constantInputs[j]);
+        args.push_back(
+            BaseVector::wrapInConstant(input_->size(), 0, constantInputs[j]));
       } else {
         args.push_back(input_->childAt(inputs[j]));
       }
