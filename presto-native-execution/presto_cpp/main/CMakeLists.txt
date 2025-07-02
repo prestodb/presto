@@ -102,6 +102,29 @@ endif()
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
                       ${THRIFT_LIBRARY})
 
+set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
+                                               presto_link_job_pool)
+
+add_executable(presto_server PrestoMain.cpp)
+
+# Moving velox_hive_connector and velox_tpch_connector to presto_server_lib
+# results in multiple link errors similar to the one below only on GCC.
+# "undefined reference to `vtable for velox::connector::tpch::TpchTableHandle`"
+# TODO: Fix these errors.
+target_link_libraries(presto_server presto_server_lib velox_hive_connector
+                      velox_tpch_connector)
+
+# Clang requires explicit linking with libatomic.
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+   AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
+  target_link_libraries(presto_server atomic)
+endif()
+
+# if(PRESTO_ENABLE_TABLE_FUNCTIONS) add_subdirectory(tvf)
+add_subdirectory(tvf)
+target_link_libraries(presto_server_lib presto_tvf_exec presto_tvf_functions)
+# endif()
+
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp
                                             RemoteFunctionRegisterer.cpp)
