@@ -922,7 +922,7 @@ Parquet Data Page Version
 ----------------------
 
 Presto supports Parquet Data Page versions V1 and V2 for the Hive catalog.
-It can be toggled using the session property ``parquet_writer_datapage_version`` and the config property ``hive.parquet.writer.datapage.version``.
+Select the version ``V1`` or ``V2`` using the session property ``parquet_writer_datapage_version`` and the configuration property ``hive.parquet.writer.datapage.version``.
 Valid values for these properties are ``V1`` and ``V2``. Default is ``V1``.
 
 The former session property that handled this toggle, ``parquet_writer_version``, is now deprecated.
