@@ -200,6 +200,20 @@ AbstractClasses:
       - { name: SqlFunctionHandle,          key: json_file }
       - { name: SqlFunctionHandle,          key: sql_function_handle }
 
+  ArgumentSpecification:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescriptorArgumentSpecification,       key: descriptor }
+      - { name: NativeScalarArgumentSpecification,     key: scalar }
+      - { name: TableArgumentSpecification,            key: table }
+
+  ReturnTypeSpecification:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescribedTableReturnTypeSpecification,       key: described_table }
+      - { name: GenericTableReturnTypeSpecification,         key: generic_table }
+      - { name: OnlyPassThroughReturnTypeSpecification,      key: only_pass_through_table }
+
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
@@ -349,3 +363,13 @@ JavaClasses:
   - presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DeleteNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/BaseInputDistribution.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/AbstractConnectorTableFunction.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ArgumentSpecification.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeScalarArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/TableArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/Descriptor.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescribedTableReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/GenericTableReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/OnlyPassThroughReturnTypeSpecification.java

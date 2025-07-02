@@ -41,7 +41,7 @@ IGNORED_TYPES = {
 language = {
     "cpp": {
         "TypeMap": {
-            r"([ ,<])(ColumnHandle|PlanNode|RowExpression|ConnectorMetadataUpdateHandle|ConnectorDeleteTableHandle)([ ,>])": r"\1std::shared_ptr<\2>\3",
+            r"([ ,<])(ColumnHandle|PlanNode|RowExpression|ConnectorMetadataUpdateHandle|ConnectorDeleteTableHandle|ArgumentSpecification)([ ,>])": r"\1std::shared_ptr<\2>\3",
             r"Optional<int\[\]>": "Optional<List<int>>",
             r"Optional<byte\[\]>": "Optional<List<byte>>",
             r"int\[\]": "List<int>",

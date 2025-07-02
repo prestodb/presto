@@ -38,6 +38,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.CatalogSchemaFunctionName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -55,7 +56,11 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+import com.facebook.presto.spi.tvf.TVFProvider;
+import com.facebook.presto.spi.tvf.TVFProviderContext;
+import com.facebook.presto.spi.tvf.TVFProviderFactory;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -72,6 +77,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.weakref.jmx.Managed;
@@ -102,6 +108,7 @@ import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFun
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.metadata.TableFunctionRegistry.toPath;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -153,6 +160,9 @@ public class FunctionAndTypeManager
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
+    private final Map<String, TVFProviderFactory> tvfProviderFactories = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, TVFProvider> tvfProviders = new ConcurrentHashMap<>();
+    private final AtomicReference<TVFProvider> servingTableFunctionsProvider;
 
     @Inject
     public FunctionAndTypeManager(
@@ -186,6 +196,7 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
+        this.servingTableFunctionsProvider = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -349,6 +360,33 @@ public class FunctionAndTypeManager
         }
     }
 
+    public void loadTVFProvider(String tvfProviderName, NodeManager nodeManager)
+    {
+        requireNonNull(tvfProviderName, "tvfProviderName is null");
+        TVFProviderFactory factory = tvfProviderFactories.get(tvfProviderName);
+        checkState(factory != null, "No factory for tvf provider %s", tvfProviderName);
+        TVFProvider tvfProvider = factory.createTVFProvider(tvfProviderName, ImmutableMap.of(), new TVFProviderContext(nodeManager));
+
+        if (tvfProviders.putIfAbsent(new ConnectorId(tvfProviderName), tvfProvider) != null) {
+            throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
+        }
+        servingTableFunctionsProvider.compareAndSet(servingTableFunctionsProvider.get(), tvfProvider);
+    }
+
+    public void loadTVFProviders(NodeManager nodeManager)
+    {
+        for (String tvfProviderName : tvfProviderFactories.keySet()) {
+            loadTVFProvider(tvfProviderName, nodeManager);
+        }
+    }
+
+    public void addTVFProviderFactory(TVFProviderFactory factory)
+    {
+        if (tvfProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("TVF provider '%s' is already registered", factory.getName()));
+        }
+    }
+
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
@@ -444,6 +482,23 @@ public class FunctionAndTypeManager
         if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
         }
+    }
+
+    public TableFunctionMetadata resolveTableFunction(Session session, QualifiedName qualifiedName)
+    {
+        // Fetch if it's a builtin function first
+        TableFunctionMetadata tableFunctionMetadata =
+                 servingTableFunctionsProvider.get()
+                         .resolveTableFunction(
+                                 getFunctionAndTypeResolver()
+                                         .qualifyObjectName(qualifiedName).getObjectName());
+        if (tableFunctionMetadata == null) {
+            // populate the registry before trying to resolve the table functions from table functions provider
+            CatalogSchemaFunctionName name = toPath(session, qualifiedName);
+            ConnectorId connectorId = new ConnectorId(name.getCatalogName());
+            return tableFunctionRegistry.resolve(connectorId, name);
+        }
+        return tableFunctionMetadata;
     }
 
     public TransactionManager getTransactionManager()

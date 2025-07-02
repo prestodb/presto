@@ -58,8 +58,7 @@ class TableFunction {
 
   static std::unique_ptr<TableFunctionAnalysis> analyze(
       const std::string& name,
-      const std::unordered_map<std::string, std::shared_ptr<Argument>>& args,
-      const velox::core::QueryConfig& config);
+      const std::unordered_map<std::string, std::shared_ptr<Argument>>& args);
 
   virtual std::shared_ptr<TableFunctionResult> apply(
       const std::vector<velox::RowVectorPtr>& input) {
@@ -90,8 +89,7 @@ using TableFunctionFactory = std::function<std::unique_ptr<TableFunction>(
 
 using TableFunctionAnalyzer =
     std::function<std::unique_ptr<TableFunctionAnalysis>(
-        const std::unordered_map<std::string, std::shared_ptr<Argument>>& args,
-        const velox::core::QueryConfig& config)>;
+        const std::unordered_map<std::string, std::shared_ptr<Argument>>& args)>;
 
 /// Register a Table function with the specified name.
 /// Registering a function with the same name a second time overrides the first

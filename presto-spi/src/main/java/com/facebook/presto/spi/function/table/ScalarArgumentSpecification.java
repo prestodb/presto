@@ -15,6 +15,10 @@ package com.facebook.presto.spi.function.table;
 
 import com.facebook.presto.common.predicate.Primitives;
 import com.facebook.presto.common.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -25,7 +29,12 @@ public class ScalarArgumentSpecification
 {
     private final Type type;
 
-    private ScalarArgumentSpecification(String name, Type type, boolean required, Object defaultValue)
+    @JsonCreator
+    public ScalarArgumentSpecification(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") Type type,
+            @JsonProperty("required") boolean required,
+            @Nullable Object defaultValue)
     {
         super(name, required, defaultValue);
         this.type = requireNonNull(type, "type is null");
@@ -34,6 +43,7 @@ public class ScalarArgumentSpecification
         }
     }
 
+    @JsonProperty
     public Type getType()
     {
         return type;

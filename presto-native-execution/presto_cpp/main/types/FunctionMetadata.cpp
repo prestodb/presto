@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/FunctionMetadata.h"
+#include "presto_cpp/main/tvf/spi/TableFunction.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
@@ -20,6 +21,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
+using namespace facebook::presto::tvf;
 
 namespace facebook::presto {
 
@@ -264,6 +266,85 @@ json buildWindowMetadata(
   return j;
 }
 
+protocol::Descriptor buildDescriptor(const Descriptor& descriptor) {
+  // types could be empty, pre-process that case
+  auto names = descriptor.names();
+  auto types = descriptor.types();
+  std::vector<protocol::Field> fields;
+  for (int i = 0; i < names.size(); i++) {
+    std::shared_ptr<std::string> type = (i < types.size())
+        ? std::make_shared<std::string>(types.at(i)->toString())
+        : nullptr;
+    fields.emplace_back(protocol::Field{names[i], type});
+  }
+  return protocol::Descriptor{fields};
+}
+
+std::vector<std::shared_ptr<protocol::ArgumentSpecification>>
+buildArgumentSpecsList(TableArgumentSpecList argumentsSpec) {
+  std::vector<std::shared_ptr<protocol::ArgumentSpecification>>
+      argumentsSpecsList;
+  for (const auto argumentSpec : argumentsSpec) {
+    if (auto scalarArgumentSpec =
+            std::dynamic_pointer_cast<ScalarArgumentSpecification>(
+                argumentSpec)) {
+      auto nativeScalarArgumentSpecification =
+          std::make_shared<protocol::NativeScalarArgumentSpecification>();
+      nativeScalarArgumentSpecification->name = scalarArgumentSpec->name();
+      nativeScalarArgumentSpecification->required =
+          scalarArgumentSpec->required();
+      nativeScalarArgumentSpecification->type =
+          scalarArgumentSpec->rowType()->toString();
+      argumentsSpecsList.emplace_back(nativeScalarArgumentSpecification);
+    } else if (
+        auto tableArgumentSpec =
+            std::dynamic_pointer_cast<TableArgumentSpecification>(
+                argumentSpec)) {
+      auto tableArgumentSpecification =
+          std::make_shared<protocol::TableArgumentSpecification>();
+      tableArgumentSpecification->name = tableArgumentSpec->name();
+      tableArgumentSpecification->passThroughColumns = false;
+      tableArgumentSpecification->pruneWhenEmpty = true;
+      tableArgumentSpecification->rowSemantics = true;
+      argumentsSpecsList.emplace_back(tableArgumentSpecification);
+    } else if (
+        auto descriptorArgumentSpec =
+            std::dynamic_pointer_cast<DescriptorArgumentSpecification>(
+                argumentSpec)) {
+      auto descriptorArgumentSpecification =
+          std::make_shared<protocol::DescriptorArgumentSpecification>();
+      descriptorArgumentSpecification->name = descriptorArgumentSpec->name();
+      descriptorArgumentSpecification->defaultValue =
+          buildDescriptor(descriptorArgumentSpec->descriptor());
+          descriptorArgumentSpecification->required = false;
+      argumentsSpecsList.emplace_back(descriptorArgumentSpecification);
+    } else {
+      VELOX_FAIL("Failed to convert to a valid argumentSpec");
+    }
+  }
+  return argumentsSpecsList;
+}
+
+std::shared_ptr<protocol::ReturnTypeSpecification> buildReturnTypeSpecification(
+    ReturnSpecPtr returnSpec) {
+  auto returnTypeSpecification = returnSpec->returnType();
+  if (returnTypeSpecification ==
+      ReturnTypeSpecification::ReturnType::kGenericTable) {
+    std::shared_ptr<protocol::GenericTableReturnTypeSpecification>
+        genericTableReturnTypeSpecification
+        = std::make_shared<protocol::GenericTableReturnTypeSpecification>();
+    return genericTableReturnTypeSpecification;
+  } else {
+    std::shared_ptr<protocol::DescribedTableReturnTypeSpecification>
+    describedTableReturnTypeSpecification
+        = std::make_shared<protocol::DescribedTableReturnTypeSpecification>();
+    auto describedTable =
+        std::dynamic_pointer_cast<DescribedTableReturnType>(returnSpec);
+    describedTableReturnTypeSpecification->descriptor =
+        buildDescriptor(*(describedTable->descriptor()));
+    return describedTableReturnTypeSpecification;
+  }
+}
 } // namespace
 
 json getFunctionsMetadata() {
@@ -319,4 +400,28 @@ json getFunctionsMetadata() {
   return j;
 }
 
+json getTableValuedFunctionsMetadata() {
+  json j;
+  // Get metadata for all registered table valued functions in velox.
+  const auto signatures = tableFunctions();
+  for (const auto& entry : signatures) {
+    const auto parts = getFunctionNameParts(entry.first);
+    const auto schema = parts[1];
+    const auto functionName = parts[2];
+
+    protocol::AbstractConnectorTableFunction function;
+    json tj;
+    function.name = functionName;
+    function.schema = schema;
+    function.returnTypeSpecification =
+        buildReturnTypeSpecification(
+          getTableFunctionReturnType(entry.first));
+    function.arguments = 
+        buildArgumentSpecsList(
+          getTableFunctionArgumentSpecs(entry.first));
+    protocol::to_json(tj, function);
+    j[functionName] = tj;
+  }
+  return j;
+}
 } // namespace facebook::presto

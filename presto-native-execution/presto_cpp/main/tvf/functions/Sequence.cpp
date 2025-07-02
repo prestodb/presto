@@ -109,8 +109,7 @@ class Sequence : public TableFunction {
       : TableFunction(pool, nullptr) {}
 
   static std::unique_ptr<TableFunctionAnalysis> analyze(
-      const std::unordered_map<std::string, std::shared_ptr<Argument>>& args,
-      const velox::core::QueryConfig& /*queryConfig*/) {
+      const std::unordered_map<std::string, std::shared_ptr<Argument>>& args) {
     VELOX_CHECK_GT(args.count(START_ARGUMENT_NAME), 0, "START arg not found");
     VELOX_CHECK_GT(args.count(STOP_ARGUMENT_NAME), 0, "STOP arg not found");
 
