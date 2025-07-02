@@ -741,7 +741,7 @@ bool QuantileDigest<T, Allocator>::validateDigest() const {
       root_,
       [&free, &visited](int32_t node) {
         VELOX_CHECK_EQ(free.count(node), 0);
-        VELOX_CHECK_EQ(visited[node], false);
+        VELOX_CHECK_EQ(bool(visited[node]), false);
         visited[node] = true;
 
         return true;
