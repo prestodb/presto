@@ -305,13 +305,6 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct Argument : public JsonEncodedSubclass {
-  String name = {};
-};
-void to_json(json& j, const std::shared_ptr<Argument>& p);
-void from_json(const json& j, std::shared_ptr<Argument>& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct ExecutionWriterTarget : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
@@ -320,6 +313,11 @@ namespace facebook::presto::protocol {
 struct ConnectorSplit : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct Argument : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<Argument>& p);
+void from_json(const json& j, std::shared_ptr<Argument>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ConnectorOutputTableHandle : public JsonEncodedSubclass {};
@@ -535,15 +533,6 @@ struct AnalyzeTableHandle {
 };
 void to_json(json& j, const AnalyzeTableHandle& p);
 void from_json(const json& j, AnalyzeTableHandle& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct Argument : public JsonEncodedSubclass {
-  String name = {};
-
-  Argument() noexcept;
-};
-void to_json(json& j, const Argument& p);
-void from_json(const json& j, Argument& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct AssignUniqueId : public PlanNode {

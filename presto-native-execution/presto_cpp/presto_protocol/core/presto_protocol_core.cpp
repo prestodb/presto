@@ -1343,66 +1343,6 @@ void from_json(const json& j, AnalyzeTableHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-Argument::Argument() noexcept {
-  _type = "";
-}
-
-void to_json(json& j, const Argument& p) {
-  j = json::object();
-  j["@type"] = "";
-  to_json_key(j, "name", p.name, "Argument", "String", "name");
-}
-
-void from_json(const json& j, Argument& p) {
-  p._type = j["@type"];
-  from_json_key(j, "name", p.name, "Argument", "String", "name");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-void to_json(json& j, const std::shared_ptr<Argument>& p) {
-  if (p == nullptr) {
-    return;
-  }
-  String type = p->_type;
-
-  if (type == "descriptor") {
-    j = *std::static_pointer_cast<DescriptorArgument>(p);
-    return;
-  }
-  if (type == "table") {
-    j = *std::static_pointer_cast<TableArgument>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type Argument ");
-}
-
-void from_json(const json& j, std::shared_ptr<Argument>& p) {
-  String type;
-  try {
-    type = p->getSubclassKey(j);
-  } catch (json::parse_error& e) {
-    throw ParseError(std::string(e.what()) + " Argument  Argument");
-  }
-
-  if (type == "descriptor") {
-    std::shared_ptr<DescriptorArgument> k =
-        std::make_shared<DescriptorArgument>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<Argument>(k);
-    return;
-  }
-  if (type == "table") {
-    std::shared_ptr<TableArgument> k = std::make_shared<TableArgument>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<Argument>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type Argument ");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 AssignUniqueId::AssignUniqueId() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.AssignUniqueId";
 }
@@ -3097,6 +3037,50 @@ void to_json(json& j, const Column& p) {
 void from_json(const json& j, Column& p) {
   from_json_key(j, "name", p.name, "Column", "String", "name");
   from_json_key(j, "type", p.type, "Column", "String", "type");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<Argument>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == "descriptor") {
+    j = *std::static_pointer_cast<DescriptorArgument>(p);
+    return;
+  }
+  if (type == "table") {
+    j = *std::static_pointer_cast<TableArgument>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type Argument ");
+}
+
+void from_json(const json& j, std::shared_ptr<Argument>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(std::string(e.what()) + " Argument  Argument");
+  }
+
+  if (type == "descriptor") {
+    std::shared_ptr<DescriptorArgument> k =
+        std::make_shared<DescriptorArgument>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<Argument>(k);
+    return;
+  }
+  if (type == "table") {
+    std::shared_ptr<TableArgument> k = std::make_shared<TableArgument>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<Argument>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type Argument ");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
