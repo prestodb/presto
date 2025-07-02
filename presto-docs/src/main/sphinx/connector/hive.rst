@@ -927,7 +927,7 @@ The default value is ``V1``.
 
 The former session property that handled this toggle, ``parquet_writer_version``, is now deprecated.
 Use ``parquet_writer_datapage_version`` instead.
-It should be noted that this setting controls the data page encoding (V1/V2), not the file‑format version often referred to as the "Parquet format version" (2.4, 2.6, etc.).
+Note: This setting controls the data page encoding ``V1`` or ``V2``, not the file‑format version often referred to as the Parquet format version (2.4, 2.6).
 
 Procedures
 ----------
