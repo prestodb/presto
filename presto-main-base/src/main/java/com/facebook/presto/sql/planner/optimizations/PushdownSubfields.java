@@ -593,7 +593,8 @@ public class PushdownSubfields
                     Optional<Integer> pushdownSubfieldArgIndex = functionDescriptor.getPushdownSubfieldArgIndex();
                     if (pushdownSubfieldArgIndex.isPresent() &&
                             ((CallExpression) expression).getArguments().size() > pushdownSubfieldArgIndex.get() &&
-                            ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get()).getType() instanceof RowType) {
+                            ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get()).getType() instanceof RowType
+                            && !elements.build().isEmpty()) { // ensures pushdown only happens when a subfield is read from a column
                         expression = ((CallExpression) expression).getArguments().get(pushdownSubfieldArgIndex.get());
                         continue;
                     }
