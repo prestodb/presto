@@ -51,7 +51,6 @@ import static com.facebook.presto.common.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
@@ -116,7 +115,7 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
+//            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node, metadata.getFunctionAndTypeManager())) {
