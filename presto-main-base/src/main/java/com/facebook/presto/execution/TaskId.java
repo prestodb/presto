@@ -79,6 +79,11 @@ public class TaskId
         return stageExecutionId.getStageId().getQueryId();
     }
 
+    public StageId getStageId()
+    {
+        return stageExecutionId.getStageId();
+    }
+
     @Override
     @JsonValue
     public String toString()
