@@ -46,6 +46,12 @@ public class OperatorInfoUnion
     private short id;
 
     @ThriftConstructor
+    public OperatorInfoUnion()
+    {
+        this.id = 0;
+    }
+
+    @ThriftConstructor
     public OperatorInfoUnion(ExchangeClientStatus exchangeClientStatus)
     {
         this.exchangeClientStatus = exchangeClientStatus;
