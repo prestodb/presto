@@ -22,6 +22,8 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -34,6 +36,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Properties;
@@ -44,8 +47,11 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -143,19 +149,34 @@ public class SingleStoreClient
             if (varcharType.isUnbounded()) {
                 return "longtext";
             }
-            if (varcharType.getLengthSafe() <= 255) {
-                return "tinytext";
+            if (varcharType.getLengthSafe() <= 21844) {
+                // 21844 is the maximum length a singlestore varchar supports.
+                return super.toSqlType(type);
             }
-            if (varcharType.getLengthSafe() <= 65535) {
-                return "text";
-            }
-            if (varcharType.getLengthSafe() <= 16777215) {
+            if (varcharType.getLengthSafe() <= 5592405) { // 16MB
                 return "mediumtext";
             }
-            return "longtext";
+            if (varcharType.getLengthSafe() <= 1431655765) { // 100MB to 1GB
+                return "longtext"; // max = 1431655765
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported column width: " + varcharType.getLengthSafe());
+            }
         }
 
         return super.toSqlType(type);
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        switch (typeHandle.getJdbcType()) {
+            case Types.CLOB:
+                return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+            case Types.BLOB:
+                return Optional.of(varbinaryReadMapping());
+        }
+        return super.toPrestoType(session, typeHandle);
     }
 
     @Override
