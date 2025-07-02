@@ -900,22 +900,6 @@ class TableScanNode : public PlanNode {
         tableHandle_(tableHandle),
         assignments_(assignments) {}
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  TableScanNode(
-      const PlanNodeId& id,
-      RowTypePtr outputType,
-      const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& assignments)
-      : PlanNode(id),
-        outputType_(std::move(outputType)),
-        tableHandle_(
-            std::static_pointer_cast<const connector::ConnectorTableHandle>(
-                tableHandle)),
-        assignments_(toColumnHandleMap(assignments)) {}
-#endif
-
   class Builder {
    public:
     Builder() = default;
@@ -1004,21 +988,6 @@ class TableScanNode : public PlanNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
  private:
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  connector::ColumnHandleMap toColumnHandleMap(
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& handles) {
-    connector::ColumnHandleMap constHandles;
-    for (const auto& [name, handle] : handles) {
-      constHandles.emplace(
-          name,
-          std::static_pointer_cast<const connector::ColumnHandle>(handle));
-    }
-    return constHandles;
-  }
-#endif
-
   void addDetails(std::stringstream& stream) const override;
 
   const RowTypePtr outputType_;

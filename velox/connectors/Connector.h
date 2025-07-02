@@ -564,42 +564,11 @@ class Connector {
     VELOX_UNSUPPORTED();
   }
 
-  // TODO Turn to pure virtual method after updating Prestissimo:
-  // https://github.com/prestodb/presto/issues/25460
   virtual std::unique_ptr<DataSource> createDataSource(
       const RowTypePtr& outputType,
       const ConnectorTableHandlePtr& tableHandle,
       const connector::ColumnHandleMap& columnHandles,
-      ConnectorQueryCtx* connectorQueryCtx) {
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-        handles;
-    for (const auto& [name, handle] : columnHandles) {
-      handles.emplace(
-          name, std::const_pointer_cast<connector::ColumnHandle>(handle));
-    }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
-    return this->createDataSource(
-        outputType,
-        std::const_pointer_cast<ConnectorTableHandle>(tableHandle),
-        handles,
-        connectorQueryCtx);
-#pragma GCC diagnostic pop
-  }
-
-  // TODO Remove after updating Prestissimo:
-  // https://github.com/prestodb/presto/issues/25460
-  [[deprecated]]
-  virtual std::unique_ptr<DataSource> createDataSource(
-      const RowTypePtr& outputType,
-      const std::shared_ptr<ConnectorTableHandle>& tableHandle,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      ConnectorQueryCtx* connectorQueryCtx) {
-    VELOX_UNREACHABLE("Unexpected call to deprecated createDataSource API");
-  }
+      ConnectorQueryCtx* connectorQueryCtx) = 0;
 
   /// Returns true if addSplit of DataSource can use 'dataSource' from
   /// ConnectorSplit in addSplit(). If so, TableScan can preload splits
@@ -663,34 +632,11 @@ class Connector {
         "Connector {} does not support index source", connectorId());
   }
 
-  // TODO Turn to pure virtual method after updating Prestissimo:
-  // https://github.com/prestodb/presto/issues/25460
   virtual std::unique_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       ConnectorInsertTableHandlePtr connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    return this->createDataSink(
-        inputType,
-        std::const_pointer_cast<ConnectorInsertTableHandle>(
-            connectorInsertTableHandle),
-        connectorQueryCtx,
-        commitStrategy);
-#pragma GCC diagnostic pop
-  }
-
-  // Remove after updating Prestissimo:
-  // https://github.com/prestodb/presto/issues/25460
-  [[deprecated]]
-  virtual std::unique_ptr<DataSink> createDataSink(
-      RowTypePtr inputType,
-      std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
-      ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy) {
-    VELOX_UNREACHABLE("Unexpected call to deprecated createDataSink API");
-  }
+      CommitStrategy commitStrategy) = 0;
 
   /// Returns a ScanTracker for 'id'. 'id' uniquely identifies the
   /// tracker and different threads will share the same
