@@ -17,6 +17,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 
+import java.util.Optional;
+
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
@@ -53,6 +55,7 @@ public class TestNonIterativeDistributedQueries
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .setExtraProperties(ImmutableMap.of("experimental.iterative-optimizer-enabled", "false"))
+                .setPluginDirectory(sidecarEnabled ? Optional.of(NativeTestsUtils.getPluginDir().toString()) : Optional.empty())
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
