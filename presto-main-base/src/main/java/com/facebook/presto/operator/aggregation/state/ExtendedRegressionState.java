@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-public interface RegressionState
-        extends CovarianceState
+public interface ExtendedRegressionState
+        extends RegressionState
 {
-    double getM2X();
+    double getM2Y();
 
-    void setM2X(double value);
+    void setM2Y(double value);
 }
