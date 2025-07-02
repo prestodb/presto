@@ -13,6 +13,23 @@
  */
 package com.facebook.presto.elasticsearch.client;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.SearchType;
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.Time;
+import co.elastic.clients.elasticsearch._types.query_dsl.FieldAndFormat;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.ClearScrollRequest;
+import co.elastic.clients.elasticsearch.core.CountRequest;
+import co.elastic.clients.elasticsearch.core.ScrollRequest;
+import co.elastic.clients.elasticsearch.core.ScrollResponse;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.SourceConfig;
+import co.elastic.clients.transport.rest5_client.low_level.Response;
+import co.elastic.clients.transport.rest5_client.low_level.ResponseException;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -34,37 +51,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.core.TimeValue;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
+import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
+import org.apache.hc.client5.http.ssl.HttpsSupport;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.config.RegistryBuilder;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
+import org.apache.hc.core5.reactor.IOReactorConfig;
+import org.apache.hc.core5.util.Timeout;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -77,6 +88,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -116,7 +128,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.list;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
 {
@@ -127,7 +138,7 @@ public class ElasticsearchClient
     private static final ObjectMapper OBJECT_MAPPER = new JsonObjectMapperProvider().get();
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
-    private final RestHighLevelClient client;
+    private final Rest5Client client;
     private final int scrollSize;
     private final Duration scrollTimeout;
 
@@ -181,7 +192,14 @@ public class ElasticsearchClient
                     .map(ElasticsearchNode::getAddress)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
+                    .map(address -> {
+                        try {
+                            return HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address));
+                        }
+                        catch (URISyntaxException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
                     .toArray(HttpHost[]::new);
 
             if (hosts.length > 0 && !ignorePublishAddress) {
@@ -196,55 +214,55 @@ public class ElasticsearchClient
         }
     }
 
-    private static RestHighLevelClient createClient(
+    private static Rest5Client createClient(
             ElasticsearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig)
     {
-        RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"));
+        Rest5ClientBuilder builder = Rest5Client.builder(new HttpHost(config.isTlsEnabled() ? "https" : "http", config.getHost(), config.getPort()));
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofMilliseconds(toIntExact(config.getConnectTimeout().toMillis())))
+                .setConnectionRequestTimeout(Timeout.ofMilliseconds(toIntExact(config.getRequestTimeout().toMillis())))
+                .build();
 
-        builder.setHttpClientConfigCallback(ignored -> {
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
-                    .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis()))
-                    .build();
+        IOReactorConfig reactorConfig = IOReactorConfig.custom()
+                .setIoThreadCount(config.getHttpThreadCount())
+                .build();
 
-            IOReactorConfig reactorConfig = IOReactorConfig.custom()
-                    .setIoThreadCount(config.getHttpThreadCount())
-                    .build();
+        // the client builder passed to the call-back is configured to use system properties, which makes it
+        // impossible to configure concurrency settings, so we need to build a new one from scratch
+        HttpAsyncClientBuilder clientBuilder = HttpAsyncClientBuilder.create()
+                .setDefaultRequestConfig(requestConfig)
+                .setIOReactorConfig(reactorConfig);
 
-            // the client builder passed to the call-back is configured to use system properties, which makes it
-            // impossible to configure concurrency settings, so we need to build a new one from scratch
-            HttpAsyncClientBuilder clientBuilder = HttpAsyncClientBuilder.create()
-                    .setDefaultRequestConfig(requestConfig)
-                    .setDefaultIOReactorConfig(reactorConfig)
-                    .setMaxConnPerRoute(config.getMaxHttpConnections())
-                    .setMaxConnTotal(config.getMaxHttpConnections());
-
-            if (config.isTlsEnabled()) {
-                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
-                        .ifPresent(clientBuilder::setSSLContext);
-
-                if (config.isVerifyHostnames()) {
-                    clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
-                }
+        RegistryBuilder<TlsStrategy> tlsStrategyRegistryBuilder = RegistryBuilder.<TlsStrategy>create();
+        if (config.isTlsEnabled()) {
+            HostnameVerifier verifier = HttpsSupport.getDefaultHostnameVerifier();
+            if (config.isVerifyHostnames()) {
+                verifier = NoopHostnameVerifier.INSTANCE;
             }
+            DefaultClientTlsStrategy strategy = new DefaultClientTlsStrategy(
+                    buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword()).get(), verifier);
+            tlsStrategyRegistryBuilder.register("https", strategy);
+        }
 
-            passwordConfig.ifPresent(securityConfig -> {
-                CredentialsProvider credentials = new BasicCredentialsProvider();
-                credentials.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(securityConfig.getUser(), securityConfig.getPassword()));
-                clientBuilder.setDefaultCredentialsProvider(credentials);
-            });
+        PoolingAsyncClientConnectionManager poolingAsyncClientConnectionManager = new PoolingAsyncClientConnectionManager(tlsStrategyRegistryBuilder.build());
+        poolingAsyncClientConnectionManager.setMaxTotal(config.getMaxHttpConnections());
+        clientBuilder.setConnectionManager(poolingAsyncClientConnectionManager);
 
-            awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
-                    securityConfig.getRegion(),
-                    getAwsCredentialsProvider(securityConfig))));
-
-            return clientBuilder;
+        passwordConfig.ifPresent(securityConfig -> {
+            BasicCredentialsProvider credentials = new BasicCredentialsProvider();
+            credentials.setCredentials(new AuthScope("ANY", 12), new UsernamePasswordCredentials(securityConfig.getUser(), securityConfig.getPassword().toCharArray()));
+            clientBuilder.setDefaultCredentialsProvider(credentials);
         });
 
-        return new RestHighLevelClient(builder);
+        awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addRequestInterceptorLast(new AwsRequestSigner(
+                securityConfig.getRegion(),
+                getAwsCredentialsProvider(securityConfig))));
+
+        builder.setHttpClient(clientBuilder.build());
+
+        return builder.build();
     }
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
@@ -580,7 +598,7 @@ public class ElasticsearchClient
                             "GET",
                             path,
                             ImmutableMap.of(),
-                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            new ByteArrayEntity(query.getBytes(UTF_8), ContentType.APPLICATION_JSON),
                             client,
                             new BasicHeader("Content-Type", "application/json"),
                             new BasicHeader("Accept-Encoding", "application/json"));
@@ -593,44 +611,46 @@ public class ElasticsearchClient
         try {
             body = EntityUtils.toString(response.getEntity());
         }
-        catch (IOException e) {
+        catch (IOException | ParseException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
 
         return body;
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort)
+    public SearchResponse beginSearch(String index, int shard, Query query, Optional<List<String>> fields, List<FieldAndFormat> documentFields, Optional<SortOptions> sort)
     {
-        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
-                .query(query)
-                .size(scrollSize);
-
-        sort.ifPresent(sourceBuilder::sort);
+        SourceConfig.Builder sourceConfigBuilder = new SourceConfig.Builder();
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
-                sourceBuilder.fetchSource(false);
+                sourceConfigBuilder.fetch(false);
             }
             else {
-                sourceBuilder.fetchSource(values.toArray(new String[0]), null);
+                sourceConfigBuilder.filter(fb -> fb.includes(values));
             }
         });
-        documentFields.forEach(sourceBuilder::docValueField);
 
-        SearchRequest request = new SearchRequest(index)
-                .searchType(QUERY_THEN_FETCH)
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
+                .index(index)
+                .searchType(SearchType.QueryThenFetch)
                 .preference("_shards:" + shard)
-                .scroll(new TimeValue(scrollTimeout.toMillis()))
-                .source(sourceBuilder);
+                .scroll(new Time.Builder().time(String.valueOf(scrollTimeout.toMillis())).build())
+                .size(scrollSize)
+                .query(query)
+                .source(sourceConfigBuilder.build())
+                .docvalueFields(documentFields);
+
+        sort.ifPresent(requestBuilder::sort);
+        documentFields.forEach(requestBuilder::docvalueFields);
 
         try {
-            return search(request, client);
+            return search(requestBuilder.build(), client);
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
-        catch (ElasticsearchStatusException e) {
+        catch (ElasticsearchException e) {
             Throwable[] suppressed = e.getSuppressed();
             if (suppressed.length > 0) {
                 Throwable cause = suppressed[0];
@@ -656,10 +676,10 @@ public class ElasticsearchClient
         }
     }
 
-    public SearchResponse nextPage(String scrollId)
+    public ScrollResponse<Void> nextPage(String scrollId)
     {
-        SearchScrollRequest request = new SearchScrollRequest(scrollId)
-                .scroll(new TimeValue(scrollTimeout.toMillis()));
+        ScrollRequest request = new ScrollRequest.Builder().scrollId(scrollId)
+                .scroll(new Time.Builder().time(String.valueOf(scrollTimeout.toMillis())).build()).build();
 
         try {
             return searchScroll(request, client);
@@ -669,43 +689,24 @@ public class ElasticsearchClient
         }
     }
 
-    public long count(String index, int shard, QueryBuilder query)
+    public long count(String index, int shard, Query query)
     {
-        SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
-                .query(query);
+        CountRequest.Builder countRequestBuilder = new CountRequest.Builder().index(index).query(query)
+                .preference(format("_shards:%s", shard));
 
-        LOG.debug("Count: %s:%s, query: %s", index, shard, sourceBuilder);
-
-        Response response;
         try {
-            response = performRequest(
-                            "GET",
-                            format("/%s/_count?preference=_shards:%s", index, shard),
-                            ImmutableMap.of(),
-                            new StringEntity(sourceBuilder.toString()),
-                            client,
-                            new BasicHeader("Content-Type", "application/json"));
-        }
-        catch (ResponseException e) {
-            throw propagate(e);
+            long count = ElasticSearchClientUtils.count(countRequestBuilder.build(), client).count();
+            LOG.debug("Count: %s:%s, query: %s", index, shard, count);
+            return count;
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
-        }
-
-        try {
-            return COUNT_RESPONSE_CODEC.fromJson(EntityUtils.toByteArray(response.getEntity()))
-                    .getCount();
-        }
-        catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
     }
 
     public void clearScroll(String scrollId)
     {
-        ClearScrollRequest request = new ClearScrollRequest();
-        request.addScrollId(scrollId);
+        ClearScrollRequest request = new ClearScrollRequest.Builder().scrollId(scrollId).build();
         try {
             ElasticSearchClientUtils.clearScroll(request, client);
         }
@@ -730,7 +731,7 @@ public class ElasticsearchClient
         try {
             body = EntityUtils.toString(response.getEntity());
         }
-        catch (IOException e) {
+        catch (IOException | ParseException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
         return handler.process(body);
