@@ -101,6 +101,10 @@ class DistinctAggregations {
       char** groups,
       folly::Range<const vector_size_t*> indices) = 0;
 
+  bool isInitialized(char* group) const {
+    return group[initializedByte_] & initializedMask_;
+  }
+
   HashStringAllocator* allocator_;
   int32_t offset_;
   int32_t nullByte_;

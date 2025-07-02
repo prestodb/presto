@@ -49,6 +49,9 @@ class TypedDistinctAggregations : public DistinctAggregations {
         },
         [this](folly::Range<char**> groups) {
           for (auto* group : groups) {
+            if (!isInitialized(group)) {
+              continue;
+            }
             auto* accumulator =
                 reinterpret_cast<AccumulatorType*>(group + offset_);
             accumulator->free(*allocator_);
