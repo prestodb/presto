@@ -21,4 +21,7 @@ namespace facebook::presto {
 // Returns metadata for all registered functions as json.
 nlohmann::json getFunctionsMetadata();
 
+// Returns metadata for all registered table valued functions as json.
+nlohmann::json getTableValuedFunctionsMetadata();
+
 } // namespace facebook::presto

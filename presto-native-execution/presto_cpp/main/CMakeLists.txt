@@ -137,8 +137,6 @@ endif()
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
 
-add_executable(presto_server PrestoMain.cpp)
-
 # The below additional flags are necessary for resolving dependencies for
 # loading dynamic libraries.
 if(APPLE)

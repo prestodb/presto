@@ -182,7 +182,7 @@ RowVectorPtr TableFunctionOperator::getOutput() {
   VELOX_CHECK(
       result->state() == TableFunctionResult::TableFunctionState::kProcessed);
   // Don't really understand why the dynamic_pointer_cast is needed.
-  auto resultRows = dynamic_pointer_cast<RowVector>(result->result());
+  auto resultRows = std::dynamic_pointer_cast<RowVector>(result->result());
   VELOX_CHECK(resultRows);
   if (!result->usedInput()) {
     // Since the input rows are not completely consumed, the result_
