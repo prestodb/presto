@@ -35,7 +35,7 @@ public class TestTpchDistributedQueries
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        super.init(storageFormat, sidecarEnabled);
+        super.init(sidecarEnabled);
         super.init();
     }
 

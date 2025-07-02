@@ -17,6 +17,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 
+import java.util.Optional;
+
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
@@ -37,7 +39,7 @@ public class TestNonIterativeDistributedQueries
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        super.init(storageFormat, sidecarEnabled);
+        super.init(sidecarEnabled);
         super.init();
     }
 
@@ -48,11 +50,12 @@ public class TestNonIterativeDistributedQueries
         /// 'experimental.iterative-optimizer-enabled'. Tests Presto C++ worker by disabling the iterative optimizer,
         /// resulting in possibly different query plans.
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setExtraProperties(ImmutableMap.of("experimental.iterative-optimizer-enabled", "false"))
+                .setStorageFormat(System.getProperty(storageFormat))
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
-                .setExtraProperties(ImmutableMap.of("experimental.iterative-optimizer-enabled", "false"))
+                .setPluginDirectory(sidecarEnabled ? Optional.of(NativeTestsUtils.getPluginDir().toString()) : Optional.empty())
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
