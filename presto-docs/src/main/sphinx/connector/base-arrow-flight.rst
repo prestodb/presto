@@ -59,6 +59,19 @@ Property Name                               Description
 ``arrow-flight.server-ssl-enabled``         Port is ssl enabled
 ========================================== ==============================================================
 
+.. note::
+
+   A secure TLS connection is enabled whenever the server certificate
+   (``arrow-flight.server-ssl-certificate``) is provided, even if the
+   ``arrow-flight.server-ssl-enabled`` flag is not set.
+
+   If a client certificate (``arrow-flight.client-ssl-certificate``) is also provided,
+   the Flight client will be configured to perform mutual authentication.
+   However, a true mutual TLS (mTLS) connection is only established if the Flight server
+   is explicitly configured to **require and verify** client certificates.
+
+   Otherwise, the connection will default to standard one-way TLS.
+
 Mutual TLS (mTLS) Support
 -------------------------
 
