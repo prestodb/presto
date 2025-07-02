@@ -1,0 +1,129 @@
+[
+  {
+    "comment": "// This file is generated DO NOT EDIT @generated"
+  },
+  {
+    "class_name": "ArrowColumnHandle",
+    "hinc": "// ArrowColumnHandle is special since it needs an implementation of\n// operator<().\n\nnamespace facebook::presto::protocol::arrow_flight {\nstruct ArrowColumnHandle : public ColumnHandle {\n  String columnName = {};\n  Type columnType = {};\n\n  ArrowColumnHandle() noexcept;\n\n  bool operator<(const ColumnHandle& o) const override {\n    return columnName < dynamic_cast<const ArrowColumnHandle&>(o).columnName;\n  }\n};\n\nvoid to_json(json& j, const ArrowColumnHandle& p);\nvoid from_json(const json& j, ArrowColumnHandle& p);\n\n} // namespace facebook::presto::protocol::arrow_flight",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "columnName",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "Type",
+        "field_name": "columnType",
+        "field_text": "Type",
+        "_N": 2,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ColumnHandle",
+    "json_key": "arrow-flight"
+  },
+  {
+    "class_name": "ArrowSplit",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "schemaName",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "tableName",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "byte[]",
+        "field_name": "flightEndpointBytes",
+        "field_text": "String",
+        "_N": 3,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ConnectorSplit",
+    "json_key": "arrow-flight"
+  },
+  {
+    "class_name": "ArrowTableHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "schema",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "table",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ConnectorTableHandle",
+    "json_key": "arrow-flight"
+  },
+  {
+    "class_name": "ColumnHandle",
+    "field_name": "columnHandle",
+    "abstract": true,
+    "super_class": "JsonEncodedSubclass",
+    "comparable": true,
+    "subclasses": [
+      {
+        "type": "ArrowColumnHandle",
+        "name": "arrowColumnHandle",
+        "key": "arrow-flight",
+        "_N": 1,
+        "_last": true
+      }
+    ],
+    "fields": []
+  },
+  {
+    "class_name": "ArrowTableLayoutHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "ArrowTableHandle",
+        "field_name": "table",
+        "field_text": "ArrowTableHandle",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "List<ArrowColumnHandle>",
+        "field_name": "columnHandles",
+        "field_text": "List<ArrowColumnHandle>",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "TupleDomain<ColumnHandle>",
+        "field_name": "tupleDomain",
+        "field_text": "TupleDomain<std::shared_ptr<ColumnHandle>>",
+        "_N": 3,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ConnectorTableLayoutHandle",
+    "json_key": "arrow-flight"
+  }
+]

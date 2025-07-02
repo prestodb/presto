@@ -233,7 +233,7 @@ public class TestSimplifyPlanWithEmptyInput
                 enableOptimization(),
                 output(
                         ImmutableList.of("custkey", "name", "acctbal", "sum"),
-                        values("sum", "custkey", "name", "acctbal")));
+                        values("custkey", "name", "acctbal", "sum")));
     }
 
     @Test
@@ -253,7 +253,7 @@ public class TestSimplifyPlanWithEmptyInput
                 enableOptimization(),
                 output(
                         ImmutableList.of("orderkey", "row_number", "orderpriority"),
-                        values(ImmutableList.of("orderkey", "orderpriority", "row_number"), ImmutableList.of())));
+                        values(ImmutableList.of("orderpriority", "orderkey", "row_number"), ImmutableList.of())));
     }
 
     @Test

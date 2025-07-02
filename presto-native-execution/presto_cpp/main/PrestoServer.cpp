@@ -74,6 +74,11 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
 
+// #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
+#include "presto_cpp/main/tvf/exec/TableFunctionOperator.h"
+#include "presto_cpp/main/tvf/functions/TableFunctionsRegistration.h"
+// #endif
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -377,6 +382,24 @@ void PrestoServer::run() {
                 proxygen::HTTP_HEADER_CONTENT_TYPE,
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
+      });
+  httpServer_->registerGet(
+      "/v1/functions/tvf",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(downstream, getTableValuedFunctionsMetadata());
+      });
+  httpServer_->registerPost(
+      "/v1/tvf/analyze",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        std::string connectorTableMetadataJson = util::extractMessageBody(body);
+        // protocol::ConnectorTableMetadata connectorTableMetadata;
+        // protocol::from_json(json(connectorTableMetadataJson), connectorTableMetadata);
+          http::sendOkResponse(downstream, json("response"));
       });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
@@ -1312,6 +1335,18 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+  if (SystemConfig::instance()->registerTestFunctions()) {
+    velox::functions::prestosql::registerAllScalarFunctions(
+        "json.test_schema.");
+    velox::aggregate::prestosql::registerAllAggregateFunctions(
+        "json.test_schema.");
+  }
+
+  // #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
+  velox::exec::Operator::registerOperator(
+      std::make_unique<tvf::TableFunctionTranslator>());
+  tvf::registerAllTableFunctions(prestoBuiltinFunctionPrefix_);
+  // #endif
 }
 
 void PrestoServer::registerRemoteFunctions() {

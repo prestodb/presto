@@ -74,6 +74,15 @@ public class Identifier
         return delimited;
     }
 
+    public String getCanonicalValue()
+    {
+        if (isDelimited()) {
+            return value;
+        }
+
+        return value.toUpperCase(ENGLISH);
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
