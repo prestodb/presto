@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 /**
  * Interfaces for efficient stream-like I/O.
  */
-
-#ifndef COMMON_STRINGS_BYTESTREAM_H_
-#define COMMON_STRINGS_BYTESTREAM_H_
 
 #include <limits>
 #include <streambuf>
@@ -29,8 +28,7 @@
 #include <folly/FBString.h>
 #include <folly/Range.h>
 
-namespace facebook {
-namespace strings {
+namespace facebook::velox::strings {
 
 const size_t kSizeMax = std::numeric_limits<size_t>::max();
 
@@ -349,7 +347,4 @@ class StringByteSource : public ByteSource {
   size_t maxBytes_;
 };
 
-} // namespace strings
-} // namespace facebook
-
-#endif /* __COMMON_STRINGS_BYTESTREAM_H_ */
+} // namespace facebook::velox::strings

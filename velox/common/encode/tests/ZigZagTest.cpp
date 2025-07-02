@@ -15,7 +15,6 @@
  */
 
 #include <gtest/gtest.h>
-#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Coding.h"
 #include "velox/type/HugeInt.h"
 

@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#pragma once
+
 //
 // Miscellaneous number encoding/decoding routines
 // - Varint coding
 // - ZigZag coding
 
-#ifndef FACEBOOK_COMMON_ENCODE_CODING_H_
-#define FACEBOOK_COMMON_ENCODE_CODING_H_
-
 #include <folly/GroupVarint.h>
 #include <folly/Likely.h>
 #include <algorithm>
-#include <utility>
-#include "velox/common/encode/UInt128.h"
-#include "velox/common/strings/ByteStream.h"
 
-namespace facebook {
+#include "velox/common/encode/ByteStream.h"
+#include "velox/common/encode/UInt128.h"
+
+namespace facebook::velox {
 
 // Variable-length integer encoding, using a little-endian, base-128
 // representation.
@@ -49,6 +49,7 @@ class Varint {
   static UInt128 shift(uint64_t a, uint64_t b, uint32_t bBits) {
     return (UInt128(a) << bBits) | b;
   }
+
   static std::pair<uint64_t, uint64_t> unshift(UInt128 val, uint32_t bBits) {
     std::pair<uint64_t, uint64_t> p;
     p.second = val.lo() & ((static_cast<uint64_t>(1) << bBits) - 1);
@@ -110,6 +111,7 @@ class Varint {
     encode(val, &p);
     sink->append(folly::StringPiece(buf, p - buf));
   }
+
   static void encode128ToByteSink(UInt128 val, strings::ByteSink* sink) {
     char buf[kMaxSize128];
     char* p = buf;
@@ -163,6 +165,7 @@ class Varint {
     *src = p;
     return val;
   }
+
   static UInt128 decode128(const char** src, int64_t max_size) {
     if (max_size > kMaxSize128) {
       // Varint-encoded numbers are at most 19 bytes, and we want to catch
@@ -191,6 +194,7 @@ class Varint {
     data->advance(p - data->start());
     return val;
   }
+
   static UInt128 decode128(folly::StringPiece* data) {
     const char* p = data->start();
     UInt128 val = decode128(&p, data->size());
@@ -229,6 +233,7 @@ class Varint {
     }
     return val;
   }
+
   static UInt128 decode128FromByteSource(strings::ByteSource* src) {
     UInt128 val = 0;
     int32_t shift = 0;
@@ -283,7 +288,7 @@ class ZigZag {
   }
 };
 
-namespace internal {
+namespace detail {
 class ByteSinkAppender {
  public:
   /* implicit */ ByteSinkAppender(strings::ByteSink* out) : out_(out) {}
@@ -294,21 +299,19 @@ class ByteSinkAppender {
  private:
   strings::ByteSink* out_;
 };
-} // namespace internal
+} // namespace detail
 
 // Import GroupVarint encoding / decoding code from folly
 
 typedef folly::GroupVarint32 GroupVarint32;
 typedef folly::GroupVarint64 GroupVarint64;
 
-typedef folly::GroupVarintEncoder<uint32_t, internal::ByteSinkAppender>
+typedef folly::GroupVarintEncoder<uint32_t, detail::ByteSinkAppender>
     GroupVarint32Encoder;
-typedef folly::GroupVarintEncoder<uint64_t, internal::ByteSinkAppender>
+typedef folly::GroupVarintEncoder<uint64_t, detail::ByteSinkAppender>
     GroupVarint64Encoder;
 
 typedef folly::GroupVarintDecoder<uint32_t> GroupVarint32Decoder;
 typedef folly::GroupVarintDecoder<uint64_t> GroupVarint64Decoder;
 
-} // namespace facebook
-
-#endif /* FACEBOOK_COMMON_ENCODE_CODING_H_ */
+} // namespace facebook::velox
