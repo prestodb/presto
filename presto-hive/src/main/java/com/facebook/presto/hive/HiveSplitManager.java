@@ -259,7 +259,7 @@ public class HiveSplitManager
         }
 
         // get partitions
-        List<HivePartition> partitions = layout.getPartitions()
+        List<HivePartition> partitions = layout.getPartitions().map(LazyLoadedPartitions::getFullyLoadedPartitions)
                 .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Layout does not contain partitions"));
 
         // short circuit if we don't have any partitions
