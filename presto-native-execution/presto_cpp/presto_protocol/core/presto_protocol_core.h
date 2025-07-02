@@ -305,8 +305,6 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-<<<<<<< HEAD
-=======
 struct Argument : public JsonEncodedSubclass {
   String name = {};
 };
@@ -314,12 +312,6 @@ void to_json(json& j, const std::shared_ptr<Argument>& p);
 void from_json(const json& j, std::shared_ptr<Argument>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct ConnectorTableLayoutHandle : public JsonEncodedSubclass {};
-void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p);
-void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
->>>>>>> 59a7ff6a5c (Test, rever)
 struct ExecutionWriterTarget : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
@@ -909,8 +901,6 @@ void to_json(json& j, const Column& p);
 void from_json(const json& j, Column& p);
 
 } // namespace facebook::presto::protocol
-<<<<<<< HEAD
-=======
 namespace facebook::presto::protocol {
 struct ConnectorTableMetadata1 {
   String name = {};
@@ -919,20 +909,6 @@ struct ConnectorTableMetadata1 {
 void to_json(json& j, const ConnectorTableMetadata1& p);
 void from_json(const json& j, ConnectorTableMetadata1& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
->>>>>>> 59a7ff6a5c (Test, rever)
 namespace facebook::presto::protocol {
 
 struct Block {
@@ -1022,7 +998,7 @@ void from_json(const json& j, DeleteNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct Field {
-  String name = {};
+  std::shared_ptr<String> name = {};
   std::shared_ptr<Type> type = {};
 };
 void to_json(json& j, const Field& p);
