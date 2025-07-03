@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.dispatcher.DispatchInfo;
+import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -53,6 +54,7 @@ public interface ExecutingQueryResponseProvider
             QueryId queryId,
             String slug,
             DispatchInfo dispatchInfo,
+            TrackedQuery trackedQuery,
             UriInfo uriInfo,
             String xPrestoPrefixUrl,
             String scheme,
