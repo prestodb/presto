@@ -754,7 +754,7 @@ public class TestElasticsearchIntegrationSmokeTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "_doc")
+        client.index(new IndexRequest(index)
                 .source(document)
                 .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE), DEFAULT);
     }
