@@ -8,7 +8,7 @@
     </parent>
 
     <artifactId>presto-event-listener</artifactId>
-    <description>Presto - Ahana event listener plugin</description>
+    <description>Presto - Event listener plugin</description>
     <packaging>presto-plugin</packaging>
 
     <properties>
@@ -122,6 +122,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

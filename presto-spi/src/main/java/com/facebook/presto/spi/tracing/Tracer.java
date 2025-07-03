@@ -30,6 +30,14 @@ public interface Tracer
     void startBlock(String blockName, String annotation);
 
     /**
+     * Add a new block starting at current time to the trace
+     * @param blockName the name for the added tracing block
+     * @param blockName the name for the parent tracing block
+     * @param annotation message associated with the start point of the block
+     */
+    default void startBlock(String blockName, String parentBlockName, String annotation) {};
+
+    /**
      * Add a trace point with current time to the specified block
      * @param blockName the name for the tracing block to add point to
      * @param annotation message associated with the added point to the block
@@ -50,4 +58,19 @@ public interface Tracer
     void endTrace(String annotation);
 
     String getTracerId();
+
+    /**
+     * Add an attribute to the specified block
+     * @param blockName the name for the tracing block to add point to
+     * @param key for attribute
+     * @param value for attribute
+     */
+    default void addAttributeToBlock(String blockName, String key, String value) {};
+
+    /**
+     * Set status for the specified block
+     * @param blockName the name for the tracing block to add attribute to
+     * @param status for block
+     */
+    default void setBlockStatus(String blockName, String status) {};
 }

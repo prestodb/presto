@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.tracing.TracerProvider;
+
 public interface EventListener
 {
     default void queryCreated(QueryCreatedEvent queryCreatedEvent)
@@ -36,6 +38,10 @@ public interface EventListener
     }
 
     default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    {
+    }
+
+    default void setTraceProvider(TracerProvider tracerProvider)
     {
     }
 }

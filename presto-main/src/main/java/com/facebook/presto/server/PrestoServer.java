@@ -183,12 +183,12 @@ public class PrestoServer
             }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();
+            injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListeners();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
-            injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();

@@ -19,6 +19,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapGetter;
@@ -155,6 +156,32 @@ public class OpenTelemetryTracer
         }
     }
 
+    /**
+     * Create new span with Open Telemetry tracer
+     * @param blockName name of span
+     * @param parentBlockName name of parent span
+     * @param annotation event to add to span
+     */
+
+    @Override
+    public void startBlock(String blockName, String parentBlockName, String annotation)
+    {
+        if (spanMap.containsKey(blockName)) {
+            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Duplicated block inserted: " + blockName);
+        }
+        Span parentSpan = spanMap.get(parentBlockName);
+        Span span = openTelemetryTracer.spanBuilder(blockName)
+                .setParent(Context.current().with(parentSpan))
+                .startSpan();
+        span.addEvent(annotation);
+        addBaggageToSpanAttributes(span);
+
+        spanMap.put(blockName, span);
+        synchronized (recorderSpanMap) {
+            recorderSpanMap.put(blockName, span);
+        }
+    }
+
     @Override
     public void addPointToBlock(String blockName, String annotation)
     {
@@ -198,5 +225,36 @@ public class OpenTelemetryTracer
             return traceToken;
         }
         return tracerName;
+    }
+
+    /**
+     * Add an attribute to the specified block
+     * @param blockName the name for the tracing block to add point to
+     * @param key for attribute
+     * @param value for attribute
+     */
+
+    @Override
+    public void addAttributeToBlock(String blockName, String key, String value)
+    {
+        if (!spanMap.containsKey(blockName)) {
+            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Adding attribute to non-existing block: " + blockName);
+        }
+        spanMap.get(blockName).setAttribute(key, value);
+    }
+
+    /**
+     * Set status for the specified block
+     * @param blockName the name for the tracing block to add attribute to
+     * @param status for block
+     */
+
+    @Override
+    public void setBlockStatus(String blockName, String status)
+    {
+        if (!spanMap.containsKey(blockName)) {
+            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Setting status to non-existing block: " + blockName);
+        }
+        spanMap.get(blockName).setStatus(StatusCode.valueOf(status));
     }
 }

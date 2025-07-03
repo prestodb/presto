@@ -286,6 +286,7 @@ public class PluginManager
         for (TracerProvider tracerProvider : plugin.getTracerProviders()) {
             log.info("Registering tracer provider %s", tracerProvider.getName());
             tracerProviderManager.addTracerProviderFactory(tracerProvider);
+            eventListenerManager.setTracerProvider(tracerProviderManager.getTracerProvider());
         }
 
         for (AnalyzerProvider analyzerProvider : plugin.getAnalyzerProviders()) {

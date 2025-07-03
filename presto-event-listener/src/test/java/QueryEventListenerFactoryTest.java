@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import io.ahana.eventplugin.QueryEventListenerFactory;
+import com.facebook.presto.eventlistener.QueryEventListenerFactory;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -27,7 +27,7 @@ public class QueryEventListenerFactoryTest
     public void getName()
     {
         QueryEventListenerFactory listenerFactory = new QueryEventListenerFactory();
-        assertEquals("watsonx.data-listener", listenerFactory.getName());
+        assertEquals("presto.query-event-listener", listenerFactory.getName());
     }
 
     @Test

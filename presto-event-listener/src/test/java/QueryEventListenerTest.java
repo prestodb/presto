@@ -12,13 +12,13 @@
  * limitations under the License.
  */
 
+import com.facebook.presto.eventlistener.QueryEventListener;
 import com.facebook.presto.spi.eventlistener.QueryContext;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.facebook.presto.spi.session.ResourceEstimates;
-import io.ahana.eventplugin.QueryEventListener;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.junit.jupiter.api.Test;
