@@ -64,6 +64,14 @@ public class MergeUpdate
     }
 
     @Override
+    public List<Expression> getSetExpressions()
+    {
+        return assignments.stream()
+                .map(Assignment::getValue)
+                .collect(toImmutableList());
+    }
+
+    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
