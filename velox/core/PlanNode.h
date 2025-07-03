@@ -19,6 +19,7 @@
 
 #include <utility>
 
+#include "velox/common/Enums.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
@@ -1010,9 +1011,7 @@ class AggregationNode : public PlanNode {
     kSingle
   };
 
-  static const char* stepName(Step step);
-
-  static Step stepFromName(const std::string& name);
+  VELOX_DECLARE_EMBEDDED_ENUM_NAME(Step);
 
   /// Aggregate function call.
   struct Aggregate {
@@ -2276,9 +2275,7 @@ class LocalPartitionNode : public PlanNode {
     kRepartition,
   };
 
-  static const char* typeName(Type type);
-
-  static Type typeFromName(const std::string& name);
+  VELOX_DECLARE_EMBEDDED_ENUM_NAME(Type);
 
   /// If 'scaleWriter' is true, the local partition is used to scale the table
   /// writer prcessing.
@@ -2439,8 +2436,14 @@ class PartitionedOutputNode : public PlanNode {
     kBroadcast,
     kArbitrary,
   };
-  static std::string kindString(Kind kind);
-  static Kind stringToKind(const std::string& str);
+
+  VELOX_DECLARE_EMBEDDED_ENUM_NAME(Kind)
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  static std::string kindString(Kind kind) {
+    return std::string(toName(kind));
+  }
+#endif
 
   PartitionedOutputNode(
       const PlanNodeId& id,
@@ -2667,7 +2670,7 @@ using PartitionedOutputNodePtr = std::shared_ptr<const PartitionedOutputNode>;
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(
     std::ostream& out,
     const PartitionedOutputNode::Kind kind) {
-  out << PartitionedOutputNode::kindString(kind);
+  out << PartitionedOutputNode::toName(kind);
   return out;
 }
 
@@ -2675,81 +2678,75 @@ enum class JoinType {
   // For each row on the left, find all matching rows on the right and return
   // all combinations.
   kInner = 0,
+
   // For each row on the left, find all matching rows on the right and return
   // all combinations. In addition, return all rows from the left that have no
   // match on the right with right-side columns filled with nulls.
   kLeft = 1,
+
   // Opposite of kLeft. For each row on the right, find all matching rows on
-  // the
-  // left and return all combinations. In addition, return all rows from the
+  // the left and return all combinations. In addition, return all rows from the
   // right that have no match on the left with left-side columns filled with
   // nulls.
   kRight = 2,
+
   // A "union" of kLeft and kRight. For each row on the left, find all
-  // matching
-  // rows on the right and return all combinations. In addition, return all
-  // rows
-  // from the left that have no
-  // match on the right with right-side columns filled with nulls. Also,
-  // return
-  // all rows from the
-  // right that have no match on the left with left-side columns filled with
-  // nulls.
+  // matching rows on the right and return all combinations. In addition, return
+  // all rows from the left that have no match on the right with right-side
+  // columns filled with nulls. Also, return all rows from the right that have
+  // no match on the left with left-side columns filled with nulls.
   kFull = 3,
+
   // Return a subset of rows from the left side which have a match on the
-  // right
-  // side. For this join type, cardinality of the output is less than or equal
-  // to the cardinality of the left side.
+  // right side. For this join type, cardinality of the output is less than or
+  // equal to the cardinality of the left side.
   kLeftSemiFilter = 4,
+
   // Return each row from the left side with a boolean flag indicating whether
   // there exists a match on the right side. For this join type, cardinality
-  // of
-  // the output equals the cardinality of the left side.
+  // of the output equals the cardinality of the left side.
   //
   // The handling of the rows with nulls in the join key depends on the
   // 'nullAware' boolean specified separately.
   //
-  // Null-aware join follows IN semantic. Regular join follows EXISTS
-  // semantic.
+  // Null-aware join follows IN semantic. Regular join follows EXISTS semantic.
   kLeftSemiProject = 5,
+
   // Opposite of kLeftSemiFilter. Return a subset of rows from the right side
   // which have a match on the left side. For this join type, cardinality of
-  // the
-  // output is less than or equal to the cardinality of the right side.
+  // the output is less than or equal to the cardinality of the right side.
   kRightSemiFilter = 6,
+
   // Opposite of kLeftSemiProject. Return each row from the right side with a
   // boolean flag indicating whether there exists a match on the left side.
-  // For
-  // this join type, cardinality of the output equals the cardinality of the
+  // For this join type, cardinality of the output equals the cardinality of the
   // right side.
   //
   // The handling of the rows with nulls in the join key depends on the
   // 'nullAware' boolean specified separately.
   //
-  // Null-aware join follows IN semantic. Regular join follows EXISTS
-  // semantic.
+  // Null-aware join follows IN semantic. Regular join follows EXISTS semantic.
   kRightSemiProject = 7,
+
   // Return each row from the left side which has no match on the right side.
   // The handling of the rows with nulls in the join key depends on the
   // 'nullAware' boolean specified separately.
   //
   // Null-aware join follows NOT IN semantic:
-  // (1) return empty result if the right side contains a record with a null
-  // in
+  // (1) return empty result if the right side contains a record with a null in
   // the join key;
-  // (2) return left-side row with null in the join key only when
-  // the right side is empty.
+  // (2) return left-side row with null in the join key only when the right side
+  // is empty.
   //
   // Regular anti join follows NOT EXISTS semantic:
   // (1) ignore right-side rows with nulls in the join keys;
   // (2) unconditionally return left side rows with nulls in the join keys.
   kAnti = 8,
+
   kNumJoinTypes = 9,
 };
 
-const char* joinTypeName(JoinType joinType);
-
-JoinType joinTypeFromName(const std::string& name);
+VELOX_DECLARE_ENUM_NAME(JoinType);
 
 inline bool isInnerJoin(JoinType joinType) {
   return joinType == JoinType::kInner;
@@ -3314,7 +3311,7 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     VELOX_USER_CHECK(
         isSupported(joinType_),
         "Unsupported index lookup join type {}",
-        joinTypeName(joinType_));
+        JoinTypeName::toName(joinType_));
   }
 
   class Builder
@@ -4303,9 +4300,7 @@ class WindowNode : public PlanNode {
  public:
   enum class WindowType { kRange, kRows };
 
-  static const char* windowTypeName(WindowType type);
-
-  static WindowType windowTypeFromName(const std::string& name);
+  VELOX_DECLARE_EMBEDDED_ENUM_NAME(WindowType)
 
   enum class BoundType {
     kUnboundedPreceding,
@@ -4315,9 +4310,7 @@ class WindowNode : public PlanNode {
     kUnboundedFollowing
   };
 
-  static const char* boundTypeName(BoundType type);
-
-  static BoundType boundTypeFromName(const std::string& name);
+  VELOX_DECLARE_EMBEDDED_ENUM_NAME(BoundType)
 
   /// Window frames can be ROW or RANGE type.
   /// Frame bounds can be CURRENT ROW, UNBOUNDED PRECEDING(FOLLOWING)
@@ -5083,12 +5076,12 @@ class PlanNodeVisitor {
 
 template <>
 struct fmt::formatter<facebook::velox::core::PartitionedOutputNode::Kind>
-    : formatter<std::string> {
+    : formatter<std::string_view> {
   auto format(
       facebook::velox::core::PartitionedOutputNode::Kind s,
       format_context& ctx) const {
-    return formatter<std::string>::format(
-        facebook::velox::core::PartitionedOutputNode::kindString(s), ctx);
+    return formatter<std::string_view>::format(
+        facebook::velox::core::PartitionedOutputNode::toName(s), ctx);
   }
 };
 

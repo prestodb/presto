@@ -149,8 +149,9 @@ TEST_F(PlanFragmentTest, aggregationCanSpill) {
 
     std::string debugString() const {
       return fmt::format(
-          "aggregationStep:{} isSpillEnabled:{} isAggregationSpillEnabled:{} isDistinct:{} hasPreAggregation:{} expectedCanSpill:{}",
-          AggregationNode::stepName(aggregationStep),
+          "aggregationStep:{} isSpillEnabled:{} isAggregationSpillEnabled:{} "
+          "isDistinct:{} hasPreAggregation:{} expectedCanSpill:{}",
+          AggregationNode::toName(aggregationStep),
           isSpillEnabled,
           isAggregationSpillEnabled,
           isDistinct,

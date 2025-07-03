@@ -55,9 +55,9 @@ MergeJoin::MergeJoin(
       rightNodeId_{joinNode->sources()[1]->id()},
       joinNode_(joinNode) {
   VELOX_USER_CHECK(
-      core::MergeJoinNode::isSupported(joinNode_->joinType()),
-      "The join type is not supported by merge join: ",
-      joinTypeName(joinNode_->joinType()));
+      core::MergeJoinNode::isSupported(joinType_),
+      "The join type is not supported by merge join: {}",
+      core::JoinTypeName::toName(joinType_));
 }
 
 void MergeJoin::initialize() {

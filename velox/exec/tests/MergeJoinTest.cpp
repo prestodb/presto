@@ -873,7 +873,7 @@ TEST_F(MergeJoinTest, lazyVectors) {
         .assertResults(fmt::format(
             "SELECT c0, rc0, c1, rc1, c2, c3 FROM t {} JOIN u "
             "ON t.c0 = u.rc0 AND c1 + rc1 < 30",
-            joinTypeName(joinType)));
+            core::JoinTypeName::toName(joinType)));
   }
 }
 

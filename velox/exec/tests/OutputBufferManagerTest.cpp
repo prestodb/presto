@@ -570,21 +570,18 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
 
 TEST_F(OutputBufferManagerTest, outputType) {
   ASSERT_EQ(
-      PartitionedOutputNode::kindString(
-          PartitionedOutputNode::Kind::kPartitioned),
+      PartitionedOutputNode::toName(PartitionedOutputNode::Kind::kPartitioned),
       "PARTITIONED");
   ASSERT_EQ(
-      PartitionedOutputNode::kindString(
-          PartitionedOutputNode::Kind::kArbitrary),
+      PartitionedOutputNode::toName(PartitionedOutputNode::Kind::kArbitrary),
       "ARBITRARY");
   ASSERT_EQ(
-      PartitionedOutputNode::kindString(
-          PartitionedOutputNode::Kind::kBroadcast),
+      PartitionedOutputNode::toName(PartitionedOutputNode::Kind::kBroadcast),
       "BROADCAST");
   VELOX_ASSERT_THROW(
-      PartitionedOutputNode::kindString(
+      PartitionedOutputNode::toName(
           static_cast<PartitionedOutputNode::Kind>(100)),
-      "Invalid Output Kind 100");
+      "Invalid enum value: 100");
 }
 
 TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, destinationBuffer) {

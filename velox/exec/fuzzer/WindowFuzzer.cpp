@@ -151,12 +151,12 @@ std::string WindowFuzzer::frameClauseString(
     const std::vector<std::string>& kRangeOffsetColumns) {
   auto frameType = [&](const core::WindowNode::BoundType boundType,
                        bool isStartBound) -> std::string {
-    const auto boundTypeString = core::WindowNode::boundTypeName(boundType);
+    const auto boundTypeString = core::WindowNode::toName(boundType);
     switch (boundType) {
       case core::WindowNode::BoundType::kUnboundedPreceding:
       case core::WindowNode::BoundType::kCurrentRow:
       case core::WindowNode::BoundType::kUnboundedFollowing:
-        return boundTypeString;
+        return std::string(boundTypeString);
       case core::WindowNode::BoundType::kPreceding:
       case core::WindowNode::BoundType::kFollowing: {
         std::string frameBound;
@@ -177,7 +177,7 @@ std::string WindowFuzzer::frameClauseString(
 
   return fmt::format(
       " {} BETWEEN {} AND {}",
-      core::WindowNode::windowTypeName(frameMetadata.windowType),
+      core::WindowNode::toName(frameMetadata.windowType),
       frameType(frameMetadata.startBoundType, true),
       frameType(frameMetadata.endBoundType, false));
 }
@@ -218,7 +218,7 @@ const T WindowFuzzer::genOffsetAtIdx(
       "Offset cannot be generated: orderBy key type: {}, sortOrder ascending {}, frameBoundType {}",
       CppToType<T>::name,
       sortOrder.toString(),
-      core::WindowNode::boundTypeName(frameBoundType));
+      core::WindowNode::toName(frameBoundType));
   return T{};
 }
 

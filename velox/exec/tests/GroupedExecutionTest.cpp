@@ -341,7 +341,7 @@ TEST_F(GroupedExecutionTest, hashJoinWithMixedGroupedExecution) {
       return fmt::format(
           "mode {}, joinType {}, supported {}",
           modeToString(mode),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           supported);
     }
   };
@@ -449,7 +449,7 @@ TEST_F(GroupedExecutionTest, hashJoinWithMixedGroupedExecution) {
             task->start(3, 1),
             fmt::format(
                 "Hash join currently does not support mixed grouped execution for join type {}",
-                core::joinTypeName(testData.joinType)));
+                core::JoinTypeName::toName(testData.joinType)));
         continue;
       }
 

@@ -471,8 +471,6 @@ bool OutputBuffer::enqueue(
         enqueuePartitionedOutputLocked(
             destination, std::move(data), dataAvailableCallbacks);
         break;
-      default:
-        VELOX_UNREACHABLE(PartitionedOutputNode::kindString(kind_));
     }
 
     if (bufferedBytes_ >= maxSize_ && future) {

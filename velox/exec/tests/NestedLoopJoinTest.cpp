@@ -102,7 +102,7 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
         SCOPED_TRACE(fmt::format(
             "maxDrivers:{} joinType:{} comparison:{}",
             std::to_string(numDrivers),
-            joinTypeName(joinType),
+            core::JoinTypeName::toName(joinType),
             comparison));
 
         params.planNode =
@@ -122,7 +122,9 @@ class NestedLoopJoinTest : public HiveConnectorTestBase {
         assertQuery(
             params,
             fmt::format(
-                fmt::runtime(queryStr_), joinTypeName(joinType), comparison));
+                fmt::runtime(queryStr_),
+                core::JoinTypeName::toName(joinType),
+                comparison));
       }
     }
   }
@@ -376,7 +378,7 @@ TEST_F(NestedLoopJoinTest, outerJoinWithoutCondition) {
         op,
         fmt::format(
             "SELECT count(*) FROM t {} join u on 1",
-            core::joinTypeName(joinType)));
+            core::JoinTypeName::toName(joinType)));
   };
   testOuterJoin(core::JoinType::kLeft);
   testOuterJoin(core::JoinType::kRight);

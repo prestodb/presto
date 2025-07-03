@@ -707,7 +707,7 @@ TEST(HashJoinBridgeTest, hashJoinTableSpillType) {
     std::string debugString() const {
       return fmt::format(
           "joinType: {}, expectedTableSpillType: {}",
-          joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           expectedTableSpillType->toString());
     }
   } testSettings[] = {

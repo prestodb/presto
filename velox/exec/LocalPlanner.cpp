@@ -160,7 +160,7 @@ OperatorSupplier makeOperatorSupplier(
         VELOX_UNSUPPORTED(
             "Hash join currently does not support mixed grouped execution for join "
             "type {}",
-            core::joinTypeName(join->joinType()));
+            core::JoinTypeName::toName(join->joinType()));
       }
       return std::make_unique<HashBuild>(operatorId, ctx, join);
     };

@@ -115,7 +115,7 @@ struct TestParam {
         poolSize,
         compressionKindToString(compressionKind),
         std::to_string(enablePrefixSort),
-        joinTypeName(joinType));
+        core::JoinTypeName::toName(joinType));
   }
 };
 

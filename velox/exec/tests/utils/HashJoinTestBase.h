@@ -945,7 +945,8 @@ class HashJoinTestBase : public HiveConnectorTestBase {
       case core::JoinType::kRightSemiProject:
         return core::JoinType::kLeftSemiProject;
       default:
-        VELOX_FAIL("Cannot flip join type: {}", core::joinTypeName(joinType));
+        VELOX_FAIL(
+            "Cannot flip join type: {}", core::JoinTypeName::toName(joinType));
     }
   }
 

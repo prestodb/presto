@@ -386,7 +386,7 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
           matchPct,
           folly::join(",", scanOutputColumns),
           folly::join(",", outputColumns),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           duckDbVerifySql);
     }
   } testSettings[] = {
@@ -790,7 +790,7 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
           betweenMatchPct,
           folly::join(",", lookupOutputColumns),
           folly::join(",", outputColumns),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           duckDbVerifySql);
     }
   } testSettings[] = {// Inner join.
@@ -1247,7 +1247,7 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
           inMatchPct,
           folly::join(",", lookupOutputColumns),
           folly::join(",", outputColumns),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           duckDbVerifySql);
     }
   } testSettings[] = {
@@ -1572,7 +1572,7 @@ TEST_P(IndexLookupJoinTest, prefixKeysEqualJoin) {
           numKeysToUse,
           folly::join(",", scanOutputColumns),
           folly::join(",", outputColumns),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           duckDbVerifySql);
     }
   } testSettings[] = {
@@ -1710,7 +1710,7 @@ TEST_P(IndexLookupJoinTest, prefixKeysbetweenJoinCondition) {
           betweenMatchPct,
           folly::join(",", lookupOutputColumns),
           folly::join(",", outputColumns),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           duckDbVerifySql);
     }
   } testSettings[] = {
@@ -1831,7 +1831,7 @@ TEST_P(IndexLookupJoinTest, prefixInJoinCondition) {
           inMatchPct,
           folly::join(",", lookupOutputColumns),
           folly::join(",", outputColumns),
-          core::joinTypeName(joinType),
+          core::JoinTypeName::toName(joinType),
           duckDbVerifySql);
     }
   } testSettings[] = {
