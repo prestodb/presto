@@ -98,6 +98,47 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``oracle`` in the above examples.
 
+Type Mapping
+------------
+When using Oracle to read data, Presto changes each Oracle data type to the corresponding Presto data type.
+Presto handles CLOB and BLOB data types in Oracle by internally converting them to VARCHAR and VARBINARY,
+respectively, during read operations. This approach allows to read and query CLOB/BLOB columns without introducing full
+first-class support for these types in Presto's type system.
+The following table details the specific type map between PrestoDB and Oracle.
+
+Oracle to PrestoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Map of Oracle types to the relevant PrestoDB types:
+
+.. list-table:: Oracle to PrestoDB type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - Oracle type
+    - PrestoDB type
+  * - ``CLOB``
+    - ``VARCHAR``
+  * - ``BLOB``
+    - ``VARBINARY``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``FLOAT``
+    - ``DOUBLE``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``REAL``
+    - ``REAL``
+  * - ``NUMERIC``, ``BIGINT``
+    - ``BIGINT``
+  * - ``NUMERIC``, ``DECIMAL``
+    - ``DECIMAL``
+  * - ``LONGVARCHAR``
+    - ``VARCHAR``
+  * - ``VARCHAR``
+    - ``VARCHAR``
+
+
 Oracle Connector Limitations
 ----------------------------
 
