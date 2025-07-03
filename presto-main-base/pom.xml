@@ -132,7 +132,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.resolver</groupId>
+            <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
             <artifactId>resolver</artifactId>
         </dependency>
 

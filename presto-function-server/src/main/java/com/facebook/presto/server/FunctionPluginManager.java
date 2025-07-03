@@ -21,10 +21,11 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
+
+import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

@@ -19,6 +19,13 @@
 
     <inceptionYear>2012</inceptionYear>
 
+    <repositories>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <licenses>
         <license>
             <name>Apache License 2.0</name>
@@ -66,7 +73,7 @@
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
-        <dep.slf4j.version>1.7.36</dep.slf4j.version>
+        <dep.slf4j.version>2.0.16</dep.slf4j.version>
         <dep.kafka.version>3.9.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
@@ -1385,9 +1392,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.resolver</groupId>
+                <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.7</version>
+                <version>1.8.1-resolver-fix</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.inject</groupId>
