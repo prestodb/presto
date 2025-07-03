@@ -38,8 +38,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class ExampleMetadata
         implements ConnectorMetadata
@@ -139,8 +139,8 @@ public class ExampleMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
-                .map(column -> normalizedColumnMetadata(session, column))
-                .collect(toList());
+                .map(column -> column.copy(builder -> builder.setName(normalizeIdentifier(session, column.getName()))))
+                .collect(toImmutableList());
 
         for (ColumnMetadata column : columns) {
             columnHandles.put(column.getName(), new ExampleColumnHandle(connectorId, column.getName(), column.getType(), index));
@@ -148,20 +148,6 @@ public class ExampleMetadata
         }
         return columnHandles.build();
     }
-
-    private ColumnMetadata normalizedColumnMetadata(ConnectorSession session, ColumnMetadata columnMetadata)
-    {
-        return ColumnMetadata.builder()
-                .setName(normalizeIdentifier(session, columnMetadata.getName()))
-                .setType(columnMetadata.getType())
-                .setHidden(columnMetadata.isHidden())
-                .setNullable(columnMetadata.isNullable())
-                .setComment(columnMetadata.getComment().orElse(null))
-                .setProperties(columnMetadata.getProperties())
-                .setExtraInfo(columnMetadata.getExtraInfo().orElse(null))
-                .build();
-    }
-
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
@@ -189,8 +175,8 @@ public class ExampleMetadata
         }
 
         List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
-                .map(column -> normalizedColumnMetadata(session, column))
-                .collect(toList());
+                .map(column -> column.copy(builder -> builder.setName(normalizeIdentifier(session, column.getName()))))
+                .collect(toImmutableList());
 
         return new ConnectorTableMetadata(tableName, columns);
     }

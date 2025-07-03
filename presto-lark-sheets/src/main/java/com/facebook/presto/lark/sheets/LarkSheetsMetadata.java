@@ -339,9 +339,8 @@ public class LarkSheetsMetadata
 
     private List<ColumnMetadata> toColumnMetadatas(ConnectorSession session, List<LarkSheetsColumnHandle> columnHandles)
     {
-        return columnHandles.stream().map(column -> {
-            String normalizedName = normalizeIdentifier(session, column.getName());
-            return column.toColumnMetadata(normalizedName);
-        }).collect(toImmutableList());
+        return columnHandles.stream()
+                .map(column -> column.toColumnMetadata(normalizeIdentifier(session, column.getName())))
+                .collect(toImmutableList());
     }
 }
