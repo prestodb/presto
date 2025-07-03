@@ -83,7 +83,7 @@ public class TestFunctionAndTypeManager
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         FunctionHandle exactOperator = functionAndTypeManager.lookupCast(CastType.CAST, HYPER_LOG_LOG, HYPER_LOG_LOG);
-        assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
+        assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature()), false));
     }
 
     @Test
@@ -444,7 +444,7 @@ public class TestFunctionAndTypeManager
 
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
-            FunctionHandle expectedFunction = new BuiltInFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
+            FunctionHandle expectedFunction = new BuiltInFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build(), false);
             FunctionHandle actualFunction = resolveFunctionHandle();
             assertEquals(expectedFunction, actualFunction);
             return this;
