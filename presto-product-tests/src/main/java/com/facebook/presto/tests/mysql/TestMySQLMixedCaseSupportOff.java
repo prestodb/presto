@@ -107,21 +107,21 @@ public class TestMySQLMixedCaseSupportOff
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02.toUpperCase() + " ADD COLUMN num2 REAL");
 
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME))
-                .contains(row("num", "real", "", ""));
+                .contains(row("num", "real", "", "", 2L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02))
-                .contains(row("num1", "real", "", ""));
+                .contains(row("num1", "real", "", "", 2L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME_UPPER_2))
-                .contains(row("num01", "real", "", ""));
+                .contains(row("num01", "real", "", "", 2L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02.toUpperCase()))
-                .contains(row("num2", "real", "", ""));
+                .contains(row("num2", "real", "", "", 2L, null, null));
 
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME + " RENAME COLUMN num TO numb");
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02 + " RENAME COLUMN num1 TO numb01");
 
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME))
-                .contains(row("numb", "real", "", ""));
+                .contains(row("numb", "real", "", "", 2L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02))
-                .contains(row("numb01", "real", "", ""));
+                .contains(row("numb01", "real", "", "", 2L, null, null));
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testTableAlterWithMixedCaseNames")
