@@ -30,6 +30,10 @@ class ColumnLoader : public VectorLoader {
         fieldReader_(fieldReader),
         version_(version) {}
 
+  bool supportsHook() const override {
+    return true;
+  }
+
  private:
   void loadInternal(
       RowSet rows,

@@ -87,64 +87,6 @@ void scatter(RowSet rows, vector_size_t resultSize, VectorPtr* result) {
   *result = BaseVector::wrapInDictionary(nullptr, indices, resultSize, *result);
 }
 
-template <typename T>
-void addToHookImpl(
-    const DecodedVector& decoded,
-    const RowSet& rows,
-    ValueHook& hook) {
-  if (decoded.isIdentityMapping() && rows.size() == rows.back() + 1) {
-    auto* values = decoded.data<T>();
-    hook.addValues(rows.data(), values, rows.size());
-    return;
-  }
-  // Masked aggregate is not pushed down for now, so the input row set is
-  // guaranteed to be dense.  Just make sure it works with sparse input for
-  // future proof.
-  for (vector_size_t i = 0; i < rows.size(); ++i) {
-    if (!decoded.isNullAt(i)) {
-      hook.addValueTyped(rows[i], decoded.valueAt<T>(i));
-    } else if (hook.acceptsNulls()) {
-      hook.addNull(rows[i]);
-    }
-  }
-}
-
-void addToHook(
-    const DecodedVector& decoded,
-    const RowSet& rows,
-    ValueHook& hook) {
-  switch (decoded.base()->typeKind()) {
-    case TypeKind::BOOLEAN:
-      addToHookImpl<bool>(decoded, rows, hook);
-      break;
-    case TypeKind::TINYINT:
-      addToHookImpl<int8_t>(decoded, rows, hook);
-      break;
-    case TypeKind::SMALLINT:
-      addToHookImpl<int16_t>(decoded, rows, hook);
-      break;
-    case TypeKind::INTEGER:
-      addToHookImpl<int32_t>(decoded, rows, hook);
-      break;
-    case TypeKind::BIGINT:
-      addToHookImpl<int64_t>(decoded, rows, hook);
-      break;
-    case TypeKind::REAL:
-      addToHookImpl<float>(decoded, rows, hook);
-      break;
-    case TypeKind::DOUBLE:
-      addToHookImpl<double>(decoded, rows, hook);
-      break;
-    case TypeKind::VARCHAR:
-    case TypeKind::VARBINARY:
-      addToHookImpl<StringView>(decoded, rows, hook);
-      break;
-    default:
-      VELOX_FAIL(
-          "Unsupported type kind for hook: {}", decoded.base()->typeKind());
-  }
-}
-
 } // namespace
 
 void ColumnLoader::loadInternal(
@@ -198,11 +140,8 @@ void DeltaUpdateColumnLoader::loadInternal(
       read(structReader_, fieldReader_, version_, rows, selectedRows, nullptr);
   fieldReader_->getValues(effectiveRows, result);
   scanSpec->deltaUpdate()->update(effectiveRows, *result);
-  if (hook) {
-    DecodedVector decoded(**result);
-    addToHook(decoded, rows, *hook);
-  } else if (
-      rows.back() + 1 < resultSize ||
+  VELOX_CHECK_NULL(hook);
+  if (rows.back() + 1 < resultSize ||
       rows.size() != structReader_->outputRows().size()) {
     scatter(rows, resultSize, result);
   }

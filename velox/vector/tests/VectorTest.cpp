@@ -65,6 +65,10 @@ class TestingLoader : public VectorLoader {
     return rowCounter_;
   }
 
+  bool supportsHook() const override {
+    return true;
+  }
+
  private:
   template <TypeKind Kind>
   void applyHook(RowSet rows, ValueHook* hook) {
@@ -2053,6 +2057,7 @@ class TestingHook : public ValueHook {
       }
     }
   }
+
   int32_t errors() const {
     return errors_;
   }

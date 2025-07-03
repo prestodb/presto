@@ -124,7 +124,8 @@ class SumAggregateBase
       bool mayPushdown) {
     const auto& arg = args[0];
 
-    if (mayPushdown && arg->isLazy()) {
+    if (mayPushdown && arg->isLazy() &&
+        arg->asChecked<const LazyVector>()->supportsHook()) {
       BaseAggregate::template pushdown<
           facebook::velox::aggregate::SumHook<TData, Overflow>>(
           groups, rows, arg);

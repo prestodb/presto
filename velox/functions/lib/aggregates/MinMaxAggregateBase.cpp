@@ -114,7 +114,8 @@ class SimpleNumericMaxAggregate : public SimpleNumericMinMaxAggregate<T> {
       bool mayPushdown) override {
     if constexpr (BaseAggregate::template kMayPushdown<T>) {
       if (!args[0]->type()->isDecimal()) {
-        if (mayPushdown && args[0]->isLazy()) {
+        if (mayPushdown && args[0]->isLazy() &&
+            args[0]->asChecked<const LazyVector>()->supportsHook()) {
           BaseAggregate::template pushdown<
               velox::aggregate::MinMaxHook<T, false>>(groups, rows, args[0]);
           return;
@@ -215,7 +216,8 @@ class SimpleNumericMinAggregate : public SimpleNumericMinMaxAggregate<T> {
       bool mayPushdown) override {
     if constexpr (BaseAggregate::template kMayPushdown<T>) {
       if (!args[0]->type()->isDecimal()) {
-        if (mayPushdown && args[0]->isLazy()) {
+        if (mayPushdown && args[0]->isLazy() &&
+            args[0]->asChecked<const LazyVector>()->supportsHook()) {
           BaseAggregate::template pushdown<
               velox::aggregate::MinMaxHook<T, true>>(groups, rows, args[0]);
           return;

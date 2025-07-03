@@ -98,22 +98,24 @@ class SimpleNumericAggregate : public exec::Aggregate {
       UpdateSingleValue updateSingleValue,
       bool mayPushdown) {
     DecodedVector decoded(*arg, rows, !mayPushdown);
-    auto encoding = decoded.base()->encoding();
     if constexpr (kMayPushdown<TData>) {
-      if (encoding == VectorEncoding::Simple::LAZY &&
+      if (mayPushdown &&
+          decoded.base()->encoding() == VectorEncoding::Simple::LAZY &&
           !arg->type()->isDecimal()) {
-        velox::aggregate::SimpleCallableHook<TData, UpdateSingleValue> hook(
-            exec::Aggregate::offset_,
-            exec::Aggregate::nullByte_,
-            exec::Aggregate::nullMask_,
-            groups,
-            &this->exec::Aggregate::numNulls_,
-            updateSingleValue);
-
-        auto indices = decoded.indices();
-        decoded.base()->as<const LazyVector>()->load(
-            RowSet(indices, arg->size()), &hook);
-        return;
+        auto* lazy = decoded.base()->asChecked<const LazyVector>();
+        if (lazy->supportsHook()) {
+          velox::aggregate::SimpleCallableHook<TData, UpdateSingleValue> hook(
+              exec::Aggregate::offset_,
+              exec::Aggregate::nullByte_,
+              exec::Aggregate::nullMask_,
+              groups,
+              &this->exec::Aggregate::numNulls_,
+              updateSingleValue);
+          auto indices = decoded.indices();
+          lazy->load(RowSet(indices, arg->size()), &hook);
+          return;
+        }
+        decoded.decode(*arg, rows);
       }
     }
 
@@ -226,9 +228,9 @@ class SimpleNumericAggregate : public exec::Aggregate {
         numIndices = numSelected;
       }
     }
-
-    decoded.base()->as<const LazyVector>()->load(
-        RowSet(indices, numIndices), &hook);
+    auto* lazy = decoded.base()->asChecked<const LazyVector>();
+    VELOX_CHECK(lazy->supportsHook());
+    lazy->load(RowSet(indices, numIndices), &hook);
   }
 
  private:

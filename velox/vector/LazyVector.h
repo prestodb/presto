@@ -201,6 +201,10 @@ class VectorLoader {
       vector_size_t resultSize,
       VectorPtr* result);
 
+  virtual bool supportsHook() const {
+    return false;
+  }
+
  protected:
   virtual void loadInternal(
       RowSet rows,
@@ -345,6 +349,10 @@ class LazyVector : public BaseVector {
   }
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
+
+  bool supportsHook() const {
+    return loader_->supportsHook();
+  }
 
   // Loads 'rows' of 'vector'. 'vector' may be an arbitrary wrapping
   // of a LazyVector. 'rows' are translated through the wrappers. If

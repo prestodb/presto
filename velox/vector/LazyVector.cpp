@@ -254,6 +254,7 @@ void LazyVector::validate(const VectorValidateOptions& options) const {
 
 void LazyVector::load(RowSet rows, ValueHook* hook) const {
   VELOX_CHECK(!allLoaded_, "A LazyVector can be loaded at most once");
+  VELOX_CHECK(!hook || supportsHook());
 
   allLoaded_ = true;
   if (rows.empty()) {
