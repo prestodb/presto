@@ -17,15 +17,15 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class TestPrestoContainerSidecarInfrastructure
         extends AbstractTestQueryFramework
 {
     @Override
-    protected ContainerQueryRunner createQueryRunner() throws IOException, InterruptedException, TimeoutException {
+    protected ContainerQueryRunner createQueryRunner()
+            throws Exception
+    {
         return null;
     }
 
@@ -36,9 +36,9 @@ public class TestPrestoContainerSidecarInfrastructure
         QueryRunner queryRunner = new ContainerQueryRunner(4, true, true, false);
         computeActualWithCustomQueryRunner(queryRunner, "SELECT * FROM system.runtime.nodes");
         computeActualWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS");
-        assertQueryFailsWithCustomQueryRunner(queryRunner,"SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
-        computeActualWithCustomQueryRunner(queryRunner,"SHOW SESSION");
-        computeActualWithCustomQueryRunner(queryRunner,"select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
+        assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
+        computeActualWithCustomQueryRunner(queryRunner, "SHOW SESSION");
+        computeActualWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
         queryRunner.close();
     }
 
@@ -65,7 +65,7 @@ public class TestPrestoContainerSidecarInfrastructure
         computeActualWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS");
         assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
         computeActualWithCustomQueryRunner(queryRunner, "SHOW SESSION");
-        computeActualWithCustomQueryRunner(queryRunner,"select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
+        computeActualWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
         queryRunner.close();
     }
 
@@ -74,7 +74,7 @@ public class TestPrestoContainerSidecarInfrastructure
             throws Exception
     {
         QueryRunner queryRunner = new ContainerQueryRunner(4, false, true, false);
-        assertQueryFailsWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS","Query failed .*.: Cannot find function namespace for 'native.default'", true);
+        assertQueryFailsWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS", "Query failed .*.: Cannot find function namespace for 'native.default'", true);
         assertQueryFailsWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Query failed .*.: Cannot find function namespace for 'native.default'", true);
         queryRunner.close();
     }
