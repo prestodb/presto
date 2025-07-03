@@ -25,13 +25,13 @@ TableFunctionNode::TableFunctionNode(
     TableFunctionHandlePtr handle,
     velox::RowTypePtr outputType,
     RequiredColumnsMap requiredColumns,
-    PlanNodePtr source)
+    std::vector<PlanNodePtr> sources)
     : PlanNode(std::move(id)),
       functionName_(name),
       handle_(std::move(handle)),
       outputType_(outputType),
       requiredColumns_(std::move(requiredColumns)),
-      sources_{std::move(source)} {}
+      sources_{std::move(sources)} {}
 
 void TableFunctionNode::addDetails(std::stringstream& stream) const {}
 
@@ -87,7 +87,7 @@ RowTypePtr deserializeRowType(const folly::dynamic& obj) {
 PlanNodePtr TableFunctionNode::create(
     const folly::dynamic& obj,
     void* context) {
-  auto source = deserializeSingleSource(obj, context);
+  auto sources = deserializeSources(obj, context);
   auto outputType = deserializeRowType(obj["outputType"]);
   auto handle = ISerializable::deserialize<TableFunctionHandle>(obj["handle"]);
   VELOX_CHECK(handle);
@@ -108,7 +108,7 @@ PlanNodePtr TableFunctionNode::create(
       handle,
       outputType,
       requiredColumns,
-      source);
+      sources);
 }
 
 } // namespace facebook::presto::tvf

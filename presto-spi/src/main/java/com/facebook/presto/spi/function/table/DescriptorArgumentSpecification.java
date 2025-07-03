@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.spi.function.table;
 
-import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
@@ -23,7 +24,7 @@ public class DescriptorArgumentSpecification
     @JsonCreator
     public DescriptorArgumentSpecification(
             @JsonProperty("name") String name,
-            @JsonProperty("required")boolean required,
+            @JsonProperty("required") boolean required,
             @JsonProperty("defaultValue") Descriptor defaultValue)
     {
         super(name, required, defaultValue);

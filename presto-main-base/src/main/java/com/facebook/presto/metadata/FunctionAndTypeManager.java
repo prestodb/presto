@@ -107,8 +107,8 @@ import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.metadata.TableFunctionRegistry.toPath;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -494,9 +494,9 @@ public class FunctionAndTypeManager
                                          .qualifyObjectName(qualifiedName).getObjectName());
         if (tableFunctionMetadata == null) {
             // populate the registry before trying to resolve the table functions from table functions provider
-            CatalogSchemaFunctionName name = toPath(session, qualifiedName);
-            ConnectorId connectorId = new ConnectorId(name.getCatalogName());
-            return tableFunctionRegistry.resolve(connectorId, name);
+            List<CatalogSchemaFunctionName> name = toPath(session, qualifiedName);
+            ConnectorId connectorId = new ConnectorId(name.get(0).getCatalogName());
+            return tableFunctionRegistry.resolve(connectorId, name.get(0));
         }
         return tableFunctionMetadata;
     }

@@ -45,14 +45,16 @@ bool registerTableFunction(
     TableArgumentSpecList argumentsSpec,
     ReturnSpecPtr returnSpec,
     TableFunctionAnalyzer analyzer,
-    TableFunctionFactory factory) {
+    TableFunctionFactory factory,
+    TableFunctionSplitGenerator splitGenerator) {
   auto sanitizedName = exec::sanitizeName(name);
   tableFunctions().insert(
       {sanitizedName,
        {std::move(argumentsSpec),
         std::move(returnSpec),
         std::move(analyzer),
-        std::move(factory)}});
+        std::move(factory),
+        std::move(splitGenerator)}});
   return true;
 }
 
@@ -97,6 +99,18 @@ std::unique_ptr<TableFunctionAnalysis> TableFunction::analyze(
   }
 
   VELOX_USER_FAIL("Table function not registered: {}", name);
+}
+
+std::vector<const TableSplitHandlePtr> TableFunction::getSplits(
+    const std::string& name,
+    const TableFunctionHandlePtr& handle) {
+  // Lookup the function in the new registry first.
+  if (auto func = getTableFunctionEntry(name)) {
+    return func.value()->splitGenerator(handle);
+  }
+
+  VELOX_USER_FAIL("Table function not registered: {}", name);
+
 }
 
 } // namespace facebook::presto::tvf

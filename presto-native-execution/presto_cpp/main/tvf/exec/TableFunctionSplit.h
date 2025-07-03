@@ -22,18 +22,9 @@
 
 namespace facebook::presto::tvf {
 
-struct TableFunctionConnectorSplit : public velox::connector::ConnectorSplit {
-  explicit TableFunctionConnectorSplit(
-      const std::string& connectorId,
-      const TableSplitHandlePtr& handle)
-      : TableFunctionConnectorSplit(connectorId, true, handle) {}
-
-  TableFunctionConnectorSplit(
-      const std::string& connectorId,
-      bool cacheable,
-      const TableSplitHandlePtr& handle)
-      : ConnectorSplit(connectorId, /*splitWeight=*/0, cacheable),
-        splitHandle_(handle) {}
+struct TableFunctionSplit : public velox::connector::ConnectorSplit {
+  explicit TableFunctionSplit(const TableSplitHandlePtr& handle)
+      : ConnectorSplit(""), splitHandle_(handle) {}
 
   const TableSplitHandlePtr splitHandle() {
     return splitHandle_;
@@ -46,10 +37,10 @@ struct TableFunctionConnectorSplit : public velox::connector::ConnectorSplit {
 } // namespace facebook::presto::tvf
 
 template <>
-struct fmt::formatter<facebook::presto::tvf::TableFunctionConnectorSplit>
+struct fmt::formatter<facebook::presto::tvf::TableFunctionSplit>
     : formatter<std::string> {
   auto format(
-      facebook::presto::tvf::TableFunctionConnectorSplit s,
+      facebook::presto::tvf::TableFunctionSplit s,
       format_context& ctx) {
     return formatter<std::string>::format(s.toString(), ctx);
   }
@@ -57,10 +48,10 @@ struct fmt::formatter<facebook::presto::tvf::TableFunctionConnectorSplit>
 
 template <>
 struct fmt::formatter<
-    std::shared_ptr<facebook::presto::tvf::TableFunctionConnectorSplit>>
+    std::shared_ptr<facebook::presto::tvf::TableFunctionSplit>>
     : formatter<std::string> {
   auto format(
-      std::shared_ptr<facebook::presto::tvf::TableFunctionConnectorSplit> s,
+      std::shared_ptr<facebook::presto::tvf::TableFunctionSplit> s,
       format_context& ctx) const {
     return formatter<std::string>::format(s->toString(), ctx);
   }

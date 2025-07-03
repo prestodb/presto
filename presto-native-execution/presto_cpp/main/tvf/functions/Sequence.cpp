@@ -58,6 +58,18 @@ class SequenceHandle : public TableFunctionHandle {
     registry.Register("SequenceHandle", SequenceHandle::create);
   }
 
+  int64_t start() const {
+    return start_;
+  }
+
+  int64_t stop() const {
+    return stop_;
+  }
+
+  int64_t step() const {
+    return step_;
+  }
+
  private:
   int64_t start_;
   int64_t stop_;
@@ -66,8 +78,8 @@ class SequenceHandle : public TableFunctionHandle {
 
 class SequenceSplitHandle : public TableSplitHandle {
  public:
-  SequenceSplitHandle(int64_t start, int64_t stop)
-      : start_(start), stop_(stop){};
+  SequenceSplitHandle(int64_t start, int64_t numSteps)
+      : start_(start), numSteps_(numSteps){};
 
   std::string_view name() const override {
     return "SequenceSplitHandle";
@@ -77,7 +89,7 @@ class SequenceSplitHandle : public TableSplitHandle {
     folly::dynamic obj = folly::dynamic::object;
     obj["name"] = fmt::format("{}", name());
     obj["start"] = start_;
-    obj["stop"] = stop_;
+    obj["numSteps"] = numSteps_;
     return obj;
   }
 
@@ -85,7 +97,7 @@ class SequenceSplitHandle : public TableSplitHandle {
       const folly::dynamic& obj,
       void* context) {
     return std::make_shared<SequenceSplitHandle>(
-        obj["start"].asInt(), obj["stop"].asInt());
+        obj["start"].asInt(), obj["numSteps"].asInt());
   }
 
   static void registerSerDe() {
@@ -95,7 +107,7 @@ class SequenceSplitHandle : public TableSplitHandle {
 
  private:
   int64_t start_;
-  int64_t stop_;
+  int64_t numSteps_;
 };
 
 class SequenceAnalysis : public TableFunctionAnalysis {
@@ -151,6 +163,30 @@ class Sequence : public TableFunction {
     return std::make_shared<TableFunctionResult>(
         TableFunctionResult::TableFunctionState::kFinished);
   }
+
+  static std::vector<const TableSplitHandlePtr> getSplits(
+      const TableFunctionHandlePtr& handle) {
+    static const int64_t kMaxSteps = 10;
+    auto sequenceHandle =
+        std::dynamic_pointer_cast<const SequenceHandle>(handle);
+    auto start = sequenceHandle->start();
+    auto stop = sequenceHandle->stop();
+    auto step = sequenceHandle->step();
+
+    auto numSteps = (stop - start)/step;
+
+    std::vector<const TableSplitHandlePtr> splits = {};
+    splits.reserve((numSteps/kMaxSteps) + 1);
+    auto splitStart = start;
+    while (numSteps > 0) {
+      auto splitSteps = numSteps < kMaxSteps ? numSteps : kMaxSteps;
+      auto sequenceSplit = std::make_shared<SequenceSplitHandle>(splitStart, splitSteps);
+      splits.push_back(sequenceSplit);
+      numSteps -= kMaxSteps;
+      splitStart = start + (kMaxSteps * step);
+    }
+    return splits;
+  }
 };
 } // namespace
 
@@ -179,7 +215,8 @@ void registerSequence(const std::string& name) {
          const velox::core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<TableFunction> {
         return std::make_unique<Sequence>(pool);
-      });
+      },
+      Sequence::getSplits);
   SequenceHandle::registerSerDe();
   SequenceSplitHandle::registerSerDe();
 }

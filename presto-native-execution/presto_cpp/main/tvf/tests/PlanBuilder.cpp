@@ -53,13 +53,20 @@ addTvfNode(
       outputType = velox::ROW(std::move(names), std::move(types));
     }
 
+    std::vector<PlanNodePtr> sources;
+    if (source == nullptr) {
+      sources.clear();
+    } else {
+      sources.push_back(source);
+    }
+
     return std::make_shared<TableFunctionNode>(
         nodeId,
         name,
         analysis->tableFunctionHandle(),
         outputType,
         analysis->requiredColumns(),
-        source);
+        sources);
   };
 }
 } // namespace facebook::presto::tvf

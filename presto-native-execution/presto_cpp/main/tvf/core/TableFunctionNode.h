@@ -20,16 +20,13 @@ namespace facebook::presto::tvf {
 
 class TableFunctionNode : public velox::core::PlanNode {
  public:
-  /// @param windowColumnNames specifies the output column
-  /// names for each window function column. SoWi
-  /// windowColumnNames.length() = windowFunctions.length().
   TableFunctionNode(
       velox::core::PlanNodeId id,
       const std::string& name,
       TableFunctionHandlePtr handle,
       velox::RowTypePtr outputType,
       RequiredColumnsMap requiredColumns,
-      velox::core::PlanNodePtr source);
+      std::vector<velox::core::PlanNodePtr> sources);
 
   const std::vector<velox::core::PlanNodePtr>& sources() const override {
     return sources_;

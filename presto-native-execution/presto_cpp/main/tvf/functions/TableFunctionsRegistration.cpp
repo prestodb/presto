@@ -23,8 +23,8 @@ extern void registerRemoteAnn(const std::string& name);
 
 void registerAllTableFunctions(const std::string& prefix) {
   registerExcludeColumns(prefix + "exclude_columns");
-  registerExcludeColumns(prefix + "sequence");
-  registerExcludeColumns(prefix + "remoteAnn");
+  registerSequence(prefix + "sequence");
+  registerRemoteAnn(prefix + "remoteAnn");
 }
 
 } // namespace facebook::presto::tvf

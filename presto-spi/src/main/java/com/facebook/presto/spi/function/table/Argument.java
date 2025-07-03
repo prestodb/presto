@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi.function.table;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -35,16 +33,4 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public abstract class Argument
 {
-    private final String name;
-
-    @JsonCreator
-    public Argument(@JsonProperty("name") String dummy) {
-        this.name = dummy;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
 }

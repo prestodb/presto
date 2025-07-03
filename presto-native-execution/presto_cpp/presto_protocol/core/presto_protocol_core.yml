@@ -214,6 +214,12 @@ AbstractClasses:
       - { name: GenericTableReturnTypeSpecification,         key: generic_table }
       - { name: OnlyPassThroughReturnTypeSpecification,      key: only_pass_through_table }
 
+  Argument:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescriptorArgument,       key: descriptor }
+      - { name: ScalarArgument,           key: scalar }
+      - { name: TableArgument,            key: table }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
@@ -373,3 +379,10 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescribedTableReturnTypeSpecification.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/GenericTableReturnTypeSpecification.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/OnlyPassThroughReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/Argument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ScalarArgument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/TableArgument.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata1.java
+  - presto-common/src/main/java/com/facebook/presto/common/type/RowType.java
+  - presto-common/src/main/java/com/facebook/presto/common/predicate/NullableValue.java

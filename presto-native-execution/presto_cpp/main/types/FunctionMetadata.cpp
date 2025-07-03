@@ -275,7 +275,7 @@ protocol::Descriptor buildDescriptor(const Descriptor& descriptor) {
     std::shared_ptr<std::string> type = (i < types.size())
         ? std::make_shared<std::string>(types.at(i)->toString())
         : nullptr;
-    fields.emplace_back(protocol::Field{names[i], type});
+    fields.emplace_back(protocol::Field{std::make_shared<std::string>(names.at(i)), type});
   }
   return protocol::Descriptor{fields};
 }

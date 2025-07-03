@@ -14,14 +14,17 @@ add_library(presto_tvf_plan_builder PlanBuilder.cpp)
 target_link_libraries(presto_tvf_plan_builder presto_tvf_core
                       presto_tvf_functions presto_tvf_spi velox_core)
 
-add_executable(presto_tvf_test ExcludeColumnsTest.cpp PlanNodeSerdeTest.cpp)
+add_executable(presto_tvf_test ExcludeColumnsTest.cpp PlanNodeSerdeTest.cpp SequenceTest.cpp)
 
 add_test(presto_tvf_test presto_tvf_test)
 
 target_link_libraries(
   presto_tvf_test
+  presto_tvf_core
   presto_tvf_exec
+  presto_tvf_functions
   presto_tvf_plan_builder
+  presto_tvf_spi
   velox_vector_fuzzer
   velox_exec_test_lib
   velox_vector_test_lib

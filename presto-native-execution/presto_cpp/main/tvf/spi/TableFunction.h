@@ -70,6 +70,15 @@ class TableFunction {
     VELOX_NYI(" TableFunction::apply() for split is not implemented");
   }
 
+  static std::vector<const TableSplitHandlePtr> getSplits(
+      const std::string& name,
+      const TableFunctionHandlePtr& handle);
+
+  static std::vector<const TableSplitHandlePtr> defaultGetSplits(
+      const TableFunctionHandlePtr& /* handle */) {
+    VELOX_NYI("TableFunction::getSplits is not implemented");
+  }
+
  protected:
   velox::memory::MemoryPool* pool_;
   velox::HashStringAllocator* const stringAllocator_;
@@ -82,7 +91,7 @@ class TableFunction {
 /// object.
 /// @param resultType  Type of the result of the function.
 using TableFunctionFactory = std::function<std::unique_ptr<TableFunction>(
-    const std::shared_ptr<const TableFunctionHandle>& handle,
+    const TableFunctionHandlePtr& handle,
     velox::memory::MemoryPool* pool,
     velox::HashStringAllocator* stringAllocator,
     const velox::core::QueryConfig& config)>;
@@ -90,6 +99,18 @@ using TableFunctionFactory = std::function<std::unique_ptr<TableFunction>(
 using TableFunctionAnalyzer =
     std::function<std::unique_ptr<TableFunctionAnalysis>(
         const std::unordered_map<std::string, std::shared_ptr<Argument>>& args)>;
+
+using TableFunctionSplitGenerator =
+    std::function<std::vector<const TableSplitHandlePtr>(
+        const TableFunctionHandlePtr& handle)>;
+
+struct TableFunctionEntry {
+  TableArgumentSpecList argumentsSpec;
+  ReturnSpecPtr returnSpec;
+  TableFunctionAnalyzer analyzer;
+  TableFunctionFactory factory;
+  TableFunctionSplitGenerator splitGenerator;
+};
 
 /// Register a Table function with the specified name.
 /// Registering a function with the same name a second time overrides the first
@@ -99,14 +120,8 @@ bool registerTableFunction(
     TableArgumentSpecList argumentsSpec,
     ReturnSpecPtr returnSpec,
     TableFunctionAnalyzer analyzer,
-    TableFunctionFactory factory);
-
-struct TableFunctionEntry {
-  TableArgumentSpecList argumentsSpec;
-  ReturnSpecPtr returnSpec;
-  TableFunctionAnalyzer analyzer;
-  TableFunctionFactory factory;
-};
+    TableFunctionFactory factory,
+    TableFunctionSplitGenerator splitGenerator = TableFunction::defaultGetSplits);
 
 // Returning a pointer since it can be dynamic cast.
 ReturnSpecPtr getTableFunctionReturnType(const std::string& name);
