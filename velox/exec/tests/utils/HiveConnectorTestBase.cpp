@@ -24,6 +24,7 @@
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/dwio/text/RegisterTextReader.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 
 namespace facebook::velox::exec::test {
@@ -49,6 +50,7 @@ void HiveConnectorTestBase::SetUp() {
   dwio::common::registerFileSinks();
   dwrf::registerDwrfReaderFactory();
   dwrf::registerDwrfWriterFactory();
+  dwio::common::registerTextReaderFactory();
 }
 
 void HiveConnectorTestBase::TearDown() {
@@ -60,6 +62,7 @@ void HiveConnectorTestBase::TearDown() {
   connector::unregisterConnector(kHiveConnectorId);
   connector::unregisterConnectorFactory(
       connector::hive::HiveConnectorFactory::kHiveConnectorName);
+  dwio::common::unregisterTextReaderFactory();
   OperatorTestBase::TearDown();
 }
 

@@ -118,8 +118,11 @@ TextRowReader::TextRowReader(
       atEOF_{false},
       atSOL_{false},
       depth_{0},
+      unreadData_{""},
+      unreadIdx_{0},
       limit_{opts.limit()},
       fileLength_{getStreamLength()},
+      ownedString_{""},
       stringViewBuffer_{StringViewBufferHolder(&contents_->pool)} {
   // Seek to first line at or after the specified region.
   if (contents_->compression == CompressionKind::CompressionKind_NONE) {
@@ -235,8 +238,8 @@ uint64_t TextRowReader::next(
     ++rowsRead;
 
     if (pos_ >= getLength()) {
+      // disable further chunk reads but parse the remainder of the line
       atEOF_ = true;
-      rowVecPtr->resize(rowsRead);
     }
 
     // handle empty file
@@ -244,7 +247,12 @@ uint64_t TextRowReader::next(
       currentRow_ = 0;
     }
   }
+
+  // Resize the row vector to the actual number of rows read.
+  // Handled here for both cases: pos_ > fileLength_ and pos_ > limit_
+  rowVecPtr->resize(rowsRead);
   result = projectColumns(rowVecPtr, *scanSpec_, mutation);
+
   return rowsRead;
 }
 
@@ -327,8 +335,10 @@ void TextRowReader::setEOF() {
   atEOL_ = true;
 }
 
+/// TODO: Update maximum depth after fixing issue with deeply nested complex
+/// types
 void TextRowReader::incrementDepth() {
-  if (depth_ >= 6) {
+  if (depth_ > 4) {
     parse_error("Schema nesting too deep");
   }
   depth_++;
@@ -509,6 +519,7 @@ DelimType TextRowReader::getDelimType(uint8_t v) {
     /// TODO: Logically should be >=, kept as it is to align with presto reader.
     if (pos_ > limit_) {
       atEOF_ = true;
+      delim = DelimTypeEOR;
     }
   } else if (v == contents_->serDeOptions.separators.at(depth_)) {
     setEOE(delim);
@@ -563,7 +574,7 @@ char TextRowReader::getByteUnchecked(DelimType& delim) {
   }
   if (!skipLF) {
     setEOF();
-    delim = 1;
+    delim = DelimTypeEOR;
   }
   return '\n';
 }
@@ -579,10 +590,15 @@ char TextRowReader::getByteUncheckedOptimized(DelimType& delim) {
 
   try {
     char v;
-    if (unreadData_.empty()) {
+    if (unreadData_.empty() || unreadIdx_ >= unreadData_.size()) {
       int length;
       const void* buffer;
-      contents_->inputStream->Next(&buffer, &length);
+      if (!contents_->inputStream->Next(&buffer, &length)) {
+        setEOF();
+        delim = DelimTypeEOR;
+        return '\0';
+      }
+
       unreadData_ = std::string(reinterpret_cast<const char*>(buffer), length);
       unreadIdx_ = 0;
     }
@@ -608,7 +624,7 @@ char TextRowReader::getByteUncheckedOptimized(DelimType& delim) {
   }
   if (!skipLF) {
     setEOF();
-    delim = 1;
+    delim = DelimTypeEOR;
   }
   return '\n';
 }
@@ -673,7 +689,8 @@ bool TextRowReader::skipLine() {
   }
   /// TODO: Logically should be >=, kept as it is to align with presto reader
   if (pos_ > limit_) {
-    atEOF_ = true;
+    setEOF();
+    delim = DelimTypeEOR;
   }
   return atEOF_;
 }

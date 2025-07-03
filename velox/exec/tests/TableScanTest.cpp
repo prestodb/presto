@@ -20,11 +20,14 @@
 #include <folly/experimental/EventCount.h>
 #include <folly/synchronization/Baton.h>
 #include <folly/synchronization/Latch.h>
+#include <filesystem>
 
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/tests/CacheTestUtil.h"
+#include "velox/common/file/File.h"
+#include "velox/common/file/tests/FaultyFile.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
@@ -5789,5 +5792,208 @@ TEST_F(TableScanTest, prevBatchEmptyAdaptivity) {
     EXPECT_GT(numBatchesReadWithoutAdaptivity, numBatchesRead);
   }
 }
+
+TEST_F(TableScanTest, textfileEscape) {
+  auto expected = makeRowVector(
+      {"c0", "c1"},
+      {
+          makeFlatVector<std::string>({"a,bc", "d"}),
+          makeFlatVector<std::string>({"e", "e"}),
+      });
+
+  const auto tempFile = TempFilePath::create();
+  const auto tempPath = tempFile->getPath();
+  remove(tempPath.c_str());
+  LocalWriteFile localWriteFile(tempPath);
+  localWriteFile.append("a\\,bc,e\nd,e");
+  localWriteFile.close();
+
+  std::unordered_map<std::string, std::string> customSplitInfo;
+  std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
+  std::unordered_map<std::string, std::string> serdeParameters{
+      {dwio::common::SerDeOptions::kFieldDelim, ","},
+      {dwio::common::SerDeOptions::kEscapeChar, "\\"}};
+
+  auto split = std::make_shared<connector::hive::HiveConnectorSplit>(
+      kHiveConnectorId,
+      tempPath,
+      dwio::common::FileFormat(dwio::common::FileFormat::TEXT),
+      0,
+      std::numeric_limits<uint64_t>::max(),
+      partitionKeys,
+      std::nullopt,
+      customSplitInfo,
+      nullptr,
+      serdeParameters);
+
+  auto inputType = asRowType(expected->type());
+  auto plan =
+      PlanBuilder(pool()).tableScan(inputType, {}, "", inputType).planNode();
+
+  auto task = facebook::velox::exec::test::AssertQueryBuilder(plan)
+                  .split(split)
+                  .assertResults(expected);
+  auto planStats = facebook::velox::exec::toPlanStats(task->taskStats());
+  auto scanNodeId = plan->id();
+  auto it = planStats.find(scanNodeId);
+  ASSERT_TRUE(it != planStats.end());
+  auto rawInputBytes = it->second.rawInputBytes;
+  auto overreadBytes = getTableScanRuntimeStats(task).at("overreadBytes").sum;
+
+  ASSERT_EQ(rawInputBytes, 11);
+  ASSERT_EQ(overreadBytes, 0);
+}
+
+TEST_F(TableScanTest, textfileChunkReadEntireFile) {
+  auto expected = makeRowVector(
+      {"c0", "c1"},
+      {
+          makeFlatVector<std::string>({"row1_col1", "row2_col1", "row3_col1"}),
+          makeFlatVector<std::string>({"row1_col2", "row2_col2", "row3_col2"}),
+      });
+
+  const auto tempFile = TempFilePath::create();
+  const auto tempPath = tempFile->getPath();
+  remove(tempPath.c_str());
+  LocalWriteFile localWriteFile(tempPath);
+
+  localWriteFile.append("row1_col1,row1_col2\n");
+  localWriteFile.append("row2_col1,row2_col2\n");
+  localWriteFile.append("row3_col1,row3_col2\n");
+
+  // Add extra padding data that might be read but not used
+  localWriteFile.append("extra_row1,extra_data1\n");
+  localWriteFile.append("extra_row2,extra_data2\n");
+  localWriteFile.close();
+
+  std::unordered_map<std::string, std::string> customSplitInfo;
+  std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
+  std::unordered_map<std::string, std::string> serdeParameters{
+      {dwio::common::SerDeOptions::kFieldDelim, ","}};
+
+  // Create a split that only reads part of the file (first 60 bytes)
+  // This should cause the reader to potentially overread beyond the split
+  // boundary
+  auto split = std::make_shared<connector::hive::HiveConnectorSplit>(
+      kHiveConnectorId,
+      tempPath,
+      dwio::common::FileFormat(dwio::common::FileFormat::TEXT),
+      0,
+      59, // Limit to first 60 bytes instead of reading entire file
+      partitionKeys,
+      std::nullopt,
+      customSplitInfo,
+      nullptr,
+      serdeParameters);
+
+  auto inputType = asRowType(expected->type());
+  auto plan =
+      PlanBuilder(pool()).tableScan(inputType, {}, "", inputType).planNode();
+
+  auto task = facebook::velox::exec::test::AssertQueryBuilder(plan)
+                  .split(split)
+                  .assertResults(expected);
+
+  auto planStats = facebook::velox::exec::toPlanStats(task->taskStats());
+  auto scanNodeId = plan->id();
+  auto it = planStats.find(scanNodeId);
+  ASSERT_TRUE(it != planStats.end());
+  auto rawInputBytes = it->second.rawInputBytes;
+
+  // Entire file was read in a single chunk even though range is [0,59]
+  ASSERT_EQ(rawInputBytes, 106);
+}
+
+TEST_F(TableScanTest, textfileLarge) {
+  constexpr int kNumRows =
+      100000; // This will generate well over 8388608 bytes (per chunk read)
+  constexpr int kNumCols = 10;
+
+  constexpr int loadQuantum = 8 << 20; // loadQuantum_ as of June 2025
+
+  // Helper function to generate column data
+  auto generateColumnData = [](int row, int col) {
+    return fmt::format("row{}_col{}_padding_data_to_increase_size", row, col);
+  };
+
+  // Helper function to generate CSV row
+  auto generateCsvRow = [&](int row) {
+    std::vector<std::string> cols;
+    cols.reserve(kNumCols);
+    for (int col = 0; col < kNumCols; ++col) {
+      cols.push_back(generateColumnData(row, col));
+    }
+    return fmt::format("{}\n", fmt::join(cols, ","));
+  };
+
+  // Create expected result (only first row since split limit is 10 bytes)
+  std::vector<std::string> expectedRow;
+  expectedRow.reserve(kNumCols);
+  for (int col = 0; col < kNumCols; ++col) {
+    expectedRow.push_back(generateColumnData(0, col));
+  }
+
+  std::vector<std::string> columnNames;
+  std::vector<VectorPtr> columnVectors;
+  columnNames.reserve(kNumCols);
+  columnVectors.reserve(kNumCols);
+
+  for (int col = 0; col < kNumCols; ++col) {
+    columnNames.push_back(fmt::format("c{}", col));
+    columnVectors.push_back(makeFlatVector<std::string>({expectedRow[col]}));
+  }
+
+  auto expected = makeRowVector(columnNames, columnVectors);
+
+  // Create large file
+  const auto tempFile = TempFilePath::create();
+  const auto tempPath = tempFile->getPath();
+  remove(tempPath.c_str());
+  LocalWriteFile localWriteFile(tempPath);
+
+  for (int row = 0; row < kNumRows; ++row) {
+    localWriteFile.append(generateCsvRow(row));
+  }
+  localWriteFile.close();
+
+  ASSERT_GE(std::filesystem::file_size(tempPath), loadQuantum);
+
+  std::unordered_map<std::string, std::string> customSplitInfo;
+  std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
+  std::unordered_map<std::string, std::string> serdeParameters{
+      {dwio::common::SerDeOptions::kFieldDelim, ","}};
+
+  auto split = std::make_shared<connector::hive::HiveConnectorSplit>(
+      kHiveConnectorId,
+      tempPath,
+      dwio::common::FileFormat(dwio::common::FileFormat::TEXT),
+      0,
+      10, // Limit to only first row
+      partitionKeys,
+      std::nullopt,
+      customSplitInfo,
+      nullptr,
+      serdeParameters);
+
+  auto inputType = asRowType(expected->type());
+  auto plan =
+      PlanBuilder(pool()).tableScan(inputType, {}, "", inputType).planNode();
+
+  auto task = facebook::velox::exec::test::AssertQueryBuilder(plan)
+                  .split(split)
+                  .assertResults(expected);
+
+  auto planStats = facebook::velox::exec::toPlanStats(task->taskStats());
+  auto scanNodeId = plan->id();
+  auto it = planStats.find(scanNodeId);
+  ASSERT_TRUE(it != planStats.end());
+  auto rawInputBytes = it->second.rawInputBytes;
+
+  // Verify we did not read the entire file but only a chunk
+  ASSERT_EQ(rawInputBytes, loadQuantum);
+  ASSERT_GT(getTableScanRuntimeStats(task)["totalScanTime"].sum, 0);
+  ASSERT_GT(getTableScanRuntimeStats(task)["ioWaitWallNanos"].sum, 0);
+}
+
 } // namespace
 } // namespace facebook::velox::exec
