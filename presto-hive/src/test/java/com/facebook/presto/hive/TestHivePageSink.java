@@ -142,9 +142,9 @@ public class TestHivePageSink
 
     protected List<HiveStorageFormat> getSupportedHiveStorageFormats()
     {
-        // CSV supports only unbounded VARCHAR type, and Alpha does not support DML yet
+        // CSV supports only unbounded VARCHAR type
         return Arrays.stream(HiveStorageFormat.values())
-                .filter(format -> format != HiveStorageFormat.CSV && format != HiveStorageFormat.ALPHA)
+                .filter(format -> format != HiveStorageFormat.CSV)
                 .collect(toImmutableList());
     }
 
