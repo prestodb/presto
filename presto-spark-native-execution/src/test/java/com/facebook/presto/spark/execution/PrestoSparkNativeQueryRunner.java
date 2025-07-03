@@ -66,6 +66,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -333,6 +334,10 @@ public class PrestoSparkNativeQueryRunner
         defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
                 .setCatalog(defaultCatalog)
                 .setSchema("tpch")
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        ImmutableMap.of(defaultCatalog, "admin")))
                 .build();
 
         transactionManager = injector.getInstance(TransactionManager.class);

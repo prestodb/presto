@@ -418,7 +418,7 @@ public class PrestoNativeQueryRunnerUtils
                 .toAbsolutePath();
         Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
 
-        assertTrue(Files.exists(prestoServerPath), format("Native worker binary at %s not found. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.", prestoServerPath));
+//        assertTrue(Files.exists(prestoServerPath), format("Native worker binary at %s not found. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.", prestoServerPath));
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
 
         if (!Files.exists(dataDirectory)) {

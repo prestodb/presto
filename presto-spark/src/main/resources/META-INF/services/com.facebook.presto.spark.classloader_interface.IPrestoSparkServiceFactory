@@ -1,1 +1,1 @@
-com.facebook.presto.spark.PrestoSparkServiceFactory
+com.facebook.presto.spark.PrestoSparkNativeServiceFactory

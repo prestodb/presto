@@ -62,10 +62,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-tpch</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -179,7 +175,6 @@
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -196,29 +191,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-hive</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.xerial.snappy</groupId>
-                    <artifactId>snappy-java</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.roaringbitmap</groupId>
-                    <artifactId>RoaringBitmap</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-metastore</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

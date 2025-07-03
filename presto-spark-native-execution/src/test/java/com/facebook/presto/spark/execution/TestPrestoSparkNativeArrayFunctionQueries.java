@@ -23,7 +23,7 @@ public class TestPrestoSparkNativeArrayFunctionQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createPrestoSparkNativeQueryRunner();
     }
 
     @Override
