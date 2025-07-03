@@ -32,7 +32,7 @@ public interface Tracer
     /**
      * Add a new block starting at current time to the trace
      * @param blockName the name for the added tracing block
-     * @param blockName the name for the parent tracing block
+     * @param parentBlockName the name for the parent tracing block
      * @param annotation message associated with the start point of the block
      */
     default void startBlock(String blockName, String parentBlockName, String annotation) {};

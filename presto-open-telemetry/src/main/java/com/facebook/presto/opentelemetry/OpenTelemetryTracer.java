@@ -142,7 +142,7 @@ public class OpenTelemetryTracer
     public void startBlock(String blockName, String annotation)
     {
         if (spanMap.containsKey(blockName)) {
-            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Duplicated block inserted: " + blockName);
+            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, String.format("Duplicate block inserted: %s ", blockName));
         }
         Span span = openTelemetryTracer.spanBuilder(blockName)
                 .setParent(Context.current().with(parentSpan))
@@ -156,18 +156,11 @@ public class OpenTelemetryTracer
         }
     }
 
-    /**
-     * Create new span with Open Telemetry tracer
-     * @param blockName name of span
-     * @param parentBlockName name of parent span
-     * @param annotation event to add to span
-     */
-
     @Override
     public void startBlock(String blockName, String parentBlockName, String annotation)
     {
         if (spanMap.containsKey(blockName)) {
-            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Duplicated block inserted: " + blockName);
+            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, String.format("Duplicate block inserted: %s ", blockName));
         }
         Span parentSpan = spanMap.get(parentBlockName);
         Span span = openTelemetryTracer.spanBuilder(blockName)
@@ -227,13 +220,6 @@ public class OpenTelemetryTracer
         return tracerName;
     }
 
-    /**
-     * Add an attribute to the specified block
-     * @param blockName the name for the tracing block to add point to
-     * @param key for attribute
-     * @param value for attribute
-     */
-
     @Override
     public void addAttributeToBlock(String blockName, String key, String value)
     {
@@ -242,12 +228,6 @@ public class OpenTelemetryTracer
         }
         spanMap.get(blockName).setAttribute(key, value);
     }
-
-    /**
-     * Set status for the specified block
-     * @param blockName the name for the tracing block to add attribute to
-     * @param status for block
-     */
 
     @Override
     public void setBlockStatus(String blockName, String status)
