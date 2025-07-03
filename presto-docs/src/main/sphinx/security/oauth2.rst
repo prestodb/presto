@@ -7,7 +7,7 @@ Presto can be configured to enable frontend OAuth2 authentication over HTTPS for
 OAuth2 authentication in Presto uses the Authorization Code Flow with PKCE and OpenID Connect (OIDC). The Presto coordinator initiates an OAuth2 challenge, and the client completes the flow by obtaining an access token from the identity provider.
 
 Presto Server Configuration
---------------------
+---------------------------
 
 To enable OAuth2 authentication, configuration changes are made **only on the Presto coordinator**. No changes are required on the workers.
 
