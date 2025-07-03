@@ -1660,12 +1660,17 @@ MapVectorPtr MapVector::updateImpl(
     }
     if (newNulls.get() == nulls().get()) {
       newNulls = allocateNulls(size(), pool());
-      bits::andBits(
-          newNulls->asMutable<uint64_t>(),
-          rawNulls(),
-          other.nulls(),
-          0,
-          size());
+      if (!rawNulls()) {
+        bits::copyBits(
+            other.nulls(), 0, newNulls->asMutable<uint64_t>(), 0, size());
+      } else {
+        bits::andBits(
+            newNulls->asMutable<uint64_t>(),
+            rawNulls(),
+            other.nulls(),
+            0,
+            size());
+      }
     } else {
       bits::andBits(newNulls->asMutable<uint64_t>(), other.nulls(), 0, size());
     }

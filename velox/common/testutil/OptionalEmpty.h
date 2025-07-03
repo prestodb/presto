@@ -30,4 +30,13 @@ struct OptionalEmptyT {
 
 inline constexpr OptionalEmptyT optionalEmpty;
 
+struct EmptyT {
+  template <typename T>
+  operator std::vector<T>() const {
+    return {};
+  }
+};
+
+inline constexpr EmptyT Empty;
+
 } // namespace facebook::velox::common::testutil
