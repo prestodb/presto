@@ -14,8 +14,8 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.ServerInfo;
-import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;

@@ -18,8 +18,7 @@ import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import com.facebook.presto.pinot.auth.password.PinotPasswordAuthenticationProvider;
 import com.facebook.presto.spi.ConnectorSession;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Optional;
 

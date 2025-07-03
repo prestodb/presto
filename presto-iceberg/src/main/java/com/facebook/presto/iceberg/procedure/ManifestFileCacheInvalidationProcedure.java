@@ -17,8 +17,8 @@ import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
+import jakarta.inject.Inject;
 
-import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
