@@ -22,6 +22,7 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
+import com.facebook.presto.spi.tracing.TracerProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -53,6 +54,7 @@ public class EventListenerManager
     private final AtomicReference<List<EventListener>> configuredEventListeners =
             new AtomicReference<>(ImmutableList.of());
     private final AtomicBoolean loading = new AtomicBoolean(false);
+    private TracerProvider tracerProvider;
 
     @Inject
     public EventListenerManager(EventListenerConfig config)
@@ -119,6 +121,7 @@ public class EventListenerManager
                     .addAll(this.configuredEventListeners.get())
                     .add(eventListener)
                     .build();
+            eventListener.setTraceProvider(tracerProvider);
             this.configuredEventListeners.set(eventListeners);
         }
 
@@ -161,5 +164,10 @@ public class EventListenerManager
     {
         configuredEventListeners.get()
                 .forEach(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
+    }
+
+    public void setTracerProvider(TracerProvider tracerProvider)
+    {
+        this.tracerProvider = tracerProvider;
     }
 }
