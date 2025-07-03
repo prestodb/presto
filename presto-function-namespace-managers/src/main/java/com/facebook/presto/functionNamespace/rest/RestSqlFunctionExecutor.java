@@ -26,6 +26,7 @@ import com.facebook.presto.functionNamespace.ForRestServer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
+import com.facebook.presto.spi.function.RestFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionExecutor;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -113,13 +114,15 @@ public class RestSqlFunctionExecutor
             Type returnType)
     {
         SqlFunctionHandle functionHandle = functionImplementation.getFunctionHandle();
+        checkArgument(functionHandle instanceof RestFunctionHandle, "Expected RestFunctionHandle but got %s", functionHandle.getClass().getName());
+        RestFunctionHandle restFunctionHandle = (RestFunctionHandle) functionHandle;
         SqlFunctionId functionId = functionHandle.getFunctionId();
         String functionVersion = functionHandle.getVersion();
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) input.getRetainedSizeInBytes());
         writeSerializedPage(sliceOutput, pageSerde.serialize(input));
         try {
             Request request = preparePost()
-                    .setUri(getExecutionEndpoint(functionId, functionVersion))
+                    .setUri(getExecutionEndpoint(restFunctionHandle, functionId, functionVersion))
                     .setBodyGenerator(createStaticBodyGenerator(sliceOutput.slice().byteArray()))
                     .setHeader(CONTENT_TYPE, PRESTO_PAGES)
                     .setHeader(ACCEPT, PRESTO_PAGES)
@@ -133,7 +136,7 @@ public class RestSqlFunctionExecutor
         }
     }
 
-    private URI getExecutionEndpoint(SqlFunctionId functionId, String functionVersion)
+    private URI getExecutionEndpoint(RestFunctionHandle restFunctionHandle, SqlFunctionId functionId, String functionVersion)
     {
         String encodedFunctionId;
         try {
@@ -144,7 +147,11 @@ public class RestSqlFunctionExecutor
             throw new IllegalStateException("UTF-8 encoding is not supported", e);
         }
 
-        HttpUriBuilder uri = uriBuilderFrom(URI.create(restBasedFunctionNamespaceManagerConfig.getRestUrl()))
+        // Use execution endpoint from handle if present, otherwise use default
+        URI baseUri = restFunctionHandle.getExecutionEndpoint()
+                .orElse(URI.create(restBasedFunctionNamespaceManagerConfig.getRestUrl()));
+
+        HttpUriBuilder uri = uriBuilderFrom(baseUri)
                 .appendPath(format("/v1/functions/%s/%s/%s/%s",
                         functionId.getFunctionName().getSchemaName(),
                         functionId.getFunctionName().getObjectName(),
