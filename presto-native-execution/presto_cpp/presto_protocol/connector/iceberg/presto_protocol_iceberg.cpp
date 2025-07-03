@@ -508,15 +508,14 @@ namespace facebook::presto::protocol::iceberg {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<PartitionTransformType, json>
-    PartitionTransformType_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {PartitionTransformType::IDENTITY, "IDENTITY"},
-            {PartitionTransformType::YEAR, "YEAR"},
-            {PartitionTransformType::MONTH, "MONTH"},
-            {PartitionTransformType::DAY, "DAY"},
-            {PartitionTransformType::HOUR, "HOUR"},
-            {PartitionTransformType::BUCKET, "BUCKET"},
-            {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
+    PartitionTransformType_enum_table[] = { // NOLINT: cert-err58-cpp
+        {PartitionTransformType::IDENTITY, "IDENTITY"},
+        {PartitionTransformType::YEAR, "YEAR"},
+        {PartitionTransformType::MONTH, "MONTH"},
+        {PartitionTransformType::DAY, "DAY"},
+        {PartitionTransformType::HOUR, "HOUR"},
+        {PartitionTransformType::BUCKET, "BUCKET"},
+        {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
 void to_json(json& j, const PartitionTransformType& e) {
   static_assert(
       std::is_enum<PartitionTransformType>::value,
