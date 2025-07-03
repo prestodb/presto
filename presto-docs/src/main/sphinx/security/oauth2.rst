@@ -40,7 +40,7 @@ Below are the key configuration properties for enabling OAuth2 authentication in
     http-server.authentication.oauth2.user-mapping.pattern=(.*)
 
 TLS Truststore for IdP
------------------------
+----------------------
 
 If your IdP uses a custom or self-signed certificate, import it into the Java truststore on the Presto coordinator:
 
