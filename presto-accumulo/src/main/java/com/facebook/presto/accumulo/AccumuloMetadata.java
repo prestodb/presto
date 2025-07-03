@@ -57,9 +57,9 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXIS
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 /**
  * Presto metadata provider for Accumulo.
@@ -400,26 +400,13 @@ public class AccumuloMetadata
             }
 
             List<ColumnMetadata> columns = table.getColumnsMetadata().stream()
-                    .map(column -> normalizedColumnMetadata(session, column))
-                    .collect(toList());
+                    .map(column -> column.copy(builder -> builder.setName(normalizeIdentifier(session, column.getName()))))
+                    .collect(toImmutableList());
 
             return new ConnectorTableMetadata(tableName, columns);
         }
 
         return null;
-    }
-
-    private ColumnMetadata normalizedColumnMetadata(ConnectorSession session, ColumnMetadata columnMetadata)
-    {
-        return ColumnMetadata.builder()
-                .setName(normalizeIdentifier(session, columnMetadata.getName()))
-                .setType(columnMetadata.getType())
-                .setHidden(columnMetadata.isHidden())
-                .setNullable(columnMetadata.isNullable())
-                .setComment(columnMetadata.getComment().orElse(null))
-                .setProperties(columnMetadata.getProperties())
-                .setExtraInfo(columnMetadata.getExtraInfo().orElse(null))
-                .build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

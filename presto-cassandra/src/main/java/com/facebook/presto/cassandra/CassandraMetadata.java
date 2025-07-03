@@ -62,7 +62,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraMetadata
         implements ConnectorMetadata
@@ -128,11 +127,8 @@ public class CassandraMetadata
     {
         CassandraTable table = cassandraSession.getTable(tableName);
         List<ColumnMetadata> columns = table.getColumns().stream()
-                .map(column -> {
-                    String normalizedName = normalizeIdentifier(session, CassandraCqlUtils.cqlNameToSqlName(column.getName()));
-                    return column.getColumnMetadata(normalizedName);
-                })
-                .collect(toList());
+                .map(column -> column.getColumnMetadata(normalizeIdentifier(session, CassandraCqlUtils.cqlNameToSqlName(column.getName()))))
+                .collect(toImmutableList());
         return new ConnectorTableMetadata(tableName, columns);
     }
 

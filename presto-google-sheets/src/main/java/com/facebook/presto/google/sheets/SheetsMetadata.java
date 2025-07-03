@@ -41,7 +41,6 @@ import static com.facebook.presto.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_T
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class SheetsMetadata
         implements ConnectorMetadata
@@ -116,25 +115,12 @@ public class SheetsMetadata
         Optional<SheetsTable> table = sheetsClient.getTable(tableName.getTableName());
         if (table.isPresent()) {
             List<ColumnMetadata> columns = table.get().getColumnsMetadata().stream()
-                    .map(column -> normalizedColumnMetadata(session, column))
-                    .collect(toList());
+                    .map(column -> column.copy(builder -> builder.setName(normalizeIdentifier(session, column.getName()))))
+                    .collect(toImmutableList());
 
             return Optional.of(new ConnectorTableMetadata(tableName, columns));
         }
         return Optional.empty();
-    }
-
-    private ColumnMetadata normalizedColumnMetadata(ConnectorSession session, ColumnMetadata columnMetadata)
-    {
-        return ColumnMetadata.builder()
-                .setName(normalizeIdentifier(session, columnMetadata.getName()))
-                .setType(columnMetadata.getType())
-                .setHidden(columnMetadata.isHidden())
-                .setNullable(columnMetadata.isNullable())
-                .setComment(columnMetadata.getComment().orElse(null))
-                .setProperties(columnMetadata.getProperties())
-                .setExtraInfo(columnMetadata.getExtraInfo().orElse(null))
-                .build();
     }
 
     @Override
@@ -149,8 +135,8 @@ public class SheetsMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         List<ColumnMetadata> columns = table.get().getColumnsMetadata().stream()
-                .map(column -> normalizedColumnMetadata(session, column))
-                .collect(toList());
+                .map(column -> column.copy(builder -> builder.setName(normalizeIdentifier(session, column.getName()))))
+                .collect(toImmutableList());
 
         for (ColumnMetadata column : columns) {
             columnHandles.put(column.getName(), new SheetsColumnHandle(column.getName(), column.getType(), index));

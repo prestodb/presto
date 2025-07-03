@@ -182,11 +182,8 @@ public class JmxMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName, List<JmxColumnHandle> columnHandles)
     {
         List<ColumnMetadata> columns = columnHandles.stream()
-                .map(column -> {
-                    String normalizedName = normalizeIdentifier(session, column.getColumnName());
-                    return column.getColumnMetadata(normalizedName);
-                })
-                .collect(toList());
+                .map(column -> column.getColumnMetadata(normalizeIdentifier(session, column.getColumnName())))
+                .collect(toImmutableList());
 
         return new ConnectorTableMetadata(schemaTableName, columns);
     }

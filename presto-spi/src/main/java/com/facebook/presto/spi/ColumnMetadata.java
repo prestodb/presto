@@ -90,6 +90,20 @@ public class ColumnMetadata
         return properties;
     }
 
+    public ColumnMetadata copy(java.util.function.Function<Builder, Builder> customizer)
+    {
+        Builder builder = ColumnMetadata.builder()
+                .setName(getName())
+                .setType(getType())
+                .setNullable(isNullable())
+                .setComment(getComment().orElse(null))
+                .setExtraInfo(getExtraInfo().orElse(null))
+                .setHidden(isHidden())
+                .setProperties(getProperties());
+
+        return customizer.apply(builder).build();
+    }
+
     @Override
     public String toString()
     {
