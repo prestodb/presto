@@ -84,6 +84,7 @@
 #include <pthread.h>
 #include <sched.h>
 #endif
+#include <iostream>
 
 using namespace facebook;
 
@@ -397,9 +398,33 @@ void PrestoServer::run() {
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream) {
         std::string connectorTableMetadataJson = util::extractMessageBody(body);
-        // protocol::ConnectorTableMetadata connectorTableMetadata;
-        // protocol::from_json(json(connectorTableMetadataJson), connectorTableMetadata);
-          http::sendOkResponse(downstream, json("response"));
+        
+        try {
+          protocol::ConnectorTableMetadata1 connectorTableMetadata;
+          protocol::from_json(json::parse(connectorTableMetadataJson), connectorTableMetadata);
+          std::unordered_map<std::string, std::shared_ptr<tvf::Argument>> args;
+          for (const auto& entry : connectorTableMetadata.arguments) {
+            std::shared_ptr<tvf::Argument> arg;
+            if (auto scalarArgument = std::dynamic_pointer_cast<protocol::ScalarArgument>(entry.second)) {
+              auto serializableNullableValue = scalarArgument->nullableValue.serializable;
+              arg = std::make_shared<tvf::ScalarArgument>(
+                serializableNullableValue.type, serializableNullableValue.block);
+              } 
+            else if (auto tableArgument = std::dynamic_pointer_cast<protocol::TableArgument>(entry.second)) {
+                arg = std::make_shared<tvf::TableArgument>(tableArgument->rowType);
+              }
+            else if (std::dynamic_pointer_cast<protocol::DescriptorArgument>(entry.second)) {
+              }
+            else {
+                  VELOX_FAIL("Failed to convert to a valid Argument");
+              }
+            args[entry.first] = arg;
+          }
+          tvf::TableFunction::analyze(connectorTableMetadata.name, args);
+        } catch(const std::exception& e) {
+          std::cerr << "JSON type error: " << e.what() << std::endl;
+        };
+        http::sendOkResponse(downstream, json("response"));
       });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
@@ -1335,12 +1360,6 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
-  if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerAllScalarFunctions(
-        "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "json.test_schema.");
-  }
 
   // #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
   velox::exec::Operator::registerOperator(
