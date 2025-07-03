@@ -1460,9 +1460,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.resolver</groupId>
+                <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.7</version>
+                <version>1.8-resolver-fix</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.inject</groupId>
