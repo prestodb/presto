@@ -15,8 +15,8 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
