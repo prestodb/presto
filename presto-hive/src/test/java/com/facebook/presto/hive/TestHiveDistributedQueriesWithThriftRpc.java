@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
@@ -30,13 +31,15 @@ public class TestHiveDistributedQueriesWithThriftRpc
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
                 getTables(),
                 ImmutableMap.of(
                         "internal-communication.task-communication-protocol", "THRIFT",
                         "internal-communication.server-info-communication-protocol", "THRIFT"),
                 ImmutableMap.of(),
                 Optional.empty());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override

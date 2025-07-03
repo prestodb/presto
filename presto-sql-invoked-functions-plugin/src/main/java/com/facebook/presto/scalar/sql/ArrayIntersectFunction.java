@@ -11,23 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar.sql;
+package com.facebook.presto.scalar.sql;
 
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 
-public class SimpleSamplingPercent
+public class ArrayIntersectFunction
 {
-    private SimpleSamplingPercent() {}
+    private ArrayIntersectFunction() {}
 
-    @SqlInvokedScalarFunction(value = "key_sampling_percent", deterministic = true, calledOnNullInput = false)
-    @Description("Returns a value between 0.0 and 1.0 using the hash of the given input string")
-    @SqlParameter(name = "input", type = "varchar")
-    @SqlType("double")
-    public static String keySamplingPercent()
+    @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
+    @Description("Intersects elements of all arrays in the given array")
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array<array<T>>")
+    @SqlType("array<T>")
+    public static String arrayIntersectArray()
     {
-        return "return (abs(from_ieee754_64(xxhash64(cast(input as varbinary)))) % 100) / 100. ";
+        return "RETURN reduce(input, IF((cardinality(input) = 0), ARRAY[], input[1]), (s, x) -> array_intersect(s, x), (s) -> s)";
     }
 }

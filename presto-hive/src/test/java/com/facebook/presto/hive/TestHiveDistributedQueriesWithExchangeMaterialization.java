@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
@@ -40,7 +41,9 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMaterializingQueryRunner(getTables());
+        QueryRunner queryRunner = createMaterializingQueryRunner(getTables());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Test

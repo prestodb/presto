@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.operator.scalar.annotations.CodegenScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -45,6 +47,11 @@ public final class FunctionExtractor
 
     public static List<? extends SqlFunction> extractFunctions(Class<?> clazz)
     {
+        return extractFunctions(clazz, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<? extends SqlFunction> extractFunctions(Class<?> clazz, CatalogSchemaName defaultNamespace)
+    {
         if (WindowFunction.class.isAssignableFrom(clazz)) {
             @SuppressWarnings("unchecked")
             Class<? extends WindowFunction> windowClazz = (Class<? extends WindowFunction>) clazz;
@@ -61,12 +68,12 @@ public final class FunctionExtractor
         }
 
         if (clazz.isAnnotationPresent(SqlInvokedScalarFunction.class)) {
-            return SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz);
+            return SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz, defaultNamespace);
         }
 
         List<SqlFunction> scalarFunctions = ImmutableList.<SqlFunction>builder()
                 .addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
-                .addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
+                .addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, defaultNamespace))
                 .addAll(CodegenScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
                 .build();
         checkArgument(!scalarFunctions.isEmpty(), "Class [%s] does not define any scalar functions", clazz.getName());
