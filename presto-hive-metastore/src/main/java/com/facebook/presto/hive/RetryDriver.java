@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.Arrays;

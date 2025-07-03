@@ -15,13 +15,12 @@ package com.facebook.presto.transaction;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;

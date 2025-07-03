@@ -16,9 +16,8 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.HiveType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 import java.util.Optional;
 
