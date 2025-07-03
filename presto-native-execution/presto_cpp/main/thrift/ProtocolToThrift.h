@@ -115,17 +115,17 @@ void fromThrift(
     facebook::presto::protocol::BufferType& proto);
 
 void toThrift(
-    const facebook::presto::protocol::Split& split,
-    SplitWrapper& thriftSplitWrapper);
+    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
+    MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper);
 void toThrift(
-    const facebook::presto::protocol::Split& split,
-    std::string& thriftSplit);
+    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
+    std::string& thriftMetadataUpdates);
 void fromThrift(
-    const SplitWrapper& thriftSplitWrapper,
-    facebook::presto::protocol::Split& split);
+    const MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper,
+    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
 void fromThrift(
-    const std::string& thriftSplit,
-    facebook::presto::protocol::Split& split);
+    const std::string& thriftMetadataUpdates,
+    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
 void toThrift(
     const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
     TableWriteInfoWrapper& thriftTableWriteInfoWrapper);
@@ -139,17 +139,19 @@ void fromThrift(
     const std::string& thriftTableWriteInfo,
     facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
 void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper);
+    const std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto,
+    ConnectorSplitWrapper& thrift);
+void fromThrift(
+    const ConnectorSplitWrapper& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto);
 void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    std::string& thriftMetadataUpdates);
+    const std::shared_ptr<
+        facebook::presto::protocol::ConnectorTransactionHandle>& proto,
+    ConnectorTransactionHandleWrapper& thrift);
 void fromThrift(
-    const MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
-void fromThrift(
-    const std::string& thriftMetadataUpdates,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
+    const ConnectorTransactionHandleWrapper& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>&
+        proto);
 void toThrift(
     const facebook::presto::protocol::Lifespan& proto,
     Lifespan& thrift);
@@ -298,11 +300,11 @@ void fromThrift(
     facebook::presto::protocol::TaskSource& proto);
 
 void toThrift(
-    const facebook::presto::protocol::ScheduledSplit& proto,
-    ScheduledSplit& thrift);
+    const facebook::presto::protocol::SplitContext& proto,
+    SplitContext& thrift);
 void fromThrift(
-    const ScheduledSplit& thrift,
-    facebook::presto::protocol::ScheduledSplit& proto);
+    const SplitContext& thrift,
+    facebook::presto::protocol::SplitContext& proto);
 
 void toThrift(
     const facebook::presto::protocol::TaskStatus& proto,
@@ -388,6 +390,9 @@ void fromThrift(
     const Signature& thrift,
     facebook::presto::protocol::Signature& proto);
 
+void toThrift(const facebook::presto::protocol::Split& proto, Split& thrift);
+void fromThrift(const Split& thrift, facebook::presto::protocol::Split& proto);
+
 void toThrift(
     const facebook::presto::protocol::OutputBuffers& proto,
     OutputBuffers& thrift);
@@ -426,6 +431,13 @@ void toThrift(
 void fromThrift(
     const SqlInvokedFunction& thrift,
     facebook::presto::protocol::SqlInvokedFunction& proto);
+
+void toThrift(
+    const facebook::presto::protocol::ScheduledSplit& proto,
+    ScheduledSplit& thrift);
+void fromThrift(
+    const ScheduledSplit& thrift,
+    facebook::presto::protocol::ScheduledSplit& proto);
 
 void toThrift(
     const facebook::presto::protocol::TaskInfo& proto,
