@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.optimizer;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
@@ -195,7 +196,7 @@ public class IcebergEqualityDeleteAsJoin
                     .orElseGet(TupleDomain::all);
 
             // Collect info about each unique delete schema to join by
-            ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get());
+            ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get(), session);
 
             if (deleteSchemas.isEmpty()) {
                 // no equality deletes
@@ -291,12 +292,15 @@ public class IcebergEqualityDeleteAsJoin
 
         private static ImmutableMap<Set<Integer>, DeleteSetInfo> collectDeleteInformation(Table icebergTable,
                 TupleDomain<IcebergColumnHandle> predicate,
-                long snapshotId)
+                long snapshotId,
+                ConnectorSession session)
+
         {
             // Delete schemas can repeat, so using a normal hashmap to dedup, will be converted to immutable at the end of the function.
             HashMap<Set<Integer>, DeleteSetInfo> deleteInformations = new HashMap<>();
+            RuntimeStats runtimeStats = session.getRuntimeStats();
             try (CloseableIterator<DeleteFile> files =
-                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty()).iterator()) {
+                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty(), runtimeStats).iterator()) {
                 files.forEachRemaining(delete -> {
                     if (fromIcebergFileContent(delete.content()) == EQUALITY_DELETES) {
                         ImmutableMap.Builder<Integer, PartitionFieldInfo> partitionFieldsBuilder = new ImmutableMap.Builder<>();
