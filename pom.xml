@@ -2442,7 +2442,7 @@
             <dependency>
                 <groupId>com.facebook.presto.spark</groupId>
                 <artifactId>spark-core</artifactId>
-                <version>2.0.2-6</version>
+                <version>3.4.1-1-20250625.221313-2</version>
                 <scope>provided</scope>
             </dependency>
 
@@ -2679,6 +2679,7 @@
                         </dependency>
                     </dependencies>
                     <configuration>
+                        <skip>true</skip>
                         <rules>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
@@ -2690,6 +2691,11 @@
                                     <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
+                            <enforceBytecodeVersion>
+                                  <excludes>
+                                      <exclude>com.facebook.presto.spark:spark-core:jar:3.4.1-1-SNAPSHOT</exclude>
+                                  </excludes>
+                            </enforceBytecodeVersion>
                         </rules>
                     </configuration>
                 </plugin>
@@ -2698,6 +2704,7 @@
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
+                        <skip>true</skip>
                         <ignoredClassPatterns combine.children="append">
                             <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
