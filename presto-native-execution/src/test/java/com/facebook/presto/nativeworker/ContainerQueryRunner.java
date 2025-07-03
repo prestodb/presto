@@ -68,7 +68,7 @@ public class ContainerQueryRunner
     private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
-    private GenericContainer<?> sidecar = null;
+    private GenericContainer<?> sidecar;
     private final int coordinatorPort;
     private final String catalog;
     private final String schema;
@@ -274,7 +274,7 @@ public class ContainerQueryRunner
         }
         coordinator.stop();
         workers.forEach(GenericContainer::stop);
-        if(sidecar != null) {
+        if (sidecar != null) {
             sidecar.stop();
         }
     }
