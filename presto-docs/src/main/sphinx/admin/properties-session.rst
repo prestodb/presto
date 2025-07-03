@@ -43,7 +43,7 @@ It will also consider switching the left and right inputs to the join.  In ``AUT
 mode, Presto will default to hash distributed joins if no cost could be computed, such as if
 the tables do not have statistics. 
 
-The corresponding configuration property is :ref:`admin/properties:\`\`join-distribution-type\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`join-distribution-type\`\``.
 
 
 ``redistribute_writes``
@@ -103,6 +103,28 @@ To enable the ``OFFSET`` clause in SQL query expressions, set this property to `
 
 The corresponding configuration property is :ref:`admin/properties:\`\`offset-clause-enabled\`\``.
 
+``check_access_control_on_utilized_columns_only``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Apply access control rules on only those columns that are required to produce the query output.
+
+Note: Setting this property to true with the following kinds of queries:
+
+* queries that have ``USING`` in a join condition
+* queries that have duplicate named common table expressions (CTE)
+
+causes the query to be evaluated as if the property is set to false and checks the access control for all columns.
+
+To avoid these problems:
+
+* replace all ``USING`` join conditions in a query with ``ON`` join conditions
+* set unique names for all CTEs in a query
+
+The corresponding configuration property is :ref:`admin/properties:\`\`check-access-control-on-utilized-columns-only\`\``.
+
 Spilling Properties
 -------------------
 
@@ -121,7 +143,7 @@ window functions, sorting and other join types.
 
 Be aware that this is an experimental feature and should be used with care.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.spill-enabled\`\``.
 
 ``join_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^

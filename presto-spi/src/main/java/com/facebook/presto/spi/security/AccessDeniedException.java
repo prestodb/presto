@@ -19,6 +19,7 @@ import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -348,7 +349,7 @@ public class AccessDeniedException
 
     public static void denySelectColumns(String tableName, Collection<String> columnNames, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames.stream().sorted().collect(Collectors.toList()), tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateRole(String roleName)
