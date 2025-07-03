@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
@@ -20,18 +21,24 @@ public class TestPrestoNativeArrayFunctionQueries
         extends AbstractTestNativeArrayFunctionQueries
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 }
