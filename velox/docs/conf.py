@@ -50,6 +50,7 @@ extensions = [
     "issue",
     "pr",
     "spark",
+    "iceberg",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.mathjax",
