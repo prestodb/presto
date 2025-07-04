@@ -68,7 +68,10 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-expressions</artifactId>
@@ -102,6 +105,11 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-client</artifactId>
         </dependency>
 
         <dependency>
