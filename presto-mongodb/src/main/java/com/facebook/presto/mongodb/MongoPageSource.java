@@ -213,6 +213,10 @@ public class MongoPageSource
         if (base.equals(StandardTypes.VARCHAR)) {
             type.writeSlice(output, utf8Slice(toVarcharValue(value)));
         }
+        else if (base.equals(StandardTypes.CHAR)) {
+            type.writeSlice(output, utf8Slice(toVarcharValue(value)));
+        }
+
         else if (type.equals(OBJECT_ID)) {
             type.writeSlice(output, wrappedBuffer(((ObjectId) value).toByteArray()));
         }
