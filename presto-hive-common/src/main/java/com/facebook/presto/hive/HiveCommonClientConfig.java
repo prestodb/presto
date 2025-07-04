@@ -38,6 +38,7 @@ public class HiveCommonClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
     private double orcWriterValidationPercentage;
+    private boolean useOrcColumnNames;
     private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private boolean parquetBatchReadOptimizationEnabled;
     private boolean parquetEnableBatchReaderVerification;
@@ -181,6 +182,19 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
     {
         this.orcWriterValidationPercentage = orcWriterValidationPercentage;
+        return this;
+    }
+
+    public boolean isUseOrcColumnNames()
+    {
+        return useOrcColumnNames;
+    }
+
+    @Config("hive.orc.use-column-names")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
+    public HiveCommonClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    {
+        this.useOrcColumnNames = useOrcColumnNames;
         return this;
     }
 
