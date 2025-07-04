@@ -75,9 +75,8 @@ class S3FileSystem : public FileSystem {
     VELOX_UNSUPPORTED("exists for S3 not implemented");
   }
 
-  std::vector<std::string> list(std::string_view path) override {
-    VELOX_UNSUPPORTED("list for S3 not implemented");
-  }
+  /// List the objects associated to a path.
+  std::vector<std::string> list(std::string_view path) override;
 
   void mkdir(std::string_view path, const DirectoryOptions& options = {})
       override {

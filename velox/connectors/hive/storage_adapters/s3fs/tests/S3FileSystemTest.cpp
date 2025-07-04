@@ -290,6 +290,12 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
   }
   // Verify the last chunk.
   ASSERT_EQ(readFile->pread(contentSize * 250'000, contentSize), dataContent);
+
+  // Verify the S3 list function.
+  auto result = s3fs.list(s3File);
+
+  ASSERT_EQ(result.size(), 1);
+  ASSERT_TRUE(result[0] == file);
 }
 
 TEST_F(S3FileSystemTest, invalidConnectionSettings) {
@@ -340,4 +346,5 @@ TEST_F(S3FileSystemTest, registerCredentialProviderFactories) {
           }),
       "CredentialsProviderFactory 'my-credentials-provider' already registered");
 }
+
 } // namespace facebook::velox::filesystems

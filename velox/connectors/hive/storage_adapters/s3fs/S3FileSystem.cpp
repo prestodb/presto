@@ -36,6 +36,7 @@
 #include <aws/core/client/DefaultRetryStrategy.h>
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
+#include <aws/s3/model/ListObjectsRequest.h>
 
 namespace facebook::velox::filesystems {
 namespace {
@@ -476,6 +477,28 @@ std::unique_ptr<WriteFile> S3FileSystem::openFileForWrite(
 
 std::string S3FileSystem::name() const {
   return "S3";
+}
+
+std::vector<std::string> S3FileSystem::list(std::string_view path) {
+  std::string bucket;
+  std::string key;
+  getBucketAndKeyFromPath(getPath(path), bucket, key);
+
+  Aws::S3::Model::ListObjectsRequest request;
+  request.SetBucket(awsString(bucket));
+  request.SetPrefix(awsString(key));
+
+  auto outcome = impl_->s3Client()->ListObjects(request);
+  VELOX_CHECK_AWS_OUTCOME(
+      outcome, "Failed to list objects in S3 bucket", bucket, key);
+
+  std::vector<std::string> objectKeys;
+  const auto& result = outcome.GetResult();
+  for (const auto& object : result.GetContents()) {
+    objectKeys.emplace_back(object.GetKey());
+  }
+
+  return objectKeys;
 }
 
 } // namespace facebook::velox::filesystems
