@@ -669,6 +669,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Set<String> getIndexColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIndexColumns(session, tableHandle);
+        }
+    }
+
+    @Override
     public void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
