@@ -46,9 +46,7 @@ class ArrowFlightConnectorMtlsTestBase : public ArrowFlightConnectorTestBase {
     serverOptions->root_certificates = readFile("./data/mtls_certs/ca.crt");
   }
 
-  void executeTest(
-      bool isPositiveTest = true,
-      const std::string& expectedError = "") {
+  void executeSuccessfulQuery() {
     std::vector<int64_t> idData = {
         1, 12, 2, std::numeric_limits<int64_t>::max()};
 
@@ -62,17 +60,30 @@ class ArrowFlightConnectorMtlsTestBase : public ArrowFlightConnectorTestBase {
                     .flightTableScan(velox::ROW({"id"}, {velox::BIGINT()}))
                     .planNode();
 
-    auto runQuery = [&]() {
+    AssertQueryBuilder(plan)
+        .splits(makeSplits({"sample-data"}))
+        .assertResults(makeRowVector({idVec}));
+  }
+
+  std::function<void()> createQueryFunction() {
+    std::vector<int64_t> idData = {
+        1, 12, 2, std::numeric_limits<int64_t>::max()};
+
+    updateTable(
+        "sample-data",
+        makeArrowTable({"id"}, {makeNumericArray<arrow::Int64Type>(idData)}));
+
+    auto idVec = makeFlatVector<int64_t>(idData);
+
+    auto plan = ArrowFlightPlanBuilder()
+                    .flightTableScan(velox::ROW({"id"}, {velox::BIGINT()}))
+                    .planNode();
+
+    return [this, plan, idVec]() {
       AssertQueryBuilder(plan)
           .splits(makeSplits({"sample-data"}))
           .assertResults(makeRowVector({idVec}));
     };
-
-    if (isPositiveTest) {
-      runQuery();
-    } else {
-      VELOX_ASSERT_THROW(runQuery(), expectedError);
-    }
   }
 };
 
@@ -91,7 +102,7 @@ class ArrowFlightConnectorMtlsTest : public ArrowFlightConnectorMtlsTestBase {
 };
 
 TEST_F(ArrowFlightConnectorMtlsTest, successfulMtlsConnection) {
-  executeTest();
+  executeSuccessfulQuery();
 }
 
 class ArrowFlightMtlsNoClientCertTest : public ArrowFlightConnectorMtlsTestBase {
@@ -106,7 +117,8 @@ class ArrowFlightMtlsNoClientCertTest : public ArrowFlightConnectorMtlsTestBase 
 };
 
 TEST_F(ArrowFlightMtlsNoClientCertTest, mtlsFailsWithoutClientCert) {
-  executeTest(false, "handshake failed");
+  auto queryFunction = createQueryFunction();
+  VELOX_ASSERT_THROW(queryFunction(), "TLS handshake failed: missing or invalid client certificate");
 }
 
 } // namespace facebook::presto::test
