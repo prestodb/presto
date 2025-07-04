@@ -96,6 +96,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Conversions;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
@@ -151,6 +152,9 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_FILE_RECORD_COUNT;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_SPEC_ID;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
@@ -189,6 +193,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
+import static org.apache.iceberg.MetadataColumns.FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
@@ -249,6 +254,9 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
+            /*long fileRecordCount, TODO #20578: Add these parameters to the method signature if necessary.
+            int partitionSpecId,
+            String partitionData,*/
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
@@ -357,7 +365,8 @@ public class IcebergPageSourceProvider
                 Type prestoType = column.getType();
                 prestoTypes.add(prestoType);
 
-                if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED && !column.isUpdateRowIdColumn()) {
+                if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
+                        !column.isUpdateRowIdColumn() && !column.isMergeRowIdColumn()) {
                     Subfield pushedDownSubfield = getPushedDownSubfield(column);
                     List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
                     Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
@@ -378,6 +387,23 @@ public class IcebergPageSourceProvider
                     }
                 }
                 isRowPositionList.add(column.isRowPositionColumn());
+
+                // TODO #20578: Handle RowId columns.
+                //                         else if (identity.getId() == MetadataColumns.FILE_PATH.fieldId()) {
+                //                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
+                //                        }
+                //                        else if (identity.getId() == ROW_POSITION.fieldId()) {
+                //                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
+                //                        }
+                //                        else if (identity.getId() == MERGE_FILE_RECORD_COUNT) {
+                //                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
+                //                        }
+                //                        else if (identity.getId() == MERGE_PARTITION_SPEC_ID) {
+                //                            requiredColumns.add(new IcebergColumnHandle(identity, INTEGER, ImmutableList.of(), INTEGER, Optional.empty()));
+                //                        }
+                //                        else if (identity.getId() == MERGE_PARTITION_DATA) {
+                //                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
+                //                        }
             }
 
             return new ConnectorPageSourceWithRowPositions(
@@ -772,7 +798,7 @@ public class IcebergPageSourceProvider
         // the update row isn't a valid column that can be read from storage.
         // Filter it out from columns passed to the storage page source.
         Set<IcebergColumnHandle> columnsToReadFromStorage = icebergColumns.stream()
-                .filter(not(IcebergColumnHandle::isUpdateRowIdColumn))
+                .filter(not(column -> column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()))
                 .collect(Collectors.toSet());
 
         // add any additional columns which may need to be read from storage
@@ -784,19 +810,43 @@ public class IcebergPageSourceProvider
                 .forEach(columnsToReadFromStorage::add);
 
         // finally, add the fields that the update column requires.
-        Optional<IcebergColumnHandle> updateRow = icebergColumns.stream()
-                .filter(IcebergColumnHandle::isUpdateRowIdColumn)
+        Optional<IcebergColumnHandle> rowId = icebergColumns.stream()
+                .filter(column -> column.isUpdateRowIdColumn() || column.isMergeRowIdColumn())
                 .findFirst();
-        updateRow.ifPresent(updateRowIdColumn -> {
+        rowId.ifPresent(rowIdColumn -> {
             Set<Integer> alreadyRequiredColumnIds = columnsToReadFromStorage.stream()
                     .map(IcebergColumnHandle::getId)
                     .collect(toImmutableSet());
-            updateRowIdColumn.getColumnIdentity().getChildren()
+            rowIdColumn.getColumnIdentity().getChildren()
                     .stream()
                     .filter(colId -> !alreadyRequiredColumnIds.contains(colId.getId()))
                     .forEach(colId -> {
-                        if (colId.getId() == ROW_POSITION.fieldId()) {
+                        if (colId.getId() == FILE_PATH.fieldId()) {
+                            IcebergColumnHandle handle = IcebergColumnHandle.create(FILE_PATH, typeManager, REGULAR);
+                            columnsToReadFromStorage.add(handle);
+                        }
+                        else if (colId.getId() == ROW_POSITION.fieldId()) {
                             IcebergColumnHandle handle = IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR);
+                            columnsToReadFromStorage.add(handle);
+                        }
+                        else if (colId.getId() == MERGE_FILE_RECORD_COUNT.getId()) {
+                            NestedField mergeFileRecordCount = NestedField.required(
+                                    MERGE_FILE_RECORD_COUNT.getId(), MERGE_FILE_RECORD_COUNT.getColumnName(),
+                                    Types.LongType.get());
+                            IcebergColumnHandle handle = IcebergColumnHandle.create(mergeFileRecordCount, typeManager, REGULAR);
+                            columnsToReadFromStorage.add(handle);
+                        }
+                        else if (colId.getId() == MERGE_PARTITION_SPEC_ID.getId()) {
+                            NestedField mergePartitionSpecId = NestedField.required(
+                                    MERGE_PARTITION_SPEC_ID.getId(), MERGE_PARTITION_SPEC_ID.getColumnName(),
+                                    Types.IntegerType.get());
+                            IcebergColumnHandle handle = IcebergColumnHandle.create(mergePartitionSpecId, typeManager, REGULAR);
+                            columnsToReadFromStorage.add(handle);
+                        }
+                        else if (colId.getId() == MERGE_PARTITION_DATA.getId()) {
+                            NestedField mergePartitionData = NestedField.required(MERGE_PARTITION_DATA.getId(),
+                                    MERGE_PARTITION_DATA.getColumnName(), Types.StringType.get());
+                            IcebergColumnHandle handle = IcebergColumnHandle.create(mergePartitionData, typeManager, REGULAR);
                             columnsToReadFromStorage.add(handle);
                         }
                         else {
@@ -820,6 +870,11 @@ public class IcebergPageSourceProvider
                         split.getStart(),
                         split.getLength(),
                         split.getFileFormat(),
+
+                        // TODO #20578: Add the following parameters to the IcebergPageSourceProvider class constructor.
+                        //         split.getFileRecordCount(),
+                        //         partitionSpec.specId(),
+                        //         split.getPartitionDataJson(),
                         columnList,
                         icebergLayout.getValidPredicate(),
                         splitContext.isCacheable());
@@ -848,8 +903,7 @@ public class IcebergPageSourceProvider
 
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
         Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
-                tableSchema,
-                split.getPartitionSpecAsJson(),
+                partitionSpec,
                 split.getPartitionDataJson(),
                 locationProvider,
                 fileWriterFactory,
@@ -911,7 +965,7 @@ public class IcebergPageSourceProvider
                 deleteFilters,
                 updatedRowPageSinkSupplier,
                 table.getUpdatedColumns(),
-                updateRow);
+                rowId);
 
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
@@ -1045,7 +1099,10 @@ public class IcebergPageSourceProvider
             FileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
-            boolean isCacheable)
+            boolean isCacheable/*, TODO #20578: Add these parameters to the method signature:
+            long fileRecordCount,
+            int partitionSpecId,
+            String partitionData,*/)
     {
         switch (fileFormat) {
             case PARQUET:

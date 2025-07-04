@@ -90,6 +90,9 @@ import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeInsert;
+import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -170,7 +173,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.aliased;
+import static com.facebook.presto.sql.QueryUtil.equal;
 import static com.facebook.presto.sql.QueryUtil.identifier;
+import static com.facebook.presto.sql.QueryUtil.nameReference;
 import static com.facebook.presto.sql.QueryUtil.query;
 import static com.facebook.presto.sql.QueryUtil.quotedIdentifier;
 import static com.facebook.presto.sql.QueryUtil.row;
@@ -1630,6 +1636,41 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new UpdateAssignment(new Identifier("bar"), new LongLiteral("23"))),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testMergeInto()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        assertStatement("" +
+                        "MERGE INTO product_sales AS s\n" +
+                        "  USING monthly_sales AS ms\n" +
+                        "  ON s.product_id = ms.product_id\n" +
+                        "WHEN MATCHED THEN\n" +
+                        "  UPDATE SET\n" +
+                        "      sales = sales + ms.sales\n" +
+                        "    , last_sale = ms.sale_date\n" +
+                        "    , current_price = ms.price\n" +
+                        "WHEN NOT MATCHED THEN\n" +
+                        "  INSERT (product_id, sales, last_sale, current_price)\n" +
+                        "  VALUES (ms.product_id, ms.sales, ms.sale_date, ms.price)",
+                new Merge(
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("product_sales")), new Identifier("s"), null),
+                        aliased(table(QualifiedName.of("monthly_sales")), "ms"),
+                        equal(nameReference("s", "product_id"), nameReference("ms", "product_id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        ImmutableList.of(
+                                                new MergeUpdate.Assignment(new Identifier("sales"), new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD, nameReference("sales"), nameReference("ms", "sales"))),
+                                                new MergeUpdate.Assignment(new Identifier("last_sale"), nameReference("ms", "sale_date")),
+                                                new MergeUpdate.Assignment(new Identifier("current_price"), nameReference("ms", "price")))),
+                                new MergeInsert(
+                                        ImmutableList.of(new Identifier("product_id"), new Identifier("sales"), new Identifier("last_sale"),
+                                                new Identifier("current_price")),
+                                        ImmutableList.of(nameReference("ms", "product_id"), nameReference("ms", "sales"),
+                                                nameReference("ms", "sale_date"), nameReference("ms", "price"))))));
     }
 
     @Test

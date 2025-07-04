@@ -21,12 +21,14 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
@@ -36,6 +38,7 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -406,6 +409,36 @@ public abstract class DelegatingMetadataManager
     public void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments)
     {
         delegate.finishUpdate(session, tableHandle, fragments);
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle)
+    {
+        return delegate.getRowChangeParadigm(session, tableHandle);
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle)
+    {
+        return delegate.getMergeRowIdColumnHandle(session, tableHandle);
+    }
+
+    @Override
+    public Optional<PartitioningHandle> getMergeUpdateLayout(Session session, TableHandle tableHandle)
+    {
+        return delegate.getMergeUpdateLayout(session, tableHandle);
+    }
+
+    @Override
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    {
+        return delegate.beginMerge(session, tableHandle);
+    }
+
+    @Override
+    public void finishMerge(Session session, ExecutionWriterTarget.MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        delegate.finishMerge(session, tableHandle, fragments, computedStatistics);
     }
 
     @Override

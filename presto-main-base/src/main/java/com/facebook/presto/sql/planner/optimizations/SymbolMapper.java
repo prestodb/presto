@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.ExchangeEncoding;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PartitioningScheme;
@@ -36,6 +37,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -108,6 +111,13 @@ public class SymbolMapper
             return variable;
         }
         return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
+    }
+
+    public List<VariableReferenceExpression> map(List<VariableReferenceExpression> variableReferenceExpressions)
+    {
+        return variableReferenceExpressions.stream()
+                .map(this::map)
+                .collect(toImmutableList());
     }
 
     public Expression map(Expression value)
@@ -272,6 +282,64 @@ public class SymbolMapper
                 node.getRowCountVariable(),
                 node.isRowCountEnabled(),
                 node.getDescriptor().map(this::map));
+    }
+
+    public MergeWriterNode map(MergeWriterNode node, PlanNode source)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<VariableReferenceExpression> newOutputs = map(node.getOutputVariables());
+
+        return new MergeWriterNode(
+                source.getSourceLocation(),
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputVariables())),
+                newOutputs);
+    }
+
+    public MergeWriterNode map(MergeWriterNode node, PlanNode source, PlanNodeId newId)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<VariableReferenceExpression> newOutputs = map(node.getOutputVariables());
+
+        return new MergeWriterNode(
+                source.getSourceLocation(),
+                newId,
+                source,
+                node.getTarget(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputVariables())),
+                newOutputs);
+    }
+
+    public MergeProcessorNode map(MergeProcessorNode node, PlanNode source)
+    {
+        List<VariableReferenceExpression> newOutputs = map(node.getOutputVariables());
+
+        return new MergeProcessorNode(
+                source.getSourceLocation(),
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getRowIdSymbol()),
+                map(node.getMergeRowSymbol()),
+                map(node.getDataColumnSymbols()),
+                map(node.getRedistributionColumnSymbols()),
+                newOutputs);
+    }
+
+    public PartitioningScheme map(PartitioningScheme scheme, List<VariableReferenceExpression> sourceLayout)
+    {
+        return new PartitioningScheme(
+                translateVariable(scheme.getPartitioning(), this::map),
+                mapAndDistinctVariable(sourceLayout),
+                scheme.getHashColumn().map(this::map),
+                scheme.isReplicateNullsAndAny(),
+                scheme.isScaleWriters(),
+                ExchangeEncoding.COLUMNAR,
+                scheme.getBucketToPartition());
     }
 
     public TableFinishNode map(TableFinishNode node, PlanNode source)
