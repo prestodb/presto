@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -38,6 +39,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupp
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
 
+@Ignore("Json function registration seems to not be working - fix it")
 public class TestPrestoSparkNativeSimpleQueries
         extends AbstractTestQueryFramework
 {

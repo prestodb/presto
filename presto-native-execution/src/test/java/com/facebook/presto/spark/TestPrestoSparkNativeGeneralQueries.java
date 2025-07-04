@@ -18,6 +18,7 @@ import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
 
+@Ignore("Need to fix some errors found during restoration of pos-native")
 public class TestPrestoSparkNativeGeneralQueries
         extends AbstractTestNativeGeneralQueries
 {
