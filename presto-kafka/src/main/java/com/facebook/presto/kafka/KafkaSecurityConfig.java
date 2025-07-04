@@ -15,9 +15,8 @@ package com.facebook.presto.kafka;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.AssertTrue;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.util.Optional;
 

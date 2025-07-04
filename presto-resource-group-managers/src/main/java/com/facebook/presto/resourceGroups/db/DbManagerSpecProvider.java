@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
 import com.facebook.presto.resourceGroups.ResourceGroupSelector;
@@ -23,7 +24,6 @@ import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfig
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
 
 import java.util.HashMap;
 import java.util.HashSet;

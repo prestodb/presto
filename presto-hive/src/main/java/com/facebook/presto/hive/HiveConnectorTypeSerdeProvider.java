@@ -18,8 +18,7 @@ import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
