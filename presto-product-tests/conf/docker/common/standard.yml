@@ -1,7 +1,7 @@
 services:
 
   java-8-base:
-    image: 'prestodb/centos6-oj8:${DOCKER_IMAGES_VERSION}'
+    image: 'imjalpreet/centos7-oj8:${DOCKER_IMAGES_VERSION}'
     volumes:
       - ../..:/docker/volumes/conf
       - ../../target:/docker/volumes/logs
@@ -19,10 +19,12 @@ services:
       - '8088:8088'
       - '9000:9000'
       - '9083:9083'
+      - '9864:9864' # DataNode Web UI since Hadoop 3
+      - '9870:9870' # NameNode Web UI since Hadoop 3
       - '10000:10000'
       - '19888:19888'
-      - '50070:50070'
-      - '50075:50075'
+      - '50070:50070' # NameNode Web UI prior to Hadoop 3
+      - '50075:50075' # DataNode Web UI prior to Hadoop 3
     volumes:
        - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
 

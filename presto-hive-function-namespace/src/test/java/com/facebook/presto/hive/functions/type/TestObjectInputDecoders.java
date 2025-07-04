@@ -22,11 +22,11 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.inject.Key;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
@@ -68,7 +68,7 @@ public class TestObjectInputDecoders
         Date date = DateTimeUtils.createDate(18380L);
         assertEquals(date.getYear(), 2020 - 1900);
         assertEquals(date.getMonth(), 4 - 1);
-        assertEquals(date.getDate(), 28);
+        assertEquals(date.getDay(), 28);
     }
 
     @Test
