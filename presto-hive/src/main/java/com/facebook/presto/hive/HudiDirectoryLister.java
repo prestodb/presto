@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
@@ -30,7 +31,6 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieTableType;
@@ -40,10 +40,14 @@ import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.Option;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
@@ -51,6 +55,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getHudiTablesUseMer
 import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataEnabled;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DEFAULT_PORT;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.convertToHadoopFileStatus;
 
 public class HudiDirectoryLister
         implements DirectoryLister
@@ -78,7 +83,7 @@ public class HudiDirectoryLister
             actualConfig = ((CopyOnFirstWriteConfiguration) actualConfig).getConfig();
         }
         this.metaClient = HoodieTableMetaClient.builder()
-                .setConf(actualConfig)
+                .setConf(new HadoopStorageConfiguration(actualConfig))
                 .setBasePath(table.getStorage().getLocation())
                 .build();
         this.latestInstant = metaClient.getActiveTimeline()
@@ -91,7 +96,7 @@ public class HudiDirectoryLister
                         .filterCompletedInstants()
                         .lastInstant()
                         .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found")));
-        HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(metaClient.getStorageConf());
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
                 .build();
@@ -142,9 +147,11 @@ public class HudiDirectoryLister
                 String latestInstant,
                 boolean shouldUseMergedView)
         {
-            String partition = FSUtils.getRelativePartitionPath(new Path(tablePath), directory);
+            String partition = HadoopFSUtils.getRelativePartitionPath(new Path(tablePath), directory);
             if (fileStatuses.isPresent()) {
-                fileSystemView.addFilesToView(fileStatuses.get());
+                fileSystemView.addFilesToView(Arrays.stream(fileStatuses.get())
+                        .map(HadoopFSUtils::convertToStoragePathInfo)
+                        .collect(Collectors.toList()));
                 this.hoodieBaseFileIterator = fileSystemView.fetchLatestBaseFiles(partition).iterator();
             }
             else {
@@ -170,7 +177,7 @@ public class HudiDirectoryLister
         public HiveFileInfo next()
                 throws IOException
         {
-            FileStatus fileStatus = hoodieBaseFileIterator.next().getFileStatus();
+            FileStatus fileStatus = convertToHadoopFileStatus(hoodieBaseFileIterator.next().getPathInfo());
             String[] name = {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
             String[] host = {"localhost"};
             LocatedFileStatus hoodieFileStatus = new LocatedFileStatus(fileStatus,
