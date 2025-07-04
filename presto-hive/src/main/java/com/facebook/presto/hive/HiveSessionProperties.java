@@ -70,6 +70,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
+    private static final String SYMLINK_OPTIMIZED_READER_ENABLED = "symlink_optimized_reader_enabled";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
@@ -627,6 +628,11 @@ public final class HiveSessionProperties
                         "Use quick stats to resolve stats",
                         hiveClientConfig.isQuickStatsEnabled(),
                         false),
+                booleanProperty(
+                        SYMLINK_OPTIMIZED_READER_ENABLED,
+                        "Experimental: Enable optimized SymlinkTextInputFormat reader",
+                        hiveClientConfig.isSymlinkOptimizedReaderEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         QUICK_STATS_INLINE_BUILD_TIMEOUT,
                         "Duration that the first query that initiated a quick stats call should wait before failing and returning EMPTY stats. " +
@@ -1168,5 +1174,10 @@ public final class HiveSessionProperties
     public static int getOptimizeParsingOfPartitionValuesThreshold(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isSymlinkOptimizedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SYMLINK_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 }

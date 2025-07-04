@@ -155,6 +155,7 @@ public class ManifestPartitionLoader
         String partitionName = partition.getHivePartition().getPartitionId().getPartitionName();
         Storage storage = partition.getPartition().map(Partition::getStorage).orElse(table.getStorage());
         String inputFormatName = storage.getStorageFormat().getInputFormat();
+        String serDe = storage.getStorageFormat().getSerDe();
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
                 .orElseGet(table.getDataColumns()::size);
@@ -162,7 +163,7 @@ public class ManifestPartitionLoader
         String location = getPartitionLocation(table, partition.getPartition());
         Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, serDe, false);
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
 
         return new InternalHiveSplitFactory(
