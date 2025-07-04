@@ -39,8 +39,8 @@ import java.util.List;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromPathName;
-import static com.google.common.collect.Iterables.transform;
-import static java.util.Arrays.asList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -61,8 +61,8 @@ public class ClassInfo
                 typeFromPathName(classNode.name),
                 classNode.access,
                 classNode.superName == null ? null : typeFromPathName(classNode.superName),
-                transform((List<String>) classNode.interfaces, ParameterizedType::typeFromPathName),
-                (List<MethodNode>) classNode.methods);
+                classNode.interfaces.stream().map(ParameterizedType::typeFromPathName).collect(toImmutableList()),
+                classNode.methods);
     }
 
     public ClassInfo(ClassInfoLoader loader, Class<?> aClass)
@@ -71,7 +71,7 @@ public class ClassInfo
                 type(aClass),
                 aClass.getModifiers(),
                 aClass.getSuperclass() == null ? null : type(aClass.getSuperclass()),
-                transform(asList(aClass.getInterfaces()), ParameterizedType::type),
+                stream(aClass.getInterfaces()).map(ParameterizedType::type).collect(toImmutableList()),
                 null);
     }
 

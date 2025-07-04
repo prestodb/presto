@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.cache;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicLong;
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 
 import java.util.HashMap;
 import java.util.Map;

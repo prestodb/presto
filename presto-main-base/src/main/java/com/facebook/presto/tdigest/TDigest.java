@@ -31,14 +31,13 @@
 
 package com.facebook.presto.tdigest;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;

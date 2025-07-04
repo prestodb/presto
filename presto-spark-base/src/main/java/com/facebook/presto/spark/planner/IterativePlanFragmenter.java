@@ -27,6 +27,7 @@
  */
 package com.facebook.presto.spark.planner;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -51,8 +52,6 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.HashMap;
 import java.util.List;

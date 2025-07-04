@@ -24,11 +24,10 @@ import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.WrapperJobConf;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.PrestoException;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
