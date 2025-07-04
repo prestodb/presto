@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -29,7 +30,9 @@ import com.google.common.collect.Sets;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -39,7 +42,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-class Util
+public class Util
 {
     private Util()
     {
@@ -154,5 +157,21 @@ class Util
             }
         }
         return 0;
+    }
+
+    /**
+     * Inverts an assignments map but using an IdentityHashMap, so columnHandle reference equality is used to compare the equality instead
+     *
+     * @return
+     */
+    public static Map<ColumnHandle, VariableReferenceExpression> invertAssignments(Map<VariableReferenceExpression, ColumnHandle> assignments)
+    {
+        Map<ColumnHandle, VariableReferenceExpression> inverseIdentityMap = new IdentityHashMap<>();
+
+        for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : assignments.entrySet()) {
+            inverseIdentityMap.put(entry.getValue(), entry.getKey());
+        }
+
+        return inverseIdentityMap;
     }
 }
