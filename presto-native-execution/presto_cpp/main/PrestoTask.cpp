@@ -639,7 +639,7 @@ void PrestoTask::updateOutputBufferInfoLocked(
   const auto& outputBufferStats = veloxTaskStats.outputBufferStats.value();
   auto& outputBufferInfo = info.outputBuffers;
   outputBufferInfo.type =
-      velox::core::PartitionedOutputNode::kindString(outputBufferStats.kind);
+      velox::core::PartitionedOutputNode::toName(outputBufferStats.kind);
   outputBufferInfo.canAddBuffers = !outputBufferStats.noMoreBuffers;
   outputBufferInfo.canAddPages = !outputBufferStats.noMoreData;
   outputBufferInfo.totalBufferedBytes = outputBufferStats.bufferedBytes;
