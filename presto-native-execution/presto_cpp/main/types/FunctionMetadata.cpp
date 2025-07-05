@@ -14,7 +14,6 @@
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
-#include "velox/exec/AggregateFunctionRegistry.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/functions/FunctionRegistry.h"
@@ -119,7 +118,7 @@ const protocol::RoutineCharacteristics getRoutineCharacteristics(
 const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
     const FunctionSignature& functionSignature) {
   std::vector<protocol::TypeVariableConstraint> typeVariableConstraints;
-  const auto functionVariables = functionSignature.variables();
+  const auto& functionVariables = functionSignature.variables();
   for (const auto& [name, signature] : functionVariables) {
     if (signature.isTypeParameter()) {
       protocol::TypeVariableConstraint typeVariableConstraint;
@@ -137,7 +136,7 @@ const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
 const std::vector<protocol::LongVariableConstraint> getLongVariableConstraints(
     const FunctionSignature& functionSignature) {
   std::vector<protocol::LongVariableConstraint> longVariableConstraints;
-  const auto functionVariables = functionSignature.variables();
+  const auto& functionVariables = functionSignature.variables();
   for (const auto& [name, signature] : functionVariables) {
     if (signature.isIntegerParameter() && !signature.constraint().empty()) {
       protocol::LongVariableConstraint longVariableConstraint;
