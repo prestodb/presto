@@ -134,7 +134,7 @@ public class TestTypeConversions
                 RECORD,
                 Field.of("sub_s", STRING),
                 Field.of("sub_i", INTEGER));
-        ColumnMetadata metadata = Conversions.toColumnMetadata(field);
+        ColumnMetadata metadata = Conversions.toColumnMetadata(field, field.getName());
         RowType targetType = RowType.from(ImmutableList.of(
                 RowType.field("sub_s", VarcharType.VARCHAR),
                 RowType.field("sub_i", BigintType.BIGINT)));
@@ -152,7 +152,7 @@ public class TestTypeConversions
                         Field.of("sub_sub_i", INTEGER)),
                 Field.of("sub_s", STRING),
                 Field.of("sub_i", INTEGER));
-        ColumnMetadata metadata = Conversions.toColumnMetadata(field);
+        ColumnMetadata metadata = Conversions.toColumnMetadata(field, field.getName());
         RowType targetType = RowType.from(ImmutableList.of(
                 RowType.field("sub_rec", RowType.from(ImmutableList.of(
                         RowType.field("sub_sub_s", VarcharType.VARCHAR),
@@ -168,13 +168,13 @@ public class TestTypeConversions
         Field field = Field.newBuilder("test", STRING)
                 .setMode(REPEATED)
                 .build();
-        ColumnMetadata metadata = Conversions.toColumnMetadata(field);
+        ColumnMetadata metadata = Conversions.toColumnMetadata(field, field.getName());
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
     }
 
     void assertSimpleFieldTypeConversion(LegacySQLTypeName from, Type to)
     {
-        ColumnMetadata metadata = Conversions.toColumnMetadata(createField(from));
+        ColumnMetadata metadata = Conversions.toColumnMetadata(createField(from), createField(from).getName());
         assertThat(metadata.getType()).isEqualTo(to);
     }
 

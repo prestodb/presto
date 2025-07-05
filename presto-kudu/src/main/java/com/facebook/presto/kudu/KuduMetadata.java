@@ -100,14 +100,14 @@ public class KuduMetadata
         for (SchemaTableName tableName : tables) {
             KuduTableHandle tableHandle = getTableHandle(session, tableName);
             if (tableHandle != null) {
-                ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
+                ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
         return columns.build();
     }
 
-    private ColumnMetadata getColumnMetadata(ColumnSchema column)
+    private ColumnMetadata getColumnMetadata(ConnectorSession session, ColumnSchema column)
     {
         Map<String, Object> properties = new LinkedHashMap<>();
         StringBuilder extra = new StringBuilder();
@@ -135,7 +135,7 @@ public class KuduMetadata
 
         Type prestoType = TypeHelper.fromKuduColumn(column);
         return ColumnMetadata.builder()
-                .setName(column.getName())
+                .setName(normalizeIdentifier(session, column.getName()))
                 .setType(prestoType)
                 .setExtraInfo(extra.toString())
                 .setHidden(false)
@@ -143,14 +143,14 @@ public class KuduMetadata
                 .build();
     }
 
-    private ConnectorTableMetadata getTableMetadata(KuduTableHandle tableHandle)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, KuduTableHandle tableHandle)
     {
         KuduTable table = tableHandle.getTable(clientSession);
         Schema schema = table.getSchema();
 
         List<ColumnMetadata> columnsMetaList = schema.getColumns().stream()
                 .filter(column -> !column.isKey() || !column.getName().equals(KuduColumnHandle.ROW_ID))
-                .map(this::getColumnMetadata)
+                .map(column -> getColumnMetadata(session, column))
                 .collect(toImmutableList());
 
         Map<String, Object> properties = clientSession.getTableProperties(tableHandle);
@@ -225,7 +225,7 @@ public class KuduMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        return getTableMetadata(kuduTableHandle);
+        return getTableMetadata(session, kuduTableHandle);
     }
 
     @Override
@@ -325,7 +325,7 @@ public class KuduMetadata
             Map<String, Object> columnProperties = new HashMap<>();
             columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
             copy.add(0, ColumnMetadata.builder()
-                    .setName(rowId)
+                    .setName(normalizeIdentifier(session, rowId))
                     .setType(VARCHAR)
                     .setComment("key=true")
                     .setHidden(true)

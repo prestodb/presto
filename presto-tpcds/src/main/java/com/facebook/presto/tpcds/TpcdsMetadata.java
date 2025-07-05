@@ -137,15 +137,15 @@ public class TpcdsMetadata
         Table table = Table.getTable(tpcdsTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
 
-        return getTableMetadata(schemaName, table, useVarcharType);
+        return getTableMetadata(session, schemaName, table, useVarcharType);
     }
 
-    private static ConnectorTableMetadata getTableMetadata(String schemaName, Table tpcdsTable, boolean useVarcharType)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, String schemaName, Table tpcdsTable, boolean useVarcharType)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Column column : tpcdsTable.getColumns()) {
             columns.add(ColumnMetadata.builder()
-                    .setName(column.getName())
+                    .setName(normalizeIdentifier(session, column.getName()))
                     .setType(getPrestoType(column.getType(), useVarcharType))
                     .build());
         }
@@ -195,7 +195,7 @@ public class TpcdsMetadata
         for (String schemaName : getSchemaNames(session, Optional.ofNullable(prefix.getSchemaName()))) {
             for (Table tpcdsTable : Table.getBaseTables()) {
                 if (prefix.getTableName() == null || tpcdsTable.getName().equals(prefix.getTableName())) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpcdsTable, useVarcharType);
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(session, schemaName, tpcdsTable, useVarcharType);
                     tableColumns.put(new SchemaTableName(schemaName, tpcdsTable.getName()), tableMetadata.getColumns());
                 }
             }

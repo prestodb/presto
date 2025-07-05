@@ -54,6 +54,7 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_P
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -97,7 +98,16 @@ public class BlackHoleMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
-        return blackHoleTableHandle.toTableMetadata();
+        return toTableMetadata(blackHoleTableHandle, session);
+    }
+
+    public ConnectorTableMetadata toTableMetadata(BlackHoleTableHandle blackHoleTableHandle, ConnectorSession session)
+    {
+        List<ColumnMetadata> columns = blackHoleTableHandle.getColumnHandles().stream()
+                .map(column -> column.toColumnMetadata(normalizeIdentifier(session, column.getName())))
+                .collect(toImmutableList());
+
+        return new ConnectorTableMetadata(blackHoleTableHandle.toSchemaTableName(), columns);
     }
 
     @Override
@@ -129,7 +139,7 @@ public class BlackHoleMetadata
     {
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
-                .collect(toMap(BlackHoleTableHandle::toSchemaTableName, handle -> handle.toTableMetadata().getColumns()));
+                .collect(toMap(BlackHoleTableHandle::toSchemaTableName, handle -> toTableMetadata(handle, session).getColumns()));
     }
 
     @Override
