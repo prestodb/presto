@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.Location;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -29,6 +32,7 @@ import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFEREN
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class RemoteSplit
         implements ConnectorSplit
 {
@@ -36,6 +40,7 @@ public class RemoteSplit
     private final TaskId remoteSourceTaskId;
 
     @JsonCreator
+    @ThriftConstructor
     public RemoteSplit(@JsonProperty("location") Location location, @JsonProperty("remoteSourceTaskId") TaskId remoteSourceTaskId)
     {
         this.location = requireNonNull(location, "location is null");
@@ -43,12 +48,14 @@ public class RemoteSplit
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Location getLocation()
     {
         return location;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public TaskId getRemoteSourceTaskId()
     {
         return remoteSourceTaskId;

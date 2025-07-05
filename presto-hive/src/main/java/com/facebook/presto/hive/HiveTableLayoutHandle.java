@@ -268,7 +268,7 @@ public class HiveTableLayoutHandle
         if (split.isPresent() && (split.get() instanceof HiveSplit) && domainPredicate.getColumnDomains().isPresent()) {
             HiveSplit hiveSplit = (HiveSplit) split.get();
             Set<Subfield> subfields = hiveSplit.getRedundantColumnDomains().stream()
-                    .map(column -> new Subfield(((HiveColumnHandle) column).getName()))
+                    .map(column -> new Subfield(column.getName()))
                     .collect(toImmutableSet());
             List<ColumnDomain<Subfield>> columnDomains = domainPredicate.getColumnDomains().get().stream()
                     .filter(columnDomain -> !subfields.contains(columnDomain.getColumn()))
@@ -510,6 +510,7 @@ public class HiveTableLayoutHandle
             this.footerStatsUnreliable = footerStatsUnreliable;
             return this;
         }
+
         public Builder setHiveTableHandle(Optional<HiveTableHandle> hiveTableHandle)
         {
             this.hiveTableHandle = requireNonNull(hiveTableHandle, "hiveTableHandle is null");
