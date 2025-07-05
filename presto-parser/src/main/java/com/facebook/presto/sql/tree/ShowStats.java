@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.analyzer.UpdateType.SHOW_STATS;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ShowStats
@@ -49,6 +51,12 @@ public class ShowStats
     public List<? extends Node> getChildren()
     {
         return ImmutableList.of(relation);
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo(SHOW_STATS, "");
     }
 
     @Override

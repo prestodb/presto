@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.analyzer.UpdateType.CALL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -65,6 +67,12 @@ public final class Call
     public List<? extends Node> getChildren()
     {
         return arguments;
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo(CALL, name.toString());
     }
 
     @Override

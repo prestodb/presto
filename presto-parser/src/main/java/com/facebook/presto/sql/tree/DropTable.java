@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.analyzer.UpdateType.DROP_TABLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class DropTable
@@ -64,6 +66,12 @@ public class DropTable
     public List<Node> getChildren()
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo(DROP_TABLE, tableName.toString());
     }
 
     @Override

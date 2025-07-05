@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.analyzer.UpdateType.SHOW_COLUMNS;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -58,6 +60,12 @@ public class ShowColumns
     public List<Node> getChildren()
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo(SHOW_COLUMNS, table.toString());
     }
 
     @Override
