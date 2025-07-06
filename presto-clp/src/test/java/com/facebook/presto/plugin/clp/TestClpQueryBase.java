@@ -75,7 +75,7 @@ public class TestClpQueryBase
             new AnalyzePropertyManager(),
             createTestTransactionManager(new CatalogManager()));
 
-    protected static final ClpTableHandle table = new ClpTableHandle(new SchemaTableName("default", "test"), "", ClpTableHandle.StorageType.FS);
+    protected static final ClpTableHandle table = new ClpTableHandle(new SchemaTableName("default", "test"), "");
     protected static final ClpColumnHandle city = new ClpColumnHandle(
             "city",
             RowType.from(ImmutableList.of(
