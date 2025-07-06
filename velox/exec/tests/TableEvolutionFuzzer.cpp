@@ -19,10 +19,20 @@
 #include "velox/dwio/common/tests/utils/FilterGenerator.h"
 #include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include <filesystem>
+
+DEFINE_bool(
+    enable_oom_injection,
+    false,
+    "When enabled OOMs will randomly be triggered while executing query "
+    "plans. The goal of this mode is to ensure unexpected exceptions "
+    "aren't thrown and the process isn't killed in the process of cleaning "
+    "up after failures. Therefore, results are not compared when this is "
+    "enabled. Note that this option only works in debug builds.");
 
 namespace facebook::velox::exec::test {
 
@@ -109,6 +119,18 @@ std::vector<std::vector<RowVectorPtr>> runTaskCursors(
           results.push_back(std::move(result));
         }
         promise.setValue(std::move(results));
+      } catch (VeloxRuntimeError& e) {
+        if (FLAGS_enable_oom_injection &&
+            e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
+            e.message() == ScopedOOMInjector::kErrorMessage) {
+          // If we enabled OOM injection we expect the exception thrown by the
+          // ScopedOOMInjector.
+          LOG(INFO) << "OOM injection triggered: " << e.what();
+          promise.setValue(std::move(results));
+        } else {
+          LOG(ERROR) << e.what();
+          promise.setException(e);
+        }
       } catch (const std::exception& e) {
         LOG(ERROR) << e.what();
         promise.setException(e);
@@ -135,6 +157,9 @@ void buildScanSplitFromTableWriteResult(
     dwio::common::FileFormat fileFormat,
     const std::vector<RowVectorPtr>& writeResult,
     std::vector<Split>& splits) {
+  if (FLAGS_enable_oom_injection) {
+    return;
+  }
   VELOX_CHECK_EQ(writeResult.size(), 1);
   auto* fragments =
       writeResult[0]->childAt(1)->asChecked<SimpleVector<StringView>>();
@@ -334,6 +359,13 @@ VectorPtr TableEvolutionFuzzer::liftToType(
 }
 
 void TableEvolutionFuzzer::run() {
+  ScopedOOMInjector oomInjector(
+      []() -> bool { return folly::Random::oneIn(10); },
+      10); // Check the condition every 10 ms.
+  if (FLAGS_enable_oom_injection) {
+    oomInjector.enable();
+  }
+
   std::vector<column_index_t> bucketColumnIndices;
   for (int i = 0; i < config_.columnCount; ++i) {
     if (folly::Random::oneIn(2 * config_.columnCount, rng_)) {
@@ -425,7 +457,10 @@ void TableEvolutionFuzzer::run() {
 
   auto scanResults = runTaskCursors(scanTasks, *executor);
 
-  checkResultsEqual(scanResults[0], scanResults[1]);
+  // Skip result verification when OOM injection is enabled
+  if (!FLAGS_enable_oom_injection) {
+    checkResultsEqual(scanResults[0], scanResults[1]);
+  }
 }
 
 int TableEvolutionFuzzer::Setup::bucketCount() const {
