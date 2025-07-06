@@ -87,8 +87,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -132,8 +132,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-dwrf</artifactId>
         </dependency>
 
         <dependency>
@@ -156,9 +156,14 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
+<!--        <dependency>-->
+<!--            <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--            <artifactId>hadoop-apache2</artifactId>-->
+<!--            <scope>provided</scope>-->
+<!--        </dependency>-->
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hadoop-apache2</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -173,6 +178,22 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
         </dependency>
 
         <!-- for testing -->

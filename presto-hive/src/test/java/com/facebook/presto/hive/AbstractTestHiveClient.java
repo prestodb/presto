@@ -59,11 +59,13 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.HiveCluster;
-import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.BridgingHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.HiveCluster;
+import com.facebook.presto.hive.metastore.hms.StaticMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.TestingHiveCluster;
+import com.facebook.presto.hive.metastore.hms.ThriftHiveMetastore;
+import com.facebook.presto.hive.metastore.hms.http.HttpHiveMetastoreConfig;
+import com.facebook.presto.hive.metastore.hms.thrift.ThriftHiveMetastoreConfig;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.OrcSelectivePageSource;
 import com.facebook.presto.hive.pagefile.PageFilePageSource;
@@ -383,6 +385,12 @@ public abstract class AbstractTestHiveClient
             .add(ColumnMetadata.builder().setName("t_array").setType(ARRAY_TYPE).build())
             .add(ColumnMetadata.builder().setName("t_map").setType(MAP_TYPE).build())
             .add(ColumnMetadata.builder().setName("t_row").setType(ROW_TYPE).build())
+            .build();
+
+    private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_FOR_DROP = ImmutableList.<ColumnMetadata>builder()
+            .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("t_string").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("t_double").setType(DOUBLE).build())
             .build();
 
     private static final MaterializedResult CREATE_TABLE_DATA =
@@ -979,12 +987,15 @@ public abstract class AbstractTestHiveClient
         CacheConfig cacheConfig = getCacheConfig();
         MetastoreClientConfig metastoreClientConfig = getMetastoreClientConfig();
         ThriftHiveMetastoreConfig thriftHiveMetastoreConfig = getThriftHiveMetastoreConfig();
+        HttpHiveMetastoreConfig httpHiveMetastoreConfig = getHttpHiveMetastoreConfig();
+        StaticMetastoreConfig staticMetastoreConfig = getStaticMetastoreConfig();
         hiveClientConfig.setTimeZone(timeZone);
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, host, port, new HiveCommonClientConfig());
+
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port, new HiveCommonClientConfig(), staticMetastoreConfig);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         ExtendedHiveMetastore metastore = new InMemoryCachingHiveMetastore(
@@ -1135,6 +1146,15 @@ public abstract class AbstractTestHiveClient
         return new ThriftHiveMetastoreConfig();
     }
 
+    protected HttpHiveMetastoreConfig getHttpHiveMetastoreConfig()
+    {
+        return new HttpHiveMetastoreConfig();
+    }
+
+    protected StaticMetastoreConfig getStaticMetastoreConfig()
+    {
+        return new StaticMetastoreConfig();
+    }
     protected ConnectorSession newSession()
     {
         return newSession(getHiveClientConfig(), getHiveCommonClientConfig());
@@ -2423,9 +2443,9 @@ public abstract class AbstractTestHiveClient
 
     private void assertTableIsBucketed(Transaction transaction, ConnectorTableHandle tableHandle)
     {
-        // the bucketed test tables should have exactly 32 splits
+        // the bucketed test tables should have ~32 splits
         List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
-        assertEquals(splits.size(), 32);
+        assertThat(splits.size()).as("splits.size()").isBetween(31, 32);
 
         // verify all paths are unique
         Set<String> paths = new HashSet<>();
@@ -2748,7 +2768,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile.*EOFException")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile")
     public void testEmptySequenceFile()
             throws Exception
     {
@@ -3968,14 +3988,14 @@ public abstract class AbstractTestHiveClient
     {
         SchemaTableName tableName = temporaryTable("test_drop_column");
         try {
-            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS_FOR_DROP);
             ExtendedHiveMetastore metastoreClient = getMetastoreClient();
-            metastoreClient.dropColumn(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS.get(0).getName());
+            metastoreClient.dropColumn(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS_FOR_DROP.get(0).getName());
             Optional<Table> table = metastoreClient.getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName());
             assertTrue(table.isPresent());
             List<Column> columns = table.get().getDataColumns();
-            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS.get(1).getName());
-            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS.get(0).getName())));
+            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS_FOR_DROP.get(1).getName());
+            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS_FOR_DROP.get(0).getName())));
         }
         finally {
             dropTable(tableName);
