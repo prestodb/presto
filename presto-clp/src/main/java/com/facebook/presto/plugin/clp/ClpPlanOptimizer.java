@@ -32,6 +32,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.plugin.clp.ClpConnectorFactory.CONNECTOR_NAME;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static java.util.Objects.requireNonNull;
 
@@ -41,11 +42,13 @@ public class ClpPlanOptimizer
     private static final Logger log = Logger.get(ClpPlanOptimizer.class);
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
+    private final ClpMetadataFilterProvider metadataFilterProvider;
 
-    public ClpPlanOptimizer(FunctionMetadataManager functionManager, StandardFunctionResolution functionResolution)
+    public ClpPlanOptimizer(FunctionMetadataManager functionManager, StandardFunctionResolution functionResolution, ClpMetadataFilterProvider metadataFilterProvider)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.metadataFilterProvider = requireNonNull(metadataFilterProvider, "metadataFilterProvider is null");
     }
 
     @Override
@@ -75,15 +78,31 @@ public class ClpPlanOptimizer
             Map<VariableReferenceExpression, ColumnHandle> assignments = tableScanNode.getAssignments();
             TableHandle tableHandle = tableScanNode.getTable();
             ClpTableHandle clpTableHandle = (ClpTableHandle) tableHandle.getConnectorHandle();
-            ClpExpression clpExpression = node.getPredicate()
-                    .accept(new ClpFilterToKqlConverter(functionResolution, functionManager, assignments), null);
+            String scope = CONNECTOR_NAME + "." + clpTableHandle.getSchemaTableName().toString();
+            ClpExpression clpExpression = node.getPredicate().accept(
+                    new ClpFilterToKqlConverter(
+                            functionResolution,
+                            functionManager,
+                            assignments,
+                            metadataFilterProvider.getColumnNames(scope)), null);
             Optional<String> kqlQuery = clpExpression.getPushDownExpression();
+            Optional<String> metadataSqlQuery = clpExpression.getMetadataSqlQuery();
             Optional<RowExpression> remainingPredicate = clpExpression.getRemainingExpression();
+
+            // Perform required metadata filter checks before handling the KQL query (if kqlQuery
+            // isn't present, we'll return early, skipping subsequent checks).
+            metadataFilterProvider.checkContainsRequiredFilters(clpTableHandle.getSchemaTableName(), metadataSqlQuery.orElse(""));
+            if (metadataSqlQuery.isPresent()) {
+                metadataSqlQuery = Optional.of(metadataFilterProvider.remapFilterSql(scope, metadataSqlQuery.get()));
+                log.debug("Metadata SQL query: %s", metadataSqlQuery);
+            }
+
             if (!kqlQuery.isPresent()) {
                 return node;
             }
-            log.debug("KQL query: %s", kqlQuery.get());
-            ClpTableLayoutHandle clpTableLayoutHandle = new ClpTableLayoutHandle(clpTableHandle, kqlQuery);
+            log.debug("KQL query: %s", kqlQuery);
+
+            ClpTableLayoutHandle clpTableLayoutHandle = new ClpTableLayoutHandle(clpTableHandle, kqlQuery, metadataSqlQuery);
             TableScanNode newTableScanNode = new TableScanNode(
                     tableScanNode.getSourceLocation(),
                     idAllocator.getNextId(),

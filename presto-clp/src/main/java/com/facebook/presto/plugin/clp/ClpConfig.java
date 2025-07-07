@@ -29,6 +29,7 @@ public class ClpConfig
     private String metadataDbName;
     private String metadataDbUser;
     private String metadataDbPassword;
+    private String metadataFilterConfig;
     private String metadataTablePrefix;
     private long metadataRefreshInterval = 60;
     private long metadataExpireInterval = 600;
@@ -104,6 +105,18 @@ public class ClpConfig
     public ClpConfig setMetadataDbPassword(String metadataDbPassword)
     {
         this.metadataDbPassword = metadataDbPassword;
+        return this;
+    }
+
+    public String getMetadataFilterConfig()
+    {
+        return metadataFilterConfig;
+    }
+
+    @Config("clp.metadata-filter-config")
+    public ClpConfig setMetadataFilterConfig(String metadataFilterConfig)
+    {
+        this.metadataFilterConfig = metadataFilterConfig;
         return this;
     }
 

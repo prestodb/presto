@@ -18,6 +18,7 @@ import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 
 import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 
 public enum ClpErrorCode
         implements ErrorCodeSupplier
@@ -26,7 +27,10 @@ public enum ClpErrorCode
     CLP_UNSUPPORTED_METADATA_SOURCE(1, EXTERNAL),
     CLP_UNSUPPORTED_SPLIT_SOURCE(2, EXTERNAL),
     CLP_UNSUPPORTED_TYPE(3, EXTERNAL),
-    CLP_UNSUPPORTED_CONFIG_OPTION(4, EXTERNAL);
+    CLP_UNSUPPORTED_CONFIG_OPTION(4, EXTERNAL),
+
+    CLP_METADATA_FILTER_CONFIG_NOT_FOUND(10, USER_ERROR),
+    CLP_MANDATORY_METADATA_FILTER_NOT_VALID(11, USER_ERROR);
 
     private final ErrorCode errorCode;
 

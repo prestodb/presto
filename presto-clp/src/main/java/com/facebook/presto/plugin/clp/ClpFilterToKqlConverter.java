@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.clp;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -47,7 +49,13 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUA
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.flip;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.plugin.clp.ClpErrorCode.CLP_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static java.lang.Integer.parseInt;
@@ -55,14 +63,18 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A translator to translate Presto RowExpressions into KQL (Kibana Query Language) filters used as
- * CLP queries. This is used primarily for pushing down supported filters to the CLP engine. This
- * class implements the RowExpressionVisitor interface and recursively walks Presto filter
- * expressions, attempting to convert supported expressions into corresponding KQL filter strings.
- * Any part of the expression that cannot be translated is preserved as a "remaining expression" for
- * potential fallback processing.
+ * A translator to translate Presto {@link RowExpression}s into:
+ * <ul>
+ *     <li>KQL (Kibana Query Language) filters used to push down supported filters to the CLP
+ *     engine.</li>
+ *     <li>SQL filters used for filtering splits in CLP's metadata database.</li>
+ * </ul>
+ * This class implements the {@link RowExpressionVisitor} interface and recursively walks Presto
+ * filter expressions, attempting to convert supported expressions into corresponding KQL filter
+ * strings and SQL filter strings for metadata filtering. Any part of the expression that cannot be
+ * translated to KQL is preserved as a "remaining expression" for potential fallback processing.
  * <p></p>
- * Supported translations include:
+ * Supported translations for KQL include:
  * <ul>
  *     <li>Comparisons between variables and constants (e.g., =, !=, <, >, <=, >=).</li>
  *     <li>String pattern matches using LIKE with constant patterns only. Patterns that begin and
@@ -71,6 +83,13 @@ import static java.util.Objects.requireNonNull;
  *     <li>NULL checks via IS NULL.</li>
  *     <li>Substring comparisons (e.g., <code>SUBSTR(x, start, len) = "val"</code>) against a
  *         constant.</li>
+ *     <li>Dereferencing fields from row-typed variables.</li>
+ *     <li>Logical operators AND, OR, and NOT.</li>
+ * </ul>
+ * <p></p>
+ * Supported translations for SQL include:
+ * <ul>
+ *     <li>Comparisons between variables and constants (e.g., =, !=, <, >, <=, >=).</li>
  *     <li>Dereferencing fields from row-typed variables.</li>
  *     <li>Logical operators AND, OR, and NOT.</li>
  * </ul>
@@ -84,15 +103,18 @@ public class ClpFilterToKqlConverter
     private final StandardFunctionResolution standardFunctionResolution;
     private final FunctionMetadataManager functionMetadataManager;
     private final Map<VariableReferenceExpression, ColumnHandle> assignments;
+    private final Set<String> metadataFilterColumns;
 
     public ClpFilterToKqlConverter(
             StandardFunctionResolution standardFunctionResolution,
             FunctionMetadataManager functionMetadataManager,
-            Map<VariableReferenceExpression, ColumnHandle> assignments)
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            Set<String> metadataFilterColumns)
     {
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "function metadata manager is null");
         this.assignments = requireNonNull(assignments, "assignments is null");
+        this.metadataFilterColumns = requireNonNull(metadataFilterColumns, "metadataFilterColumns is null");
     }
 
     @Override
@@ -113,6 +135,9 @@ public class ClpFilterToKqlConverter
             OperatorType operatorType = operatorTypeOptional.get();
             if (operatorType.isComparisonOperator() && operatorType != IS_DISTINCT_FROM) {
                 return handleLogicalBinary(operatorType, node);
+            }
+            if (BETWEEN == operatorType) {
+                return handleBetween(node);
             }
         }
 
@@ -183,6 +208,56 @@ public class ClpFilterToKqlConverter
     }
 
     /**
+     * Handles the <code>BETWEEN</code> expression.
+     * <p></p>
+     * The translation is only performed if:
+     * <ul>
+     *     <li>all arguments have numeric types.</li>
+     *     <li>the first argument is a variable reference expression.</li>
+     *     <li>the second and third arguments are constant expressions.</li>
+     * </ul>
+     * <p></p>
+     * Example: <code>col1 BETWEEN 0 AND 5</code> → <code>col1 >= 0 AND col1 <= 5</code>
+     *
+     * @param node the {@code BETWEEN} call expression
+     * @return a ClpExpression containing either the equivalent KQL query, or the original
+     * expression if it couldn't be translated
+     */
+    private ClpExpression handleBetween(CallExpression node)
+    {
+        List<RowExpression> arguments = node.getArguments();
+        if (arguments.size() != 3) {
+            throw new PrestoException(CLP_PUSHDOWN_UNSUPPORTED_EXPRESSION,
+                    "BETWEEN operator must have exactly three arguments. Received: " + node);
+        }
+        RowExpression first = arguments.get(0);
+        RowExpression second = arguments.get(1);
+        RowExpression third = arguments.get(2);
+        if (!(first instanceof VariableReferenceExpression)
+                || !(second instanceof ConstantExpression)
+                || !(third instanceof ConstantExpression)) {
+            return new ClpExpression(node);
+        }
+        if (!isClpCompatibleNumericType(first.getType())
+                || !isClpCompatibleNumericType(second.getType())
+                || !isClpCompatibleNumericType(third.getType())) {
+            return new ClpExpression(node);
+        }
+        Optional<String> variableOpt = first.accept(this, null).getPushDownExpression();
+        if (!variableOpt.isPresent()) {
+            return new ClpExpression(node);
+        }
+        String variable = variableOpt.get();
+        String lowerBound = getLiteralString((ConstantExpression) second);
+        String upperBound = getLiteralString((ConstantExpression) third);
+        String kql = String.format("%s >= %s AND %s <= %s", variable, lowerBound, variable, upperBound);
+        String metadataSqlQuery = metadataFilterColumns.contains(variable)
+                ? String.format("\"%s\" >= %s AND \"%s\" <= %s", variable, lowerBound, variable, upperBound)
+                : null;
+        return new ClpExpression(kql, metadataSqlQuery);
+    }
+
+    /**
      * Handles the logical NOT expression.
      * <p></p>
      * Example: <code>NOT (col1 = 5)</code> → <code>NOT col1: 5</code>
@@ -203,7 +278,13 @@ public class ClpFilterToKqlConverter
         if (expression.getRemainingExpression().isPresent() || !expression.getPushDownExpression().isPresent()) {
             return new ClpExpression(node);
         }
-        return new ClpExpression("NOT " + expression.getPushDownExpression().get());
+        String notPushDownExpression = "NOT " + expression.getPushDownExpression().get();
+        if (expression.getMetadataSqlQuery().isPresent()) {
+            return new ClpExpression(notPushDownExpression, "NOT " + expression.getMetadataSqlQuery());
+        }
+        else {
+            return new ClpExpression(notPushDownExpression);
+        }
     }
 
     /**
@@ -350,24 +431,34 @@ public class ClpFilterToKqlConverter
             Type literalType,
             RowExpression originalNode)
     {
+        String metadataSqlQuery = null;
         if (operator.equals(EQUAL)) {
             if (literalType instanceof VarcharType) {
-                return new ClpExpression(format("%s: \"%s\"", variableName, literalString));
+                return new ClpExpression(format("%s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)));
             }
             else {
-                return new ClpExpression(format("%s: %s", variableName, literalString));
+                if (metadataFilterColumns.contains(variableName)) {
+                    metadataSqlQuery = format("\"%s\" = %s", variableName, literalString);
+                }
+                return new ClpExpression(format("%s: %s", variableName, literalString), metadataSqlQuery);
             }
         }
         else if (operator.equals(NOT_EQUAL)) {
             if (literalType instanceof VarcharType) {
-                return new ClpExpression(format("NOT %s: \"%s\"", variableName, literalString));
+                return new ClpExpression(format("NOT %s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)));
             }
             else {
-                return new ClpExpression(format("NOT %s: %s", variableName, literalString));
+                if (metadataFilterColumns.contains(variableName)) {
+                    metadataSqlQuery = format("NOT \"%s\" = %s", variableName, literalString);
+                }
+                return new ClpExpression(format("NOT %s: %s", variableName, literalString), metadataSqlQuery);
             }
         }
         else if (LOGICAL_BINARY_OPS_FILTER.contains(operator) && !(literalType instanceof VarcharType)) {
-            return new ClpExpression(format("%s %s %s", variableName, operator.getOperator(), literalString));
+            if (metadataFilterColumns.contains(variableName)) {
+                metadataSqlQuery = format("\"%s\" %s %s", variableName, operator.getOperator(), literalString);
+            }
+            return new ClpExpression(format("%s %s %s", variableName, operator.getOperator(), literalString), metadataSqlQuery);
         }
         return new ClpExpression(originalNode);
     }
@@ -568,9 +659,12 @@ public class ClpFilterToKqlConverter
      */
     private ClpExpression handleAnd(SpecialFormExpression node)
     {
+        StringBuilder metadataQueryBuilder = new StringBuilder();
+        metadataQueryBuilder.append("(");
         StringBuilder queryBuilder = new StringBuilder();
         queryBuilder.append("(");
         List<RowExpression> remainingExpressions = new ArrayList<>();
+        boolean hasMetadataSql = false;
         boolean hasPushDownExpression = false;
         for (RowExpression argument : node.getArguments()) {
             ClpExpression expression = argument.accept(this, null);
@@ -578,6 +672,11 @@ public class ClpFilterToKqlConverter
                 hasPushDownExpression = true;
                 queryBuilder.append(expression.getPushDownExpression().get());
                 queryBuilder.append(" AND ");
+                if (expression.getMetadataSqlQuery().isPresent()) {
+                    hasMetadataSql = true;
+                    metadataQueryBuilder.append(expression.getMetadataSqlQuery().get());
+                    metadataQueryBuilder.append(" AND ");
+                }
             }
             if (expression.getRemainingExpression().isPresent()) {
                 remainingExpressions.add(expression.getRemainingExpression().get());
@@ -588,16 +687,21 @@ public class ClpFilterToKqlConverter
         }
         else if (!remainingExpressions.isEmpty()) {
             if (remainingExpressions.size() == 1) {
-                return new ClpExpression(queryBuilder.substring(0, queryBuilder.length() - 5) + ")", remainingExpressions.get(0));
+                return new ClpExpression(
+                        queryBuilder.substring(0, queryBuilder.length() - 5) + ")",
+                        hasMetadataSql ? metadataQueryBuilder.substring(0, metadataQueryBuilder.length() - 5) + ")" : null,
+                        remainingExpressions.get(0));
             }
             else {
                 return new ClpExpression(
                         queryBuilder.substring(0, queryBuilder.length() - 5) + ")",
+                        hasMetadataSql ? metadataQueryBuilder.substring(0, metadataQueryBuilder.length() - 5) + ")" : null,
                         new SpecialFormExpression(node.getSourceLocation(), AND, BOOLEAN, remainingExpressions));
             }
         }
         // Remove the last " AND " from the query
-        return new ClpExpression(queryBuilder.substring(0, queryBuilder.length() - 5) + ")");
+        return new ClpExpression(queryBuilder.substring(0, queryBuilder.length() - 5) + ")",
+                hasMetadataSql ? metadataQueryBuilder.substring(0, metadataQueryBuilder.length() - 5) + ")" : null);
     }
 
     /**
@@ -614,8 +718,11 @@ public class ClpFilterToKqlConverter
      */
     private ClpExpression handleOr(SpecialFormExpression node)
     {
+        StringBuilder metadataQueryBuilder = new StringBuilder();
+        metadataQueryBuilder.append("(");
         StringBuilder queryBuilder = new StringBuilder();
         queryBuilder.append("(");
+        boolean hasAllMetadataSql = true;
         for (RowExpression argument : node.getArguments()) {
             ClpExpression expression = argument.accept(this, null);
             if (expression.getRemainingExpression().isPresent() || !expression.getPushDownExpression().isPresent()) {
@@ -623,9 +730,18 @@ public class ClpFilterToKqlConverter
             }
             queryBuilder.append(expression.getPushDownExpression().get());
             queryBuilder.append(" OR ");
+            if (hasAllMetadataSql && expression.getMetadataSqlQuery().isPresent()) {
+                metadataQueryBuilder.append(expression.getMetadataSqlQuery().get());
+                metadataQueryBuilder.append(" OR ");
+            }
+            else {
+                hasAllMetadataSql = false;
+            }
         }
         // Remove the last " OR " from the query
-        return new ClpExpression(queryBuilder.substring(0, queryBuilder.length() - 4) + ")");
+        return new ClpExpression(
+                queryBuilder.substring(0, queryBuilder.length() - 4) + ")",
+                hasAllMetadataSql ? metadataQueryBuilder.substring(0, metadataQueryBuilder.length() - 4) + ")" : null);
     }
 
     /**
@@ -751,6 +867,41 @@ public class ClpFilterToKqlConverter
             return new ClpExpression(expression);
         }
         return new ClpExpression(baseString.getPushDownExpression().get() + "." + fieldName);
+    }
+
+    /**
+     * See
+     * <a href="https://docs.yscope.com/clp/main/user-guide/reference-json-search-syntax">here
+     * </a> for all special chars in the string value that need to be escaped.
+     *
+     * @param literalString
+     * @return the string with special characters escaped
+     */
+    public static String escapeKqlSpecialCharsForStringValue(String literalString)
+    {
+        String escaped = literalString;
+        escaped = escaped.replace("\\", "\\\\");
+        escaped = escaped.replace("\"", "\\\"");
+        escaped = escaped.replace("?", "\\?");
+        escaped = escaped.replace("*", "\\*");
+        return escaped;
+    }
+
+    /**
+     * Checks if the type is one of the numeric types that can be pushed down to CLP.
+     *
+     * @param type the type to check
+     * @return whether the type can be pushed down.
+     */
+    public static boolean isClpCompatibleNumericType(Type type)
+    {
+        return type.equals(BIGINT)
+                || type.equals(INTEGER)
+                || type.equals(SMALLINT)
+                || type.equals(TINYINT)
+                || type.equals(DOUBLE)
+                || type.equals(REAL)
+                || type instanceof DecimalType;
     }
 
     private static class SubstrInfo

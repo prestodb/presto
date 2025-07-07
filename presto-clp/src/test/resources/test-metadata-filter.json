@@ -1,0 +1,25 @@
+{
+  "clp": [
+      {
+        "columnName": "level"
+      }
+  ],
+  "clp.default": [
+      {
+        "columnName": "author"
+      }
+  ],
+  "clp.default.table_1": [
+      {
+        "columnName": "msg.timestamp",
+        "rangeMapping": {
+          "lowerBound": "begin_timestamp",
+          "upperBound": "end_timestamp"
+        },
+        "required": true
+      },
+      {
+        "columnName": "file_name"
+      }
+  ]
+}

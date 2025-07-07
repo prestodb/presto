@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.clp.metadata;
 
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.plugin.clp.ClpColumnHandle;
 import com.facebook.presto.spi.PrestoException;
@@ -119,9 +120,10 @@ public class ClpSchemaTree
                 return DOUBLE;
             case ClpString:
             case VarString:
-            case DateString:
             case NullValue:
                 return VARCHAR;
+            case DateString:
+                return TimestampType.TIMESTAMP;
             case UnstructuredArray:
                 return new ArrayType(VARCHAR);
             case Boolean:

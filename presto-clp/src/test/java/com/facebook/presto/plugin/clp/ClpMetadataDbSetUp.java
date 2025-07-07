@@ -48,11 +48,13 @@ public final class ClpMetadataDbSetUp
     public static final String METADATA_DB_TABLE_PREFIX = "clp_";
     public static final String METADATA_DB_URL_TEMPLATE = "jdbc:h2:file:%s;MODE=MySQL;DATABASE_TO_UPPER=FALSE";
     public static final String METADATA_DB_USER = "sa";
-    public static final String ARCHIVE_STORAGE_DIRECTORY_BASE = "/tmp/archives/";
+    public static final String ARCHIVES_STORAGE_DIRECTORY_BASE = "/tmp/archives/";
 
     private static final Logger log = Logger.get(ClpMetadataDbSetUp.class);
     private static final String DATASETS_TABLE_NAME = METADATA_DB_TABLE_PREFIX + DATASETS_TABLE_SUFFIX;
+    private static final String ARCHIVES_TABLE_COLUMN_BEGIN_TIMESTAMP = "begin_timestamp";
     private static final String ARCHIVES_TABLE_COLUMN_PAGINATION_ID = "pagination_id";
+    private static final String ARCHIVES_TABLE_COLUMN_END_TIMESTAMP = "end_timestamp";
 
     private ClpMetadataDbSetUp()
     {
@@ -118,7 +120,7 @@ public final class ClpMetadataDbSetUp
         return new ClpMetadata(config, metadataProvider);
     }
 
-    public static ClpMySqlSplitProvider setupSplit(DbHandle dbHandle, Map<String, List<String>> splits)
+    public static ClpMySqlSplitProvider setupSplit(DbHandle dbHandle, Map<String, List<ArchivesTableRow>> splits)
     {
         final String metadataDbUrl = format(METADATA_DB_URL_TEMPLATE, dbHandle.dbPath);
         final String archiveTableFormat = METADATA_DB_TABLE_PREFIX + "%s" + ARCHIVES_TABLE_SUFFIX;
@@ -127,7 +129,7 @@ public final class ClpMetadataDbSetUp
             createDatasetsTable(stmt);
 
             // Create and populate archive tables
-            for (Map.Entry<String, List<String>> tableSplits : splits.entrySet()) {
+            for (Map.Entry<String, List<ArchivesTableRow>> tableSplits : splits.entrySet()) {
                 String tableName = tableSplits.getKey();
                 updateDatasetsTable(conn, tableName);
 
@@ -135,17 +137,28 @@ public final class ClpMetadataDbSetUp
                 String createArchiveTableSQL = format(
                         "CREATE TABLE IF NOT EXISTS %s (" +
                                 "%s BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, " +
-                                "%s VARCHAR(64) NOT NULL)",
+                                "%s VARCHAR(64) NOT NULL, " +
+                                "%s BIGINT, " +
+                                "%s BIGINT)",
                         archiveTableName,
                         ARCHIVES_TABLE_COLUMN_PAGINATION_ID,
-                        ARCHIVES_TABLE_COLUMN_ID);
+                        ARCHIVES_TABLE_COLUMN_ID,
+                        ARCHIVES_TABLE_COLUMN_BEGIN_TIMESTAMP,
+                        ARCHIVES_TABLE_COLUMN_END_TIMESTAMP);
 
                 stmt.execute(createArchiveTableSQL);
 
-                String insertArchiveTableSQL = format("INSERT INTO %s (%s) VALUES (?)", archiveTableName, ARCHIVES_TABLE_COLUMN_ID);
+                String insertArchiveTableSQL = format(
+                        "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
+                        archiveTableName,
+                        ARCHIVES_TABLE_COLUMN_ID,
+                        ARCHIVES_TABLE_COLUMN_BEGIN_TIMESTAMP,
+                        ARCHIVES_TABLE_COLUMN_END_TIMESTAMP);
                 try (PreparedStatement pstmt = conn.prepareStatement(insertArchiveTableSQL)) {
-                    for (String splitPath : tableSplits.getValue()) {
-                        pstmt.setString(1, splitPath);
+                    for (ArchivesTableRow split : tableSplits.getValue()) {
+                        pstmt.setString(1, split.id);
+                        pstmt.setLong(2, split.beginTimestamp);
+                        pstmt.setLong(3, split.endTimestamp);
                         pstmt.addBatch();
                     }
                     pstmt.executeBatch();
@@ -200,18 +213,47 @@ public final class ClpMetadataDbSetUp
                 DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY);
         try (PreparedStatement pstmt = conn.prepareStatement(insertDatasetsTableSql)) {
             pstmt.setString(1, tableName);
-            pstmt.setString(2, ARCHIVE_STORAGE_DIRECTORY_BASE + tableName);
+            pstmt.setString(2, ARCHIVES_STORAGE_DIRECTORY_BASE + tableName);
             pstmt.executeUpdate();
         }
     }
 
-    public static final class DbHandle
+    static final class DbHandle
     {
-        public String dbPath;
+        private final String dbPath;
 
-        private DbHandle(String dbPath)
+        DbHandle(String dbPath)
         {
             this.dbPath = dbPath;
+        }
+    }
+
+    static final class ArchivesTableRow
+    {
+        private final String id;
+        private final long beginTimestamp;
+        private final long endTimestamp;
+
+        ArchivesTableRow(String id, long beginTimestamp, long endTimestamp)
+        {
+            this.id = id;
+            this.beginTimestamp = beginTimestamp;
+            this.endTimestamp = endTimestamp;
+        }
+
+        public String getId()
+        {
+            return id;
+        }
+
+        public long getBeginTimestamp()
+        {
+            return beginTimestamp;
+        }
+
+        public long getEndTimestamp()
+        {
+            return endTimestamp;
         }
     }
 }

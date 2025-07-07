@@ -119,7 +119,7 @@ public class ClpMetadata
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         ClpTableHandle tableHandle = (ClpTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new ClpTableLayoutHandle(tableHandle, Optional.empty()));
+        ConnectorTableLayout layout = new ConnectorTableLayout(new ClpTableLayoutHandle(tableHandle, Optional.empty(), Optional.empty()));
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 

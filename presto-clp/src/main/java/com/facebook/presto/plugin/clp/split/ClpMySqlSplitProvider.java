@@ -41,7 +41,7 @@ public class ClpMySqlSplitProvider
     public static final String ARCHIVES_TABLE_SUFFIX = "_archives";
 
     // SQL templates
-    private static final String SQL_SELECT_ARCHIVES_TEMPLATE = format("SELECT `%s` FROM `%%s%%s%s`", ARCHIVES_TABLE_COLUMN_ID, ARCHIVES_TABLE_SUFFIX);
+    private static final String SQL_SELECT_ARCHIVES_TEMPLATE = format("SELECT `%s` FROM `%%s%%s%s` WHERE 1 = 1", ARCHIVES_TABLE_COLUMN_ID, ARCHIVES_TABLE_SUFFIX);
 
     private static final Logger log = Logger.get(ClpMySqlSplitProvider.class);
 
@@ -69,6 +69,12 @@ public class ClpMySqlSplitProvider
         String tableName = clpTableHandle.getSchemaTableName().getTableName();
         String archivePathQuery = format(SQL_SELECT_ARCHIVES_TEMPLATE, config.getMetadataTablePrefix(), tableName);
 
+        if (clpTableLayoutHandle.getMetadataSql().isPresent()) {
+            String metadataFilterQuery = clpTableLayoutHandle.getMetadataSql().get();
+            archivePathQuery += " AND (" + metadataFilterQuery + ")";
+        }
+        log.debug("Query for archive: %s", archivePathQuery);
+
         try (Connection connection = getConnection()) {
             // Fetch archive IDs and create splits
             try (PreparedStatement statement = connection.prepareStatement(archivePathQuery); ResultSet resultSet = statement.executeQuery()) {
@@ -83,7 +89,9 @@ public class ClpMySqlSplitProvider
             log.warn("Database error while processing splits for %s: %s", tableName, e);
         }
 
-        return splits.build();
+        ImmutableList<ClpSplit> filteredSplits = splits.build();
+        log.debug("Number of splits: %s", filteredSplits.size());
+        return filteredSplits;
     }
 
     private Connection getConnection()
