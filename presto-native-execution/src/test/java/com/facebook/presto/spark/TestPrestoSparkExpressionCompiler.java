@@ -11,14 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.classloader_interface;
+package com.facebook.presto.spark;
 
-import java.io.Serializable;
+import com.facebook.presto.nativeworker.AbstractTestExpressionCompiler;
+import com.facebook.presto.testing.QueryRunner;
 
-public interface PrestoSparkTaskExecutorFactoryProvider
-        extends Serializable
+public class TestPrestoSparkExpressionCompiler
+        extends AbstractTestExpressionCompiler
 {
-    IPrestoSparkTaskExecutorFactory get();
-
-    IPrestoSparkTaskExecutorFactory getNative();
+    @Override
+    protected QueryRunner getQueryRunner()
+    {
+        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+    }
 }
