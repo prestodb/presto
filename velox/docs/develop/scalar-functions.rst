@@ -722,7 +722,7 @@ cardinality function for maps:
 
       BaseVector::ensureWritable(rows, BIGINT(), context.pool(), result);
       BufferPtr resultValues =
-           result->as<FlatVector<int64_t>>()->mutableValues(rows.size());
+           result->as<FlatVector<int64_t>>()->mutableValues();
       auto rawResult = resultValues->asMutable<int64_t>();
 
       auto mapVector = args[0]->as<MapVector>();

@@ -106,7 +106,7 @@ FlatVector<StringView>& ensureWritableStringView(
     VectorPtr& result) {
   context.ensureWritable(rows, VARCHAR(), result);
   auto* flat = result->as<FlatVector<StringView>>();
-  flat->mutableValues(rows.end());
+  flat->mutableValues();
   return *flat;
 }
 

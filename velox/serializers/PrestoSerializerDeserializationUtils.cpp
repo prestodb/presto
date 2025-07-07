@@ -706,7 +706,7 @@ void read(
   auto nullCount = readNulls(
       source, size, resultOffset, incomingNulls, numIncomingNulls, *flatResult);
 
-  BufferPtr values = flatResult->mutableValues(resultOffset + numNewValues);
+  BufferPtr values = flatResult->mutableValues();
   if constexpr (std::is_same_v<T, Timestamp>) {
     if (opts.useLosslessTimestamp) {
       readLosslessTimestampValues(
@@ -780,7 +780,7 @@ void read<StringView>(
   result->resize(resultOffset + numNewValues);
 
   auto flatResult = result->as<FlatVector<StringView>>();
-  BufferPtr values = flatResult->mutableValues(resultOffset + size);
+  BufferPtr values = flatResult->mutableValues();
   auto rawValues = values->asMutable<StringView>();
   int32_t lastOffset = 0;
   for (int32_t i = 0; i < numNewValues; ++i) {
@@ -837,7 +837,7 @@ void read<OpaqueType>(
   auto deserialization = opaqueType->getDeserializeFunc();
 
   auto flatResult = result->as<FlatVector<std::shared_ptr<void>>>();
-  BufferPtr values = flatResult->mutableValues(resultOffset + size);
+  BufferPtr values = flatResult->mutableValues();
 
   auto rawValues = values->asMutable<std::shared_ptr<void>>();
   std::vector<int32_t> offsets;

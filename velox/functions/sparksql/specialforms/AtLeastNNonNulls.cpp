@@ -47,7 +47,7 @@ class AtLeastNNonNullsExpr : public SpecialForm {
     LocalSelectivityVector activeRowsHolder(context, rows);
     auto activeRows = activeRowsHolder.get();
     VELOX_DCHECK_NOT_NULL(activeRows);
-    auto values = flatResult->mutableValues(rows.end())->asMutable<uint64_t>();
+    auto values = flatResult->mutableValues()->asMutable<uint64_t>();
     // If 'n_' <= 0, set result to all true.
     if (n_ <= 0) {
       bits::orBits(values, rows.asRange().bits(), rows.begin(), rows.end());

@@ -105,7 +105,7 @@ void ConjunctExpr::evalSpecialForm(
     rows.clearNulls(nulls);
   }
   // Initialize result to all true for AND and all false for OR.
-  auto values = flatResult->mutableValues(rows.end())->asMutable<uint64_t>();
+  auto values = flatResult->mutableValues()->asMutable<uint64_t>();
   if (isAnd_) {
     bits::orBits(values, rows.asRange().bits(), rows.begin(), rows.end());
   } else {

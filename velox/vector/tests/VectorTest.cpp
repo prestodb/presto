@@ -3275,26 +3275,19 @@ TEST_F(VectorTest, mutableValues) {
   auto vector = makeFlatVector<int64_t>(1'000, [](auto row) { return row; });
 
   auto* rawValues = vector->rawValues();
-  vector->mutableValues(1'001);
+  vector->mutableValues();
   ASSERT_EQ(rawValues, vector->rawValues());
   for (auto i = 0; i < 1'000; ++i) {
     EXPECT_EQ(rawValues[i], i);
   }
 
-  vector->mutableValues(10'000);
-  ASSERT_NE(rawValues, vector->rawValues());
-  rawValues = vector->rawValues();
-  for (auto i = 0; i < 1'000; ++i) {
-    EXPECT_EQ(rawValues[i], i);
-  }
-
-  auto values = vector->mutableValues(2'000);
+  auto values = vector->mutableValues();
   ASSERT_EQ(rawValues, vector->rawValues());
   for (auto i = 0; i < 1'000; ++i) {
     EXPECT_EQ(rawValues[i], i);
   }
 
-  vector->mutableValues(500);
+  vector->mutableValues();
   ASSERT_NE(rawValues, vector->rawValues());
   rawValues = vector->rawValues();
   for (auto i = 0; i < 500; ++i) {

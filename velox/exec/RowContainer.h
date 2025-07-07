@@ -1102,7 +1102,7 @@ class RowContainer {
 
     BufferPtr& nullBuffer = result->mutableNulls(maxRows, true);
     auto nulls = nullBuffer->asMutable<uint64_t>();
-    BufferPtr valuesBuffer = result->mutableValues(maxRows);
+    BufferPtr valuesBuffer = result->mutableValues();
     [[maybe_unused]] auto values = valuesBuffer->asMutableRange<T>();
     for (int32_t i = 0; i < numRows; ++i) {
       const char* row;
@@ -1134,9 +1134,9 @@ class RowContainer {
       int32_t offset,
       int32_t resultOffset,
       FlatVector<T>* result) {
-    auto maxRows = numRows + resultOffset;
+    [[maybe_unused]] auto maxRows = numRows + resultOffset;
     VELOX_DCHECK_LE(maxRows, result->size());
-    BufferPtr valuesBuffer = result->mutableValues(maxRows);
+    BufferPtr valuesBuffer = result->mutableValues();
     [[maybe_unused]] auto values = valuesBuffer->asMutableRange<T>();
     for (int32_t i = 0; i < numRows; ++i) {
       const char* row;

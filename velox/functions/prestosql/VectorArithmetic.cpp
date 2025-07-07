@@ -149,8 +149,7 @@ class VectorArithmetic : public VectorFunction {
       context.ensureWritable(rows, outputType, result);
     }
     // Here we provide a pointer to the raw flat results.
-    BufferPtr resultValues =
-        result->as<FlatVector<T>>()->mutableValues(rows.end());
+    BufferPtr resultValues = result->as<FlatVector<T>>()->mutableValues();
     T* __restrict rawResult = resultValues->asMutable<T>();
 
     // Step 2: handle input encodings and call the inner kernels

@@ -302,7 +302,7 @@ void ByteRleColumnReader<FileType, RequestedType>::next(
 
   BufferPtr values;
   if (flatVector) {
-    values = flatVector->mutableValues(numValues);
+    values = flatVector->mutableValues();
   }
 
   if (flatVector) {
@@ -475,7 +475,7 @@ void DecimalColumnReader<DataT>::next(
   }
   BufferPtr values;
   if (flatVector) {
-    values = flatVector->mutableValues(numValues);
+    values = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -585,8 +585,8 @@ void IntegerDirectColumnReader<ReqT>::next(
   auto flatVector = resetIfWrongFlatVectorType<ReqT>(result);
   BufferPtr values;
   if (flatVector) {
-    values = flatVector->mutableValues(numValues);
     result->resize(numValues, false);
+    values = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -743,7 +743,7 @@ void IntegerDictionaryColumnReader<ReqT>::next(
   BufferPtr values;
   if (result) {
     result->resize(numValues, false);
-    values = flatVector->mutableValues(numValues);
+    values = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -869,7 +869,7 @@ void TimestampColumnReader::next(
   BufferPtr values;
   if (flatVector) {
     result->resize(numValues, false);
-    values = flatVector->mutableValues(numValues);
+    values = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -1023,7 +1023,7 @@ void FloatingPointColumnReader<DataT, ReqT>::next(
   }
   BufferPtr values;
   if (flatVector) {
-    values = flatVector->mutableValues(numValues);
+    values = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -1544,7 +1544,7 @@ void StringDictionaryColumnReader::readFlatVector(
 
   BufferPtr data;
   if (flatVector) {
-    data = flatVector->mutableValues(numValues);
+    data = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
@@ -1773,7 +1773,7 @@ void StringDirectColumnReader::next(
   BufferPtr values;
   if (flatVector) {
     flatVector->resize(numValues, false);
-    values = flatVector->mutableValues(numValues);
+    values = flatVector->mutableValues();
   }
 
   BufferPtr nulls = readNulls(numValues, result, incomingNulls);
