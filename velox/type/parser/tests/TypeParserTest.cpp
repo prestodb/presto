@@ -297,6 +297,11 @@ TEST_F(TypeParserTest, typesWithSpaces) {
           {"timestamp with time zone", "double"},
           {TIMESTAMP_WITH_TIME_ZONE(), DOUBLE()}));
 
+  // quoted filed name with special characters & spaces
+  ASSERT_EQ(
+      *parseType("row(\"Nested Some more weirdtt +- \\:\\: charact\" varchar)"),
+      *ROW({"Nested Some more weirdtt +- \\:\\: charact"}, {VARCHAR()}));
+
   // quoted field name with invalid type with spaces.
   VELOX_ASSERT_UNSUPPORTED_THROW(
       parseType(
