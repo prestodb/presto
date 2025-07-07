@@ -94,6 +94,8 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_GeometryType"}});
   registerFunction<StDistanceFunction, double, Geometry, Geometry>(
       {{prefix + "ST_Distance"}});
+  registerFunction<StPolygonFunction, Geometry, Varchar>(
+      {{prefix + "ST_Polygon"}});
 }
 
 } // namespace

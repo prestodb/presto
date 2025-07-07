@@ -139,6 +139,7 @@ int main(int argc, char** argv) {
       "st_centroid",
       "st_distance",
       "st_geometrytype",
+      "st_polygon",
       "st_relate",
       "st_contains",
       "st_crosses",

@@ -143,6 +143,30 @@ struct StPointFunction {
   geos::geom::GeometryFactory::Ptr factory_;
 };
 
+template <typename T>
+struct StPolygonFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Geometry>& result, const arg_type<Varchar>& wkt) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry;
+    GEOS_TRY(
+        {
+          geos::io::WKTReader reader;
+          geosGeometry = reader.read(wkt);
+        },
+        "Failed to parse WKT");
+    auto validate = geospatial::validateType(
+        *geosGeometry,
+        {geos::geom::GeometryTypeId::GEOS_POLYGON},
+        "ST_Polygon");
+
+    geospatial::GeometrySerializer::serialize(*geosGeometry, result);
+
+    return validate;
+  }
+};
+
 // Predicates
 
 template <typename T>

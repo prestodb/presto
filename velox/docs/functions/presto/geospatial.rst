@@ -69,6 +69,10 @@ Geometry Constructors
     Returns the Point geometry at the given coordinates.  This will raise an
     error if ``x`` or ``y`` is ``NaN`` or ``infinity``.
 
+.. function:: ST_Polygon(wkt: varchar) -> polygon: Geometry
+
+    Returns a geometry type polygon object from WKT representation.
+
 Spatial Predicates
 ------------------
 

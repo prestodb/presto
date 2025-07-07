@@ -1630,3 +1630,32 @@ TEST_F(GeometryFunctionsTest, testStXY) {
       testStY("POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))"),
       "ST_Y requires a Point geometry, found Polygon");
 }
+
+TEST_F(GeometryFunctionsTest, testStPolygon) {
+  const auto testStPolygonFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result =
+            evaluateOnce<std::string>("ST_AsText(ST_Polygon(c0))", wkt);
+
+        if (wkt.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStPolygonFunc("POLYGON EMPTY", "POLYGON EMPTY");
+  testStPolygonFunc(
+      "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))'))",
+      "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))");
+
+  VELOX_ASSERT_USER_THROW(
+      testStPolygonFunc("LINESTRING (1 1, 2 2, 1 3)", std::nullopt),
+      "ST_Polygon only applies to Polygon. Input type is: LineString");
+
+  VELOX_ASSERT_USER_THROW(
+      testStPolygonFunc("POLYGON((-1 1, 1 -1))", std::nullopt),
+      "Failed to parse WKT: IllegalArgumentException: Points of LinearRing do not form a closed linestring");
+}
