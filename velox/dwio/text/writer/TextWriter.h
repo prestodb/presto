@@ -44,7 +44,7 @@ class TextFileTraits {
   static inline const std::string kNullData = "\\N";
 
   /// Delimiter between columns.
-  static const char kSOH = '\x01';
+  static inline const char kSOH = '\x01';
 
   /// Delimiter between rows.
   static const char kNewLine = '\n';
@@ -81,8 +81,9 @@ class TextWriter : public dwio::common::Writer {
  private:
   void writeCellValue(
       const std::shared_ptr<DecodedVector>& decodedColumnVector,
-      const TypePtr& type,
-      vector_size_t row);
+      TypeKind type,
+      vector_size_t row,
+      std::optional<char> delimiter);
 
   const RowTypePtr schema_;
   const std::unique_ptr<BufferedWriterSink> bufferedWriterSink_;

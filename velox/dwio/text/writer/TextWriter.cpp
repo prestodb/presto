@@ -94,13 +94,19 @@ void TextWriter::write(const VectorPtr& data) {
     decodedColumnVectors.push_back(std::move(decodedColumnVector));
   }
 
+  std::optional<char> delimiter;
   for (vector_size_t row = 0; row < data->size(); ++row) {
     for (size_t column = 0; column < numColumns; ++column) {
-      if (column != 0) {
-        bufferedWriterSink_->write(TextFileTraits::kSOH);
+      if (column == 0) {
+        delimiter = std::nullopt;
+      } else {
+        delimiter = std::optional(TextFileTraits::kSOH);
       }
       writeCellValue(
-          decodedColumnVectors.at(column), schema_->childAt(column), row);
+          decodedColumnVectors.at(column),
+          schema_->childAt(column)->kind(),
+          row,
+          delimiter);
     }
     bufferedWriterSink_->write(TextFileTraits::kNewLine);
   }
@@ -120,50 +126,80 @@ void TextWriter::abort() {
 
 void TextWriter::writeCellValue(
     const std::shared_ptr<DecodedVector>& decodedColumnVector,
-    const TypePtr& type,
-    vector_size_t row) {
-  std::optional<std::string> dataStr;
-  std::optional<StringView> dataSV;
-
+    const TypeKind type,
+    vector_size_t row,
+    std::optional<char> delimiter) {
+  if (delimiter.has_value()) {
+    bufferedWriterSink_->write(delimiter.value());
+  }
   if (decodedColumnVector->isNullAt(row)) {
     bufferedWriterSink_->write(
         TextFileTraits::kNullData.data(), TextFileTraits::kNullData.length());
     return;
   }
-  switch (type->kind()) {
-    case TypeKind::BOOLEAN:
-      dataStr =
+  switch (type) {
+    case TypeKind::BOOLEAN: {
+      auto dataStr =
           toTextStr(folly::to<bool>(decodedColumnVector->valueAt<bool>(row)));
-      break;
-    case TypeKind::TINYINT:
-      dataStr = toTextStr(decodedColumnVector->valueAt<int8_t>(row));
-      break;
-    case TypeKind::SMALLINT:
-      dataStr = toTextStr(decodedColumnVector->valueAt<int16_t>(row));
-      break;
-    case TypeKind::INTEGER:
-      dataStr = toTextStr(decodedColumnVector->valueAt<int32_t>(row));
-      break;
-    case TypeKind::BIGINT:
-      dataStr = toTextStr(decodedColumnVector->valueAt<int64_t>(row));
-      break;
-    case TypeKind::REAL:
-      dataStr = toTextStr(decodedColumnVector->valueAt<float>(row));
-      break;
-    case TypeKind::DOUBLE:
-      dataStr = toTextStr(decodedColumnVector->valueAt<double>(row));
-      break;
-    case TypeKind::TIMESTAMP:
-      dataStr = toTextStr(decodedColumnVector->valueAt<Timestamp>(row));
-      break;
-    case TypeKind::VARCHAR:
-      dataSV = std::optional(decodedColumnVector->valueAt<StringView>(row));
-      break;
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::TINYINT: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<int8_t>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::SMALLINT: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<int16_t>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::INTEGER: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<int32_t>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::BIGINT: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<int64_t>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::REAL: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<float>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::DOUBLE: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<double>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::TIMESTAMP: {
+      auto dataStr = toTextStr(decodedColumnVector->valueAt<Timestamp>(row));
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
+    }
+    case TypeKind::VARCHAR: {
+      auto dataSV =
+          std::optional(decodedColumnVector->valueAt<StringView>(row));
+      bufferedWriterSink_->write(dataSV.value().data(), dataSV.value().size());
+      return;
+    }
     case TypeKind::VARBINARY: {
       auto data = decodedColumnVector->valueAt<StringView>(row);
-      dataStr =
+      auto dataStr =
           std::optional(encoding::Base64::encode(data.data(), data.size()));
-      break;
+      bufferedWriterSink_->write(
+          dataStr.value().data(), dataStr.value().length());
+      return;
     }
     // TODO Add support for complex types
     case TypeKind::ARRAY:
@@ -175,18 +211,8 @@ void TextWriter::writeCellValue(
     case TypeKind::UNKNOWN:
       [[fallthrough]];
     default:
-      VELOX_NYI("{} is not supported yet in TextWriter", type->kind());
+      VELOX_NYI("{} is not supported yet in TextWriter", type);
   }
-
-  if (dataStr.has_value()) {
-    VELOX_CHECK(!dataSV.has_value());
-    bufferedWriterSink_->write(
-        dataStr.value().data(), dataStr.value().length());
-    return;
-  }
-
-  VELOX_CHECK(dataSV.has_value());
-  bufferedWriterSink_->write(dataSV.value().data(), dataSV.value().size());
 }
 
 std::unique_ptr<dwio::common::Writer> TextWriterFactory::createWriter(
