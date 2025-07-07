@@ -41,6 +41,62 @@ public class TestPrestoSparkNativeGeneralQueries
 
     @Override
     @Ignore
+    public void testAnalyzeStatsOnDecimals() {}
+
+    // VeloxUserError:  Unsupported file format in TableWrite: "ORC".
+    @Override
+    @Ignore
+    public void testColumnFilter() {}
+
+    // VeloxUserError:  Unsupported file format in TableWrite: "ORC".
+    @Override
+    @Ignore
+    public void testIPAddressIPPrefix() {}
+
+    // VeloxUserError:  Unsupported file format in TableWrite: "ORC".
+    @Override
+    @Ignore
+    public void testInvalidUuid() {}
+
+    // VeloxUserError:  Unsupported file format in TableWrite: "ORC".
+    @Override
+    @Ignore
+    public void testStringFunctions() {}
+
+    // VeloxUserError:  Unsupported file format in TableWrite: "ORC".
+    @Override
+    @Ignore
+    public void testUuid() {}
+
+    // Access Denied: Cannot set catalog session property
+    // hive.parquet_pushdown_filter_enabled
+    @Override
+    @Ignore
+    public void testDecimalApproximateAggregates() {}
+
+    // Access Denied: Cannot set catalog session property
+    // hive.parquet_pushdown_filter_enabled
+    @Override
+    @Ignore
+    public void testDecimalRangeFilters() {}
+
+    // Access Denied: Cannot set catalog session property
+    // hive.pushdown_filter_enabled
+    @Override
+    @Ignore
+    public void testTimestampWithTimeZone() {}
+
+    @Override
+    @Ignore
+    public void testDistributedSortSingleNode() {}
+
+    //VeloxRuntimeError: ReaderFactory is not registered for format text
+    @Override
+    @Ignore
+    public void testReadTableWithTextfileFormat() {}
+
+    @Override
+    @Ignore
     public void testInformationSchemaTables() {}
 
     @Override

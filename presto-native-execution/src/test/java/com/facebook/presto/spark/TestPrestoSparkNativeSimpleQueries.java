@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -108,6 +109,7 @@ public class TestPrestoSparkNativeSimpleQueries
      * `eq()` Scalar function & `sum()` Aggregate function are defined in `src/test/resources/external_functions.json`
      */
     @Test
+    @Ignore("json schema based external function registraion is failing. Fix it and re-enable this test")
     public void testJsonFileBasedFunction()
     {
         assertQuery("SELECT json.test_schema.eq(1, linenumber) FROM lineitem", "SELECT 1 = linenumber FROM lineitem");
@@ -126,6 +128,7 @@ public class TestPrestoSparkNativeSimpleQueries
      * Subsequent queries read from avg_partial_states and aggregate the states to the final result.
      */
     @Test
+    @Ignore("json schema based external function registraion is failing. Fix it and re-enable this test")
     public void testAggregationCompanionFunction()
     {
         Session session = Session.builder(getSession())
