@@ -936,21 +936,22 @@ uint64_t hashOne(ByteInputStream& stream, const Type* /*type*/) {
   return folly::hasher<StringView>()(readStringView(stream, storage));
 }
 
-template <bool elementTypeProvidesCustomComparison>
-uint64_t
-hashArray(ByteInputStream& in, uint64_t hash, const Type* elementType) {
-  auto size = in.read<int32_t>();
+template <bool elementTypeProvidesCustomComparison, typename TFunc>
+void hashArray(
+    ByteInputStream& in,
+    int32_t size,
+    const Type* elementType,
+    const TFunc& consumer) {
   NullsReader nulls(in, size);
   for (auto i = 0; i < size; ++i) {
-    uint64_t value;
+    uint64_t hash;
     if (bits::isBitSet(nulls.data(), i)) {
-      value = BaseVector::kNullHash;
+      hash = BaseVector::kNullHash;
     } else {
-      value = hashSwitch<elementTypeProvidesCustomComparison>(in, elementType);
+      hash = hashSwitch<elementTypeProvidesCustomComparison>(in, elementType);
     }
-    hash = bits::commutativeHashMix(hash, value);
+    consumer(hash);
   }
-  return hash;
 }
 
 template <
@@ -985,11 +986,20 @@ template <
 uint64_t hashOne(ByteInputStream& in, const Type* type) {
   const auto& elementType = type->childAt(0);
 
+  auto size = in.read<int32_t>();
+
+  uint64_t hash = BaseVector::kNullHash;
   if (elementType->providesCustomComparison()) {
-    return hashArray<true>(in, BaseVector::kNullHash, elementType.get());
+    hashArray<true>(in, size, elementType.get(), [&](uint64_t value) {
+      hash = bits::hashMix(hash, value);
+    });
   } else {
-    return hashArray<false>(in, BaseVector::kNullHash, elementType.get());
+    hashArray<false>(in, size, elementType.get(), [&](uint64_t value) {
+      hash = bits::hashMix(hash, value);
+    });
   }
+
+  return hash;
 }
 
 template <
@@ -1000,18 +1010,39 @@ uint64_t hashOne(ByteInputStream& in, const Type* type) {
   const auto& keyType = type->childAt(0);
   const auto& valueType = type->childAt(1);
 
-  uint64_t hash;
+  auto size = in.read<int32_t>();
+
+  std::vector<uint64_t> keyHashes;
+  keyHashes.reserve(size);
   if (keyType->providesCustomComparison()) {
-    hash = hashArray<true>(in, BaseVector::kNullHash, keyType.get());
+    hashArray<true>(in, size, keyType.get(), [&](uint64_t value) {
+      keyHashes.push_back(value);
+    });
   } else {
-    hash = hashArray<false>(in, BaseVector::kNullHash, keyType.get());
+    hashArray<false>(in, size, keyType.get(), [&](uint64_t value) {
+      keyHashes.push_back(value);
+    });
   }
 
+  uint64_t hash = BaseVector::kNullHash;
+  size_t i = 0;
+
+  auto updateHash = [&](uint64_t valueHash) {
+    hash = bits::commutativeHashMix(
+        hash, bits::hashMix(keyHashes.at(i), valueHash));
+    ++i;
+  };
+
+  auto valuesSize = in.read<int32_t>();
+  VELOX_CHECK_EQ(size, valuesSize);
+
   if (valueType->providesCustomComparison()) {
-    return hashArray<true>(in, hash, valueType.get());
+    hashArray<true>(in, size, valueType.get(), updateHash);
   } else {
-    return hashArray<false>(in, hash, valueType.get());
+    hashArray<false>(in, size, valueType.get(), updateHash);
   }
+
+  return hash;
 }
 
 template <bool typeProvidesCustomComparison>

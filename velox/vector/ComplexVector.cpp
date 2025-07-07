@@ -378,10 +378,12 @@ void RowVector::copyRanges(
 }
 
 uint64_t RowVector::hashValueAt(vector_size_t index) const {
-  if (isNullAt(index)) {
-    return BaseVector::kNullHash;
-  }
   uint64_t hash = BaseVector::kNullHash;
+
+  if (isNullAt(index)) {
+    return hash;
+  }
+
   bool isFirst = true;
   for (auto i = 0; i < childrenSize(); ++i) {
     auto& child = children_[i];
@@ -1123,26 +1125,22 @@ void ArrayVector::setType(const TypePtr& type) {
   elements_->setType(type_->asArray().elementType());
 }
 
-namespace {
-uint64_t hashArray(
-    uint64_t hash,
-    const BaseVector& elements,
-    vector_size_t offset,
-    vector_size_t size) {
-  for (auto i = 0; i < size; ++i) {
-    auto elementHash = elements.hashValueAt(offset + i);
-    hash = bits::commutativeHashMix(hash, elementHash);
-  }
-  return hash;
-}
-} // namespace
-
 uint64_t ArrayVector::hashValueAt(vector_size_t index) const {
+  uint64_t hash = kNullHash;
+
   if (isNullAt(index)) {
-    return BaseVector::kNullHash;
+    return hash;
   }
-  return hashArray(
-      BaseVector::kNullHash, *elements_, rawOffsets_[index], rawSizes_[index]);
+
+  const auto offset = rawOffsets_[index];
+  const auto size = rawSizes_[index];
+
+  for (auto i = 0; i < size; ++i) {
+    auto elementHash = elements_->hashValueAt(offset + i);
+    hash = bits::hashMix(hash, elementHash);
+  }
+
+  return hash;
 }
 
 std::unique_ptr<SimpleVector<uint64_t>> ArrayVector::hashAll() const {
@@ -1346,17 +1344,24 @@ std::optional<int32_t> MapVector::compare(
 }
 
 uint64_t MapVector::hashValueAt(vector_size_t index) const {
+  uint64_t hash = BaseVector::kNullHash;
+
   if (isNullAt(index)) {
-    return BaseVector::kNullHash;
+    return hash;
   }
+
+  // We use a commutative hash mix, thus we do not sort first.
   auto offset = rawOffsets_[index];
   auto size = rawSizes_[index];
-  // We use a commutative hash mix, thus we do not sort first.
-  return hashArray(
-      hashArray(BaseVector::kNullHash, *keys_, offset, size),
-      *values_,
-      offset,
-      size);
+
+  for (auto i = 0; i < size; ++i) {
+    auto elementHash = bits::hashMix(
+        keys_->hashValueAt(offset + i), values_->hashValueAt(offset + i));
+
+    hash = bits::commutativeHashMix(hash, elementHash);
+  }
+
+  return hash;
 }
 
 std::unique_ptr<SimpleVector<uint64_t>> MapVector::hashAll() const {

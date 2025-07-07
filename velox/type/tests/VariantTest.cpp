@@ -536,3 +536,14 @@ TEST(VariantTest, typeWithCustomComparison) {
   ASSERT_NE(zero.hash(), one.hash());
   ASSERT_NE(zero.hash(), null.hash());
 }
+
+TEST(VariantTest, hashMap) {
+  auto a = Variant::map({{1, 10}, {2, 20}});
+  auto b = Variant::map({{1, 20}, {2, 10}});
+  auto c = Variant::map({{2, 20}, {1, 10}});
+  auto d = Variant::map({{1, 10}, {2, 20}, {3, 30}});
+
+  ASSERT_NE(a.hash(), b.hash());
+  ASSERT_EQ(a.hash(), c.hash());
+  ASSERT_NE(a.hash(), d.hash());
+}

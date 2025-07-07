@@ -850,20 +850,17 @@ uint64_t Variant::hash<TypeKind::TIMESTAMP>() const {
 template <>
 uint64_t Variant::hash<TypeKind::MAP>() const {
   auto hasher = folly::Hash{};
-  auto& mapVariant = value<TypeKind::MAP>();
-  uint64_t combinedKeyHash = 0, combinedValueHash = 0;
-  uint64_t singleKeyHash = 0, singleValueHash = 0;
-  for (auto it = mapVariant.begin(); it != mapVariant.end(); ++it) {
-    singleKeyHash = it->first.hash();
-    singleValueHash = it->second.hash();
-    combinedKeyHash = folly::hash::commutative_hash_combine_value_generic(
-        combinedKeyHash, hasher, singleKeyHash);
-    combinedValueHash = folly::hash::commutative_hash_combine_value_generic(
-        combinedValueHash, hasher, singleValueHash);
+
+  const auto& mapVariant = value<TypeKind::MAP>();
+
+  // Map is already sorted by key.
+  uint64_t hash = 0;
+  for (const auto& [key, value] : mapVariant) {
+    hash = folly::hash::hash_combine_generic(hasher, hash, key.hash());
+    hash = folly::hash::hash_combine_generic(hasher, hash, value.hash());
   }
 
-  return folly::hash::hash_combine_generic(
-      folly::Hash{}, combinedKeyHash, combinedValueHash);
+  return hash;
 }
 
 uint64_t Variant::hash() const {

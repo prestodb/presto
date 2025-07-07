@@ -3648,6 +3648,44 @@ TEST_F(VectorTest, flatAllNulls) {
   }
 }
 
+TEST_F(VectorTest, hashValueAtArray) {
+  auto data = makeArrayVectorFromJson<int32_t>({
+      "[1, 2, 3]",
+      "[2, 1, 3]",
+      "[3, 2, 1]",
+      "[1, 2, 3, 4]",
+      "[1, null, 3]",
+      "[1, 2, 3]",
+  });
+
+  std::unordered_set<uint64_t> hashes;
+  for (auto i = 0; i < 5; ++i) {
+    EXPECT_TRUE(hashes.insert(data->hashValueAt(i)).second);
+  }
+  EXPECT_EQ(5, hashes.size());
+
+  EXPECT_EQ(data->hashValueAt(0), data->hashValueAt(5));
+}
+
+TEST_F(VectorTest, hashValueAtMap) {
+  auto data = makeMapVectorFromJson<int32_t, int32_t>({
+      "{1: 10, 2: 20}",
+      "{1: 20, 2: 10}",
+      "{10: 1, 20: 2}",
+      "{1: 2, 3: 4}",
+      "{1: 2, 3: 4, 5: 6}",
+      "{2: 20, 1: 10}",
+  });
+
+  std::unordered_set<uint64_t> hashes;
+  for (auto i = 0; i < 5; ++i) {
+    EXPECT_TRUE(hashes.insert(data->hashValueAt(i)).second);
+  }
+  EXPECT_EQ(5, hashes.size());
+
+  EXPECT_EQ(data->hashValueAt(0), data->hashValueAt(5));
+}
+
 TEST_F(VectorTest, hashAll) {
   auto data = makeFlatVector<int32_t>({1, 2, 3});
   ASSERT_TRUE(data->getNullCount().has_value());
