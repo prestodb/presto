@@ -11,14 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.classloader_interface;
+package com.facebook.presto.spark;
 
-import java.io.Serializable;
+import com.facebook.presto.operator.scalar.TestCustomFunctions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 
-public interface PrestoSparkTaskExecutorFactoryProvider
-        extends Serializable
+public class TestPrestoSparkSqlFunctions
+        extends TestCustomFunctions
 {
-    IPrestoSparkTaskExecutorFactory get();
-
-    IPrestoSparkTaskExecutorFactory getNative();
+    public TestPrestoSparkSqlFunctions()
+    {
+        super(new FeaturesConfig().setNativeExecutionEnabled(true));
+    }
 }
