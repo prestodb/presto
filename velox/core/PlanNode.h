@@ -2439,12 +2439,6 @@ class PartitionedOutputNode : public PlanNode {
 
   VELOX_DECLARE_EMBEDDED_ENUM_NAME(Kind)
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  static std::string kindString(Kind kind) {
-    return std::string(toName(kind));
-  }
-#endif
-
   PartitionedOutputNode(
       const PlanNodeId& id,
       Kind kind,
