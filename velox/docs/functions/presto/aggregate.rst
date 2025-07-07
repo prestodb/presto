@@ -718,6 +718,23 @@ Statistical Aggregate Functions
 Noisy Aggregate Functions
 -------------------------
 
+Overview
+~~~~~~~~
+
+Noisy aggregate functions provide random, noisy approximations of common
+aggregations like ``sum()``, ``count()``, and ``approx_distinct()`` as well as sketches like
+``approx_set()``. By injecting random noise into results, noisy aggregation functions make it
+more difficult to determine or confirm the exact data that was aggregated.
+
+While many of these functions resemble `differential privacy <https://en.wikipedia.org/wiki/Differential_privacy>`_
+mechanisms, neither the values returned by these functions nor the query results that incorporate
+these functions are differentially private in general. See Limitations_ below for more details.
+Users who wish to support a strong privacy guarantee should discuss with a suitable technical
+expert first.
+
+Counts, Sums, and Averages
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 .. function:: noisy_count_if_gaussian(col, noise_scale[, random_seed]) -> bigint
 
     Counts the ``TRUE`` values in ``col`` and then adds a normally distributed random double
@@ -725,16 +742,17 @@ Noisy Aggregate Functions
     The noisy count is post-processed to be non-negative and rounded to bigint.
 
     If provided, ``random_seed`` is used to seed the random number generator.
-    Otherwise, noise is drawn from a secure random.
+    Otherwise, noise is drawn from a secure random. (*Note: ``random_seed`` is a constant and shared across all groups in a query.
+    It is kept in each accmulator to ensure the ``random_seed`` is accessible in the final aggregation step.*)
 
     ::
 
-        SELECT noisy_count_if_gaussian(orderkey > 10000, 20.0) FROM tpch.tiny.lineitem; -- 50180 (1 row)
-        SELECT noisy_count_if_gaussian(orderkey > 10000, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_if_gaussian(orderkey > 10000, 20.0) FROM lineitem; -- 50180 (1 row)
+        SELECT noisy_count_if_gaussian(orderkey > 10000, 20.0) FROM lineitem WHERE false; -- NULL (1 row)
 
     .. note::
 
-        Unlike :func:`!count_if`, this function returns ``NULL`` when the (true) count is 0.
+        Unlike :func:`count_if`, this function returns ``NULL`` when the (true) count is 0.
 
 .. function:: noisy_count_gaussian(col, noise_scale[, random_seed]) -> bigint
 
@@ -747,8 +765,15 @@ Noisy Aggregate Functions
 
     ::
 
-        SELECT noisy_count_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem; -- 60181 (1 row)
-        SELECT noisy_count_gaussian(orderkey, 20.0) FROM tpch.tiny.lineitem WHERE false; -- NULL (1 row)
+        SELECT noisy_count_gaussian(orderkey, 20.0) FROM lineitem; -- 60181 (1 row)
+        SELECT noisy_count_gaussian(orderkey, 20.0) FROM lineitem WHERE false; -- NULL (1 row)
+
+    .. note::
+
+        Unlike :func:`!count`, this function returns ``NULL`` when the (true) count is 0.
+
+    Distinct counting can be performed using :func:`noisy_count_gaussian` ``(DISTINCT col, ...)``, or with ``noisy_approx_distinct_sfm()``.
+    Generally speaking, :func:`noisy_count_gaussian` returns more accurate results but at a larger computational cost.
 
 .. function:: noisy_sum_gaussian(col, noise_scale[, random_seed]) -> double
 
@@ -783,6 +808,46 @@ Noisy Aggregate Functions
 
     If provided, random_seed is used to seed the random number generator.
     Otherwise, noise is drawn from a secure random.
+
+Limitations
+~~~~~~~~~~~
+
+While these functions resemble differential privacy mechanisms, the values returned by these
+functions are not differentially private in general. There are several important limitations
+to keep in mind if using these functions for privacy-preserving purposes, including:
+
+* All noisy aggregate functions return ``NULL`` when aggregating empty sets. This means a ``NULL``
+  return value noiselessly indicates the absence of data.
+
+* ``GROUP BY`` clauses used in combination with noisy aggregation functions reveal non-noisy
+  information: the presence or absence of a group noiselessly indicates the presence or
+  absence of data. See, e.g., [Wilkins2024]_.
+
+* Functions relying on floating-point noise may be susceptible to inference attacks such as
+  those identified in [Mironov2012]_ and [Casacuberta2022]_.
+
+References
+~~~~~~~~~~
+
+.. [Casacuberta2022] Casacuberta, S., Shoemate, M., Vadhan, S., & Wagaman, C. (2022).
+   `Widespread Underestimation of Sensitivity in Differentially Private Libraries and How to Fix It <https://arxiv.org/pdf/2207.10635>`_.
+   In Proceedings of the 2022 ACM SIGSAC Conference on Computer and Communications Security (pp. 471-484).
+
+.. [Hehir2023] Hehir, J., Ting, D., & Cormode, G. (2023).
+   `Sketch-Flip-Merge: Mergeable Sketches for Private Distinct Counting <https://proceedings.mlr.press/v202/hehir23a/hehir23a.pdf>`_.
+   In Proceedings of the 40th International Conference on Machine Learning (Vol. 202).
+
+.. [Mironov2012] Mironov, I. (2012).
+   `On significance of the least significant bits for differential privacy <https://www.microsoft.com/en-us/research/wp-content/uploads/2012/10/lsbs.pdf>`_.
+   In Proceedings of the 2012 ACM Conference on Computer and Communications Security (pp. 650-661).
+
+.. [Wilkins2024] Wilkins, A., Kifer, D., Zhang, D., & Karrer, B. (2024).
+   `Exact Privacy Analysis of the Gaussian Sparse Histogram Mechanism <https://journalprivacyconfidentiality.org/index.php/jpc/article/view/823/755>`_.
+   Journal of Privacy and Confidentiality, 14 (1).
+
+.. [FlajoletMartin1985] Flajolet, P, Martin, G. N. (1985).
+   `Probabilistic Counting Algorithms for Data Base Applications <https://algo.inria.fr/flajolet/Publications/src/FlMa85.pdf>`_.
+   In Journal of Computer and System Sciences, 31:182-209, 1985
 
 Miscellaneous
 -------------
