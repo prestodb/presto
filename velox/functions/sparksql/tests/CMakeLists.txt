@@ -28,6 +28,7 @@ add_executable(
   ArrayUnionTest.cpp
   ArgTypesGeneratorTest.cpp
   AtLeastNNonNullsTest.cpp
+  Base64Test.cpp
   BitwiseTest.cpp
   ComparisonsTest.cpp
   ConcatWsTest.cpp

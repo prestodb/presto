@@ -13,6 +13,12 @@ String Functions
 
     Returns unicode code point of the first character of ``string``. Returns 0 if ``string`` is empty.
 
+.. spark:function:: base64(expr) -> varchar
+
+    Converts ``expr`` to a base 64 string using RFC2045 Base64 transfer encoding for MIME. ::
+
+        SELECT base64('Spark SQL'); -- 'U3BhcmsgU1FM'
+
 .. spark:function:: bit_length(string/binary) -> integer
 
     Returns the bit length for the specified string column. ::
