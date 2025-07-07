@@ -13,147 +13,185 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdio.h>
-
+#include "velox/vector/VariantToVector.h"
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/Variant.h"
-#include "velox/vector/FlatVector.h"
-#include "velox/vector/SimpleVector.h"
-#include "velox/vector/VariantToVector.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
+namespace {
 
-class VariantToVectorTest : public testing::Test {
-  std::shared_ptr<memory::MemoryPool> pool_{
-      memory::memoryManager()->addLeafPool()};
-
+class VariantToVectorTest : public testing::Test, public test::VectorTestBase {
  public:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
 
-  template <TypeKind KIND>
-  void testCreateVector(
+  void testNull(const TypePtr& type) const {
+    auto vector = variantToVector(type, Variant::null(type->kind()), pool());
+
+    EXPECT_TRUE(vector->isConstantEncoding());
+    EXPECT_EQ(vector->type()->toString(), type->toString());
+    EXPECT_TRUE(vector->isNullAt(0));
+  }
+
+  void testValue(
       const TypePtr& type,
-      const std::vector<variant>& inputArray) {
-    using TCpp = typename TypeTraits<KIND>::NativeType;
+      const Variant& value,
+      const VectorPtr& expected) {
+    auto vector = variantToVector(type, value, pool());
 
-    auto varArray = variant::array(inputArray);
-    auto arrayVector =
-        core::variantArrayToVector(type, varArray.array(), pool_.get());
-    ASSERT_TRUE(arrayVector != nullptr);
-    ASSERT_EQ(1, arrayVector->size());
-
-    auto elements = arrayVector->elements()->as<FlatVector<TCpp>>();
-    if (!inputArray.empty()) {
-      ASSERT_TRUE(elements != nullptr);
-    }
-
-    for (size_t i = 0; i < inputArray.size(); i++) {
-      auto& var = inputArray[i];
-      if (var.isNull()) {
-        ASSERT_TRUE(elements->isNullAt(i));
-      } else if constexpr (std::is_same_v<TCpp, StringView>) {
-        ASSERT_EQ(
-            var.template value<KIND>(), std::string(elements->valueAt(i)));
-      } else {
-        ASSERT_EQ(var.template value<KIND>(), elements->valueAt(i));
-      }
-    }
+    EXPECT_TRUE(vector->isConstantEncoding());
+    EXPECT_EQ(vector->type()->toString(), type->toString());
+    EXPECT_TRUE(expected->equalValueAt(vector.get(), 0, 0))
+        << "Expected: " << expected->toString(0)
+        << ", but got: " << vector->toString(0);
   }
 };
 
-TEST_F(VariantToVectorTest, bigint) {
-  testCreateVector<TypeKind::BIGINT>(
-      ARRAY(BIGINT()),
-      {
-          variant::create<TypeKind::BIGINT>(4432),
-          variant::null(TypeKind::BIGINT),
-          variant::create<TypeKind::BIGINT>(-123456789),
-      });
-}
-
 TEST_F(VariantToVectorTest, integer) {
-  testCreateVector<TypeKind::INTEGER>(
-      ARRAY(INTEGER()),
-      {
-          variant::create<TypeKind::INTEGER>(122133),
-          variant::create<TypeKind::INTEGER>(35121),
-      });
+  testNull(INTEGER());
+  testValue(
+      INTEGER(),
+      Variant::create<int32_t>(123),
+      makeFlatVector(std::vector<int32_t>{123}));
 }
 
-TEST_F(VariantToVectorTest, smallint) {
-  testCreateVector<TypeKind::SMALLINT>(
-      ARRAY(SMALLINT()),
-      {
-          variant::create<TypeKind::SMALLINT>(123),
-          variant::create<TypeKind::SMALLINT>(-63),
-          variant::null(TypeKind::SMALLINT),
-      });
+TEST_F(VariantToVectorTest, decimal) {
+  auto type = DECIMAL(20, 3);
+  testNull(type);
+
+  std::vector<int128_t> data = {1000123};
+  VectorPtr expected = makeFlatVector<int128_t>(data, type);
+  testValue(type, Variant(data[0]), expected);
+
+  std::vector<int128_t> arrayData = {1000123, 1000456, 10000789};
+
+  std::vector<Variant> arrayInputData = {
+      Variant(arrayData[0]), Variant(arrayData[1]), Variant(arrayData[2])};
+  Variant arrayInput = Variant::array(arrayInputData);
+
+  VELOX_ASSERT_THROW(
+      variantToVector(ARRAY(type), arrayInput, pool()),
+      "Type not supported: DECIMAL(20, 3)");
 }
 
-TEST_F(VariantToVectorTest, tinyint) {
-  testCreateVector<TypeKind::TINYINT>(
-      ARRAY(TINYINT()),
-      {
-          variant::create<TypeKind::TINYINT>(-12),
-          variant::create<TypeKind::TINYINT>(51),
-      });
-}
+TEST_F(VariantToVectorTest, timestamp) {
+  auto type = TIMESTAMP();
+  auto data = util::fromTimestampString(
+                  "2022-06-27 00:00:00", util::TimestampParseMode::kPrestoCast)
+                  .value();
 
-TEST_F(VariantToVectorTest, boolean) {
-  testCreateVector<TypeKind::BOOLEAN>(
-      ARRAY(BOOLEAN()),
-      {
-          variant::null(TypeKind::BOOLEAN),
-          variant::create<TypeKind::BOOLEAN>(false),
-          variant::create<TypeKind::BOOLEAN>(true),
-      });
-}
-
-TEST_F(VariantToVectorTest, real) {
-  testCreateVector<TypeKind::REAL>(
-      ARRAY(REAL()),
-      {
-          variant::create<TypeKind::REAL>(-4.78),
-          variant::create<TypeKind::REAL>(123.45),
-      });
-}
-
-TEST_F(VariantToVectorTest, double) {
-  testCreateVector<TypeKind::DOUBLE>(
-      ARRAY(DOUBLE()),
-      {
-          variant::create<TypeKind::DOUBLE>(-99.948),
-          variant::create<TypeKind::DOUBLE>(-123.456),
-          variant::create<TypeKind::DOUBLE>(78.91),
-          variant::null(TypeKind::DOUBLE),
-      });
+  testNull(type);
+  testValue(type, Variant(data), makeFlatVector<Timestamp>({data}));
 }
 
 TEST_F(VariantToVectorTest, varchar) {
-  testCreateVector<TypeKind::VARCHAR>(
-      ARRAY(VARCHAR()),
-      {
-          variant::create<TypeKind::VARCHAR>("hello"),
-          variant::create<TypeKind::VARCHAR>("world"),
-          variant::create<TypeKind::VARCHAR>(
-              "Some longer string that doesn't get inlined..."),
-      });
+  auto type = VARCHAR();
+  testNull(type);
+  testValue(type, Variant("hello"), makeFlatVector<StringView>({"hello"}));
+  testValue(
+      type,
+      Variant("non_inline_string"),
+      makeFlatVector<StringView>({"non_inline_string"}));
 }
 
-TEST_F(VariantToVectorTest, varbinary) {
-  testCreateVector<TypeKind::VARBINARY>(
-      ARRAY(VARBINARY()),
-      {
-          variant::create<TypeKind::VARBINARY>("hello"),
-          variant::create<TypeKind::VARBINARY>("world"),
-          variant::create<TypeKind::VARBINARY>(
-              "Some longer string that doesn't get inlined..."),
-      });
+TEST_F(VariantToVectorTest, array) {
+  auto type = ARRAY(INTEGER());
+  testNull(type);
+
+  testValue(
+      type,
+      Variant::array({1, 2, 3, 4}),
+      makeArrayVectorFromJson<int32_t>({"[1, 2, 3, 4]"}));
+
+  // Empty array.
+  testValue(type, Variant::array({}), makeArrayVectorFromJson<int32_t>({"[]"}));
+
+  // Array with null elements.
+  testValue(
+      type,
+      Variant::array({1, 2, Variant::null(TypeKind::INTEGER), 4}),
+      makeArrayVectorFromJson<int32_t>({"[1, 2, null, 4]"}));
 }
 
-TEST_F(VariantToVectorTest, empty) {
-  testCreateVector<TypeKind::BIGINT>(ARRAY(BIGINT()), {});
+TEST_F(VariantToVectorTest, nestedContainers) {
+  auto type = MAP(DOUBLE(), ARRAY(INTEGER()));
+  testNull(type);
+
+  auto keys = makeFlatVector<double>({1.0, 2.0});
+  std::vector<std::vector<int32_t>> data = {{1, 2, 3, 4}, {2, 3, 4, 5}};
+  auto values = makeArrayVector(data);
+  auto expected = makeMapVector({0}, keys, values);
+
+  auto value = Variant::map(
+      {{1.0, Variant::array({1, 2, 3, 4})},
+       {2.0, Variant::array({2, 3, 4, 5})}});
+
+  testValue(type, value, expected);
 }
+
+TEST_F(VariantToVectorTest, map) {
+  auto type = MAP(INTEGER(), DOUBLE());
+  testNull(type);
+
+  auto expected = makeMapVectorFromJson<int32_t, double>(
+      {"{1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0}"});
+
+  auto value = Variant::map({
+      {1, 1.0},
+      {2, 2.0},
+      {3, 3.0},
+      {4, 4.0},
+  });
+  testValue(type, value, expected);
+}
+
+TEST_F(VariantToVectorTest, row) {
+  auto type = ROW({"a", "b"}, {INTEGER(), DOUBLE()});
+  testNull(type);
+
+  auto expected = makeRowVector({
+      makeFlatVector(std::vector<int32_t>{1}),
+      makeFlatVector(std::vector<double>{1.0}),
+  });
+
+  testValue(type, Variant::row({1, 1.0}), expected);
+}
+
+TEST_F(VariantToVectorTest, rowOfComplexTypes) {
+  auto type = ROW({"a", "b"}, {ARRAY(INTEGER()), MAP(INTEGER(), DOUBLE())});
+  testNull(type);
+
+  auto expected = makeRowVector(
+      {makeArrayVectorFromJson<int32_t>({"[1, 2, 3, 4]"}),
+       makeMapVectorFromJson<int32_t, double>(
+           {"{1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0}"})});
+
+  auto row = Variant::row({
+      Variant::array({1, 2, 3, 4}),
+      Variant::map({{1, 1.0}, {2, 2.0}, {3, 3.0}, {4, 4.0}}),
+  });
+
+  testValue(type, row, expected);
+}
+
+struct OpaqueValue {
+  int value;
+  explicit OpaqueValue(int v) : value{v} {}
+};
+
+TEST_F(VariantToVectorTest, opaque) {
+  auto type = OPAQUE<OpaqueValue>();
+  testNull(type);
+
+  auto data = std::make_shared<OpaqueValue>(1);
+  auto expected = makeFlatVector<std::shared_ptr<void>>({data});
+
+  testValue(type, Variant::opaque(data), expected);
+}
+
+} // namespace
+} // namespace facebook::velox

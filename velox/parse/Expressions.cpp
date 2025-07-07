@@ -265,10 +265,8 @@ TypedExprPtr Expressions::inferTypes(
         constantVector =
             BaseVector::createNullConstant(constant->type(), 1, pool);
       } else {
-        auto arrayVector = variantArrayToVector(
-            constant->type(), constant->value().array(), pool);
-        constantVector = std::make_shared<ConstantVector<velox::ComplexType>>(
-            pool, 1, 0, arrayVector);
+        constantVector =
+            variantToVector(constant->type(), constant->value(), pool);
       }
       return std::make_shared<ConstantTypedExpr>(constantVector);
     }
