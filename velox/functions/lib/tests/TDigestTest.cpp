@@ -556,5 +556,23 @@ TEST_F(TDigestTest, quantileAtValue) {
   }
 }
 
+// Test the fix for floating-point precision issues with large totalWeight
+// values. Before the fix, large weights could cause weightSoFar - totalWeight
+// to exceed kEpsilon, throwing an error in Velox check.
+TEST_F(TDigestTest, largeWeightFloatingPointPrecision) {
+  std::vector<int16_t> positions;
+  TDigest digest;
+  // Create a scenario with very large weights that would have failed before the
+  // fix
+  constexpr double largeWeight = 1e12;
+  constexpr int numValues = 100;
+  for (int i = 0; i < numValues; ++i) {
+    digest.add(positions, i * 1.0, static_cast<int64_t>(largeWeight));
+  }
+  ASSERT_NO_THROW(digest.compress(positions));
+  ASSERT_GT(digest.totalWeight(), 0);
+  ASSERT_FALSE(std::isnan(digest.estimateQuantile(0.5)));
+}
+
 } // namespace
 } // namespace facebook::velox::functions

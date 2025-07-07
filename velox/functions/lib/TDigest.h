@@ -338,7 +338,11 @@ void TDigest<A>::mergeImpl(
   }
   weightSoFar += weights_[j];
   ++numMerged_;
-  VELOX_CHECK_LT(std::abs(weightSoFar - totalWeight), kEpsilon);
+  // Use relative epsilon to handle floating-point precision issues
+  // with large totalWeight values
+  double relativeEpsilon =
+      std::max(kEpsilon, totalWeight * kRelativeErrorEpsilon);
+  VELOX_CHECK_LT(std::abs(weightSoFar - totalWeight), relativeEpsilon);
   if constexpr (kReverse) {
     std::copy(weights_.begin() + j, weights_.end(), weights_.begin());
     std::copy(means_.begin() + j, means_.end(), means_.begin());

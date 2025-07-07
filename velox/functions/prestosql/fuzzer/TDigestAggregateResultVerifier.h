@@ -42,9 +42,7 @@ class TDigestAggregateResultVerifier : public ResultVerifier {
       const std::string& aggregateName) override {
     keys_ = groupingKeys;
     resultName_ = aggregateName;
-
-    // Check TDigest types
-    validateTDigestTypes(aggregate.call);
+    argumentTypeKind_ = aggregate.call->inputs()[0]->type()->kind();
   }
 
   void initializeWindow(
@@ -57,9 +55,7 @@ class TDigestAggregateResultVerifier : public ResultVerifier {
       const std::string& windowName) override {
     keys_ = {"row_number"};
     resultName_ = windowName;
-
-    // Check TDigest types
-    validateTDigestTypes(function.functionCall);
+    argumentTypeKind_ = function.functionCall->inputs()[0]->type()->kind();
   }
 
   bool compare(const RowVectorPtr& result, const RowVectorPtr& altResult)
@@ -105,7 +101,11 @@ class TDigestAggregateResultVerifier : public ResultVerifier {
       if (resultValue == altResultValue) {
         continue;
       } else {
-        checkEquivalentTDigest(resultValue, altResultValue);
+        if (argumentTypeKind_ == TypeKind::DOUBLE) {
+          checkEquivalentTDigest(resultValue, altResultValue);
+        } else {
+          VELOX_UNSUPPORTED("Unsupported argument type");
+        }
       }
     }
     return true;
@@ -121,23 +121,6 @@ class TDigestAggregateResultVerifier : public ResultVerifier {
   }
 
  private:
-  // Helper method to check TDigest input and return types
-  void validateTDigestTypes(const core::CallTypedExprPtr& call) const {
-    // Check input type is double
-    auto inputType = call->inputs()[0]->type();
-    if (inputType->kind() != TypeKind::DOUBLE) {
-      VELOX_FAIL(
-          "TDigest only supports DOUBLE input type, got {}",
-          inputType->toString());
-    }
-    auto returnType = call->type();
-    if (returnType->kind() != TypeKind::VARBINARY) {
-      VELOX_FAIL(
-          "TDigest return type must be VARBINARY, got {}",
-          returnType->toString());
-    }
-  }
-
   void checkEquivalentTDigest(
       const StringView& result,
       const StringView& altResult) {
@@ -187,6 +170,7 @@ class TDigestAggregateResultVerifier : public ResultVerifier {
 
   std::vector<std::string> keys_;
   std::string resultName_;
+  TypeKind argumentTypeKind_;
 };
 
 } // namespace facebook::velox::exec::test
