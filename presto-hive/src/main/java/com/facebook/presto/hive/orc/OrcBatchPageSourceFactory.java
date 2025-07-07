@@ -63,6 +63,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxRead
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;
@@ -79,7 +80,6 @@ public class OrcBatchPageSourceFactory
         implements HiveBatchPageSourceFactory
 {
     private final TypeManager typeManager;
-    private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
@@ -98,7 +98,6 @@ public class OrcBatchPageSourceFactory
     {
         this(
                 typeManager,
-                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
                 hdfsEnvironment,
                 stats,
                 config.getDomainCompactionThreshold(),
@@ -108,7 +107,6 @@ public class OrcBatchPageSourceFactory
 
     public OrcBatchPageSourceFactory(
             TypeManager typeManager,
-            boolean useOrcColumnNames,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
@@ -116,7 +114,6 @@ public class OrcBatchPageSourceFactory
             StripeMetadataSourceFactory stripeMetadataSourceFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
@@ -154,7 +151,7 @@ public class OrcBatchPageSourceFactory
                 configuration,
                 fileSplit,
                 columns,
-                useOrcColumnNames,
+                isUseOrcColumnNames(session),
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
