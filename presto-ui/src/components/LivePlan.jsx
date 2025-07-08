@@ -307,10 +307,12 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
     }
 
-    componentDidUpdate() {
-        this.updateD3Graph();
+    componentDidUpdate(prevProps: LivePlanProps, prevState: LivePlanState) {
+        if (this.state.query !== prevState.query) {
+            this.updateD3Graph();
+        }
         //$FlowFixMe
-        $('[data-bs-toggle="tooltip"]')?.tooltip()
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.()
     }
 
     render(): any {
