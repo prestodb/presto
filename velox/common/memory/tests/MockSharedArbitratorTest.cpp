@@ -4211,7 +4211,7 @@ DEBUG_ONLY_TEST_F(
   folly::EventCount reclaimBlock;
   std::atomic_bool reclaimBlockFlag{true};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::SharedArbitrator::sortSpillCandidates",
+      "facebook::velox::memory::SharedArbitrator::sortAndGroupSpillCandidates",
       std::function<void(const MemoryPool*)>(([&](const MemoryPool* /*unsed*/) {
         reclaimWaitFlag = false;
         reclaimWait.notifyAll();
