@@ -257,7 +257,7 @@ static void addExpressionBindings(
           "getInputs",
           [](IExprWrapper& e) {
             const std::vector<std::shared_ptr<const core::IExpr>>& inputs =
-                e.expr->getInputs();
+                e.expr->inputs();
             std::vector<IExprWrapper> wrapped_inputs;
             wrapped_inputs.resize(inputs.size());
             for (const std::shared_ptr<const core::IExpr>& input : inputs) {

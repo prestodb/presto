@@ -473,7 +473,7 @@ PlanBuilder& PlanBuilder::projectExpressions(
     } else if (
         auto fieldExpr =
             dynamic_cast<const core::FieldAccessExpr*>(projections[i].get())) {
-      projectNames.push_back(fieldExpr->getFieldName());
+      projectNames.push_back(fieldExpr->name());
     } else {
       projectNames.push_back(fmt::format("p{}", i));
     }
@@ -495,7 +495,7 @@ PlanBuilder& PlanBuilder::projectExpressions(
     expressions.push_back(projections[i]);
     if (auto fieldExpr =
             dynamic_cast<const core::FieldAccessExpr*>(projections[i].get())) {
-      projectNames.push_back(fieldExpr->getFieldName());
+      projectNames.push_back(fieldExpr->name());
     } else {
       projectNames.push_back(fmt::format("p{}", i));
     }
@@ -735,7 +735,7 @@ class AggregateTypeResolver {
       const std::vector<core::TypedExprPtr>& inputs,
       const std::shared_ptr<const core::CallExpr>& expr,
       bool nullOnFailure) const {
-    auto functionName = expr->getFunctionName();
+    auto functionName = expr->name();
 
     // Use raw input types (if available) to resolve intermediate and final
     // result types.
@@ -1066,7 +1066,7 @@ PlanBuilder& PlanBuilder::groupId(
         fieldAccessExpr,
         "Grouping key {} is not valid projection",
         groupingKey);
-    std::string inputField = fieldAccessExpr->getFieldName();
+    std::string inputField = fieldAccessExpr->name();
     std::string outputField = untypedExpr->alias().has_value()
         ?
         // This is a projection with a column alias with the format
@@ -1074,7 +1074,7 @@ PlanBuilder& PlanBuilder::groupId(
         untypedExpr->alias().value()
         :
         // This is a projection without a column alias.
-        fieldAccessExpr->getFieldName();
+        fieldAccessExpr->name();
 
     core::GroupIdNode::GroupingKeyInfo keyInfos;
     keyInfos.output = outputField;
@@ -1138,7 +1138,7 @@ PlanBuilder& PlanBuilder::expand(
           auto fieldExpr = dynamic_cast<const core::FieldAccessExpr*>(
               untypedExpression.get());
           VELOX_CHECK_NOT_NULL(fieldExpr);
-          aliases.push_back(fieldExpr->getFieldName());
+          aliases.push_back(fieldExpr->name());
         }
         projectExpr.push_back(typedExpression);
       } else {
@@ -2039,7 +2039,7 @@ class WindowTypeResolver {
       types.push_back(input->type());
     }
 
-    auto functionName = expr->getFunctionName();
+    const auto& functionName = expr->name();
 
     return resolveWindowType(functionName, types, nullOnFailure);
   }

@@ -87,14 +87,10 @@ class Expressions {
 
 class InputExpr : public IExpr {
  public:
-  InputExpr() {}
+  InputExpr() : IExpr({}) {}
 
   std::string toString() const override {
     return "ROW";
-  }
-
-  const std::vector<ExprPtr>& getInputs() const override {
-    return EMPTY();
   }
 
   VELOX_DEFINE_CLASS_NAME(InputExpr)
@@ -102,37 +98,29 @@ class InputExpr : public IExpr {
 
 class FieldAccessExpr : public IExpr {
  public:
-  explicit FieldAccessExpr(
+  FieldAccessExpr(
       const std::string& name,
       std::optional<std::string> alias,
       std::vector<ExprPtr>&& inputs =
           std::vector<ExprPtr>{std::make_shared<const InputExpr>()})
-      : IExpr{std::move(alias)}, name_{name}, inputs_{std::move(inputs)} {
-    CHECK_EQ(inputs_.size(), 1);
+      : IExpr{std::move(inputs), std::move(alias)}, name_{name} {
+    VELOX_USER_CHECK_EQ(IExpr::inputs().size(), 1);
   }
 
-  const std::string& getFieldName() const {
+  const std::string& name() const {
     return name_;
   }
 
   bool isRootColumn() const {
-    if (UNLIKELY(inputs_.empty())) {
-      return false;
-    }
-    return dynamic_cast<const InputExpr*>(inputs_.front().get()) != nullptr;
+    return dynamic_cast<const InputExpr*>(input().get()) != nullptr;
   }
 
   std::string toString() const override {
-    if (UNLIKELY(inputs_.empty())) {
-      return appendAliasIfExists(toStringForRootColumn());
-    }
     return appendAliasIfExists(
         isRootColumn() ? toStringForRootColumn() : toStringForMemberAccess());
   }
 
-  const std::vector<ExprPtr>& getInputs() const override {
-    return inputs_;
-  }
+  VELOX_DEFINE_CLASS_NAME(FieldAccessExpr)
 
  private:
   std::string toStringForRootColumn() const {
@@ -149,9 +137,6 @@ class FieldAccessExpr : public IExpr {
   }
 
   const std::string name_;
-  const std::vector<ExprPtr> inputs_;
-
-  VELOX_DEFINE_CLASS_NAME(FieldAccessExpr)
 };
 
 class CallExpr : public IExpr {
@@ -160,20 +145,18 @@ class CallExpr : public IExpr {
       std::string&& funcName,
       std::vector<ExprPtr>&& inputs,
       std::optional<std::string> alias)
-      : IExpr{std::move(alias)},
-        name_{std::move(funcName)},
-        inputs_{std::move(inputs)} {
-    VELOX_CHECK(!name_.empty());
+      : IExpr{std::move(inputs), std::move(alias)}, name_{std::move(funcName)} {
+    VELOX_USER_CHECK(!name_.empty());
   }
 
-  const std::string& getFunctionName() const {
+  const std::string& name() const {
     return name_;
   }
 
   std::string toString() const override {
     std::string buf{name_ + "("};
     bool first = true;
-    for (auto& f : getInputs()) {
+    for (auto& f : inputs()) {
       if (!first) {
         buf += ",";
       }
@@ -184,25 +167,17 @@ class CallExpr : public IExpr {
     return appendAliasIfExists(buf);
   }
 
-  const std::vector<ExprPtr>& getInputs() const override {
-    return inputs_;
-  }
+  VELOX_DEFINE_CLASS_NAME(CallExpr)
 
  private:
   const std::string name_;
-  const std::vector<ExprPtr> inputs_;
-
-  VELOX_DEFINE_CLASS_NAME(CallExpr)
 };
 
 class ConstantExpr : public IExpr,
                      public std::enable_shared_from_this<ConstantExpr> {
  public:
-  explicit ConstantExpr(
-      TypePtr type,
-      variant value,
-      std::optional<std::string> alias)
-      : IExpr{std::move(alias)},
+  ConstantExpr(TypePtr type, variant value, std::optional<std::string> alias)
+      : IExpr{{}, std::move(alias)},
         type_{std::move(type)},
         value_{std::move(value)} {}
 
@@ -218,10 +193,6 @@ class ConstantExpr : public IExpr,
     return type_;
   }
 
-  const std::vector<ExprPtr>& getInputs() const override {
-    return EMPTY();
-  }
-
   VELOX_DEFINE_CLASS_NAME(ConstantExpr)
 
  private:
@@ -230,39 +201,21 @@ class ConstantExpr : public IExpr,
 };
 
 class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
- private:
-  const TypePtr type_;
-  const ExprPtr expr_;
-  const std::vector<ExprPtr> inputs_;
-  bool isTryCast_;
-
  public:
-  explicit CastExpr(
+  CastExpr(
       const TypePtr& type,
       const ExprPtr& expr,
       bool isTryCast,
       std::optional<std::string> alias)
-      : IExpr{std::move(alias)},
-        type_(type),
-        expr_(expr),
-        inputs_({expr}),
-        isTryCast_(isTryCast) {}
+      : IExpr{{expr}, std::move(alias)}, type_(type), isTryCast_(isTryCast) {}
 
   std::string toString() const override {
     return appendAliasIfExists(
-        "cast(" + expr_->toString() + ", " + type_->toString() + ")");
-  }
-
-  const std::vector<ExprPtr>& getInputs() const override {
-    return inputs_;
+        "cast(" + input()->toString() + ", " + type_->toString() + ")");
   }
 
   const TypePtr& type() const {
     return type_;
-  }
-
-  const ExprPtr& expr() const {
-    return expr_;
   }
 
   bool isTryCast() const {
@@ -270,6 +223,10 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
   }
 
   VELOX_DEFINE_CLASS_NAME(CastExpr)
+
+ private:
+  const TypePtr type_;
+  const bool isTryCast_;
 };
 
 /// Represents lambda expression as a list of inputs and the body expression.
@@ -279,43 +236,33 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
 class LambdaExpr : public IExpr,
                    public std::enable_shared_from_this<LambdaExpr> {
  public:
-  LambdaExpr(std::vector<std::string> inputNames, ExprPtr body)
-      : inputNames_{std::move(inputNames)}, body_{{std::move(body)}} {
-    VELOX_CHECK(!inputNames_.empty());
+  LambdaExpr(std::vector<std::string> arguments, ExprPtr body)
+      : IExpr({}), arguments_{std::move(arguments)}, body_{std::move(body)} {
+    VELOX_USER_CHECK(!arguments_.empty());
   }
 
-  const std::vector<std::string>& inputNames() const {
-    return inputNames_;
+  const std::vector<std::string>& arguments() const {
+    return arguments_;
   }
 
   const ExprPtr& body() const {
-    return body_[0];
+    return body_;
   }
 
   std::string toString() const override {
     std::ostringstream out;
-    if (inputNames_.size() > 1) {
-      out << "(";
-      for (auto i = 0; i < inputNames_.size(); ++i) {
-        if (i > 0) {
-          out << ", ";
-        }
-        out << inputNames_[i];
-      }
-      out << ")";
+
+    if (arguments_.size() > 1) {
+      out << "(" << folly::join(", ", arguments_) << ")";
     } else {
-      out << inputNames_[0];
+      out << arguments_[0];
     }
-    out << " -> " << body_[0]->toString();
+    out << " -> " << body_->toString();
     return out.str();
   }
 
-  const std::vector<ExprPtr>& getInputs() const override {
-    return body_;
-  }
-
  private:
-  std::vector<std::string> inputNames_;
-  std::vector<ExprPtr> body_;
+  const std::vector<std::string> arguments_;
+  const ExprPtr body_;
 };
 } // namespace facebook::velox::core

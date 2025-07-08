@@ -18,9 +18,7 @@
 
 namespace facebook::velox::parse {
 
-std::shared_ptr<const core::IExpr> parseExpr(
-    const std::string& expr,
-    const ParseOptions& options) {
+core::ExprPtr parseExpr(const std::string& expr, const ParseOptions& options) {
   facebook::velox::duckdb::ParseOptions duckConversionOptions;
   duckConversionOptions.parseDecimalAsDouble = options.parseDecimalAsDouble;
   duckConversionOptions.parseIntegerAsBigint = options.parseIntegerAsBigint;
@@ -28,7 +26,7 @@ std::shared_ptr<const core::IExpr> parseExpr(
   return facebook::velox::duckdb::parseExpr(expr, duckConversionOptions);
 }
 
-std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
+std::vector<core::ExprPtr> parseMultipleExpressions(
     const std::string& expr,
     const ParseOptions& options) {
   facebook::velox::duckdb::ParseOptions duckConversionOptions;
@@ -39,7 +37,7 @@ std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
       expr, duckConversionOptions);
 }
 
-std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
+std::pair<core::ExprPtr, core::SortOrder> parseOrderByExpr(
     const std::string& expr) {
   return facebook::velox::duckdb::parseOrderByExpr(expr);
 }

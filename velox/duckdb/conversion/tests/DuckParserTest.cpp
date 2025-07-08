@@ -645,8 +645,8 @@ TEST(DuckParserTest, windowWithIntegerConstant) {
       std::dynamic_pointer_cast<const core::CallExpr>(windowExpr.functionCall);
   ASSERT_TRUE(func != nullptr)
       << windowExpr.functionCall->toString() << " is not a call expr";
-  EXPECT_EQ(func->getInputs().size(), 2);
-  auto param = func->getInputs()[1];
+  EXPECT_EQ(func->inputs().size(), 2);
+  auto param = func->inputs()[1];
   auto constant = std::dynamic_pointer_cast<const core::ConstantExpr>(param);
   ASSERT_TRUE(constant != nullptr) << param->toString() << " is not a constant";
   EXPECT_EQ(*constant->type(), *INTEGER());

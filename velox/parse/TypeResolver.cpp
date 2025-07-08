@@ -17,7 +17,6 @@
 #include "velox/parse/TypeResolver.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/expression/FunctionCallToSpecialForm.h"
-#include "velox/expression/SignatureBinder.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"
@@ -62,13 +61,12 @@ TypePtr resolveType(
     inputTypes.emplace_back(input->type());
   }
 
-  if (auto resolvedType = exec::resolveTypeForSpecialForm(
-          expr->getFunctionName(), inputTypes)) {
+  if (auto resolvedType =
+          exec::resolveTypeForSpecialForm(expr->name(), inputTypes)) {
     return resolvedType;
   }
 
-  return resolveScalarFunctionType(
-      expr->getFunctionName(), inputTypes, nullOnFailure);
+  return resolveScalarFunctionType(expr->name(), inputTypes, nullOnFailure);
 }
 
 } // namespace

@@ -15,9 +15,12 @@
  */
 #pragma once
 
-#include "velox/common/base/ClassName.h"
+#include <fmt/format.h>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 #include "velox/common/base/Exceptions.h"
-#include "velox/type/Type.h"
 
 namespace facebook::velox::core {
 
@@ -27,39 +30,44 @@ using ExprPtr = std::shared_ptr<const IExpr>;
 /// An implicitly-typed expression, such as function call, literal, etc.
 class IExpr {
  public:
-  explicit IExpr(std::optional<std::string> alias = std::nullopt)
-      : alias_{std::move(alias)} {}
-
-  virtual const std::vector<std::shared_ptr<const IExpr>>& getInputs()
-      const = 0;
-
-  std::shared_ptr<const IExpr> getInput() const {
-    return getInputs().size() == 1 ? getInputs().at(0) : nullptr;
-  }
+  explicit IExpr(
+      std::vector<ExprPtr> inputs,
+      std::optional<std::string> alias = std::nullopt)
+      : inputs_{std::move(inputs)}, alias_{std::move(alias)} {}
 
   virtual ~IExpr() = default;
 
-  virtual std::string toString() const = 0;
+  const std::vector<ExprPtr>& inputs() const {
+    return inputs_;
+  }
+
+  const ExprPtr& input() const {
+    VELOX_CHECK_EQ(1, inputs_.size());
+    return inputs_.at(0);
+  }
+
+  const ExprPtr& inputAt(size_t index) const {
+    VELOX_CHECK_LT(index, inputs_.size());
+    return inputs_.at(index);
+  }
 
   const std::optional<std::string>& alias() const {
     return alias_;
   }
 
- protected:
-  static const std::vector<std::shared_ptr<const IExpr>>& EMPTY() {
-    static const std::vector<std::shared_ptr<const IExpr>> empty{};
-    return empty;
-  }
+  virtual std::string toString() const = 0;
 
-  std::string appendAliasIfExists(std::string s) const {
+ protected:
+  std::string appendAliasIfExists(std::string name) const {
     if (!alias_.has_value()) {
-      return s;
+      return name;
     }
 
-    return fmt::format("{} AS {}", std::move(s), alias_.value());
+    return fmt::format("{} AS {}", std::move(name), alias_.value());
   }
 
-  std::optional<std::string> alias_;
+  const std::vector<ExprPtr> inputs_;
+  const std::optional<std::string> alias_;
 };
 
 } // namespace facebook::velox::core

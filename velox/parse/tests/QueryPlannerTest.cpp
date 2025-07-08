@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/parse/QueryPlanner.h"
-#include "velox/common/base/tests/GTestUtils.h"
+#include <gtest/gtest.h>
 
 namespace facebook::velox::core::test {
 
