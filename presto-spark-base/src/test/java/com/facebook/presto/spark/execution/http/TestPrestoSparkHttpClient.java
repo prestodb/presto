@@ -50,7 +50,6 @@ import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ArrayListMultimap;
@@ -93,6 +92,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.spark.util.PrestoSparkTestSessionBuilder.getPrestoSparkTestingSessionBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -904,9 +904,8 @@ public class TestPrestoSparkHttpClient
                 scheduledExecutorService,
                 scheduledExecutorService,
                 SERVER_INFO_JSON_CODEC,
-                workerProperty,
-                new FeaturesConfig());
-        return factory.createNativeExecutionProcess(testSessionBuilder().build(), maxErrorDuration);
+                workerProperty);
+        return factory.createNativeExecutionProcess(getPrestoSparkTestingSessionBuilder().build(), maxErrorDuration);
     }
 
     private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId, TestingResponseManager testingResponseManager)

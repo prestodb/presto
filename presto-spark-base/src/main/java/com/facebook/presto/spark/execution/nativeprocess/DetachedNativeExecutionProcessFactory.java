@@ -20,7 +20,6 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
@@ -29,6 +28,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionExecutablePath;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionProgramArguments;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,10 +49,9 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty,
-            FeaturesConfig featuresConfig)
+            WorkerProperty<?, ?, ?, ?> workerProperty)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty, featuresConfig);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "ecoreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
@@ -70,8 +70,8 @@ public class DetachedNativeExecutionProcessFactory
     {
         try {
             return new DetachedNativeExecutionProcess(
-                    getExecutablePath(),
-                    getProgramArguments(),
+                    getNativeExecutionExecutablePath(session),
+                    getNativeExecutionProgramArguments(session),
                     session,
                     httpClient,
                     coreExecutor,
