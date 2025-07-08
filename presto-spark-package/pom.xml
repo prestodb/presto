@@ -18,6 +18,12 @@
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
         <air.check.skip-findbugs>true</air.check.skip-findbugs>
         <air.check.skip-dependency>true</air.check.skip-dependency>
+        <!-- This is custom version for presto-on-spark
+        This is needed because presto project is moving to JDK 17, but presto-on-spark
+        still needs to run on JDK 8, 11 as it is run on spark.
+        So we package the version of airlift that is compatible with JDK8, 11.
+        -->
+        <dep.airlift.version>0.216</dep.airlift.version>
     </properties>
 
     <dependencies>
