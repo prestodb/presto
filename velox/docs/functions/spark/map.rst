@@ -1,6 +1,6 @@
-===========================
+=============
 Map Functions
-===========================
+=============
 
 .. spark:function:: element_at(map(K,V), key) -> V
 
@@ -75,7 +75,7 @@ Map Functions
                             (k, v1, v2) -> k || CAST(v1/v2 AS VARCHAR));
 
 .. spark:function:: size(map(K,V), legacySizeOfNull) -> integer
-   :noindex:
+    :noindex:
 
     Returns the size of the input map. Returns null for null input if ``legacySizeOfNull``
     is set to false. Otherwise, returns -1 for null input. ::

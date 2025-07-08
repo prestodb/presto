@@ -32,7 +32,7 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     '%hello', '%__hello_', '%hello%', where 'hello', 'velox'
     contains only regular characters and '_' wildcards are evaluated without
     using regular expressions. Only those patterns that require the compilation of
-    regular expressions are counted towards the limit.
+    regular expressions are counted towards the limit. ::
 
         SELECT like('abc', '%b%'); -- true
         SELECT like('a_c', '%#_%', '#'); -- true
@@ -48,7 +48,7 @@ See https://github.com/google/re2/wiki/Syntax for more information.
         SELECT regexp_extract('1a 2b 14m', '\d+'); -- 1
 
 .. spark:function:: regexp_extract(string, pattern, group) -> varchar
-   :noindex:
+    :noindex:
 
     Finds the first occurrence of the regular expression ``pattern`` in
     ``string`` and returns the capturing group number ``group``.

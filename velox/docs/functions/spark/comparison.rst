@@ -1,6 +1,6 @@
-=====================================
+====================
 Comparison Functions
-=====================================
+====================
 
 .. spark:function:: between(x, min, max) -> boolean
 
@@ -86,33 +86,3 @@ Comparison Functions
 
     Returns true if x is not equal to y. Supports all scalar types. The types
     of x and y must be the same. Corresponds to Spark's operator ``!=``.
-
-.. spark:function:: decimal_lessthan(x, y) -> boolean
-
-    Returns true if x is less than y. Supports decimal types with different precisions and scales.
-    Corresponds to Spark's operator ``<``.
-
-.. spark:function:: decimal_lessthanorequal(x, y) -> boolean
-
-    Returns true if x is less than y or x is equal to y. Supports decimal types with different precisions and scales.
-    Corresponds to Spark's operator ``<=``.
-
-.. spark:function:: decimal_equalto(x, y) -> boolean
-
-    Returns true if x is equal to y. Supports decimal types with different precisions and scales.
-    Corresponds to Spark's operator ``==``.
-
-.. spark:function:: decimal_notequalto(x, y) -> boolean
-
-    Returns true if x is not equal to y. Supports decimal types with different precisions and scales.
-    Corresponds to Spark's operator ``!=``.
-
-.. spark:function:: decimal_greaterthan(x, y) -> boolean
-
-    Returns true if x is greater than y. Supports decimal types with different precisions and scales.
-    Corresponds to Spark's operator ``>``.
-
-.. spark:function:: decimal_greaterthanorequal(x, y) -> boolean
-
-    Returns true if x is greater than y or x is equal to y. Supports decimal types with different precisions and scales.
-    Corresponds to Spark's operator ``>=``.

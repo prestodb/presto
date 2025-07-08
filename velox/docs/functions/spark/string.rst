@@ -1,6 +1,6 @@
-====================================
+================
 String Functions
-====================================
+================
 
 .. note::
 
@@ -190,7 +190,7 @@ String Functions
         SELECT ltrim('  data  '); -- "data  "
 
 .. spark:function:: ltrim(trimCharacters, string) -> varchar
-   :noindex:
+    :noindex:
 
     Removes specified leading characters from ``string``. The specified character
     is any character contained in ``trimCharacters``.
@@ -300,7 +300,7 @@ String Functions
         SELECT rtrim('  data  '); -- "  data"
 
 .. spark:function:: rtrim(trimCharacters, string) -> varchar
-   :noindex:
+    :noindex:
 
     Removes specified trailing characters from ``string``. The specified character
     is any character contained in ``trimCharacters``.
@@ -366,7 +366,7 @@ String Functions
     the meaning is to refer to the first character.Type of 'start' must be an INTEGER.
 
 .. spark:function:: substring(string, start, length) -> varchar
-   :noindex:
+    :noindex:
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
@@ -431,7 +431,7 @@ String Functions
         SELECT trim('  data  '); -- "data"
 
 .. spark:function:: trim(trimCharacters, string) -> varchar
-   :noindex:
+    :noindex:
 
     Removes specified leading and trailing characters from ``string``.
     The specified character is any character contained in ``trimCharacters``.

@@ -1,6 +1,6 @@
-====================================
+=======================
 Miscellaneous Functions
-====================================
+=======================
 
 .. spark:function:: at_least_n_non_nulls(n, value1, value2, ..., valueN) -> bool
 

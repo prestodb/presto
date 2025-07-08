@@ -16,16 +16,6 @@ Binary Functions
     Computes the hash of one or more input values using specified seed. For
     multiple arguments, their types can be different.
 
-.. spark:function:: xxhash64(x, ...) -> bigint
-
-    Computes the xxhash64 of one or more input values using seed value of 42.
-    For multiple arguments, their types can be different.
-
-.. spark:function:: xxhash64_with_seed(seed, x, ...) -> bigint
-
-    Computes the xxhash64 of one or more input values using specified seed. For
-    multiple arguments, their types can be different.
-
 .. spark:function:: md5(x) -> varbinary
 
     Computes the md5 of x.
@@ -50,3 +40,13 @@ Binary Functions
     have a value of 224, 256, 384, 512, or 0 (which is equivalent to 256). If asking
     for an unsupported bitLength, the return value is NULL.
     Note: x can only be varbinary type.
+
+.. spark:function:: xxhash64(x, ...) -> bigint
+
+    Computes the xxhash64 of one or more input values using seed value of 42.
+    For multiple arguments, their types can be different.
+
+.. spark:function:: xxhash64_with_seed(seed, x, ...) -> bigint
+
+    Computes the xxhash64 of one or more input values using specified seed. For
+    multiple arguments, their types can be different.

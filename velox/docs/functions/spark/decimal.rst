@@ -122,6 +122,36 @@ Decimal Functions
 
         SELECT ceil(cast(1.23 as DECIMAL(3, 2))); -- 2 // Output type: decimal(2,0)
 
+.. spark:function:: decimal_equalto(x, y) -> boolean
+
+    Returns true if x is equal to y. Supports decimal types with different precisions and scales.
+    Corresponds to Spark's operator ``==``.
+
+.. spark:function:: decimal_greaterthan(x, y) -> boolean
+
+    Returns true if x is greater than y. Supports decimal types with different precisions and scales.
+    Corresponds to Spark's operator ``>``.
+
+.. spark:function:: decimal_greaterthanorequal(x, y) -> boolean
+
+    Returns true if x is greater than y or x is equal to y. Supports decimal types with different precisions and scales.
+    Corresponds to Spark's operator ``>=``.
+
+.. spark:function:: decimal_lessthan(x, y) -> boolean
+
+    Returns true if x is less than y. Supports decimal types with different precisions and scales.
+    Corresponds to Spark's operator ``<``.
+
+.. spark:function:: decimal_lessthanorequal(x, y) -> boolean
+
+    Returns true if x is less than y or x is equal to y. Supports decimal types with different precisions and scales.
+    Corresponds to Spark's operator ``<=``.
+
+.. spark:function:: decimal_notequalto(x, y) -> boolean
+
+    Returns true if x is not equal to y. Supports decimal types with different precisions and scales.
+    Corresponds to Spark's operator ``!=``.
+
 .. spark:function:: floor(x: decimal(p, s)) -> r: decimal(pr, 0)
 
     Returns ``x`` rounded down to the type ``decimal(min(38, p - s + min(1, s)), 0)``.
@@ -149,12 +179,6 @@ Decimal Functions
 
 Decimal Special Forms
 ---------------------
-
-.. spark:function:: make_decimal(x[, nullOnOverflow]) -> decimal
-
-    Create ``decimal`` of requsted precision and scale from an unscaled bigint value ``x``.
-    By default, the value of ``nullOnOverflow`` is true, and null will be returned when ``x`` is too large for the result precision.
-    Otherwise, exception will be thrown when ``x`` overflows.
 
 .. spark:function:: decimal_round(decimal[, scale]) -> [decimal]
 
@@ -195,3 +219,9 @@ Decimal Special Forms
         SELECT round(cast (85.681 as DECIMAL(5, 3)), 1); -- decimal 85.7
         SELECT round(cast (85.681 as DECIMAL(5, 3)), 999); -- decimal 85.681
         SELECT round(cast (0.1234567890123456789 as DECIMAL(19, 19)), 14); -- decimal 0.12345678901235
+
+.. spark:function:: make_decimal(x[, nullOnOverflow]) -> decimal
+
+    Create ``decimal`` of requsted precision and scale from an unscaled bigint value ``x``.
+    By default, the value of ``nullOnOverflow`` is true, and null will be returned when ``x`` is too large for the result precision.
+    Otherwise, exception will be thrown when ``x`` overflows.

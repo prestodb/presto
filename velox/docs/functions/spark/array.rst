@@ -1,6 +1,6 @@
-=============================
+===============
 Array Functions
-=============================
+===============
 
 .. spark:function:: aggregate(array(E), start, merge, finish) -> array(E)
 

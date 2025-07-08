@@ -1,6 +1,6 @@
-====================================
+======================
 Mathematical Functions
-====================================
+======================
 
 .. spark:function:: abs(x) -> [same as x]
 
@@ -61,6 +61,10 @@ Mathematical Functions
 .. spark:function:: bin(x) -> varchar
 
     Returns the string representation of the long value ``x`` represented in binary.
+
+.. spark:function:: cbrt(x) -> double
+
+    Returns the cube root of ``x``.
 
 .. spark:function:: ceil(x) -> [same as x]
 
@@ -202,10 +206,6 @@ Mathematical Functions
 .. spark:function:: sqrt(x) -> double
 
     Returns the square root of ``x``.
-
-.. spark:function:: cbrt(x) -> double
-
-    Returns the cube root of ``x``.
 
 .. spark:function:: multiply(x, y) -> [same as x]
 
