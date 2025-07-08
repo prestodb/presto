@@ -96,7 +96,7 @@ public class TestCassandraIntegrationSmokeTest
         CassandraServer server = new CassandraServer();
         this.server = server;
         this.session = server.getSession();
-        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+        createTestTables(session, server.getMetadata(), KEYSPACE, DATE_TIME_LOCAL);
         return createCassandraQueryRunner(server);
     }
 
