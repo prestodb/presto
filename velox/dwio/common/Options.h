@@ -72,7 +72,34 @@ enum class SerDeSeparator {
 
 class SerDeOptions {
  public:
+  /// The following members control how data is separated in TEXT format files:
+  ///
+  /// - 'separators': An array of separator characters used to delimit columns
+  ///   and nested data.
+  ///     - 'separators[0]' defines the delimiter that separates top-level
+  ///     columns.
+  ///     - 'separators[1 to depth_-1]' defines the delimiters that separate
+  ///     nested data within a ComplexType column.
+  /// - 'newLine': The character used to separate rows in the file.
+  ///
+  /// Suppose we have a schema: ROW(MAP(VARCHAR(), ARRAY(BIGINT())), BOOLEAN())
+  /// With the following configuration:
+  ///   - separators = [',', '@', ':', '#]
+  ///   - newLine = '\n'
+  ///   - nullString = "NULL"
+  ///
+  /// With the following data to be written:
+  ///   - row1: {key1:[10, 20, 30], key2:[40, 50, 60]}, true
+  ///   - row2: {key3:[100, 2, 30], key4:[80, 40, 45]}, true
+  ///
+  /// A sample text file with the 2 rows of data above would look like this:
+  /// key1:10#20#30@key2:40#50#60,true\n
+  /// key3:100#2#30@key4:80#40#45,true\n
+
   std::array<uint8_t, 8> separators;
+  uint8_t newLine;
+
+  /// Null values are represented by 'nullString'
   std::string nullString;
   bool lastColumnTakesRest;
   uint8_t escapeChar;
@@ -88,8 +115,10 @@ class SerDeOptions {
       uint8_t collectionDelim = '\2',
       uint8_t mapKeyDelim = '\3',
       uint8_t escape = '\\',
-      bool isEscapedFlag = false)
+      bool isEscapedFlag = false,
+      uint8_t newLine = '\n')
       : separators{{fieldDelim, collectionDelim, mapKeyDelim, 4, 5, 6, 7, 8}},
+        newLine(newLine),
         nullString("\\N"),
         lastColumnTakesRest(false),
         escapeChar(escape),

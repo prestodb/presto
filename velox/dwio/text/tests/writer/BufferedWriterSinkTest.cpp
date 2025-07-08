@@ -15,10 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/text/tests/writer/FileReaderUtil.h"
-#include "velox/dwio/text/writer/TextWriter.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -46,30 +44,40 @@ class BufferedWriterSinkTest : public testing::Test,
 };
 
 TEST_F(BufferedWriterSinkTest, write) {
-  auto filePath = fs::path(
-      fmt::format("{}/test_buffered_writer.txt", tempPath_->getPath()));
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_buffered_writer.txt";
+
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
   auto sink = std::make_unique<dwio::common::LocalFileSink>(
       filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
   auto bufferedWriterSink = std::make_unique<BufferedWriterSink>(
       std::move(sink), rootPool_->addLeafChild("bufferedWriterSinkTest"), 15);
+
   bufferedWriterSink->write("hello world", 10);
   bufferedWriterSink->write("this is writer", 10);
   bufferedWriterSink->close();
-  std::string result = readFile(filePath);
-  EXPECT_EQ(result.size(), 20);
+
+  uint64_t result = readFile(tempPath, filename);
+  EXPECT_EQ(result, 20);
 }
 
 TEST_F(BufferedWriterSinkTest, abort) {
-  auto filePath =
-      fs::path(fmt::format("{}/test_buffered_abort.txt", tempPath_->getPath()));
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_buffered_abort.txt";
+
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
   auto sink = std::make_unique<dwio::common::LocalFileSink>(
       filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
   auto bufferedWriterSink = std::make_unique<BufferedWriterSink>(
       std::move(sink), rootPool_->addLeafChild("bufferedWriterSinkTest"), 15);
+
   bufferedWriterSink->write("hello world", 10);
   bufferedWriterSink->write("this is writer", 10);
   bufferedWriterSink->abort();
-  std::string result = readFile(filePath);
-  EXPECT_EQ(result.size(), 10);
+
+  uint64_t result = readFile(tempPath_->getPath(), filename);
+  EXPECT_EQ(result, 10);
 }
 } // namespace facebook::velox::text

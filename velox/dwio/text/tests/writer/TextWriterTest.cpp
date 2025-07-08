@@ -16,7 +16,6 @@
 
 #include "velox/dwio/text/writer/TextWriter.h"
 #include <gtest/gtest.h>
-#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/text/tests/writer/FileReaderUtil.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -78,8 +77,10 @@ TEST_F(TextWriterTest, write) {
 
   WriterOptions writerOptions;
   writerOptions.memoryPool = rootPool_.get();
-  auto filePath =
-      fs::path(fmt::format("{}/test_text_writer.txt", tempPath_->getPath()));
+
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_text_writer.txt";
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
   auto sink = std::make_unique<dwio::common::LocalFileSink>(
       filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
   auto writer = std::make_unique<TextWriter>(
@@ -89,7 +90,15 @@ TEST_F(TextWriterTest, write) {
   writer->write(data);
   writer->close();
 
-  std::vector<std::vector<std::string>> result = parseTextFile(filePath);
+  const auto fs = filesystems::getFileSystem(tempPath, nullptr);
+  const auto& file = fs->openFileForRead(filePath.string());
+  auto fileSize = file->size();
+
+  BufferPtr charBuf = AlignedBuffer::allocate<char>(fileSize, pool());
+  auto rawCharBuf = charBuf->asMutable<char>();
+  std::vector<std::vector<std::string>> result =
+      parseTextFile(tempPath, filename, rawCharBuf);
+
   EXPECT_EQ(result.size(), 3);
   EXPECT_EQ(result[0].size(), 10);
   // bool type
@@ -155,8 +164,11 @@ TEST_F(TextWriterTest, abort) {
   WriterOptions writerOptions;
   writerOptions.memoryPool = rootPool_.get();
   writerOptions.defaultFlushCount = 10;
-  auto filePath = fs::path(
-      fmt::format("{}/test_text_writer_abort.txt", tempPath_->getPath()));
+
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_text_writer_abort.txt";
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+
   auto sink = std::make_unique<dwio::common::LocalFileSink>(
       filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
   auto writer = std::make_unique<TextWriter>(
@@ -166,13 +178,14 @@ TEST_F(TextWriterTest, abort) {
   writer->write(data);
   writer->abort();
 
-  std::string result = readFile(filePath);
+  uint64_t result = readFile(tempPath, filePath.filename().string());
+
   // With defaultFlushCount as 10, it will trigger two times of flushes before
   // abort, and abort will discard the remaining 5 characters in buffer. The
   // written file would have:
-  // 1^Atrue
-  // 2^Atrue
+  // 1^Atrue\n
+  // 2^Atrue\n
   // 3^A
-  EXPECT_EQ(result.size(), 14);
+  EXPECT_EQ(result, 16);
 }
 } // namespace facebook::velox::text

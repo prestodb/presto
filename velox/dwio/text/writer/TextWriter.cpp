@@ -15,13 +15,14 @@
  */
 
 #include "velox/dwio/text/writer/TextWriter.h"
+#include "velox/common/encode/Base64.h"
 
 #include <utility>
-#include "velox/common/base/Pointers.h"
-#include "velox/common/encode/Base64.h"
-#include "velox/exec/MemoryReclaimer.h"
 
 namespace facebook::velox::text {
+
+using dwio::common::SerDeOptions;
+
 template <typename T>
 std::optional<std::string> toTextStr(T val) {
   return std::optional(std::to_string(val));
@@ -65,7 +66,8 @@ std::optional<std::string> toTextStr<Timestamp>(Timestamp val) {
 TextWriter::TextWriter(
     RowTypePtr schema,
     std::unique_ptr<dwio::common::FileSink> sink,
-    const std::shared_ptr<text::WriterOptions>& options)
+    const std::shared_ptr<text::WriterOptions>& options,
+    const SerDeOptions& serDeOptions)
     : schema_(std::move(schema)),
       bufferedWriterSink_(std::make_unique<BufferedWriterSink>(
           std::move(sink),
@@ -73,7 +75,9 @@ TextWriter::TextWriter(
               "{}.text_writer_node.{}",
               options->memoryPool->name(),
               folly::to<std::string>(folly::Random::rand64()))),
-          options->defaultFlushCount)) {}
+          options->defaultFlushCount)),
+      depth_(0),
+      serDeOptions_(serDeOptions) {}
 
 void TextWriter::write(const VectorPtr& data) {
   VELOX_CHECK_EQ(
@@ -97,18 +101,15 @@ void TextWriter::write(const VectorPtr& data) {
   std::optional<char> delimiter;
   for (vector_size_t row = 0; row < data->size(); ++row) {
     for (size_t column = 0; column < numColumns; ++column) {
-      if (column == 0) {
-        delimiter = std::nullopt;
-      } else {
-        delimiter = std::optional(TextFileTraits::kSOH);
-      }
+      delimiter = (column == 0) ? std::nullopt
+                                : std::optional(serDeOptions_.separators[0]);
       writeCellValue(
           decodedColumnVectors.at(column),
           schema_->childAt(column)->kind(),
           row,
           delimiter);
     }
-    bufferedWriterSink_->write(TextFileTraits::kNewLine);
+    bufferedWriterSink_->write(serDeOptions_.newLine);
   }
 }
 
@@ -132,9 +133,10 @@ void TextWriter::writeCellValue(
   if (delimiter.has_value()) {
     bufferedWriterSink_->write(delimiter.value());
   }
+
   if (decodedColumnVector->isNullAt(row)) {
     bufferedWriterSink_->write(
-        TextFileTraits::kNullData.data(), TextFileTraits::kNullData.length());
+        serDeOptions_.nullString.data(), serDeOptions_.nullString.length());
     return;
   }
   switch (type) {

@@ -19,7 +19,16 @@
 #include "velox/dwio/text/writer/TextWriter.h"
 
 namespace facebook::velox::text {
-std::string readFile(const std::string& name);
-std::vector<std::vector<std::string>> parseTextFile(const std::string& name);
+
+using dwio::common::SerDeOptions;
+
+uint64_t readFile(const std::string& filepath, const std::string& name);
+
+std::vector<std::vector<std::string>> parseTextFile(
+    const std::string& path,
+    const std::string& name,
+    void* buffer,
+    SerDeOptions serDeOptions = SerDeOptions());
+
 std::vector<std::string> splitTextLine(const std::string& str, char delimiter);
 } // namespace facebook::velox::text

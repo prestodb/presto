@@ -15,29 +15,46 @@
  */
 
 #include "velox/dwio/text/tests/writer/FileReaderUtil.h"
+#include "velox/common/file/File.h"
+#include "velox/common/file/FileSystems.h"
 
 namespace facebook::velox::text {
 
-std::string readFile(const std::string& name) {
-  std::ifstream file(name);
-  std::string line;
+using dwio::common::SerDeOptions;
 
-  std::stringstream ss;
-  while (std::getline(file, line)) {
-    ss << line;
-  }
-  return ss.str();
+uint64_t readFile(const std::string& path, const std::string& name) {
+  const auto fs = filesystems::getFileSystem(path, nullptr);
+  auto filepath = fs::path(fmt::format("{}/{}", path, name));
+  const auto& file = fs->openFileForRead(filepath.string());
+
+  return file->size();
 }
 
-std::vector<std::vector<std::string>> parseTextFile(const std::string& name) {
-  std::ifstream file(name);
+std::vector<std::vector<std::string>> parseTextFile(
+    const std::string& path,
+    const std::string& name,
+    void* buffer,
+    SerDeOptions serDeOptions) {
+  const auto fs = filesystems::getFileSystem(path, nullptr);
+  auto filepath = fs::path(fmt::format("{}/{}", path, name));
+  const auto& file = fs->openFileForRead(filepath.string());
+
   std::string line;
   std::vector<std::vector<std::string>> table;
 
-  while (std::getline(file, line)) {
-    std::vector<std::string> row = splitTextLine(line, TextFileTraits::kSOH);
-    table.push_back(row);
+  auto fileSize = file->size();
+  if (fileSize > 0) {
+    file->pread(0, fileSize, buffer);
+    std::string content(static_cast<char*>(buffer), fileSize);
+
+    std::istringstream stream(content);
+    while (std::getline(stream, line)) {
+      std::vector<std::string> row =
+          splitTextLine(line, serDeOptions.separators[0]);
+      table.push_back(row);
+    }
   }
+
   return table;
 }
 
