@@ -15,7 +15,8 @@
  */
 #pragma once
 
-#include "velox/core/PlanNode.h"
+#include <fmt/format.h>
+#include <string>
 
 namespace facebook::velox::core {
 
@@ -25,7 +26,7 @@ class PlanNodeIdGenerator {
  public:
   explicit PlanNodeIdGenerator(int startId = 0) : nextId_{startId} {}
 
-  PlanNodeId next() {
+  std::string next() {
     return fmt::format("{}", nextId_++);
   }
 

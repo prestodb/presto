@@ -26,6 +26,7 @@
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/parse/Expressions.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::exec::test {

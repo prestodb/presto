@@ -37,9 +37,13 @@ std::vector<core::ExprPtr> parseMultipleExpressions(
       expr, duckConversionOptions);
 }
 
-std::pair<core::ExprPtr, core::SortOrder> parseOrderByExpr(
-    const std::string& expr) {
-  return facebook::velox::duckdb::parseOrderByExpr(expr);
+OrderByClause parseOrderByExpr(const std::string& expr) {
+  auto orderBy = facebook::velox::duckdb::parseOrderByExpr(expr);
+
+  return {
+      .expr = std::move(orderBy.expr),
+      .ascending = orderBy.ascending,
+      .nullsFirst = orderBy.nullsFirst};
 }
 
 } // namespace facebook::velox::parse

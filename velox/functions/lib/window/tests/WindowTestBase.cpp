@@ -20,7 +20,6 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/duckdb/conversion/DuckParser.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -65,10 +64,8 @@ WindowTestBase::QueryInfo WindowTestBase::buildStreamingWindowQuery(
   }
 
   // Extract the order by keys.
-  const auto& orderBy = windowExpr.orderBy;
-  for (auto i = 0; i < orderBy.size(); ++i) {
-    orderByClauses.push_back(
-        orderBy[i].first->toString() + " " + orderBy[i].second.toString());
+  for (const auto& clause : windowExpr.orderBy) {
+    orderByClauses.push_back(clause.toString());
   }
 
   // Sort the input data before streaming window.

@@ -15,7 +15,11 @@
  */
 
 #pragma once
+
+#include "velox/core/ITypedExpr.h"
+#include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"
+#include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::parse {
 
@@ -30,5 +34,66 @@ TypePtr resolveScalarFunctionType(
     const std::string& name,
     const std::vector<TypePtr>& args,
     bool nullOnFailure = false);
-
 } // namespace facebook::velox::parse
+
+namespace facebook::velox::core {
+
+class Expressions {
+ public:
+  using TypeResolverHook = std::function<TypePtr(
+      const std::vector<TypedExprPtr>& inputs,
+      const std::shared_ptr<const CallExpr>& expr,
+      bool nullOnFailure)>;
+
+  using FieldAccessHook = std::function<TypedExprPtr(
+      std::shared_ptr<const FieldAccessExpr> fae,
+      std::vector<TypedExprPtr>& children)>;
+
+  static TypedExprPtr inferTypes(
+      const ExprPtr& expr,
+      const TypePtr& input,
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
+
+  static void setTypeResolverHook(TypeResolverHook hook) {
+    resolverHook_ = std::move(hook);
+  }
+
+  static TypeResolverHook getResolverHook() {
+    return resolverHook_;
+  }
+
+  static void setFieldAccessHook(FieldAccessHook hook) {
+    fieldAccessHook_ = std::move(hook);
+  }
+
+  static FieldAccessHook getFieldAccessHook() {
+    return fieldAccessHook_;
+  }
+
+  static TypedExprPtr inferTypes(
+      const ExprPtr& expr,
+      const TypePtr& input,
+      const std::vector<TypePtr>& lambdaInputTypes,
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
+
+ private:
+  static TypedExprPtr resolveLambdaExpr(
+      const std::shared_ptr<const LambdaExpr>& lambdaExpr,
+      const TypePtr& inputRow,
+      const std::vector<TypePtr>& lambdaInputTypes,
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
+
+  static TypedExprPtr tryResolveCallWithLambdas(
+      const std::shared_ptr<const CallExpr>& expr,
+      const TypePtr& input,
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
+
+  static TypeResolverHook resolverHook_;
+  static FieldAccessHook fieldAccessHook_;
+};
+
+} // namespace facebook::velox::core

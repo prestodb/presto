@@ -15,7 +15,6 @@
  */
 #include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/core/PlanNode.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Variant.h"
@@ -738,8 +737,7 @@ bool isNullsFirst(
 }
 } // namespace
 
-std::pair<core::ExprPtr, core::SortOrder> parseOrderByExpr(
-    const std::string& exprString) {
+OrderByClause parseOrderByExpr(const std::string& exprString) {
   ParserOptions options;
   ParseOptions parseOptions;
   options.preserve_identifier_case = false;
@@ -756,8 +754,9 @@ std::pair<core::ExprPtr, core::SortOrder> parseOrderByExpr(
   const bool nullsFirst = isNullsFirst(orderByNode.null_order, exprString);
 
   return {
-      parseExpr(*orderByNode.expression, parseOptions),
-      core::SortOrder(ascending, nullsFirst)};
+      .expr = parseExpr(*orderByNode.expression, parseOptions),
+      .ascending = ascending,
+      .nullsFirst = nullsFirst};
 }
 
 AggregateExpr parseAggregateExpr(
@@ -775,9 +774,8 @@ AggregateExpr parseAggregateExpr(
     for (const auto& orderByNode : functionExpr.order_bys->orders) {
       const bool ascending = isAscending(orderByNode.type, exprString);
       const bool nullsFirst = isNullsFirst(orderByNode.null_order, exprString);
-      aggregateExpr.orderBy.emplace_back(
-          parseExpr(*orderByNode.expression, options),
-          core::SortOrder(ascending, nullsFirst));
+      aggregateExpr.orderBy.emplace_back(OrderByClause{
+          parseExpr(*orderByNode.expression, options), ascending, nullsFirst});
     }
   }
 
@@ -848,9 +846,8 @@ IExprWindowFunction parseWindowExpr(
   for (const auto& orderByNode : windowExpr.orders) {
     const bool ascending = isAscending(orderByNode.type, windowString);
     const bool nullsFirst = isNullsFirst(orderByNode.null_order, windowString);
-    windowIExpr.orderBy.emplace_back(
-        parseExpr(*orderByNode.expression, options),
-        core::SortOrder(ascending, nullsFirst));
+    windowIExpr.orderBy.emplace_back(OrderByClause{
+        parseExpr(*orderByNode.expression, options), ascending, nullsFirst});
   }
 
   std::vector<core::ExprPtr> params;
@@ -885,6 +882,14 @@ IExprWindowFunction parseWindowExpr(
     windowIExpr.frame.endValue = parseExpr(*windowExpr.end_expr.get(), options);
   }
   return windowIExpr;
+}
+
+std::string OrderByClause::toString() const {
+  return fmt::format(
+      "{} {} NULLS {}",
+      expr->toString(),
+      (ascending ? "ASC" : "DESC"),
+      (nullsFirst ? "FIRST" : "LAST"));
 }
 
 } // namespace facebook::velox::duckdb

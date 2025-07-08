@@ -422,9 +422,9 @@ parseOrderByClauses(
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> sortingKeys;
   std::vector<core::SortOrder> sortingOrders;
   for (const auto& key : keys) {
-    auto [untypedExpr, sortOrder] = parse::parseOrderByExpr(key);
+    auto orderBy = parse::parseOrderByExpr(key);
     auto typedExpr =
-        core::Expressions::inferTypes(untypedExpr, inputType, pool);
+        core::Expressions::inferTypes(orderBy.expr, inputType, pool);
 
     auto sortingKey =
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
@@ -433,7 +433,7 @@ parseOrderByClauses(
         "ORDER BY clause must use a column name, not an expression: {}",
         key);
     sortingKeys.emplace_back(sortingKey);
-    sortingOrders.emplace_back(sortOrder);
+    sortingOrders.emplace_back(orderBy.ascending, orderBy.nullsFirst);
   }
 
   return {sortingKeys, sortingOrders};
@@ -957,17 +957,17 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
       }
     }
 
-    for (const auto& [keyExpr, order] : untypedExpr.orderBy) {
+    for (const auto& orderBy : untypedExpr.orderBy) {
       auto sortingKey =
           std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-              inferTypes(keyExpr));
+              inferTypes(orderBy.expr));
       VELOX_CHECK_NOT_NULL(
           sortingKey,
           "ORDER BY clause must use a column name, not an expression: {}",
           aggregate);
 
       agg.sortingKeys.push_back(sortingKey);
-      agg.sortingOrders.push_back(order);
+      agg.sortingOrders.emplace_back(orderBy.ascending, orderBy.nullsFirst);
     }
 
     aggs.emplace_back(agg);
@@ -2114,8 +2114,9 @@ parseOrderByKeys(
   std::vector<core::FieldAccessTypedExprPtr> sortingKeys;
   std::vector<core::SortOrder> sortingOrders;
 
-  for (const auto& [untypedExpr, sortOrder] : windowExpr.orderBy) {
-    auto typedExpr = core::Expressions::inferTypes(untypedExpr, inputRow, pool);
+  for (const auto& orderBy : windowExpr.orderBy) {
+    auto typedExpr =
+        core::Expressions::inferTypes(orderBy.expr, inputRow, pool);
     auto sortingKey =
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(typedExpr);
     VELOX_CHECK_NOT_NULL(
@@ -2123,7 +2124,7 @@ parseOrderByKeys(
         "ORDER BY clause must use a column name, not an expression: {}",
         windowString);
     sortingKeys.emplace_back(sortingKey);
-    sortingOrders.emplace_back(sortOrder);
+    sortingOrders.emplace_back(orderBy.ascending, orderBy.nullsFirst);
   }
   return {sortingKeys, sortingOrders};
 }

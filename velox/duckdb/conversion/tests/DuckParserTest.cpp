@@ -101,10 +101,7 @@ TEST(DuckParserTest, functions) {
 }
 
 namespace {
-std::string toString(
-    const std::vector<
-        std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder>>&
-        orderBy) {
+std::string toString(const std::vector<OrderByClause>& orderBy) {
   std::stringstream out;
   if (!orderBy.empty()) {
     out << "ORDER BY ";
@@ -112,8 +109,7 @@ std::string toString(
       if (i > 0) {
         out << ", ";
       }
-      out << orderBy[i].first->toString() << " "
-          << orderBy[i].second.toString();
+      out << orderBy[i].toString();
     }
   }
 
@@ -509,9 +505,7 @@ TEST(DuckParserTest, count) {
 
 TEST(DuckParserTest, orderBy) {
   auto parse = [](const auto& expr) {
-    auto orderBy = parseOrderByExpr(expr);
-    return fmt::format(
-        "{} {}", orderBy.first->toString(), orderBy.second.toString());
+    return parseOrderByExpr(expr).toString();
   };
 
   EXPECT_EQ("\"c1\" ASC NULLS LAST", parse("c1"));

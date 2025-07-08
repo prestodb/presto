@@ -18,11 +18,16 @@
 #include <string>
 #include "velox/parse/IExpr.h"
 
-namespace facebook::velox::core {
-class SortOrder;
-} // namespace facebook::velox::core
-
 namespace facebook::velox::duckdb {
+
+struct OrderByClause {
+  core::ExprPtr expr;
+  bool ascending;
+  bool nullsFirst;
+
+  std::string toString() const;
+};
+
 /// Hold parsing options.
 struct ParseOptions {
   // Retain legacy behavior by default.
@@ -52,7 +57,7 @@ std::vector<core::ExprPtr> parseMultipleExpressions(
 
 struct AggregateExpr {
   core::ExprPtr expr;
-  std::vector<std::pair<core::ExprPtr, core::SortOrder>> orderBy;
+  std::vector<OrderByClause> orderBy;
   bool distinct{false};
   core::ExprPtr maskExpr{nullptr};
 };
@@ -66,11 +71,9 @@ AggregateExpr parseAggregateExpr(
     const std::string& exprString,
     const ParseOptions& options);
 
-// Parses an ORDER BY clause using DuckDB's internal postgresql-based parser,
-// converting it to a pair of an IExpr tree and a core::SortOrder. Uses ASC
-// NULLS LAST as the default sort order.
-std::pair<core::ExprPtr, core::SortOrder> parseOrderByExpr(
-    const std::string& exprString);
+// Parses an ORDER BY clause using DuckDB's internal postgresql-based parser.
+// Uses ASC NULLS LAST as the default sort order.
+OrderByClause parseOrderByExpr(const std::string& exprString);
 
 // Parses a WINDOW function SQL string using DuckDB's internal postgresql-based
 // parser. Window Functions are executed by Velox Window PlanNodes and not the
@@ -101,7 +104,7 @@ struct IExprWindowFunction {
   bool ignoreNulls;
 
   std::vector<core::ExprPtr> partitionBy;
-  std::vector<std::pair<core::ExprPtr, core::SortOrder>> orderBy;
+  std::vector<OrderByClause> orderBy;
 };
 
 IExprWindowFunction parseWindowExpr(

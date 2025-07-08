@@ -20,7 +20,6 @@
 #include <velox/core/ITypedExpr.h>
 #include <velox/core/PlanFragment.h>
 #include <velox/core/PlanNode.h>
-#include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/IExpr.h"

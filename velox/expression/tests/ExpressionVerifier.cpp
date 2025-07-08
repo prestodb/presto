@@ -22,6 +22,7 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/Expr.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"

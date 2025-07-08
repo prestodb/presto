@@ -19,8 +19,8 @@
 #include <utility>
 
 #include "velox/expression/Expr.h"
-#include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/TypeResolver.h"
 #include "velox/type/Type.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
