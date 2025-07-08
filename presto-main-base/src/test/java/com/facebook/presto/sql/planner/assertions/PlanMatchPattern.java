@@ -187,6 +187,22 @@ public final class PlanMatchPattern
                 .with(new IndexSourceMatcher(expectedTableName));
     }
 
+    public static PlanMatchPattern indexSource(String expectedTableName, Map<String, String> columnReferences)
+    {
+        return node(IndexSourceNode.class)
+                .with(new IndexSourceMatcher(expectedTableName))
+                .addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern strictIndexSource(String expectedTableName, Map<String, String> columnReferences)
+    {
+        return node(IndexSourceNode.class)
+                .with(new IndexSourceMatcher(expectedTableName))
+                .withExactAssignedOutputs(columnReferences.values().stream()
+                        .map(columnName -> columnReference(expectedTableName, columnName))
+                        .collect(toImmutableList()));
+    }
+
     public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)
     {
         return node(IndexSourceNode.class)
