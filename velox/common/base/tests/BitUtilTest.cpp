@@ -541,6 +541,21 @@ TEST_F(BitUtilTest, getAndClearLastSetBit) {
   EXPECT_EQ(bits, 0);
 }
 
+TEST_F(BitUtilTest, negateBit) {
+  char data[35];
+  for (int32_t i = 0; i < 100; i++) {
+    setBit(data, i, true);
+  }
+  std::vector<uint64_t> indices = {0, 1, 2, 3, 4, 5, 6, 7};
+  for (auto i : indices) {
+    negateBit(data, i);
+    EXPECT_EQ(isBitSet(data, i), false);
+  }
+  for (int32_t i = 8; i < 100; i++) {
+    EXPECT_EQ(isBitSet(data, i), true);
+  }
+}
+
 TEST_F(BitUtilTest, negate) {
   char data[35];
   for (int32_t i = 0; i < 100; i++) {

@@ -92,6 +92,11 @@ inline void setBit(T* bits, uint64_t idx, bool value) {
   value ? setBit(bits, idx) : clearBit(bits, idx);
 }
 
+inline void negateBit(void* bits, uint64_t idx) {
+  auto* bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
+  bitsAs8Bit[idx / 8] ^= (1 << (idx % 8));
+}
+
 inline void negate(uint64_t* bits, int32_t size) {
   int32_t i = 0;
   for (; i + 64 <= size; i += 64) {
