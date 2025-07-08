@@ -145,7 +145,7 @@ export class ClusterHUD extends React.Component {
             });
         }
 
-        $('[data-bs-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
     }
 
     render() {
