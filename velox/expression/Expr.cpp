@@ -1791,7 +1791,8 @@ namespace {
 void addStats(
     const exec::Expr& expr,
     std::unordered_map<std::string, exec::ExprStats>& stats,
-    std::unordered_set<const exec::Expr*>& uniqueExprs) {
+    std::unordered_set<const exec::Expr*>& uniqueExprs,
+    bool excludeSpecialForm) {
   auto it = uniqueExprs.find(&expr);
   if (it != uniqueExprs.end()) {
     // Common sub-expression. Skip to avoid double counting.
@@ -1800,13 +1801,16 @@ void addStats(
 
   uniqueExprs.insert(&expr);
 
+  bool excludeSplFormExpr = excludeSpecialForm && expr.isSpecialForm();
   // Do not aggregate empty stats.
-  if (expr.stats().numProcessedRows || expr.stats().defaultNullRowsSkipped) {
+  bool emptyStats =
+      !expr.stats().numProcessedRows && !expr.stats().defaultNullRowsSkipped;
+  if (!emptyStats && !excludeSplFormExpr) {
     stats[expr.name()].add(expr.stats());
   }
 
   for (const auto& input : expr.inputs()) {
-    addStats(*input, stats, uniqueExprs);
+    addStats(*input, stats, uniqueExprs, excludeSpecialForm);
   }
 }
 
@@ -1815,11 +1819,12 @@ std::string makeUuid() {
 }
 } // namespace
 
-std::unordered_map<std::string, exec::ExprStats> ExprSet::stats() const {
+std::unordered_map<std::string, exec::ExprStats> ExprSet::stats(
+    bool excludeSpecialForm) const {
   std::unordered_map<std::string, exec::ExprStats> stats;
   std::unordered_set<const exec::Expr*> uniqueExprs;
   for (const auto& expr : exprs()) {
-    addStats(*expr, stats, uniqueExprs);
+    addStats(*expr, stats, uniqueExprs, excludeSpecialForm);
   }
 
   return stats;

@@ -632,10 +632,11 @@ class QueryConfig {
   static constexpr const char* kFieldNamesInJsonCastEnabled =
       "field_names_in_json_cast_enabled";
 
-  /// If this is true, then operators that evaluate expressions will track their
-  /// stats and return them as part of their operator stats. Tracking these
-  /// stats can be expensive (especially if operator stats are retrieved
-  /// frequently) and this allows the user to explicitly enable it.
+  /// If this is true, then operators that evaluate expressions will track
+  /// stats for expressions that are not special forms and return them as
+  /// part of their operator stats. Tracking these stats can be expensive
+  /// (especially if operator stats are retrieved frequently) and this allows
+  /// the user to explicitly enable it.
   static constexpr const char* kOperatorTrackExpressionStats =
       "operator_track_expression_stats";
 

@@ -238,7 +238,7 @@ OperatorStats FilterProject::stats(bool clear) {
           ->queryConfig()
           .operatorTrackExpressionStats() &&
       exprs_ != nullptr) {
-    stats.expressionStats = exprs_->stats();
+    stats.expressionStats = exprs_->stats(true /*excludeSpecialForm*/);
   }
   return stats;
 }

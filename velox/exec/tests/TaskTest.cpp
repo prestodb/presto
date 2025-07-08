@@ -3148,6 +3148,9 @@ TEST_F(TaskTest, testTerminateDuringBarrierWithUnion) {
 TEST_F(TaskTest, expressionStatsInBetweenBarriers) {
   // Verify that expression stats are collected in between barriers and at the
   // end.
+  // This projection ensures that we verify that inputs of special
+  // form (coalesce) are also included.
+  const std::string projection = "coalesce(c0 + 1, 0)";
   const int numRows{10};
   auto data = makeRowVector({
       makeFlatVector<int64_t>(numRows, [](auto row) { return row; }),
@@ -3160,7 +3163,7 @@ TEST_F(TaskTest, expressionStatsInBetweenBarriers) {
   auto plan = PlanBuilder()
                   .tableScan(asRowType(data->type()))
                   .capturePlanNodeId(scanId)
-                  .project({"c0 + 1"})
+                  .project({projection})
                   .capturePlanNodeId(projectNodeId)
                   .planFragment();
 
@@ -3196,6 +3199,8 @@ TEST_F(TaskTest, expressionStatsInBetweenBarriers) {
     auto& projectStats = taskStats.pipelineStats[0].operatorStats[1];
     ASSERT_EQ(projectStats.planNodeId, nodeId);
     auto& expressionStats = projectStats.expressionStats;
+    // Ensure only the non-special form expression is tracked.
+    ASSERT_EQ(expressionStats.size(), 1);
     auto it = expressionStats.find("plus");
     ASSERT_TRUE(it != expressionStats.end());
     ASSERT_EQ(it->second.numProcessedRows, expectedNumProcessedRows);

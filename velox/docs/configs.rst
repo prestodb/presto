@@ -188,6 +188,13 @@ Generic Configuration
      - 0
      - Specifies The max number of input splits to listen to by SplitListener per table scan node per
        worker. It's up to the SplitListener implementation to respect this config.
+   * - operator_track_expression_stats
+     - bool
+     - false
+     - If this is true, then operators that evaluate expressions will track stats for expressions that
+       are not special forms and return them as part of their operator stats. Tracking these stats can
+       be expensive (especially if operator stats are retrieved frequently) and this allows the user to
+       explicitly enable it.
 
 .. _expression-evaluation-conf:
 
