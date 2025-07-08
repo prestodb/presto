@@ -1044,7 +1044,7 @@ export class QueryDetail extends React.Component {
             });
         }
 
-        $('[data-bs-toggle="tooltip"]')?.tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
         new Clipboard('.copy-button');
     }
 
@@ -1727,3 +1727,4 @@ export class QueryDetail extends React.Component {
 }
 
 export default QueryDetail;
+

@@ -92,7 +92,7 @@ export class WorkerStatus extends React.Component {
         $('#heap-percent-used-sparkline').sparkline(this.state.heapPercentUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
         $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
 
-        $('[data-bs-toggle="tooltip"]')?.tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
         new Clipboard('.copy-button');
     }
 
