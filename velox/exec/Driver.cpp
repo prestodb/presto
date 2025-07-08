@@ -247,6 +247,8 @@ void Driver::init(
     std::vector<std::unique_ptr<Operator>> operators) {
   VELOX_CHECK_NULL(ctx_);
   ctx_ = std::move(ctx);
+  enableOperatorBatchSizeStats_ =
+      ctx_->queryConfig().enableOperatorBatchSizeStats();
   cpuSliceMs_ = task()->driverCpuTimeSliceLimitMs();
   VELOX_CHECK(operators_.empty());
   operators_ = std::move(operators);
@@ -575,12 +577,12 @@ StopReason Driver::runInternal(
                   kOpMethodGetOutput);
               if (intermediateResult) {
                 validateOperatorOutputResult(intermediateResult, *op);
-                resultBytes = intermediateResult->estimateFlatSize();
-                {
-                  auto lockedStats = op->stats().wlock();
-                  lockedStats->addOutputVector(
-                      resultBytes, intermediateResult->size());
+                if (enableOperatorBatchSizeStats()) {
+                  resultBytes = intermediateResult->estimateFlatSize();
                 }
+                auto lockedStats = op->stats().wlock();
+                lockedStats->addOutputVector(
+                    resultBytes, intermediateResult->size());
               }
             });
             if (intermediateResult) {
@@ -664,12 +666,12 @@ StopReason Driver::runInternal(
                 getOutput(op, result), op, curOperatorId_, kOpMethodGetOutput);
             if (result) {
               validateOperatorOutputResult(result, *op);
-
-              {
-                auto lockedStats = op->stats().wlock();
-                lockedStats->addOutputVector(
-                    result->estimateFlatSize(), result->size());
+              vector_size_t resultByteSize{0};
+              if (enableOperatorBatchSizeStats()) {
+                resultByteSize = result->estimateFlatSize();
               }
+              auto lockedStats = op->stats().wlock();
+              lockedStats->addOutputVector(resultByteSize, result->size());
             }
           });
 

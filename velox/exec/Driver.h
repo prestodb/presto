@@ -432,6 +432,11 @@ class Driver : public std::enable_shared_from_this<Driver> {
   /// time slice limit if set.
   bool shouldYield() const;
 
+  /// Inline function to check if operator batch size stats are enabled.
+  inline bool enableOperatorBatchSizeStats() const {
+    return enableOperatorBatchSizeStats_;
+  }
+
   /// Checks if the associated query is under memory arbitration or not. The
   /// function returns true if it is and set future which is fulfilled when the
   /// memory arbitration finishes.
@@ -671,6 +676,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
       CancelGuard& guard);
 
   std::unique_ptr<DriverCtx> ctx_;
+
+  // If set, the operator output batch size stats will be collected during
+  // driver execution.
+  bool enableOperatorBatchSizeStats_{false};
 
   // If not zero, specifies the driver cpu time slice.
   size_t cpuSliceMs_{0};

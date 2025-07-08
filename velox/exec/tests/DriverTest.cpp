@@ -1144,6 +1144,43 @@ TEST_F(DriverTest, nonVeloxOperatorException) {
       "Operator::getOutput failed for [operator: Throw, plan node ID: 1]");
 }
 
+TEST_F(DriverTest, enableOperatorBatchSizeStatsConfig) {
+  CursorParameters params;
+  int32_t hits;
+  params.planNode = makeValuesFilterProject(
+      rowType_,
+      "m1 % 10 > 0",
+      "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
+      100,
+      1'000,
+      [](int64_t num) { return num % 10 > 0; },
+      &hits);
+  params.maxDrivers = 4;
+  std::unordered_map<std::string, std::string> queryConfig{
+      {core::QueryConfig::kEnableOperatorBatchSizeStats, "true"}};
+  params.queryCtx = core::QueryCtx::create(
+      executor_.get(), core::QueryConfig(std::move(queryConfig)));
+  int32_t numRead = 0;
+  readResults(params, ResultOperation::kRead, 1'000'000, &numRead);
+  EXPECT_EQ(numRead, 4 * hits);
+  auto stateFuture = tasks_[0]->taskCompletionFuture().within(
+      std::chrono::microseconds(100'000'000));
+  auto& executor = folly::QueuedImmediateExecutor::instance();
+  auto state = std::move(stateFuture).via(&executor);
+  state.wait();
+  EXPECT_TRUE(tasks_[0]->isFinished());
+  EXPECT_EQ(tasks_[0]->numRunningDrivers(), 0);
+  const auto taskStats = tasks_[0]->taskStats();
+  ASSERT_EQ(taskStats.pipelineStats.size(), 1);
+  const auto& operatorStats = taskStats.pipelineStats[0].operatorStats;
+  EXPECT_GT(operatorStats[1].getOutputTiming.wallNanos, 0);
+  EXPECT_EQ(operatorStats[0].outputPositions, 400'000);
+  EXPECT_GT(operatorStats[0].outputBytes, 0);
+  EXPECT_EQ(operatorStats[1].inputPositions, 400'000);
+  EXPECT_EQ(operatorStats[1].outputPositions, 4 * hits);
+  EXPECT_GT(operatorStats[1].outputBytes, 0);
+}
+
 DEBUG_ONLY_TEST_F(DriverTest, driverSuspensionRaceWithTaskPause) {
   struct {
     int numDrivers;

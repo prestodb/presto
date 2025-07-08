@@ -639,6 +639,13 @@ class QueryConfig {
   static constexpr const char* kOperatorTrackExpressionStats =
       "operator_track_expression_stats";
 
+  /// If this is true, enable the operator input/output batch size stats
+  /// collection in driver execution. This can be expensive for data types with
+  /// a large number of columns (e.g., ROW types) as it calls estimateFlatSize()
+  /// which recursively calculates sizes for all child vectors.
+  static constexpr const char* kEnableOperatorBatchSizeStats =
+      "enable_operator_batch_size_stats";
+
   /// If this is true, then the unnest operator might split output for each
   /// input batch based on the output batch size control. Otherwise, it produces
   /// a single output for each input batch.
@@ -1177,6 +1184,10 @@ class QueryConfig {
 
   bool operatorTrackExpressionStats() const {
     return get<bool>(kOperatorTrackExpressionStats, false);
+  }
+
+  bool enableOperatorBatchSizeStats() const {
+    return get<bool>(kEnableOperatorBatchSizeStats, true);
   }
 
   bool unnestSplitOutput() const {

@@ -60,6 +60,11 @@ Generic Configuration
      - true
      - Whether to track CPU usage for stages of individual operators. Can be expensive when processing small batches,
        e.g. < 10K rows.
+   * - operator_batch_size_stats_enabled
+     - bool
+     - true
+     - If true, the driver will collect the operator's input/output batch size through vector flat size estimation, otherwise not.
+     - We might turn this off in use cases which have very wide column width and batch size estimation has non-trivial cpu cost.
    * - hash_adaptivity_enabled
      - bool
      - true
