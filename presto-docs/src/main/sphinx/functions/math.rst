@@ -60,6 +60,20 @@ Mathematical Functions
 
         SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
 
+.. function:: dot_product(array(real), array(real)) -> real
+
+    Returns the dot product of two vectors represented as array(real).
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
+
+.. function:: dot_product(array(double), array(double)) -> double
+
+    Returns the dot product of two vectors represented as array(double).
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
+
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.

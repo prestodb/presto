@@ -49,6 +49,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.Decimals.longTenToNth;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.add;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.isNegative;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.isZero;
@@ -1685,6 +1686,60 @@ public final class MathFunctions
         return sum;
     }
 
+    @Description("Dot Product distance between the given identical sized vectors represented as DOUBLE arrays")
+    @ScalarFunction("dot_product")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double arrayDotProduct(
+            @SqlType("array(double)") Block leftArray,
+            @SqlType("array(double)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments must have identical sizes");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments must not have nulls");
+
+        double result = 0.0;
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
+        }
+
+        return result;
+    }
+
+    @Description("Dot Product distance between the given identical sized vectors represented as REAL arrays")
+    @ScalarFunction("dot_product")
+    @SqlNullable
+    @SqlType(StandardTypes.REAL)
+    public static Long arrayDotProductReal(
+            @SqlType("array(real)") Block leftArray,
+            @SqlType("array(real)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments must have identical sizes");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments must not have nulls");
+
+        float dotProduct = 0.0F;
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            dotProduct += intBitsToFloat((int) REAL.getLong(leftArray, i)) * Float.intBitsToFloat((int) REAL.getLong(rightArray, i));
+        }
+
+        return ((long) floatToRawIntBits(dotProduct));
+    }
+
     private static double mapDotProduct(Block leftMap, Block rightMap)
     {
         TypedSet rightMapKeys = new TypedSet(VARCHAR, rightMap.getPositionCount(), "cosine_similarity");
@@ -1702,17 +1757,6 @@ public final class MathFunctions
                 result += DOUBLE.getDouble(leftMap, i + 1) *
                         DOUBLE.getDouble(rightMap, 2 * position + 1);
             }
-        }
-
-        return result;
-    }
-
-    private static double arrayDotProduct(Block leftArray, Block rightArray)
-    {
-        double result = 0.0;
-
-        for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
         }
 
         return result;
