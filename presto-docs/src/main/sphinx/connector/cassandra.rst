@@ -220,6 +220,7 @@ SET<?>            VARCHAR
 TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP
 TIMEUUID          VARCHAR
+TUPLE             VARCHAR
 VARCHAR           VARCHAR
 VARINT            VARCHAR
 SMALLINT          INTEGER
@@ -230,7 +231,7 @@ DATE              DATE
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
 mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
 
-Types not mentioned in the table above are not supported (e.g. tuple or UDT).
+Data types not listed in the table above, such as UDT, are not supported.
 
 Partition keys can only be of the following types:
 

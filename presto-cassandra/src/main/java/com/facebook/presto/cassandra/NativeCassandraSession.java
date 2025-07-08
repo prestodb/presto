@@ -28,6 +28,7 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.TableOptionsMetadata;
 import com.datastax.driver.core.TokenRange;
 import com.datastax.driver.core.VersionNumber;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
@@ -65,6 +66,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
@@ -216,10 +218,10 @@ public class NativeCassandraSession
         }
 
         // check if there is a comment to establish column ordering
-        String comment = tableMeta.getOptions().getComment();
+        Optional<String> comment = Optional.ofNullable(tableMeta.getOptions()).map(TableOptionsMetadata::getComment);
         Set<String> hiddenColumns = ImmutableSet.of();
-        if (comment != null && comment.startsWith(PRESTO_COMMENT_METADATA)) {
-            String columnOrderingString = comment.substring(PRESTO_COMMENT_METADATA.length());
+        if (comment.isPresent() && comment.get().startsWith(PRESTO_COMMENT_METADATA)) {
+            String columnOrderingString = comment.get().substring(PRESTO_COMMENT_METADATA.length());
 
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
@@ -361,7 +363,7 @@ public class NativeCassandraSession
     {
         CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType().getName());
         List<CassandraType> typeArguments = null;
-        if (cassandraType != null && cassandraType.getTypeArgumentSize() > 0) {
+        if (cassandraType.getTypeArgumentSize() > 0) {
             List<DataType> typeArgs = columnMeta.getType().getTypeArguments();
             switch (cassandraType.getTypeArgumentSize()) {
                 case 1:

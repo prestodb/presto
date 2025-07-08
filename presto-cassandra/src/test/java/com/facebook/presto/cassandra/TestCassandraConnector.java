@@ -110,7 +110,7 @@ public class TestCassandraConnector
         this.server = new CassandraServer();
 
         String keyspace = "test_connector";
-        createTestTables(server.getSession(), keyspace, DATE);
+        createTestTables(server.getSession(), server.getMetadata(), keyspace, DATE);
 
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(connectorId);
