@@ -2655,6 +2655,21 @@ TEST_F(ExprTest, constantToStringEqualsHashConsistency) {
       Variant::row({false, 123, "apples", Variant::array({1, 2, 3})}));
 
   testValue(ROW({}), Variant::row({}));
+
+  auto opaqueType = OpaqueType::create<OpaqueState>();
+
+  OpaqueType::registerSerialization<OpaqueState>(
+      "test-serde",
+      [](const std::shared_ptr<OpaqueState>& value) {
+        return std::to_string(value->x);
+      },
+      [](const std::string& value) -> std::shared_ptr<OpaqueState> {
+        return std::make_shared<OpaqueState>(atoi(value.c_str()));
+      });
+
+  testValue(
+      opaqueType,
+      Variant::opaque(std::make_shared<OpaqueState>(123), opaqueType));
 }
 
 TEST_P(ParameterizedExprTest, fieldAccessToString) {

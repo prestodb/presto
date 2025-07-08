@@ -139,6 +139,13 @@ std::string toStringNoNull(const TypePtr& type, const Variant& value) {
 }
 
 template <>
+std::string toStringNoNull<TypeKind::OPAQUE>(
+    const TypePtr& type,
+    const Variant& value) {
+  return "<opaque>";
+}
+
+template <>
 std::string toStringNoNull<TypeKind::ARRAY>(
     const TypePtr& type,
     const Variant& value) {
@@ -189,7 +196,8 @@ std::string toStringImpl(const TypePtr& type, const Variant& value) {
     return std::string(BaseVector::kNullValueString);
   }
 
-  return VELOX_DYNAMIC_TYPE_DISPATCH(toStringNoNull, type->kind(), type, value);
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
+      toStringNoNull, type->kind(), type, value);
 }
 
 } // namespace
@@ -218,6 +226,24 @@ bool equalsNoNulls(
 
   const auto thisValue = vector->as<SimpleVector<T>>()->valueAt(index);
   const auto otherValue = T(value.value<T>());
+
+  const auto& type = vector->type();
+
+  auto result = type->providesCustomComparison()
+      ? SimpleVector<T>::comparePrimitiveAscWithCustomComparison(
+            type.get(), thisValue, otherValue)
+      : SimpleVector<T>::comparePrimitiveAsc(thisValue, otherValue);
+  return result == 0;
+}
+
+template <>
+bool equalsNoNulls<TypeKind::OPAQUE>(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value) {
+  using T = std::shared_ptr<void>;
+  const auto thisValue = vector->as<SimpleVector<T>>()->valueAt(index);
+  const auto& otherValue = value.value<TypeKind::OPAQUE>().obj;
 
   const auto& type = vector->type();
 
@@ -341,7 +367,7 @@ bool equalsImpl(
         .value();
   }
 
-  return VELOX_DYNAMIC_TYPE_DISPATCH(
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       equalsNoNulls, vector->typeKind(), vector, index, value);
 }
 } // namespace
@@ -390,6 +416,11 @@ uint64_t hashImpl(const TypePtr& type, const Variant& value) {
   } else {
     return folly::hasher<T>{}(T(v));
   }
+}
+
+template <>
+uint64_t hashImpl<TypeKind::OPAQUE>(const TypePtr& type, const Variant& value) {
+  return value.hash();
 }
 
 template <>
@@ -443,7 +474,7 @@ uint64_t hashImpl(const TypePtr& type, const Variant& value) {
     return BaseVector::kNullHash;
   }
 
-  return VELOX_DYNAMIC_TYPE_DISPATCH(hashImpl, type->kind(), type, value);
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(hashImpl, type->kind(), type, value);
 }
 
 } // namespace
