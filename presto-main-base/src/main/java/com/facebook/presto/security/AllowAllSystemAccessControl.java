@@ -230,6 +230,16 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanDropTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }
