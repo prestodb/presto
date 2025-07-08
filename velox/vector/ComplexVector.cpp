@@ -1153,7 +1153,7 @@ std::string ArrayVector::toString(vector_size_t index) const {
 
 void ArrayVector::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.end(), BaseVector::length_);
-  if (offsets_ && !offsets_->unique()) {
+  if (offsets_ && !offsets_->isMutable()) {
     BufferPtr newOffsets =
         AlignedBuffer::allocate<vector_size_t>(newSize, BaseVector::pool_);
     auto rawNewOffsets = newOffsets->asMutable<vector_size_t>();
@@ -1172,7 +1172,7 @@ void ArrayVector::ensureWritable(const SelectivityVector& rows) {
     rawOffsets_ = offsets_->as<vector_size_t>();
   }
 
-  if (sizes_ && !sizes_->unique()) {
+  if (sizes_ && !sizes_->isMutable()) {
     BufferPtr newSizes =
         AlignedBuffer::allocate<vector_size_t>(newSize, BaseVector::pool_);
     auto rawNewSizes = newSizes->asMutable<vector_size_t>();
@@ -1461,7 +1461,7 @@ std::string MapVector::toString(vector_size_t index) const {
 
 void MapVector::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.end(), BaseVector::length_);
-  if (offsets_ && !offsets_->unique()) {
+  if (offsets_ && !offsets_->isMutable()) {
     BufferPtr newOffsets =
         AlignedBuffer::allocate<vector_size_t>(newSize, BaseVector::pool_);
     auto rawNewOffsets = newOffsets->asMutable<vector_size_t>();
@@ -1480,7 +1480,7 @@ void MapVector::ensureWritable(const SelectivityVector& rows) {
     rawOffsets_ = offsets_->as<vector_size_t>();
   }
 
-  if (sizes_ && !sizes_->unique()) {
+  if (sizes_ && !sizes_->isMutable()) {
     BufferPtr newSizes =
         AlignedBuffer::allocate<vector_size_t>(newSize, BaseVector::pool_);
     auto rawNewSizes = newSizes->asMutable<vector_size_t>();

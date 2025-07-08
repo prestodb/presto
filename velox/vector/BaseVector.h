@@ -662,7 +662,7 @@ class BaseVector {
   /// Returns true if the following conditions hold:
   ///  * The vector is singly referenced.
   ///  * The vector has a Flat-like encoding (Flat, Array, Map, Row).
-  ///  * Any child Buffers are mutable  and singly referenced.
+  ///  * Any child Buffers are mutable and singly referenced.
   ///  * All of these conditions hold for child Vectors recursively.
   /// This function is templated rather than taking a
   /// std::shared_ptr<BaseVector> because if we were to do that the compiler

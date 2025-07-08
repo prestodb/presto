@@ -240,13 +240,13 @@ struct VectorPointersBase {
     sizesUnique = unique;
   }
 
-  void assertUnique(const VectorPtr& vector) {
+  void assertMutable(const VectorPtr& vector) {
     ASSERT_EQ(vector.use_count(), 1);
 
     auto* typedVector = vector->as<T>();
-    ASSERT_EQ(nullsUnique, typedVector->nulls()->unique());
-    ASSERT_EQ(offsetsUnique, typedVector->offsets()->unique());
-    ASSERT_EQ(sizesUnique, typedVector->sizes()->unique());
+    ASSERT_EQ(nullsUnique, typedVector->nulls()->isMutable());
+    ASSERT_EQ(offsetsUnique, typedVector->offsets()->isMutable());
+    ASSERT_EQ(sizesUnique, typedVector->sizes()->isMutable());
   }
 
   void assertPointers(const VectorPtr& vector) {
@@ -295,11 +295,12 @@ struct ArrayVectorPointers : public VectorPointersBase<ArrayVector> {
     elementsUnique = unique;
   }
 
-  void assertUnique(const VectorPtr& vector) {
-    VectorPointersBase<ArrayVector>::assertUnique(vector);
+  void assertMutable(const VectorPtr& vector) {
+    VectorPointersBase<ArrayVector>::assertMutable(vector);
 
     auto* arrayVector = vector->as<ArrayVector>();
-    ASSERT_EQ(elementsUnique, (arrayVector->elements().use_count() == 1));
+    ASSERT_EQ(
+        elementsUnique, BaseVector::isVectorWritable(arrayVector->elements()));
   }
 
   void assertPointers(const VectorPtr& vector) {
@@ -334,12 +335,13 @@ struct MapVectorPointers : public VectorPointersBase<MapVector> {
     valuesUnique = unique;
   }
 
-  void assertUnique(const VectorPtr& vector) {
-    VectorPointersBase<MapVector>::assertUnique(vector);
+  void assertMutable(const VectorPtr& vector) {
+    VectorPointersBase<MapVector>::assertMutable(vector);
 
     auto* mapVector = vector->as<MapVector>();
-    ASSERT_EQ(keysUnique, (mapVector->mapKeys().use_count() == 1));
-    ASSERT_EQ(valuesUnique, (mapVector->mapValues().use_count() == 1));
+    ASSERT_EQ(keysUnique, BaseVector::isVectorWritable(mapVector->mapKeys()));
+    ASSERT_EQ(
+        valuesUnique, BaseVector::isVectorWritable(mapVector->mapValues()));
   }
 
   void assertPointers(const VectorPtr& vector) {
@@ -451,6 +453,13 @@ TEST_F(EnsureWritableVectorTest, constant) {
   }
 }
 
+struct MockBufferViewReleaser {
+  void addRef() {}
+  void release() {}
+};
+using MockBufferView = BufferView<MockBufferViewReleaser&>;
+MockBufferViewReleaser releaser;
+
 TEST_F(EnsureWritableVectorTest, array) {
   vector_size_t size = 1'000;
   auto a = makeArrayVector<int32_t>(
@@ -474,7 +483,7 @@ TEST_F(EnsureWritableVectorTest, array) {
 
   result->copy(a.get(), rows, nullptr);
 
-  // Multiply-referenced vector
+  // Multiply-referenced vector.
   auto resultCopy = result;
   ASSERT_FALSE(result.use_count() == 1);
 
@@ -483,12 +492,12 @@ TEST_F(EnsureWritableVectorTest, array) {
   ASSERT_TRUE(result.use_count() == 1);
   ASSERT_NE(resultCopy.get(), result.get());
 
-  // Verify that even rows were copied over
+  // Verify that even rows were copied over.
   for (vector_size_t i = 0; i < size; i += 2) {
     ASSERT_TRUE(a->equalValueAt(result.get(), i, i));
   }
 
-  // Modify odd rows and verify that resultCopy is not affected
+  // Modify odd rows and verify that resultCopy is not affected.
   result->copy(b.get(), oddRows, nullptr);
 
   for (vector_size_t i = 0; i < size; i++) {
@@ -498,7 +507,7 @@ TEST_F(EnsureWritableVectorTest, array) {
     ASSERT_TRUE(a->equalValueAt(resultCopy.get(), i, i));
   }
 
-  // Singly referenced array vector; multiply-referenced elements vector
+  // Singly referenced array vector; multiply-referenced elements vector.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
@@ -506,19 +515,19 @@ TEST_F(EnsureWritableVectorTest, array) {
   pointers.initialize(result);
   auto elementsCopy = result->as<ArrayVector>()->elements();
   pointers.setElementsUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool(), result);
   pointers.assertPointers(result);
 
-  // Verify that even rows were copied over
+  // Verify that even rows were copied over.
   for (vector_size_t i = 0; i < size; i += 2) {
     ASSERT_TRUE(a->equalValueAt(result.get(), i, i)) << "at " << i;
   }
 
   result->copy(b.get(), oddRows, nullptr);
 
-  // Verify that elementsCopy is not modified
+  // Verify that elementsCopy is not modified.
   for (vector_size_t i = 0; i < size; i++) {
     ArrayVectorPtr expected = (i % 2 == 0) ? a : b;
     ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
@@ -529,21 +538,21 @@ TEST_F(EnsureWritableVectorTest, array) {
         << "at " << i;
   }
 
-  // Singly referenced array vector; multiply-referenced offsets buffer
+  // Singly referenced array vector; multiply-referenced offsets buffer.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
   auto offsetsCopy = result->as<ArrayVector>()->offsets();
   pointers.setOffsetsUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
 
-  // Verify offsetsCopy is unmodified
+  // Verify offsetsCopy is unmodified.
   for (vector_size_t i = 0; i < size; i++) {
     ArrayVectorPtr expected = (i % 2 == 0) ? a : b;
     ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
@@ -551,27 +560,64 @@ TEST_F(EnsureWritableVectorTest, array) {
 
   assertEqualOffsetsOrSizes(a->offsets(), offsetsCopy, a->size(), isNullAt(a));
 
-  // Singly referenced array vector; multiply-referenced sizes buffer
+  // Singly referenced array vector; multiply-referenced sizes buffer.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
   auto sizesCopy = result->as<ArrayVector>()->sizes();
   pointers.setSizesUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
 
-  // Verify sizesCopy is unmodified
+  // Verify sizesCopy is unmodified.
   for (vector_size_t i = 0; i < size; i++) {
     ArrayVectorPtr expected = (i % 2 == 0) ? a : b;
     ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
   }
 
   assertEqualOffsetsOrSizes(a->sizes(), sizesCopy, a->size(), isNullAt(a));
+
+  // Test arrays containing buffer views. Buffer views are not mutable even if
+  // they are unique, and must always be copied on write.
+  auto copyOfA = BaseVector::copy(*a);
+
+  result = std::make_shared<ArrayVector>(
+      pool(),
+      a->type(),
+      MockBufferView::create(a->nulls(), releaser),
+      a->size(),
+      MockBufferView::create(a->offsets(), releaser),
+      MockBufferView::create(a->sizes(), releaser),
+      a->elements());
+
+  pointers.initialize(result);
+  pointers.setNullsUnique(false);
+
+  pointers.setOffsetsUnique(false);
+  pointers.setSizesUnique(false);
+
+  pointers.setElementsUnique(false);
+  pointers.assertMutable(result);
+
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
+  pointers.assertPointers(result);
+
+  result->copy(b.get(), oddRows, nullptr);
+
+  // Verify the result is as expected.
+  for (vector_size_t i = 0; i < size; i++) {
+    ArrayVectorPtr expected = (i % 2 == 0) ? a : b;
+    ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
+  }
+
+  // Verify the initial "a" map where we created buffer views has not being
+  // overwritten.
+  test::assertEqualVectors(a, copyOfA);
 }
 
 TEST_F(EnsureWritableVectorTest, map) {
@@ -599,7 +645,7 @@ TEST_F(EnsureWritableVectorTest, map) {
 
   result->copy(a.get(), rows, nullptr);
 
-  // Multiply-referenced vector
+  // Multiply-referenced vector.
   auto resultCopy = result;
   ASSERT_FALSE(result.use_count() == 1);
 
@@ -608,12 +654,12 @@ TEST_F(EnsureWritableVectorTest, map) {
   ASSERT_TRUE(result.use_count() == 1);
   ASSERT_NE(resultCopy.get(), result.get());
 
-  // Verify that even rows were copied over
+  // Verify that even rows were copied over.
   for (vector_size_t i = 0; i < size; i += 2) {
     ASSERT_TRUE(a->equalValueAt(result.get(), i, i));
   }
 
-  // Modify odd rows and verify that resultCopy is not affected
+  // Modify odd rows and verify that resultCopy is not affected.
   result->copy(b.get(), oddRows, nullptr);
 
   for (vector_size_t i = 0; i < size; i++) {
@@ -623,7 +669,7 @@ TEST_F(EnsureWritableVectorTest, map) {
     ASSERT_TRUE(a->equalValueAt(resultCopy.get(), i, i));
   }
 
-  // Singly referenced map vector; multiply-referenced keys vector
+  // Singly referenced map vector; multiply-referenced keys vector.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
@@ -631,19 +677,19 @@ TEST_F(EnsureWritableVectorTest, map) {
   pointers.initialize(result);
   auto keysCopy = result->as<MapVector>()->mapKeys();
   pointers.setKeysUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool(), result);
   pointers.assertPointers(result);
 
-  // Verify that even rows were copied over
+  // Verify that even rows were copied over.
   for (vector_size_t i = 0; i < size; i += 2) {
     ASSERT_TRUE(a->equalValueAt(result.get(), i, i)) << "at " << i;
   }
 
   result->copy(b.get(), oddRows, nullptr);
 
-  // Verify that keysCopy is not modified
+  // Verify that keysCopy is not modified.
   for (vector_size_t i = 0; i < size; i++) {
     MapVectorPtr expected = (i % 2 == 0) ? a : b;
     ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
@@ -653,26 +699,26 @@ TEST_F(EnsureWritableVectorTest, map) {
     ASSERT_TRUE(a->mapKeys()->equalValueAt(keysCopy.get(), i, i)) << "at " << i;
   }
 
-  // Singly referenced map vector; multiply-referenced keys vector
+  // Singly referenced map vector; multiply-referenced values vector.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
   auto valuesCopy = result->as<MapVector>()->mapValues();
   pointers.setValuesUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, ARRAY(INTEGER()), pool(), result);
   pointers.assertPointers(result);
 
-  // Verify that even rows were copied over
+  // Verify that even rows were copied over.
   for (vector_size_t i = 0; i < size; i += 2) {
     ASSERT_TRUE(a->equalValueAt(result.get(), i, i)) << "at " << i;
   }
 
   result->copy(b.get(), oddRows, nullptr);
 
-  // Verify that valuesCopy is not modified
+  // Verify that valuesCopy is not modified.
   for (vector_size_t i = 0; i < size; i++) {
     MapVectorPtr expected = (i % 2 == 0) ? a : b;
     ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
@@ -683,14 +729,14 @@ TEST_F(EnsureWritableVectorTest, map) {
         << "at " << i;
   }
 
-  // Singly referenced map vector; multiply-referenced offsets buffer
+  // Singly referenced map vector; multiply-referenced offsets buffer.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
   auto offsetsCopy = result->as<MapVector>()->offsets();
   pointers.setOffsetsUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
@@ -705,27 +751,66 @@ TEST_F(EnsureWritableVectorTest, map) {
 
   assertEqualOffsetsOrSizes(a->offsets(), offsetsCopy, a->size(), isNullAt(a));
 
-  // Singly referenced map vector; multiply-referenced sizes buffer
+  // Singly referenced map vector; multiply-referenced sizes buffer.
   result = BaseVector::create(result->type(), rows.size(), pool());
   result->copy(a.get(), rows, nullptr);
 
   pointers.initialize(result);
   auto sizesCopy = result->as<MapVector>()->sizes();
   pointers.setSizesUnique(false);
-  pointers.assertUnique(result);
+  pointers.assertMutable(result);
 
   BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
   pointers.assertPointers(result);
 
   result->copy(b.get(), oddRows, nullptr);
 
-  // Verify sizesCopy is unmodified
+  // Verify sizesCopy is unmodified.
   for (vector_size_t i = 0; i < size; i++) {
     MapVectorPtr expected = (i % 2 == 0) ? a : b;
     ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
   }
 
   assertEqualOffsetsOrSizes(a->sizes(), sizesCopy, a->size(), isNullAt(a));
+
+  // Test maps containing buffer views. Buffer views are not mutable even if
+  // they are unique, and must always be copied on write.
+  auto copyOfA = BaseVector::copy(*a);
+
+  result = std::make_shared<MapVector>(
+      pool(),
+      a->type(),
+      MockBufferView::create(a->nulls(), releaser),
+      a->size(),
+      MockBufferView::create(a->offsets(), releaser),
+      MockBufferView::create(a->sizes(), releaser),
+      a->mapKeys(),
+      a->mapValues());
+
+  pointers.initialize(result);
+  pointers.setNullsUnique(false);
+
+  pointers.setOffsetsUnique(false);
+  pointers.setSizesUnique(false);
+
+  pointers.setKeysUnique(false);
+  pointers.setValuesUnique(false);
+  pointers.assertMutable(result);
+
+  BaseVector::ensureWritable(oddRows, result->type(), pool(), result);
+  pointers.assertPointers(result);
+
+  result->copy(b.get(), oddRows, nullptr);
+
+  // Verify the result is as expected.
+  for (vector_size_t i = 0; i < size; i++) {
+    MapVectorPtr expected = (i % 2 == 0) ? a : b;
+    ASSERT_TRUE(expected->equalValueAt(result.get(), i, i)) << "at " << i;
+  }
+
+  // Verify the initial "a" map where we created buffer views has not being
+  // overwritten.
+  test::assertEqualVectors(a, copyOfA);
 }
 
 TEST_F(EnsureWritableVectorTest, allNullArray) {

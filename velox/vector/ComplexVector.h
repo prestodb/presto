@@ -312,6 +312,7 @@ class RowVector : public BaseVector {
 /// 'sizes' data and provide manipulations on them.
 struct ArrayVectorBase : BaseVector {
   ArrayVectorBase(const ArrayVectorBase&) = delete;
+
   const BufferPtr& offsets() const {
     return offsets_;
   }

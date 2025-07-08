@@ -686,6 +686,13 @@ class BufferView : public Buffer {
     return result;
   }
 
+  // Helper method to create a buffer view referencing another existing Buffer.
+  static BufferPtr
+  create(BufferPtr innerBuffer, Releaser releaser, bool podType = true) {
+    return create(
+        innerBuffer->as<uint8_t>(), innerBuffer->size(), releaser, podType);
+  }
+
   ~BufferView() override {
     releaser_.release();
   }
