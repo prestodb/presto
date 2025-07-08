@@ -233,7 +233,7 @@ export default function ResourceGroupView() {
         $('#agg-running-queries-sparkline').sparkline(dataSet.current.numAggregatedRunningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
         $('#agg-queued-queries-sparkline').sparkline(dataSet.current.numAggregatedQueuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
         $('#memory-usage-sparkline').sparkline(dataSet.current.memoryUsage, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-        $('[data-bs-toggle="tooltip"]')?.tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
         timerid.current = setTimeout(fetchData, 1000);
     }
 
