@@ -110,7 +110,7 @@ cmake.define.TREAT_WARNINGS_AS_ERRORS = false
 [tool.setuptools_scm]
 root = '.'
 version_scheme = 'guess-next-dev'
-git_describe_command = 'git describe --dirty --tags --long --match "pyvelox-v[0-9]*.*"'
+git_describe_command = ['git', 'describe', '--dirty', '--tags', '--long', '--match', 'pyvelox-v[0-9]*']
 fallback_version = '0.2.0a'
 
 [tool.cibuildwheel]

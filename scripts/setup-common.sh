@@ -19,7 +19,8 @@ SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 source "$SCRIPT_DIR"/setup-helper-functions.sh
 source "$SCRIPT_DIR"/setup-versions.sh
 
-VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly and gflags shared for use in libvelox.so.
+VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"}        #Build folly and gflags shared for use in libvelox.so.
+VELOX_ARROW_CMAKE_PATCH=${VELOX_ARROW_CMAKE_PATCH:-""} # avoid error due to +u
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 BUILD_GEOS="${BUILD_GEOS:-true}"
@@ -167,6 +168,18 @@ function install_simdjson {
 
 function install_arrow {
   wget_and_untar https://github.com/apache/arrow/archive/apache-arrow-"${ARROW_VERSION}".tar.gz arrow
+  (
+    # Can be removed after an upgrade to Arrow 20.0.0
+    if [ -z "$VELOX_ARROW_CMAKE_PATCH" ]; then
+      # We need to set a different path when building the Dockerfile.
+      ABSOLUTE_SCRIPTDIR=$(realpath $SCRIPT_DIR)
+      VELOX_ARROW_CMAKE_PATCH="$ABSOLUTE_SCRIPTDIR/../CMake/resolve_dependency_modules/arrow/cmake-compatability.patch"
+    fi
+
+    cd "$DEPENDENCY_DIR"/arrow || exit 1
+    git apply "$VELOX_ARROW_CMAKE_PATCH"
+  ) || exit 1
+
   cmake_install_dir arrow/cpp \
     -DARROW_PARQUET=OFF \
     -DARROW_WITH_THRIFT=ON \
@@ -179,11 +192,11 @@ function install_arrow {
     -DARROW_RUNTIME_SIMD_LEVEL=NONE \
     -DARROW_WITH_UTF8PROC=OFF \
     -DARROW_TESTING=ON \
-    -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -DCMAKE_BUILD_TYPE=Release \
     -DARROW_BUILD_STATIC=ON \
-    -DBOOST_ROOT="${INSTALL_PREFIX}" \
-    "${EXTRA_ARROW_OPTIONS}"
+    -DBOOST_ROOT="$INSTALL_PREFIX" \
+    "$EXTRA_ARROW_OPTIONS"
 }
 
 function install_thrift {

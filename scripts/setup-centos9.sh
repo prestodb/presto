@@ -104,7 +104,7 @@ function install_cuda {
   dnf config-manager --add-repo "$repo_url"
   local dashed
   dashed="$(echo "$1" | tr '.' '-')"
-  dnf install -y \
+  dnf_install \
     cuda-compat-"$dashed" \
     cuda-driver-devel-"$dashed" \
     cuda-minimal-build-"$dashed" \
@@ -122,20 +122,20 @@ function install_s3 {
 
 function install_gcs {
   # Dependencies of GCS, probably a workaround until the docker image is rebuilt
-  dnf -y install npm curl-devel c-ares-devel
+  dnf_install npm curl-devel c-ares-devel
   install_gcs-sdk-cpp
 }
 
 function install_abfs {
   # Dependencies of Azure Storage Blob cpp
-  dnf -y install perl-IPC-Cmd openssl libxml2-devel
+  dnf_install perl-IPC-Cmd openssl libxml2-devel
   install_azure-storage-sdk-cpp
 }
 
 function install_hdfs {
-  dnf -y install libxml2-devel libgsasl-devel libuuid-devel krb5-devel
+  dnf_install libxml2-devel libgsasl-devel libuuid-devel krb5-devel
   install_hdfs_deps
-  yum install -y java-1.8.0-openjdk-devel
+  dnf_install java-1.8.0-openjdk-devel
 }
 
 function install_adapters {
@@ -146,8 +146,7 @@ function install_adapters {
 }
 
 function install_faiss_deps {
-  dnf install -y openblas-devel
-  dnf install -y libomp
+  dnf_install openblas-devel libomp
 }
 
 function install_velox_deps {

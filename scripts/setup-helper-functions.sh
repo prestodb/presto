@@ -211,7 +211,7 @@ function cmake_install_dir {
   pushd "${DEPENDENCY_DIR}/$1" || exit
   # remove the directory argument
   shift
-  cmake_install "$@" -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  cmake_install "$@"
   popd || exit
 }
 
@@ -237,6 +237,7 @@ function cmake_install {
   # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
   cmake -Wno-dev "${CMAKE_OPTIONS}" -B"${BINARY_DIR}" \
     -GNinja \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     "${INSTALL_PREFIX+-DCMAKE_PREFIX_PATH=}${INSTALL_PREFIX-}" \
     "${INSTALL_PREFIX+-DCMAKE_INSTALL_PREFIX=}${INSTALL_PREFIX-}" \

@@ -53,6 +53,9 @@ jobs:
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Install Dependencies
+        env:
+          # Remove after image is rebuild for 14016
+          VELOX_ARROW_CMAKE_PATCH: "${{ github.workspace }}/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch"
         run: |
           if git diff --name-only HEAD^1 HEAD | grep -q "scripts/setup-"; then
             # Overwrite old setup scripts with changed versions
@@ -121,7 +124,7 @@ jobs:
         # Some of the adapters dependencies are in the 'adapters' conda env
         shell: mamba run --no-capture-output -n adapters /usr/bin/bash -e {0}
         env:
-          LIBHDFS3_CONF: ${{ github.workspace }}/scripts/hdfs-client.xml
+          LIBHDFS3_CONF: ${{ github.workspace }}/scripts/ci/hdfs-client.xml
         working-directory: _build/release
         run: |
           export CLASSPATH=`/usr/local/hadoop/bin/hdfs classpath --glob`

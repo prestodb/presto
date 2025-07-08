@@ -24,6 +24,9 @@ RUN apt update && \
 
 
 COPY scripts /velox/scripts/
+COPY CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /
+
+ENV VELOX_ARROW_CMAKE_PATCH=/cmake-compatibility.patch
 
 # TZ and DEBIAN_FRONTEND="noninteractive"
 # are required to avoid tzdata installation
