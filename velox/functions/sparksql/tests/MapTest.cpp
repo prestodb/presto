@@ -304,7 +304,7 @@ TEST_F(MapTest, complexTypesDuplicateMapKey) {
   testMapFails(
       "map(c0, c1, c2, c3)",
       {arrayKey, arrayValue, arrayKey, arrayValue},
-      "Duplicate map key (3 elements starting at 0 {1, 2, 3}) was found.");
+      "Duplicate map key ({1, 2, 3}) was found.");
 }
 
 TEST_F(MapTest, complexTypesWithNestedNullsDuplicateMapKey) {
@@ -409,12 +409,12 @@ TEST_F(MapTest, complexTypesWithNestedNullsDuplicateMapKey) {
   testMapFails(
       "map(c0, c1, c2, c3)",
       {arrayKeysWithNull1, valuesForKey1, arrayKeysWithNull2, valuesForKey2},
-      "Duplicate map key (3 elements starting at 0 {1, null, 3}) was found.");
+      "Duplicate map key ({1, null, 3}) was found.");
 
   testMapFails(
       "map(c0, c1, c2, c3)",
       {mapKey1, valueForMapKey1, mapKey2, valueForMapKey2},
-      "Duplicate map key (2 elements starting at 0 {1 => 10, 2 => null}) was found.");
+      "Duplicate map key ({1 => 10, 2 => null}) was found.");
 }
 
 TEST_F(MapTest, resultSize) {

@@ -95,8 +95,7 @@ TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
       BaseVector::wrapInConstant(1, 0, arrVector));
 
   ASSERT_EQ(
-      constantExpr->toString(),
-      "4 elements starting at 0 {[0->2] 3, [1->4] 5, [2->0] 1, [3->1] 2}");
+      constantExpr->toString(), "{[0->2] 3, [1->4] 5, [2->0] 1, [3->1] 2}");
 
   auto sqlExpr = exec::ExprSet({constantExpr}, &execCtx_, false).expr(0);
 
@@ -134,7 +133,7 @@ TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
   ASSERT_EQ(reproExprs.size(), 1);
   // Note that ConstantExpr makes a copy of sharedConstantValue_ to guard
   // against race conditions, which in effect falttens the array.
-  ASSERT_EQ(reproExprs[0]->toString(), "4 elements starting at 0 {3, 5, 1, 2}");
+  ASSERT_EQ(reproExprs[0]->toString(), "{3, 5, 1, 2}");
 }
 
 TEST_F(ExpressionRunnerUnitTest, primitiveConstantsInexpressibleInSql) {

@@ -851,6 +851,8 @@ class BaseVector {
     return toString(false);
   }
 
+  static constexpr std::string_view kNullValueString = "null";
+
   /// Returns string representation of the value in the specified row.
   virtual std::string toString(vector_size_t index) const;
 

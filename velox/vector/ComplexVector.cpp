@@ -25,35 +25,30 @@
 
 namespace facebook::velox {
 
-// Up to # of elements to show as debug string for `toString()`.
-constexpr vector_size_t kMaxElementsInToString = 5;
-
-std::string stringifyTruncatedElementList(
-    vector_size_t start,
+std::string ArrayVectorBase::stringifyTruncatedElementList(
     vector_size_t size,
-    vector_size_t limit,
-    std::string_view delimiter,
     const std::function<void(std::stringstream&, vector_size_t)>&
-        stringifyElementCB) {
-  std::stringstream out;
+        stringifyElement,
+    vector_size_t limit) {
   if (size == 0) {
     return "<empty>";
   }
-  out << size << " elements starting at " << start << " {";
+
+  VELOX_CHECK_GT(limit, 0);
 
   const vector_size_t limitedSize = std::min(size, limit);
+
+  std::stringstream out;
+  out << "{";
   for (vector_size_t i = 0; i < limitedSize; ++i) {
     if (i > 0) {
-      out << delimiter;
+      out << ", ";
     }
-    stringifyElementCB(out, start + i);
+    stringifyElement(out, i);
   }
 
   if (size > limitedSize) {
-    if (limitedSize) {
-      out << delimiter;
-    }
-    out << "...";
+    out << ", ..." << (size - limitedSize) << " more";
   }
   out << "}";
   return out.str();
@@ -65,7 +60,7 @@ std::shared_ptr<RowVector> RowVector::createEmpty(
     velox::memory::MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(type, "Vector creation requires a non-null type.");
   VELOX_CHECK(type->isRow());
-  return std::static_pointer_cast<RowVector>(BaseVector::create(type, 0, pool));
+  return BaseVector::create<RowVector>(type, 0, pool);
 }
 
 bool RowVector::containsNullAt(vector_size_t idx) const {
@@ -403,18 +398,13 @@ std::unique_ptr<SimpleVector<uint64_t>> RowVector::hashAll() const {
 std::string RowVector::toString(vector_size_t index) const {
   VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
   if (isNullAt(index)) {
-    return "null";
+    return std::string(BaseVector::kNullValueString);
   }
-  std::stringstream out;
-  out << "{";
-  for (int32_t i = 0; i < children_.size(); ++i) {
-    if (i > 0) {
-      out << ", ";
-    }
-    out << (children_[i] ? children_[i]->toString(index) : "<not set>");
-  }
-  out << "}";
-  return out.str();
+
+  return ArrayVectorBase::stringifyTruncatedElementList(
+      children_.size(), [&](auto& out, auto i) {
+        out << (children_[i] ? children_[i]->toString(index) : "<not set>");
+      });
 }
 
 void RowVector::ensureWritable(const SelectivityVector& rows) {
@@ -1150,16 +1140,14 @@ std::unique_ptr<SimpleVector<uint64_t>> ArrayVector::hashAll() const {
 std::string ArrayVector::toString(vector_size_t index) const {
   VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
   if (isNullAt(index)) {
-    return "null";
+    return std::string(BaseVector::kNullValueString);
   }
 
+  const auto offset = rawOffsets_[index];
+
   return stringifyTruncatedElementList(
-      rawOffsets_[index],
-      rawSizes_[index],
-      kMaxElementsInToString,
-      ", ",
-      [this](std::stringstream& ss, vector_size_t index) {
-        ss << elements_->toString(index);
+      rawSizes_[index], [&](std::stringstream& ss, vector_size_t index) {
+        ss << elements_->toString(offset + index);
       });
 }
 
@@ -1459,15 +1447,15 @@ BufferPtr MapVector::elementIndices() const {
 std::string MapVector::toString(vector_size_t index) const {
   VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
   if (isNullAt(index)) {
-    return "null";
+    return std::string(BaseVector::kNullValueString);
   }
+
+  const auto offset = rawOffsets_[index];
+
   return stringifyTruncatedElementList(
-      rawOffsets_[index],
-      rawSizes_[index],
-      kMaxElementsInToString,
-      ", ",
-      [this](std::stringstream& ss, vector_size_t index) {
-        ss << keys_->toString(index) << " => " << values_->toString(index);
+      rawSizes_[index], [&](std::stringstream& ss, vector_size_t index) {
+        ss << keys_->toString(offset + index) << " => "
+           << values_->toString(offset + index);
       });
 }
 

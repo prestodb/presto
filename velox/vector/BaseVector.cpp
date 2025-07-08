@@ -550,7 +550,7 @@ std::string BaseVector::toString(vector_size_t index) const {
   if (!nulls_) {
     out << "no nulls";
   } else if (isNullAt(index)) {
-    out << "null";
+    out << kNullValueString;
   } else {
     out << "not null";
   }

@@ -15,6 +15,8 @@
  */
 #include "velox/core/Expressions.h"
 #include "velox/common/encode/Base64.h"
+#include "velox/vector/ComplexVector.h"
+#include "velox/vector/SimpleVector.h"
 #include "velox/vector/VectorSaver.h"
 
 namespace facebook::velox::core {
@@ -123,6 +125,341 @@ TypedExprPtr ConstantTypedExpr::create(
   auto* pool = static_cast<memory::MemoryPool*>(context);
 
   return std::make_shared<ConstantTypedExpr>(restoreVector(dataStream, pool));
+}
+
+namespace {
+
+std::string toStringImpl(const TypePtr& type, const Variant& value);
+
+template <TypeKind Kind>
+std::string toStringNoNull(const TypePtr& type, const Variant& value) {
+  using T = typename TypeTraits<Kind>::NativeType;
+
+  return SimpleVector<T>::valueToString(type, T(value.value<T>()));
+}
+
+template <>
+std::string toStringNoNull<TypeKind::ARRAY>(
+    const TypePtr& type,
+    const Variant& value) {
+  const auto& arrayValue = value.value<TypeKind::ARRAY>();
+  const auto& elementType = type->childAt(0);
+
+  return ArrayVectorBase::stringifyTruncatedElementList(
+      arrayValue.size(), [&](auto& out, auto i) {
+        out << toStringImpl(elementType, arrayValue.at(i));
+      });
+}
+
+template <>
+std::string toStringNoNull<TypeKind::MAP>(
+    const TypePtr& type,
+    const Variant& value) {
+  const auto& mapValue = value.value<TypeKind::MAP>();
+  const auto& keyType = type->childAt(0);
+  const auto& valueType = type->childAt(1);
+
+  auto it = mapValue.begin();
+
+  return ArrayVectorBase::stringifyTruncatedElementList(
+      mapValue.size(), [&](auto& out, auto i) {
+        out << toStringImpl(keyType, it->first) << " => "
+            << toStringImpl(valueType, it->second);
+        ++it;
+      });
+}
+
+template <>
+std::string toStringNoNull<TypeKind::ROW>(
+    const TypePtr& type,
+    const Variant& value) {
+  const auto size = type->size();
+
+  const auto& rowValue = value.value<TypeKind::ROW>();
+  VELOX_CHECK_EQ(size, rowValue.size());
+
+  return ArrayVectorBase::stringifyTruncatedElementList(
+      size, [&](auto& out, auto i) {
+        out << toStringImpl(type->childAt(i), rowValue.at(i));
+      });
+}
+
+std::string toStringImpl(const TypePtr& type, const Variant& value) {
+  if (value.isNull()) {
+    return std::string(BaseVector::kNullValueString);
+  }
+
+  return VELOX_DYNAMIC_TYPE_DISPATCH(toStringNoNull, type->kind(), type, value);
+}
+
+} // namespace
+
+std::string ConstantTypedExpr::toString() const {
+  if (hasValueVector()) {
+    return valueVector_->toString(0);
+  }
+
+  return toStringImpl(type(), value_);
+}
+
+namespace {
+
+bool equalsImpl(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value);
+
+template <TypeKind KIND>
+bool equalsNoNulls(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value) {
+  using T = typename TypeTraits<KIND>::NativeType;
+
+  const auto thisValue = vector->as<SimpleVector<T>>()->valueAt(index);
+  const auto otherValue = T(value.value<T>());
+
+  const auto& type = vector->type();
+
+  auto result = type->providesCustomComparison()
+      ? SimpleVector<T>::comparePrimitiveAscWithCustomComparison(
+            type.get(), thisValue, otherValue)
+      : SimpleVector<T>::comparePrimitiveAsc(thisValue, otherValue);
+  return result == 0;
+}
+
+template <>
+bool equalsNoNulls<TypeKind::ARRAY>(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value) {
+  auto* wrappedVector = vector->wrappedVector();
+  VELOX_CHECK_EQ(VectorEncoding::Simple::ARRAY, wrappedVector->encoding());
+
+  auto* arrayVector = wrappedVector->asUnchecked<ArrayVector>();
+
+  index = vector->wrappedIndex(index);
+
+  const auto offset = arrayVector->offsetAt(index);
+  const auto size = arrayVector->sizeAt(index);
+
+  const auto& arrayValue = value.value<TypeKind::ARRAY>();
+  if (size != arrayValue.size()) {
+    return false;
+  }
+
+  for (auto i = 0; i < size; ++i) {
+    if (!equalsImpl(arrayVector->elements(), offset + i, arrayValue.at(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+template <>
+bool equalsNoNulls<TypeKind::MAP>(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value) {
+  auto* wrappedVector = vector->wrappedVector();
+  VELOX_CHECK_EQ(VectorEncoding::Simple::MAP, wrappedVector->encoding());
+
+  auto* mapVector = wrappedVector->asUnchecked<MapVector>();
+
+  index = vector->wrappedIndex(index);
+
+  const auto size = mapVector->sizeAt(index);
+
+  const auto& mapValue = value.value<TypeKind::MAP>();
+  if (size != mapValue.size()) {
+    return false;
+  }
+
+  const auto sortedIndices = mapVector->sortedKeyIndices(index);
+
+  size_t i = 0;
+  for (const auto& [key, value] : mapValue) {
+    if (!equalsImpl(mapVector->mapKeys(), sortedIndices[i], key)) {
+      return false;
+    }
+
+    if (!equalsImpl(mapVector->mapValues(), sortedIndices[i], value)) {
+      return false;
+    }
+
+    ++i;
+  }
+
+  return true;
+}
+
+template <>
+bool equalsNoNulls<TypeKind::ROW>(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value) {
+  auto* wrappedVector = vector->wrappedVector();
+  VELOX_CHECK_EQ(VectorEncoding::Simple::ROW, wrappedVector->encoding());
+
+  auto* rowVector = wrappedVector->asUnchecked<RowVector>();
+
+  index = vector->wrappedIndex(index);
+
+  const auto size = rowVector->type()->size();
+
+  const auto& rowValue = value.value<TypeKind::ROW>();
+  if (size != rowValue.size()) {
+    return false;
+  }
+
+  for (auto i = 0; i < size; ++i) {
+    if (rowVector->childAt(i) == nullptr) {
+      return false;
+    }
+
+    if (!equalsImpl(rowVector->childAt(i), index, rowValue.at(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool equalsImpl(
+    const VectorPtr& vector,
+    vector_size_t index,
+    const Variant& value) {
+  static constexpr CompareFlags kEqualValueAtFlags =
+      CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
+
+  bool thisNull = vector->isNullAt(index);
+  bool otherNull = value.isNull();
+
+  if (otherNull || thisNull) {
+    return BaseVector::compareNulls(thisNull, otherNull, kEqualValueAtFlags)
+        .value();
+  }
+
+  return VELOX_DYNAMIC_TYPE_DISPATCH(
+      equalsNoNulls, vector->typeKind(), vector, index, value);
+}
+} // namespace
+
+bool ConstantTypedExpr::equals(const ITypedExpr& other) const {
+  const auto* casted = dynamic_cast<const ConstantTypedExpr*>(&other);
+  if (!casted) {
+    return false;
+  }
+
+  if (*this->type() != *casted->type()) {
+    return false;
+  }
+
+  if (this->hasValueVector() != casted->hasValueVector()) {
+    if (this->hasValueVector()) {
+      return equalsImpl(this->valueVector_, 0, casted->value_);
+    } else {
+      return equalsImpl(casted->valueVector_, 0, this->value_);
+    }
+  }
+
+  if (this->hasValueVector()) {
+    return this->valueVector_->equalValueAt(casted->valueVector_.get(), 0, 0);
+  }
+
+  return this->value_ == casted->value_;
+}
+
+namespace {
+
+uint64_t hashImpl(const TypePtr& type, const Variant& value);
+
+template <TypeKind KIND>
+uint64_t hashImpl(const TypePtr& type, const Variant& value) {
+  using T = typename TypeTraits<KIND>::NativeType;
+
+  const auto& v = value.value<KIND>();
+
+  if (type->providesCustomComparison()) {
+    return SimpleVector<T>::hashValueAtWithCustomType(type, T(v));
+  }
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return util::floating_point::NaNAwareHash<T>{}(T(v));
+  } else {
+    return folly::hasher<T>{}(T(v));
+  }
+}
+
+template <>
+uint64_t hashImpl<TypeKind::ARRAY>(const TypePtr& type, const Variant& value) {
+  const auto& arrayValue = value.value<TypeKind::ARRAY>();
+
+  const auto& elementType = type->childAt(0);
+
+  uint64_t hash = BaseVector::kNullHash;
+  for (auto i = 0; i < arrayValue.size(); ++i) {
+    hash = bits::hashMix(hash, hashImpl(elementType, arrayValue.at(i)));
+  }
+  return hash;
+}
+
+template <>
+uint64_t hashImpl<TypeKind::MAP>(const TypePtr& type, const Variant& value) {
+  const auto& mapValue = value.value<TypeKind::MAP>();
+
+  const auto& keyType = type->childAt(0);
+  const auto& valueType = type->childAt(1);
+
+  uint64_t hash = BaseVector::kNullHash;
+  for (const auto& [key, value] : mapValue) {
+    const auto keyValueHash =
+        bits::hashMix(hashImpl(keyType, key), hashImpl(valueType, value));
+    hash = bits::commutativeHashMix(hash, keyValueHash);
+  }
+
+  return hash;
+}
+
+template <>
+uint64_t hashImpl<TypeKind::ROW>(const TypePtr& type, const Variant& value) {
+  const auto& rowValue = value.value<TypeKind::ROW>();
+
+  uint64_t hash = BaseVector::kNullHash;
+  for (auto i = 0; i < rowValue.size(); ++i) {
+    const auto value = hashImpl(type->childAt(i), rowValue.at(i));
+    if (i == 0) {
+      hash = value;
+    } else {
+      hash = bits::hashMix(hash, value);
+    }
+  }
+  return hash;
+}
+
+uint64_t hashImpl(const TypePtr& type, const Variant& value) {
+  if (value.isNull()) {
+    return BaseVector::kNullHash;
+  }
+
+  return VELOX_DYNAMIC_TYPE_DISPATCH(hashImpl, type->kind(), type, value);
+}
+
+} // namespace
+
+size_t ConstantTypedExpr::localHash() const {
+  static const size_t kBaseHash = std::hash<const char*>()("ConstantTypedExpr");
+
+  uint64_t h;
+
+  if (hasValueVector()) {
+    h = valueVector_->hashValueAt(0);
+  } else {
+    h = hashImpl(type(), value_);
+  }
+
+  return bits::hashMix(kBaseHash, h);
 }
 
 void CallTypedExpr::accept(

@@ -1989,10 +1989,10 @@ TEST_F(RowContainerTest, toString) {
 
   EXPECT_EQ(
       rowContainer->toString(rows[0]),
-      "{1, summer, 11, 0.10000000149011612, 3 elements starting at 0 {1, 2, 3}}");
+      "{1, summer, 11, 0.10000000149011612, {1, 2, 3}}");
   EXPECT_EQ(
       rowContainer->toString(rows[1]),
-      "{2, fall, 0, 2.3399999141693115, 2 elements starting at 0 {4, 5}}");
+      "{2, fall, 0, 2.3399999141693115, {4, 5}}");
   EXPECT_EQ(
       rowContainer->toString(rows[2]),
       "{3, winter, 12, 123.00299835205078, null}");

@@ -148,7 +148,7 @@ TEST_F(PlanNodeToSummaryStringTest, expressions) {
       "      projections: 4 out of 7\n"
       "         p1: transform(ROW[\"b\"],lambda ROW<x:BIGINT> -> plus(RO...\n"
       "         p3: multiply(ROW[\"d\"][x],10)\n"
-      "         p5: multiply(length(ROW[\"d\"][z]),strpos(ROW[\"d\"][z],\"f...\n"
+      "         p5: multiply(length(ROW[\"d\"][z]),strpos(ROW[\"d\"][z],fo...\n"
       "         ... 1 more\n"
       "      dereferences: 1 out of 7\n"
       "         y: ROW[\"d\"][y]\n"

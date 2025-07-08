@@ -71,21 +71,9 @@ class ConstantTypedExpr : public ITypedExpr {
                 ? value
                 : BaseVector::wrapInConstant(1, 0, value)} {}
 
-  std::string toString() const override {
-    if (hasValueVector()) {
-      return valueVector_->toString(0);
-    }
-    return value_.toJson(type());
-  }
+  std::string toString() const override;
 
-  size_t localHash() const override {
-    static const size_t kBaseHash =
-        std::hash<const char*>()("ConstantTypedExpr");
-
-    return bits::hashMix(
-        kBaseHash,
-        hasValueVector() ? valueVector_->hashValueAt(0) : value_.hash());
-  }
+  size_t localHash() const override;
 
   bool hasValueVector() const {
     return valueVector_ != nullptr;
@@ -138,26 +126,7 @@ class ConstantTypedExpr : public ITypedExpr {
       const ITypedExprVisitor& visitor,
       ITypedExprVisitorContext& context) const override;
 
-  bool equals(const ITypedExpr& other) const {
-    const auto* casted = dynamic_cast<const ConstantTypedExpr*>(&other);
-    if (!casted) {
-      return false;
-    }
-
-    if (*this->type() != *casted->type()) {
-      return false;
-    }
-
-    if (this->hasValueVector() != casted->hasValueVector()) {
-      return false;
-    }
-
-    if (this->hasValueVector()) {
-      return this->valueVector_->equalValueAt(casted->valueVector_.get(), 0, 0);
-    }
-
-    return this->value_ == casted->value_;
-  }
+  bool equals(const ITypedExpr& other) const;
 
   bool operator==(const ITypedExpr& other) const final {
     return this->equals(other);
@@ -180,15 +149,15 @@ using ConstantTypedExprPtr = std::shared_ptr<const ConstantTypedExpr>;
 
 /// Evaluates a scalar function or a special form.
 ///
-/// Supported special forms are: and, or, cast, try_cast, coalesce, if, switch,
-/// try. See registerFunctionCallToSpecialForms in
+/// Supported special forms are: and, or, cast, try_cast, coalesce, if,
+/// switch, try. See registerFunctionCallToSpecialForms in
 /// expression/RegisterSpecialForm.h for the up-to-date list.
 ///
 /// Regular functions have the following properties: (1) return type is fully
-/// defined by function name and input types; (2) during evaluation all function
-/// arguments are evaluated first before the function itself is evaluated on the
-/// results, a failure to evaluate function argument prevents the function from
-/// being evaluated.
+/// defined by function name and input types; (2) during evaluation all
+/// function arguments are evaluated first before the function itself is
+/// evaluated on the results, a failure to evaluate function argument prevents
+/// the function from being evaluated.
 ///
 /// Special forms are different from regular scalar functions as they do not
 /// always have the above properties.
@@ -198,11 +167,11 @@ using ConstantTypedExprPtr = std::shared_ptr<const ConstantTypedExpr>;
 /// - Conjuncts AND, OR don't have (2): these have logic to stop evaluating
 /// arguments if the outcome is already decided. For example, a > 10 AND b < 3
 /// applied to a = 0 and b = 0 is fully decided after evaluating a > 10. The
-/// result is FALSE. This is important not only from efficiency standpoint, but
-/// semantically as well. Not evaluating unnecessary arguments implicitly
-/// suppresses the errors that might have happened if evaluation proceeded. For
-/// example, a > 10 AND b / a > 1 would fail if both expressions were evaluated
-/// on a = 0.
+/// result is FALSE. This is important not only from efficiency standpoint,
+/// but semantically as well. Not evaluating unnecessary arguments implicitly
+/// suppresses the errors that might have happened if evaluation proceeded.
+/// For example, a > 10 AND b / a > 1 would fail if both expressions were
+/// evaluated on a = 0.
 /// - Coalesce, if, switch also don't have (2): these also have logic to stop
 /// evaluating arguments if the outcome is already decided.
 /// - TRY doesn't have (2) either: it needs to capture and suppress errors
@@ -397,8 +366,8 @@ class FieldAccessTypedExpr : public ITypedExpr {
 
 using FieldAccessTypedExprPtr = std::shared_ptr<const FieldAccessTypedExpr>;
 
-/// Represents a dereference expression which selects a subfield in a struct by
-/// name.
+/// Represents a dereference expression which selects a subfield in a struct
+/// by name.
 class DereferenceTypedExpr : public ITypedExpr {
  public:
   DereferenceTypedExpr(TypePtr type, TypedExprPtr input, uint32_t index)

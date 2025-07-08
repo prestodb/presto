@@ -134,7 +134,7 @@ class IndexLookupJoinTest : public IndexLookupJoinTestBase,
       std::make_unique<folly::CPUThreadPoolExecutor>(128)};
 };
 
-TEST_P(IndexLookupJoinTest, joinCondition) {
+TEST_F(IndexLookupJoinTest, joinCondition) {
   const auto rowType =
       ROW({"c0", "c1", "c2", "c3", "c4"},
           {BIGINT(), BIGINT(), BIGINT(), ARRAY(BIGINT()), BIGINT()});
@@ -147,9 +147,7 @@ TEST_P(IndexLookupJoinTest, joinCondition) {
   auto inFilterCondition = PlanBuilder::parseIndexJoinCondition(
       "contains(ARRAY[1,2], c2)", rowType, pool_.get());
   ASSERT_TRUE(inFilterCondition->isFilter());
-  ASSERT_EQ(
-      inFilterCondition->toString(),
-      "ROW[\"c2\"] IN 2 elements starting at 0 {1, 2}");
+  ASSERT_EQ(inFilterCondition->toString(), "ROW[\"c2\"] IN {1, 2}");
 
   auto betweenFilterCondition = PlanBuilder::parseIndexJoinCondition(
       "c0 between 0 AND 1", rowType, pool_.get());

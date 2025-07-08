@@ -387,6 +387,19 @@ struct ArrayVectorBase : BaseVector {
   /// buffers are mutable (e.g. singly referenced).
   void ensureNullRowsEmpty();
 
+  /// Return a string representation of a limited number of elements at the
+  /// start of the array or map.
+  ///
+  /// @param size Total number of elements.
+  /// @param stringifyElement Function to call to append individual elements.
+  /// Will be called up to 'limit' times.
+  /// @param limit Maximum number of elements to include in the result.
+  static std::string stringifyTruncatedElementList(
+      vector_size_t size,
+      const std::function<void(std::stringstream&, vector_size_t)>&
+          stringifyElement,
+      vector_size_t limit = 5);
+
  protected:
   ArrayVectorBase(
       velox::memory::MemoryPool* pool,

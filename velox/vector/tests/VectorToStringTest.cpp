@@ -48,13 +48,13 @@ TEST_F(VectorToStringTest, arrayOfIntegers) {
   auto arr = makeArrayVector<int64_t>(
       {{0}, {1, 2}, {3, 4, 5}, {6}, {}, {8, 9, 10, 11}});
   ASSERT_EQ(arr->toString(), "[ARRAY ARRAY<BIGINT>: 6 elements, no nulls]");
-  ASSERT_EQ(arr->toString(3), "1 elements starting at 6 {6}");
+  ASSERT_EQ(arr->toString(3), "{6}");
   ASSERT_EQ(
       arr->toString(2, 6),
-      "2: 3 elements starting at 3 {3, 4, 5}\n"
-      "3: 1 elements starting at 6 {6}\n"
+      "2: {3, 4, 5}\n"
+      "3: {6}\n"
       "4: <empty>\n"
-      "5: 4 elements starting at 7 {8, 9, 10, 11}");
+      "5: {8, 9, 10, 11}");
 
   // With nulls.
   arr = makeNullableArrayVector<int64_t>(
@@ -63,21 +63,18 @@ TEST_F(VectorToStringTest, arrayOfIntegers) {
   ASSERT_EQ(arr->toString(4), "<empty>");
   ASSERT_EQ(
       arr->toString(2, 6),
-      "2: 3 elements starting at 3 {3, 4, 5}\n"
-      "3: 1 elements starting at 6 {6}\n"
+      "2: {3, 4, 5}\n"
+      "3: {6}\n"
       "4: <empty>\n"
-      "5: 2 elements starting at 7 {null, 5}");
+      "5: {null, 5}");
 }
 
 TEST_F(VectorToStringTest, mapOfIntegerToDouble) {
   auto map = makeMapVector<int32_t, double>(
       {{{1, 0.1}, {2, 0.2}, {3, 0.3}}, {}, {{4, 0.4}, {5, 0.5}}});
   ASSERT_EQ(map->toString(), "[MAP MAP<INTEGER,DOUBLE>: 3 elements, no nulls]");
-  ASSERT_EQ(
-      map->toString(0),
-      "3 elements starting at 0 {1 => 0.1, 2 => 0.2, 3 => 0.3}");
-  ASSERT_EQ(
-      map->toString(2, 6), "2: 2 elements starting at 3 {4 => 0.4, 5 => 0.5}");
+  ASSERT_EQ(map->toString(0), "{1 => 0.1, 2 => 0.2, 3 => 0.3}");
+  ASSERT_EQ(map->toString(2, 6), "2: {4 => 0.4, 5 => 0.5}");
 }
 
 TEST_F(VectorToStringTest, row) {
@@ -194,9 +191,9 @@ TEST_F(VectorToStringTest, constant) {
   auto constant = BaseVector::wrapInConstant(100, 1, arrayVector);
   ASSERT_EQ(
       constant->toString(true),
-      "[CONSTANT ARRAY<INTEGER>: 100 elements, 2 elements starting at 3 {4, 5}], "
+      "[CONSTANT ARRAY<INTEGER>: 100 elements, {4, 5}], "
       "[ARRAY ARRAY<INTEGER>: 3 elements, no nulls]");
-  ASSERT_EQ(constant->toString(3), "2 elements starting at 3 {4, 5}");
+  ASSERT_EQ(constant->toString(3), "{4, 5}");
 }
 
 TEST_F(VectorToStringTest, dictionary) {

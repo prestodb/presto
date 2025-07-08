@@ -17,19 +17,10 @@
 #include <gtest/gtest.h>
 #include <sstream>
 #include "folly/Conv.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox {
-
-// Forward declaration, which is defined in ComplexVector.cpp
-std::string stringifyTruncatedElementList(
-    vector_size_t start,
-    vector_size_t size,
-    vector_size_t limit,
-    std::string_view delimiter,
-    const std::function<void(std::stringstream&, vector_size_t)>&
-        stringifyElementCB);
-
 namespace {
 TEST(ToStringUtil, stringifyTruncatedElementList) {
   const auto indexAsString = [](std::stringstream& ss, vector_size_t i) {
@@ -38,27 +29,20 @@ TEST(ToStringUtil, stringifyTruncatedElementList) {
 
   // no item
   EXPECT_EQ(
-      stringifyTruncatedElementList(0, 0, 0, ", ", indexAsString), "<empty>");
+      ArrayVectorBase::stringifyTruncatedElementList(0, indexAsString),
+      "<empty>");
   // exact item
   EXPECT_EQ(
-      stringifyTruncatedElementList(0, 5, 5, ", ", indexAsString),
-      "5 elements starting at 0 {0, 1, 2, 3, 4}");
+      ArrayVectorBase::stringifyTruncatedElementList(5, indexAsString),
+      "{0, 1, 2, 3, 4}");
   // more items
   EXPECT_EQ(
-      stringifyTruncatedElementList(1, 3, 2, ", ", indexAsString),
-      "3 elements starting at 1 {1, 2, ...}");
+      ArrayVectorBase::stringifyTruncatedElementList(5, indexAsString, 2),
+      "{0, 1, ...3 more}");
   // less items
   EXPECT_EQ(
-      stringifyTruncatedElementList(1, 3, 5, ", ", indexAsString),
-      "3 elements starting at 1 {1, 2, 3}");
-  // zero limit.
-  EXPECT_EQ(
-      stringifyTruncatedElementList(1, 5, 0, ", ", indexAsString),
-      "5 elements starting at 1 {...}");
-  // different delimiter
-  EXPECT_EQ(
-      stringifyTruncatedElementList(0, 3, 5, "<delimiter>", indexAsString),
-      "3 elements starting at 0 {0<delimiter>1<delimiter>2}");
+      ArrayVectorBase::stringifyTruncatedElementList(3, indexAsString),
+      "{0, 1, 2}");
 }
 } // namespace
 } // namespace facebook::velox
