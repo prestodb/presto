@@ -154,7 +154,7 @@ struct fmt::formatter<facebook::velox::memory::ArbitrationOperation::State>
     : formatter<std::string> {
   auto format(
       facebook::velox::memory::ArbitrationOperation::State state,
-      format_context& ctx) {
+      format_context& ctx) const {
     return formatter<std::string>::format(
         facebook::velox::memory::ArbitrationOperation::stateName(state), ctx);
   }
