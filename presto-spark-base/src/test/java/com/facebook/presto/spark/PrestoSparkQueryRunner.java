@@ -437,6 +437,8 @@ public class PrestoSparkQueryRunner
         logging.setLevel("org.apache.spark", INFO);
         logging.setLevel("org.spark_project", WARN);
         logging.setLevel("com.facebook.presto.spark", INFO);
+        logging.setLevel("com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory", WARN);
+        logging.setLevel("org.apache.spark.scheduler.TaskSetManager", WARN);
         logging.setLevel("org.apache.spark.util.ClosureCleaner", ERROR);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
