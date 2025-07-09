@@ -45,6 +45,7 @@ import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMa
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varbinaryReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -138,6 +139,8 @@ public class OracleClient
         switch (typeHandle.getJdbcType()) {
             case Types.CLOB:
                 return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+            case Types.BLOB:
+                return Optional.of(varbinaryReadMapping());
             case Types.SMALLINT:
                 return Optional.of(smallintReadMapping());
             case Types.FLOAT:
