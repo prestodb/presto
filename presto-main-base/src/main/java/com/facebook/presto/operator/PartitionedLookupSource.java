@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.google.common.io.Closer;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

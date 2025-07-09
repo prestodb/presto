@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Iterator;
 

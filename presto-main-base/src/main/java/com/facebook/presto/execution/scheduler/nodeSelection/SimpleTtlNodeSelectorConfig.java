@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.airlift.configuration.Config;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 import java.util.concurrent.TimeUnit;
 

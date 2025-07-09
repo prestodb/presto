@@ -14,6 +14,7 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.server.PluginInstaller;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.PluginManagerUtil;
@@ -26,10 +27,8 @@ import com.facebook.presto.spi.router.SchedulerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.google.common.collect.ImmutableList;
-import io.airlift.resolver.ArtifactResolver;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 
 import java.io.File;
 import java.util.ArrayList;

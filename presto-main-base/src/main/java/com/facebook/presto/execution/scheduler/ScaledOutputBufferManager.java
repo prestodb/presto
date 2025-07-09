@@ -15,8 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.function.Consumer;
