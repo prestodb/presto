@@ -27,8 +27,9 @@ import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import jakarta.inject.Inject;
-import jakarta.inject.Provider;
 import org.apache.hadoop.hive.common.FileUtils;
+
+import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
