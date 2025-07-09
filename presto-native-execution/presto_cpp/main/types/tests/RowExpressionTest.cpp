@@ -935,7 +935,7 @@ TEST_F(RowExpressionTest, likeSimple) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(callExprToString, "presto.default.like(\"type\",\"%BRASS\")");
+  ASSERT_EQ(callExprToString, "presto.default.like(\"type\",%BRASS)");
 }
 
 TEST_F(RowExpressionTest, likeWithEscape) {
@@ -999,7 +999,7 @@ TEST_F(RowExpressionTest, likeWithEscape) {
 
   auto callExprToString = callExpr->toString();
   ASSERT_EQ(
-      callExpr->toString(), "presto.default.like(\"type\",\"%BRASS\",\"#\")");
+      callExpr->toString(), "presto.default.like(\"type\",%BRASS,#)");
 }
 
 TEST_F(RowExpressionTest, dereference) {

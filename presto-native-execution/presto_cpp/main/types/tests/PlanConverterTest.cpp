@@ -139,10 +139,10 @@ TEST_F(PlanConverterTest, partitionedOutput) {
   // Test fragment's partitioning scheme.
   ASSERT_EQ(
       partitionedOutput->partitionFunctionSpec().toString(),
-      "HASH(\"1 elements starting at 0 {cluster_label_v2}\", expr_181)");
+      "HASH(\"{cluster_label_v2}\", expr_181)");
   auto keys = partitionedOutput->keys();
   ASSERT_EQ(keys.size(), 2);
-  ASSERT_EQ(keys[0]->toString(), "1 elements starting at 0 {cluster_label_v2}");
+  ASSERT_EQ(keys[0]->toString(), "{cluster_label_v2}");
   ASSERT_EQ(keys[1]->toString(), "\"expr_181\"");
   ASSERT_EQ(partitionedOutput->serdeKind(), VectorSerde::Kind::kCompactRow);
 }
