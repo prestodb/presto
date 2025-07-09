@@ -142,6 +142,8 @@ int main(int argc, char** argv) {
       "st_polygon",
       "st_isclosed",
       "st_isempty",
+      "st_length",
+      "st_pointn",
       "st_isring",
       "st_relate",
       "st_contains",

@@ -1726,3 +1726,53 @@ TEST_F(GeometryFunctionsTest, testStIsRing) {
       testStIsRingFunc("POLYGON ((2 0, 2 1, 3 1, 2 0))", true),
       "ST_IsRing only applies to LineString. Input type is: Polygon");
 }
+
+TEST_F(GeometryFunctionsTest, testStLength) {
+  const auto testStLengthFunc = [&](const std::optional<std::string>& wkt,
+                                    const std::optional<double>& expected) {
+    std::optional<double> result =
+        evaluateOnce<double>("ST_Length(ST_GeometryFromText(c0))", wkt);
+
+    if (wkt.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_EQ(result.value(), expected.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testStLengthFunc("LINESTRING EMPTY", 0.0);
+  testStLengthFunc("LINESTRING (0 0, 2 2)", 2.8284271247461903);
+  testStLengthFunc("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 6.0);
+
+  VELOX_ASSERT_USER_THROW(
+      testStLengthFunc("POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))", std::nullopt),
+      "ST_Length only applies to LineString or MultiLineString. Input type is: Polygon");
+}
+
+TEST_F(GeometryFunctionsTest, testStPointN) {
+  const auto testStPointNFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<int32_t>& index,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(ST_PointN(ST_GeometryFromText(c0), c1))", wkt, index);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStPointNFunc("LINESTRING(1 2, 3 4, 5 6, 7 8)", 1, "POINT (1 2)");
+  testStPointNFunc("LINESTRING(1 2, 3 4, 5 6, 7 8)", 3, "POINT (5 6)");
+  testStPointNFunc("LINESTRING(1 2, 3 4, 5 6, 7 8)", 10, std::nullopt);
+  testStPointNFunc("LINESTRING(1 2, 3 4, 5 6, 7 8)", 0, std::nullopt);
+  testStPointNFunc("LINESTRING(1 2, 3 4, 5 6, 7 8)", -1, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testStPointNFunc("POINT (1 2)", -1, std::nullopt),
+      "ST_PointN only applies to LineString. Input type is: Point");
+}

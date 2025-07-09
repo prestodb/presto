@@ -189,6 +189,18 @@ Accessors
    Returns true if and only if this Geometry is an empty GeometryCollection, Polygon,
    Point etc.
 
+.. function:: ST_Length(geometry: Geometry) -> length: double
+
+   Returns the length of a LineString or MultiLineString using Euclidean measurement
+   on a two dimensional plane (based on spatial ref) in projected units. Will
+   return an error if the input geometry is not a LineString or MultiLineString.
+
+.. function:: ST_PointN(linestring: Geometry, index: integer) -> point: geometry
+
+   Returns the vertex of a LineString at a given index (indices start at 1).
+   If the given index is less than 1 or greater than the total number of elements
+   in the collection, returns NULL.
+
 .. function:: geometry_invalid_reason(geometry: Geometry) -> reason: varchar
 
     If ``geometry`` is not valid or not simple, return a description of the

@@ -856,4 +856,74 @@ struct StIsRingFunction {
   }
 };
 
+template <typename T>
+struct StLengthFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<double>& result, const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    auto validate = geospatial::validateType(
+        *geosGeometry,
+        {geos::geom::GeometryTypeId::GEOS_LINESTRING,
+         geos::geom::GeometryTypeId::GEOS_MULTILINESTRING},
+        "ST_Length");
+
+    if (!validate.ok()) {
+      return validate;
+    };
+
+    if (geos::geom::LineString* lineString =
+            dynamic_cast<geos::geom::LineString*>(geosGeometry.get())) {
+      result = lineString->getLength();
+      return validate;
+    }
+    if (geos::geom::MultiLineString* multiLineString =
+            dynamic_cast<geos::geom::MultiLineString*>(geosGeometry.get())) {
+      result = multiLineString->getLength();
+      return validate;
+    }
+
+    VELOX_FAIL(
+        "Validation passed but type not recognized as LineString or MultiLineString");
+  }
+};
+
+template <typename T>
+struct StPointNFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& geometry,
+      const arg_type<int32_t>& index) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    auto validate = geospatial::validateType(
+        *geosGeometry,
+        {geos::geom::GeometryTypeId::GEOS_LINESTRING},
+        "ST_PointN");
+
+    if (!validate.ok()) {
+      VELOX_USER_FAIL(validate.message());
+    };
+
+    if (geos::geom::LineString* lineString =
+            dynamic_cast<geos::geom::LineString*>(geosGeometry.get())) {
+      if (index < 1 || index > lineString->getNumPoints()) {
+        return false;
+      }
+      geospatial::GeometrySerializer::serialize(
+          *lineString->getPointN(index - 1), result);
+      return true;
+    }
+
+    VELOX_FAIL(
+        "Validation passed but type not recognized as LineString or MultiLineString");
+  }
+};
+
 } // namespace facebook::velox::functions

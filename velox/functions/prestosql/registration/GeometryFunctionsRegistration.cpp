@@ -101,6 +101,10 @@ void registerAccessors(const std::string& prefix) {
   registerFunction<StIsEmptyFunction, bool, Geometry>(
       {{prefix + "ST_IsEmpty"}});
   registerFunction<StIsRingFunction, bool, Geometry>({{prefix + "ST_IsRing"}});
+  registerFunction<StLengthFunction, double, Geometry>(
+      {{prefix + "ST_Length"}});
+  registerFunction<StPointNFunction, Geometry, Geometry, int32_t>(
+      {{prefix + "ST_PointN"}});
 }
 
 } // namespace
