@@ -17,14 +17,15 @@
 
 #include <assert.h>
 #include <fmt/format.h>
+#include <folly/CPortability.h>
+#include <folly/Likely.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstdint>
 #include <cstring>
 #include <string_view>
 #include <vector>
-#include "folly/CPortability.h"
-#include "folly/Likely.h"
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/external/md5/md5.h"
 #include "velox/functions/lib/Utf8Utils.h"
@@ -686,6 +687,117 @@ FOLLY_ALWAYS_INLINE void pad(
       output.data() + paddingOffset + fullPadCopies * padString.size(),
       padString.data(),
       padPrefixByteLength);
+}
+
+namespace detail {
+
+template <bool strictSpace>
+inline bool isSpaceAscii(unsigned char ch) {
+  if constexpr (strictSpace) {
+    return ch == ' ';
+  } else {
+    return std::isspace(ch);
+  }
+}
+
+template <bool strictSpace>
+inline bool isSpaceUtf8(utf8proc_int32_t cp) {
+  if constexpr (strictSpace) {
+    return cp == 0x20;
+  } else {
+    return isUnicodeWhiteSpace(cp);
+  }
+}
+
+template <bool strictSpace, typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE void initcapAsciiImpl(
+    TOutString& output,
+    const TInString& input) {
+  output.resize(input.size());
+  const char* inputChars = input.data();
+  char* outputChars = output.data();
+
+  bool isStartOfWord = true;
+  for (size_t i = 0; i < input.size(); ++i) {
+    unsigned char currentChar = static_cast<unsigned char>(inputChars[i]);
+
+    if (isSpaceAscii<strictSpace>(currentChar)) {
+      isStartOfWord = true;
+      outputChars[i] = currentChar;
+    } else if (isStartOfWord) {
+      outputChars[i] = std::toupper(currentChar);
+      isStartOfWord = false;
+    } else {
+      outputChars[i] = std::tolower(currentChar);
+    }
+  }
+}
+
+template <bool strictSpace, typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE bool initcapUtf8Impl(
+    TOutString& output,
+    const TInString& input) {
+  const char* inputBytes = input.data();
+  const char* inputEnd = inputBytes + input.size();
+
+  output.resize(input.size() * 4);
+  char* outputStart = output.data();
+  char* outputBytes = outputStart;
+
+  bool isStartOfWord = true;
+
+  while (inputBytes < inputEnd) {
+    utf8proc_int32_t originalCodepoint;
+    auto numBytesRead = utf8proc_iterate(
+        reinterpret_cast<const uint8_t*>(inputBytes),
+        inputEnd - inputBytes,
+        &originalCodepoint);
+    if (numBytesRead < 0) {
+      return false;
+    }
+
+    if (isSpaceUtf8<strictSpace>(originalCodepoint)) {
+      isStartOfWord = true;
+      // Copy delimiter as is.
+      std::memcpy(outputBytes, inputBytes, numBytesRead);
+      outputBytes += numBytesRead;
+    } else if (isStartOfWord) {
+      auto upperSize = upperUnicode(
+          outputBytes,
+          static_cast<size_t>(outputStart + output.size() - outputBytes),
+          inputBytes,
+          numBytesRead);
+      outputBytes += upperSize;
+      isStartOfWord = false;
+    } else {
+      auto lowerSize = lowerUnicode<strictSpace>(
+          outputBytes,
+          static_cast<size_t>(outputStart + output.size() - outputBytes),
+          inputBytes,
+          numBytesRead);
+      outputBytes += lowerSize;
+    }
+    inputBytes += numBytesRead;
+  }
+
+  output.resize(outputBytes - outputStart);
+  return true;
+}
+
+} // namespace detail
+
+template <
+    bool strictSpace,
+    bool isAscii,
+    typename TOutString,
+    typename TInString>
+FOLLY_ALWAYS_INLINE bool initcap(TOutString& output, const TInString& input) {
+  if constexpr (isAscii) {
+    detail::initcapAsciiImpl<strictSpace>(output, input);
+    return true;
+  } else {
+    return detail::initcapUtf8Impl<strictSpace>(output, input);
+  }
 }
 
 } // namespace facebook::velox::functions::stringImpl
