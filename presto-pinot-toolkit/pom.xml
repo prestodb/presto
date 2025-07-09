@@ -472,6 +472,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -709,6 +714,9 @@
                                     <ignoredDependency>io.grpc:::</ignoredDependency>
                                     <ignoredDependency>commons-codec:commons-codec::</ignoredDependency>
                                 </ignoredDependencies>
+                                <ignoredNonTestScopedDependencies>
+                                    <ignoredNonTestScopedDependency>javax.inject:javax.inject</ignoredNonTestScopedDependency>
+                                </ignoredNonTestScopedDependencies>
                             </configuration>
                         </execution>
                     </executions>

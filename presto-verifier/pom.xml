@@ -205,6 +205,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
@@ -364,6 +369,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <ignoredDependencies>javax.inject:javax.inject</ignoredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
