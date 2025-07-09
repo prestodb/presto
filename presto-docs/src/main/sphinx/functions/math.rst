@@ -62,7 +62,7 @@ Mathematical Functions
 
 .. function:: dot_product(x, y) -> double
 
-    Returns the dot product between of two vectors ``x`` and ``y``::
+    Returns the dot product of two vectors ``x`` and ``y``::
 
         SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
 
