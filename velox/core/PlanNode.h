@@ -162,7 +162,7 @@ struct PlanSummaryOptions {
 
 class PlanNode : public ISerializable {
  public:
-  explicit PlanNode(const PlanNodeId& id) : id_{id} {}
+  explicit PlanNode(PlanNodeId id) : id_{std::move(id)} {}
 
   virtual ~PlanNode() {}
 
@@ -822,6 +822,7 @@ class AbstractProjectNode : public PlanNode {
       const std::vector<std::string>& names,
       const std::vector<TypedExprPtr>& projections) {
     std::vector<TypePtr> types;
+    types.reserve(projections.size());
     for (auto& projection : projections) {
       types.push_back(projection->type());
     }

@@ -1265,14 +1265,14 @@ AbstractJoinNode::AbstractJoinNode(
       rightKeys_.size(),
       "JoinNode requires same number of join keys on left and right sides");
   auto leftType = sources_[0]->outputType();
-  for (auto key : leftKeys_) {
+  for (const auto& key : leftKeys_) {
     VELOX_CHECK(
         leftType->containsChild(key->name()),
         "Left side join key not found in left side output: {}",
         key->name());
   }
   auto rightType = sources_[1]->outputType();
-  for (auto key : rightKeys_) {
+  for (const auto& key : rightKeys_) {
     VELOX_CHECK(
         rightType->containsChild(key->name()),
         "Right side join key not found in right side output: {}",
