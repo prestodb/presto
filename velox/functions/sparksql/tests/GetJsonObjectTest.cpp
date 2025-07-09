@@ -64,6 +64,20 @@ TEST_F(GetJsonObjectTest, basic) {
           "$[0].my.info.age"),
       "5");
 
+  // Json object with space in key.
+  EXPECT_EQ(getJsonObject(R"({"a b": "1"})", "$.a b"), "1");
+  EXPECT_EQ(getJsonObject(R"({"a": "1"})", "$. a"), "1");
+  EXPECT_EQ(getJsonObject(R"({"a b": "1"})", "$. a b"), "1");
+  EXPECT_EQ(getJsonObject(R"({"two spaces": "1"})", "$.  two spaces"), "1");
+  EXPECT_EQ(getJsonObject(R"({"a": "1"})", "$.a "), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"a b": "1"})", "$.a b "), std::nullopt);
+  EXPECT_EQ(
+      getJsonObject(R"({"two spaces": "1"})", "$.  two spaces "), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"a": "1"})", "$ .a"), std::nullopt);
+  EXPECT_EQ(
+      getJsonObject(R"({"my": {"hello": true}})", "$.  my.  hello"), "true");
+  EXPECT_EQ(
+      getJsonObject(R"({"my": {"hello": true}})", "$.my.  hello"), "true");
   // Json object as result.
   EXPECT_EQ(
       getJsonObject(
