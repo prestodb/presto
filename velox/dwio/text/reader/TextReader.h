@@ -214,6 +214,7 @@ class TextRowReader : public RowReader {
   uint64_t fileLength_;
   std::string ownedString_;
   StringViewBufferHolder stringViewBuffer_;
+  std::shared_ptr<DataBuffer<char>> varBinBuf_;
 };
 
 } // namespace facebook::velox::dwio::common

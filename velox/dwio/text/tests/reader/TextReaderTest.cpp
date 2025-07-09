@@ -1387,6 +1387,77 @@ TEST_F(TextReaderTest, tripleNestedArraysWithCustomDelimiters) {
   ASSERT_EQ(rowReader->next(10, result), 0);
 }
 
+TEST_F(TextReaderTest, varbinarySuccessfulDecoding) {
+  // Test successful Base64 decoding for VARBINARY type
+
+  auto type = ROW({{"col_binary", VARBINARY()}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/varbinary");
+
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+  ASSERT_EQ(rowReader->next(10, result), 2);
+
+  auto rowVector = std::static_pointer_cast<RowVector>(result);
+  auto binaryVector = rowVector->childAt(0)->as<FlatVector<StringView>>();
+
+  // Verify the decoded binary data
+  EXPECT_EQ(binaryVector->valueAt(0), StringView("Hello World"));
+  EXPECT_EQ(binaryVector->valueAt(1), StringView("TestData"));
+}
+
+TEST_F(TextReaderTest, varbinaryUnsuccessfulDecoding) {
+  // Test unsuccessful Base64 decoding for VARBINARY type
+
+  auto type = ROW({{"col_binary", VARBINARY()}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/varbinary_unsuccessful");
+
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+  ASSERT_EQ(rowReader->next(10, result), 2);
+
+  auto rowVector = std::static_pointer_cast<RowVector>(result);
+  auto binaryVector = rowVector->childAt(0)->as<FlatVector<StringView>>();
+
+  // Verify the data was copied as-is (fallback behavior)
+  // When Base64 decoding fails, the original string is copied directly
+  EXPECT_EQ(binaryVector->valueAt(0), StringView("InvalidBase64!"));
+  EXPECT_EQ(binaryVector->valueAt(1), StringView("Another@Invalid#String"));
+}
+
 } // namespace
 
 } // namespace facebook::velox::text
