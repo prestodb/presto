@@ -1574,7 +1574,10 @@ void HashTable<ignoreNullKeys>::checkHashBitsOverlap(
     int8_t spillInputStartPartitionBit) {
   if (spillInputStartPartitionBit != kNoSpillInputStartPartitionBit &&
       hashMode() != HashMode::kArray) {
-    VELOX_CHECK_LT(sizeBits_ - 1, spillInputStartPartitionBit);
+    VELOX_CHECK_LT(
+        sizeBits_ - 1,
+        spillInputStartPartitionBit,
+        "The size bits of the hash table must be lower than the spilling partition bits to avoid overlap");
   }
 }
 

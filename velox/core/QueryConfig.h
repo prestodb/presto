@@ -323,7 +323,7 @@ class QueryConfig {
       "spill_file_create_config";
 
   /// Default offset spill start partition bit. It is used with
-  /// 'kJoinSpillPartitionBits' or 'kAggregationSpillPartitionBits' together to
+  /// 'kSpillNumPartitionBits' together to
   /// calculate the spilling partition number for join spill or aggregation
   /// spill.
   static constexpr const char* kSpillStartPartitionBit =

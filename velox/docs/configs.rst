@@ -432,7 +432,7 @@ Spilling
    * - spiller_start_partition_bit
      - integer
      - 29
-     - The start partition bit which is used with `spiller_partition_bits` together to calculate the spilling partition number.
+     - The start partition bit which is used with `spiller_num_partition_bits` together to calculate the spilling partition number.
    * - spiller_num_partition_bits
      - integer
      - 3
