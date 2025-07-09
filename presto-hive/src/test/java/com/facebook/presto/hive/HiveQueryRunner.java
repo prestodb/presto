@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.Identity;
@@ -238,6 +239,8 @@ public final class HiveQueryRunner
                     .put("tpch.column-naming", "standard")
                     .build();
             queryRunner.createCatalog("tpchstandard", "tpch", tpchProperties);
+
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
             ExtendedHiveMetastore metastore;
             metastore = externalMetastore.orElseGet(() -> getFileHiveMetastore(queryRunner));

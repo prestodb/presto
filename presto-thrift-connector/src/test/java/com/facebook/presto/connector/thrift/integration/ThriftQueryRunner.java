@@ -29,6 +29,7 @@ import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -138,6 +139,7 @@ public final class ThriftQueryRunner
                 .put("presto-thrift.lookup-requests-concurrency", "2")
                 .build();
         queryRunner.createCatalog("thrift", "presto-thrift", connectorProperties);
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
         return queryRunner;
     }
