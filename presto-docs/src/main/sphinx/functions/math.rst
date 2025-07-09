@@ -60,6 +60,12 @@ Mathematical Functions
 
         SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
 
+.. function:: dot_product(x, y) -> double
+
+    Returns the dot product between of two vectors ``x`` and ``y``::
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
+
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.
