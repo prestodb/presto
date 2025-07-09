@@ -1495,6 +1495,13 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(CAST(null AS array(double)), CAST(null AS array(double)))",
                 DOUBLE, null);
+        // treat null inside array as zero
+        assertFunction(
+                "dot_product(array[DOUBLE '1.0', null, DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, 10.0d);
+        assertFunction(
+                "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', null, DOUBLE '3.0'])",
+                DOUBLE, 10.0d);
         // NaN test
         assertFunction("dot_product(array[nan()], array[nan()])",
                 DOUBLE, Double.NaN);
@@ -1535,6 +1542,13 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(CAST(null AS array(real)), CAST(null AS array(real)))",
                 REAL, null);
+        // null inside array as zero
+        assertFunction(
+                "dot_product(array[REAL '1.0', null, REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, 10.0f);
+        assertFunction(
+                "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', null, REAL '3.0'])",
+                REAL, 10.0f);
         // NaN test
         assertFunction("dot_product(array[CAST(nan() AS REAL)], array[CAST(nan() AS REAL)])",
                 REAL, Float.NaN);
