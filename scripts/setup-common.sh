@@ -173,7 +173,7 @@ function install_arrow {
     if [ -z "$VELOX_ARROW_CMAKE_PATCH" ]; then
       # We need to set a different path when building the Dockerfile.
       ABSOLUTE_SCRIPTDIR=$(realpath $SCRIPT_DIR)
-      VELOX_ARROW_CMAKE_PATCH="$ABSOLUTE_SCRIPTDIR/../CMake/resolve_dependency_modules/arrow/cmake-compatability.patch"
+      VELOX_ARROW_CMAKE_PATCH="$ABSOLUTE_SCRIPTDIR/../CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch"
     fi
 
     cd "$DEPENDENCY_DIR"/arrow || exit 1
