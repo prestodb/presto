@@ -293,8 +293,7 @@ distribute/*
 *.bin
 cmake_build
 .cmake_build
-cmake-build-debug
-cmake-build-release
+cmake-build-*
 
 # tests
 test/test.sql
