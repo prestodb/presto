@@ -296,6 +296,8 @@ TEST_F(S3FileSystemTest, writeFileAndRead) {
 
   ASSERT_EQ(result.size(), 1);
   ASSERT_TRUE(result[0] == file);
+
+  ASSERT_TRUE(s3fs.exists(s3File));
 }
 
 TEST_F(S3FileSystemTest, invalidConnectionSettings) {
