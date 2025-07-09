@@ -1468,6 +1468,7 @@ public class TestMathFunctions
     @Test
     public void testArrayDotProduct()
     {
+        // functionality test
         assertFunction(
                 "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
                 DOUBLE, 14.0d);
@@ -1480,9 +1481,11 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(array[DOUBLE '0.0', DOUBLE '0.0', DOUBLE '0.0'], array[DOUBLE '0.0', DOUBLE '0.0', DOUBLE '0.0'])",
                 DOUBLE, 0.0d);
+        // identical size test
         assertInvalidFunction(
                 "dot_product(array[DOUBLE '1.0', DOUBLE '2.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
                 "Both array arguments must have identical sizes");
+        // null test
         assertFunction(
                 "dot_product(CAST(null AS array(double)), array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
                 DOUBLE, null);
@@ -1492,11 +1495,20 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(CAST(null AS array(double)), CAST(null AS array(double)))",
                 DOUBLE, null);
+        // NaN test
+        assertFunction("dot_product(array[nan()], array[nan()])",
+                DOUBLE, Double.NaN);
+        // infinity test
+        assertFunction("dot_product(array[infinity()], array[infinity()])",
+                DOUBLE, Double.POSITIVE_INFINITY);
+        assertFunction("dot_product(array[infinity()], array[-1.0])",
+                DOUBLE, Double.NEGATIVE_INFINITY);
     }
 
     @Test
     public void testArrayDotProductReal()
     {
+        // functionality test
         assertFunction(
                 "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
                 REAL, 14.0f);
@@ -1509,9 +1521,11 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(array[REAL '0.0', REAL '0.0', REAL '0.0'], array[REAL '0.0', REAL '0.0', REAL '0.0'])",
                 REAL, 0.0f);
+        // identical size test
         assertInvalidFunction(
                 "dot_product(array[REAL '1.0', REAL '2.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
                 "Both array arguments must have identical sizes");
+        // null test
         assertFunction(
                 "dot_product(CAST(null AS array(real)), array[REAL '1.0', REAL '2.0', REAL '3.0'])",
                 REAL, null);
@@ -1521,6 +1535,14 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(CAST(null AS array(real)), CAST(null AS array(real)))",
                 REAL, null);
+        // NaN test
+        assertFunction("dot_product(array[CAST(nan() AS REAL)], array[CAST(nan() AS REAL)])",
+                REAL, Float.NaN);
+        // infinity test
+        assertFunction("dot_product(array[CAST(infinity() AS REAL)], array[CAST(infinity() AS REAL)])",
+                REAL, Float.POSITIVE_INFINITY);
+        assertFunction("dot_product(array[CAST(infinity() AS REAL)], array[REAL '-1.0'])",
+                REAL, Float.NEGATIVE_INFINITY);
     }
 
     @Test
