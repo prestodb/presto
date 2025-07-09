@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-druid</artifactId>
+    <name>presto-druid</name>
     <description>Presto - Druid Connector</description>
     <packaging>presto-plugin</packaging>
 

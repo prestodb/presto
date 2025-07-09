@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-cassandra</artifactId>
+    <name>presto-cassandra</name>
     <description>Presto - Cassandra Connector</description>
     <packaging>presto-plugin</packaging>
 

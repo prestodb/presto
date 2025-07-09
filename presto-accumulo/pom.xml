@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-accumulo</artifactId>
+    <name>presto-accumulo</name>
     <description>Presto - Accumulo Connector</description>
     <packaging>presto-plugin</packaging>
 

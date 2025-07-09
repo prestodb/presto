@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-ml</artifactId>
+    <name>presto-ml</name>
     <description>Presto - Machine Learning Plugin</description>
     <packaging>presto-plugin</packaging>
 

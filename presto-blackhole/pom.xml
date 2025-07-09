@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-blackhole</artifactId>
+    <name>presto-blackhole</name>
     <description>Presto - Black Hole Connector</description>
     <packaging>presto-plugin</packaging>
 

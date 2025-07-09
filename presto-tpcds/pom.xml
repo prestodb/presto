@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-tpcds</artifactId>
+    <name>presto-tpcds</name>
     <description>Presto - TPC-DS Connector</description>
     <packaging>presto-plugin</packaging>
 
