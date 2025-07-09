@@ -67,7 +67,9 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
+    @Deprecated
     private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
+    private static final String PARQUET_WRITER_DATAPAGE_VERSION = "parquet_writer_datapage_version";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     private static final String SYMLINK_OPTIMIZED_READER_ENABLED = "symlink_optimized_reader_enabled";
@@ -444,13 +446,22 @@ public final class HiveSessionProperties
                         false),
                 new PropertyMetadata<>(
                         PARQUET_WRITER_VERSION,
-                        "Parquet: Writer version",
+                        "Parquet: Writer version (deprecated)",
                         VARCHAR,
                         ParquetProperties.WriterVersion.class,
                         parquetFileWriterConfig.getWriterVersion(),
                         false,
                         value -> ParquetProperties.WriterVersion.valueOf(((String) value).toUpperCase()),
                         ParquetProperties.WriterVersion::name),
+                new PropertyMetadata<>(
+                        PARQUET_WRITER_DATAPAGE_VERSION,
+                        "Parquet: Datapage version (V1 or V2)",
+                        VARCHAR,
+                        DataPageVersion.class,
+                        DataPageVersion.V1,
+                        false,
+                        value -> DataPageVersion.fromString(((String) value).toUpperCase()),
+                        DataPageVersion::name),
                 booleanProperty(
                         IGNORE_UNREADABLE_PARTITION,
                         "Ignore unreadable partitions and report as warnings instead of failing the query",
@@ -997,7 +1008,7 @@ public final class HiveSessionProperties
 
     public static ParquetProperties.WriterVersion getParquetWriterVersion(ConnectorSession session)
     {
-        return session.getProperty(PARQUET_WRITER_VERSION, ParquetProperties.WriterVersion.class);
+        return session.getProperty(PARQUET_WRITER_DATAPAGE_VERSION, DataPageVersion.class).toWriterVersion();
     }
 
     public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
