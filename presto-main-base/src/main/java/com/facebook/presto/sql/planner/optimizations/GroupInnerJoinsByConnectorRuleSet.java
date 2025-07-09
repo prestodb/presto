@@ -28,7 +28,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.JoinTableInfo;
 import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -42,7 +41,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.NullabilityAnalyzer;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -162,6 +160,8 @@ public class GroupInnerJoinsByConnectorRuleSet
     public GroupInnerJoinsByConnectorRuleSet(Metadata metadata, PlanOptimizer predicatePushdown)
     {
         this.metadata = metadata;
+        // TODO: Remove - this is incorrect to pass. PredicatePushdown is a PlanOptimizer and not an IterativeOptimizer
+        // It cannot work with GroupReferences
         this.predicatePushdownOptimizer = predicatePushdown;
     }
 
@@ -343,21 +343,20 @@ public class GroupInnerJoinsByConnectorRuleSet
             Lookup lookup = context.getLookup();
             Session session = context.getSession();
             PlanNodeIdAllocator idAllocator = context.getIdAllocator();
-            VariableAllocator variableAllocator = context.getVariableAllocator();
 
             MultiJoinNode groupInnerJoinsMultiJoinNode = new JoinNodeFlattener(node, functionResolution, determinismEvaluator, lookup).toMultiJoinNode();
             MultiJoinNode rewrittenMultiJoinNode = joinPushdownCombineSources(groupInnerJoinsMultiJoinNode, idAllocator, metadata, session, lookup);
             if (rewrittenMultiJoinNode.getContainsCombinedSources()) {
                 // Create a left deep join tree
-                PlanNode leftDeepJoinTree = createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
                 // Push pulled up predicates to re-form the Join conditions and remove CrossJoins
-                return predicatePushdownOptimizer.optimize(
-                        leftDeepJoinTree,
-                        session,
-                        TypeProvider.viewOf(variableAllocator.getVariables()),
-                        variableAllocator,
-                        idAllocator,
-                        context.getWarningCollector()).getPlanNode();
+                // return predicatePushdownOptimizer.optimize(
+                //         leftDeepJoinTree,
+                //         session,
+                //         TypeProvider.viewOf(variableAllocator.getVariables()),
+                //         variableAllocator,
+                //         idAllocator,
+                //         context.getWarningCollector()).getPlanNode();
+                return createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
             }
             return node;
         }
