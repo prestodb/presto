@@ -417,14 +417,14 @@ BingTileType::bingTilesAround(
     return folly::makeUnexpected(mpSize.error());
   }
 
-  int64_t mapTileIndex = (mpSize.value() / kTilePixels) - 1;
+  int64_t maxTileIndex = (mpSize.value() / kTilePixels) - 1;
   std::vector<uint64_t> tiles;
   tiles.reserve(9);
   for (int32_t i = -1; i <= 1; ++i) {
     for (int32_t j = -1; j <= 1; ++j) {
       int32_t x = static_cast<int32_t>(tileX.value()) + i;
       int32_t y = static_cast<int32_t>(tileY.value()) + j;
-      if (x >= 0 && x <= mapTileIndex && y >= 0 && y <= mapTileIndex) {
+      if (x >= 0 && x <= maxTileIndex && y >= 0 && y <= maxTileIndex) {
         tiles.push_back(bingTileCoordsToInt(x, y, zoomLevel));
       }
     }
