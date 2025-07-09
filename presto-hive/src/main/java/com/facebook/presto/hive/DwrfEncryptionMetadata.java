@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -37,6 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class DwrfEncryptionMetadata
         implements EncryptionMetadata
 {
@@ -51,6 +55,7 @@ public class DwrfEncryptionMetadata
      * Visible only for JSON deserialization. In code use {@link this#forPerField} or {@link this#forTable} methods.
      */
     @JsonCreator
+    @ThriftConstructor
     public DwrfEncryptionMetadata(
             @JsonProperty Map<String, byte[]> fieldToKeyData,
             @JsonProperty Map<String, String> extraMetadata,
@@ -68,24 +73,28 @@ public class DwrfEncryptionMetadata
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Map<String, byte[]> getFieldToKeyData()
     {
         return fieldToKeyData;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Map<String, String> getExtraMetadata()
     {
         return extraMetadata;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public String getEncryptionAlgorithm()
     {
         return encryptionAlgorithm;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public String getEncryptionProvider()
     {
         return encryptionProvider;

@@ -44,6 +44,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorThriftCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -160,6 +161,7 @@ public class HiveConnectorFactory
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
             ConnectorMetadataUpdaterProvider metadataUpdaterProvider = injector.getInstance(ConnectorMetadataUpdaterProvider.class);
             ConnectorTypeSerdeProvider connectorTypeSerdeProvider = injector.getInstance(ConnectorTypeSerdeProvider.class);
+            ConnectorThriftCodecProvider connectorThriftCodecProvider = injector.getInstance(ConnectorThriftCodecProvider.class);
 
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(hiveSessionProperties.getSessionProperties());
             allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
@@ -182,7 +184,8 @@ public class HiveConnectorFactory
                     planOptimizerProvider,
                     metadataUpdaterProvider,
                     connectorTypeSerdeProvider,
-                    classLoader);
+                    classLoader,
+                    connectorThriftCodecProvider);
         }
         catch (Exception e) {
             throwIfUnchecked(e);
