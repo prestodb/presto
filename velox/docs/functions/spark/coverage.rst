@@ -1,3 +1,9 @@
+=================
+Function Coverage
+=================
+
+Here is a list of all scalar, aggregate, and window functions from Spark, with functions that are available in Velox highlighted.
+
 .. raw:: html
 
     <style>
