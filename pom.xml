@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>105</version>
+        <version>107</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.219</dep.airlift.version>
+        <dep.airlift.version>0.220</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -60,7 +60,6 @@
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.11.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.7.1</dep.asm.version>
@@ -88,7 +87,7 @@
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.17.0</dep.commons.lang3.version>
-        <dep.guice.version>7.0.0</dep.guice.version>
+        <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
@@ -419,6 +418,12 @@
                 <groupId>jakarta.ws.rs</groupId>
                 <artifactId>jakarta.ws.rs-api</artifactId>
                 <version>4.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.inject</groupId>
+                <artifactId>javax.inject</artifactId>
+                <version>1</version>
             </dependency>
 
             <dependency>
@@ -1124,6 +1129,12 @@
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
                 <version>0.8.7</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>log</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1280,6 +1291,24 @@
                 <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>concurrent</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>configuration</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>log</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>stats</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1298,12 +1327,40 @@
                 <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>stats</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>configuration</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>concurrent</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>configuration</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>log</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>security</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2046,12 +2103,28 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>testing-mysql-server-base</artifactId>
                 <version>${dep.testing-mysql-server-5.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>concurrent</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>log</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
                 <version>9.6.3-4</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.airlift</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2295,6 +2368,10 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2310,6 +2387,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2331,6 +2412,10 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2346,6 +2431,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>

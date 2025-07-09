@@ -256,6 +256,11 @@
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
         <!-- Iceberg -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>

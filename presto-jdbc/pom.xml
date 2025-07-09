@@ -369,6 +369,10 @@
                                     <shadedPattern>${shadeBase}.jakarta.inject</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>javax.inject</pattern>
+                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>org.openjdk.jol</pattern>
                                     <shadedPattern>${shadeBase}.jol</shadedPattern>
                                 </relocation>
