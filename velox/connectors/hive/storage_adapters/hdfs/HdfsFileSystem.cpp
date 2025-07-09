@@ -197,4 +197,23 @@ bool HdfsFileSystem::exists(std::string_view path) {
   return impl_->hdfsShim()->Exists(impl_->hdfsClient(), path.data()) == 0;
 }
 
+void HdfsFileSystem::mkdir(
+    std::string_view path,
+    const DirectoryOptions& options) {
+  // Only remove the scheme for hdfs path.
+  if (path.find(kScheme) == 0) {
+    path.remove_prefix(kScheme.length());
+    if (auto index = path.find('/')) {
+      path.remove_prefix(index);
+    }
+  }
+
+  VELOX_CHECK_EQ(
+      impl_->hdfsShim()->MakeDirectory(impl_->hdfsClient(), path.data()),
+      0,
+      "Cannot mkdir {} in HDFS, error is : {}",
+      path,
+      impl_->hdfsShim()->GetLastExceptionRootCause());
+}
+
 } // namespace facebook::velox::filesystems
