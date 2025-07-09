@@ -2709,4 +2709,41 @@ TEST_F(RowContainerTest, storeAndCollectColumnStats) {
   }
 }
 
+TEST_F(RowContainerTest, setAllNull) {
+  std::vector<TypePtr> keyTypes = {INTEGER()};
+  std::vector<Accumulator> accumulators{Accumulator(
+      true, 8, false, 8, INTEGER(), [](auto, auto) {}, [](auto) {})};
+
+  auto rowContainer = std::make_unique<RowContainer>(
+      keyTypes,
+      true,
+      accumulators,
+      std::vector<TypePtr>{},
+      false,
+      true,
+      false,
+      false,
+      pool_.get());
+
+  auto row = rowContainer->newRow();
+
+  auto keyColumn = rowContainer->columnAt(0);
+  auto accColumn = rowContainer->columnAt(1);
+  ASSERT_FALSE(
+      RowContainer::isNullAt(row, keyColumn.nullByte(), keyColumn.nullMask()));
+  ASSERT_FALSE(
+      RowContainer::isNullAt(row, accColumn.nullByte(), accColumn.nullMask()));
+  ASSERT_EQ(
+      (row[accColumn.initializedByte()] & accColumn.initializedMask()), 0);
+
+  rowContainer->setAllNull(row);
+
+  ASSERT_TRUE(
+      RowContainer::isNullAt(row, keyColumn.nullByte(), keyColumn.nullMask()));
+  ASSERT_TRUE(
+      RowContainer::isNullAt(row, accColumn.nullByte(), accColumn.nullMask()));
+  ASSERT_EQ(
+      (row[accColumn.initializedByte()] & accColumn.initializedMask()), 0);
+}
+
 } // namespace facebook::velox::exec::test

@@ -174,17 +174,17 @@ RowContainer::RowContainer(
   // bits. 'numRowsWithNormalizedKey_' gives the number of rows with
   // the extra field.
   int32_t offset = 0;
-  int32_t nullOffset = 0;
+  int32_t flagOffset = 0;
   bool isVariableWidth = false;
   for (auto& type : keyTypes_) {
     typeKinds_.push_back(type->kind());
     types_.push_back(type);
     offsets_.push_back(offset);
     offset += typeKindSize(type->kind());
-    nullOffsets_.push_back(nullOffset);
+    nullOffsets_.push_back(flagOffset);
     isVariableWidth |= !type->isFixedWidth();
     if (nullableKeys_) {
-      ++nullOffset;
+      ++flagOffset;
     }
   }
   // Make offset at least sizeof pointer so that there is space for a
@@ -192,18 +192,16 @@ RowContainer::RowContainer(
   offset = std::max<int32_t>(offset, sizeof(void*));
   const int32_t firstAggregateOffset = offset;
   if (!accumulators.empty()) {
-    // This moves nullOffset to the start of the next byte.
+    // This moves flagOffset to the start of the next byte.
     // This is to guarantee the null and initialized bits for an aggregate
     // always appear in the same byte.
-    nullOffset = (nullOffset + 7) & -8;
+    flagOffset = (flagOffset + 7) & -8;
   }
   for (const auto& accumulator : accumulators) {
-    // Initialized bit.  Set when the accumulator is initialized.
-    nullOffsets_.push_back(nullOffset);
-    ++nullOffset;
     // Null bit.
-    nullOffsets_.push_back(nullOffset);
-    ++nullOffset;
+    nullOffsets_.push_back(flagOffset);
+    // Increment for two bits: null bit and following initialized bit.
+    flagOffset += kNumAccumulatorFlags;
     isVariableWidth |= !accumulator.isFixedSize();
     usesExternalMemory_ |= accumulator.usesExternalMemory();
     alignment_ = combineAlignments(accumulator.alignment(), alignment_);
@@ -211,21 +209,19 @@ RowContainer::RowContainer(
   for (auto& type : dependentTypes) {
     types_.push_back(type);
     typeKinds_.push_back(type->kind());
-    nullOffsets_.push_back(nullOffset);
-    ++nullOffset;
+    nullOffsets_.push_back(flagOffset);
+    ++flagOffset;
     isVariableWidth |= !type->isFixedWidth();
   }
   if (hasProbedFlag) {
-    nullOffsets_.push_back(nullOffset);
-    probedFlagOffset_ = nullOffset + firstAggregateOffset * 8;
-    ++nullOffset;
+    probedFlagOffset_ = flagOffset + firstAggregateOffset * 8;
+    ++flagOffset;
   }
   // Free flag.
-  nullOffsets_.push_back(nullOffset);
-  freeFlagOffset_ = nullOffset + firstAggregateOffset * 8;
-  ++nullOffset;
+  freeFlagOffset_ = flagOffset + firstAggregateOffset * 8;
+  ++flagOffset;
   // Add 1 to the last null offset to get the number of bits.
-  flagBytes_ = bits::nbytes(nullOffsets_.back() + 1);
+  flagBytes_ = bits::nbytes(flagOffset);
   // Fixup 'nullOffsets_' to be the bit number from the start of the row.
   for (int32_t i = 0; i < nullOffsets_.size(); ++i) {
     nullOffsets_[i] += firstAggregateOffset * 8;
@@ -250,14 +246,6 @@ RowContainer::RowContainer(
     offset += sizeof(void*);
   }
   fixedRowSize_ = bits::roundUp(offset, alignment_);
-  // A distinct hash table has no aggregates and if the hash table has
-  // no nulls, it may be that there are no null flags.
-  if (!nullOffsets_.empty()) {
-    // All flags like free and probed flags and null flags for keys and non-keys
-    // start as 0. This is also used to mark aggregates as uninitialized on row
-    // creation.
-    initialNulls_.resize(flagBytes_, 0x0);
-  }
   originalNormalizedKeySize_ = hasNormalizedKeys_
       ? bits::roundUp(sizeof(normalized_key_t), alignment_)
       : 0;
@@ -268,16 +256,7 @@ RowContainer::RowContainer(
         offsets_[i],
         (nullableKeys_ || i >= keyTypes_.size()) ? nullOffsets_[nullOffsetsPos]
                                                  : RowColumn::kNotNullOffset);
-
-    // offsets_ contains the offsets for keys, then accumulators, then dependent
-    // columns.  This captures the case where i is the index of an accumulator.
-    if (!accumulators.empty() && i >= keyTypes_.size() &&
-        i < keyTypes_.size() + accumulators.size()) {
-      // Aggregates have null flags and initialized flags.
-      nullOffsetsPos += kNumAccumulatorFlags;
-    } else {
-      ++nullOffsetsPos;
-    }
+    ++nullOffsetsPos;
   }
   rowColumnsStats_.resize(types_.size());
 }
@@ -305,6 +284,16 @@ char* RowContainer::newRow() {
   return initializeRow(row, false /* reuse */);
 }
 
+void RowContainer::setAllNull(char* row) {
+  VELOX_CHECK(!bits::isBitSet(row, freeFlagOffset_));
+  removeOrUpdateRowColumnStats(row, /*setToNull=*/true);
+  if (!nullOffsets_.empty()) {
+    for (auto i : nullOffsets_) {
+      row[nullByte(i)] |= nullMask(i);
+    }
+  }
+}
+
 char* RowContainer::initializeRow(char* row, bool reuse) {
   if (reuse) {
     auto rows = folly::Range<char**>(&row, 1);
@@ -317,10 +306,9 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
     ::memset(row, 0, fixedRowSize_);
   }
   if (!nullOffsets_.empty()) {
-    ::memcpy(
-        row + nullByte(nullOffsets_[0]),
-        initialNulls_.data(),
-        initialNulls_.size());
+    // Sets all null and initialized bits to 0 (for each accumulator,
+    // initialized bit follows the null bit).
+    ::memset(row + nullByte(nullOffsets_[0]), 0x0, flagBytes_);
   }
   if (rowSizeOffset_) {
     variableRowSize(row) = 0;

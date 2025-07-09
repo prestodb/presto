@@ -328,13 +328,7 @@ class RowContainer {
   /// Sets all fields, aggregates, keys and dependents to null. Used when making
   /// a row with uninitialized keys for aggregates with no-op partial
   /// aggregation.
-  void setAllNull(char* row) {
-    removeOrUpdateRowColumnStats(row, /*setToNull=*/true);
-    if (!nullOffsets_.empty()) {
-      memset(row + nullByte(nullOffsets_[0]), 0xff, initialNulls_.size());
-      bits::clearBit(row, freeFlagOffset_);
-    }
-  }
+  void setAllNull(char* row);
 
   /// The row size excluding any out-of-line stored variable length values.
   int32_t fixedRowSize() const {
@@ -1512,7 +1506,7 @@ class RowContainer {
   // Indicates if this row container has rows with duplicate keys. This only
   // applies if 'nextOffset_' is set.
   tsan_atomic<bool> hasDuplicateRows_{false};
-  // Bit position of null bit  in the row. 0 if no null flag. Order is keys,
+  // Bit position of null bit in the row. 0 if no null flag. Order is keys,
   // accumulators, dependent.
   std::vector<int32_t> nullOffsets_;
   // Position of field or accumulator. Corresponds 1:1 to 'nullOffset_'.
@@ -1543,9 +1537,6 @@ class RowContainer {
   // Extra bytes to reserve before  each added row for a normalized key. Set to
   // 0 after deciding not to use normalized keys.
   int normalizedKeySize_;
-  // Copied over the null bits of each row on initialization. Keys are
-  // not null, aggregates are null.
-  std::vector<uint8_t> initialNulls_;
   uint64_t numRows_ = 0;
   // Head of linked list of free rows.
   char* firstFreeRow_ = nullptr;
