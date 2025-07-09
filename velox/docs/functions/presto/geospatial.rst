@@ -174,6 +174,21 @@ Accessors
     Examples of non-simple geometries include LineStrings with self-intersections,
     Polygons with empty rings for holes, and more.
 
+.. function:: ST_IsClosed(geometry: Geometry) -> closed: bool
+
+    Returns true if the LineString’s start and end points are coincident. Will
+    return an error if the input geometry is not a LineString or MultiLineString.
+
+.. function:: ST_IsRing(geometry: Geometry) -> ring: bool
+
+   Returns true if and only if the line is closed and simple. Will return an error
+   if input geometry is not a LineString.
+
+.. function:: ST_IsEmpty(geometry: Geometry) -> empty: bool
+
+   Returns true if and only if this Geometry is an empty GeometryCollection, Polygon,
+   Point etc.
+
 .. function:: geometry_invalid_reason(geometry: Geometry) -> reason: varchar
 
     If ``geometry`` is not valid or not simple, return a description of the
