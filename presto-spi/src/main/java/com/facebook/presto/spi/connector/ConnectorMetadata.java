@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
@@ -724,6 +725,14 @@ public interface ConnectorMetadata
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return Optional.empty();
+    }
+
+    /**
+     * List the index columns on a given table.
+     */
+    default Set<String> getIndexColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return emptySet();
     }
 
     /**
