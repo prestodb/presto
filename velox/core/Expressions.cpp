@@ -135,7 +135,7 @@ template <TypeKind Kind>
 std::string toStringNoNull(const TypePtr& type, const Variant& value) {
   using T = typename TypeTraits<Kind>::NativeType;
 
-  return SimpleVector<T>::valueToString(type, T(value.value<T>()));
+  return SimpleVector<T>::valueToString(type, T(value.value<Kind>()));
 }
 
 template <>
@@ -217,15 +217,15 @@ bool equalsImpl(
     vector_size_t index,
     const Variant& value);
 
-template <TypeKind KIND>
+template <TypeKind Kind>
 bool equalsNoNulls(
     const VectorPtr& vector,
     vector_size_t index,
     const Variant& value) {
-  using T = typename TypeTraits<KIND>::NativeType;
+  using T = typename TypeTraits<Kind>::NativeType;
 
   const auto thisValue = vector->as<SimpleVector<T>>()->valueAt(index);
-  const auto otherValue = T(value.value<T>());
+  const auto otherValue = T(value.value<Kind>());
 
   const auto& type = vector->type();
 
@@ -401,11 +401,11 @@ namespace {
 
 uint64_t hashImpl(const TypePtr& type, const Variant& value);
 
-template <TypeKind KIND>
+template <TypeKind Kind>
 uint64_t hashImpl(const TypePtr& type, const Variant& value) {
-  using T = typename TypeTraits<KIND>::NativeType;
+  using T = typename TypeTraits<Kind>::NativeType;
 
-  const auto& v = value.value<KIND>();
+  const auto& v = value.value<Kind>();
 
   if (type->providesCustomComparison()) {
     return SimpleVector<T>::hashValueAtWithCustomType(type, T(v));

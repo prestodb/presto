@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <type_traits>
-
 #include <folly/container/F14Map.h>
 #include <folly/hash/Hash.h>
 #include <glog/logging.h>
@@ -197,6 +195,12 @@ class RowVector : public BaseVector {
   using BaseVector::toString;
 
   std::string toString(vector_size_t index) const override;
+
+  /// For backwards compatibility.
+  /// TODO Remove after updating callsites.
+  [[deprecated]]
+  std::string deprecatedToString(vector_size_t index, vector_size_t limit)
+      const;
 
   void ensureWritable(const SelectivityVector& rows) override;
 

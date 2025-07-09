@@ -396,15 +396,26 @@ std::unique_ptr<SimpleVector<uint64_t>> RowVector::hashAll() const {
 }
 
 std::string RowVector::toString(vector_size_t index) const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return deprecatedToString(index, 5 /* limit */);
+#pragma GCC diagnostic pop
+}
+
+std::string RowVector::deprecatedToString(
+    vector_size_t index,
+    vector_size_t limit) const {
   VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
   if (isNullAt(index)) {
     return std::string(BaseVector::kNullValueString);
   }
 
   return ArrayVectorBase::stringifyTruncatedElementList(
-      children_.size(), [&](auto& out, auto i) {
+      children_.size(),
+      [&](auto& out, auto i) {
         out << (children_[i] ? children_[i]->toString(index) : "<not set>");
-      });
+      },
+      limit);
 }
 
 void RowVector::ensureWritable(const SelectivityVector& rows) {

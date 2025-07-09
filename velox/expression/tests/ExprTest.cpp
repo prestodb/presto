@@ -2642,6 +2642,7 @@ TEST_F(ExprTest, constantToStringEqualsHashConsistency) {
   testValue(BOOLEAN(), false);
 
   testValue(VARCHAR(), "test");
+  testValue(VARBINARY(), Variant::binary("test"));
 
   testValue(ARRAY(INTEGER()), Variant::array({1, 2, 3, 4, 5, 6, 7}));
   testValue(ARRAY(VARCHAR()), Variant::array({}));
