@@ -435,6 +435,76 @@ jobs:
           path: |
             /tmp/fuzzer_repro
 
+  presto-sot-fuzzer-run:
+    name: Expression Fuzzer with Presto SOT
+    needs: compile
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:presto-java
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/ccache/
+      LINUX_DISTRO: centos
+    steps:
+
+      - name: Download Presto expression fuzzer
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: presto
+
+      - name: Checkout Repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: velox
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
+
+      - name: Run Presto expression fuzzer with Presto as a source of truth
+        run: |
+          cd velox
+          cp ./scripts/ci/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          ls -lR $PRESTO_HOME/etc
+          $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
+          # Sleep for 60 seconds to allow Presto server to start.
+          sleep 60
+          /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA IF NOT EXISTS hive.tpch;'
+          cd -
+          mkdir -p /tmp/fuzzer_repro/logs/
+          chmod -R 777 /tmp/fuzzer_repro
+          chmod +x velox_expression_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
+          ./velox_expression_fuzzer_test \
+                --seed ${random_seed} \
+                --enable_variadic_signatures \
+                --velox_fuzzer_enable_complex_types \
+                --lazy_vector_generation_ratio 0.2 \
+                --common_dictionary_wraps_generation_ratio=0.3 \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
+                --enable_dereference \
+                --duration_sec 900 \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/fuzzer_repro/logs \
+                --repro_persist_path=/tmp/fuzzer_repro \
+                --special_forms="cast,coalesce,if" \
+                --velox_fuzzer_max_level_of_nesting=1 \
+                --presto_url=http://127.0.0.1:8080 \
+          && echo -e "\n\nFuzzer run finished successfully."
+
+      - name: Archive expression production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: presto-sot-fuzzer-failure-artifacts
+          path: |
+            /tmp/fuzzer_repro
+
   presto-bias-fuzzer:
     name: Presto Bias Fuzzer
     runs-on: ubuntu-latest
