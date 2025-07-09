@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-session-property-managers</artifactId>
+    <name>presto-session-property-managers</name>
     <description>Presto - Session Property Managers</description>
     <packaging>presto-plugin</packaging>
 

@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-singlestore</artifactId>
+    <name>presto-singlestore</name>
     <description>Presto - SingleStore Connector</description>
     <packaging>presto-plugin</packaging>
 

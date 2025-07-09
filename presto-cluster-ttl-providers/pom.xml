@@ -8,6 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>presto-cluster-ttl-providers</artifactId>
+    <name>presto-cluster-ttl-providers</name>
     <description>Presto - Cluster Ttl Providers</description>
     <packaging>presto-plugin</packaging>
 

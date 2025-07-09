@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-clickhouse</artifactId>
+    <name>presto-clickhouse</name>
     <description>Presto - Clickhouse Connector</description>
     <packaging>presto-plugin</packaging>
 

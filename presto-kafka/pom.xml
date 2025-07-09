@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-kafka</artifactId>
+    <name>presto-kafka</name>
     <description>Presto - Kafka Connector</description>
     <packaging>presto-plugin</packaging>
 

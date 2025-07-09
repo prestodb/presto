@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-testing-docker</artifactId>
+    <name>presto-testing-docker</name>
     <description>presto-testing-docker</description>
 
     <properties>

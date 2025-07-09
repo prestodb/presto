@@ -8,6 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>presto-sqlserver</artifactId>
+    <name>presto-sqlserver</name>
     <description>Presto - SQL Server Connector</description>
     <packaging>presto-plugin</packaging>
 
