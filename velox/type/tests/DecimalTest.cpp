@@ -128,6 +128,38 @@ void testMaxStringViewSize(
       DecimalUtil::maxStringViewSize(precision, scale), expectedMaxStringSize);
 }
 
+template <typename T>
+void testCastFromString(
+    const std::vector<std::string>& inputs,
+    int toPrecision,
+    int toScale,
+    const std::vector<T>& expectedUnscaleValues) {
+  for (int i = 0; i < inputs.size(); ++i) {
+    SCOPED_TRACE(fmt::format(
+        "Index: {}, input: {}, expectedUnscaleValue: {}.",
+        i,
+        inputs[i],
+        expectedUnscaleValues[i]));
+    T decimalValue;
+    auto status = DecimalUtil::castFromString<T>(
+        StringView(inputs[i]), toPrecision, toScale, decimalValue);
+    EXPECT_TRUE(status.ok());
+    EXPECT_EQ(expectedUnscaleValues[i], decimalValue);
+  }
+}
+
+template <typename T>
+void testCastFromString(
+    const std::string& input,
+    int toPrecision,
+    int toScale,
+    const std::string& expectedError) {
+  T decimalValue;
+  auto status = DecimalUtil::castFromString<T>(
+      StringView(input), toPrecision, toScale, decimalValue);
+  EXPECT_EQ(status, Status::UserError(expectedError));
+}
+
 std::string zeros(uint32_t numZeros) {
   return std::string(numZeros, '0');
 }
@@ -569,6 +601,194 @@ TEST(DecimalTest, castToString) {
       DecimalUtil::kLongDecimalMax, 38, 0, 39, std::string(38, '9'));
   testcastToString<int128_t>(
       DecimalUtil::kLongDecimalMin, 38, 0, 39, "-" + std::string(38, '9'));
+}
+
+TEST(DecimalTest, castFromString) {
+  testCastFromString<int64_t>(
+      {"9999999999.99",
+       "15",
+       "1.5",
+       "-1.5",
+       "1.556",
+       "1.554",
+       ("1.556" + std::string(32, '1')).data(),
+       ("1.556" + std::string(32, '9')).data(),
+       "0000.123",
+       ".12300000000",
+       "+09",
+       "9.",
+       ".9",
+       "3E2",
+       "-3E+2",
+       "3E+2",
+       "3E+00002",
+       "3E-2",
+       "3e+2",
+       "3e-2",
+       "3.5E-2",
+       "3.4E-2",
+       "3.5E+2",
+       "3.4E+2",
+       "31.423e+2",
+       "31.423e-2",
+       "31.523e-2",
+       "-3E-00000"},
+      12,
+      2,
+      {999'999'999'999,
+       1500,
+       150,
+       -150,
+       156,
+       155,
+       156,
+       156,
+       12,
+       12,
+       900,
+       900,
+       90,
+       30000,
+       -30000,
+       30000,
+       30000,
+       3,
+       30000,
+       3,
+       4,
+       3,
+       35000,
+       34000,
+       314230,
+       31,
+       32,
+       -300});
+
+  // Truncates the fractional digits with exponent.
+  testCastFromString<int128_t>(
+      {"112345612.23e-6",
+       "112345662.23e-6",
+       "1.23e-6",
+       "1.23e-3",
+       "1.26e-3",
+       "1.23456781e3",
+       "1.23456789e3",
+       "1.23456789123451789123456789e9",
+       "1.23456789123456789123456789e9"},
+      20,
+      4,
+      {1123456,
+       1123457,
+       0,
+       12,
+       13,
+       12345678,
+       12345679,
+       12345678912345,
+       12345678912346});
+
+  const auto minDecimalStr = '-' + std::string(36, '9') + '.' + "99";
+  const auto maxDecimalStr = std::string(36, '9') + '.' + "99";
+  testCastFromString<int128_t>(
+      {minDecimalStr, maxDecimalStr, "123456789012345678901234.567"},
+      38,
+      2,
+      {
+          DecimalUtil::kLongDecimalMin,
+          DecimalUtil::kLongDecimalMax,
+          HugeInt::build(
+              669260, 10962463713375599297U), // 12345678901234567890123457
+      });
+
+  const std::string fractionLarge = "1.9" + std::string(67, '9');
+  const std::string fractionLargeExp = "1.9" + std::string(67, '9') + "e2";
+  const std::string fractionLargeNegExp =
+      "1000.9" + std::string(67, '9') + "e-2";
+  testCastFromString<int128_t>(
+      {('-' + std::string(38, '9')),
+       std::string(38, '9'),
+       fractionLarge,
+       fractionLargeExp,
+       fractionLargeNegExp},
+      38,
+      0,
+      {DecimalUtil::kLongDecimalMin, DecimalUtil::kLongDecimalMax, 2, 200, 10});
+}
+
+TEST(DecimalTest, castFromStringError) {
+  testCastFromString<int128_t>(
+      std::string(280, '9'), 38, 0, "Value too large.");
+
+  // Overflows when parsing fractional digits.
+  const std::string fractionOverflow = std::string(36, '9') + '.' + "23456";
+  testCastFromString<int128_t>(fractionOverflow, 38, 10, "Value too large.");
+
+  const std::string fractionRoundUp = "0." + std::string(38, '9') + "6";
+  testCastFromString<int128_t>(fractionRoundUp, 38, 38, "Value too large.");
+
+  testCastFromString<int128_t>(
+      "0.0444a", 38, 0, "Value is not a number. Chars are invalid.");
+
+  testCastFromString<int128_t>(
+      "", 38, 0, "Value is not a number. Input is empty.");
+
+  // Exponent > LongDecimalType::kMaxPrecision.
+  testCastFromString<int128_t>("1.23e67", 38, 0, "Value too large.");
+
+  // Forcing the scale to be zero overflows.
+  testCastFromString<int128_t>("20908.23e35", 38, 0, "Value too large.");
+
+  // Rescale overflows.
+  testCastFromString<int128_t>(
+      "111111111111111111.23", 38, 38, "Value too large.");
+
+  testCastFromString<int128_t>(
+      "23e-5d",
+      38,
+      0,
+      "Value is not a number. Non-digit character is not allowed in the exponent part.");
+
+  // Whitespaces.
+  testCastFromString<int128_t>(
+      "1. 23", 38, 0, "Value is not a number. Chars are invalid.");
+  testCastFromString<int128_t>(
+      "-3E+ 2",
+      12,
+      2,
+      "Value is not a number. Non-digit character is not allowed in the exponent part.");
+  testCastFromString<int128_t>(
+      "1.23 ", 38, 0, "Value is not a number. Chars are invalid.");
+  testCastFromString<int64_t>(
+      "-3E+2 ",
+      12,
+      2,
+      "Value is not a number. Non-digit character is not allowed in the exponent part.");
+  testCastFromString<int128_t>(
+      " 1.23", 38, 0, "Value is not a number. Extracted digits are empty.");
+  testCastFromString<int64_t>(
+      " -3E+2", 12, 2, "Value is not a number. Extracted digits are empty.");
+
+  testCastFromString<int64_t>(
+      "-3E+2.1",
+      12,
+      2,
+      "Value is not a number. Non-digit character is not allowed in the exponent part.");
+
+  testCastFromString<int64_t>(
+      "-3E+",
+      12,
+      2,
+      "Value is not a number. The exponent part only contains sign.");
+
+  testCastFromString<int64_t>(
+      "-3E-",
+      12,
+      2,
+      "Value is not a number. The exponent part only contains sign.");
+  testCastFromString<int64_t>(
+      "9e", 12, 2, "Value is not a number. The exponent part is empty.");
+  testCastFromString<int64_t>(
+      "09{xi+yD", 12, 2, "Value is not a number. Chars are invalid.");
 }
 } // namespace
 } // namespace facebook::velox

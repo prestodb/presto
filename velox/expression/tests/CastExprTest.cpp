@@ -2080,7 +2080,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
       VARCHAR(),
       DECIMAL(38, 0),
       {"0.0444a"},
-      "Cannot cast VARCHAR '0.0444a' to DECIMAL(38, 0). Value is not a number. Chars 'a' are invalid.");
+      "Cannot cast VARCHAR '0.0444a' to DECIMAL(38, 0). Value is not a number.");
 
   testThrow<std::string>(
       VARCHAR(),
@@ -2113,29 +2113,29 @@ TEST_F(CastExprTest, varcharToDecimal) {
       VARCHAR(),
       DECIMAL(38, 0),
       {"23e-5d"},
-      "Cannot cast VARCHAR '23e-5d' to DECIMAL(38, 0). Value is not a number. Non-digit character 'd' is not allowed in the exponent part.");
+      "Cannot cast VARCHAR '23e-5d' to DECIMAL(38, 0). Value is not a number. Non-digit character is not allowed in the exponent part.");
 
   // Whitespaces.
   testThrow<std::string>(
       VARCHAR(),
       DECIMAL(38, 0),
       {"1. 23"},
-      "Cannot cast VARCHAR '1. 23' to DECIMAL(38, 0). Value is not a number. Chars ' 23' are invalid.");
+      "Cannot cast VARCHAR '1. 23' to DECIMAL(38, 0). Value is not a number.");
   testThrow<std::string>(
       VARCHAR(),
       DECIMAL(12, 2),
       {"-3E+ 2"},
-      "Cannot cast VARCHAR '-3E+ 2' to DECIMAL(12, 2). Value is not a number. Non-digit character ' ' is not allowed in the exponent part.");
+      "Cannot cast VARCHAR '-3E+ 2' to DECIMAL(12, 2). Value is not a number. Non-digit character is not allowed in the exponent part.");
   testThrow<std::string>(
       VARCHAR(),
       DECIMAL(38, 0),
       {"1.23 "},
-      "Cannot cast VARCHAR '1.23 ' to DECIMAL(38, 0). Value is not a number. Chars ' ' are invalid.");
+      "Cannot cast VARCHAR '1.23 ' to DECIMAL(38, 0). Value is not a number.");
   testThrow<std::string>(
       VARCHAR(),
       DECIMAL(12, 2),
       {"-3E+2 "},
-      "Cannot cast VARCHAR '-3E+2 ' to DECIMAL(12, 2). Value is not a number. Non-digit character ' ' is not allowed in the exponent part.");
+      "Cannot cast VARCHAR '-3E+2 ' to DECIMAL(12, 2). Value is not a number. Non-digit character is not allowed in the exponent part.");
   testThrow<std::string>(
       VARCHAR(),
       DECIMAL(38, 0),
@@ -2151,7 +2151,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
       VARCHAR(),
       DECIMAL(12, 2),
       {"-3E+2.1"},
-      "Cannot cast VARCHAR '-3E+2.1' to DECIMAL(12, 2). Value is not a number. Non-digit character '.' is not allowed in the exponent part.");
+      "Cannot cast VARCHAR '-3E+2.1' to DECIMAL(12, 2). Value is not a number. Non-digit character is not allowed in the exponent part.");
 
   testThrow<std::string>(
       VARCHAR(),
@@ -2164,6 +2164,18 @@ TEST_F(CastExprTest, varcharToDecimal) {
       DECIMAL(12, 2),
       {"-3E-"},
       "Cannot cast VARCHAR '-3E-' to DECIMAL(12, 2). Value is not a number. The exponent part only contains sign.");
+
+  testThrow<std::string>(
+      VARCHAR(),
+      DECIMAL(12, 2),
+      {"9e"},
+      "Cannot cast VARCHAR '9e' to DECIMAL(12, 2). Value is not a number. The exponent part is empty.");
+
+  testThrow<std::string>(
+      VARCHAR(),
+      DECIMAL(12, 2),
+      {"09{xi+yD"},
+      "Cannot cast VARCHAR '09{xi+yD' to DECIMAL(12, 2). Value is not a number. Chars are invalid.");
 }
 
 TEST_F(CastExprTest, castInTry) {
