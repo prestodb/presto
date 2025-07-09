@@ -1216,10 +1216,6 @@ TEST_F(TextReaderTest, DISABLED_nestedComplexTypesWithCustomDelimiters) {
   // Read all 3 rows
   ASSERT_EQ(rowReader->next(10, result), 3);
   for (int i = 0; i < 3; ++i) {
-    LOG(INFO) << "Row " << i << ":\n"
-              << std::static_pointer_cast<RowVector>(result)->toString(i)
-              << "\nVS\n"
-              << expected->toString(i);
     EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
   }
   ASSERT_EQ(rowReader->next(10, result), 0);
@@ -1456,6 +1452,64 @@ TEST_F(TextReaderTest, varbinaryUnsuccessfulDecoding) {
   // When Base64 decoding fails, the original string is copied directly
   EXPECT_EQ(binaryVector->valueAt(0), StringView("InvalidBase64!"));
   EXPECT_EQ(binaryVector->valueAt(1), StringView("Another@Invalid#String"));
+}
+
+TEST_F(TextReaderTest, nestedRows) {
+  auto nestedRowChildren = std::vector<VectorPtr>{
+      makeFlatVector<int32_t>({42, 100, -5, 0, 999}),
+      makeFlatVector<bool>({true, false, true, false, true}),
+      makeArrayVector<double>(
+          {{3.14159, 2.71828},
+           {2.71828, 1.41421, 0.0},
+           {1.41421, -123.456},
+           {0.0, 999.999},
+           {-123.456, 42.0, 3.14159}})};
+  auto nestedRowVector = makeRowVector(
+      {"nested_int", "nested_bool", "nested_arr_double"}, nestedRowChildren);
+
+  const auto expected = makeRowVector(
+      {makeFlatVector<std::string>(
+           {"hello", "world", "test", "sample", "data"}),
+       nestedRowVector,
+       makeFlatVector<bool>({false, true, false, true, false})});
+
+  auto type = ROW(
+      {{"col_varchar", VARCHAR()},
+       {"col_nested_row",
+        ROW(
+            {{"nested_int", INTEGER()},
+             {"nested_bool", BOOLEAN()},
+             {"nested_arr_double", ARRAY(DOUBLE())}})},
+       {"col_bool", BOOLEAN()}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/nested_row");
+
+  auto readFile = std::make_shared<LocalReadFile>(path);
+  auto serDeOptions = dwio::common::SerDeOptions('&', ',', '#', '\\', true);
+
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+  ASSERT_EQ(rowReader->next(10, result), 5);
+
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
 }
 
 } // namespace

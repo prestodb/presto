@@ -912,6 +912,13 @@ TextRowReader::getDouble(TextRowReader& th, bool& isNull, DelimType& delim) {
   return v;
 }
 
+/// TODO: Reconsider error handling strategy for malformed data
+/// Currently, all read functions convert invalid/malformed data to NULL values.
+/// This approach may produce incorrect query results, particularly for
+/// aggregate operations where a high volume of NULLs can significantly skew
+/// calculations (e.g., COUNT, AVG, SUM). Consider alternative strategies such
+/// as throwing exceptions, logging warnings, or providing configurable error
+/// handling modes.
 void TextRowReader::readElement(
     const std::shared_ptr<const Type>& t,
     const std::shared_ptr<const Type>& reqT,
