@@ -152,6 +152,15 @@ static const std::vector<std::vector<std::pair<char16_t, char16_t>>>
             {u'\u27C0', u'\u27EF'}, // Math Symbols.
             {u'\u2A00', u'\u2AFF'}, // Supplemental.
         },
+        // UTF8CharList::ALPHABETIC
+        {
+            {u'A', u'Z'}, // Uppercase alphabetic characters.
+            {u'a', u'z'}, // Lowercase alphabetic characters.
+        },
+        // UTF8CharList::NUMERIC
+        {
+            {u'0', u'9'}, // Numeric characters.
+        },
     };
 
 FOLLY_ALWAYS_INLINE char16_t getRandomChar(

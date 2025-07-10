@@ -35,7 +35,9 @@ enum UTF8CharList {
   ASCII = 0, // Ascii character set.
   UNICODE_CASE_SENSITIVE = 1, // Unicode scripts that support case.
   EXTENDED_UNICODE = 2, // Extended Unicode: Arabic, Devanagiri etc
-  MATHEMATICAL_SYMBOLS = 3 // Mathematical Symbols.
+  MATHEMATICAL_SYMBOLS = 3, // Mathematical Symbols.
+  ALPHABETIC = 4, // Alphabetic Symbols.
+  NUMERIC = 5 // Numeric Symbols.
 };
 
 bool coinToss(FuzzerGenerator& rng, double threshold);
@@ -187,5 +189,216 @@ std::string randString(
     std::string& buf,
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t>& converter);
 #pragma GCC diagnostic pop
+
+// Beginning of rule or grammar based input generation. The following set of
+// classes will allow us to use a rule based approach to generate random inputs.
+
+// Class rule defines abstract function generate which outputs our input string
+// dependent on the defined rule instantiation.
+class Rule {
+ public:
+  Rule() = default;
+
+  virtual std::string generate() {
+    return "";
+  }
+
+  virtual ~Rule() = default;
+};
+
+// List of Rules.
+class RuleList : public Rule {
+ public:
+  explicit RuleList(std::vector<std::shared_ptr<Rule>> rules)
+      : rules_{std::move(rules)} {}
+
+  std::string generate() override {
+    std::string string;
+    for (auto& rule : rules_) {
+      string += rule->generate();
+    }
+    return string;
+  }
+
+  size_t size() {
+    return rules_.size();
+  }
+
+  std::shared_ptr<Rule> operator[](size_t index) const {
+    if (index >= rules_.size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return rules_[index];
+  }
+
+  virtual ~RuleList() = default;
+
+ private:
+  std::vector<std::shared_ptr<Rule>> rules_;
+};
+
+// Rules that are randomly included.
+class OptionalRule : public Rule {
+ public:
+  OptionalRule(FuzzerGenerator& rng, std::shared_ptr<Rule> rule)
+      : rng_(rng), rule_(std::move(rule)) {}
+
+  std::string generate() override {
+    return coinToss(rng_, .5) ? rule_->generate() : "";
+  }
+
+  virtual ~OptionalRule() = default;
+
+ private:
+  FuzzerGenerator& rng_;
+  std::shared_ptr<Rule> rule_;
+};
+
+// Rules that can repeat 'count' times.
+class RepeatingRule : public Rule {
+ public:
+  RepeatingRule(
+      FuzzerGenerator& rng,
+      std::shared_ptr<Rule> rule,
+      size_t minCount,
+      size_t maxCount)
+      : rng_(rng),
+        rule_(std::move(rule)),
+        minCount_(minCount),
+        maxCount_(maxCount) {}
+
+  std::string generate() override {
+    auto repetitions = rand<size_t>(rng_, minCount_, maxCount_);
+    std::string string;
+    for (size_t i = 0; i < repetitions; ++i) {
+      string += rule_->generate();
+    }
+    return string;
+  }
+
+  virtual ~RepeatingRule() = default;
+
+ private:
+  FuzzerGenerator& rng_;
+  std::shared_ptr<Rule> rule_;
+  size_t minCount_, maxCount_;
+};
+
+// Rule randomly chosen from list.
+class ChoiceRule : public Rule {
+ public:
+  ChoiceRule(FuzzerGenerator& rng, std::shared_ptr<RuleList> rules)
+      : rng_(rng), rules_(std::move(rules)) {}
+
+  std::string generate() override {
+    auto index = rand<size_t>(rng_, 0, rules_->size() - 1);
+    return (*rules_)[index]->generate();
+  }
+
+  virtual ~ChoiceRule() = default;
+
+ private:
+  FuzzerGenerator& rng_;
+  std::shared_ptr<RuleList> rules_;
+};
+
+// Simple rule that is just a constant string.
+class ConstantRule : public Rule {
+ public:
+  explicit ConstantRule(std::string constant)
+      : constant_(std::move(constant)) {}
+
+  std::string generate() override {
+    return constant_;
+  }
+
+  virtual ~ConstantRule() = default;
+
+ private:
+  std::string constant_;
+};
+
+// String of 1 to 20 characters long that generates ASCII characters. Size and
+// character list can be modified.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+class StringRule : public Rule {
+ public:
+  explicit StringRule(
+      FuzzerGenerator& rng,
+      std::vector<UTF8CharList> encodings = {UTF8CharList::ASCII},
+      size_t minLength = 1,
+      size_t maxLength = 20,
+      bool flexibleLength = true)
+      : rng_(rng),
+        encodings_(std::move(encodings)),
+        minLength_(minLength),
+        maxLength_(maxLength),
+        flexibleLength_(flexibleLength) {}
+
+  std::string generate() override {
+    auto length = maxLength_;
+    if (flexibleLength_) {
+      length = rand<size_t>(rng_, minLength_, maxLength_);
+    }
+    return randString(rng_, length, encodings_, buf_, converter_);
+  }
+
+  virtual ~StringRule() = default;
+
+ private:
+  FuzzerGenerator& rng_;
+  std::vector<UTF8CharList> encodings_;
+  size_t minLength_;
+  size_t maxLength_;
+  bool flexibleLength_;
+
+  std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter_;
+  std::string buf_;
+};
+#pragma GCC diagnostic pop
+
+// Extends from StringRule, uses only alphabetic characters
+class WordRule : public StringRule {
+ public:
+  explicit WordRule(FuzzerGenerator& rng)
+      : StringRule(rng, {UTF8CharList::ALPHABETIC}) {}
+
+  WordRule(
+      FuzzerGenerator& rng,
+      size_t minLength,
+      size_t maxLength,
+      bool flexibleLength)
+      : StringRule(
+            rng,
+            {UTF8CharList::ALPHABETIC},
+            minLength,
+            maxLength,
+            flexibleLength) {}
+
+  virtual ~WordRule() = default;
+};
+
+// Extends from StringRule, uses only numeric characters for random number
+// generation with a particular size.
+class NumRule : public StringRule {
+ public:
+  explicit NumRule(FuzzerGenerator& rng)
+      : StringRule(rng, {UTF8CharList::NUMERIC}) {}
+
+  NumRule(
+      FuzzerGenerator& rng,
+      size_t minLength,
+      size_t maxLength,
+      bool flexibleLength)
+      : StringRule(
+            rng,
+            {UTF8CharList::NUMERIC},
+            minLength,
+            maxLength,
+            flexibleLength) {}
+
+  virtual ~NumRule() = default;
+};
 
 } // namespace facebook::velox::fuzzer
