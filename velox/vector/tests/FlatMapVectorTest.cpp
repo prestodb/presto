@@ -42,6 +42,33 @@ class FlatMapVectorTest : public testing::Test, public VectorTestBase {
     assertEqualVectors(mapVector, flatMapVector->toMapVector());
   }
 
+  void testFlatMapCopy(
+      const std::vector<std::string>& baseData,
+      const std::vector<std::string>& sourceData,
+      const std::vector<std::string>& expectedData,
+      const std::vector<BaseVector::CopyRange>& ranges) {
+    auto baseFlatMap = makeFlatMapVectorFromJson<int64_t, int32_t>(baseData);
+    auto sourceFlatMap =
+        makeFlatMapVectorFromJson<int64_t, int32_t>(sourceData);
+    baseFlatMap->copyRanges(
+        sourceFlatMap.get(),
+        folly::Range<const BaseVector::CopyRange*>{ranges});
+
+    // Validate that the updated flat map matches the expectation.
+    auto expectedFlatMap =
+        makeFlatMapVectorFromJson<int64_t, int32_t>(expectedData);
+    EXPECT_EQ(baseFlatMap->size(), expectedFlatMap->size());
+
+    for (vector_size_t i = 0; i < baseFlatMap->size(); ++i) {
+      EXPECT_EQ(
+          baseFlatMap->compare(
+              expectedFlatMap.get(), i, i, CompareFlags{.equalsOnly = true}),
+          0)
+          << "Failed at index " << i << ":\n  " << baseFlatMap->toString(i)
+          << "\nvs.\n  " << expectedFlatMap->toString(i);
+    }
+  }
+
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
   VectorMaker maker_{pool_.get()};
@@ -524,6 +551,124 @@ TEST_F(FlatMapVectorTest, toMapVector) {
       {{{101, 11}, {103, 13}, {105, std::nullopt}}},
       {{{101, 1}, {102, 2}, {103, 3}}},
   });
+}
+
+TEST_F(FlatMapVectorTest, copyRanges) {
+  std::vector<std::string> baseData = {
+      "{1:10, 2:20, 3:null}",
+      "null",
+      "{}",
+      "{4:40, 5:null, 6:null}",
+  };
+
+  std::vector<BaseVector::CopyRange> fullRange = {
+      BaseVector::CopyRange{0, 0, (vector_size_t)baseData.size()},
+  };
+
+  // Empty and identity copy.
+  testFlatMapCopy(baseData, {}, baseData, {});
+  testFlatMapCopy(baseData, baseData, baseData, fullRange);
+
+  std::vector<std::string> updatedData = {
+      "{1:null, 3:30, 6:66}",
+      "{7:60}",
+      "{8:80}",
+      "null",
+  };
+
+  // Test ranges with size zero.
+  testFlatMapCopy(
+      baseData, updatedData, baseData, {BaseVector::CopyRange{0, 0, 0}});
+  testFlatMapCopy(
+      baseData, updatedData, baseData, {BaseVector::CopyRange{1, 1, 0}});
+
+  // Test copy all records in both directions.
+  testFlatMapCopy(baseData, updatedData, updatedData, fullRange);
+  testFlatMapCopy(updatedData, baseData, baseData, fullRange);
+
+  // Copy first row only.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{1:null, 3:30, 6:66}",
+          "null",
+          "{}",
+          "{4:40, 5:null, 6:null}",
+      },
+      {BaseVector::CopyRange{0, 0, 1}});
+
+  // Only second row.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{1:10, 2:20, 3:null}",
+          "{7:60}",
+          "{}",
+          "{4:40, 5:null, 6:null}",
+      },
+      {BaseVector::CopyRange{1, 1, 1}});
+
+  // Second and third row.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{1:10, 2:20, 3:null}",
+          "{7:60}",
+          "{8:80}",
+          "{4:40, 5:null, 6:null}",
+      },
+      {BaseVector::CopyRange{1, 1, 2}});
+
+  // Copy first row into the second.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{1:10, 2:20, 3:null}",
+          "{1:null, 3:30, 6:66}",
+          "{}",
+          "{4:40, 5:null, 6:null}",
+      },
+      {BaseVector::CopyRange{0, 1, 1}});
+
+  // Copy second row into the first.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{7:60}",
+          "null",
+          "{}",
+          "{4:40, 5:null, 6:null}",
+      },
+      {BaseVector::CopyRange{1, 0, 1}});
+
+  // Copy elements 1 and 2 into 0 and 1.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{7:60}",
+          "{8:80}",
+          "{}",
+          "{4:40, 5:null, 6:null}",
+      },
+      {BaseVector::CopyRange{1, 0, 2}});
+
+  // Copy elements 0 and 1 into 1 and 2, and 3 into 3.
+  testFlatMapCopy(
+      baseData,
+      updatedData,
+      {
+          "{1:10, 2:20, 3:null}",
+          "{1:null, 3:30, 6:66}",
+          "{7:60}",
+          "null",
+      },
+      {BaseVector::CopyRange{0, 1, 2}, BaseVector::CopyRange{3, 3, 1}});
 }
 
 } // namespace

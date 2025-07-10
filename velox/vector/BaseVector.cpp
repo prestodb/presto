@@ -593,6 +593,7 @@ void BaseVector::ensureWritable(const SelectivityVector& rows) {
   this->resetDataDependentFlags(&rows);
 }
 
+// static
 void BaseVector::ensureWritable(
     const SelectivityVector& rows,
     const TypePtr& type,

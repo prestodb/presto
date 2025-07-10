@@ -389,6 +389,114 @@ std::optional<int32_t> FlatMapVector::compare(
   return flags.ascending ? result : result * -1;
 }
 
+void FlatMapVector::copyInMapRanges(
+    column_index_t targetChannel,
+    const uint64_t* sourceInMaps,
+    const folly::Range<const BaseVector::CopyRange*>& ranges) {
+  auto* targetInMaps = mutableRawInMapsAt(targetChannel);
+
+  // This means that the key being copied exists in all maps from both source
+  // and target; nothing to update.
+  if (sourceInMaps == nullptr && targetInMaps == nullptr) {
+    return;
+  }
+
+  // If there is something we need to copy, allocate the target in map buffer in
+  // case there isn't one.
+  if (targetInMaps == nullptr) {
+    inMapsAt(targetChannel, true) =
+        AlignedBuffer::allocate<bool>(size(), pool(), false);
+    targetInMaps = mutableRawInMapsAt(targetChannel);
+  }
+
+  // If there is source in map, we need to copy the buffer range regions from
+  // it.
+  if (sourceInMaps != nullptr) {
+    applyToEachRange(
+        ranges,
+        [targetInMaps, sourceInMaps](
+            auto targetIndex, auto sourceIndex, auto count) {
+          bits::copyBits(
+              sourceInMaps, sourceIndex, targetInMaps, targetIndex, count);
+        });
+  }
+  // If the buffer doesn't exist, it means the key is available on every row. In
+  // such case we just need to set the right ranges.
+  else {
+    applyToEachRange(
+        ranges,
+        [targetInMaps](auto targetIndex, auto /* sourceIndex */, auto count) {
+          bits::fillBits(targetInMaps, targetIndex, targetIndex + count, true);
+        });
+  }
+}
+
+void FlatMapVector::copyRanges(
+    const BaseVector* source,
+    const folly::Range<const CopyRange*>& ranges) {
+  if (ranges.empty()) {
+    return;
+  }
+
+  auto* sourceFlatMap = source->loadedVector()->as<FlatMapVector>();
+  if (sourceFlatMap == nullptr) {
+    VELOX_NYI(
+        "FlatMapVector::copyRanges expects a FlatMapVector, got {}.",
+        source->toString());
+  }
+
+  // If source may have nulls, copy top-level nulls from the ranges first.
+  if (sourceFlatMap->mayHaveNulls()) {
+    copyNulls(mutableRawNulls(), sourceFlatMap->rawNulls(), ranges);
+  }
+
+  auto startingNumDistinctKeys = numDistinctKeys();
+
+  // First, for each distinct key in the source vector, we look for a key match
+  // on the target. If there is not, we create a new distinct key, then copy the
+  // map values and update the in map buffers.
+  for (column_index_t i = 0; i < sourceFlatMap->distinctKeys_->size(); ++i) {
+    const auto channel = getKeyChannel(sourceFlatMap->distinctKeys_, i)
+                             .value_or(distinctKeys_->size());
+
+    if (channel == distinctKeys_->size()) {
+      // First append the new key to the distinct keys internal vector.
+      appendDistinctKey(sourceFlatMap->distinctKeys_, i);
+
+      // Then we allocate a new key values vector and in map buffer.
+      inMapsAt(channel, true) =
+          AlignedBuffer::allocate<bool>(size(), pool(), false);
+      mapValues_.back() = BaseVector::create(valueType(), size(), pool());
+    }
+
+    // Finally, copy the map values and update the in map buffers.
+    mapValues_[channel]->copyRanges(sourceFlatMap->mapValues_[i].get(), ranges);
+    copyInMapRanges(channel, sourceFlatMap->rawInMapsAt(i), ranges);
+  }
+
+  // Keys that exist in the target but not in the source may need to be updated
+  // (since they could have got overwritten/erased).
+  for (column_index_t i = 0; i < startingNumDistinctKeys; ++i) {
+    // If a key doesn't exist in the source, we need to go and clean its in map
+    // buffer entries for all rows in range.
+    if (sourceFlatMap->getKeyChannel(distinctKeys_, i) == std::nullopt) {
+      auto& targetInMapsBuffer = inMapsAt(i, true);
+      if (targetInMapsBuffer == nullptr) {
+        targetInMapsBuffer =
+            AlignedBuffer::allocate<bool>(size(), pool(), false);
+      }
+      auto* targetInMaps = targetInMapsBuffer->asMutable<uint64_t>();
+
+      applyToEachRange(
+          ranges,
+          [targetInMaps](auto targetIndex, auto /* sourceIndex */, auto count) {
+            bits::fillBits(
+                targetInMaps, targetIndex, targetIndex + count, false);
+          });
+    }
+  }
+}
+
 // This function will copy map value elements from the individual mapValues_
 // std::vector into a single flattened one that can be used by a MapVector.
 //
