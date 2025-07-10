@@ -1688,8 +1688,9 @@ public final class MathFunctions
 
     @Description("Dot Product distance between the given identical sized vectors represented as DOUBLE arrays")
     @ScalarFunction("dot_product")
+    @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
-    public static double arrayDotProduct(
+    public static Double arrayDotProduct(
             @SqlType("array(double)") Block leftArray,
             @SqlType("array(double)") Block rightArray)
     {
@@ -1700,6 +1701,9 @@ public final class MathFunctions
         double result = 0.0;
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                return null;
+            }
             result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
         }
 
@@ -1708,8 +1712,9 @@ public final class MathFunctions
 
     @Description("Dot Product distance between the given identical sized vectors represented as REAL arrays")
     @ScalarFunction("dot_product")
+    @SqlNullable
     @SqlType(StandardTypes.REAL)
-    public static long arrayDotProductReal(
+    public static Long arrayDotProductReal(
             @SqlType("array(real)") Block leftArray,
             @SqlType("array(real)") Block rightArray)
     {
@@ -1720,10 +1725,13 @@ public final class MathFunctions
         float dotProduct = 0.0F;
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                return null;
+            }
             dotProduct += Float.intBitsToFloat((int) REAL.getLong(leftArray, i)) * Float.intBitsToFloat((int) REAL.getLong(rightArray, i));
         }
 
-        return Float.floatToRawIntBits(dotProduct);
+        return ((long) Float.floatToRawIntBits(dotProduct));
     }
 
     private static double mapDotProduct(Block leftMap, Block rightMap)
