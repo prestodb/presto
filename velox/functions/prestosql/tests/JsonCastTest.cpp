@@ -316,6 +316,14 @@ TEST_F(JsonCastTest, fromVarchar) {
         VARCHAR(), {StringView(utf8String)}, {StringView(expected)});
   }
 
+  {
+    SCOPED_TRACE("Invalid unicode size estimation");
+    testCastToJson<StringView>(
+        VARCHAR(),
+        {"\xf0\x88\xba\xaa\xdb\x9a\x4a\x71\x08\xae\x85\xd2\x6b\x26\x72\x2a"_sv},
+        {R"("\uFFFD\uFFFD\uFFFD\uFFFDۚJq\b\uFFFD\uFFFD\uFFFDk&r*")"_sv});
+  }
+
   testCastToJson<StringView>(
       VARCHAR(),
       {""_sv, std::nullopt, "\xc0"_sv},

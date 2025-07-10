@@ -163,6 +163,7 @@ void normalizeForJsonCast(const char* input, size_t length, char* output) {
       }
     }
   }
+  VELOX_DCHECK_EQ(pos - output, normalizedSizeForJsonCast(input, length));
 }
 
 size_t normalizedSizeForJsonCast(const char* input, size_t length) {
@@ -178,19 +179,22 @@ size_t normalizedSizeForJsonCast(const char* input, size_t length) {
     switch (count) {
       case 1:
         outSize += encodedAsciiSizes[int8_t(*start)];
+        ++start;
         break;
       case 2:
       case 3:
         outSize += count;
+        start += count;
         break;
-      case 4:
-        outSize += kEncodedHexSize * 2;
+      case 4: {
+        auto codePoint = folly::utf8ToCodePoint(start, end, true);
+        outSize += codePoint < 0x10000u ? kEncodedHexSize : 2 * kEncodedHexSize;
         break;
+      }
       default:
         outSize += kEncodedHexSize;
-        count = 1;
+        ++start;
     }
-    start += count;
   }
 
   return outSize;
@@ -424,6 +428,7 @@ size_t normalizeForJsonParse(const char* input, size_t length, char* output) {
       }
     }
   }
+  VELOX_DCHECK_EQ(pos - output, normalizedSizeForJsonParse(input, length));
   return pos - output;
 }
 
