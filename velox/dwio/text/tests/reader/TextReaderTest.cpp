@@ -840,7 +840,39 @@ TEST_F(TextReaderTest, filter) {
   }
 }
 
-TEST_F(TextReaderTest, DISABLED_shrinkBatch) {
+TEST_F(TextReaderTest, shrinkBatch) {
+  auto type = ROW(
+      {{"col_string", VARCHAR()},
+       {"col_int", INTEGER()},
+       {"col_float", DOUBLE()},
+       {"col_bool", BOOLEAN()}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/simple_types");
+  auto readFile = std::make_shared<LocalReadFile>(path);
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  dwio::common::RowReaderOptions rowOptions;
+  rowOptions.setScanSpec(spec);
+  rowOptions.select(
+      std::make_shared<dwio::common::ColumnSelector>(ROW({}, {})));
+  auto rowReader = reader->createRowReader(rowOptions);
+  VectorPtr result;
+
+  ASSERT_EQ(rowReader->next(6, result), 6);
+  ASSERT_EQ(result->size(), 6);
+  ASSERT_EQ(rowReader->next(4, result), 4);
+  ASSERT_EQ(result->size(), 4);
+  ASSERT_EQ(rowReader->next(6, result), 6);
+  ASSERT_EQ(result->size(), 6);
+  ASSERT_EQ(rowReader->next(4, result), 0);
+}
+
+TEST_F(TextReaderTest, DISABLED_compressedShrinkBatch) {
   auto type = ROW(
       {{"col_string", VARCHAR()},
        {"col_int", INTEGER()},
