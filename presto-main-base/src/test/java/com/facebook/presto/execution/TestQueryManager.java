@@ -53,6 +53,12 @@ public class TestQueryManager
         return null;
     }
 
+    @Override
+    public long getDurationUntilExpirationInMillis(QueryId queryId)
+    {
+        return 0;
+    }
+
     public Session getQuerySession(QueryId queryId)
     {
         return null;
