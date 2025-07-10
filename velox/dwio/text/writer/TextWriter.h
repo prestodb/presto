@@ -67,12 +67,12 @@ class TextWriter : public dwio::common::Writer {
       const std::shared_ptr<DecodedVector>& decodedColumnVector,
       TypeKind type,
       vector_size_t row,
+      uint8_t depth,
       std::optional<char> delimiter);
 
   const RowTypePtr schema_;
   const std::unique_ptr<BufferedWriterSink> bufferedWriterSink_;
 
-  uint8_t depth_;
   SerDeOptions serDeOptions_;
 };
 

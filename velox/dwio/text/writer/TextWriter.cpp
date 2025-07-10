@@ -77,17 +77,27 @@ TextWriter::TextWriter(
               options->memoryPool->name(),
               folly::to<std::string>(folly::Random::rand64()))),
           options->defaultFlushCount)),
-      depth_(0),
       serDeOptions_(serDeOptions) {}
+
+char TextWriter::getDelimiterForDepth(uint8_t depth) const {
+  VELOX_CHECK_LT(
+      depth,
+      serDeOptions_.separators.size(),
+      "Depth {} exceeds maximum supported depth",
+      depth);
+  return serDeOptions_.separators[depth];
+}
 
 void TextWriter::write(const VectorPtr& data) {
   VELOX_CHECK_EQ(
       data->encoding(),
       VectorEncoding::Simple::ROW,
       "Text writer expects row vector input");
+
   VELOX_CHECK(
       data->type()->equivalent(*schema_),
       "The file schema type should be equal with the input row vector type.");
+
   const RowVector* dataRowVector = data->as<RowVector>();
 
   std::vector<std::shared_ptr<DecodedVector>> decodedColumnVectors;
@@ -108,6 +118,7 @@ void TextWriter::write(const VectorPtr& data) {
           decodedColumnVectors.at(column),
           schema_->childAt(column)->kind(),
           row,
+          0,
           delimiter);
     }
     bufferedWriterSink_->write(serDeOptions_.newLine);
@@ -130,6 +141,7 @@ void TextWriter::writeCellValue(
     const std::shared_ptr<DecodedVector>& decodedColumnVector,
     const TypeKind type,
     vector_size_t row,
+    uint8_t depth,
     std::optional<char> delimiter) {
   if (delimiter.has_value()) {
     bufferedWriterSink_->write(delimiter.value());
@@ -140,6 +152,8 @@ void TextWriter::writeCellValue(
         serDeOptions_.nullString.data(), serDeOptions_.nullString.length());
     return;
   }
+
+  ++depth;
   switch (type) {
     case TypeKind::BOOLEAN: {
       auto dataStr =
@@ -204,9 +218,29 @@ void TextWriter::writeCellValue(
           dataStr.value().data(), dataStr.value().length());
       return;
     }
+    case TypeKind::ARRAY: {
+      // ARRAY vector members
+      const auto& arrVecPtr = decodedColumnVector->base()->as<ArrayVector>();
+      const auto& indices = decodedColumnVector->indices();
+      const auto& size = arrVecPtr->sizeAt(indices[row]);
+      const auto& offset = arrVecPtr->offsetAt(indices[row]);
+
+      auto slice = arrVecPtr->elements()->slice(offset, size);
+      auto decodedElement =
+          std::make_shared<DecodedVector>(DecodedVector(*slice));
+      for (int i = 0; i < size; ++i) {
+        delimiter = (i == 0) ? std::nullopt
+                             : std::optional(getDelimiterForDepth(depth));
+        writeCellValue(
+            decodedElement,
+            arrVecPtr->elements().get()->typeKind(),
+            i,
+            depth,
+            delimiter);
+      }
+      return;
+    }
     // TODO Add support for complex types
-    case TypeKind::ARRAY:
-      [[fallthrough]];
     case TypeKind::MAP:
       [[fallthrough]];
     case TypeKind::ROW:
