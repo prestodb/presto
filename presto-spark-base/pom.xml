@@ -126,19 +126,16 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -174,7 +171,6 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -185,7 +181,6 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -196,7 +191,6 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -384,6 +378,55 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>
+          </profile>
+        <profile>
+            <id>sapphire</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>jsr305</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.weakref</groupId>
+                    <artifactId>jmxutils</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>javax.validation</groupId>
+                    <artifactId>validation-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+            </dependencies>
+        </profile>  
     </profiles>
 </project>
