@@ -34,6 +34,7 @@ import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -383,6 +384,15 @@ public class PropertyDerivations
         {
             // drop all symbols in property because delete doesn't pass on any of the columns
             return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
+        }
+
+        @Override
+        public ActualProperties visitMetadataDelete(MetadataDeleteNode node, List<ActualProperties> inputProperties)
+        {
+            // MetadataDeleteNode is a leaf node that only outputs a row count
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
+                    .build();
         }
 
         @Override
