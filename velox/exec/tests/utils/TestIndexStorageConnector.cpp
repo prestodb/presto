@@ -85,9 +85,11 @@ std::shared_ptr<TestIndexTable> TestIndexTable::create(
     decodedVectors.emplace_back(*vector);
   }
 
+  const auto nextOffset = rowContainer->nextOffset();
+  VELOX_CHECK_GT(nextOffset, 0);
   for (auto row = 0; row < numRows; ++row) {
     auto* newRow = rowContainer->newRow();
-
+    *reinterpret_cast<char**>(newRow + nextOffset) = nullptr;
     for (auto col = 0; col < decodedVectors.size(); ++col) {
       rowContainer->store(decodedVectors[col], row, newRow, col);
     }

@@ -1802,7 +1802,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
   uint64_t totalBytes{0};
   while (iter.lastRowIndex < iter.rows->size()) {
     if (!iter.nextHit) {
-      auto row = (*iter.rows)[iter.lastRowIndex];
+      const auto row = (*iter.rows)[iter.lastRowIndex];
       iter.nextHit = (*iter.hits)[row]; // NOLINT
       if (!iter.nextHit) {
         ++iter.lastRowIndex;
