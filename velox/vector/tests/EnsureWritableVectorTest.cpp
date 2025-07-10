@@ -813,6 +813,59 @@ TEST_F(EnsureWritableVectorTest, map) {
   test::assertEqualVectors(a, copyOfA);
 }
 
+TEST_F(EnsureWritableVectorTest, flatMap) {
+  std::vector<std::string> jsonData = {
+      "{1:10, 2:20, 3:null}",
+      "{7:60}",
+      "{}",
+      "{4:40, 5:null, 6:null}",
+  };
+  std::vector<std::string> otherJsonData = {
+      "null",
+      "{6:10, 2:20, 7:null}",
+      "{3:60}",
+      "{}",
+  };
+  vector_size_t size = jsonData.size();
+
+  auto flatMap = makeFlatMapVectorFromJson<int64_t, int32_t>(jsonData);
+  auto otherFlatMap =
+      makeFlatMapVectorFromJson<int64_t, int32_t>(otherJsonData);
+
+  // Make a shallow copy that points to all the same buffers as `flatMap`.
+  VectorPtr shallowCopy = std::make_shared<FlatMapVector>(
+      pool(),
+      flatMap->type(),
+      flatMap->nulls(),
+      flatMap->size(),
+      flatMap->distinctKeys(),
+      flatMap->mapValues(),
+      flatMap->inMaps());
+  test::assertEqualVectors(shallowCopy, flatMap);
+
+  auto oddRows = selectOddRows(size);
+  SelectivityVector evenRows(size);
+  evenRows.deselect(oddRows);
+
+  // Copy the odd rows from otherFlatMap into shallowCopy. We want to make sure
+  // ensure writable will detect and copy on write the buffers as expected.
+  BaseVector::ensureWritable(oddRows, flatMap->type(), pool(), shallowCopy);
+
+  // Ensure that the even rows (the ones that won't be overwritten) were
+  // properly copied.
+  test::assertEqualVectors(shallowCopy, flatMap, evenRows);
+
+  shallowCopy->copy(otherFlatMap.get(), oddRows, nullptr);
+
+  // Ensure that the original buffers from flatMap have not been modified.
+  test::assertEqualVectors(
+      flatMap, makeFlatMapVectorFromJson<int64_t, int32_t>(jsonData));
+
+  // Ensure the written vector has the correct even and odd rows.
+  test::assertEqualVectors(shallowCopy, otherFlatMap, oddRows);
+  test::assertEqualVectors(shallowCopy, flatMap, evenRows);
+}
+
 TEST_F(EnsureWritableVectorTest, allNullArray) {
   vector_size_t size = 1'000;
   auto a = makeArrayVector<int64_t>(

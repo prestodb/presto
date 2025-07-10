@@ -497,6 +497,32 @@ void FlatMapVector::copyRanges(
   }
 }
 
+void FlatMapVector::ensureWritable(const SelectivityVector& rows) {
+  // Top-level and mapValues row ids are the same, so we can just propagate the
+  // selectivity vector.
+  for (size_t i = 0; i < numDistinctKeys(); ++i) {
+    BaseVector::ensureWritable(
+        rows, valueType(), BaseVector::pool_, mapValues_[i]);
+  }
+
+  for (auto& inMap : inMaps_) {
+    // Similar to top-level nulls, if the buffer is not mutable, copy on write
+    // it over.
+    if (inMap && !inMap->isMutable()) {
+      BufferPtr newInMap = AlignedBuffer::allocate<bool>(size(), pool_);
+      auto rawNewInMap = newInMap->asMutable<uint64_t>();
+      memcpy(rawNewInMap, inMap->as<uint64_t>(), bits::nbytes(size()));
+      inMap = std::move(newInMap);
+    }
+  }
+
+  // Distinct keys may be associated with all rows, hence all values already
+  // written must be preserved.
+  BaseVector::ensureWritable(
+      SelectivityVector::empty(), keyType(), BaseVector::pool_, distinctKeys_);
+  BaseVector::ensureWritable(rows);
+}
+
 // This function will copy map value elements from the individual mapValues_
 // std::vector into a single flattened one that can be used by a MapVector.
 //

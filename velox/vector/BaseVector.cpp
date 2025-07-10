@@ -608,17 +608,22 @@ void BaseVector::ensureWritable(
     }
     return;
   }
+
   if (result->encoding() == VectorEncoding::Simple::LAZY) {
     result = BaseVector::loadedVectorShared(result);
   }
+
   const auto& resultType = result->type();
   const bool isUnknownType = resultType->containsUnknown();
+
+  // Check if ensure writable can work in place.
   if (result.use_count() == 1 && !isUnknownType) {
     switch (result->encoding()) {
       case VectorEncoding::Simple::FLAT:
       case VectorEncoding::Simple::ROW:
       case VectorEncoding::Simple::ARRAY:
       case VectorEncoding::Simple::MAP:
+      case VectorEncoding::Simple::FLAT_MAP:
       case VectorEncoding::Simple::FUNCTION: {
         result->ensureWritable(rows);
         return;
@@ -627,6 +632,8 @@ void BaseVector::ensureWritable(
         break; /** NOOP **/
     }
   }
+
+  // Otherwise, allocate a new vector and copy the remaining values over.
 
   // The copy-on-write size is the max of the writable row set and the
   // vector.
@@ -639,8 +646,10 @@ void BaseVector::ensureWritable(
     copy =
         BaseVector::create(isUnknownType ? type : resultType, targetSize, pool);
   }
+
   SelectivityVector copyRows(result->size());
   copyRows.deselect(rows);
+
   if (copyRows.hasSelections()) {
     copy->copy(result.get(), copyRows, nullptr);
   }

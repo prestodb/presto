@@ -303,6 +303,12 @@ class FlatMapVector : public BaseVector {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
 
+  void ensureWritable(const SelectivityVector& rows) override;
+
+  bool isWritable() const override {
+    return true;
+  }
+
   /// Returns the hash of the value at the given index in this vector.
   uint64_t hashValueAt(vector_size_t index) const override;
 
