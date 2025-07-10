@@ -73,14 +73,17 @@ TEST_F(HivePartitionUtilTest, partitionName) {
          "flat_int_col",
          "flat_bigint_col",
          "dict_string_col",
-         "const_date_col"},
+         "const_date_col",
+         "flat_timestamp_col"},
         {makeFlatVector<bool>(std::vector<bool>{false}),
          makeFlatVector<int8_t>(std::vector<int8_t>{10}),
          makeFlatVector<int16_t>(std::vector<int16_t>{100}),
          makeFlatVector<int32_t>(std::vector<int32_t>{1000}),
          makeFlatVector<int64_t>(std::vector<int64_t>{10000}),
          makeDictionary<StringView>(std::vector<StringView>{"str1000"}),
-         makeConstant<int32_t>(10000, 1, DATE())});
+         makeConstant<int32_t>(10000, 1, DATE()),
+         makeFlatVector<Timestamp>(
+             std::vector<Timestamp>{Timestamp::fromMillis(1577836800000)})});
 
     std::vector<std::string> expectedPartitionKeyValues{
         "flat_bool_col=false",
@@ -89,7 +92,8 @@ TEST_F(HivePartitionUtilTest, partitionName) {
         "flat_int_col=1000",
         "flat_bigint_col=10000",
         "dict_string_col=str1000",
-        "const_date_col=1997-05-19"};
+        "const_date_col=1997-05-19",
+        "flat_timestamp_col=2019-12-31 16%3A00%3A00"};
 
     std::vector<column_index_t> partitionChannels;
     for (auto i = 1; i <= expectedPartitionKeyValues.size(); i++) {
@@ -135,7 +139,8 @@ TEST_F(HivePartitionUtilTest, partitionNameForNull) {
       "flat_int_col",
       "flat_bigint_col",
       "flat_string_col",
-      "const_date_col"};
+      "const_date_col",
+      "flat_timestamp_col"};
 
   RowVectorPtr input = makeRowVector(
       partitionColumnNames,
@@ -145,7 +150,8 @@ TEST_F(HivePartitionUtilTest, partitionNameForNull) {
        makeNullableFlatVector<int32_t>({std::nullopt}),
        makeNullableFlatVector<int64_t>({std::nullopt}),
        makeNullableFlatVector<StringView>({std::nullopt}),
-       makeConstant<int32_t>(std::nullopt, 1, DATE())});
+       makeConstant<int32_t>(std::nullopt, 1, DATE()),
+       makeNullableFlatVector<Timestamp>({std::nullopt})});
 
   for (auto i = 0; i < partitionColumnNames.size(); i++) {
     std::vector<column_index_t> partitionChannels = {(column_index_t)i};

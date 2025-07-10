@@ -255,7 +255,8 @@ class WriterFuzzer {
       SMALLINT(),
       INTEGER(),
       BIGINT(),
-      VARCHAR()};
+      VARCHAR(),
+      TIMESTAMP()};
 
   const std::shared_ptr<FaultyFileSystem> faultyFs_ =
       std::dynamic_pointer_cast<FaultyFileSystem>(

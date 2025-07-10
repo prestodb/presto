@@ -16,6 +16,7 @@
 
 #include "velox/connectors/hive/PartitionIdGenerator.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/type/TimestampConversion.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include "gtest/gtest.h"
@@ -236,6 +237,78 @@ TEST_F(PartitionIdGeneratorTest, limitOfPartitionNumber) {
       fmt::format("Exceeded limit of {} distinct partitions.", maxPartitions));
 }
 
+TEST_F(PartitionIdGeneratorTest, timestampPartitionKeyComparasion) {
+  PartitionIdGenerator idGenerator(
+      ROW({"timestamp_col"}, {TIMESTAMP()}), {0}, 100, pool(), true);
+  auto timestampResult = util::fromTimestampString(
+      "2025-01-02 00:00:00", util::TimestampParseMode::kPrestoCast);
+  auto input = makeRowVector({
+      makeFlatVector<Timestamp>({timestampResult.value()}),
+  });
+  raw_vector<uint64_t> testTimeIds;
+  idGenerator.run(input, testTimeIds);
+  EXPECT_EQ(
+      idGenerator.partitionName(testTimeIds[0]),
+      "timestamp_col=2025-01-01 16%3A00%3A00");
+}
+
+TEST_F(PartitionIdGeneratorTest, timestampPartitionKey) {
+  PartitionIdGenerator idGenerator(ROW({TIMESTAMP()}), {0}, 100, pool(), true);
+
+  auto numPartitions = 50;
+  auto input = makeRowVector({
+      makeFlatVector<Timestamp>(
+          numPartitions,
+          [](auto row) {
+            return Timestamp::fromMillis(
+                1639426440000 + static_cast<int64_t>(row) * 100);
+          }),
+  });
+
+  raw_vector<uint64_t> firstTimeIds;
+  idGenerator.run(input, firstTimeIds);
+
+  std::unordered_set<uint64_t> distinctIds(
+      firstTimeIds.begin(), firstTimeIds.end());
+  EXPECT_EQ(distinctIds.size(), numPartitions);
+  EXPECT_EQ(*std::min_element(distinctIds.begin(), distinctIds.end()), 0);
+  EXPECT_EQ(
+      *std::max_element(distinctIds.begin(), distinctIds.end()),
+      numPartitions - 1);
+
+  raw_vector<uint64_t> secondTimeIds;
+  idGenerator.run(input, secondTimeIds);
+
+  for (auto i = 0; i < input->size(); ++i) {
+    EXPECT_EQ(firstTimeIds[i], secondTimeIds[i]) << "at " << i;
+  }
+
+  auto otherNumPartitions = 30;
+  auto otherInput = makeRowVector({
+      makeFlatVector<Timestamp>(
+          otherNumPartitions,
+          [](auto row) {
+            return Timestamp::fromMillis(
+                1639426440000 + static_cast<int64_t>(row) * 500);
+          }),
+  });
+
+  raw_vector<uint64_t> otherIds;
+  idGenerator.run(otherInput, otherIds);
+
+  std::unordered_set<uint64_t> otherDistinctIds(
+      otherIds.begin(), otherIds.end());
+  EXPECT_EQ(otherDistinctIds.size(), otherNumPartitions);
+
+  // Run the original input again and verify stable IDs
+  raw_vector<uint64_t> thirdTimeIds;
+  idGenerator.run(input, thirdTimeIds);
+
+  for (auto i = 0; i < input->size(); ++i) {
+    EXPECT_EQ(firstTimeIds[i], thirdTimeIds[i]) << "at " << i;
+  }
+}
+
 TEST_F(PartitionIdGeneratorTest, supportedPartitionKeyTypes) {
   // Test on supported key types.
   {
@@ -248,23 +321,27 @@ TEST_F(PartitionIdGeneratorTest, supportedPartitionKeyTypes) {
             SMALLINT(),
             INTEGER(),
             BIGINT(),
+            TIMESTAMP(),
         }),
-        {0, 1, 2, 3, 4, 5, 6},
+        {0, 1, 2, 3, 4, 5, 6, 7},
         100,
         pool(),
         true);
 
-    auto input = makeRowVector({
-        makeNullableFlatVector<StringView>(
-            {"Left", std::nullopt, "Right"}, VARCHAR()),
-        makeNullableFlatVector<bool>({true, false, std::nullopt}),
-        makeFlatVector<StringView>(
-            {"proton", "neutron", "electron"}, VARBINARY()),
-        makeNullableFlatVector<int8_t>({1, 2, std::nullopt}),
-        makeNullableFlatVector<int16_t>({1, 2, std::nullopt}),
-        makeNullableFlatVector<int32_t>({1, std::nullopt, 2}),
-        makeNullableFlatVector<int64_t>({std::nullopt, 1, 2}),
-    });
+    auto input = makeRowVector(
+        {makeNullableFlatVector<StringView>(
+             {"Left", std::nullopt, "Right"}, VARCHAR()),
+         makeNullableFlatVector<bool>({true, false, std::nullopt}),
+         makeFlatVector<StringView>(
+             {"proton", "neutron", "electron"}, VARBINARY()),
+         makeNullableFlatVector<int8_t>({1, 2, std::nullopt}),
+         makeNullableFlatVector<int16_t>({1, 2, std::nullopt}),
+         makeNullableFlatVector<int32_t>({1, std::nullopt, 2}),
+         makeNullableFlatVector<int64_t>({std::nullopt, 1, 2}),
+         makeNullableFlatVector<Timestamp>(
+             {std::nullopt,
+              Timestamp::fromMillis(1639426440001),
+              Timestamp::fromMillis(1639426440002)})});
 
     raw_vector<uint64_t> ids;
     idGenerator.run(input, ids);
@@ -279,7 +356,6 @@ TEST_F(PartitionIdGeneratorTest, supportedPartitionKeyTypes) {
     auto input = makeRowVector({
         makeConstant<float>(1.0, 1),
         makeConstant<double>(1.0, 1),
-        makeConstant<Timestamp>(Timestamp::fromMillis(1639426440000), 1),
         makeArrayVector<int32_t>({{1, 2, 3}}),
         makeMapVector<int16_t, int16_t>({{{1, 2}}}),
     });

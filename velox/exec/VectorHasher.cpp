@@ -45,6 +45,9 @@ namespace facebook::velox::exec {
       case TypeKind::VARBINARY: {                                        \
         return TEMPLATE_FUNC<TypeKind::VARCHAR>(__VA_ARGS__);            \
       }                                                                  \
+      case TypeKind::TIMESTAMP: {                                        \
+        return TEMPLATE_FUNC<TypeKind::TIMESTAMP>(__VA_ARGS__);          \
+      }                                                                  \
       default:                                                           \
         VELOX_UNREACHABLE(                                               \
             "Unsupported value ID type: ", mapTypeKindToName(typeKind)); \
@@ -735,6 +738,7 @@ void extendRange(
     case TypeKind::BIGINT:
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
+    case TypeKind::TIMESTAMP:
       extendRange<int64_t>(reserve, min, max);
       break;
 

@@ -134,8 +134,10 @@ int main(int argc, char** argv) {
   options.skipFunctions = skipFunctions;
   options.customVerificationFunctions = customVerificationFunctions;
   options.orderableGroupKeys = true;
+  // Set timestamp precision as milliseconds, as timestamp may be used as
+  // paritition key, and presto doesn't supports nanosecond precision
   options.timestampPrecision =
-      facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMicroSeconds;
+      facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
   options.hiveConfigs = {
       {facebook::velox::connector::hive::HiveConfig::kReadTimestampUnit, "6"}};
   return Runner::run(initialSeed, std::move(sparkQueryRunner), options);

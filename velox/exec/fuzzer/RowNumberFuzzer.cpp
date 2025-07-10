@@ -68,7 +68,12 @@ class RowNumberFuzzer : public RowNumberFuzzerBase {
 RowNumberFuzzer::RowNumberFuzzer(
     size_t initialSeed,
     std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner)
-    : RowNumberFuzzerBase(initialSeed, std::move(referenceQueryRunner)) {}
+    : RowNumberFuzzerBase(initialSeed, std::move(referenceQueryRunner)) {
+  // Set timestamp precision as milliseconds, as timestamp may be used as
+  // paritition key, and presto doesn't supports nanosecond precision.
+  vectorFuzzer_.getMutableOptions().timestampPrecision =
+      fuzzer::FuzzerTimestampPrecision::kMilliSeconds;
+}
 
 std::pair<std::vector<std::string>, std::vector<TypePtr>>
 RowNumberFuzzer::generatePartitionKeys() {
