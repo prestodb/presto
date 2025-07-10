@@ -137,9 +137,9 @@ TEST_F(TextWriterTest, write) {
   EXPECT_EQ(result[2][6], "3.100000");
 
   // timestamp
-  EXPECT_EQ(result[0][7], "1970-01-01 00:00:00.000");
-  EXPECT_EQ(result[1][7], "1970-01-01 00:00:01.001");
-  EXPECT_EQ(result[2][7], "1970-01-01 00:00:02.002");
+  EXPECT_EQ(result[0][7], "1969-12-31 16:00:00.000");
+  EXPECT_EQ(result[1][7], "1969-12-31 16:00:01.001");
+  EXPECT_EQ(result[2][7], "1969-12-31 16:00:02.002");
 
   // varchar
   EXPECT_EQ(result[0][8], "hello");

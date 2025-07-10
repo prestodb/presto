@@ -58,6 +58,7 @@ std::optional<std::string> toTextStr<double>(double val) {
 template <>
 std::optional<std::string> toTextStr<Timestamp>(Timestamp val) {
   TimestampToStringOptions options;
+  val.toTimezone(Timestamp::defaultTimezone());
   options.dateTimeSeparator = ' ';
   options.precision = TimestampPrecision::kMilliseconds;
   return {val.toString(options)};
