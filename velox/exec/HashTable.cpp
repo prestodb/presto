@@ -985,7 +985,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     std::rethrow_exception(error);
   }
 
-  raw_vector<uint64_t> hashes;
+  raw_vector<uint64_t> hashes(pool_);
   for (auto i = 0; i < numPartitions; ++i) {
     auto& overflows = overflowPerPartition[i];
     hashes.resize(overflows.size());
@@ -1026,9 +1026,9 @@ void HashTable<ignoreNullKeys>::partitionRows(
     HashTable<ignoreNullKeys>& subtable,
     RowPartitions& rowPartitions) {
   constexpr int32_t kBatch = 1024;
-  raw_vector<char*> rows(kBatch);
-  raw_vector<uint64_t> hashes(kBatch);
-  raw_vector<uint8_t> partitions(kBatch);
+  raw_vector<char*> rows(kBatch, pool_);
+  raw_vector<uint64_t> hashes(kBatch, pool_);
+  raw_vector<uint8_t> partitions(kBatch, pool_);
   RowContainerIterator iter;
   while (auto numRows = subtable.rows_->listRows(
              &iter, kBatch, RowContainer::kUnlimited, rows.data())) {
@@ -1054,8 +1054,8 @@ void HashTable<ignoreNullKeys>::buildJoinPartition(
     const std::vector<std::unique_ptr<RowPartitions>>& rowPartitions,
     std::vector<char*>& overflow) {
   constexpr int32_t kBatch = 1024;
-  raw_vector<char*> rows(kBatch);
-  raw_vector<uint64_t> hashes(kBatch);
+  raw_vector<char*> rows(kBatch, pool_);
+  raw_vector<uint64_t> hashes(kBatch, pool_);
   const int32_t numPartitions = 1 + otherTables_.size();
   TableInsertPartitionInfo partitionInfo{
       buildPartitionBounds_[partition],
@@ -1293,7 +1293,7 @@ void HashTable<ignoreNullKeys>::rehash(
     parallelJoinBuild();
     return;
   }
-  raw_vector<uint64_t> hashes;
+  raw_vector<uint64_t> hashes(pool_);
   hashes.resize(kHashBatchSize);
   char* groups[kHashBatchSize];
   // A join build can have multiple payload tables. Loop over 'this'
@@ -2012,7 +2012,7 @@ int32_t HashTable<true>::listNullKeyRows(
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::erase(folly::Range<char**> rows) {
   auto numRows = rows.size();
-  raw_vector<uint64_t> hashes;
+  raw_vector<uint64_t> hashes(pool_);
   hashes.resize(numRows);
 
   for (int32_t i = 0; i < hashers_.size(); ++i) {
@@ -2068,7 +2068,7 @@ void HashTable<ignoreNullKeys>::eraseWithHashes(
   }
   numDistinct_ -= numRows;
   if (!otherTables_.empty()) {
-    raw_vector<char*> containerRows;
+    raw_vector<char*> containerRows(pool_);
     containerRows.resize(rows.size());
     for (auto& other : otherTables_) {
       const auto numContainerRows =

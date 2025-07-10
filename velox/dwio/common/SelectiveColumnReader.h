@@ -494,6 +494,10 @@ class SelectiveColumnReader {
     VELOX_UNREACHABLE("Only struct reader supports this method");
   }
 
+  memory::MemoryPool* memoryPool() const {
+    return memoryPool_;
+  }
+
  protected:
   template <typename T>
   void prepareRead(

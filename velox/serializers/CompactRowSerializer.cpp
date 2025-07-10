@@ -49,7 +49,7 @@ class CompactRowVectorSerializer : public RowSerializer<row::CompactRow> {
         offset += size + sizeof(TRowSize);
         ++index;
       } else {
-        raw_vector<size_t> offsets(range.size);
+        raw_vector<size_t> offsets(range.size, pool_);
         for (auto i = 0; i < range.size; ++i, ++index) {
           // Write raw size. Needs to be in big endian order.
           *(TRowSize*)(rawBuffer + offset) = folly::Endian::big(rowSize[index]);

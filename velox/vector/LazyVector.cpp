@@ -77,7 +77,8 @@ void VectorLoader::load(
     const SelectivityVector& rows,
     ValueHook* hook,
     vector_size_t resultSize,
-    VectorPtr* result) {
+    VectorPtr* result,
+    memory::MemoryPool* pool) {
   if (rows.isAllSelected()) {
     const auto& indices = DecodedVector::consecutiveIndices();
     VELOX_DCHECK(!indices.empty());
@@ -90,7 +91,7 @@ void VectorLoader::load(
       return;
     }
   }
-  raw_vector<vector_size_t> positions(rows.countSelected());
+  raw_vector<vector_size_t> positions(rows.countSelected(), pool);
   simd::indicesOfSetBits(
       rows.allBits(), rows.begin(), rows.end(), positions.data());
   load(positions, hook, resultSize, result);
@@ -191,7 +192,7 @@ void LazyVector::ensureLoadedRowsImpl(
 
   if (!baseLazyVector->isLoaded()) {
     // Create rowSet.
-    raw_vector<vector_size_t> rowNumbers;
+    raw_vector<vector_size_t> rowNumbers(baseLazyVector->pool());
     RowSet rowSet;
     if (decoded.isConstantMapping()) {
       rowNumbers.push_back(decoded.index(rows.begin()));
@@ -281,7 +282,7 @@ void LazyVector::loadVectorInternal() const {
       vector_ = BaseVector::create(type_, 0, pool_);
     }
     SelectivityVector allRows(BaseVector::length_);
-    loader_->load(allRows, nullptr, size(), &vector_);
+    loader_->load(allRows, nullptr, size(), &vector_, pool_);
     VELOX_CHECK_NOT_NULL(vector_);
     if (vector_->encoding() == VectorEncoding::Simple::LAZY) {
       vector_ = vector_->asUnchecked<LazyVector>()->loadedVectorShared();

@@ -129,11 +129,11 @@ class TypedDistinctAggregations : public DistinctAggregations {
 
       // Overwrite empty groups over the destructed groups to keep the container
       // in a well formed state.
-      raw_vector<int32_t> temp;
+      raw_vector<int32_t> indices(pool_);
       aggregate.function->initializeNewGroups(
           groups.data(),
           folly::Range<const int32_t*>(
-              iota(groups.size(), temp), groups.size()));
+              iota(groups.size(), indices), groups.size()));
     }
   }
 

@@ -180,7 +180,7 @@ class HashJoinPrepareJoinTableBenchmark : public VectorTestBase {
 
   void copyVectorsToTable(RowVectorPtr batch, BaseHashTable* table) {
     int32_t batchSize = batch->size();
-    raw_vector<uint64_t> dummy(batchSize);
+    raw_vector<uint64_t> dummy(batchSize, pool());
     auto rowContainer = table->rows();
     auto& hashers = table->hashers();
     auto numKeys = hashers.size();

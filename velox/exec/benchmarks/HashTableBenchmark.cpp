@@ -286,7 +286,7 @@ class HashTableBenchmark : public VectorTestBase {
       int32_t tableOffset,
       BaseHashTable* table) {
     int32_t batchSize = batches[0]->size();
-    raw_vector<uint64_t> dummy(batchSize);
+    raw_vector<uint64_t> dummy(batchSize, pool());
     int32_t batchOffset = 0;
     rowOfKey_.resize(tableOffset + batchSize * batches.size());
     auto rowContainer = table->rows();

@@ -75,6 +75,8 @@ class PartitionIdGenerator {
       const RowVectorPtr& input,
       vector_size_t row);
 
+  memory::MemoryPool* const pool_;
+
   const std::vector<column_index_t> partitionChannels_;
 
   const uint32_t maxPartitions_;

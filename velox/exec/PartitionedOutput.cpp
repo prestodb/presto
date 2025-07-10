@@ -286,7 +286,7 @@ void PartitionedOutput::initializeSizeBuffers() {
 void PartitionedOutput::estimateRowSizes() {
   const auto numInput = input_->size();
   std::fill(rowSize_.begin(), rowSize_.end(), 0);
-  raw_vector<vector_size_t> storage;
+  raw_vector<vector_size_t> storage(pool());
   const auto numbers = iota(numInput, storage);
   const auto rows = folly::Range(numbers, numInput);
   if (serde_->kind() == VectorSerde::Kind::kCompactRow) {

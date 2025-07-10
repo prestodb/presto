@@ -74,7 +74,7 @@ void benchmarkComputeValueIds(bool withNulls) {
       [](vector_size_t row) { return row % 17; },
       withNulls ? velox::test::VectorMaker::nullEvery(7) : nullptr);
 
-  raw_vector<uint64_t> hashes(size);
+  raw_vector<uint64_t> hashes(size, base.pool());
   SelectivityVector rows(size);
   hasher.decode(*values, rows);
   hasher.computeValueIds(rows, hashes);
@@ -155,7 +155,7 @@ void benchmarkComputeValueIdsForStrings(bool flattenDictionaries) {
   uint64_t multiplier = 1;
   for (int i = 0; i < 4; i++) {
     auto hasher = hashers[i].get();
-    raw_vector<uint64_t> result(size);
+    raw_vector<uint64_t> result(size, base.pool());
     hasher->decode(*vectors[i], allRows);
     auto ok = hasher->computeValueIds(allRows, result);
     folly::doNotOptimizeAway(ok);
@@ -164,7 +164,7 @@ void benchmarkComputeValueIdsForStrings(bool flattenDictionaries) {
   }
   suspender.dismiss();
 
-  raw_vector<uint64_t> result(size);
+  raw_vector<uint64_t> result(size, base.pool());
   for (int i = 0; i < 10'000; i++) {
     for (int j = 0; j < 4; j++) {
       auto hasher = hashers[j].get();
@@ -198,7 +198,7 @@ BENCHMARK(computeValueIdsLowCardinalityLargeBatchSize) {
   auto values = base.vectorMaker().dictionaryVector<int64_t>(data);
 
   for (int i = 0; i < 10; i++) {
-    raw_vector<uint64_t> hashes(batchSize);
+    raw_vector<uint64_t> hashes(batchSize, base.pool());
     SelectivityVector rows(batchSize);
     VectorHasher hasher(BIGINT(), 0);
     hasher.decode(*values, rows);
@@ -228,7 +228,7 @@ BENCHMARK(computeValueIdsLowCardinalityNotAllUsed) {
   auto values = BaseVector::wrapInDictionary(nullptr, indices, batchSize, data);
 
   for (int i = 0; i < 10; i++) {
-    raw_vector<uint64_t> hashes(batchSize);
+    raw_vector<uint64_t> hashes(batchSize, base.pool());
     SelectivityVector rows(batchSize);
     VectorHasher hasher(BIGINT(), 0);
     hasher.decode(*values, rows);
@@ -258,7 +258,7 @@ BENCHMARK(computeValueIdsDictionaryForFiltering) {
   auto values = BaseVector::wrapInDictionary(nullptr, indices, batchSize, data);
 
   for (int i = 0; i < 10; i++) {
-    raw_vector<uint64_t> hashes(batchSize);
+    raw_vector<uint64_t> hashes(batchSize, base.pool());
     SelectivityVector rows(batchSize);
     VectorHasher hasher(BIGINT(), 0);
     hasher.decode(*values, rows);

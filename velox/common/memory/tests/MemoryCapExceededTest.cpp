@@ -92,7 +92,7 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
       "node.1 usage 12.00KB reserved 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB reserved 1.00MB peak 12.00KB",
       "node.2 usage 3.74MB reserved 4.00MB peak 4.00MB",
-      "op.2.0.0.Aggregation usage 3.74MB reserved 4.00MB peak 3.74MB",
+      "op.2.0.0.Aggregation usage 3.74MB reserved 4.00MB peak 3.76MB",
       "Top 2 leaf memory pool usages:"};
 
   std::vector<RowVectorPtr> data;

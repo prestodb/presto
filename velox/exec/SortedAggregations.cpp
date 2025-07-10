@@ -63,7 +63,8 @@ struct RowPointers {
 SortedAggregations::SortedAggregations(
     const std::vector<const AggregateInfo*>& aggregates,
     const RowTypePtr& inputType,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool)
+    : pool_(pool) {
   // Collect inputs and sorting keys from all aggregates.
   std::unordered_set<column_index_t> allInputs;
   for (const auto* aggregate : aggregates) {
@@ -366,7 +367,7 @@ vector_size_t SortedAggregations::extractSingleGroup(
 void SortedAggregations::extractValues(
     folly::Range<char**> groups,
     const RowVectorPtr& result) {
-  raw_vector<int32_t> temp;
+  raw_vector<int32_t> indices(pool_);
   SelectivityVector rows;
   std::vector<char*> groupRows;
   for (const auto& [sortingSpec, aggregates] : aggregates_) {
@@ -432,7 +433,7 @@ void SortedAggregations::extractValues(
       aggregate->function->initializeNewGroups(
           groups.data(),
           folly::Range<const int32_t*>(
-              iota(groups.size(), temp), groups.size()));
+              iota(groups.size(), indices), groups.size()));
     }
   }
 }

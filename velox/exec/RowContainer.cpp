@@ -349,7 +349,7 @@ void RowContainer::eraseRows(folly::Range<char**> rows) {
 }
 
 int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) const {
-  raw_vector<folly::Range<char*>> ranges;
+  raw_vector<folly::Range<char*>> ranges(pool());
   ranges.resize(rows_.numRanges());
   for (auto i = 0; i < rows_.numRanges(); ++i) {
     ranges[i] = rows_.rangeAt(i);
@@ -358,8 +358,8 @@ int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) const {
       ranges.begin(), ranges.end(), [](const auto& left, const auto& right) {
         return left.data() < right.data();
       });
-  raw_vector<uint64_t> starts;
-  raw_vector<uint64_t> sizes;
+  raw_vector<uint64_t> starts(pool());
+  raw_vector<uint64_t> sizes(pool());
   starts.reserve(ranges.size());
   sizes.reserve(ranges.size());
   for (const auto& range : ranges) {

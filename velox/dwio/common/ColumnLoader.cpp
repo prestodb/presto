@@ -101,7 +101,7 @@ void ColumnLoader::loadInternal(
              ->debugString();
        },
        structReader_});
-  raw_vector<vector_size_t> selectedRows;
+  raw_vector<vector_size_t> selectedRows(fieldReader_->memoryPool());
   auto effectiveRows =
       read(structReader_, fieldReader_, version_, rows, selectedRows, hook);
   if (!hook) {
@@ -134,7 +134,7 @@ void DeltaUpdateColumnLoader::loadInternal(
   // method return.
   VELOX_CHECK(!scanSpec->hasFilter());
   scanSpec->setValueHook(nullptr);
-  raw_vector<vector_size_t> selectedRows;
+  raw_vector<vector_size_t> selectedRows(fieldReader_->memoryPool());
   RowSet effectiveRows;
   effectiveRows =
       read(structReader_, fieldReader_, version_, rows, selectedRows, nullptr);
