@@ -355,6 +355,18 @@ public final class VarbinaryFunctions
         return hash;
     }
 
+    @Description("compute xxhash64 hash with a seed")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice xxhash64(
+            @SqlType(StandardTypes.BIGINT) long seed,
+            @SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        Slice hash = Slices.allocate(Long.BYTES);
+        hash.setLong(0, Long.reverseBytes(XxHash64.hash(seed, slice)));
+        return hash;
+    }
+
     @Description("compute SpookyHashV2 32-bit hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)

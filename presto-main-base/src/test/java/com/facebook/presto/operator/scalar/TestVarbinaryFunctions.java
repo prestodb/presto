@@ -375,6 +375,8 @@ public class TestVarbinaryFunctions
     {
         assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
         assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
+        assertFunction("xxhash64(0, CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
+        assertFunction("xxhash64(0, CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
     }
 
     @Test
