@@ -79,7 +79,7 @@ TextWriter::TextWriter(
           options->defaultFlushCount)),
       serDeOptions_(serDeOptions) {}
 
-char TextWriter::getDelimiterForDepth(uint8_t depth) const {
+uint8_t TextWriter::getDelimiterForDepth(uint8_t depth) const {
   VELOX_CHECK_LT(
       depth,
       serDeOptions_.separators.size(),
@@ -109,7 +109,7 @@ void TextWriter::write(const VectorPtr& data) {
     decodedColumnVectors.push_back(std::move(decodedColumnVector));
   }
 
-  std::optional<char> delimiter;
+  std::optional<uint8_t> delimiter;
   for (vector_size_t row = 0; row < data->size(); ++row) {
     for (size_t column = 0; column < numColumns; ++column) {
       delimiter = (column == 0) ? std::nullopt
@@ -121,7 +121,7 @@ void TextWriter::write(const VectorPtr& data) {
           0,
           delimiter);
     }
-    bufferedWriterSink_->write(serDeOptions_.newLine);
+    bufferedWriterSink_->write((char)serDeOptions_.newLine);
   }
 }
 
@@ -142,9 +142,9 @@ void TextWriter::writeCellValue(
     const TypeKind type,
     vector_size_t row,
     uint8_t depth,
-    std::optional<char> delimiter) {
+    std::optional<uint8_t> delimiter) {
   if (delimiter.has_value()) {
-    bufferedWriterSink_->write(delimiter.value());
+    bufferedWriterSink_->write((char)delimiter.value());
   }
 
   if (decodedColumnVector->isNullAt(row)) {
@@ -240,12 +240,43 @@ void TextWriter::writeCellValue(
       }
       return;
     }
-    // TODO Add support for complex types
-    case TypeKind::MAP:
-      [[fallthrough]];
+    case TypeKind::MAP: {
+      // MAP vector members
+      const auto& mapVecPtr = decodedColumnVector->base()->as<MapVector>();
+      const auto& indices = decodedColumnVector->indices();
+      const auto& size = mapVecPtr->sizeAt(indices[row]);
+      const auto& offset = mapVecPtr->offsetAt(indices[row]);
+
+      auto keySlice = mapVecPtr->mapKeys()->slice(offset, size);
+      auto decodedKeys =
+          std::make_shared<DecodedVector>(DecodedVector(*keySlice));
+
+      auto valSlice = mapVecPtr->mapValues()->slice(offset, size);
+      auto decodedValues =
+          std::make_shared<DecodedVector>(DecodedVector(*valSlice));
+
+      for (int i = 0; i < size; ++i) {
+        delimiter = (i == 0) ? std::nullopt
+                             : std::optional(getDelimiterForDepth(depth));
+        writeCellValue(
+            decodedKeys,
+            mapVecPtr->mapKeys().get()->typeKind(),
+            i,
+            depth,
+            delimiter);
+
+        delimiter = std::optional(getDelimiterForDepth(depth + 1));
+        writeCellValue(
+            decodedValues,
+            mapVecPtr->mapValues().get()->typeKind(),
+            i,
+            depth,
+            delimiter);
+      }
+
+      return;
+    }
     case TypeKind::ROW:
-      [[fallthrough]];
-    case TypeKind::UNKNOWN:
       [[fallthrough]];
     default:
       VELOX_NYI("{} is not supported yet in TextWriter", type);

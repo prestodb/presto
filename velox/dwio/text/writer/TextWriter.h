@@ -61,14 +61,14 @@ class TextWriter : public dwio::common::Writer {
   void abort() override;
 
  private:
-  char getDelimiterForDepth(uint8_t depth) const;
+  uint8_t getDelimiterForDepth(uint8_t depth) const;
 
   void writeCellValue(
       const std::shared_ptr<DecodedVector>& decodedColumnVector,
       TypeKind type,
       vector_size_t row,
       uint8_t depth,
-      std::optional<char> delimiter);
+      std::optional<uint8_t> delimiter);
 
   const RowTypePtr schema_;
   const std::unique_ptr<BufferedWriterSink> bufferedWriterSink_;
