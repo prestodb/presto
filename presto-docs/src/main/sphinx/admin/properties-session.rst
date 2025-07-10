@@ -476,3 +476,12 @@ This property can be used to configure how long a query runs without contact
 from the client application, such as the CLI, before it's abandoned.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`query.client.timeout\`\``.
+
+``query_priority``
+^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``int``
+* **Default value:** ``1``
+
+This property defines the priority of queries for execution and plays an important role in query admission.
+Queries with higher priority are scheduled first than the ones with lower priority. Higher number indicates higher priority.
