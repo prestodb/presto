@@ -2297,6 +2297,10 @@
                         <artifactId>guice-multibindings</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
@@ -2315,6 +2319,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2336,6 +2344,10 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2351,6 +2363,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
