@@ -27,6 +27,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
@@ -967,6 +968,12 @@ public class MetadataManager
     public Map<String, ConnectorId> getCatalogNames(Session session)
     {
         return transactionManager.getCatalogNames(session.getRequiredTransactionId());
+    }
+
+    @Override
+    public Map<String, CatalogContext> getCatalogNamesWithConnectorContext(Session session)
+    {
+        return transactionManager.getCatalogNamesWithConnectorContext(session.getRequiredTransactionId());
     }
 
     @Override
