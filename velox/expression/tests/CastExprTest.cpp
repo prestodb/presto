@@ -1484,16 +1484,16 @@ TEST_F(CastExprTest, arrayCast) {
   {
     // Array with all inner elements null.
     auto sizeAtLocal = [](vector_size_t /* row */) { return 5; };
-    auto arrayVector = vectorMaker_.arrayVector<int32_t>(
+    auto nullElementsArrayVector = vectorMaker_.arrayVector<int32_t>(
         kVectorSize, sizeAtLocal, nullptr, nullptr, nullEvery(1));
 
     SelectivityVector rows(5);
     rows.setValid(2, false);
-    arrayVector->setOffsetAndSize(2, 100, 5);
-    arrayVector->setOffsetAndSize(20, 10, 5);
+    nullElementsArrayVector->setOffsetAndSize(2, 100, 5);
+    nullElementsArrayVector->setOffsetAndSize(20, 10, 5);
     std::vector<VectorPtr> results(1);
 
-    auto rowVector = makeRowVector({arrayVector});
+    auto rowVector = makeRowVector({nullElementsArrayVector});
     auto castExpr =
         makeTypedExpr("cast (c0 as bigint[])", asRowType(rowVector->type()));
     exec::ExprSet exprSet({castExpr}, &execCtx_);
