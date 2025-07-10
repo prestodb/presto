@@ -13,18 +13,15 @@
  */
 package com.facebook.presto.spi.security;
 
-import java.security.Principal;
-import java.util.List;
-import java.util.Map;
+import com.facebook.presto.spi.PrestoException;
 
-public interface PrestoAuthenticator
+import static com.facebook.presto.spi.StandardErrorCode.AUTHENTICATOR_NOT_APPLICABLE;
+
+public class AuthenticatorNotApplicableException
+        extends PrestoException
 {
-    /**
-     * Authenticate the provided token.
-     *
-     * @return the authenticated Principal
-     * @throws AccessDeniedException if not allowed
-     * @throws AuthenticatorNotApplicableException if authenticator is not valid
-     */
-    Principal createAuthenticatedPrincipal(Map<String, List<String>> headers);
+    public AuthenticatorNotApplicableException(String message)
+    {
+        super(AUTHENTICATOR_NOT_APPLICABLE, message);
+    }
 }
