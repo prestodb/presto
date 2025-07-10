@@ -174,6 +174,8 @@ UUID                      HUGEINT
 IPADDRESS                 HUGEINT
 IPPREFIX                  ROW(HUGEINT,TINYINT)
 GEOMETRY                  VARBINARY
+TDIGEST                   VARBINARY
+QDIGEST                   VARBINARY
 ========================  =====================
 
 TIMESTAMP WITH TIME ZONE represents a time point in milliseconds precision
@@ -208,6 +210,18 @@ As a result the IPPREFIX object stores *FFFF:FFFF::* and the length 32 for both 
 
    IPPREFIX 'FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF/32' -- IPPREFIX 'FFFF:FFFF:0000:0000:0000:0000:0000:0000/32'
    IPPREFIX 'FFFF:FFFF:4455:6677:8899:AABB:CCDD:EEFF/32' -- IPPREFIX 'FFFF:FFFF:0000:0000:0000:0000:0000:0000/32'
+
+TDIGEST(DOUBLE) is a data sketch for estimating rank-based metrics.
+T-digests may be merged without losing precision, and for storage and retrieval
+they may be cast to/from VARBINARY. The T-digest accepts a parameter of type
+DOUBLE which represents the set of numbers to be ingested by the T-digest.
+
+QDIGEST(BIGINT), QDIGEST(REAL), QDIGEST(DOUBLE) are data sketches for
+estimating rank-based metrics. A quantile digest captures the approximate distribution of
+data for a given input set, and can be queried to retrieve approximate quantile values from the
+distribution. They may be merged without losing precision, and for storage and retrieval they may
+be cast to/from VARBINARY. The parameter type (BIGINT, REAL, or DOUBLE) represents
+the set of numbers that may be ingested by the quantile digest.
 
 Spark Types
 ~~~~~~~~~~~~

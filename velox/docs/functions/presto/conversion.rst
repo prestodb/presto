@@ -30,7 +30,7 @@ are supported if the conversion of their element types are supported. In additio
 supported conversions to/from JSON are listed in :doc:`json`.
 
 .. list-table::
-   :widths: 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25
+   :widths: 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25 25
    :header-rows: 1
 
    * -
@@ -50,6 +50,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - decimal
      - ipaddress
      - ipprefix
+     - tdigest
+     - qdigest
    * - tinyint
      - Y
      - Y
@@ -65,6 +67,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     -
+     -
      -
      -
    * - smallint
@@ -84,6 +88,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
+     -
    * - integer
      - Y
      - Y
@@ -99,6 +105,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     -
+     -
      -
      -
    * - bigint
@@ -118,6 +126,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
+     -
    * - boolean
      - Y
      - Y
@@ -133,6 +143,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     -
+     -
      -
      -
    * - real
@@ -152,6 +164,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
+     -
    * - double
      - Y
      - Y
@@ -167,6 +181,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     -
+     -
      -
      -
    * - varchar
@@ -186,6 +202,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
+     -
    * - varbinary
      -
      -
@@ -202,7 +220,9 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
-     -
+     - Y
+     - Y
+     - Y
    * - timestamp
      -
      -
@@ -216,6 +236,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
+     -
+     -
      -
      -
      -
@@ -237,6 +259,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
+     -
+     -
    * - date
      -
      -
@@ -254,6 +278,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      -
+     -
+     -
    * - interval day to second
      -
      -
@@ -263,6 +289,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     -
+     -
      -
      -
      -
@@ -288,6 +316,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      -
      -
+     -
+     -
    * - ipaddress
      -
      -
@@ -305,6 +335,8 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      -
      - Y
+     -
+     -
    * - ipprefix
      -
      -
@@ -322,6 +354,47 @@ supported conversions to/from JSON are listed in :doc:`json`.
      -
      - Y
      - Y
+     -
+     -
+   * - tdigest
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     - Y
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+   * - qdigest
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     - Y
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+     -
+
 Cast to Integral Types
 ----------------------
 
@@ -570,7 +643,7 @@ Invalid example
   SELECT cast(decimal '300.001' as tinyint); -- Out of range
 
 Cast to VARCHAR
---------------
+---------------
 
 Casting from scalar types to string is allowed.
 
@@ -776,6 +849,26 @@ IPV4 mapped IPV6:
 ::
 
   SELECT cast('::ffff:ffff:ffff' as ipaddress); -- 0x00000000000000000000ffffffffffff
+
+From TDIGEST(DOUBLE)
+^^^^^^^^^^^^^^^^^^^^
+
+Returns the T-digest as a varbinary string containing the serialized representation of the T-digest data structure.
+This allows T-digests to be stored and retrieved for later use.
+
+::
+
+  SELECT cast(tdigest_agg(cast(1.0 as double)) as varbinary); -- AQAAAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAABZQAAAAAAAAPA/AQAAAAAAAAAAAPA/AAAAAAAA8D8=
+
+From QDIGEST(BIGINT), QDIGEST(REAL), QDIGEST(DOUBLE)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Returns the quantile digest as a varbinary string containing the serialized representation of the quantile digest data structure.
+This allows quantile digests to be stored and retrieved for later use.
+
+::
+
+  SELECT cast(qdigest_agg(cast(1.0 as double)) as varbinary); -- AHsUrkfheoQ/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAA8D8BAAAAAAAAAAAAAPA/AAAAAAAA8L8=
 
 Cast to TIMESTAMP
 -----------------
@@ -1202,6 +1295,34 @@ Examples:
 
   SELECT cast(ipprefix '1.2.3.4/24' as ipaddress) -- ipaddress '1.2.3.0'
   SELECT cast(ipprefix '2001:db8::ff00:42:8329/64' as ipaddress) -- ipaddress '2001:db8::'
+
+Cast to TDIGEST(DOUBLE)
+-----------------------
+
+From VARBINARY
+^^^^^^^^^^^^^^
+
+Returns a T-digest reconstructed from the varbinary string containing the serialized representation.
+This allows previously stored T-digests to be restored for use.
+
+::
+
+  SELECT cast(stored_tdigest_binary as tdigest(double));
+
+Cast to QDIGEST(BIGINT), QDIGEST(REAL), QDIGEST(DOUBLE)
+-------------------------------------------------------
+
+From VARBINARY
+^^^^^^^^^^^^^^
+
+Returns a quantile digest reconstructed from the varbinary string containing the serialized representation.
+This allows previously stored quantile digests to be restored for use.
+
+::
+
+  SELECT cast(stored_qdigest_binary as qdigest(bigint));
+  SELECT cast(stored_qdigest_binary as qdigest(real));
+  SELECT cast(stored_qdigest_binary as qdigest(double));
 
 Cast to IPPREFIX
 ----------------
