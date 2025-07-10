@@ -157,6 +157,12 @@ T negate(const T& arg) {
 
 template <typename T>
 T abs(const T& arg) {
+  if constexpr (std::is_integral_v<T>) {
+    if (arg == std::numeric_limits<T>::min()) {
+      VELOX_USER_FAIL(
+          "Value {} is out of range for abs({})", arg, CppToType<T>::name);
+    }
+  }
   T results = std::abs(arg);
   return results;
 }
