@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
@@ -46,7 +47,7 @@ public class TestParquetDistributedQueries
                 .put("hive.partial_aggregation_pushdown_enabled", "true")
                 .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
                 .build();
-        return HiveQueryRunner.createQueryRunner(
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
                 getTables(),
                 ImmutableMap.of(
                         "experimental.pushdown-subfields-enabled", "true",
@@ -54,6 +55,8 @@ public class TestParquetDistributedQueries
                 "sql-standard",
                 parquetProperties,
                 Optional.empty());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Test
