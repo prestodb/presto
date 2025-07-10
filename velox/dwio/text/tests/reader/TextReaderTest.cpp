@@ -554,6 +554,71 @@ TEST_F(TextReaderTest, projectComplexTypesWithCustomDelimiters) {
   }
 }
 
+TEST_F(TextReaderTest, projectPrimitiveTypes) {
+  auto type = ROW(
+      {{"col_int", INTEGER()},
+       {"col_huge", BIGINT()},
+       {"col_tiny", TINYINT()},
+       {"col_double", DOUBLE()}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/simple_types");
+  auto readFile = std::make_shared<LocalReadFile>(path);
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+
+  // Test projection of multiple primitive types: VARCHAR, INTEGER, and BOOLEAN
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addField("col_tiny", 0);
+  spec->addField("col_int", 1);
+  spec->addField("col_double", 2);
+
+  dwio::common::RowReaderOptions rowOptions;
+  rowOptions.setScanSpec(spec);
+  rowOptions.select(std::make_shared<dwio::common::ColumnSelector>(
+      type, std::vector<std::string>({"col_tiny", "col_int", "col_double"})));
+  auto rowReader = reader->createRowReader(rowOptions);
+
+  VectorPtr result;
+  ASSERT_EQ(rowReader->next(20, result), 16);
+  ASSERT_EQ(
+      *result->type(),
+      *ROW(
+          {"col_tiny", "col_int", "col_double"},
+          {TINYINT(), INTEGER(), DOUBLE()}));
+
+  auto expected = makeRowVector({
+      makeFlatVector<int8_t>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+      makeFlatVector<int32_t>(
+          {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26}),
+      makeNullableFlatVector<double>(
+          {1.123,
+           2.333,
+           -6.1,
+           4.2,
+           0.0000513,
+           79.5,
+           std::nullopt,
+           3.1415926,
+           93.12,
+           -221.145,
+           std::nullopt,
+           950.2,
+           -4123.11,
+           43.66,
+           std::nullopt,
+           std::nullopt}),
+  });
+
+  ASSERT_EQ(result->size(), expected->size());
+  for (int i = 0; i < 16; ++i) {
+    ASSERT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+}
+
 TEST_F(TextReaderTest, DISABLED_projectColumns) {
   auto type = ROW(
       {{"col_string", VARCHAR()},
