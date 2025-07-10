@@ -73,6 +73,12 @@ public class PrestoSparkQueryManager
     }
 
     @Override
+    public long getDurationUntilExpirationInMillis(QueryId queryId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Session getQuerySession(QueryId queryId)
     {
         throw new UnsupportedOperationException();

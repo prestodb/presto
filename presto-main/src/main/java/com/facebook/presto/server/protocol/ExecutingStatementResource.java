@@ -16,6 +16,7 @@ package com.facebook.presto.server.protocol;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
@@ -68,6 +69,7 @@ public class ExecutingStatementResource
 
     private final BoundedExecutor responseExecutor;
     private final LocalQueryProvider queryProvider;
+    private final QueryManager queryManager;
     private final boolean compressionEnabled;
     private final boolean nestedDataSerializationEnabled;
     private final QueryBlockingRateLimiter queryRateLimiter;
@@ -76,11 +78,13 @@ public class ExecutingStatementResource
     public ExecutingStatementResource(
             @ForStatementResource BoundedExecutor responseExecutor,
             LocalQueryProvider queryProvider,
+            QueryManager queryManager,
             ServerConfig serverConfig,
             QueryBlockingRateLimiter queryRateLimiter)
     {
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
         this.nestedDataSerializationEnabled = requireNonNull(serverConfig, "serverConfig is null").isNestedDataSerializationEnabled();
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
@@ -132,9 +136,10 @@ public class ExecutingStatementResource
                     return query.waitForResults(token, uriInfo, effectiveFinalProto, wait, effectiveFinalTargetResultSize, binaryResults);
                 },
                 responseExecutor);
+        long durationUntilExpirationMs = queryManager.getDurationUntilExpirationInMillis(queryId);
         ListenableFuture<Response> queryResultsFuture = transform(
                 waitForResultsAsync,
-                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
+                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled, durationUntilExpirationMs),
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }

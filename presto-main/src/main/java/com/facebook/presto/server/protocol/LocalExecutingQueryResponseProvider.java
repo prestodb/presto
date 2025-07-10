@@ -26,6 +26,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.util.Optional;
 
+import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +54,8 @@ public class LocalExecutingQueryResponseProvider
             DataSize targetResultSize,
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
-            boolean binaryResults)
+            boolean binaryResults,
+            long durationUntilExpirationMs)
     {
         Query query;
         try {
@@ -64,7 +66,7 @@ public class LocalExecutingQueryResponseProvider
         }
         return Optional.of(transform(
                 query.waitForResults(0, uriInfo, scheme, maxWait, targetResultSize, binaryResults),
-                results -> QueryResourceUtil.toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
+                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled, durationUntilExpirationMs),
                 directExecutor()));
     }
 }

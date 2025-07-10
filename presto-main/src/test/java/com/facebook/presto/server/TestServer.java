@@ -79,14 +79,17 @@ import static com.facebook.presto.server.TestHttpRequestSessionContext.createSql
 import static com.facebook.presto.server.TestHttpRequestSessionContext.urlEncode;
 import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPage;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static javax.ws.rs.core.HttpHeaders.CACHE_CONTROL;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -423,6 +426,38 @@ public class TestServer
         StatusResponseHandler.StatusResponse response = client.execute(request, createStatusResponseHandler());
         assertEquals(response.getStatusCode(), OK.getStatusCode(), "Status code");
         assertEquals(response.getHeader(CONTENT_TYPE), APPLICATION_JSON, "Content Type");
+    }
+
+    @Test
+    public void testCacheControlHeaderExists()
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .build();
+
+        JsonResponse<QueryResults> initResponse = client.execute(request, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        String initHeader = initResponse.getHeader(CACHE_CONTROL);
+        assertNotNull(initHeader);
+        assertTrue(initHeader.contains("max-age"));
+
+        int initAge = parseInt(initHeader.substring(initHeader.indexOf("=") + 1));
+        assertTrue(initAge >= 0);
+
+        JsonResponse<QueryResults> queryResults = initResponse;
+        while (queryResults.getValue().getNextUri() != null) {
+            URI nextUri = queryResults.getValue().getNextUri();
+            queryResults = client.execute(prepareGet().setUri(nextUri).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+            String header = queryResults.getHeader(CACHE_CONTROL);
+            assertNotNull(header);
+            assertTrue(header.contains("max-age"));
+
+            int maxAge = parseInt(header.substring(header.indexOf("=") + 1));
+            assertTrue(maxAge >= 0);
+        }
     }
 
     public URI uriFor(String path)
