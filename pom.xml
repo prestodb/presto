@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>105</version>
+        <version>107</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.219</dep.airlift.version>
+        <dep.airlift.version>0.220</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -87,7 +87,7 @@
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
-        <dep.guice.version>7.0.0</dep.guice.version>
+        <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
