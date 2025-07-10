@@ -22,10 +22,9 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/MemoryAllocator.h"
-#include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/ExchangeQueue.h"
 
