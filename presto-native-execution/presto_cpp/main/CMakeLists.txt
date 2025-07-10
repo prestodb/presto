@@ -102,6 +102,11 @@ endif()
 target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
                       ${THRIFT_LIBRARY})
 
+                      # if(PRESTO_ENABLE_TABLE_FUNCTIONS) add_subdirectory(tvf)
+add_subdirectory(tvf)
+target_link_libraries(presto_server_lib presto_tvf_exec presto_tvf_functions)
+# endif()
+
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp
                                             RemoteFunctionRegisterer.cpp)

@@ -37,6 +37,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitEmptyTableTreatment(EmptyTableTreatment node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitCurrentTime(CurrentTime node, C context)
     {
         return visitExpression(node, context);
@@ -851,12 +856,43 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
+
     protected R visitReturn(Return node, C context)
     {
         return visitNode(node, context);
     }
 
     protected R visitExternalBodyReference(ExternalBodyReference node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitTableFunctionArgument(TableFunctionArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableArgument(TableFunctionTableArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptorArgument(TableFunctionDescriptorArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptor(Descriptor node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptorField(DescriptorField node, C context)
     {
         return visitNode(node, context);
     }

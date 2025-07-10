@@ -22,6 +22,16 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.DescriptorArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.MonomorphicStaticReturnTypeFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.OnlyPassThroughFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.PassThroughFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.RequiredColumnsFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentRowSemanticsFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoTableArgumentsFunction;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
@@ -60,6 +70,7 @@ import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 
@@ -149,6 +160,20 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+
+        metadata.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(
+                TPCH_CONNECTOR_ID,
+                ImmutableSet.of(
+                        new TwoScalarArgumentsFunction(),
+                        new TableArgumentFunction(),
+                        new TableArgumentRowSemanticsFunction(),
+                        new DescriptorArgumentFunction(),
+                        new TwoTableArgumentsFunction(),
+                        new OnlyPassThroughFunction(),
+                        new MonomorphicStaticReturnTypeFunction(),
+                        new PolymorphicStaticReturnTypeFunction(),
+                        new PassThroughFunction(),
+                        new RequiredColumnsFunction()));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);
@@ -506,12 +531,22 @@ public class AbstractAnalyzerTest
 
     protected void assertFails(SemanticErrorCode error, String message, @Language("SQL") String query)
     {
-        assertFails(CLIENT_SESSION, error, message, query);
+        assertFails(CLIENT_SESSION, error, message, query, false);
+    }
+
+    protected void assertFailsExact(SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(CLIENT_SESSION, error, message, query, true);
     }
 
     protected void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         assertFails(session, error, Optional.empty(), query);
+    }
+
+    protected void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(session, error, message, query, false);
     }
 
     private void assertFails(Session session, SemanticErrorCode error, Optional<NodeLocation> location, @Language("SQL") String query)
@@ -542,7 +577,7 @@ public class AbstractAnalyzerTest
         }
     }
 
-    protected void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    protected void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query, boolean exact)
     {
         try {
             analyze(session, query);
@@ -553,7 +588,7 @@ public class AbstractAnalyzerTest
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
             }
 
-            if (!e.getMessage().matches(message)) {
+            if (!(exact ? e.getMessage().equals(message) : e.getMessage().matches(message))) {
                 fail(format("Expected error '%s', but got '%s'", message, e.getMessage()), e);
             }
         }

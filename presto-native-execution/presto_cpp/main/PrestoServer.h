@@ -28,6 +28,8 @@
 #include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
+#include "presto_cpp/main/tvf/spi/TableFunction.h"
+
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
