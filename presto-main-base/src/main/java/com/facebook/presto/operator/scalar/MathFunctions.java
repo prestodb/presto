@@ -1700,10 +1700,17 @@ public final class MathFunctions
                 "Both array arguments must have identical sizes");
         double result = 0.0;
 
-        for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+        if (leftArray.mayHaveNull() || rightArray.mayHaveNull()) {
+            boolean hasNull = false;
+            for (int i = 0; i < leftArray.getPositionCount(); i++) {
+                hasNull = hasNull || leftArray.isNull(i) || rightArray.isNull(i);
+            }
+            if (hasNull) {
                 return null;
             }
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
             result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
         }
 
@@ -1724,10 +1731,17 @@ public final class MathFunctions
                 "Both array arguments must have identical sizes");
         float dotProduct = 0.0F;
 
-        for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+        if (leftArray.mayHaveNull() || rightArray.mayHaveNull()) {
+            boolean hasNull = false;
+            for (int i = 0; i < leftArray.getPositionCount(); i++) {
+                hasNull = hasNull || leftArray.isNull(i) || rightArray.isNull(i);
+            }
+            if (hasNull) {
                 return null;
             }
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
             dotProduct += Float.intBitsToFloat((int) REAL.getLong(leftArray, i)) * Float.intBitsToFloat((int) REAL.getLong(rightArray, i));
         }
 
