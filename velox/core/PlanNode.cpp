@@ -1285,16 +1285,16 @@ AbstractJoinNode::AbstractJoinNode(
         "Join key types on the left and right sides must match");
   }
 
-  auto numOutputColumms = outputType_->size();
+  auto numOutputColumns = outputType_->size();
   if (core::isLeftSemiProjectJoin(joinType) ||
       core::isRightSemiProjectJoin(joinType)) {
     // Last output column must be a boolean 'match'.
-    --numOutputColumms;
-    VELOX_CHECK_EQ(outputType_->childAt(numOutputColumms), BOOLEAN());
+    --numOutputColumns;
+    VELOX_CHECK_EQ(outputType_->childAt(numOutputColumns), BOOLEAN());
 
     // Verify that 'match' column name doesn't match any column from left or
     // right source.
-    const auto& name = outputType_->nameOf(numOutputColumms);
+    const auto& name = outputType_->nameOf(numOutputColumns);
     VELOX_CHECK(!leftType->containsChild(name));
     VELOX_CHECK(!rightType->containsChild(name));
   }
@@ -1310,7 +1310,7 @@ AbstractJoinNode::AbstractJoinNode(
       !(core::isLeftSemiFilterJoin(joinType) ||
         core::isLeftSemiProjectJoin(joinType) || core::isAntiJoin(joinType));
 
-  for (auto i = 0; i < numOutputColumms; ++i) {
+  for (auto i = 0; i < numOutputColumns; ++i) {
     auto name = outputType_->nameOf(i);
     if (outputMayIncludeLeftColumns && leftType->containsChild(name)) {
       VELOX_CHECK(
