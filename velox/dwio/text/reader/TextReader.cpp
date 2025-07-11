@@ -21,9 +21,12 @@
 
 #include <string>
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::text {
 
 using common::CompressionKind;
+using dwio::common::EOFError;
+using dwio::common::RowReader;
+using dwio::common::verify;
 
 const std::string TEXTFILE_CODEC = "org.apache.hadoop.io.compress.GzipCodec";
 const std::string TEXTFILE_COMPRESSION_EXTENSION = ".gz";
@@ -119,7 +122,8 @@ TextRowReader::TextRowReader(
       fileLength_{getStreamLength()},
       ownedString_{""},
       stringViewBuffer_{StringViewBufferHolder(&contents_->pool)},
-      varBinBuf_{std::make_shared<DataBuffer<char>>(contents_->pool)} {
+      varBinBuf_{
+          std::make_shared<dwio::common::DataBuffer<char>>(contents_->pool)} {
   // Seek to first line at or after the specified region.
   if (contents_->compression == CompressionKind::CompressionKind_NONE) {
     /**
@@ -141,7 +145,7 @@ TextRowReader::TextRowReader(
     contents_->inputStream = contents_->input->read(
         streamPosition_,
         contents_->fileLength - streamPosition_,
-        LogType::STREAM);
+        dwio::common::LogType::STREAM);
 
     if (pos_ != 0) {
       unreadData_.clear();
@@ -260,7 +264,8 @@ int64_t TextRowReader::nextReadSize(uint64_t size) {
   return std::min(fileLength_ - currentRow_, size);
 }
 
-void TextRowReader::updateRuntimeStats(RuntimeStatistics& /*stats*/) const {
+void TextRowReader::updateRuntimeStats(
+    dwio::common::RuntimeStatistics& /*stats*/) const {
   // No-op for non-selective reader.
 }
 
@@ -335,14 +340,14 @@ void TextRowReader::setEOF() {
 /// types
 void TextRowReader::incrementDepth() {
   if (depth_ > 4) {
-    parse_error("Schema nesting too deep");
+    dwio::common::parse_error("Schema nesting too deep");
   }
   depth_++;
 }
 
 void TextRowReader::decrementDepth(DelimType& delim) {
   if (depth_ == 0) {
-    logic_error("Attempt to decrement nesting depth of 0");
+    dwio::common::logic_error("Attempt to decrement nesting depth of 0");
   }
   depth_--;
   auto d = depth_ + DelimTypeEOR;
@@ -1543,4 +1548,4 @@ uint64_t TextReader::getMemoryUse() {
   return memory;
 }
 
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::text

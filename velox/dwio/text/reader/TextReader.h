@@ -26,11 +26,19 @@
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/TypeWithId.h"
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::text {
 
+using common::CompressionKind;
+using common::ScanSpec;
+using dwio::common::BufferedInput;
+using dwio::common::ColumnSelector;
+using dwio::common::ColumnStatistics;
+using dwio::common::Mutation;
+using dwio::common::ReaderOptions;
+using dwio::common::RowReaderOptions;
+using dwio::common::SerDeOptions;
+using dwio::common::TypeWithId;
 using memory::MemoryPool;
-using velox::common::CompressionKind;
-using velox::common::ScanSpec;
 
 // Shared state for a file between TextReader and TextRowReader
 struct FileContents {
@@ -40,7 +48,7 @@ struct FileContents {
   const std::shared_ptr<const RowType> schema;
 
   std::unique_ptr<BufferedInput> input;
-  std::unique_ptr<SeekableInputStream> inputStream;
+  std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
   MemoryPool& pool;
   uint64_t fileLength;
   CompressionKind compression;
@@ -53,7 +61,7 @@ constexpr DelimType DelimTypeNone = 0;
 constexpr DelimType DelimTypeEOR = 1;
 constexpr DelimType DelimTypeEOE = 2;
 
-class TextReader : public Reader {
+class TextReader : public dwio::common::Reader {
  public:
   TextReader(
       const ReaderOptions& options,
@@ -70,7 +78,7 @@ class TextReader : public Reader {
 
   const std::shared_ptr<const TypeWithId>& typeWithId() const override;
 
-  std::unique_ptr<RowReader> createRowReader(
+  std::unique_ptr<dwio::common::RowReader> createRowReader(
       const RowReaderOptions& options) const override;
 
   uint64_t getFileLength() const;
@@ -85,7 +93,7 @@ class TextReader : public Reader {
   std::shared_ptr<const RowType> internalSchema_;
 };
 
-class TextRowReader : public RowReader {
+class TextRowReader : public dwio::common::RowReader {
  public:
   TextRowReader(
       std::shared_ptr<FileContents> fileContents,
@@ -100,7 +108,8 @@ class TextRowReader : public RowReader {
 
   int64_t nextReadSize(uint64_t size) override;
 
-  void updateRuntimeStats(RuntimeStatistics& stats) const override;
+  void updateRuntimeStats(
+      dwio::common::RuntimeStatistics& stats) const override;
 
   void resetFilterCaches() override;
 
@@ -214,7 +223,7 @@ class TextRowReader : public RowReader {
   uint64_t fileLength_;
   std::string ownedString_;
   StringViewBufferHolder stringViewBuffer_;
-  std::shared_ptr<DataBuffer<char>> varBinBuf_;
+  std::shared_ptr<dwio::common::DataBuffer<char>> varBinBuf_;
 };
 
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::text
