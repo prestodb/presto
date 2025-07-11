@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "velox/type/Type.h"
@@ -25,19 +24,18 @@ namespace facebook::velox::type::fbhive {
 
 class HiveTypeSerializer {
  public:
-  static std::string serialize(const std::shared_ptr<const velox::Type>& type);
+  static std::string serialize(const TypePtr& type);
 
  private:
-  std::string visit(const velox::Type& type) const;
+  std::string visit(const Type& type) const;
 
  private:
   HiveTypeSerializer() = default;
-
   ~HiveTypeSerializer() = default;
 
-  std::string visitChildren(const velox::RowType& t) const;
+  std::string visitChildren(const RowType& t) const;
 
-  std::string visitChildren(const velox::Type& t) const;
+  std::string visitChildren(const Type& t) const;
 };
 
 } // namespace facebook::velox::type::fbhive

@@ -17,14 +17,12 @@
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 #include <cctype>
-#include <stdexcept>
 #include <string>
 #include <utility>
 
 #include "velox/common/base/Exceptions.h"
 
-using facebook::velox::Type;
-using facebook::velox::TypeKind;
+namespace facebook::velox::type::fbhive {
 
 namespace {
 /// Returns true only if 'str' contains digits.
@@ -40,8 +38,6 @@ bool isSupportedSpecialChar(char c) {
   return supported.count(c) == 1;
 }
 } // namespace
-
-namespace facebook::velox::type::fbhive {
 
 HiveTypeParser::HiveTypeParser() {
   metadata_.resize(static_cast<size_t>(TokenType::MaxTokenType));
@@ -73,7 +69,7 @@ HiveTypeParser::HiveTypeParser() {
   setupMetadata<TokenType::EndOfStream, TypeKind::INVALID>();
 }
 
-std::shared_ptr<const Type> HiveTypeParser::parse(const std::string& ser) {
+TypePtr HiveTypeParser::parse(const std::string& ser) {
   remaining_ = folly::StringPiece(ser);
   Result result = parseType();
   VELOX_CHECK(
@@ -144,15 +140,17 @@ Result HiveTypeParser::parseType() {
         return Result{velox::ROW(
             std::move(resultList.names), std::move(resultList.typelist))};
       case velox::TypeKind::MAP: {
-        VELOX_CHECK(
-            resultList.typelist.size() == 2,
+        VELOX_CHECK_EQ(
+            resultList.typelist.size(),
+            2,
             "wrong param count for map type def");
         return Result{
             velox::MAP(resultList.typelist.at(0), resultList.typelist.at(1))};
       }
       case velox::TypeKind::ARRAY: {
-        VELOX_CHECK(
-            resultList.typelist.size() == 1,
+        VELOX_CHECK_EQ(
+            resultList.typelist.size(),
+            1,
             "wrong param count for array type def");
         return Result{velox::ARRAY(resultList.typelist.at(0))};
       }
@@ -163,7 +161,7 @@ Result HiveTypeParser::parseType() {
 }
 
 ResultList HiveTypeParser::parseTypeList(bool hasFieldNames) {
-  std::vector<std::shared_ptr<const Type>> subTypeList{};
+  std::vector<TypePtr> subTypeList{};
   std::vector<std::string> names{};
   eatToken(TokenType::StartSubType);
   while (true) {
