@@ -15,6 +15,7 @@ add_library(presto_example_varchar_function_dynamic SHARED
             DynamicVarcharFunction.cpp)
 add_library(presto_example_non_default_function_dynamic SHARED
             DynamicNonDefaultFunction.cpp)
+add_library(presto_example_add_function_dynamic SHARED CustomAddDynamic.cpp)
 
 set(CMAKE_DYLIB_TEST_LINK_LIBRARIES presto_dynamic_function_registrar fmt::fmt
                                     gflags::gflags xsimd)
@@ -23,6 +24,8 @@ target_link_libraries(presto_example_function_dynamic
 target_link_libraries(presto_example_varchar_function_dynamic
                       PRIVATE ${CMAKE_DYLIB_TEST_LINK_LIBRARIES})
 target_link_libraries(presto_example_non_default_function_dynamic
+                      PRIVATE ${CMAKE_DYLIB_TEST_LINK_LIBRARIES})
+target_link_libraries(presto_example_add_function_dynamic
                       PRIVATE ${CMAKE_DYLIB_TEST_LINK_LIBRARIES})
 
 if(APPLE)
@@ -36,4 +39,6 @@ target_link_options(presto_example_function_dynamic PRIVATE
 target_link_options(presto_example_varchar_function_dynamic PRIVATE
                     ${COMMON_LIBRARY_LINK_OPTIONS})
 target_link_options(presto_example_non_default_function_dynamic PRIVATE
+                    ${COMMON_LIBRARY_LINK_OPTIONS})
+target_link_options(presto_example_add_function_dynamic PRIVATE
                     ${COMMON_LIBRARY_LINK_OPTIONS})
