@@ -86,6 +86,10 @@ class QuantileDigest {
   // on 'serialized'.
   void testingMerge(const QuantileDigest& other);
 
+  // Returns nullopt when the digest is empty or the value is out of the
+  // min/max range.
+  std::optional<double> quantileAtValue(T value) const;
+
  private:
   using U = std::conditional_t<sizeof(T) == sizeof(int64_t), int64_t, int32_t>;
 
@@ -1264,6 +1268,34 @@ int64_t QuantileDigest<T, Allocator>::serialize(char* out) {
       rights_);
   VELOX_CHECK_EQ(out - outStart, serializedByteSize());
   return out - outStart;
+}
+
+template <typename T, typename Allocator>
+std::optional<double> QuantileDigest<T, Allocator>::quantileAtValue(
+    T value) const {
+  if (weightedCount_ == 0 || root_ == -1) {
+    return std::nullopt;
+  }
+
+  auto sortableValue = preprocessByType(value);
+  if (sortableValue > preprocessByType(getMax()) ||
+      sortableValue < preprocessByType(getMin())) {
+    return std::nullopt;
+  }
+
+  double bucketCount = 0.0;
+  postOrderTraverse(
+      root_,
+      [this, sortableValue, &bucketCount](int32_t node) {
+        if (upperBound(node) >= sortableValue) {
+          return false;
+        }
+        bucketCount += counts_[node];
+        return true;
+      },
+      lefts_,
+      rights_);
+  return bucketCount / weightedCount_;
 }
 
 } // namespace qdigest

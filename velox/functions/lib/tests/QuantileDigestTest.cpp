@@ -81,6 +81,265 @@ class QuantileDigestTest : public QuantileDigestTestBase {
   }
 
   template <typename T>
+  void testQuantileAtValueWithData(
+      const std::vector<T>& inputValues,
+      const std::vector<std::pair<T, double>>& testCases,
+      const std::vector<T>& outOfRangeValues) {
+    constexpr double kAccuracy = 1.0E-2;
+    constexpr double kTolerance = 1.0E-3;
+
+    QuantileDigest<T> digest{StlAllocator<T>(allocator()), kAccuracy};
+    for (const auto& value : inputValues) {
+      digest.add(value, 1.0);
+    }
+
+    for (const auto& [testValue, expectedQuantile] : testCases) {
+      EXPECT_NEAR(
+          *digest.quantileAtValue(testValue), expectedQuantile, kTolerance);
+    }
+
+    for (const auto& outOfRangeValue : outOfRangeValues) {
+      EXPECT_FALSE(digest.quantileAtValue(outOfRangeValue).has_value());
+    }
+  }
+
+  template <typename T>
+  void testQuantileAtValueWithDigest(
+      const QuantileDigest<T>& digest,
+      const std::vector<T>& testData,
+      const std::vector<std::optional<double>>& expectedData,
+      const double tokerance) {
+    for (auto i = 0; i < testData.size(); ++i) {
+      if (expectedData[i].has_value()) {
+        EXPECT_NEAR(
+            *digest.quantileAtValue(testData[i]),
+            expectedData[i].value(),
+            tokerance);
+      } else {
+        EXPECT_FALSE(digest.quantileAtValue(testData[i]).has_value());
+      }
+    }
+  }
+
+  // A helper function to get the expected quantile at value for
+  // qdigest comes from a query "SELECT QDIGEST_AGG(CAST(c0 AS BIGINT), 1, 0.99)
+  // FROM UNNEST(SEQUENCE(-5000, 4999)) AS t(c0)".
+  template <typename T>
+  std::vector<std::optional<double>> getExpectedQuantileAtValue() {
+    // Expected quantile values for different data types at specific test points
+    // Format: {int64_t_result, double_result, float_result} // test_value
+    // std::nullopt indicates the value is out of digest range
+    std::vector<std::vector<std::optional<double>>> expectedDatas{
+        {std::nullopt, std::nullopt, std::nullopt}, // -5001 (out of range)
+        {0, 0, std::nullopt}, // -5000 (min boundary)
+        {0, 0, std::nullopt}, // -4996
+        {0.0302, 0.0128, std::nullopt}, // -4990
+        {0.0302, 0.0128, std::nullopt}, // -4980
+        {0.0302, 0.0217, 0}, // -4850
+        {0.2884, 0.2789, 0.2919}, // -2000
+        {0.5, 0.4925, 0.5}, //     0 (median)
+        {0.6718, 0.6492, 0.6567}, //  2000
+        {0.7099, 0.6873, 0.6948}, //  2111
+        {0.8017, 0.7791, 0.7866}, //  3111
+        {0.9019, 0.8687, 0.8762}, //  4111
+        {0.9645, 0.9313, 0.9388}, //  4879
+        {std::nullopt, std::nullopt, std::nullopt}, //  4880 (out of range)
+        {std::nullopt, std::nullopt, std::nullopt}, //  5000 (out of range)
+    };
+
+    std::vector<std::optional<double>> result;
+    constexpr int typeIndex = std::is_same_v<T, int64_t> ? 0
+        : std::is_same_v<T, double>                      ? 1
+                                                         : 2;
+
+    result.reserve(expectedDatas.size());
+    for (const auto& row : expectedDatas) {
+      result.push_back(row[typeIndex]);
+    }
+    return result;
+  }
+
+  template <typename T>
+  void testQuantileAtValue() {
+    constexpr double kAccuracy = 1.0E-2;
+    constexpr double kTolerance = 1.0E-3;
+
+    // Test: Histogram-equivalent test with values 0-9 (from Java test)
+    {
+      QuantileDigest<T> digest{StlAllocator<T>(allocator()), 1.0};
+      for (int i = 0; i < 10; ++i) {
+        digest.add(static_cast<T>(i), 1.0);
+      }
+
+      for (int i = 0; i <= 9; ++i) {
+        auto q = digest.quantileAtValue(static_cast<T>(i));
+        EXPECT_TRUE(q.has_value());
+        EXPECT_NEAR(q.value(), i / 10.0, kTolerance);
+      }
+
+      // Values outside the range [0, 9] should return no value
+      EXPECT_FALSE(digest.quantileAtValue(static_cast<T>(-1)).has_value());
+      EXPECT_FALSE(digest.quantileAtValue(static_cast<T>(10)).has_value());
+      EXPECT_FALSE(
+          digest.quantileAtValue(std::numeric_limits<T>::max()).has_value());
+    }
+
+    // Test: Basic weighted test
+    {
+      QuantileDigest<T> digest{StlAllocator<T>(allocator()), kAccuracy};
+      digest.add(static_cast<T>(1), 1.0);
+      digest.add(static_cast<T>(2), 2.0);
+      digest.add(static_cast<T>(3), 3.0);
+      digest.add(static_cast<T>(4), 4.0);
+      EXPECT_NEAR(*digest.quantileAtValue(static_cast<T>(1)), 0.0, kTolerance);
+      EXPECT_NEAR(*digest.quantileAtValue(static_cast<T>(2)), 0.1, kTolerance);
+      EXPECT_NEAR(*digest.quantileAtValue(static_cast<T>(3)), 0.3, kTolerance);
+      EXPECT_NEAR(*digest.quantileAtValue(static_cast<T>(4)), 0.6, kTolerance);
+    }
+
+    // Test: Values from -4999 to 4999 to cover both negative and positive
+    // QDigest
+    {
+      std::vector<T> inputValues;
+      for (int64_t i = -4999; i <= 4999; i++) {
+        inputValues.push_back(static_cast<T>(i));
+      }
+
+      std::vector<std::pair<T, double>> testCases = {
+          {static_cast<T>(-4996), 0.0},
+          {static_cast<T>(-4995), 0.0002},
+          {static_cast<T>(-4994), 0.0002},
+          {static_cast<T>(-4990), 0.0006},
+          {static_cast<T>(-4980), 0.0016},
+          {static_cast<T>(-2000), 0.2998},
+          {static_cast<T>(0), 0.4999},
+          {static_cast<T>(2000), 0.6999},
+          {static_cast<T>(4980), 0.9979},
+          {static_cast<T>(4990), 0.9989},
+          {static_cast<T>(4994), 0.9993},
+          {static_cast<T>(4995), 0.9994},
+          {static_cast<T>(4996), 0.9995},
+          {static_cast<T>(4997), 0.9996},
+          {static_cast<T>(4997), 0.9998},
+      };
+
+      std::vector<T> outOfRangeValues = {
+          static_cast<T>(-5000), static_cast<T>(5000)};
+
+      testQuantileAtValueWithData(inputValues, testCases, outOfRangeValues);
+    }
+
+    // Additional floating point test with fractional values
+    if constexpr (std::is_floating_point_v<T>) {
+      std::vector<T> inputValues;
+      for (int i = -4999; i <= 4999; i++) {
+        inputValues.push_back(static_cast<T>(i + 0.1 * i));
+      }
+
+      std::vector<std::pair<T, double>> testCases = {
+          {static_cast<T>(-5498), 0.0001},
+          {static_cast<T>(-5493.99), 0.0005},
+          {static_cast<T>(-5491.99), 0.0007},
+          {static_cast<T>(-5488.99), 0.0010},
+          {static_cast<T>(0.0), 0.4999},
+          {static_cast<T>(100.001), 0.5090},
+          {static_cast<T>(200.001), 0.5181},
+          {static_cast<T>(1999.009), 0.6817},
+          {static_cast<T>(4999.009), 0.9544},
+          {static_cast<T>(5497.999), 0.9998},
+      };
+
+      std::vector<T> outOfRangeValues = {
+          static_cast<T>(-5500), static_cast<T>(5500.0)};
+
+      testQuantileAtValueWithData(inputValues, testCases, outOfRangeValues);
+    }
+
+    // Test with qdigest directly deserialized from FROM_BASE64 string
+    {
+      // Test the quantile at value for below data points
+      std::vector<T> testData = {
+          static_cast<T>(-5001),
+          static_cast<T>(-5000),
+          static_cast<T>(-4996),
+          static_cast<T>(-4990),
+          static_cast<T>(-4980),
+          static_cast<T>(-4850),
+          static_cast<T>(-2000),
+          static_cast<T>(0),
+          static_cast<T>(2000),
+          static_cast<T>(2111),
+          static_cast<T>(3111),
+          static_cast<T>(4111),
+          static_cast<T>(4879),
+          static_cast<T>(4880),
+          static_cast<T>(5000),
+      };
+      std::string serializeStr = []() {
+        if constexpr (std::is_same_v<T, int64_t>) {
+          return decodeBase64(
+              "AK5H4XoUru8/AAAAAAAAAAAAAAAAAAAAAHjs////////hxMAAAAAAABUAAAAFAAAAAAA4HJAeOz//////38MAAAAAACAWUAa7v//////fxAAAAAAAABnQAHv//////9/IwAAAAAAwGNAGu7//////38nAAAAAAAAAAB47P//////fxAAAAAAAIBtQBTw//////9/EAAAAAAAAGFADPL//////38QAAAAAAAAb0AI8///////fyMAAAAAAAAAAAzy//////9/JwAAAAAAAHFAFPD//////38UAAAAAABgdEAg9P//////fxQAAAAAAKBzQAr2//////9/JwAAAAAAgGdAIPT//////38rAAAAAACAZEAU8P//////fxAAAAAAAMBvQAL4//////9/EAAAAAAAAHBAAPn//////38jAAAAAAAAAAAC+P//////fyUAAAAAAIBvQAL4//////9/EAAAAAAAgGlANP3//////38AAAAAAAAAAED+////////fx4AAAAAAABlQFb///////9/IgAAAAAAAHVABv7//////38nAAAAAADAckAO/P//////fysAAAAAACBxQAL4//////9/LwAAAAAAAAAAFPD//////38zAAAAAABAdEB47P//////fwgAAAAAAABNQEYAAAAAAACADAAAAAAAQF5AhwAAAAAAAIAfAAAAAAAAAAAAAAAAAAAAgAwAAAAAAABgQAABAAAAAACADAAAAAAAAGBAgAEAAAAAAIAfAAAAAAAAAAAAAQAAAAAAgCMAAAAAAAAAAAAAAAAAAACADAAAAAAAAGBAAAIAAAAAAIAMAAAAAAAAYECAAgAAAAAAgB8AAAAAAAAAAAACAAAAAACAIQAAAAAAQFtAAAIAAAAAAIAnAAAAAABgYkAAAAAAAAAAgAwAAAAAAABgQAAEAAAAAACADAAAAAAAAGBAgAQAAAAAAIAfAAAAAAAAAAAABAAAAAAAgAwAAAAAAEBZQJsFAAAAAACAIwAAAAAAQFBAAAQAAAAAAIAMAAAAAAAAYEAABgAAAAAAgAwAAAAAAABgQIAGAAAAAACAHwAAAAAAAAAAAAYAAAAAAIAMAAAAAABAV0CjBwAAAAAAgB4AAAAAAEBQQGIHAAAAAACAIwAAAAAAgFhAAAYAAAAAAIAnAAAAAACAVkAABAAAAAAAgCsAAAAAAAAAAAAAAAAAAACADAAAAAAAAGBAAAgAAAAAAIAMAAAAAAAAYECACAAAAAAAgB8AAAAAAAAAAAAIAAAAAACAIQAAAAAAwGJAAAgAAAAAAIAMAAAAAAAAYEAACgAAAAAAgAwAAAAAAABgQIAKAAAAAACAHwAAAAAAAAAAAAoAAAAAAIAQAAAAAADAYUByCwAAAAAAgCMAAAAAAIBcQAAKAAAAAACAJwAAAAAAAAAAAAgAAAAAAIAMAAAAAAAAYEAADAAAAAAAgAwAAAAAAABgQIAMAAAAAACAHwAAAAAAAAAAAAwAAAAAAIAhAAAAAADAYEAADAAAAAAAgAwAAAAAAABgQAAOAAAAAACADAAAAAAAAGBAgA4AAAAAAIAfAAAAAAAAAAAADgAAAAAAgAwAAAAAAIBfQIIPAAAAAACAIwAAAAAAQGBAAA4AAAAAAIAnAAAAAAAAAAAADAAAAAAAgCsAAAAAAIBeQAAIAAAAAACALwAAAAAAgFpAAAAAAAAAAIAMAAAAAACAXkCGEAAAAAAAgAwAAAAAAIBdQIoRAAAAAACAHgAAAAAAQGBACBEAAAAAAIAjAAAAAAAAAAAEEAAAAAAAgAwAAAAAAIBcQI4SAAAAAACAHgAAAAAAwGFAABIAAAAAAIAQAAAAAAAAYUAAEwAAAAAAgCMAAAAAAAAAAAASAAAAAACAJwAAAAAAQGFABBAAAAAAAIAzAAAAAABAVEAAAAAAAAAAgP8AAAAAAAAAAHjs//////9/");
+        }
+        if constexpr (std::is_same_v<T, double>) {
+          return decodeBase64(
+              "AK5H4XoUru8/AAAAAAAAAAAAAAAAAAAAAP//////d0y/AAAAAACHs0B0AAAAsAAAAAAAAGBA//////93TD+sAAAAAABAVkD//////wBNP6wAAAAAAABUQP//////gE0/vwAAAAAAwFRA//////8ATT/DAAAAAAAAAAD//////3dMP6wAAAAAAABUQP//////gE4/sAAAAAAAAGBA//////8ATz/DAAAAAAAAAAD//////wBOP8cAAAAAAABaQP//////d0w/sAAAAAAAAFhA//////8BUD+wAAAAAAAAUED//////wFRP8MAAAAAAAAAAP//////AVA/rAAAAAAAAFBA//////8BUj+wAAAAAAAAWED//////wFTP8MAAAAAAAAAAP//////AVI/xwAAAAAA4GBA//////8BUD+0AAAAAAAAYED//////wFUP7AAAAAAAMBfQP//////A1Y/rAAAAAAAAFBA//////8BVz/DAAAAAAAAAAD//////wNWP8cAAAAAAIBcQP//////AVQ/ywAAAAAAQFVA//////8BUD+0AAAAAAAAYED//////wFYP6wAAAAAAABQQP//////AVo/rAAAAAAAAFBA//////+BWz/DAAAAAAAAWUD//////wFaP8cAAAAAAABVQP//////AVg/tAAAAAAAoGJA//////9XXD+wAAAAAADAVkD//////wFfP8IAAAAAAMBcQP//////B14/xwAAAAAAAFZA//////9XXD/LAAAAAABAV0D//////wFYP88AAAAAAAAAAP//////AVA/0wAAAAAAgGJA//////93TD+0AAAAAAAAV0D//////wNkP7QAAAAAAIBbQP//////S2Y/xwAAAAAAAAAA//////8DZD/KAAAAAAAAYED//////0dgP7QAAAAAAABgQP//////A2g/xQAAAAAAwFZA//////8DaD+0AAAAAADAX0D//////wduP8YAAAAAAIBbQP//////T2w/ywAAAAAAAAAA//////8DaD/PAAAAAACAXUD//////0dgP7gAAAAAAABgQP//////B3A/uAAAAAAAAGBA//////8HeD+4AAAAAABAVkD//////z99P8sAAAAAAAAAAP//////B3g/zwAAAAAAAFdA//////8HcD/TAAAAAABgYED//////0dgP9cAAAAAAIBYQP//////d0w/vAAAAAAAAGBA//////8PiD/AAAAAAAAAYED//////x+QP9MAAAAAAIBcQP//////74A/xAAAAAAAAFhA//////8/oD/XAAAAAAAAAAD//////++AP98AAAAAAABZQP//////d0w/vAAAAAAAAExAAAAAAAAAacC4AAAAAAAAS0AAAAAAAKB0wLwAAAAAAEBdQAAAAAAAsHjAzwAAAAAAAFNAAAAAAACQcMDTAAAAAACAUkAAAAAAAOBgwLQAAAAAAABJQAAAAAAAcILAuAAAAAAAQFxAAAAAAAB4hMDLAAAAAAAAAAAAAAAAAGiAwLgAAAAAAABgQAAAAAAAAIjAuAAAAAAAAGBAAAAAAAAAjMDLAAAAAAAAAAAAAAAAAACIwM8AAAAAAAAAAAAAAAAAaIDAtAAAAAAAAGBAAAAAAAAAkMC0AAAAAAAAYEAAAAAAAACSwMcAAAAAAAAAAAAAAAAAAJDAtAAAAAAAQFlAAAAAAABslsDLAAAAAABAUEAAAAAAAACQwLQAAAAAAABgQAAAAAAAAJjAtAAAAAAAAGBAAAAAAAAAmsDHAAAAAAAAAAAAAAAAAACYwLQAAAAAAEBXQAAAAAAAjJ7AxgAAAAAAQFBAAAAAAACIncDLAAAAAACAWEAAAAAAAACYwM8AAAAAAAAAAAAAAAAAAJDA0wAAAAAAgFZAAAAAAABogMCwAAAAAAAAYEAAAAAAAACgwLAAAAAAAABgQAAAAAAAAKHAwwAAAAAAAAAAAAAAAAAAoMDFAAAAAADAYkAAAAAAAACgwLAAAAAAAABgQAAAAAAAAKTAsAAAAAAAAGBAAAAAAAAApcDDAAAAAAAAAAAAAAAAAACkwLQAAAAAAMBhQAAAAAAA5KbAxwAAAAAAgFxAAAAAAAAApMDLAAAAAAAAAAAAAAAAAACgwLAAAAAAAABgQAAAAAAAAKjAsAAAAAAAAGBAAAAAAAAAqcDDAAAAAAAAAAAAAAAAAACowMUAAAAAAMBgQAAAAAAAAKjAsAAAAAAAAGBAAAAAAAAArMCwAAAAAAAAYEAAAAAAAACtwMMAAAAAAAAAAAAAAAAAAKzAsAAAAAAAgF9AAAAAAAAEr8DHAAAAAABAYEAAAAAAAACswMsAAAAAAAAAAAAAAAAAAKjAzwAAAAAAgF5AAAAAAAAAoMCsAAAAAACAXkAAAAAAAIawwKwAAAAAAIBdQAAAAAAAirHAvgAAAAAAQGBAAAAAAAAIscDDAAAAAAAAAAAAAAAAAASwwKwAAAAAAIBcQAAAAAAAjrLAvgAAAAAAwGFAAAAAAAAAssCwAAAAAAAAYUAAAAAAAACzwMMAAAAAAAAAAAAAAAAAALLAxwAAAAAAQGFAAAAAAAAEsMDTAAAAAACAW0AAAAAAAACgwNcAAAAAAABUQAAAAAAAaIDA3wAAAAAAgFNAAAAAAACAUcD/AAAAAAAgYkD//////3dMPw==");
+        }
+        return decodeBase64(
+            "AK5H4XoUru8/AAAAAAAAAAAAAAAAAAAAAP+/Y7r/////ADicRQAAAABuAAAAPAAAAAAA4GJA/wdouv///39OAAAAAAAAZUD/v2O6////fzwAAAAAAEBiQP8fcLr///9/PAAAAAAAIGNA/wd4uv///39PAAAAAACAYkD/H3C6////f1MAAAAAAMBbQP+/Y7r///9/QAAAAAAAwGJA/w+Auv///388AAAAAACAXED/75C6////f1MAAAAAAMBhQP8PgLr///9/PAAAAAAAAGBA/w+guv///388AAAAAACAX0D/L7C6////fzgAAAAAAABLQP+vvLr///9/TwAAAAAAAAAA/y+wuv///39TAAAAAABgYkD/D6C6////f1cAAAAAAMBaQP8PgLr///9/PAAAAAAAwFpA/1/Buv///388AAAAAAAAYED/D8i6////f08AAAAAAAAAAP9fwbr///9/UQAAAAAAwGRA/1/Buv///388AAAAAADAXUD/n+C6////fzwAAAAAAABgQP8P6Lr///9/TwAAAAAAAAAA/5/guv///39AAAAAAAAgY0D/f/a6////f1MAAAAAAMBZQP+f4Lr///9/VwAAAAAAAFVA/1/Buv///39bAAAAAACAVUD/D4C6////f18AAAAAAAAAAP+/Y7r///9/QAAAAAAAQFxA//8hu////39AAAAAAAAAYED/HzC7////f1MAAAAAAAAAAP//Ibv///9/VgAAAAAAQFZA//8Hu////39AAAAAAAAAYED/H0C7////f0AAAAAAAABgQP8fULv///9/UwAAAAAAAAAA/x9Au////39EAAAAAAAgYED//2+7////f1cAAAAAAMBfQP8fQLv///9/WwAAAAAAAAAA//8Hu////39EAAAAAABAUkD//627////f0QAAAAAAMBXQP9/6Lv///9/VgAAAAAAgGNA/3/Bu////39bAAAAAAAAAAD//4a7////f18AAAAAACBkQP//B7v///9/YwAAAAAAQGJA/79juv///39IAAAAAABAWED//0+8////f0wAAAAAAEBcQP//j7z///9/XwAAAAAAYGNA//8JvP///39QAAAAAAAAWED//wG9////f2MAAAAAAAAAAP//Cbz///9/ZQAAAAAAAD5A//8JvP///39rAAAAAAAAAAD/v2O6////f3kAAAAAAEBdQP+/Y7r///9/SAAAAAAAAExAAABIQwAAAIBEAAAAAAAAS0AAAKVDAAAAgEgAAAAAAEBdQACAxUMAAACAWwAAAAAAAFNAAICEQwAAAIBfAAAAAACAUkAAAAdDAAAAgEAAAAAAAABJQACAE0QAAACARAAAAAAAQFxAAMAjRAAAAIBXAAAAAAAAAAAAQANEAAAAgEQAAAAAAABgQAAAQEQAAACARAAAAAAAAGBAAABgRAAAAIBXAAAAAAAAAAAAAEBEAAAAgFsAAAAAAAAAAABAA0QAAACAQAAAAAAAAGBAAACARAAAAIBAAAAAAAAAYEAAAJBEAAAAgFMAAAAAAAAAAAAAgEQAAACAQAAAAAAAQFlAAGCzRAAAAIBXAAAAAABAUEAAAIBEAAAAgEAAAAAAAABgQAAAwEQAAACAQAAAAAAAAGBAAADQRAAAAIBTAAAAAAAAAAAAAMBEAAAAgEAAAAAAAEBXQABg9EQAAACAUgAAAAAAQFBAAEDsRAAAAIBXAAAAAACAWEAAAMBEAAAAgFsAAAAAAAAAAAAAgEQAAACAXwAAAAAAgFZAAEADRAAAAIA8AAAAAAAAYEAAAABFAAAAgDwAAAAAAABgQAAACEUAAACATwAAAAAAAAAAAAAARQAAAIBRAAAAAADAYkAAAABFAAAAgDwAAAAAAABgQAAAIEUAAACAPAAAAAAAAGBAAAAoRQAAAIBPAAAAAAAAAAAAACBFAAAAgEAAAAAAAMBhQAAgN0UAAACAUwAAAAAAgFxAAAAgRQAAAIBXAAAAAAAAAAAAAABFAAAAgDwAAAAAAABgQAAAQEUAAACAPAAAAAAAAGBAAABIRQAAAIBPAAAAAAAAAAAAAEBFAAAAgFEAAAAAAMBgQAAAQEUAAACAPAAAAAAAAGBAAABgRQAAAIA8AAAAAAAAYEAAAGhFAAAAgE8AAAAAAAAAAAAAYEUAAACAPAAAAAAAgF9AACB4RQAAAIBTAAAAAABAYEAAAGBFAAAAgFcAAAAAAAAAAAAAQEUAAACAWwAAAAAAgF5AAAAARQAAAIA4AAAAAACAXkAAMIRFAAAAgDgAAAAAAIBdQABQjEUAAACASgAAAAAAQGBAAECIRQAAAIBPAAAAAAAAAAAAIIBFAAAAgDgAAAAAAIBcQABwlEUAAACASgAAAAAAwGFAAACQRQAAAIA8AAAAAAAAYUAAAJhFAAAAgE8AAAAAAAAAAAAAkEUAAACAUwAAAAAAQGFAACCARQAAAIBfAAAAAACAW0AAAABFAAAAgGMAAAAAAABUQABAA0QAAACAawAAAAAAgFNAAACMQgAAAID/AAAAAACAUUD/v2O6////fw==");
+      }();
+
+      QuantileDigest<T> digest{
+          StlAllocator<T>(allocator()), serializeStr.data()};
+      const auto expectedData = getExpectedQuantileAtValue<T>();
+
+      testQuantileAtValueWithDigest(digest, testData, expectedData, kTolerance);
+    }
+
+    // Test with empty digest
+    {
+      QuantileDigest<T> digest{StlAllocator<T>(allocator()), kAccuracy};
+      EXPECT_FALSE(digest.quantileAtValue(static_cast<T>(1)).has_value());
+    }
+
+    // Test: Inverse relationship with estimateQuantile
+    if constexpr (std::is_floating_point_v<T>) {
+      QuantileDigest<T> digest{StlAllocator<T>(allocator()), kAccuracy};
+      for (int i = -10000; i <= 10000; ++i) {
+        digest.add(static_cast<T>(i), 1.0);
+      }
+
+      std::vector<double> quantiles = {
+          0.01, 0.0011, 0.02, 0.25, 0.5, 0.75, 0.9, 0.98, 0.99, 0.999, 1.0};
+      for (double q : quantiles) {
+        T value = digest.estimateQuantile(q);
+        auto inverseQ = digest.quantileAtValue(value);
+        EXPECT_TRUE(inverseQ.has_value());
+        EXPECT_NEAR(*inverseQ, q, kTolerance);
+      }
+    }
+
+    // Test Inverse relationship with estimateQuantile with random weights
+    if constexpr (std::is_floating_point_v<T>) {
+      QuantileDigest<T> digest{StlAllocator<T>(allocator()), kAccuracy};
+      std::default_random_engine gen(common::testutil::getRandomSeed(42));
+      std::uniform_real_distribution<T> dist;
+      for (int i = -10000; i <= 10000; ++i) {
+        auto weight = dist(gen);
+        digest.add(static_cast<T>(i), weight);
+      }
+
+      std::vector<double> quantiles = {
+          0.01, 0.0011, 0.02, 0.25, 0.5, 0.75, 0.9, 0.98, 0.99, 0.999, 1.0};
+      for (double q : quantiles) {
+        T value = digest.estimateQuantile(q);
+        auto inverseQ = digest.quantileAtValue(value);
+        EXPECT_TRUE(inverseQ.has_value());
+        EXPECT_NEAR(*inverseQ, q, kTolerance);
+      }
+    }
+  }
+
+  template <typename T>
   void testLargeInputSize() {
     constexpr int N = 1e5;
     constexpr double kAccuracy = 0.8;
@@ -552,6 +811,12 @@ TEST_F(QuantileDigestTest, hugeWeight) {
       testHugeWeight<double>(), "Weighted count in digest is too large");
   VELOX_ASSERT_THROW(
       testHugeWeight<float>(), "Weighted count in digest is too large");
+}
+
+TEST_F(QuantileDigestTest, quantileAtValue) {
+  testQuantileAtValue<int64_t>();
+  testQuantileAtValue<double>();
+  testQuantileAtValue<float>();
 }
 
 } // namespace facebook::velox::functions
