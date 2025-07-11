@@ -90,7 +90,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-iceberg</artifactId>
-            <scope>runtime</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.xerial.snappy</groupId>

@@ -210,6 +210,15 @@ public class IcebergColumnHandle
                 columnType);
     }
 
+    public static IcebergColumnHandle create(int partitionFieldId, Types.NestedField column, TypeManager typeManager, ColumnType columnType)
+    {
+        return new IcebergColumnHandle(
+                createColumnIdentity(column.name(), partitionFieldId, column.type()),
+                toPrestoType(column.type(), typeManager),
+                Optional.ofNullable(column.doc()),
+                columnType);
+    }
+
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)
     {
         checkArgument(isPushedDownSubfield(column), format("not a valid pushed down subfield: type=%s, subfields=%s", column.getColumnType(), column.getRequiredSubfields()));

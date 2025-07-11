@@ -72,6 +72,8 @@ JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergPartitionField.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PartitionTransformType.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergPartitionSpec.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergPartitionField.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PartitionTransformType.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergNestedField.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java

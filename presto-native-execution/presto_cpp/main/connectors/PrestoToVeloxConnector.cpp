@@ -646,8 +646,9 @@ std::unique_ptr<common::Filter> combineBytesRanges(
 
   std::vector<std::unique_ptr<common::Filter>> bytesGeneric;
   for (int i = 0; i < bytesFilters.size(); ++i) {
-    bytesGeneric.emplace_back(std::unique_ptr<common::Filter>(
-        dynamic_cast<common::Filter*>(bytesFilters[i].release())));
+    bytesGeneric.emplace_back(
+        std::unique_ptr<common::Filter>(
+            dynamic_cast<common::Filter*>(bytesFilters[i].release())));
   }
 
   return std::make_unique<common::MultiRange>(
@@ -1233,7 +1234,8 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::CreateHandle* createHandle,
-    const TypeParser& typeParser) const {
+    const TypeParser& typeParser,
+    memory::MemoryPool* pool) const {
   auto hiveOutputTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveOutputTableHandle>(
           createHandle->handle.connectorHandle);
@@ -1257,7 +1259,8 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
-    const TypeParser& typeParser) const {
+    const TypeParser& typeParser,
+    velox::memory::MemoryPool* pool) const {
   auto hiveInsertTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveInsertTableHandle>(
           insertHandle->handle.connectorHandle);
@@ -1411,9 +1414,11 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   //  constructor similar to how Hive Connector is handling for bucketing
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
   auto type = stringToType(icebergColumn->type, typeParser);
-  connector::hive::HiveColumnHandle::ColumnParseParameters columnParseParameters;
+  connector::hive::HiveColumnHandle::ColumnParseParameters
+      columnParseParameters;
   if (type->isDate()) {
-    columnParseParameters.partitionDateValueFormat = connector::hive::HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
+    columnParseParameters.partitionDateValueFormat = connector::hive::
+        HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
   }
   return std::make_unique<connector::hive::HiveColumnHandle>(
       icebergColumn->columnIdentity.name,
@@ -1490,7 +1495,8 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::CreateHandle* createHandle,
-    const TypeParser& typeParser) const {
+    const TypeParser& typeParser,
+    velox::memory::MemoryPool* pool) const {
   auto icebergOutputTableHandle =
       std::dynamic_pointer_cast<protocol::iceberg::IcebergOutputTableHandle>(
           createHandle->handle.connectorHandle);
@@ -1513,6 +1519,7 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           connector::hive::LocationHandle::TableType::kNew),
       toVeloxIcebergPartitionSpec(
           icebergOutputTableHandle->partitionSpec, typeParser),
+      pool,
       toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
       nullptr,
       std::optional(
@@ -1522,7 +1529,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
-    const TypeParser& typeParser) const {
+    const TypeParser& typeParser,
+    velox::memory::MemoryPool* pool) const {
   auto icebergInsertTableHandle =
       std::dynamic_pointer_cast<protocol::iceberg::IcebergInsertTableHandle>(
           insertHandle->handle.connectorHandle);
@@ -1539,11 +1547,12 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   return std::make_unique<connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
       std::make_shared<connector::hive::LocationHandle>(
-          icebergInsertTableHandle->outputPath,
-          icebergInsertTableHandle->outputPath,
+          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
+          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
           connector::hive::LocationHandle::TableType::kExisting),
       toVeloxIcebergPartitionSpec(
           icebergInsertTableHandle->partitionSpec, typeParser),
+      pool,
       toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
       nullptr,
       std::optional(
@@ -1569,24 +1578,33 @@ IcebergPrestoToVeloxConnector::toHiveColumns(
   return hiveColumns;
 }
 
-connector::hive::iceberg::IcebergPartitionField
+connector::hive::iceberg::IcebergPartitionSpec::Field
 IcebergPrestoToVeloxConnector::toVeloxIcebergPartitionField(
-    const protocol::iceberg::IcebergPartitionField& field) const {
-  return connector::hive::iceberg::IcebergPartitionField(
+    const protocol::iceberg::IcebergPartitionField& field,
+    const facebook::presto::TypeParser& typeParser,
+    const protocol::iceberg::PrestoIcebergSchema& schema) const {
+  std::string type;
+  for (const auto& column : schema.columns) {
+    if (column.name == field.name) {
+      type = column.prestoType;
+    }
+  }
+  return connector::hive::iceberg::IcebergPartitionSpec::Field(
       field.name,
+      stringToType(type, typeParser),
       static_cast<connector::hive::iceberg::TransformType>(field.transform),
-      field.parameter ? *field.parameter
-                      : std::optional<int32_t>());
+      field.parameter ? *field.parameter : std::optional<int32_t>());
 }
 
 std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
 IcebergPrestoToVeloxConnector::toVeloxIcebergPartitionSpec(
     const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
     const facebook::presto::TypeParser& typeParser) const {
-  std::vector<connector::hive::iceberg::IcebergPartitionField> fields;
+  std::vector<connector::hive::iceberg::IcebergPartitionSpec::Field> fields;
   fields.reserve(spec.fields.size());
   for (auto field : spec.fields) {
-    fields.emplace_back(toVeloxIcebergPartitionField(field));
+    fields.emplace_back(
+        toVeloxIcebergPartitionField(field, typeParser, spec.schema));
   }
   return std::make_unique<connector::hive::iceberg::IcebergPartitionSpec>(
       spec.specId, fields);
