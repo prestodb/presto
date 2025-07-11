@@ -49,6 +49,7 @@ import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -400,7 +401,12 @@ public class FunctionAndTypeManager
         if (functionNamespaceManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
-        handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
+        String name = factory.getName();
+        // SqlFunctionHandle is in SPI and used by multiple function namespace managers, use the same name for it.
+        if (factory.getHandleResolver().getFunctionHandleClass().equals(SqlFunctionHandle.class)) {
+            name = "sql_function_handle";
+        }
+        handleResolver.addFunctionNamespace(name, factory.getHandleResolver());
     }
 
     public void loadTypeManager(String typeManagerName)

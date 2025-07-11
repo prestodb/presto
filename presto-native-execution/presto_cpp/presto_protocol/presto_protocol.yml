@@ -193,6 +193,7 @@ AbstractClasses:
         - { name: BuiltInFunctionHandle,      key: $static }
         - { name: SqlFunctionHandle,          key: json_file }
         - { name: SqlFunctionHandle,          key: native }
+        - { name: SqlFunctionHandle,          key: sql_function_handle }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
