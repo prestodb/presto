@@ -7,23 +7,20 @@ ARG JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
 
 ENV PRESTO_HOME="/opt/presto-server"
 
-COPY $PRESTO_PKG .
-COPY $PRESTO_CLI_JAR /opt/presto-cli
-
-RUN dnf install -y java-11-openjdk less procps python3 \
+RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
+    dnf install -y java-11-openjdk less procps python3 \
     && ln -s $(which python3) /usr/bin/python \
-    # Download Presto and move \
-    && tar -zxf $PRESTO_PKG \
-    && mv ./presto-server-$PRESTO_VERSION $PRESTO_HOME \
-    && rm -rf $PRESTO_PKG \
-    && rm -rf ./presto-server-$PRESTO_VERSION \
-    && chmod +x /opt/presto-cli \
-    && ln -s /opt/presto-cli /usr/local/bin/ \
     # clean cache jobs
-    && mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak \
-    && dnf clean all \
+    && mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak
+
+COPY --chmod=755 $PRESTO_CLI_JAR /opt/presto-cli
+
+RUN --mount=type=bind,source=$PRESTO_PKG,target=/$PRESTO_PKG \
+    # Download Presto and move \
+    mkdir -p "$PRESTO_HOME" && \
+    tar --strip-components=1 -C "$PRESTO_HOME" -zxf /$PRESTO_PKG \
+    && ln -s /opt/presto-cli /usr/local/bin/ \
     #  mkdir for config
-    && mkdir -p $PRESTO_HOME/etc \
     && mkdir -p $PRESTO_HOME/etc/catalog \
     && mkdir -p /var/lib/presto/data \
         && mkdir -p /usr/lib/presto/utils \
@@ -37,5 +34,7 @@ COPY etc/catalog $PRESTO_HOME/etc/catalog
 COPY entrypoint.sh /opt
 
 EXPOSE 8080
+
+VOLUME ["/var/lib/presto/data"]
 
 ENTRYPOINT ["/opt/entrypoint.sh"]
