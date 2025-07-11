@@ -91,6 +91,25 @@ public class TableWriteInfo
                 TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;
                 return Optional.of(new ExecutionWriterTarget.UpdateHandle(update.getHandle(), update.getSchemaTableName()));
             }
+            if (target instanceof TableWriterNode.MergeTarget) {
+                TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) target;
+
+                // TODO #20578: WIP - The ".get()." method call fails.
+                // Caused by: java.util.NoSuchElementException: No value present
+                // at java.util.Optional.get(Optional.java:135)
+                // at com.facebook.presto.execution.scheduler.TableWriteInfo.createWriterTarget(TableWriteInfo.java:117)
+                // at com.facebook.presto.execution.scheduler.TableWriteInfo.createWriterTarget(TableWriteInfo.java:127)
+                // at com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo(TableWriteInfo.java:75)
+                // at com.facebook.presto.execution.scheduler.SectionExecutionFactory.createSectionExecutions(SectionExecutionFactory.java:178)
+                // at com.facebook.presto.execution.scheduler.SqlQueryScheduler.createStageExecutions(SqlQueryScheduler.java:370)
+                // at com.facebook.presto.execution.scheduler.SqlQueryScheduler.<init>(SqlQueryScheduler.java:248)
+                // at com.facebook.presto.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler(SqlQueryScheduler.java:178)
+                // at com.facebook.presto.execution.SqlQueryExecution.createQueryScheduler(SqlQueryExecution.java:671)
+//                return Optional.of(new ExecutionWriterTarget.MergeHandle(mergeTarget.getHandle(), mergeTarget.getMergeHandle().get().getConnectorMergeHandle()/*, mergeTarget.getSchemaTableName()*/));
+
+//                return Optional.of(new ExecutionWriterTarget.MergeHandle(metadata.beginMerge(session, mergeTarget.getHandle())));
+                return Optional.of(new ExecutionWriterTarget.MergeHandle(mergeTarget.getMergeHandle().get()));
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 

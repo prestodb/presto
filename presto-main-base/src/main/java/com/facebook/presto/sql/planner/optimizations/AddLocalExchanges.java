@@ -44,7 +44,9 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -54,6 +56,7 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -90,6 +93,7 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPreferredPrope
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
+import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
@@ -715,6 +719,52 @@ public class AddLocalExchanges
                             tableWrite.getTableCommitContextVariable(),
                             statisticAggregations.map(StatisticAggregations.Parts::getIntermediateAggregation)),
                     gatherExchangeWithProperties.getProperties());
+        }
+
+        private PlanWithProperties visitPartitionedWriter(PlanNode node, Optional<PartitioningScheme> optionalPartitioning, PlanNode source, StreamPreferredProperties parentPreferences)
+        {
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+
+            if (!optionalPartitioning.isPresent()) {
+                return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
+            }
+
+            PartitioningScheme partitioningScheme = optionalPartitioning.get();
+
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                // arbitrary hash function on predefined set of partition columns
+                StreamPreferredProperties preference = partitionedOn(partitioningScheme.getPartitioning().getVariableReferences());
+                return planAndEnforceChildren(node, preference, preference);
+            }
+
+            // connector provided hash function
+            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            // TODO #20578: Check if the following verification is correct.
+            verify(partitioningScheme.getPartitioning().getArguments().stream()
+                    .noneMatch(argument -> argument instanceof ConstantExpression),
+                    "Table writer partitioning has constant arguments");
+            PlanWithProperties newSource = source.accept(this, parentPreferences);
+            PlanWithProperties exchange = deriveProperties(
+                    partitionedExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            newSource.getNode(),
+                            partitioningScheme),
+                    newSource.getProperties());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+        }
+
+        //
+        // Merge
+        //
+
+        @Override
+        public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
+        {
+            return visitPartitionedWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences);
         }
 
         @Override

@@ -21,6 +21,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -42,6 +44,7 @@ import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -347,6 +350,34 @@ public interface Metadata
      * Finish update query
      */
     void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Return the row update paradigm supported by the connector on the table or throw
+     * an exception if row change is not supported.
+     */
+    RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the column handle that will generate row IDs for the merge operation.
+     * These IDs will be passed to the {@code storeMergedRows()} method of the
+     * {@link com.facebook.presto.spi.ConnectorMergeSink} that created them.
+     */
+    ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the physical layout for updated rows of a MERGE operation.
+     */
+    Optional<PartitioningHandle> getMergeUpdateLayout(Session session, TableHandle tableHandle);
+
+    /**
+     * Begin merge query
+     */
+    MergeHandle beginMerge(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish merge query
+     */
+    void finishMerge(Session session, ExecutionWriterTarget.MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Returns a connector id for the specified catalog name.
