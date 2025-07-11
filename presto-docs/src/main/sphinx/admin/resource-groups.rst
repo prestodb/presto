@@ -154,7 +154,7 @@ Database Resource Group Manager Properties
    * - ``resource-groups.exact-match-selector-enabled``
      - Setting this flag enables usage of an additional
        ``exact_match_source_selectors`` table to configure resource group
-       selection rules defined exact name based matches for source, environment
+       selection rules which define exact name based matches for source, environment
        and query type. By default, the rules are only loaded from the
        ``selectors`` table, with a regex-based filter for ``source``, among
        other filters.
@@ -199,7 +199,7 @@ Here are the key properties that can be set for a Resource Group:
     sub-group is computed based on the weights for all currently eligible sub-groups. The sub-group
     with the least concurrency relative to its share is selected to start the next query.
   - ``weighted``: queued queries are selected stochastically in proportion to their priority,
-    specified via the ``query_priority`` {doc} ``session property </sql/set-session>``. Sub groups are selected
+    specified by the :ref:`admin/properties-session:\`\`query_priority\`\``. Sub groups are selected
     to start new queries in proportion to their ``schedulingWeight``.
   - ``query_priority``: all sub-groups must also be configured with ``query_priority``.
     Queued queries are selected strictly according to their priority.
