@@ -176,6 +176,8 @@ int main(int argc, char** argv) {
       "st_issimple",
       "st_startpoint",
       "st_endpoint",
+      "st_geometryn",
+      "st_interiorringn",
       "geometry_invalid_reason",
       "simplify_geometry",
       "st_xmax",

@@ -272,6 +272,24 @@ Accessors
     This is a shortcut for ``ST_PointN(geometry, ST_NumPoints(geometry))``.
     Empty input will return ``null``.
 
+.. function:: ST_GeometryN(geometry: Geometry, index: integer) -> geometry: Geometry
+
+    Returns the ``geometry`` element at a given index (indices start at 1).
+    If the ``geometry`` is a collection of geometries (e.g., GeometryCollection or
+    Multi*), returns the ``geometry`` at a given index. If the given index is less
+    than 1 or greater than the total number of elements in the collection, returns
+    NULL. Use ``:func:ST_NumGeometries`` to find out the total number of elements.
+    Singular geometries (e.g., Point, LineString, Polygon), are treated as
+    collections of one element. Empty geometries are treated as empty collections.
+
+.. function:: ST_InteriorRingN(geometry: Geometry, index: integer) -> geometry: Geometry
+
+    Returns the interior ring element at the specified index (indices start at 1).
+    If the given index is less than 1 or greater than the total number of interior
+    rings in the input ``geometry``, returns NULL. Throws an error if the input geometry
+    is not a polygon. Use ``:func:ST_NumInteriorRing`` to find out the total number of
+    elements.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

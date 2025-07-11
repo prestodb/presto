@@ -1826,3 +1826,137 @@ TEST_F(GeometryFunctionsTest, testStEndPoint) {
       testStEndPointFunc("POINT (1 2)", std::nullopt),
       "ST_EndPoint only applies to LineString. Input type is: Point");
 }
+
+TEST_F(GeometryFunctionsTest, testStGeometryN) {
+  const auto testStGeometryNFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<int32_t>& index,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(ST_GeometryN(ST_GeometryFromText(c0), c1))", wkt, index);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStGeometryNFunc("POINT EMPTY", 1, std::nullopt);
+  testStGeometryNFunc("LINESTRING EMPTY", 1, std::nullopt);
+  testStGeometryNFunc(
+      "LINESTRING(77.29 29.07, 77.42 29.26, 77.27 29.31, 77.29 29.07)",
+      1,
+      "LINESTRING (77.29 29.07, 77.42 29.26, 77.27 29.31, 77.29 29.07)");
+
+  testStGeometryNFunc(
+      "LINESTRING(77.29 29.07, 77.42 29.26, 77.27 29.31, 77.29 29.07)",
+      2,
+      std::nullopt);
+  testStGeometryNFunc(
+      "LINESTRING(77.29 29.07, 77.42 29.26, 77.27 29.31, 77.29 29.07)",
+      -1,
+      std::nullopt);
+  testStGeometryNFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))",
+      1,
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
+  testStGeometryNFunc("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", 2, std::nullopt);
+  testStGeometryNFunc("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", -1, std::nullopt);
+  testStGeometryNFunc("POLYGON EMPTY", 0, std::nullopt);
+  testStGeometryNFunc("POLYGON EMPTY", 2, std::nullopt);
+  testStGeometryNFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 1, "POINT (1 2)");
+  testStGeometryNFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 2, "POINT (2 4)");
+  testStGeometryNFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 0, std::nullopt);
+  testStGeometryNFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 5, std::nullopt);
+  testStGeometryNFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", -1, std::nullopt);
+  testStGeometryNFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 1, "LINESTRING (1 1, 5 1)");
+  testStGeometryNFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 2, "LINESTRING (2 4, 4 4)");
+  testStGeometryNFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 0, std::nullopt);
+  testStGeometryNFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 3, std::nullopt);
+  testStGeometryNFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", -1, std::nullopt);
+  testStGeometryNFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      1,
+      "POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))");
+  testStGeometryNFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      2,
+      "POLYGON ((2 4, 2 6, 6 6, 6 4, 2 4))");
+  testStGeometryNFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      0,
+      std::nullopt);
+  testStGeometryNFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      3,
+      std::nullopt);
+  testStGeometryNFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      -1,
+      std::nullopt);
+  testStGeometryNFunc(
+      "GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))",
+      1,
+      "POINT (2 3)");
+  testStGeometryNFunc(
+      "GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))",
+      2,
+      "LINESTRING (2 3, 3 4)");
+  testStGeometryNFunc(
+      "GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 3, std::nullopt);
+  testStGeometryNFunc(
+      "GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 0, std::nullopt);
+  testStGeometryNFunc(
+      "GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))",
+      -1,
+      std::nullopt);
+}
+
+TEST_F(GeometryFunctionsTest, testStInteriorRingN) {
+  const auto testStInteriorRingNFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<int32_t>& index,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(ST_InteriorRingN(ST_GeometryFromText(c0), c1))",
+            wkt,
+            index);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStInteriorRingNFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", 1, std::nullopt);
+
+  testStInteriorRingNFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", 2, std::nullopt);
+  testStInteriorRingNFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", -1, std::nullopt);
+  testStInteriorRingNFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", 0, std::nullopt);
+  testStInteriorRingNFunc("POLYGON EMPTY", 1, std::nullopt);
+  testStInteriorRingNFunc(
+      "POLYGON ((0 0, 0 3, 3 3, 3 0, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1))",
+      1,
+      "LINESTRING (1 1, 2 1, 2 2, 1 2, 1 1)");
+  testStInteriorRingNFunc(
+      "POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))",
+      2,
+      "LINESTRING (3 3, 4 3, 4 4, 3 4, 3 3)");
+
+  VELOX_ASSERT_USER_THROW(
+      testStInteriorRingNFunc("POINT EMPTY", 0, std::nullopt),
+      "ST_InteriorRingN only applies to Polygon. Input type is: Point");
+}

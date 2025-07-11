@@ -111,6 +111,18 @@ FOLLY_ALWAYS_INLINE Status validateType(
   return Status::OK();
 }
 
+FOLLY_ALWAYS_INLINE bool isMultiType(const geos::geom::Geometry& geometry) {
+  geos::geom::GeometryTypeId type = geometry.getGeometryTypeId();
+
+  static const std::vector<geos::geom::GeometryTypeId> multiTypes{
+      geos::geom::GeometryTypeId::GEOS_MULTILINESTRING,
+      geos::geom::GeometryTypeId::GEOS_MULTIPOINT,
+      geos::geom::GeometryTypeId::GEOS_MULTIPOLYGON,
+      geos::geom::GeometryTypeId::GEOS_GEOMETRYCOLLECTION};
+
+  return std::count(multiTypes.begin(), multiTypes.end(), type);
+}
+
 std::optional<std::string> geometryInvalidReason(
     const geos::geom::Geometry* geometry);
 
