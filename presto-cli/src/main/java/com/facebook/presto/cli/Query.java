@@ -160,7 +160,7 @@ public class Query
         // if running or finished
         if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
             QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
-            if (results.getUpdateType() != null) {
+            if (results.getUpdateInfo() != null) {
                 renderUpdate(errorChannel, results);
             }
             else if (results.getColumns() == null) {
@@ -220,7 +220,8 @@ public class Query
 
     private void renderUpdate(PrintStream out, QueryStatusInfo results)
     {
-        String status = results.getUpdateType();
+        checkState(results.getUpdateInfo() != null, "Update info is null");
+        String status = results.getUpdateInfo().getUpdateType();
         if (results.getUpdateCount() != null) {
             long count = results.getUpdateCount();
             status += format(": %s row%s", count, (count != 1) ? "s" : "");

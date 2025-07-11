@@ -104,7 +104,7 @@ public class TestNativeSidecarPlugin
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={driver_cpu_time_slice_limit_ms=500}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}}");
     }
 
     @Test
