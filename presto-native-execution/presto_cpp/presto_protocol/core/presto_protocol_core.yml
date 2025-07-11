@@ -198,6 +198,7 @@ AbstractClasses:
       - { name: BuiltInFunctionHandle,      key: $static }
       - { name: SqlFunctionHandle,          key: native }
       - { name: SqlFunctionHandle,          key: json_file }
+      - { name: SqlFunctionHandle,          key: sql_function_handle }
 
 
 JavaClasses:

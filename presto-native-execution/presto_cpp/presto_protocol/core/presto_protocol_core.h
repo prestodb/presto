@@ -68,21 +68,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message){};
+      : std::runtime_error(message) {};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message){};
+  explicit TypeError(const std::string& message) : Exception(message) {};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message){};
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message){};
+  explicit ParseError(const std::string& message) : Exception(message) {};
 };
 
 using String = std::string;
@@ -1587,6 +1587,7 @@ struct JsonBasedUdfFunctionMetadata {
   std::shared_ptr<String> version = {};
   std::shared_ptr<List<TypeVariableConstraint>> typeVariableConstraints = {};
   std::shared_ptr<List<LongVariableConstraint>> longVariableConstraints = {};
+  std::shared_ptr<URI> executionEndpoint = {};
 };
 void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);

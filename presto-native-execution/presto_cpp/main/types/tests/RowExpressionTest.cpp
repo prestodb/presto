@@ -499,7 +499,7 @@ TEST_F(RowExpressionTest, call) {
         ],
         "displayName": "EQUAL",
         "functionHandle": {
-          "@type": "json_file",
+          "@type": "sql_function_handle",
           "functionId": "json.x4.eq;INTEGER;INTEGER",
           "version": "1"
         },
