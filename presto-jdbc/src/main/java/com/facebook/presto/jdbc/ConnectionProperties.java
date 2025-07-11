@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.auth.external.ExternalRedirectStrategy;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 import okhttp3.Protocol;
 
 import java.io.File;
@@ -26,12 +29,14 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.ClassListConverter.CLASS_LIST_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.HttpProtocolConverter.HTTP_PROTOCOL_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.ListValidateConvertor.LIST_VALIDATE_CONVERTOR;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.StringMapConverter.STRING_MAP_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -68,6 +73,11 @@ final class ConnectionProperties
     public static final ConnectionProperty<Boolean> FOLLOW_REDIRECTS = new FollowRedirects();
     public static final ConnectionProperty<String> SSL_KEY_STORE_TYPE = new SSLKeyStoreType();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_TYPE = new SSLTrustStoreType();
+    public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
+    public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
+    public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
+    public static final ConnectionProperty<List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
+
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
@@ -98,6 +108,10 @@ final class ConnectionProperties
             .add(QUERY_INTERCEPTORS)
             .add(VALIDATE_NEXTURI_SOURCE)
             .add(FOLLOW_REDIRECTS)
+            .add(EXTERNAL_AUTHENTICATION)
+            .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
+            .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
+            .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -409,6 +423,56 @@ final class ConnectionProperties
         public SSLKeyStoreType()
         {
             super("SSLKeyStoreType", Optional.of(KeyStore.getDefaultType()), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static Predicate<Properties> isExternalAuthEnabled()
+    {
+        return checkedPredicate(properties -> EXTERNAL_AUTHENTICATION.getValue(properties).isPresent());
+    }
+
+    private static class ExternalAuthentication
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public ExternalAuthentication()
+        {
+            super("externalAuthentication", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationTimeout
+            extends AbstractConnectionProperty<Duration>
+    {
+        public ExternalAuthenticationTimeout()
+        {
+            super("externalAuthenticationTimeout", NOT_REQUIRED, isExternalAuthEnabled(), Duration::valueOf);
+        }
+    }
+
+    private static class ExternalAuthenticationTokenCache
+            extends AbstractConnectionProperty<KnownTokenCache>
+    {
+        public ExternalAuthenticationTokenCache()
+        {
+            super("externalAuthenticationTokenCache", Optional.of(KnownTokenCache.NONE.name()), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
+        }
+    }
+
+    private static class ExternalAuthenticationRedirectHandlers
+            extends AbstractConnectionProperty<List<ExternalRedirectStrategy>>
+    {
+        private static final Splitter ENUM_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+        public ExternalAuthenticationRedirectHandlers()
+        {
+            super("externalAuthenticationRedirectHandlers", Optional.of("OPEN"), NOT_REQUIRED, ALLOWED, ExternalAuthenticationRedirectHandlers::parse);
+        }
+
+        public static List<ExternalRedirectStrategy> parse(String value)
+        {
+            return StreamSupport.stream(ENUM_SPLITTER.split(value).spliterator(), false)
+                    .map(ExternalRedirectStrategy::valueOf)
+                    .collect(toImmutableList());
         }
     }
 }
