@@ -14,12 +14,12 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import io.airlift.units.Duration;
 
 import java.util.concurrent.ExecutorService;
 

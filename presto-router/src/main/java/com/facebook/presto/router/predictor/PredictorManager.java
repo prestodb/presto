@@ -17,8 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.spi.PrestoException;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.net.URI;
 import java.nio.file.Paths;

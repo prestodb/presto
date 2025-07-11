@@ -15,8 +15,7 @@ package com.facebook.presto.tracing;
 
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.google.inject.Inject;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.tests.utils.JdbcDriverUtils;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.assertions.QueryAssert.Row;
 import io.prestodb.tempto.query.QueryResult;

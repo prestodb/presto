@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.functionNamespace;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
@@ -47,7 +47,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -111,19 +111,19 @@ public class TestSqlInvokedFunctionNamespaceManager
         FunctionNamespaceTransactionHandle transaction2 = functionNamespaceManager.beginTransaction();
         Collection<SqlInvokedFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions2.size(), 1);
-        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
+        assertEquals(functions2.stream().collect(onlyElement()), FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         // update the function, second transaction still sees the old functions
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
         functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions2.size(), 1);
-        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
+        assertEquals(functions2.stream().collect(onlyElement()), FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         // third transaction sees the updated function
         FunctionNamespaceTransactionHandle transaction3 = functionNamespaceManager.beginTransaction();
         Collection<SqlInvokedFunction> functions3 = functionNamespaceManager.getFunctions(Optional.of(transaction3), POWER_TOWER);
         assertEquals(functions3.size(), 1);
-        assertEquals(getOnlyElement(functions3), FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
+        assertEquals(functions3.stream().collect(onlyElement()), FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
 
         functionNamespaceManager.commit(transaction1);
         functionNamespaceManager.commit(transaction2);
@@ -137,8 +137,8 @@ public class TestSqlInvokedFunctionNamespaceManager
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
 
         // fetchFunctionsDirect does not produce the same function reference
-        SqlInvokedFunction function1 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
-        SqlInvokedFunction function2 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
+        SqlInvokedFunction function1 = functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER).stream().collect(onlyElement());
+        SqlInvokedFunction function2 = functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER).stream().collect(onlyElement());
         assertEquals(function1, function2);
         assertNotSame(function1, function2);
 

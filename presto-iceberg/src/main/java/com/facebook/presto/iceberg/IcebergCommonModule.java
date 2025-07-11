@@ -91,9 +91,8 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
-
-import javax.inject.Singleton;
 
 import java.nio.ByteBuffer;
 import java.time.Duration;

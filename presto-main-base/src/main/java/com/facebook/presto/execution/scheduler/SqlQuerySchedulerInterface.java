@@ -14,10 +14,10 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
-import io.airlift.units.Duration;
 
 public interface SqlQuerySchedulerInterface
 {

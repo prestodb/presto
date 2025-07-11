@@ -12,10 +12,11 @@
  * limitations under the License.
  */
 package com.facebook.presto.spi.resourceGroups;
+
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.Objects;
 import java.util.Optional;
