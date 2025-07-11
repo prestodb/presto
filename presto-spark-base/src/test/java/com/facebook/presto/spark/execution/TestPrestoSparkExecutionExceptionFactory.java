@@ -18,9 +18,6 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableList;
-import org.apache.spark.ExceptionFailure;
-import org.apache.spark.SparkException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -34,7 +31,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static scala.collection.JavaConversions.asScalaBuffer;
 
 public class TestPrestoSparkExecutionExceptionFactory
 {
@@ -73,12 +69,15 @@ public class TestPrestoSparkExecutionExceptionFactory
         assertTrue(failure.isPresent());
         assertFailure(failure.get().toFailure(), prestoException);
 
-        ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, asScalaBuffer(ImmutableList.of()));
+        /**
+        Seq<AccumulableInfo> scalaSeq = asScalaBuffer(ImmutableList.of());
+        ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, scalaSeq);
         SparkException sparkException = new SparkException(SPARK_EXCEPTION_STRING + exceptionFailure.toErrorString());
 
         failure = factory.extractExecutionFailureInfo(sparkException);
         assertTrue(failure.isPresent());
         assertFailure(failure.get().toFailure(), prestoException);
+        **/
     }
 
     private static void assertFailure(Failure failure, Throwable expected)

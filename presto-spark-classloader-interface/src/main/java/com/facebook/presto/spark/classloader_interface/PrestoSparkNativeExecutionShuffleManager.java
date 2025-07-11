@@ -23,7 +23,9 @@ import org.apache.spark.shuffle.BaseShuffleHandle;
 import org.apache.spark.shuffle.ShuffleBlockResolver;
 import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.shuffle.ShuffleManager;
+import org.apache.spark.shuffle.ShuffleReadMetricsReporter;
 import org.apache.spark.shuffle.ShuffleReader;
+import org.apache.spark.shuffle.ShuffleWriteMetricsReporter;
 import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
 import org.apache.spark.storage.BlockManager;
@@ -90,28 +92,50 @@ public class PrestoSparkNativeExecutionShuffleManager
     }
 
     @Override
-    public <K, V, C> ShuffleHandle registerShuffle(int shuffleId, int numMaps, ShuffleDependency<K, V, C> dependency)
+    public <K, V, C> ShuffleHandle registerShuffle(int shuffleId, ShuffleDependency<K, V, C> dependency)
     {
-        return fallbackShuffleManager.registerShuffle(shuffleId, numMaps, dependency);
+        return fallbackShuffleManager.registerShuffle(shuffleId, dependency);
     }
 
     @Override
-    public <K, V> ShuffleWriter<K, V> getWriter(ShuffleHandle handle, int mapId, TaskContext context)
+    public <K, V> ShuffleWriter<K, V> getWriter(
+            ShuffleHandle handle,
+            long mapId,
+            TaskContext context,
+            ShuffleWriteMetricsReporter metrics)
     {
         checkState(
                 requireNonNull(handle, "handle is null") instanceof BypassMergeSortShuffleHandle,
                 "class %s is not instance of BypassMergeSortShuffleHandle", handle.getClass().getName());
         BaseShuffleHandle<?, ?, ?> baseShuffleHandle = (BaseShuffleHandle<?, ?, ?>) handle;
         int shuffleId = baseShuffleHandle.shuffleId();
-        int stageId = context.stageId();
-        registerShuffleHandle(baseShuffleHandle, stageId, mapId);
+        long sstageId = context.stageId();
+        if (sstageId > Integer.MAX_VALUE || sstageId < Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("stageId value out of int range");
+        }
+        int stageId = (int) sstageId;
+        if (mapId > Integer.MAX_VALUE || mapId < Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("mapId value out of int range");
+        }
+        registerShuffleHandle(baseShuffleHandle, stageId, (int) mapId);
+        long partNumber = baseShuffleHandle.dependency().partitioner().numPartitions();
+        if (partNumber > Integer.MAX_VALUE || partNumber < Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("partNumber value out of int range");
+        }
         return new EmptyShuffleWriter<>(
-                baseShuffleHandle.dependency().partitioner().numPartitions(),
-                () -> unregisterShuffleHandle(shuffleId, stageId, mapId));
+                (int) partNumber,
+                () -> unregisterShuffleHandle(shuffleId, stageId, (int) mapId));
     }
 
     @Override
-    public <K, C> ShuffleReader<K, C> getReader(ShuffleHandle handle, int startPartition, int endPartition, TaskContext context)
+    public <K, C> ShuffleReader<K, C> getReader(
+            ShuffleHandle handle,
+            int startMapIndex,
+            int endMapIndex,
+            int startPartition,
+            int endPartition,
+            TaskContext context,
+            ShuffleReadMetricsReporter metrics)
     {
         return new EmptyShuffleReader<>();
     }
@@ -196,7 +220,13 @@ public class PrestoSparkNativeExecutionShuffleManager
         {
             onStop.run();
             BlockManager blockManager = SparkEnv.get().blockManager();
-            return Option.apply(MapStatus$.MODULE$.apply(blockManager.blockManagerId(), mapStatus));
+            return Option.apply(MapStatus$.MODULE$.apply(blockManager.blockManagerId(), mapStatus, 0L));
+        }
+
+        @Override
+        public long[] getPartitionLengths()
+        {
+            throw new UnsupportedOperationException("Not implemented in EmptyShuffleReader.");
         }
     }
 
