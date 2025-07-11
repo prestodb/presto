@@ -506,7 +506,8 @@ public class HashGenerationOptimizer
                             node.getCriteria(),
                             node.getFilter(),
                             Optional.of(probeHashVariable),
-                            Optional.of(indexHashVariable)),
+                            Optional.of(indexHashVariable),
+                            node.getLookupVariables()),
                     allHashVariables);
         }
 

@@ -349,6 +349,8 @@ public class PruneUnreferencedOutputs
                 indexInputBuilder.add(node.getIndexHashVariable().get());
             }
             indexInputBuilder.addAll(expectedFilterInputs);
+            // Lookup variables must not be pruned.
+            indexInputBuilder.addAll(node.getLookupVariables());
             Set<VariableReferenceExpression> indexInputs = indexInputBuilder.build();
 
             PlanNode probeSource = context.rewrite(node.getProbeSource(), probeInputs);
@@ -364,7 +366,8 @@ public class PruneUnreferencedOutputs
                     node.getCriteria(),
                     node.getFilter(),
                     node.getProbeHashVariable(),
-                    node.getIndexHashVariable());
+                    node.getIndexHashVariable(),
+                    node.getLookupVariables());
         }
 
         @Override
