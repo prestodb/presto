@@ -101,12 +101,12 @@ public class CrossJoinWithArrayNotContainsToAntiJoin
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
-    public static RowExpression getCandidateArrayNotContainsExpression(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> leftInput, List<VariableReferenceExpression> rightInput)
+    public static RowExpression getCandidateArrayNotContainsExpression(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> leftInput, List<VariableReferenceExpression> rightInput, Session session)
     {
         List<RowExpression> conjuncts = extractConjuncts(filterPredicate);
         for (RowExpression conjunct : conjuncts) {
             if (PlannerUtils.isNegationExpression(functionResolution, conjunct) &&
-                    isSupportedArrayContainsFilter(functionResolution, conjunct.getChildren().get(0), leftInput, rightInput)) {
+                    isSupportedArrayContainsFilter(functionResolution, conjunct.getChildren().get(0), leftInput, rightInput, session)) {
                 return conjunct;
             }
         }
@@ -138,7 +138,7 @@ public class CrossJoinWithArrayNotContainsToAntiJoin
         RowExpression filterExpression = node.getPredicate();
         FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
 
-        RowExpression arrayNotContainsExpression = getCandidateArrayNotContainsExpression(functionResolution, filterExpression, leftColumns, rightColumns);
+        RowExpression arrayNotContainsExpression = getCandidateArrayNotContainsExpression(functionResolution, filterExpression, leftColumns, rightColumns, context.getSession());
         if (arrayNotContainsExpression == null) {
             return Result.empty();
         }

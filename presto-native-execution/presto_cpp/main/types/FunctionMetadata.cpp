@@ -127,6 +127,8 @@ const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
       typeVariableConstraint.orderableRequired = signature.orderableTypesOnly();
       typeVariableConstraint.comparableRequired =
           signature.comparableTypesOnly();
+      /// TODO: Pending on Velox PR: https://github.com/facebookincubator/velox/pull/14049.
+      // typeVariableConstraint.nonDecimalNumericRequired = signature.nonDecimalNumericTypeOnly();
       typeVariableConstraints.emplace_back(typeVariableConstraint);
     }
   }

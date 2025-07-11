@@ -16,6 +16,11 @@ package com.facebook.presto.nativetests;
 import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Optional;
+
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
@@ -32,6 +37,7 @@ public class NativeTestsUtils
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .setPluginDirectory(sidecarEnabled ? Optional.of(getPluginDir().toString()) : Optional.empty())
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
@@ -47,15 +53,36 @@ public class NativeTestsUtils
                     .setAddStorageFormatToPath(true)
                     .build();
             if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
+                NativeQueryRunnerUtils.createAllTablesStandard(javaQueryRunner, true);
             }
             else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
+                NativeQueryRunnerUtils.createAllTablesStandard(javaQueryRunner, false);
             }
             javaQueryRunner.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static Path getPluginDir()
+    {
+        Path workingDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
+        Path prestoRoot = workingDir;
+        // Traverse upward until finding the 'presto-native-execution' directory.
+        while (prestoRoot != null && !Files.exists(prestoRoot.resolve("presto-native-execution"))) {
+            prestoRoot = prestoRoot.getParent();
+        }
+        if (prestoRoot == null) {
+            throw new IllegalStateException("Could not locate presto root directory.");
+        }
+        return prestoRoot
+                .resolve("presto-native-execution")
+                .resolve("_build")
+                .resolve("release")
+                .resolve("presto_cpp")
+                .resolve("main")
+                .resolve("dynamic_registry")
+                .resolve("examples");
     }
 }

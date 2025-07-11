@@ -656,7 +656,6 @@ struct TypeVariableConstraint {
   bool orderableRequired = {};
   String variadicBound = {};
   bool nonDecimalNumericRequired = {};
-  String boundedBy = {};
 };
 void to_json(json& j, const TypeVariableConstraint& p);
 void from_json(const json& j, TypeVariableConstraint& p);
