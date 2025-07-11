@@ -23,6 +23,7 @@ import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.runtimestats.RuntimeStatsManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
@@ -129,6 +130,7 @@ public class QueuedStatementResource
     private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
     private final QueryBlockingRateLimiter queryRateLimiter;
+    private final RuntimeStatsManager runtimeStatsManager;
 
     @Inject
     public QueuedStatementResource(
@@ -139,7 +141,8 @@ public class QueuedStatementResource
             ServerConfig serverConfig,
             TracerProviderManager tracerProviderManager,
             SessionPropertyManager sessionPropertyManager,
-            QueryBlockingRateLimiter queryRateLimiter)
+            QueryBlockingRateLimiter queryRateLimiter,
+            RuntimeStatsManager runtimeStatsManager)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.executingQueryResponseProvider = requireNonNull(executingQueryResponseProvider, "executingQueryResponseProvider is null");
@@ -153,7 +156,7 @@ public class QueuedStatementResource
         this.sessionPropertyManager = sessionPropertyManager;
 
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
-
+        this.runtimeStatsManager = requireNonNull(runtimeStatsManager, "runtimeStatsManager is null");
         queryPurger.scheduleWithFixedDelay(
                 () -> {
                     try {
@@ -217,7 +220,8 @@ public class QueuedStatementResource
                 servletRequest,
                 sqlParserOptions,
                 tracerProviderManager.getTracerProvider(),
-                Optional.of(sessionPropertyManager));
+                Optional.of(sessionPropertyManager),
+                runtimeStatsManager.newRuntimeStatsWithInstruments());
         Query query = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0);
         queries.put(query.getQueryId(), query);
 
@@ -265,7 +269,8 @@ public class QueuedStatementResource
                 servletRequest,
                 sqlParserOptions,
                 tracerProviderManager.getTracerProvider(),
-                Optional.of(sessionPropertyManager));
+                Optional.of(sessionPropertyManager),
+                runtimeStatsManager.newRuntimeStatsWithInstruments());
         Query attemptedQuery = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0, queryId, slug);
         Query query = queries.computeIfAbsent(queryId, unused -> attemptedQuery);
 
