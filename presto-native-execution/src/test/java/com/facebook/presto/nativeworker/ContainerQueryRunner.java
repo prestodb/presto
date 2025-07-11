@@ -68,6 +68,7 @@ public class ContainerQueryRunner
     private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
+    private GenericContainer<?> sidecar;
     private final int coordinatorPort;
     private final String catalog;
     private final String schema;
@@ -123,12 +124,84 @@ public class ContainerQueryRunner
         }
     }
 
+    public ContainerQueryRunner(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, boolean isSidecarDelayed)
+            throws IOException, InterruptedException
+    {
+        this.coordinatorPort = DEFAULT_COORDINATOR_PORT;
+        this.catalog = TPCH_CATALOG;
+        this.schema = TINY_SCHEMA;
+        this.numberOfWorkers = numberOfWorkers;
+        coordinator = createCoordinator(isNativeCluster, isSidecarEnabled);
+        coordinator.start();
+        // Delete the temporary files once the containers are started.
+        ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
+
+        if (isNativeCluster) {
+            for (int i = 0; i < numberOfWorkers; i++) {
+                workers.add(createNativeWorker(7777 + i, "native-worker-" + i, isSidecarEnabled, false));
+            }
+            workers.forEach(GenericContainer::start);
+            for (int i = 0; i < numberOfWorkers; i++) {
+                ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
+            }
+        }
+        else {
+            for (int i = 0; i < numberOfWorkers; i++) {
+                workers.add(createJavaWorker(7777 + i, "java-worker-" + i));
+            }
+            workers.forEach(GenericContainer::start);
+            for (int i = 0; i < numberOfWorkers; i++) {
+                ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/java-worker-" + i);
+            }
+        }
+
+        if (isSidecarEnabled) {
+            sidecar = createSidecar(7777 + numberOfWorkers, "sidecar");
+            if (isSidecarDelayed) {
+                Thread.sleep(10000);
+            }
+            sidecar.start();
+            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/sidecar");
+        }
+
+        TimeUnit.SECONDS.sleep(5);
+        // Need some extra time for sidecar to register otherwise it throws sidecar not found error
+        if (isSidecarEnabled && !isSidecarDelayed) {
+            TimeUnit.SECONDS.sleep(60);
+        }
+
+        String dockerHostIp = coordinator.getHost();
+        logger.info("Presto UI is accessible at http://" + dockerHostIp + ":" + coordinator.getMappedPort(coordinatorPort));
+
+        String url = String.format("jdbc:presto://%s:%s/%s/%s?%s",
+                dockerHostIp,
+                coordinator.getMappedPort(coordinatorPort),
+                catalog,
+                schema,
+                "timeZoneId=UTC");
+
+        try {
+            connection = getConnection(url, "test", null);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private GenericContainer<?> createCoordinator()
+            throws IOException
+    {
+        return createCoordinator(true, false);
+    }
+    private GenericContainer<?> createCoordinator(boolean isNativeCluster, boolean isSidecarEnabled)
             throws IOException
     {
         ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
         ContainerQueryRunnerUtils.createCoordinatorTpcdsProperties();
-        ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
+        ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort, isNativeCluster, isSidecarEnabled);
+        if (isSidecarEnabled) {
+            ContainerQueryRunnerUtils.createCoordinatorSidecarProperties();
+        }
         ContainerQueryRunnerUtils.createCoordinatorJvmConfig();
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
@@ -144,11 +217,40 @@ public class ContainerQueryRunner
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
     }
 
+    private GenericContainer<?> createJavaWorker(int port, String nodeId)
+            throws IOException
+    {
+        ContainerQueryRunnerUtils.createJavaWorkerConfigProperties(port, coordinatorPort, nodeId);
+        ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
+        ContainerQueryRunnerUtils.createJavaEntryPointScript(nodeId);
+        ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
+        return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
+                .withExposedPorts(port)
+                .withNetwork(network)
+                .withNetworkAliases(nodeId)
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh");
+    }
+
+    private GenericContainer<?> createSidecar(int port, String nodeId)
+            throws IOException
+    {
+        return createNativeWorker(port, nodeId, true, true);
+    }
+
     private GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
+        return createNativeWorker(port, nodeId, false, false);
+    }
+
+    private GenericContainer<?> createNativeWorker(int port, String nodeId, boolean isSidecarEnabled, boolean isSidecarNode)
+            throws IOException
+    {
+        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId, isSidecarEnabled, isSidecarNode);
+        if (!isSidecarEnabled) {
+            ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
+        }
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerVeloxProperties(nodeId);
@@ -172,6 +274,9 @@ public class ContainerQueryRunner
         }
         coordinator.stop();
         workers.forEach(GenericContainer::stop);
+        if (sidecar != null) {
+            sidecar.stop();
+        }
     }
 
     @Override
@@ -312,7 +417,8 @@ public class ContainerQueryRunner
             return ContainerQueryRunnerUtils.toMaterializedResult(resultSet);
         }
         catch (SQLException e) {
-            throw new RuntimeException("Error executing query: " + sql, e);
+            e.printStackTrace();
+            throw new RuntimeException("Error executing query: " + sql + "\n" + e.getMessage());
         }
     }
 }
