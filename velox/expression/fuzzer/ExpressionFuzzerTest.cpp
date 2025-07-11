@@ -174,6 +174,8 @@ int main(int argc, char** argv) {
       "st_y",
       "st_isvalid",
       "st_issimple",
+      "st_startpoint",
+      "st_endpoint",
       "geometry_invalid_reason",
       "simplify_geometry",
       "st_xmax",

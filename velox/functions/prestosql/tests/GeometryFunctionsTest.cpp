@@ -1776,3 +1776,53 @@ TEST_F(GeometryFunctionsTest, testStPointN) {
       testStPointNFunc("POINT (1 2)", -1, std::nullopt),
       "ST_PointN only applies to LineString. Input type is: Point");
 }
+
+TEST_F(GeometryFunctionsTest, testStStartPoint) {
+  const auto testStStartPointFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(ST_StartPoint(ST_GeometryFromText(c0)))", wkt);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStStartPointFunc("LINESTRING (8 4, 4 8, 5 6)", "POINT (8 4)");
+  testStStartPointFunc("LINESTRING (8 2, 4 12, 0 0)", "POINT (8 2)");
+  testStStartPointFunc("LINESTRING (0 0, 4 12, 2 2)", "POINT (0 0)");
+  testStStartPointFunc("LINESTRING EMPTY", std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testStStartPointFunc("POINT (1 2)", std::nullopt),
+      "ST_StartPoint only applies to LineString. Input type is: Point");
+}
+
+TEST_F(GeometryFunctionsTest, testStEndPoint) {
+  const auto testStEndPointFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(ST_EndPoint(ST_GeometryFromText(c0)))", wkt);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStEndPointFunc("LINESTRING (8 4, 4 8, 5 6)", "POINT (5 6)");
+  testStEndPointFunc("LINESTRING (8 2, 4 12, 0 0)", "POINT (0 0)");
+  testStEndPointFunc("LINESTRING (0 0, 4 12, 2 2)", "POINT (2 2)");
+  testStEndPointFunc("LINESTRING EMPTY", std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testStEndPointFunc("POINT (1 2)", std::nullopt),
+      "ST_EndPoint only applies to LineString. Input type is: Point");
+}

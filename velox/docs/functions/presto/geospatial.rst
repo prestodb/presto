@@ -260,6 +260,18 @@ Accessors
     Returns the maximum ``y`` coordinate of the geometries bounding box.
     Returns ``null`` if the geometry is empty.
 
+.. function:: ST_StartPoint(geometry: Geometry) -> point: Geometry
+
+    Returns the first point of a LineString geometry as a Point.
+    This is a shortcut for ``ST_PointN(geometry, 1)``. Empty
+    input will return ``null``.
+
+.. function:: ST_EndPoint(geometry: Geometry) -> point: Geometry
+
+    Returns the last point of a LineString geometry as a Point.
+    This is a shortcut for ``ST_PointN(geometry, ST_NumPoints(geometry))``.
+    Empty input will return ``null``.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

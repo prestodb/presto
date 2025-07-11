@@ -105,6 +105,10 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_Length"}});
   registerFunction<StPointNFunction, Geometry, Geometry, int32_t>(
       {{prefix + "ST_PointN"}});
+  registerFunction<StStartPointFunction, Geometry, Geometry>(
+      {{prefix + "ST_StartPoint"}});
+  registerFunction<StEndPointFunction, Geometry, Geometry>(
+      {{prefix + "ST_EndPoint"}});
 }
 
 } // namespace
