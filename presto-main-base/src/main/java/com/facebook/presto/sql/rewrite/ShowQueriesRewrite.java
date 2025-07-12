@@ -19,6 +19,8 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
+import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
@@ -94,6 +96,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -410,6 +413,12 @@ final class ShowQueriesRewrite
                 throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
             }
 
+            accessControl.checkCanShowColumnsMetadata(
+                    session.getRequiredTransactionId(),
+                    session.getIdentity(),
+                    session.getAccessControlContext(),
+                    new CatalogSchemaTableName(tableName.getCatalogName(), tableName.getSchemaName(), tableName.getObjectName()));
+
             return simpleQuery(
                     selectList(
                             aliasedName("column_name", "Column"),
@@ -550,7 +559,16 @@ final class ShowQueriesRewrite
                         .collect(toImmutableSet());
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                List<TableElement> columns = connectorTableMetadata.getColumns().stream()
+
+                List<ColumnMetadata> allowedColumns = new ArrayList<>();
+                allowedColumns = accessControl.filterColumns(
+                        session.getRequiredTransactionId(),
+                        session.getIdentity(),
+                        session.getAccessControlContext(),
+                        new CatalogSchemaTableName(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        connectorTableMetadata.getColumns());
+
+                List<TableElement> columns = allowedColumns.stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);

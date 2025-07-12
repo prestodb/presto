@@ -16,6 +16,7 @@ package com.facebook.presto.spi.security;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 
 import java.util.Collections;
@@ -41,6 +42,12 @@ public class ViewAccessControl
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames)
     {
         delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnOrSubfieldNames.stream().map(Subfield::getRootName).collect(collectingAndThen(toSet(), Collections::unmodifiableSet)));
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    {
+        return delegate.filterColumns(transactionId, identity, context, table, columns);
     }
 
     @Override
