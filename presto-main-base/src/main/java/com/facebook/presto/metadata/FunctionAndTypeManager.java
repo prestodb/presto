@@ -400,7 +400,7 @@ public class FunctionAndTypeManager
         if (functionNamespaceManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
-        handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
+        handleResolver.addFunctionNamespace(factory.getHandleResolver().getFunctionHandleClass().getSimpleName(), factory.getHandleResolver());
     }
 
     public void loadTypeManager(String typeManagerName)

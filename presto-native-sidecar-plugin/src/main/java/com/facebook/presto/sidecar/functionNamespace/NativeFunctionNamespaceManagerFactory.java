@@ -37,7 +37,7 @@ public class NativeFunctionNamespaceManagerFactory
 {
     public static final String NAME = "native";
 
-    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = new SqlFunctionHandle.Resolver();
+    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = SqlFunctionHandle.Resolver.getInstance();
 
     @Override
     public String getName()

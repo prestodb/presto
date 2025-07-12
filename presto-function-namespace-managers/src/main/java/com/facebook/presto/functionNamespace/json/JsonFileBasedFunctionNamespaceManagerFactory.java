@@ -36,7 +36,7 @@ public class JsonFileBasedFunctionNamespaceManagerFactory
 {
     public static final String NAME = "json_file";
 
-    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = new SqlFunctionHandle.Resolver();
+    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = SqlFunctionHandle.Resolver.getInstance();
 
     @Override
     public String getName()

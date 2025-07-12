@@ -34,7 +34,7 @@ public class H2FunctionNamespaceManagerFactory
 {
     public static final String NAME = "h2";
 
-    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = new SqlFunctionHandle.Resolver();
+    private static final SqlFunctionHandle.Resolver HANDLE_RESOLVER = SqlFunctionHandle.Resolver.getInstance();
 
     @Override
     public String getName()
