@@ -20,6 +20,7 @@ import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.JsonResponseHandler;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryError;
@@ -27,7 +28,6 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;

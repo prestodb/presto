@@ -24,9 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.HashSet;

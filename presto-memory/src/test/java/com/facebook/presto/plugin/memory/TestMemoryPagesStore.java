@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

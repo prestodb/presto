@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import com.facebook.presto.orc.writer.StreamLayoutFactory.ColumnSizeLayoutFactory;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
 public class OrcWriterOptions

@@ -38,7 +38,7 @@ import static com.facebook.presto.geospatial.GeometryType.getForJtsGeometryType;
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -200,7 +200,7 @@ public class JtsGeometrySerde
         if (multitype) {
             return GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new Polygon[0]));
         }
-        return getOnlyElement(polygons);
+        return polygons.stream().collect(onlyElement());
     }
 
     private static Geometry readGeometryCollection(BasicSliceInput input)
