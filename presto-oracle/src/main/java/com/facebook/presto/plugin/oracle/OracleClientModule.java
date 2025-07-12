@@ -77,8 +77,7 @@ public class OracleClientModule
     {
         public static boolean findCredentialsInJdbcUrl(String jdbcUrl)
         {
-            String regex = "jdbc:oracle:thin:([^/]+?)/([^@]+?)@";
-
+            String regex = "jdbc:oracle:thin:[^@]+@";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher(jdbcUrl);
 

@@ -42,7 +42,32 @@ public class OracleClientModuleTest
             fail("Expected SQLException to be thrown");
         }
         catch (PrestoException e) {
-            assertEquals("User credentials in both configs and url", e.getMessage());
+            assertEquals("Credentials are specified in both connection-url and user/password properties. Use only one", e.getMessage());
+        }
+
+        // User in the url and password in the config
+        config.setConnectionUrl("jdbc:oracle:thin:user/@localhost:1521/database");
+        config.setConnectionUser(null);
+        config.setConnectionPassword("pass");
+
+        try {
+            OracleClientModule.connectionFactory(config, oracleConfig);
+            fail("Expected SQLException to be thrown");
+        }
+        catch (PrestoException e) {
+            assertEquals("Credentials are specified in both connection-url and user/password properties. Use only one", e.getMessage());
+        }
+        // User in the config and password in the url
+        config.setConnectionUrl("jdbc:oracle:thin:/pass@localhost:1521/database");
+        config.setConnectionUser("user");
+        config.setConnectionPassword(null);
+
+        try {
+            OracleClientModule.connectionFactory(config, oracleConfig);
+            fail("Expected SQLException to be thrown");
+        }
+        catch (PrestoException e) {
+            assertEquals("Credentials are specified in both connection-url and user/password properties. Use only one", e.getMessage());
         }
 
         // Credentials in URl but not in the config
