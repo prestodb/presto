@@ -60,64 +60,79 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.codechange == 'true'
 
       - name: Fix git permissions
+        if: needs.changes.outputs.codechange == 'true'
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Update velox
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           cd presto-native-execution
           make velox-submodule
 
       - name: Install Github CLI for using apache/infrastructure-actions/stash
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
           rpm -iv gh_2.63.2_linux_amd64.rpm
 
       - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: needs.changes.outputs.codechange == 'true'
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-engine
 
       - name: Zero ccache statistics
+        if: needs.changes.outputs.codechange == 'true'
         run: ccache -sz
 
       - name: Remove files not needed for the build
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           find . -name data | xargs rm -r
           find . -name tests | xargs rm -r
           find . -name test | xargs rm -rf
 
       - name: Disk space consumption before build
+        if: needs.changes.outputs.codechange == 'true'
         run: df
 
       - name: Generate build command script for reuse
+        if: needs.changes.outputs.codechange == 'true'
         run: |
 
 
       - name: Build engine
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           eval ${{ env.BUILD_SCRIPT }}
 
       - name: Disk space consumption after build
+        if: needs.changes.outputs.codechange == 'true'
         run: df
 
       - name: Ccache after
+        if: needs.changes.outputs.codechange == 'true'
         run: ccache -s
 
       - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: needs.changes.outputs.codechange == 'true'
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-engine
 
       - name: Regenerate the protocol files
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_HOME=$(pwd)
           cd presto-native-execution
           make presto_protocol
 
       - name: Incrementally rebuild presto_server with the new protocol
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           eval ${{ env.BUILD_SCRIPT }}
