@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-memory</artifactId>
+    <name>presto-memory</name>
     <description>Presto - Memory Connector</description>
     <packaging>presto-plugin</packaging>
 

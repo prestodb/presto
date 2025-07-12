@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-tpch</artifactId>
+    <name>presto-tpch</name>
     <description>Presto - TPC-H Connector</description>
     <packaging>presto-plugin</packaging>
 

@@ -13,6 +13,7 @@
     </properties>
 
     <artifactId>presto-hive-common</artifactId>
+    <name>presto-hive-common</name>
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>

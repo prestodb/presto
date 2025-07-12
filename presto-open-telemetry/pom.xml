@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-open-telemetry</artifactId>
+    <name>presto-open-telemetry</name>
     <description>Presto - Open Telemetry Tracing</description>
     <packaging>presto-plugin</packaging>
 

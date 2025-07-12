@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-atop</artifactId>
+    <name>presto-atop</name>
     <description>Presto - Atop Connector</description>
     <packaging>presto-plugin</packaging>
 

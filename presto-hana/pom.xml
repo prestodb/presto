@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-hana</artifactId>
+    <name>presto-hana</name>
     <description>Presto - HANA Connector</description>
     <packaging>presto-plugin</packaging>
 

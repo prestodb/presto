@@ -8,6 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>presto-lark-sheets</artifactId>
+    <name>presto-lark-sheets</name>
     <description>Presto - Lark Sheets Connector</description>
     <packaging>presto-plugin</packaging>
 

@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-native-sidecar-plugin</artifactId>
+    <name>presto-native-sidecar-plugin</name>
     <description>Presto - Native Sidecar Plugin</description>
     <packaging>presto-plugin</packaging>
 

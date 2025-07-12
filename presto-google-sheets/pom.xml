@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-google-sheets</artifactId>
+    <name>presto-google-sheets</name>
     <description>Presto - Google Sheets Connector</description>
     <packaging>presto-plugin</packaging>
 

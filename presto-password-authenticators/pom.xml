@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-password-authenticators</artifactId>
+    <name>presto-password-authenticators</name>
     <description>Presto - Password Authenticators</description>
     <packaging>presto-plugin</packaging>
 

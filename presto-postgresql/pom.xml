@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-postgresql</artifactId>
+    <name>presto-postgresql</name>
     <description>Presto - PostgreSQL Connector</description>
     <packaging>presto-plugin</packaging>
 

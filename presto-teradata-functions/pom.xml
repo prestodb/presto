@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-teradata-functions</artifactId>
+    <name>presto-teradata-functions</name>
     <description>Teradata's specific functions for Presto</description>
     <packaging>presto-plugin</packaging>
 

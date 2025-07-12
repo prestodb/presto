@@ -14,6 +14,7 @@
     </properties>
 
     <artifactId>redis-hbo-provider</artifactId>
+    <name>redis-hbo-provider</name>
     <packaging>presto-plugin</packaging>
 
     <dependencies>

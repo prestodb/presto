@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-thrift-spec</artifactId>
+    <name>presto-thrift-spec</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

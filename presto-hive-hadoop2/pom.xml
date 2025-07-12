@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
+    <name>presto-hive-hadoop2</name>
     <description>Presto - Hive Connector - Apache Hadoop 2.x</description>
     <packaging>presto-plugin</packaging>
 

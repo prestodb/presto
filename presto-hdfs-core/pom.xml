@@ -13,6 +13,7 @@
     </properties>
 
     <artifactId>presto-hdfs-core</artifactId>
+    <name>presto-hdfs-core</name>
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>

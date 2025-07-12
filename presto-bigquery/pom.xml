@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-bigquery</artifactId>
+    <name>presto-bigquery</name>
     <description>Presto - Bigquery Connector</description>
     <packaging>presto-plugin</packaging>
 

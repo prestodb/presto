@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-cache</artifactId>
+    <name>presto-cache</name>
     <description>Presto cache library</description>
 
     <properties>

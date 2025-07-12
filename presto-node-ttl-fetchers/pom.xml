@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-node-ttl-fetchers</artifactId>
+    <name>presto-node-ttl-fetchers</name>
     <description>Presto - Node Ttl Fetchers</description>
     <packaging>presto-plugin</packaging>
 

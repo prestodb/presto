@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-resource-group-managers</artifactId>
+    <name>presto-resource-group-managers</name>
     <description>Presto - Resource Group Configuration Managers</description>
     <packaging>presto-plugin</packaging>
 

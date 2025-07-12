@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-proxy</artifactId>
+    <name>presto-proxy</name>
     <description>Presto - Proxy Service</description>
 
     <properties>

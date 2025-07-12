@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-thrift-api</artifactId>
+    <name>presto-thrift-api</name>
     <description>Presto - Thrift APIs for Connector and Udf</description>
     <packaging>jar</packaging>
 

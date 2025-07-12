@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-local-file</artifactId>
+    <name>presto-local-file</name>
     <description>Presto - Local File Connector</description>
     <packaging>presto-plugin</packaging>
 

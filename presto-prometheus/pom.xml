@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-prometheus</artifactId>
+    <name>presto-prometheus</name>
     <description>Presto - Prometheus Connector</description>
     <packaging>presto-plugin</packaging>
 

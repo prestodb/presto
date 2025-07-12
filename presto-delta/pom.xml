@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-delta</artifactId>
+    <name>presto-delta</name>
     <description>Presto - Delta Table Connector</description>
     <packaging>presto-plugin</packaging>
 

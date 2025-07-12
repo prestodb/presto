@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-kudu</artifactId>
+    <name>presto-kudu</name>
     <description>Presto - Kudu Connector</description>
     <packaging>presto-plugin</packaging>
 

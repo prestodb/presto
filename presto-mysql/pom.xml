@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-mysql</artifactId>
+    <name>presto-mysql</name>
     <description>Presto - MySQL Connector</description>
     <packaging>presto-plugin</packaging>
 

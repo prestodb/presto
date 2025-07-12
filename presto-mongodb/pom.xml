@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-mongodb</artifactId>
+    <name>presto-mongodb</name>
     <description>Presto - mongodb Connector</description>
     <packaging>presto-plugin</packaging>
 

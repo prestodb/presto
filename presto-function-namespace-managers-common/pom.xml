@@ -13,6 +13,7 @@
     </properties>
 
     <artifactId>presto-function-namespace-managers-common</artifactId>
+    <name>presto-function-namespace-managers-common</name>
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>

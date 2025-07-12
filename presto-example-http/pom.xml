@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-example-http</artifactId>
+    <name>presto-example-http</name>
     <description>Presto - Example HTTP Connector</description>
     <packaging>presto-plugin</packaging>
 

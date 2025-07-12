@@ -7,6 +7,7 @@
         <version>0.294-SNAPSHOT</version>
     </parent>
     <artifactId>presto-elasticsearch</artifactId>
+    <name>presto-elasticsearch</name>
     <description>Presto - Elasticsearch Connector</description>
     <packaging>presto-plugin</packaging>
 

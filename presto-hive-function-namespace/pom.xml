@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-hive-function-namespace</artifactId>
+    <name>presto-hive-function-namespace</name>
     <description>Hive functions for Presto</description>
     <packaging>presto-plugin</packaging>
 

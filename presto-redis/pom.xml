@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-redis</artifactId>
+    <name>presto-redis</name>
     <description>Presto - Redis Connector</description>
     <packaging>presto-plugin</packaging>
 

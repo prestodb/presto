@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-router</artifactId>
+    <name>presto-router</name>
     <description>Presto Router</description>
 
     <properties>

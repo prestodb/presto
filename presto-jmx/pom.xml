@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-jmx</artifactId>
+    <name>presto-jmx</name>
     <description>Presto - JMX Connector</description>
     <packaging>presto-plugin</packaging>
 
