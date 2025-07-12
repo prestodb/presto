@@ -39,6 +39,7 @@ import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.CacheControl;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
@@ -100,7 +101,7 @@ public final class QueryResourceUtil
 
     private QueryResourceUtil() {}
 
-    public static Response toResponse(Query query, QueryResults queryResults, boolean compressionEnabled)
+    public static Response toResponse(Query query, QueryResults queryResults, boolean compressionEnabled, long durationUntilExpirationMs)
     {
         Response.ResponseBuilder response = Response.ok(queryResults);
 
@@ -158,10 +159,18 @@ public final class QueryResourceUtil
             response.header(PRESTO_REMOVED_SESSION_FUNCTION, urlEncode(SQL_FUNCTION_ID_JSON_CODEC.toJson(signature)));
         }
 
+        response.cacheControl(getCacheControlMaxAge(durationUntilExpirationMs));
+
         return response.build();
     }
 
-    public static Response toResponse(Query query, QueryResults queryResults, String xPrestoPrefixUri, boolean compressionEnabled, boolean nestedDataSerializationEnabled)
+    public static Response toResponse(
+            Query query,
+            QueryResults queryResults,
+            String xPrestoPrefixUri,
+            boolean compressionEnabled,
+            boolean nestedDataSerializationEnabled,
+            long durationUntilExpirationMs)
     {
         Iterable<List<Object>> queryResultsData = queryResults.getData();
         if (nestedDataSerializationEnabled) {
@@ -181,7 +190,12 @@ public final class QueryResourceUtil
                 queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
 
-        return toResponse(query, resultsClone, compressionEnabled);
+        return toResponse(query, resultsClone, compressionEnabled, durationUntilExpirationMs);
+    }
+
+    public static CacheControl getCacheControlMaxAge(long durationUntilExpirationMs)
+    {
+        return CacheControl.valueOf("max-age=" + MILLISECONDS.toSeconds(durationUntilExpirationMs));
     }
 
     public static void abortIfPrefixUrlInvalid(String xPrestoPrefixUrl)

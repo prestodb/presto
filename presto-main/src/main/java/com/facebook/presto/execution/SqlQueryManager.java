@@ -253,6 +253,13 @@ public class SqlQueryManager
     }
 
     @Override
+    public long getDurationUntilExpirationInMillis(QueryId queryId)
+            throws NoSuchElementException
+    {
+        return queryTracker.getQuery(queryId).getDurationUntilExpirationInMillis();
+    }
+
+    @Override
     public Session getQuerySession(QueryId queryId)
             throws NoSuchElementException
     {
