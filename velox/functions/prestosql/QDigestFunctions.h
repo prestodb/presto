@@ -114,4 +114,48 @@ struct ValuesAtQuantilesFunction {
   }
 };
 
+template <typename TExec>
+struct QuantileAtValueFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<SimpleQDigest<double>>& input,
+      const arg_type<double>& value) {
+    return callImpl<double>(result, input, value);
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<SimpleQDigest<int64_t>>& input,
+      const arg_type<int64_t>& value) {
+    return callImpl<int64_t>(result, input, value);
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<SimpleQDigest<float>>& input,
+      const arg_type<float>& value) {
+    return callImpl<float>(result, input, value);
+  }
+
+ private:
+  template <typename T>
+  FOLLY_ALWAYS_INLINE bool callImpl(
+      out_type<double>& result,
+      const arg_type<SimpleQDigest<T>>& input,
+      const arg_type<T>& value) {
+    std::allocator<T> allocator;
+    qdigest::QuantileDigest<T, std::allocator<T>> digest(
+        allocator, input.data());
+
+    auto quantile = digest.quantileAtValue(value);
+    if (quantile.has_value()) {
+      result = quantile.value();
+      return true;
+    }
+    return false; // Return false for null result when value is out of range
+  }
+};
+
 } // namespace facebook::velox::functions

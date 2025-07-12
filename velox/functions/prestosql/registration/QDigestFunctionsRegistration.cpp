@@ -58,6 +58,24 @@ void registerQDigestFunctions(const std::string& prefix) {
       Array<float>,
       SimpleQDigest<float>,
       Array<double>>({prefix + "values_at_quantiles"});
+
+  registerFunction<
+      QuantileAtValueFunction,
+      double,
+      SimpleQDigest<double>,
+      double>({prefix + "quantile_at_value"});
+
+  registerFunction<
+      QuantileAtValueFunction,
+      double,
+      SimpleQDigest<int64_t>,
+      int64_t>({prefix + "quantile_at_value"});
+
+  registerFunction<
+      QuantileAtValueFunction,
+      double,
+      SimpleQDigest<float>,
+      float>({prefix + "quantile_at_value"});
 }
 
 } // namespace facebook::velox::functions

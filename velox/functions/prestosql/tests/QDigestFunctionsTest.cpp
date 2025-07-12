@@ -37,7 +37,7 @@ class QDigestFunctionsTest : public FunctionBaseTest {
   template <typename T>
   std::string createQDigest(
       const std::vector<T>& values,
-      double maxError = 0.01) {
+      double maxError = kMaxError) {
     std::allocator<T> allocator;
     QuantileDigest<T, std::allocator<T>> digest(allocator, maxError);
 
@@ -249,7 +249,7 @@ TEST_F(QDigestFunctionsTest, valuesAtQuantilesBigint) {
 TEST_F(QDigestFunctionsTest, valuesAtQuantilesReal) {
   std::vector<float> values;
   for (int i = 1; i <= 1000; i++) {
-    values.push_back(static_cast<float>(i + i * 0.1f));
+    values.push_back(static_cast<float>(i) + i * 0.1f);
   }
   std::string digest = createQDigest(values);
 
@@ -318,4 +318,145 @@ TEST_F(QDigestFunctionsTest, valuesAtQuantilesEmptyArray) {
   auto arrayResult = result->as<ArrayVector>();
 
   ASSERT_EQ(arrayResult->sizeAt(0), 0);
+}
+
+TEST_F(QDigestFunctionsTest, quantileAtValueBigint) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<int64_t>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", QDIGEST_BIGINT, input, value);
+  };
+
+  std::vector<int64_t> values;
+  for (int64_t i = 1; i <= 1000; i++) {
+    values.push_back(i);
+  }
+  std::string digest = createQDigest(values, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1).value(), 0.0, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 2).value(), 0.001, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 3).value(), 0.002, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 333).value(), 0.332, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 500).value(), 0.499, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 666).value(), 0.665, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 998).value(), 0.997, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 999).value(), 0.998, kMaxError);
+  ASSERT_EQ(quantileAtValue(digest, 0), std::nullopt);
+  ASSERT_EQ(quantileAtValue(digest, 1001), std::nullopt);
+}
+
+TEST_F(QDigestFunctionsTest, quantileAtValueDouble) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<double>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", QDIGEST_DOUBLE, input, value);
+  };
+
+  std::vector<double> values;
+  for (int i = 1; i <= 1000; i++) {
+    values.push_back(static_cast<double>(i + 0.1 * i));
+  }
+
+  std::string digest = createQDigest(values, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1.1).value(), 0.0, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1.111).value(), 0.001, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 2.001).value(), 0.001, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 333.33).value(), 0.303, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 500.001).value(), 0.454, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 666.666).value(), 0.606, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 998.999).value(), 0.908, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1099.999).value(), 0.999, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1100).value(), 0.999, kMaxError);
+  ASSERT_EQ(quantileAtValue(digest, -1.1), std::nullopt);
+  ASSERT_EQ(quantileAtValue(digest, 1100.001), std::nullopt);
+}
+
+TEST_F(QDigestFunctionsTest, quantileAtValueReal) {
+  const auto quantileAtValue = [&](const std::optional<std::string>& input,
+                                   const std::optional<float>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", QDIGEST_REAL, input, value);
+  };
+
+  std::vector<float> values;
+  for (int i = 1; i <= 1000; i++) {
+    values.push_back(static_cast<float>(i + 0.1 * i));
+  }
+
+  std::string digest = createQDigest(values, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1.1).value(), 0.0, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1.111).value(), 0.001, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 2.001).value(), 0.001, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 333.33).value(), 0.303, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 500.001).value(), 0.454, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 666.666).value(), 0.606, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 998.999).value(), 0.908, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1099.999).value(), 0.999, kMaxError);
+  ASSERT_NEAR(quantileAtValue(digest, 1100).value(), 0.999, kMaxError);
+  ASSERT_EQ(quantileAtValue(digest, -1.1), std::nullopt);
+  ASSERT_EQ(quantileAtValue(digest, 1100.001), std::nullopt);
+}
+
+TEST_F(QDigestFunctionsTest, quantileAtValueEmptyDigest) {
+  const auto quantileAtValueBigint =
+      [&](const std::optional<std::string>& input,
+          const std::optional<int64_t>& value) {
+        return evaluateOnce<double>(
+            "quantile_at_value(c0, c1)", QDIGEST_BIGINT, input, value);
+      };
+
+  const auto quantileAtValueDouble =
+      [&](const std::optional<std::string>& input,
+          const std::optional<double>& value) {
+        return evaluateOnce<double>(
+            "quantile_at_value(c0, c1)", QDIGEST_DOUBLE, input, value);
+      };
+
+  std::string emptyDigestBigint = createQDigest(std::vector<int64_t>{});
+  std::string emptyDigestDouble = createQDigest(std::vector<double>{});
+  std::string emptyDigestReal = createQDigest(std::vector<float>{});
+
+  ASSERT_EQ(quantileAtValueBigint(emptyDigestBigint, 1), std::nullopt);
+  ASSERT_EQ(quantileAtValueDouble(emptyDigestDouble, 1), std::nullopt);
+  ASSERT_EQ(quantileAtValueDouble(emptyDigestReal, 51), std::nullopt);
+}
+
+TEST_F(QDigestFunctionsTest, quantileAtValueNullInputs) {
+  const auto quantileAtValueBigint =
+      [&](const std::optional<std::string>& input,
+          const std::optional<int64_t>& value) {
+        return evaluateOnce<double>(
+            "quantile_at_value(c0, c1)", QDIGEST_BIGINT, input, value);
+      };
+
+  const auto quantileAtValueDouble =
+      [&](const std::optional<std::string>& input,
+          const std::optional<double>& value) {
+        return evaluateOnce<double>(
+            "quantile_at_value(c0, c1)", QDIGEST_DOUBLE, input, value);
+      };
+
+  const auto quantileAtValueReal = [&](const std::optional<std::string>& input,
+                                       const std::optional<float>& value) {
+    return evaluateOnce<double>(
+        "quantile_at_value(c0, c1)", QDIGEST_REAL, input, value);
+  };
+
+  // Create valid digests for testing
+  std::vector<int64_t> bigintValues = {1, 2, 3, 4, 5};
+  std::vector<double> doubleValues = {1.1, 2.2, 3.3, 4.4, 5.5};
+  std::vector<float> realValues = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f};
+
+  std::string digestBigint = createQDigest(bigintValues);
+  std::string digestDouble = createQDigest(doubleValues);
+  std::string digestReal = createQDigest(realValues);
+
+  ASSERT_EQ(quantileAtValueBigint(std::nullopt, 3), std::nullopt);
+  ASSERT_EQ(quantileAtValueDouble(std::nullopt, 3.3), std::nullopt);
+  ASSERT_EQ(quantileAtValueReal(std::nullopt, 3.3f), std::nullopt);
+  ASSERT_EQ(quantileAtValueBigint(digestBigint, std::nullopt), std::nullopt);
+  ASSERT_EQ(quantileAtValueDouble(digestDouble, std::nullopt), std::nullopt);
+  ASSERT_EQ(quantileAtValueReal(digestReal, std::nullopt), std::nullopt);
+  ASSERT_EQ(quantileAtValueBigint(std::nullopt, std::nullopt), std::nullopt);
+  ASSERT_EQ(quantileAtValueDouble(std::nullopt, std::nullopt), std::nullopt);
+  ASSERT_EQ(quantileAtValueReal(std::nullopt, std::nullopt), std::nullopt);
 }

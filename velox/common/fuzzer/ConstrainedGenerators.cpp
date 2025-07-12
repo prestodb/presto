@@ -323,7 +323,7 @@ QDigestInputGenerator::QDigestInputGenerator(
 QDigestInputGenerator::~QDigestInputGenerator() = default;
 
 variant QDigestInputGenerator::generate() {
-  const double kAccuracy = 0.05;
+  constexpr double kAccuracy = 1.0E-3;
 
   if (coinToss(rng_, nullRatio_)) {
     return variant::null(type_->kind());
