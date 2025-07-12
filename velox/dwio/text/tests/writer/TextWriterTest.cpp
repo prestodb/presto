@@ -950,6 +950,160 @@ TEST_F(TextWriterTest, verifyMapTypesWithTextReader) {
   ASSERT_EQ(rowReader->next(10, result), 0);
 }
 
+TEST_F(TextWriterTest, nestedRowTypes) {
+  // Test specifically for nested ROW types
+  auto nestedRowChildren = std::vector<VectorPtr>{
+      makeFlatVector<int32_t>({42, 100, -5, 0, 999}),
+      makeFlatVector<bool>({true, false, true, false, true}),
+      makeArrayVector<double>(
+          {{3.14159, 2.71828},
+           {2.71828, 1.41421, 0.0},
+           {1.41421, -123.456},
+           {0.0, 999.999},
+           {-123.456, 42.0, 3.14159}})};
+  auto nestedRowVector = makeRowVector(
+      {"nested_int", "nested_bool", "nested_arr_double"}, nestedRowChildren);
+
+  const auto data = makeRowVector(
+      {makeFlatVector<std::string>(
+           {"hello", "world", "test", "sample", "data"}),
+       nestedRowVector,
+       makeFlatVector<bool>({false, true, false, true, false})});
+
+  const auto schema = ROW(
+      {{"col_varchar", VARCHAR()},
+       {"col_nested_row",
+        ROW(
+            {{"nested_int", INTEGER()},
+             {"nested_bool", BOOLEAN()},
+             {"nested_arr_double", ARRAY(DOUBLE())}})},
+       {"col_bool", BOOLEAN()}});
+
+  WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_nested_row_writer.txt";
+
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+  auto sink = std::make_unique<dwio::common::LocalFileSink>(
+      filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
+  const auto serDeOptions = dwio::common::SerDeOptions(',', '|', '#');
+  auto writer = std::make_unique<TextWriter>(
+      schema,
+      std::move(sink),
+      std::make_shared<text::WriterOptions>(writerOptions),
+      serDeOptions);
+  writer->write(data);
+  writer->close();
+
+  const auto fs = filesystems::getFileSystem(tempPath, nullptr);
+  const auto& file = fs->openFileForRead(filePath.string());
+  auto fileSize = file->size();
+
+  BufferPtr charBuf = AlignedBuffer::allocate<char>(fileSize, pool());
+  auto rawCharBuf = charBuf->asMutable<char>();
+  std::vector<std::vector<std::string>> result =
+      parseTextFile(tempPath, filename, rawCharBuf, serDeOptions);
+
+  EXPECT_EQ(result.size(), 5);
+  EXPECT_EQ(result[0].size(), 3);
+
+  EXPECT_EQ(result[0][0], "hello");
+  EXPECT_EQ(result[1][0], "world");
+  EXPECT_EQ(result[2][0], "test");
+  EXPECT_EQ(result[3][0], "sample");
+  EXPECT_EQ(result[4][0], "data");
+
+  // nested row
+  EXPECT_EQ(result[0][1], "42|true|3.141590#2.718280");
+  EXPECT_EQ(result[1][1], "100|false|2.718280#1.414210#0.000000");
+  EXPECT_EQ(result[2][1], "-5|true|1.414210#-123.456000");
+  EXPECT_EQ(result[3][1], "0|false|0.000000#999.999000");
+  EXPECT_EQ(result[4][1], "999|true|-123.456000#42.000000#3.141590");
+
+  EXPECT_EQ(result[0][2], "false");
+  EXPECT_EQ(result[1][2], "true");
+  EXPECT_EQ(result[2][2], "false");
+  EXPECT_EQ(result[3][2], "true");
+  EXPECT_EQ(result[4][2], "false");
+}
+
+TEST_F(TextWriterTest, verifyNestedRowTypesWithTextReader) {
+  // Test specifically for nested ROW types
+  auto nestedRowChildren = std::vector<VectorPtr>{
+      makeFlatVector<int32_t>({42, 100, -5, 0, 999}),
+      makeFlatVector<bool>({true, false, true, false, true}),
+      makeArrayVector<double>(
+          {{3.14159, 2.71828},
+           {2.71828, 1.41421, 0.0},
+           {1.41421, -123.456},
+           {0.0, 999.999},
+           {-123.456, 42.0, 3.14159}})};
+  auto nestedRowVector = makeRowVector(
+      {"nested_int", "nested_bool", "nested_arr_double"}, nestedRowChildren);
+
+  const auto data = makeRowVector(
+      {makeFlatVector<std::string>(
+           {"hello", "world", "test", "sample", "data"}),
+       nestedRowVector,
+       makeFlatVector<bool>({false, true, false, true, false})});
+
+  const auto schema = ROW(
+      {{"col_varchar", VARCHAR()},
+       {"col_nested_row",
+        ROW(
+            {{"nested_int", INTEGER()},
+             {"nested_bool", BOOLEAN()},
+             {"nested_arr_double", ARRAY(DOUBLE())}})},
+       {"col_bool", BOOLEAN()}});
+
+  WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_nested_row_writer.txt";
+
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+  auto sink = std::make_unique<dwio::common::LocalFileSink>(
+      filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
+  // Use custom delimiters: field separator '\x01', nested row field separator
+  // '\x02'
+  const auto serDeOptions = dwio::common::SerDeOptions('\x01', '\x02', '#');
+  auto writer = std::make_unique<TextWriter>(
+      schema,
+      std::move(sink),
+      std::make_shared<text::WriterOptions>(writerOptions),
+      serDeOptions);
+  writer->write(data);
+  writer->close();
+
+  // Set up reader
+  auto readerFactory =
+      dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+  auto readFile = std::make_shared<LocalReadFile>(filePath.string());
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(schema);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = readerFactory->createReader(std::move(input), readerOptions);
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*schema, rowReaderOptions);
+
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *schema);
+
+  VectorPtr result;
+
+  ASSERT_EQ(rowReader->next(5, result), 5);
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_TRUE(result->equalValueAt(data.get(), i, i));
+  }
+}
+
 TEST_F(TextWriterTest, abort) {
   auto schema = ROW({"c0", "c1"}, {BIGINT(), BOOLEAN()});
   auto data = makeRowVector(

@@ -276,7 +276,42 @@ void TextWriter::writeCellValue(
 
       return;
     }
-    case TypeKind::ROW:
+    case TypeKind::ROW: {
+      const RowVector* rowVecPtr = decodedColumnVector->base()->as<RowVector>();
+      const auto& indices = decodedColumnVector->indices();
+      const auto actualRowIndex = indices[row];
+
+      std::vector<std::shared_ptr<DecodedVector>> decodedColumnVectors;
+      const auto numColumns = rowVecPtr->childrenSize();
+      for (size_t column = 0; column < numColumns; ++column) {
+        auto decodedColumnVector =
+            std::make_shared<DecodedVector>(DecodedVector(
+                *rowVecPtr->childAt(column),
+                SelectivityVector(rowVecPtr->size())));
+        decodedColumnVectors.push_back(std::move(decodedColumnVector));
+      }
+
+      std::optional<char> nestedRowDelimiter;
+      for (size_t column = 0; column < numColumns; ++column) {
+        nestedRowDelimiter = (column == 0)
+            ? std::nullopt
+            : std::optional(getDelimiterForDepth(depth));
+        writeCellValue(
+            decodedColumnVectors.at(column),
+            rowVecPtr->childAt(column)->typeKind(),
+            actualRowIndex,
+            depth,
+            nestedRowDelimiter);
+      }
+      return;
+    }
+    case TypeKind::UNKNOWN:
+      [[fallthrough]];
+    case TypeKind::FUNCTION:
+      [[fallthrough]];
+    case TypeKind::OPAQUE:
+      [[fallthrough]];
+    case TypeKind::INVALID:
       [[fallthrough]];
     default:
       VELOX_NYI("{} is not supported yet in TextWriter", type);
