@@ -32,7 +32,8 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExecutionWriterTarget.InsertHandle.class, name = "InsertHandle"),
         @JsonSubTypes.Type(value = ExecutionWriterTarget.DeleteHandle.class, name = "DeleteHandle"),
         @JsonSubTypes.Type(value = ExecutionWriterTarget.RefreshMaterializedViewHandle.class, name = "RefreshMaterializedViewHandle"),
-        @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle")})
+        @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle"),
+        @JsonSubTypes.Type(value = ExecutionWriterTarget.MergeHandle.class, name = "MergeHandle")})
 @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
 public abstract class ExecutionWriterTarget
 {
@@ -198,6 +199,50 @@ public abstract class ExecutionWriterTarget
         {
             return schemaTableName;
         }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class MergeHandle
+            extends ExecutionWriterTarget
+    {
+        private final com.facebook.presto.spi.MergeHandle handle;
+        // TODO #20578: Uncomment if finally it is necessary.
+//        private final SchemaTableName schemaTableName;
+//        private final ConnectorMergeTableHandle connectorMergeTableHandle;
+
+        @JsonCreator
+        public MergeHandle(
+                @JsonProperty("handle") com.facebook.presto.spi.MergeHandle handle)
+//                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+//                @JsonProperty("connectorMergeTableHandle") ConnectorMergeTableHandle connectorMergeTableHandle)
+        {
+            this.handle = requireNonNull(handle, "tableHandle is null");
+//            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+//            this.connectorMergeTableHandle = requireNonNull(connectorMergeTableHandle, "connectorMergeTableHandle is null");
+        }
+
+        @JsonProperty
+        public com.facebook.presto.spi.MergeHandle getHandle()
+        {
+            return handle;
+        }
+
+//        @JsonProperty
+//        public SchemaTableName getSchemaTableName()
+//        {
+//            return schemaTableName;
+//        }
+
+//        @JsonProperty
+//        public ConnectorMergeTableHandle getConnectorMergeTableHandle()
+//        {
+//            return connectorMergeTableHandle;
+//        }
 
         @Override
         public String toString()

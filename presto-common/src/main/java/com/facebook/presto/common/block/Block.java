@@ -400,4 +400,23 @@ public interface Block
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
+
+    // TODO #20578: Check if the following methods are really necessary. In Presto there is no ValueBlock.
+    //                          It seems that these two methods and the implementations in all classes that inherit from Block can be removed.
+
+    /**
+     * Returns the underlying value block underlying this block.
+     */
+    default Block getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    /**
+     * Returns the position in the underlying value block corresponding to the specified position in this block.
+     */
+    default int getUnderlyingValuePosition(int position)
+    {
+        return position;
+    }
 }
