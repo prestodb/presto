@@ -149,7 +149,7 @@ public class LarkSheetsMetadata
     {
         LarkSheetsTableHandle sheetsTable = (LarkSheetsTableHandle) table;
         List<LarkSheetsColumnHandle> sheetsColumns = getColumns(sheetsTable);
-        List<ColumnMetadata> columnMetadatas = toColumnMetadatas(sheetsColumns);
+        List<ColumnMetadata> columnMetadatas = toColumnMetadatas(session, sheetsColumns);
         return new ConnectorTableMetadata(sheetsTable.getSchemaTableName(), columnMetadatas);
     }
 
@@ -197,7 +197,7 @@ public class LarkSheetsMetadata
             for (SheetInfo sheet : metaInfo.getSheets()) {
                 SchemaTableName tableName = new SchemaTableName(schemaName, sheet.getTitle());
                 List<LarkSheetsColumnHandle> columnHandles = getColumns(toSheetsTableHandle(sheet));
-                List<ColumnMetadata> columnMetadatas = toColumnMetadatas(columnHandles);
+                List<ColumnMetadata> columnMetadatas = toColumnMetadatas(session, columnHandles);
                 builder.put(tableName, columnMetadatas);
             }
         }
@@ -209,7 +209,7 @@ public class LarkSheetsMetadata
                     // in order to make queries like `DESC "@sheetId"` or `DESC "#1"` work
                     SchemaTableName tableName = new SchemaTableName(schemaName, prefixTableName);
                     List<LarkSheetsColumnHandle> columnHandles = getColumns(toSheetsTableHandle(sheet));
-                    List<ColumnMetadata> columnMetadatas = toColumnMetadatas(columnHandles);
+                    List<ColumnMetadata> columnMetadatas = toColumnMetadatas(session, columnHandles);
                     builder.put(tableName, columnMetadatas);
                 }
             }
@@ -337,8 +337,10 @@ public class LarkSheetsMetadata
         return new LarkSheetsTableHandle(sheet.getToken(), sheet.getSheetId(), sheet.getTitle(), sheet.getIndex(), sheet.getColumnCount(), sheet.getRowCount());
     }
 
-    private static List<ColumnMetadata> toColumnMetadatas(List<LarkSheetsColumnHandle> columnHandles)
+    private List<ColumnMetadata> toColumnMetadatas(ConnectorSession session, List<LarkSheetsColumnHandle> columnHandles)
     {
-        return columnHandles.stream().map(LarkSheetsColumnHandle::toColumnMetadata).collect(toImmutableList());
+        return columnHandles.stream()
+                .map(column -> column.toColumnMetadata(normalizeIdentifier(session, column.getName())))
+                .collect(toImmutableList());
     }
 }

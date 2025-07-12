@@ -139,7 +139,11 @@ public class TemporaryTableUtil
                 cteId.map(CteMaterializationInfo::new));
     }
 
-    public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables,
+    public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(
+            Metadata metadata,
+            Session session,
+            String catalogName,
+            Collection<VariableReferenceExpression> outputVariables,
             Collection<VariableReferenceExpression> constantPartitioningVariables)
     {
         ImmutableMap.Builder<VariableReferenceExpression, ColumnMetadata> result = ImmutableMap.builder();
@@ -147,7 +151,7 @@ public class TemporaryTableUtil
         for (VariableReferenceExpression outputVariable : concat(outputVariables, constantPartitioningVariables)) {
             String columnName = format("_c%d_%s", column, outputVariable.getName());
             result.put(outputVariable, ColumnMetadata.builder()
-                    .setName(columnName)
+                    .setName(metadata.normalizeIdentifier(session, catalogName, columnName))
                     .setType(outputVariable.getType())
                     .build());
             column++;
@@ -155,9 +159,13 @@ public class TemporaryTableUtil
         return result.build();
     }
 
-    public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables)
+    public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(
+            Metadata metadata,
+            Session session,
+            String catalogName,
+            Collection<VariableReferenceExpression> outputVariables)
     {
-        return assignTemporaryTableColumnNames(outputVariables, Collections.emptyList());
+        return assignTemporaryTableColumnNames(metadata, session, catalogName, outputVariables, Collections.emptyList());
     }
 
     public static BasePlanFragmenter.PartitioningVariableAssignments assignPartitioningVariables(VariableAllocator variableAllocator,
