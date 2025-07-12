@@ -26,9 +26,18 @@
 #include <filesystem>
 
 DEFINE_bool(
-    enable_oom_injection,
+    enable_oom_injection_write_path,
     false,
-    "When enabled OOMs will randomly be triggered while executing query "
+    "When enabled OOMs will randomly be triggered while executing the write path "
+    "The goal of this mode is to ensure unexpected exceptions "
+    "aren't thrown and the process isn't killed in the process of cleaning "
+    "up after failures. Therefore, results are not compared when this is "
+    "enabled. Note that this option only works in debug builds.");
+
+DEFINE_bool(
+    enable_oom_injection_read_path,
+    false,
+    "When enabled OOMs will randomly be triggered while executing scan "
     "plans. The goal of this mode is to ensure unexpected exceptions "
     "aren't thrown and the process isn't killed in the process of cleaning "
     "up after failures. Therefore, results are not compared when this is "
@@ -103,29 +112,39 @@ TableEvolutionFuzzer::parseFileFormats(std::string input) {
 namespace {
 
 std::vector<std::vector<RowVectorPtr>> runTaskCursors(
-    const std::vector<std::unique_ptr<TaskCursor>>& cursors,
+    const std::vector<std::shared_ptr<TaskCursor>>& cursors,
     folly::Executor& executor) {
   std::vector<folly::SemiFuture<std::vector<RowVectorPtr>>> futures;
   for (int i = 0; i < cursors.size(); ++i) {
     auto [promise, future] =
         folly::makePromiseContract<std::vector<RowVectorPtr>>();
     futures.push_back(std::move(future));
-    executor.add([&, i, promise = std::move(promise)]() mutable {
+    auto cursorPtr = cursors[i];
+    auto task = cursorPtr->task();
+    executor.add([cursorPtr, task, promise = std::move(promise)]() mutable {
       std::vector<RowVectorPtr> results;
       try {
-        while (cursors[i]->moveNext()) {
-          auto& result = cursors[i]->current();
+        while (cursorPtr->moveNext()) {
+          auto& result = cursorPtr->current();
           result->loadedVector();
           results.push_back(std::move(result));
         }
         promise.setValue(std::move(results));
       } catch (VeloxRuntimeError& e) {
-        if (FLAGS_enable_oom_injection &&
+        if (FLAGS_enable_oom_injection_write_path &&
             e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
             e.message() == ScopedOOMInjector::kErrorMessage) {
           // If we enabled OOM injection we expect the exception thrown by the
           // ScopedOOMInjector.
-          LOG(INFO) << "OOM injection triggered: " << e.what();
+          LOG(INFO) << "OOM injection triggered in write path: " << e.what();
+          promise.setValue(std::move(results));
+        } else if (
+            FLAGS_enable_oom_injection_read_path &&
+            e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
+            e.message() == ScopedOOMInjector::kErrorMessage) {
+          // If we enabled OOM injection we expect the exception thrown by the
+          // ScopedOOMInjector.
+          LOG(INFO) << "OOM injection triggered in read path: " << e.what();
           promise.setValue(std::move(results));
         } else {
           LOG(ERROR) << e.what();
@@ -144,7 +163,6 @@ std::vector<std::vector<RowVectorPtr>> runTaskCursors(
   }
   return results;
 }
-
 // `tableBucketCount' is the bucket count of current table setup when reading.
 // `partitionBucketCount' is the bucket count when the partition was written.
 // `tableBucketCount' must be a multiple of `partitionBucketCount'.
@@ -157,7 +175,7 @@ void buildScanSplitFromTableWriteResult(
     dwio::common::FileFormat fileFormat,
     const std::vector<RowVectorPtr>& writeResult,
     std::vector<Split>& splits) {
-  if (FLAGS_enable_oom_injection) {
+  if (FLAGS_enable_oom_injection_write_path) {
     return;
   }
   VELOX_CHECK_EQ(writeResult.size(), 1);
@@ -359,13 +377,12 @@ VectorPtr TableEvolutionFuzzer::liftToType(
 }
 
 void TableEvolutionFuzzer::run() {
-  ScopedOOMInjector oomInjector(
+  ScopedOOMInjector oomInjectorWritePath(
       []() -> bool { return folly::Random::oneIn(10); },
       10); // Check the condition every 10 ms.
-  if (FLAGS_enable_oom_injection) {
-    oomInjector.enable();
+  if (FLAGS_enable_oom_injection_write_path) {
+    oomInjectorWritePath.enable();
   }
-
   std::vector<column_index_t> bucketColumnIndices;
   for (int i = 0; i < config_.columnCount; ++i) {
     if (folly::Random::oneIn(2 * config_.columnCount, rng_)) {
@@ -376,7 +393,7 @@ void TableEvolutionFuzzer::run() {
           << "]";
   auto testSetups = makeSetups(bucketColumnIndices);
   auto tableOutputRootDir = TempDirectoryPath::create();
-  std::vector<std::unique_ptr<TaskCursor>> writeTasks(
+  std::vector<std::shared_ptr<TaskCursor>> writeTasks(
       2 * config_.evolutionCount - 1);
   RowVectorPtr finalExpectedData;
   for (int i = 0; i < config_.evolutionCount; ++i) {
@@ -448,17 +465,25 @@ void TableEvolutionFuzzer::run() {
   subfieldFilterConfig.subfieldFiltersMap =
       generateSubfieldFilters(rowType, finalExpectedData);
 
-  std::vector<std::unique_ptr<TaskCursor>> scanTasks(2);
+  std::vector<std::shared_ptr<TaskCursor>> scanTasks(2);
 
   scanTasks[0] = makeScanTask(
       rowType, std::move(actualSplits), subfieldFilterConfig, false);
   scanTasks[1] = makeScanTask(
       rowType, std::move(expectedSplits), subfieldFilterConfig, true);
 
+  ScopedOOMInjector oomInjectorReadPath(
+      []() -> bool { return folly::Random::oneIn(10); },
+      10); // Check the condition every 10 ms.
+  if (FLAGS_enable_oom_injection_read_path) {
+    oomInjectorReadPath.enable();
+  }
+
   auto scanResults = runTaskCursors(scanTasks, *executor);
 
   // Skip result verification when OOM injection is enabled
-  if (!FLAGS_enable_oom_injection) {
+  if (!FLAGS_enable_oom_injection_write_path &&
+      !FLAGS_enable_oom_injection_read_path) {
     checkResultsEqual(scanResults[0], scanResults[1]);
   }
 }
