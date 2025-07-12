@@ -743,11 +743,30 @@ void WriterFuzzer::comparePartitionAndBucket(
     // If not bucketed, only verify if their partition names match
     VELOX_CHECK(
         partitionNames == referencePartitionNames,
-        "Velox and reference DB output partitions don't match");
-  } else {
-    VELOX_CHECK(
-        partitionNameAndFileCount == referencedPartitionNameAndFileCount,
-        "Velox and reference DB output partition and bucket don't match");
+        "Velox and reference DB output partitions don't match. Velox: [{}], Presto: [{}]",
+        fmt::join(partitionNames, ", "),
+        fmt::join(referencePartitionNames, ", "));
+  } else if (partitionNameAndFileCount != referencedPartitionNameAndFileCount) {
+    std::vector<std::string> partitionNameAndFileCountStrs;
+    std::vector<std::string> referencedPartitionNameAndFileCountStrs;
+
+    partitionNameAndFileCountStrs.reserve(partitionNameAndFileCount.size());
+    referencedPartitionNameAndFileCountStrs.reserve(
+        referencedPartitionNameAndFileCount.size());
+
+    for (const auto& p : partitionNameAndFileCount) {
+      partitionNameAndFileCountStrs.push_back(
+          fmt::format("'{}': {}", p.first, p.second));
+    }
+    for (const auto& p : referencedPartitionNameAndFileCount) {
+      referencedPartitionNameAndFileCountStrs.push_back(
+          fmt::format("'{}': {}", p.first, p.second));
+    }
+
+    VELOX_FAIL(
+        "Velox and reference DB output partition and bucket don't match. Velox: {{{}}}, Presto: {{{}}}",
+        fmt::join(partitionNameAndFileCountStrs, ", "),
+        fmt::join(referencedPartitionNameAndFileCountStrs, ", "));
   }
 }
 
