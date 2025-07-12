@@ -19,49 +19,49 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.Duration;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThriftStruct
 public class TableWriterMergeInfo
         implements Mergeable<TableWriterMergeInfo>, OperatorInfo
 {
-    private final Duration statisticsWallTime;
-    private final Duration statisticsCpuTime;
+    private final long statisticsWallTimeInNanos;
+    private final long statisticsCpuTimeInNanos;
 
     @JsonCreator
     @ThriftConstructor
     public TableWriterMergeInfo(
-            @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
-            @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
+            @JsonProperty("statisticsWallTimeInNanos") long statisticsWallTimeInNanos,
+            @JsonProperty("statisticsCpuTimeInNanos") long statisticsCpuTimeInNanos)
     {
-        this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
-        this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
+        this.statisticsWallTimeInNanos = requireNonNull(statisticsWallTimeInNanos, "statisticsWallTimeInNanos is null");
+        this.statisticsCpuTimeInNanos = requireNonNull(statisticsCpuTimeInNanos, "statisticsCpuTimeInNanos is null");
+    }
+
+    // fields 1 and 2 are retired fields
+
+    @JsonProperty
+    @ThriftField(3)
+    public long getStatisticsWallTimeInNanos()
+    {
+        return statisticsWallTimeInNanos;
     }
 
     @JsonProperty
-    @ThriftField(1)
-    public Duration getStatisticsWallTime()
+    @ThriftField(4)
+    public long getStatisticsCpuTimeInNanos()
     {
-        return statisticsWallTime;
-    }
-
-    @JsonProperty
-    @ThriftField(2)
-    public Duration getStatisticsCpuTime()
-    {
-        return statisticsCpuTime;
+        return statisticsCpuTimeInNanos;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("statisticsWallTime", statisticsWallTime)
-                .add("statisticsCpuTime", statisticsCpuTime)
+                .add("statisticsWallTimeInNanos", statisticsWallTimeInNanos)
+                .add("statisticsCpuTimeInNanos", statisticsCpuTimeInNanos)
                 .toString();
     }
 
@@ -69,8 +69,8 @@ public class TableWriterMergeInfo
     public TableWriterMergeInfo mergeWith(TableWriterMergeInfo other)
     {
         return new TableWriterMergeInfo(
-                new Duration(this.statisticsWallTime.toMillis() + other.statisticsWallTime.toMillis(), MILLISECONDS),
-                new Duration(this.statisticsCpuTime.toMillis() + other.statisticsCpuTime.toMillis(), MILLISECONDS));
+                this.statisticsWallTimeInNanos + other.statisticsWallTimeInNanos,
+                this.statisticsCpuTimeInNanos + other.statisticsCpuTimeInNanos);
     }
 
     @Override
