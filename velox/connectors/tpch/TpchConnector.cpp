@@ -22,6 +22,33 @@ namespace facebook::velox::connector::tpch {
 using facebook::velox::tpch::Table;
 
 namespace {
+std::vector<std::unique_ptr<TpchConnectorMetadataFactory>>&
+tpchConnectorMetadataFactories() {
+  static std::vector<std::unique_ptr<TpchConnectorMetadataFactory>> factories;
+  return factories;
+}
+} // namespace
+
+TpchConnector::TpchConnector(
+    const std::string& id,
+    std::shared_ptr<const config::ConfigBase> config,
+    folly::Executor* /*executor*/)
+    : Connector(id) {
+  for (auto& factory : tpchConnectorMetadataFactories()) {
+    metadata_ = factory->create(this);
+    if (metadata_ != nullptr) {
+      break;
+    }
+  }
+}
+
+bool registerTpchConnectorMetadataFactory(
+    std::unique_ptr<TpchConnectorMetadataFactory> factory) {
+  tpchConnectorMetadataFactories().push_back(std::move(factory));
+  return true;
+}
+
+namespace {
 
 RowVectorPtr getTpchData(
     Table table,
