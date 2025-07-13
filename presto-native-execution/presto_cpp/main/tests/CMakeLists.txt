@@ -45,6 +45,7 @@ target_link_libraries(
   velox_dwio_common_test_utils
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
+  velox_clp_connector
   velox_hive_connector
   velox_tpch_connector
   velox_presto_serializer

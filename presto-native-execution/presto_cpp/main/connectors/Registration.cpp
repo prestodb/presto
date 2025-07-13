@@ -19,6 +19,7 @@
 #include "presto_cpp/main/connectors/arrow_flight/ArrowPrestoToVeloxConnector.h"
 #endif
 
+#include "velox/connectors/clp/ClpConnector.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 
@@ -43,6 +44,12 @@ void registerConnectorFactories() {
           velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
+  }
+
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::clp::ClpConnectorFactory::kClpConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::clp::ClpConnectorFactory>());
   }
 
   // Register Velox connector factory for iceberg.
@@ -74,6 +81,8 @@ void registerConnectors() {
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
+  registerPrestoToVeloxConnector(std::make_unique<ClpPrestoToVeloxConnector>(
+      velox::connector::clp::ClpConnectorFactory::kClpConnectorName));
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.

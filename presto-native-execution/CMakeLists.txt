@@ -29,9 +29,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 
-# Known warnings that are benign can be disabled.
+# Known warnings that are benign can be disabled:
+# - `restrict` since it triggers a bug in gcc 12. See
+#   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105651
 set(DISABLED_WARNINGS
-    "-Wno-nullability-completeness -Wno-deprecated-declarations")
+    "-Wno-nullability-completeness \
+     -Wno-deprecated-declarations \
+     -Wno-restrict")
 
 # Important warnings that must be explicitly enabled.
 set(ENABLE_WARNINGS "-Wreorder")

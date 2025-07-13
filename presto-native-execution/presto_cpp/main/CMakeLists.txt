@@ -55,6 +55,7 @@ target_link_libraries(
   velox_abfs
   velox_aggregates
   velox_caching
+  velox_clp_connector
   velox_common_base
   velox_core
   velox_dwio_common_exception

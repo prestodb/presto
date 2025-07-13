@@ -18,4 +18,4 @@ if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
 endif()
 
 target_link_libraries(presto_connectors presto_velox_expr_conversion
-                      velox_type_fbhive)
+                      velox_clp_connector velox_type_fbhive)

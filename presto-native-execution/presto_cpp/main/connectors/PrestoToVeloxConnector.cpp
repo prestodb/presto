@@ -15,11 +15,15 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
+#include "presto_cpp/presto_protocol/connector/clp/ClpConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/hive/HiveConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
 #include <velox/type/fbhive/HiveTypeParser.h>
+#include "velox/connectors/clp/ClpColumnHandle.h"
+#include "velox/connectors/clp/ClpConnectorSplit.h"
+#include "velox/connectors/clp/ClpTableHandle.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
@@ -1412,9 +1416,11 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   //  constructor similar to how Hive Connector is handling for bucketing
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
   auto type = stringToType(icebergColumn->type, typeParser);
-  connector::hive::HiveColumnHandle::ColumnParseParameters columnParseParameters;
+  connector::hive::HiveColumnHandle::ColumnParseParameters
+      columnParseParameters;
   if (type->isDate()) {
-    columnParseParameters.partitionDateValueFormat = connector::hive::HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
+    columnParseParameters.partitionDateValueFormat = connector::hive::
+        HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
   }
   return std::make_unique<connector::hive::HiveColumnHandle>(
       icebergColumn->columnIdentity.name,
@@ -1548,4 +1554,57 @@ std::unique_ptr<protocol::ConnectorProtocol>
 TpchPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::tpch::TpchConnectorProtocol>();
 }
+
+std::unique_ptr<velox::connector::ConnectorSplit>
+ClpPrestoToVeloxConnector::toVeloxSplit(
+    const protocol::ConnectorId& catalogId,
+    const protocol::ConnectorSplit* connectorSplit,
+    const protocol::SplitContext* splitContext) const {
+  auto clpSplit = dynamic_cast<const protocol::clp::ClpSplit*>(connectorSplit);
+  VELOX_CHECK_NOT_NULL(
+      clpSplit, "Unexpected split type {}", connectorSplit->_type);
+  return std::make_unique<connector::clp::ClpConnectorSplit>(
+      catalogId, clpSplit->path);
+}
+
+std::unique_ptr<velox::connector::ColumnHandle>
+ClpPrestoToVeloxConnector::toVeloxColumnHandle(
+    const protocol::ColumnHandle* column,
+    const TypeParser& typeParser) const {
+  auto clpColumn = dynamic_cast<const protocol::clp::ClpColumnHandle*>(column);
+  VELOX_CHECK_NOT_NULL(
+      clpColumn, "Unexpected column handle type {}", column->_type);
+  return std::make_unique<connector::clp::ClpColumnHandle>(
+      clpColumn->columnName,
+      clpColumn->originalColumnName,
+      typeParser.parse(clpColumn->columnType),
+      clpColumn->nullable);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle>
+ClpPrestoToVeloxConnector::toVeloxTableHandle(
+    const protocol::TableHandle& tableHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser,
+    std::unordered_map<
+        std::string,
+        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+  auto clpLayout =
+      std::dynamic_pointer_cast<const protocol::clp::ClpTableLayoutHandle>(
+          tableHandle.connectorTableLayout);
+  VELOX_CHECK_NOT_NULL(
+      clpLayout,
+      "Unexpected layout type {}",
+      tableHandle.connectorTableLayout->_type);
+  return std::make_unique<connector::clp::ClpTableHandle>(
+      tableHandle.connectorId,
+      clpLayout->table.schemaTableName.table,
+      clpLayout->kqlQuery);
+}
+
+std::unique_ptr<protocol::ConnectorProtocol>
+ClpPrestoToVeloxConnector::createConnectorProtocol() const {
+  return std::make_unique<protocol::clp::ClpConnectorProtocol>();
+}
+
 } // namespace facebook::presto

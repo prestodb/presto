@@ -13,9 +13,9 @@
  */
 #pragma once
 
+#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
-#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
@@ -200,6 +200,33 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
  public:
   explicit TpchPrestoToVeloxConnector(std::string connectorName)
+      : PrestoToVeloxConnector(std::move(connectorName)) {}
+
+  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+      const protocol::ConnectorId& catalogId,
+      const protocol::ConnectorSplit* connectorSplit,
+      const protocol::SplitContext* splitContext) const final;
+
+  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+      const protocol::ColumnHandle* column,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser,
+      std::unordered_map<
+          std::string,
+          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+      const final;
+
+  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
+      const final;
+};
+
+class ClpPrestoToVeloxConnector final : public PrestoToVeloxConnector {
+ public:
+  explicit ClpPrestoToVeloxConnector(std::string connectorName)
       : PrestoToVeloxConnector(std::move(connectorName)) {}
 
   std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(

@@ -24,6 +24,8 @@ TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
   std::vector<std::pair<std::string, std::unique_ptr<PrestoToVeloxConnector>>>
       connectorList;
   connectorList.emplace_back(
+      std::pair("clp", std::make_unique<ClpPrestoToVeloxConnector>("clp")));
+  connectorList.emplace_back(
       std::pair("hive", std::make_unique<HivePrestoToVeloxConnector>("hive")));
   connectorList.emplace_back(std::pair(
       "hive-hadoop2",
