@@ -40,6 +40,7 @@ import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -47,7 +48,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -102,6 +105,7 @@ public final class Session
     private final WarningCollector warningCollector;
     private final RuntimeStats runtimeStats;
     private final Optional<QueryType> queryType;
+    private final List<X509Certificate> certificates;
 
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
     private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
@@ -135,7 +139,8 @@ public final class Session
             Optional<Tracer> tracer,
             WarningCollector warningCollector,
             RuntimeStats runtimeStats,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            List<X509Certificate> certificates)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -157,6 +162,7 @@ public final class Session
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
+        this.certificates = ImmutableList.copyOf(requireNonNull(certificates, "certificates is null"));
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
@@ -363,6 +369,11 @@ public final class Session
         return queryType;
     }
 
+    public List<X509Certificate> getCertificates()
+    {
+        return certificates;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         return beginTransactionId(transactionId, false, transactionManager, accessControl);
@@ -467,7 +478,8 @@ public final class Session
                 tracer,
                 warningCollector,
                 runtimeStats,
-                queryType);
+                queryType,
+                certificates);
     }
 
     public ConnectorSession toConnectorSession()
@@ -598,6 +610,7 @@ public final class Session
         private Optional<QueryType> queryType = Optional.empty();
         private WarningCollector warningCollector = WarningCollector.NOOP;
         private RuntimeStats runtimeStats = new RuntimeStats();
+        private List<X509Certificate> certificates = ImmutableList.of();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -632,6 +645,7 @@ public final class Session
             this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
             this.runtimeStats = requireNonNull(session.runtimeStats, "runtimeStats is null");
             this.queryType = requireNonNull(session.queryType, "queryType is null");
+            this.certificates = ImmutableList.copyOf(requireNonNull(session.certificates, "certificates is null"));
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -794,6 +808,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setCertificates(List<X509Certificate> certificates)
+        {
+            this.certificates = ImmutableList.copyOf(requireNonNull(certificates, "certificates is null"));
+            return this;
+        }
+
         public <T> T getSystemProperty(String name, Class<T> type)
         {
             return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
@@ -873,7 +893,8 @@ public final class Session
                     tracer,
                     warningCollector,
                     runtimeStats,
-                    queryType);
+                    queryType,
+                    certificates);
         }
 
         public void applyDefaultProperties(SystemSessionPropertyConfiguration systemPropertyConfiguration, Map<String, Map<String, String>> catalogPropertyDefaults)

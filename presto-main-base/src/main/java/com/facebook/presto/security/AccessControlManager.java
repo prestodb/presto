@@ -184,12 +184,12 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions, List<X509Certificate> certificates)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(query, "query is null");
 
-        authenticationCheck(() -> systemAccessControl.get().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions));
+        authenticationCheck(() -> systemAccessControl.get().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions, certificates));
     }
 
     @Override
@@ -947,7 +947,7 @@ public class AccessControlManager
             implements SystemAccessControl
     {
         @Override
-        public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+        public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions, List<X509Certificate> certificates)
         {
             throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }

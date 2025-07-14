@@ -266,7 +266,7 @@ public class AccessControlCheckerExecution
         }
 
         stateMachine.beginColumnAccessPermissionChecking();
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query, getSession().getCertificates());
         stateMachine.endColumnAccessPermissionChecking();
         return immediateFuture(null);
     }
