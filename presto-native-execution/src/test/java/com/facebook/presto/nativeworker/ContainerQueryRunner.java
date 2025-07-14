@@ -45,6 +45,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
@@ -68,7 +69,7 @@ public class ContainerQueryRunner
     private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
-    private GenericContainer<?> sidecar;
+    private final Optional<GenericContainer<?>> sidecar;
     private final int coordinatorPort;
     private final String catalog;
     private final String schema;
@@ -88,40 +89,14 @@ public class ContainerQueryRunner
         this.catalog = catalog;
         this.schema = schema;
         this.numberOfWorkers = numberOfWorkers;
+        this.sidecar = Optional.empty();
 
-        // The container details can be added as properties in VM options for testing in IntelliJ.
-        coordinator = createCoordinator();
-        for (int i = 0; i < numberOfWorkers; i++) {
-            workers.add(createNativeWorker(7777 + i, "native-worker-" + i));
-        }
+        this.coordinator = createCoordinator();
+        startWorkers(numberOfWorkers, true);
 
-        coordinator.start();
-        workers.forEach(GenericContainer::start);
-
-        TimeUnit.SECONDS.sleep(5);
-
-        String dockerHostIp = coordinator.getHost();
-        logger.info("Presto UI is accessible at http://" + dockerHostIp + ":" + coordinator.getMappedPort(coordinatorPort));
-
-        String url = String.format("jdbc:presto://%s:%s/%s/%s?%s",
-                dockerHostIp,
-                coordinator.getMappedPort(coordinatorPort),
-                catalog,
-                schema,
-                "timeZoneId=UTC");
-
-        try {
-            connection = getConnection(url, "test", null);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        // Delete the temporary files once the containers are started.
-        ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
-        for (int i = 0; i < numberOfWorkers; i++) {
-            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
-        }
+        startCoordinatorAndLogUI();
+        initializeConnection();
+        cleanupDirectories(numberOfWorkers, true, false);
     }
 
     public ContainerQueryRunner(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, boolean isSidecarDelayed)
@@ -131,48 +106,75 @@ public class ContainerQueryRunner
         this.catalog = TPCH_CATALOG;
         this.schema = TINY_SCHEMA;
         this.numberOfWorkers = numberOfWorkers;
-        coordinator = createCoordinator(isNativeCluster, isSidecarEnabled);
+
+        this.coordinator = createCoordinator(isNativeCluster, isSidecarEnabled);
+        startWorkers(numberOfWorkers, isNativeCluster);
+
+        if (isSidecarEnabled) {
+            GenericContainer<?> sidecarContainer = createSidecar(7777 + numberOfWorkers, "sidecar");
+            if (isSidecarDelayed) {
+                Thread.sleep(10000);
+            }
+            sidecarContainer.start();
+            this.sidecar = Optional.of(sidecarContainer);
+        }
+        else {
+            this.sidecar = Optional.empty();
+        }
+
+        // Need some extra time for sidecar to register otherwise it throws sidecar not found error
+        if (isSidecarEnabled && !isSidecarDelayed) {
+            TimeUnit.SECONDS.sleep(60);
+        }
+
+        startCoordinatorAndLogUI();
+        initializeConnection();
+        cleanupDirectories(numberOfWorkers, isNativeCluster, isSidecarEnabled);
+    }
+
+    private void startWorkers(int numberOfWorkers, boolean isNativeCluster)
+            throws InterruptedException, IOException
+    {
         coordinator.start();
-        // Delete the temporary files once the containers are started.
         ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
 
         if (isNativeCluster) {
             for (int i = 0; i < numberOfWorkers; i++) {
-                workers.add(createNativeWorker(7777 + i, "native-worker-" + i, isSidecarEnabled, false));
-            }
-            workers.forEach(GenericContainer::start);
-            for (int i = 0; i < numberOfWorkers; i++) {
-                ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/native-worker-" + i);
+                workers.add(createNativeWorker(7777 + i, "native-worker-" + i));
             }
         }
         else {
             for (int i = 0; i < numberOfWorkers; i++) {
                 workers.add(createJavaWorker(7777 + i, "java-worker-" + i));
             }
-            workers.forEach(GenericContainer::start);
-            for (int i = 0; i < numberOfWorkers; i++) {
-                ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/java-worker-" + i);
-            }
+        }
+
+        workers.forEach(GenericContainer::start);
+
+        TimeUnit.SECONDS.sleep(5);
+    }
+
+    private void cleanupDirectories(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled)
+    {
+        for (int i = 0; i < numberOfWorkers; i++) {
+            String workerType = isNativeCluster ? "native-worker-" : "java-worker-";
+            ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/" + workerType + i);
         }
 
         if (isSidecarEnabled) {
-            sidecar = createSidecar(7777 + numberOfWorkers, "sidecar");
-            if (isSidecarDelayed) {
-                Thread.sleep(10000);
-            }
-            sidecar.start();
             ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/sidecar");
         }
+    }
 
-        TimeUnit.SECONDS.sleep(5);
-        // Need some extra time for sidecar to register otherwise it throws sidecar not found error
-        if (isSidecarEnabled && !isSidecarDelayed) {
-            TimeUnit.SECONDS.sleep(60);
-        }
-
+    private void startCoordinatorAndLogUI()
+    {
         String dockerHostIp = coordinator.getHost();
         logger.info("Presto UI is accessible at http://" + dockerHostIp + ":" + coordinator.getMappedPort(coordinatorPort));
+    }
 
+    private void initializeConnection()
+    {
+        String dockerHostIp = coordinator.getHost();
         String url = String.format("jdbc:presto://%s:%s/%s/%s?%s",
                 dockerHostIp,
                 coordinator.getMappedPort(coordinatorPort),
@@ -199,7 +201,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorTpchProperties();
         ContainerQueryRunnerUtils.createCoordinatorTpcdsProperties();
         ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort, isNativeCluster, isSidecarEnabled);
-        if (isSidecarEnabled) {
+        if (isSidecarEnabled && isNativeCluster) {
             ContainerQueryRunnerUtils.createCoordinatorSidecarProperties();
         }
         ContainerQueryRunnerUtils.createCoordinatorJvmConfig();
@@ -274,9 +276,7 @@ public class ContainerQueryRunner
         }
         coordinator.stop();
         workers.forEach(GenericContainer::stop);
-        if (sidecar != null) {
-            sidecar.stop();
-        }
+        sidecar.ifPresent(GenericContainer::stop);
     }
 
     @Override

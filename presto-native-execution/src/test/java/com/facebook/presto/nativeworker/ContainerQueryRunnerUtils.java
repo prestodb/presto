@@ -36,6 +36,7 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -123,9 +124,10 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("discovery-server.enabled", "true");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
         if (isSidecarEnabled) {
-            properties.setProperty("presto.default-namespace", "native.default");
-            properties.setProperty("coordinator-sidecar-enabled", "true");
-            properties.setProperty("exclude-invalid-worker-session-properties", "true");
+            Map<String, String> sidecarProperties = getSidecarProperties();
+            for (Map.Entry<String, String> entry : sidecarProperties.entrySet()) {
+                properties.setProperty(entry.getKey(), entry.getValue());
+            }
         }
 
         if (isNativeCluster) {
@@ -188,6 +190,15 @@ public class ContainerQueryRunnerUtils
                 "-XX:+ExitOnOutOfMemoryError\n" +
                 "-Djdk.attach.allowAttachSelf=true\n";
         createScriptFile("testcontainers/coordinator/etc/jvm.config", jvmConfig);
+    }
+
+    public static Map<String, String> getSidecarProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("presto.default-namespace", "native.default")
+                .put("coordinator-sidecar-enabled", "true")
+                .put("exclude-invalid-worker-session-properties", "true")
+                .build();
     }
 
     public static void createCoordinatorLogProperties()
