@@ -74,8 +74,8 @@ public class TestPrestoContainerSidecarInfrastructure
             throws Exception
     {
         QueryRunner queryRunner = new ContainerQueryRunner(4, false, true, false);
-        assertQueryFailsWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS", "Query failed .*.: Cannot find function namespace for 'native.default'", true);
-        assertQueryFailsWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Query failed .*.: Cannot find function namespace for 'native.default'", true);
+        assertQueryFailsWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS", "Query failed .*.: Function namespace not found for catalog: native", true);
+        assertQueryFailsWithCustomQueryRunner(queryRunner, "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Query failed .*.: Function native.default.array_sort not registered", true);
         queryRunner.close();
     }
 
