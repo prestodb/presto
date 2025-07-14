@@ -51,9 +51,9 @@ public class QueryProgressStats
     private final int runningDrivers;
     private final int completedDrivers;
 
-    private final int queuedNativeDrivers;
-    private final int runningNativeDrivers;
-    private final int completedNativeDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
 
     private final int queuedSplits;
     private final int runningSplits;
@@ -81,9 +81,9 @@ public class QueryProgressStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("queuedNativeDrivers") int queuedNativeDrivers,
-            @JsonProperty("runningNativeDrivers") int runningNativeDrivers,
-            @JsonProperty("completedNativeDrivers") int completedNativeDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
             @JsonProperty("queuedSplits") int queuedSplits,
             @JsonProperty("runningSplits") int runningSplits,
             @JsonProperty("completedSplits") int completedSplits)
@@ -108,9 +108,9 @@ public class QueryProgressStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
-        this.queuedNativeDrivers = queuedNativeDrivers;
-        this.runningNativeDrivers = runningNativeDrivers;
-        this.completedNativeDrivers = completedNativeDrivers;
+        this.queuedNewDrivers = queuedNewDrivers;
+        this.runningNewDrivers = runningNewDrivers;
+        this.completedNewDrivers = completedNewDrivers;
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
@@ -138,9 +138,9 @@ public class QueryProgressStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
-                queryStats.getQueuedNativeDrivers(),
-                queryStats.getRunningNativeDrivers(),
-                queryStats.getCompletedNativeDrivers(),
+                queryStats.getQueuedNewDrivers(),
+                queryStats.getRunningNewDrivers(),
+                queryStats.getCompletedNewDrivers(),
                 queryStats.getQueuedSplits(),
                 queryStats.getRunningSplits(),
                 queryStats.getCompletedSplits());
@@ -302,22 +302,22 @@ public class QueryProgressStats
 
     @ThriftField(23)
     @JsonProperty
-    public int getQueuedNativeDrivers()
+    public int getQueuedNewDrivers()
     {
-        return queuedNativeDrivers;
+        return queuedNewDrivers;
     }
 
     @ThriftField(24)
     @JsonProperty
-    public int getRunningNativeDrivers()
+    public int getRunningNewDrivers()
     {
-        return runningNativeDrivers;
+        return runningNewDrivers;
     }
 
     @ThriftField(25)
     @JsonProperty
-    public int getCompletedNativeDrivers()
+    public int getCompletedNewDrivers()
     {
-        return completedNativeDrivers;
+        return completedNewDrivers;
     }
 }

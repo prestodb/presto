@@ -253,10 +253,10 @@ public class StageExecutionStateMachine
         int runningDrivers = 0;
         int completedDrivers = 0;
 
-        int totalNativeDrivers = 0;
-        int queuedNativeDrivers = 0;
-        int runningNativeDrivers = 0;
-        int completedNativeDrivers = 0;
+        int totalNewDrivers = 0;
+        int queuedNewDrivers = 0;
+        int runningNewDrivers = 0;
+        int completedNewDrivers = 0;
 
         int totalSplits = 0;
         int queuedSplits = 0;
@@ -288,10 +288,10 @@ public class StageExecutionStateMachine
             runningDrivers += taskStats.getRunningDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
-            totalNativeDrivers += taskStats.getTotalNativeDrivers();
-            queuedNativeDrivers += taskStats.getQueuedNativeDrivers();
-            runningNativeDrivers += taskStats.getRunningNativeDrivers();
-            completedNativeDrivers += taskStats.getCompletedNativeDrivers();
+            totalNewDrivers += taskStats.getTotalNewDrivers();
+            queuedNewDrivers += taskStats.getQueuedNewDrivers();
+            runningNewDrivers += taskStats.getRunningNewDrivers();
+            completedNewDrivers += taskStats.getCompletedNewDrivers();
 
             totalSplits += taskStats.getTotalSplits();
             queuedSplits += taskStats.getQueuedSplits();
@@ -333,10 +333,10 @@ public class StageExecutionStateMachine
                 runningDrivers,
                 completedDrivers,
 
-                totalNativeDrivers,
-                queuedNativeDrivers,
-                runningNativeDrivers,
-                completedNativeDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
 
                 totalSplits,
                 queuedSplits,
