@@ -241,7 +241,7 @@ TEST_F(PartitionIdGeneratorTest, timestampPartitionKeyComparasion) {
   PartitionIdGenerator idGenerator(
       ROW({"timestamp_col"}, {TIMESTAMP()}), {0}, 100, pool(), true);
   auto timestampResult = util::fromTimestampString(
-      "2025-01-02 00:00:00", util::TimestampParseMode::kPrestoCast);
+      "2025-01-02 00:00:00.0", util::TimestampParseMode::kPrestoCast);
   auto input = makeRowVector({
       makeFlatVector<Timestamp>({timestampResult.value()}),
   });
@@ -249,7 +249,7 @@ TEST_F(PartitionIdGeneratorTest, timestampPartitionKeyComparasion) {
   idGenerator.run(input, testTimeIds);
   EXPECT_EQ(
       idGenerator.partitionName(testTimeIds[0]),
-      "timestamp_col=2025-01-01 16%3A00%3A00");
+      "timestamp_col=2025-01-01 16%3A00%3A00.0");
 }
 
 TEST_F(PartitionIdGeneratorTest, timestampPartitionKey) {

@@ -57,7 +57,19 @@ inline std::string makePartitionValueString(Timestamp value) {
   // the timestamp precision and truncation behavior of Presto.
   options.precision = TimestampPrecision::kMilliseconds;
   options.skipTrailingZeros = true;
-  return value.toString(options);
+
+  auto result = value.toString(options);
+
+  // Presto's java.sql.Timestamp.toString() always keeps at least one decimal
+  // place even when all fractional seconds are zero.
+  // If skipTrailingZeros removed all fractional digits, add back ".0" to match
+  // Presto's behavior.
+  if (auto dotPos = result.find_last_of('.'); dotPos == std::string::npos) {
+    // No decimal point found, add ".0"
+    result += ".0";
+  }
+
+  return result;
 }
 
 template <TypeKind Kind>
