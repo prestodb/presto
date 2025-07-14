@@ -15,6 +15,8 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryPool.h"
+#include "velox/connectors/Connector.h"
+#include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/VectorStream.h"
 
@@ -79,6 +81,7 @@ class BroadcastFileReader {
   BroadcastFileReader(
       std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
       std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+      velox::cache::AsyncDataCache* FOLLY_NULLABLE cache,
       velox::memory::MemoryPool* pool);
 
   ~BroadcastFileReader() = default;
@@ -95,8 +98,16 @@ class BroadcastFileReader {
  private:
   std::unique_ptr<BroadcastFileInfo> broadcastFileInfo_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  std::unique_ptr<velox::dwio::common::CachedBufferedInput> bufferedInput_;
+  // Async data cache registered system-wide.
+  velox::cache::AsyncDataCache* cache_;
+  const std::string& scanId_;
+  std::shared_ptr<dwio::common::IoStatistics> ioStats_;
+
   bool hasData_;
-  int64_t numBytes_;
+  size_t numBytes_;
+  // Hold the lease to the cached input stream.
+  const StringIdLease lease_;
   velox::memory::MemoryPool* pool_;
 };
 
