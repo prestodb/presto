@@ -64,7 +64,6 @@ public class TestOrcFileWriterConfig
                 .setIntegerDictionaryEncodingEnabled(false)
                 .setStringDictionaryEncodingEnabled(true)
                 .setStringDictionarySortingEnabled(true)
-                .setFlatMapWriterEnabled(false)
                 .setAddHostnameToFileMetadataEnabled(true));
     }
 
@@ -87,7 +86,6 @@ public class TestOrcFileWriterConfig
                 .put("hive.orc.writer.integer-dictionary-encoding-enabled", "true")
                 .put("hive.orc.writer.string-dictionary-encoding-enabled", "false")
                 .put("hive.orc.writer.string-dictionary-sorting-enabled", "false")
-                .put("hive.orc.writer.flat-map-writer-enabled", "true")
                 .put("hive.orc.writer.add-hostname-to-file-metadata-enabled", "false")
                 .build();
 
@@ -107,7 +105,6 @@ public class TestOrcFileWriterConfig
                 .setIntegerDictionaryEncodingEnabled(true)
                 .setStringDictionaryEncodingEnabled(false)
                 .setStringDictionarySortingEnabled(false)
-                .setFlatMapWriterEnabled(true)
                 .setAddHostnameToFileMetadataEnabled(false);
 
         assertFullMapping(properties, expected);
@@ -149,8 +146,7 @@ public class TestOrcFileWriterConfig
                 .setDwrfStripeCacheEnabled(false)
                 .setDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
                 .setDwrfStripeCacheMode(dwrfStripeCacheMode)
-                .setCompressionLevel(5)
-                .setFlatMapWriterEnabled(flatMapWriterEnabled);
+                .setCompressionLevel(5);
 
         assertEquals(stripeMinSize, config.getStripeMinSize());
         assertEquals(stripeMaxSize, config.getStripeMaxSize());
@@ -164,7 +160,6 @@ public class TestOrcFileWriterConfig
         assertEquals(dwrfStripeCacheMaxSize, config.getDwrfStripeCacheMaxSize());
         assertEquals(dwrfStripeCacheMode, config.getDwrfStripeCacheMode());
         assertEquals(compressionLevel, config.getCompressionLevel());
-        assertEquals(flatMapWriterEnabled, config.isFlatMapWriterEnabled());
 
         assertNotSame(config.toOrcWriterOptionsBuilder(), config.toOrcWriterOptionsBuilder());
         OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
