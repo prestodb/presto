@@ -20,7 +20,7 @@ import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
-import com.facebook.presto.plugin.jdbc.ReadMapping;
+import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -33,7 +33,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varbinaryReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.varbinaryReadMapping;
 import static java.lang.String.format;
 
 public class RedshiftClient
