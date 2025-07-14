@@ -1390,6 +1390,7 @@ void PrestoServer::registerFileReadersAndWriters() {
 void PrestoServer::unregisterFileReadersAndWriters() {
   velox::dwrf::unregisterDwrfReaderFactory();
   velox::dwrf::unregisterDwrfWriterFactory();
+  velox::dwrf::orc::unregisterOrcReaderFactory();
   velox::parquet::unregisterParquetReaderFactory();
   velox::parquet::unregisterParquetWriterFactory();
 }
