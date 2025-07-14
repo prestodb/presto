@@ -141,7 +141,6 @@ public class HiveConnectorFactory
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .quiet()
                     .initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
