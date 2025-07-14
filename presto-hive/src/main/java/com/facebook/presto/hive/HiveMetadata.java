@@ -810,7 +810,7 @@ public class HiveMetadata
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         if (tableLayoutHandle.getPartitions().isPresent()) {
             return Optional.of(new HiveInputInfo(
-                    tableLayoutHandle.getPartitions().get().stream()
+                    tableLayoutHandle.getPartitions().get().getFullyLoadedPartitions().stream()
                             .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toList()),
                     false));
@@ -2643,13 +2643,13 @@ public class HiveMetadata
     private List<HivePartition> getOrComputePartitions(HiveTableLayoutHandle layoutHandle, ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (layoutHandle.getPartitions().isPresent()) {
-            return layoutHandle.getPartitions().get();
+            return layoutHandle.getPartitions().get().getFullyLoadedPartitions();
         }
         else {
             TupleDomain<ColumnHandle> partitionColumnPredicate = layoutHandle.getPartitionColumnPredicate();
             Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(partitionColumnPredicate);
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(partitionColumnPredicate, predicate), Optional.empty());
-            return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
+            return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get().getFullyLoadedPartitions();
         }
     }
 
@@ -2767,7 +2767,7 @@ public class HiveMetadata
                                 .setRemainingPredicate(TRUE_CONSTANT)
                                 .setPredicateColumns(predicateColumns)
                                 .setPartitionColumnPredicate(hivePartitionResult.getEnforcedConstraint())
-                                .setPartitions(hivePartitionResult.getPartitions())
+                                .setPartitions(new LazyLoadedPartitions(hivePartitionResult.getPartitions()))
                                 .setBucketHandle(hiveBucketHandle)
                                 .setBucketFilter(hivePartitionResult.getBucketFilter())
                                 .setPushdownFilterEnabled(false)
@@ -2809,7 +2809,7 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveLayoutHandle.getPartitionColumns());
-        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
+        LazyLoadedPartitions partitions = hiveLayoutHandle.getPartitions().get();
 
         Optional<DiscretePredicates> discretePredicates = getDiscretePredicates(partitionColumns, partitions);
 
@@ -2869,7 +2869,7 @@ public class HiveMetadata
         if (hiveLayoutHandle.isPushdownFilterEnabled()) {
             Map<String, ColumnHandle> predicateColumns = hiveLayoutHandle.getPredicateColumns().entrySet()
                     .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            predicate = getPredicate(hiveLayoutHandle, partitionColumns, partitions, predicateColumns);
+            predicate = getPredicate(hiveLayoutHandle, partitionColumns, partitions.getFullyLoadedPartitions(), predicateColumns);
 
             // capture subfields from domainPredicate to add to remainingPredicate
             // so those filters don't get lost
@@ -2879,7 +2879,7 @@ public class HiveMetadata
             subfieldPredicate = getSubfieldPredicate(session, hiveLayoutHandle, columnTypes, functionResolution, rowExpressionService);
         }
         else {
-            predicate = createPredicate(partitionColumns, partitions);
+            predicate = createPredicate(partitionColumns, partitions.getFullyLoadedPartitions());
             subfieldPredicate = TRUE_CONSTANT;
         }
 
