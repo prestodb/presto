@@ -56,10 +56,10 @@ public class StageExecutionStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final int totalNativeDrivers;
-    private final int queuedNativeDrivers;
-    private final int runningNativeDrivers;
-    private final int completedNativeDrivers;
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
 
     private final int totalSplits;
     private final int queuedSplits;
@@ -120,10 +120,10 @@ public class StageExecutionStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("totalNativeDrivers") int totalNativeDrivers,
-            @JsonProperty("queuedNativeDrivers") int queuedNativeDrivers,
-            @JsonProperty("runningNativeDrivers") int runningNativeDrivers,
-            @JsonProperty("completedNativeDrivers") int completedNativeDrivers,
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
 
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
@@ -189,14 +189,14 @@ public class StageExecutionStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        checkArgument(totalNativeDrivers >= 0, "totalNativeDrivers is negative");
-        this.totalNativeDrivers = totalNativeDrivers;
-        checkArgument(queuedNativeDrivers >= 0, "queuedNativeDrivers is negative");
-        this.queuedNativeDrivers = queuedNativeDrivers;
-        checkArgument(runningNativeDrivers >= 0, "runningNativeDrivers is negative");
-        this.runningNativeDrivers = runningNativeDrivers;
-        checkArgument(completedNativeDrivers >= 0, "completedNativeDrivers is negative");
-        this.completedNativeDrivers = completedNativeDrivers;
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
 
         checkArgument(totalSplits >= 0, "totalSplits is negative");
         this.totalSplits = totalSplits;
@@ -329,27 +329,27 @@ public class StageExecutionStats
     }
 
     @JsonProperty
-    public int getTotalNativeDrivers()
+    public int getTotalNewDrivers()
     {
-        return totalNativeDrivers;
+        return totalNewDrivers;
     }
 
     @JsonProperty
-    public int getQueuedNativeDrivers()
+    public int getQueuedNewDrivers()
     {
-        return queuedNativeDrivers;
+        return queuedNewDrivers;
     }
 
     @JsonProperty
-    public int getRunningNativeDrivers()
+    public int getRunningNewDrivers()
     {
-        return runningNativeDrivers;
+        return runningNewDrivers;
     }
 
     @JsonProperty
-    public int getCompletedNativeDrivers()
+    public int getCompletedNewDrivers()
     {
-        return completedNativeDrivers;
+        return completedNewDrivers;
     }
 
     @JsonProperty
@@ -535,10 +535,10 @@ public class StageExecutionStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
-                totalNativeDrivers,
-                queuedNativeDrivers,
-                runningNativeDrivers,
-                completedNativeDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
                 totalSplits,
                 queuedSplits,
                 runningSplits,

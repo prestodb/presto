@@ -68,10 +68,10 @@ public class BasicStageExecutionStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
-    private final int totalNativeDrivers;
-    private final int queuedNativeDrivers;
-    private final int runningNativeDrivers;
-    private final int completedNativeDrivers;
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
     private final int totalSplits;
     private final int queuedSplits;
     private final int runningSplits;
@@ -97,10 +97,10 @@ public class BasicStageExecutionStats
             int runningDrivers,
             int completedDrivers,
 
-            int totalNativeDrivers,
-            int queuedNativeDrivers,
-            int runningNativeDrivers,
-            int completedNativeDrivers,
+            int totalNewDrivers,
+            int queuedNewDrivers,
+            int runningNewDrivers,
+            int completedNewDrivers,
 
             int totalSplits,
             int queuedSplits,
@@ -130,10 +130,10 @@ public class BasicStageExecutionStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
-        this.totalNativeDrivers = totalNativeDrivers;
-        this.queuedNativeDrivers = queuedNativeDrivers;
-        this.runningNativeDrivers = runningNativeDrivers;
-        this.completedNativeDrivers = completedNativeDrivers;
+        this.totalNewDrivers = totalNewDrivers;
+        this.queuedNewDrivers = queuedNewDrivers;
+        this.runningNewDrivers = runningNewDrivers;
+        this.completedNewDrivers = completedNewDrivers;
         this.totalSplits = totalSplits;
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
@@ -181,24 +181,24 @@ public class BasicStageExecutionStats
         return completedDrivers;
     }
 
-    public int getTotalNativeDrivers()
+    public int getTotalNewDrivers()
     {
-        return totalNativeDrivers;
+        return totalNewDrivers;
     }
 
-    public int getQueuedNativeDrivers()
+    public int getQueuedNewDrivers()
     {
-        return queuedNativeDrivers;
+        return queuedNewDrivers;
     }
 
-    public int getRunningNativeDrivers()
+    public int getRunningNewDrivers()
     {
-        return runningNativeDrivers;
+        return runningNewDrivers;
     }
 
-    public int getCompletedNativeDrivers()
+    public int getCompletedNewDrivers()
     {
-        return completedNativeDrivers;
+        return completedNewDrivers;
     }
 
     public int getTotalSplits()
@@ -288,10 +288,10 @@ public class BasicStageExecutionStats
         int runningDrivers = 0;
         int completedDrivers = 0;
 
-        int totalNativeDrivers = 0;
-        int queuedNativeDrivers = 0;
-        int runningNativeDrivers = 0;
-        int completedNativeDrivers = 0;
+        int totalNewDrivers = 0;
+        int queuedNewDrivers = 0;
+        int runningNewDrivers = 0;
+        int completedNewDrivers = 0;
 
         int totalSplits = 0;
         int queuedSplits = 0;
@@ -322,10 +322,10 @@ public class BasicStageExecutionStats
             runningDrivers += stageStats.getRunningDrivers();
             completedDrivers += stageStats.getCompletedDrivers();
 
-            totalNativeDrivers += stageStats.getTotalNativeDrivers();
-            queuedNativeDrivers += stageStats.getQueuedNativeDrivers();
-            runningNativeDrivers += stageStats.getRunningNativeDrivers();
-            completedNativeDrivers += stageStats.getCompletedNativeDrivers();
+            totalNewDrivers += stageStats.getTotalNewDrivers();
+            queuedNewDrivers += stageStats.getQueuedNewDrivers();
+            runningNewDrivers += stageStats.getRunningNewDrivers();
+            completedNewDrivers += stageStats.getCompletedNewDrivers();
 
             totalSplits += stageStats.getTotalSplits();
             queuedSplits += stageStats.getQueuedSplits();
@@ -364,10 +364,10 @@ public class BasicStageExecutionStats
                 runningDrivers,
                 completedDrivers,
 
-                totalNativeDrivers,
-                queuedNativeDrivers,
-                runningNativeDrivers,
-                completedNativeDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
 
                 totalSplits,
                 queuedSplits,

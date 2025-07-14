@@ -58,10 +58,10 @@ type TaskStats = {
     blockedDrivers: number;
     totalDrivers: number;
     completedDrivers: number;
-    queuedNativeDrivers: number;
-    runningNativeDrivers: number;
-    totalNativeDrivers: number;
-    completedNativeDrivers: number;
+    queuedNewDrivers: number;
+    runningNewDrivers: number;
+    totalNewDrivers: number;
+    completedNewDrivers: number;
     queuedSplits: number;
     runningSplits: number;
     totalSplits: number;
@@ -340,7 +340,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Pending drivers" />),
-                selector: (row: Task) => row.stats.queuedNativeDrivers,
+                selector: (row: Task) => row.stats.queuedNewDrivers,
                 sortable: true,
                 maxWidth: '50px',
                 minWidth: '40px',
@@ -349,7 +349,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Running drivers" />),
-                selector: (row: Task) => row.stats.runningNativeDrivers,
+                selector: (row: Task) => row.stats.runningNewDrivers,
                 sortable: true,
                 maxWidth: '50px',
                 minWidth: '40px',
@@ -368,7 +368,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
                 name: (<span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}
                              data-bs-toggle="tooltip" data-bs-placement="top"
                              title="Completed drivers" />),
-                selector: (row: Task) => row.stats.completedNativeDrivers,
+                selector: (row: Task) => row.stats.completedNewDrivers,
                 sortable: true,
                 maxWidth: '50px',
                 minWidth: '40px',

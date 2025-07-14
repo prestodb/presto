@@ -113,10 +113,10 @@ public class StageExecutionInfo
                 taskStatsAggregator.blockedDrivers,
                 taskStatsAggregator.completedDrivers,
 
-                taskStatsAggregator.totalNativeDrivers,
-                taskStatsAggregator.queuedNativeDrivers,
-                taskStatsAggregator.runningNativeDrivers,
-                taskStatsAggregator.completedNativeDrivers,
+                taskStatsAggregator.totalNewDrivers,
+                taskStatsAggregator.queuedNewDrivers,
+                taskStatsAggregator.runningNewDrivers,
+                taskStatsAggregator.completedNewDrivers,
 
                 taskStatsAggregator.totalSplits,
                 taskStatsAggregator.queuedSplits,
@@ -256,10 +256,10 @@ public class StageExecutionInfo
         private int blockedDrivers;
         private int completedDrivers;
 
-        private int totalNativeDrivers;
-        private int queuedNativeDrivers;
-        private int runningNativeDrivers;
-        private int completedNativeDrivers;
+        private int totalNewDrivers;
+        private int queuedNewDrivers;
+        private int runningNewDrivers;
+        private int completedNewDrivers;
 
         private int totalSplits;
         private int queuedSplits;
@@ -311,10 +311,10 @@ public class StageExecutionInfo
             blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
-            totalNativeDrivers += taskStats.getTotalNativeDrivers();
-            queuedNativeDrivers += taskStats.getQueuedNativeDrivers();
-            runningNativeDrivers += taskStats.getRunningNativeDrivers();
-            completedNativeDrivers += taskStats.getCompletedNativeDrivers();
+            totalNewDrivers += taskStats.getTotalNewDrivers();
+            queuedNewDrivers += taskStats.getQueuedNewDrivers();
+            runningNewDrivers += taskStats.getRunningNewDrivers();
+            completedNewDrivers += taskStats.getCompletedNewDrivers();
 
             totalSplits += taskStats.getTotalSplits();
             queuedSplits += taskStats.getQueuedSplits();
