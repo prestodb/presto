@@ -162,6 +162,11 @@ public abstract class AbstractTestQueryFramework
         return queryRunner.execute(session, sql).toTestTypes();
     }
 
+    protected MaterializedResult computeActualWithAlternateRunner(QueryRunner queryRunner, @Language("SQL") String sql)
+    {
+        return queryRunner.execute(queryRunner.getDefaultSession(), sql).toTestTypes();
+    }
+
     protected Object computeScalarExpected(Session session, @Language("SQL") String sql)
     {
         return computeActual((QueryRunner) expectedQueryRunner, session, sql).getOnlyValue();
@@ -192,6 +197,11 @@ public abstract class AbstractTestQueryFramework
     {
         checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, session, actual, queryRunner, expected, false, false);
+    }
+
+    protected void assertQueryWithAlternateQueryRunner(QueryRunner queryRunner, @Language("SQL") String actual, @Language("SQL") String expected) {
+        checkArgument(!actual.equals(expected));
+        QueryAssertions.assertQuery(queryRunner, queryRunner.getDefaultSession(), actual, queryRunner, expected, false, false);
     }
 
     protected void assertQueryOrderedWithSameQueryRunner(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -326,6 +336,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+    }
+
+    protected void assertQueryFailsWithCustomQueryRunner(QueryRunner queryRunner, @Language("SQL") String actual, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), actual, expectedMessageRegExp, usePatternMatcher);
     }
 
     protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
