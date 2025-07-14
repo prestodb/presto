@@ -35,62 +35,15 @@ struct hash<facebook::velox::TypeKind> {
 };
 } // namespace std
 
+namespace facebook::velox {
 namespace {
 bool isColumnNameRequiringEscaping(const std::string& name) {
   static const std::string re("^[a-zA-Z_][a-zA-Z0-9_]*$");
   return !RE2::FullMatch(name, re);
 }
-} // namespace
 
-namespace facebook::velox {
-
-// Static variable intialization is not thread safe for non
-// constant-initialization, but scoped static initialization is thread safe.
-const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {
-  static const std::unordered_map<std::string, TypeKind> kTypeStringMap{
-      {"BOOLEAN", TypeKind::BOOLEAN},
-      {"TINYINT", TypeKind::TINYINT},
-      {"SMALLINT", TypeKind::SMALLINT},
-      {"INTEGER", TypeKind::INTEGER},
-      {"BIGINT", TypeKind::BIGINT},
-      {"HUGEINT", TypeKind::HUGEINT},
-      {"REAL", TypeKind::REAL},
-      {"DOUBLE", TypeKind::DOUBLE},
-      {"VARCHAR", TypeKind::VARCHAR},
-      {"VARBINARY", TypeKind::VARBINARY},
-      {"TIMESTAMP", TypeKind::TIMESTAMP},
-      {"ARRAY", TypeKind::ARRAY},
-      {"MAP", TypeKind::MAP},
-      {"ROW", TypeKind::ROW},
-      {"FUNCTION", TypeKind::FUNCTION},
-      {"UNKNOWN", TypeKind::UNKNOWN},
-      {"OPAQUE", TypeKind::OPAQUE},
-      {"INVALID", TypeKind::INVALID}};
-  return kTypeStringMap;
-}
-
-std::optional<TypeKind> tryMapNameToTypeKind(const std::string& name) {
-  auto found = getTypeStringMap().find(name);
-
-  if (found == getTypeStringMap().end()) {
-    return std::nullopt;
-  }
-
-  return found->second;
-}
-
-TypeKind mapNameToTypeKind(const std::string& name) {
-  auto found = getTypeStringMap().find(name);
-
-  if (found == getTypeStringMap().end()) {
-    VELOX_USER_FAIL("Specified element is not found : {}", name);
-  }
-
-  return found->second;
-}
-
-std::string mapTypeKindToName(const TypeKind& typeKind) {
-  static std::unordered_map<TypeKind, std::string> typeEnumMap{
+folly::F14FastMap<TypeKind, std::string> typeKindNames() {
+  static const folly::F14FastMap<TypeKind, std::string> kNames = {
       {TypeKind::BOOLEAN, "BOOLEAN"},
       {TypeKind::TINYINT, "TINYINT"},
       {TypeKind::SMALLINT, "SMALLINT"},
@@ -108,16 +61,14 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
       {TypeKind::FUNCTION, "FUNCTION"},
       {TypeKind::UNKNOWN, "UNKNOWN"},
       {TypeKind::OPAQUE, "OPAQUE"},
-      {TypeKind::INVALID, "INVALID"}};
+      {TypeKind::INVALID, "INVALID"},
+  };
 
-  auto found = typeEnumMap.find(typeKind);
-
-  if (found == typeEnumMap.end()) {
-    VELOX_USER_FAIL("Specified element is not found : {}", (int32_t)typeKind);
-  }
-
-  return found->second;
+  return kNames;
 }
+} // namespace
+
+VELOX_DEFINE_ENUM_NAME(TypeKind, typeKindNames);
 
 std::pair<uint8_t, uint8_t> getDecimalPrecisionScale(const Type& type) {
   if (type.isShortDecimal()) {
@@ -149,7 +100,7 @@ struct OpaqueSerdeRegistry {
 } // namespace
 
 std::ostream& operator<<(std::ostream& os, const TypeKind& kind) {
-  os << mapTypeKindToName(kind);
+  os << TypeKindName::toName(kind);
   return os;
 }
 
@@ -185,7 +136,7 @@ TypePtr Type::create(const folly::dynamic& obj) {
   }
 
   // 'typeName' must be a built-in type.
-  TypeKind typeKind = mapNameToTypeKind(typeName);
+  TypeKind typeKind = TypeKindName::toTypeKind(typeName);
   switch (typeKind) {
     case TypeKind::ROW: {
       VELOX_USER_CHECK(obj["names"].isArray());

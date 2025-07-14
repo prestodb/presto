@@ -46,7 +46,7 @@ std::string typeToBaseName(const TypePtr& type) {
 
 std::optional<TypeKind> baseNameToTypeKind(const std::string& typeName) {
   auto kindName = boost::algorithm::to_upper_copy(typeName);
-  return tryMapNameToTypeKind(kindName);
+  return TypeKindName::tryToTypeKind(kindName);
 }
 
 namespace {

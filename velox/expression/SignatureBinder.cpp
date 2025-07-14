@@ -274,7 +274,7 @@ TypePtr SignatureBinder::tryResolveType(
     return nullptr;
   }
 
-  auto typeKind = tryMapNameToTypeKind(typeName);
+  auto typeKind = TypeKindName::tryToTypeKind(typeName);
   if (!typeKind.has_value()) {
     return nullptr;
   }

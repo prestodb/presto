@@ -32,6 +32,7 @@
 #include <typeindex>
 #include <vector>
 
+#include <velox/common/Enums.h>
 #include "velox/common/base/ClassName.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/serialization/Serializable.h"
@@ -87,14 +88,22 @@ enum class TypeKind : int8_t {
   INVALID = 36
 };
 
-/// Returns the typekind represented by the `name`. Throws if no match found.
-TypeKind mapNameToTypeKind(const std::string& name);
+VELOX_DECLARE_ENUM_NAME(TypeKind);
 
-/// Returns the typekind represented by the `name` and std::nullopt if no
-/// match found.
-std::optional<TypeKind> tryMapNameToTypeKind(const std::string& name);
+/// Deprecated.
+inline TypeKind mapNameToTypeKind(const std::string& name) {
+  return TypeKindName::toTypeKind(name);
+}
 
-std::string mapTypeKindToName(const TypeKind& typeKind);
+[[deprecated("Use TypeKindName::tryToTypeKind")]]
+inline std::optional<TypeKind> tryMapNameToTypeKind(const std::string& name) {
+  return TypeKindName::tryToTypeKind(name);
+}
+
+/// Deprecated.
+inline std::string mapTypeKindToName(const TypeKind& typeKind) {
+  return std::string(TypeKindName::toName(typeKind));
+}
 
 std::ostream& operator<<(std::ostream& os, const TypeKind& kind);
 

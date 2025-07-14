@@ -65,15 +65,18 @@ struct Enums {
 /// VELOX_DECLARE_ENUM_NAME(Foo, fooNames);
 ///
 /// In the client code, use FooName::toName(Foo::kFirst) to get the name of the
-/// enum and FooName::toFoo("FIRST") to get the enum value.
+/// enum and FooName::toFoo("FIRST") or FooName::tryToFoo("FIRST") to get the
+/// enum value. toFoo throws an exception if input is not a valid name, while
+/// tryToFoo returns an std::nullopt.
 ///
 /// Use _EMBEDDED_ versions of the macros to define enums embedded in other
 /// classes.
 
-#define VELOX_DECLARE_ENUM_NAME(EnumType)                \
-  struct EnumType##Name {                                \
-    static std::string_view toName(EnumType value);      \
-    static EnumType to##EnumType(std::string_view name); \
+#define VELOX_DECLARE_ENUM_NAME(EnumType)                                  \
+  struct EnumType##Name {                                                  \
+    static std::string_view toName(EnumType value);                        \
+    static EnumType to##EnumType(std::string_view name);                   \
+    static std::optional<EnumType> tryTo##EnumType(std::string_view name); \
   };
 
 #define VELOX_DEFINE_ENUM_NAME(EnumType, Names)                             \
@@ -93,11 +96,23 @@ struct Enums {
     auto it = kValues.find(name);                                           \
     VELOX_CHECK(it != kValues.end(), "Invalid enum name: {}", name);        \
     return it->second;                                                      \
+  }                                                                         \
+                                                                            \
+  std::optional<EnumType> EnumType##Name::tryTo##EnumType(                  \
+      std::string_view name) {                                              \
+    static const auto kValues = facebook::velox::Enums::invertMap(Names()); \
+                                                                            \
+    auto it = kValues.find(name);                                           \
+    if (it == kValues.end()) {                                              \
+      return std::nullopt;                                                  \
+    }                                                                       \
+    return it->second;                                                      \
   }
 
-#define VELOX_DECLARE_EMBEDDED_ENUM_NAME(EnumType) \
-  static std::string_view toName(EnumType value);  \
-  static EnumType to##EnumType(std::string_view name);
+#define VELOX_DECLARE_EMBEDDED_ENUM_NAME(EnumType)     \
+  static std::string_view toName(EnumType value);      \
+  static EnumType to##EnumType(std::string_view name); \
+  static std::optional<EnumType> tryTo##EnumType(std::string_view name);
 
 #define VELOX_DEFINE_EMBEDDED_ENUM_NAME(Class, EnumType, Names)             \
   std::string_view Class::toName(Class::EnumType value) {                   \
@@ -115,5 +130,16 @@ struct Enums {
                                                                             \
     auto it = kValues.find(name);                                           \
     VELOX_CHECK(it != kValues.end(), "Invalid enum name: {}", name);        \
+    return it->second;                                                      \
+  }                                                                         \
+                                                                            \
+  std::optional<Class::EnumType> Class::tryTo##EnumType(                    \
+      std::string_view name) {                                              \
+    static const auto kValues = facebook::velox::Enums::invertMap(Names()); \
+                                                                            \
+    auto it = kValues.find(name);                                           \
+    if (it == kValues.end()) {                                              \
+      return std::nullopt;                                                  \
+    }                                                                       \
     return it->second;                                                      \
   }
