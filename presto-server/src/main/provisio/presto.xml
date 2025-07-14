@@ -1,6 +1,6 @@
 <runtime>
     <!-- Target -->
-    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="${presto.hard-link-includes}" />
 
     <!-- Notices -->
     <fileSet to="/">

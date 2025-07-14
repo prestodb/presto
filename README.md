@@ -121,6 +121,13 @@ resources will be hot-reloaded and changes are reflected on browser refresh.
 Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#build-from-source) to get started.
 
 
+## Common Issues
+
+Build fails while creating hard links - `java.nio.file.FileSystemException Operation not permitted`.
+Presto uses the [Provisio](https://github.com/jvanzyl/provisio) plugin for packaging using hard links. If your filesystem doesn't support hard links, you can bypass hard links using:
+
+    ./mvnw clean install -presto.hard-link-includes=''
+
 <hr>
 </details>
 

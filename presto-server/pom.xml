@@ -25,6 +25,7 @@
         <process-name>${project.artifactId}</process-name>
 
         <skipTakariLifecyclePlugin>false</skipTakariLifecyclePlugin>
+        <presto.hard-link-includes>${project.parent.presto.hard-link-includes}</presto.hard-link-includes>
     </properties>
 
     <build>
