@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +52,8 @@ public class RowType
         this.typeSignature = containsDistinctType(this.fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields));
     }
 
-    public static RowType from(List<Field> fields)
+    @JsonCreator
+    public static RowType from(@JsonProperty("fields") List<Field> fields)
     {
         return new RowType(fields);
     }

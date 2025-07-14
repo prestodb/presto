@@ -73,6 +73,10 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -81,6 +85,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -154,6 +159,11 @@ public class UnaliasSymbolReferences
             this.functionAndTypeManager = functionAndTypeManager;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.warningCollector = warningCollector;
+        }
+
+        public Map<String, String> getMapping()
+        {
+            return mapping;
         }
 
         @Override
@@ -474,6 +484,94 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
+        }
+
+        @Override
+        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
+        {
+            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
+                    Optional.ofNullable(context.get())
+                            .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
+                            .orElseGet(HashMap::new);
+
+            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+
+            List<VariableReferenceExpression> newProperOutputs = node.getOutputVariables().stream()
+                    .map(mapper::map)
+                    .collect(toImmutableList());
+
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            ImmutableList.Builder<TableFunctionNode.TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode newSource = node.getSources().get(i).accept(this, context);
+                newSources.add(newSource);
+
+                SymbolMapper inputMapper = new SymbolMapper(new HashMap<>(), warningCollector);
+
+                TableFunctionNode.TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
+
+                Optional<DataOrganizationSpecification> newSpecification = properties.specification().map(inputMapper::mapAndDistinct);
+                PassThroughSpecification newPassThroughSpecification = new PassThroughSpecification(
+                        properties.getPassThroughSpecification().isDeclaredAsPassThrough(),
+                        properties.getPassThroughSpecification().getColumns().stream()
+                                .map(column -> new PassThroughColumn(
+                                        inputMapper.map(column.getOutputVariables()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList()));
+                newTableArgumentProperties.add(new TableFunctionNode.TableArgumentProperties(
+                        properties.getArgumentName(),
+                        properties.rowSemantics(),
+                        properties.pruneWhenEmpty(),
+                        newPassThroughSpecification,
+                        inputMapper.map(properties.getRequiredColumns()),
+                        newSpecification));
+            }
+
+            return new TableFunctionNode(
+                    node.getId(),
+                    node.getName(),
+                    node.getArguments(),
+                    newProperOutputs,
+                    newSources.build(),
+                    newTableArgumentProperties.build(),
+                    node.getCopartitioningLists(),
+                    node.getHandle());
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Void> context)
+        {
+            if (!node.getSource().isPresent()) {
+                Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
+                        Optional.ofNullable(context.get())
+                                .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
+                                .orElseGet(HashMap::new);
+                SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+
+                TableFunctionProcessorNode rewrittenTableFunctionProcessor = new TableFunctionProcessorNode(
+                        node.getId(),
+                        node.getName(),
+                        mapper.map(node.getProperOutputs()),
+                        Optional.empty(),
+                        node.isPruneWhenEmpty(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0,
+                        node.getHashSymbol().map(mapper::map),
+                        node.getHandle());
+
+                return rewrittenTableFunctionProcessor;
+            }
+
+            PlanNode rewrittenSource = node.getSource().get().accept(this, context);
+            Map<String, String> mappings = ((Rewriter) context.getNodeRewriter()).getMapping();
+            SymbolMapper mapper = new SymbolMapper(mappings, types, warningCollector);
+
+            return mapper.map(node, rewrittenSource);
         }
 
         @Override

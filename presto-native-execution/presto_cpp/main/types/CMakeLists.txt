@@ -31,7 +31,9 @@ target_link_libraries(
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata velox_function_registry)
+
+target_link_libraries(presto_function_metadata velox_function_registry
+                      presto_tvf_spi)
 
 add_library(presto_velox_plan_conversion OBJECT VeloxPlanConversion.cpp)
 target_link_libraries(presto_velox_plan_conversion velox_type)
