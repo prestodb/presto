@@ -42,7 +42,7 @@ public class TestSetWorkerSessionPropertiesIncludingInvalidProperties
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+                        "resetSessionProperties=[], updateType=SET SESSION, clearTransactionId=false}");
     }
 
     @Test
@@ -56,6 +56,6 @@ public class TestSetWorkerSessionPropertiesIncludingInvalidProperties
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={distinct_aggregation_spill_enabled=false}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+                        "resetSessionProperties=[], updateType=SET SESSION, clearTransactionId=false}");
     }
 }
