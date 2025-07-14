@@ -37,14 +37,14 @@ public class TestDefaultOrcWriterFlushPolicy
 
         assertEquals(flushPolicy.getStripeMaxRowCount(), 10);
 
-        Optional<FlushReason> actual = flushPolicy.shouldFlushStripe(5, 0, false);
+        Optional<FlushReason> actual = flushPolicy.shouldFlushStripe(5, 0, 0, false);
         assertFalse(actual.isPresent());
 
-        actual = flushPolicy.shouldFlushStripe(10, 0, false);
+        actual = flushPolicy.shouldFlushStripe(10, 0, 0, false);
         assertTrue(actual.isPresent());
         assertEquals(actual.get(), MAX_ROWS);
 
-        actual = flushPolicy.shouldFlushStripe(20, 0, false);
+        actual = flushPolicy.shouldFlushStripe(20, 0, 0, false);
         assertFalse(actual.isPresent());
     }
 
@@ -59,13 +59,13 @@ public class TestDefaultOrcWriterFlushPolicy
         assertEquals(flushPolicy.getStripeMinBytes(), 50);
         assertEquals(flushPolicy.getStripeMaxBytes(), 100);
 
-        Optional<FlushReason> actual = flushPolicy.shouldFlushStripe(1, 90, false);
+        Optional<FlushReason> actual = flushPolicy.shouldFlushStripe(1, 90, 0, false);
         assertFalse(actual.isPresent());
 
-        actual = flushPolicy.shouldFlushStripe(1, 100, false);
+        actual = flushPolicy.shouldFlushStripe(1, 100, 0, false);
         assertFalse(actual.isPresent());
 
-        actual = flushPolicy.shouldFlushStripe(1, 200, false);
+        actual = flushPolicy.shouldFlushStripe(1, 200, 0, false);
         assertTrue(actual.isPresent());
         assertEquals(actual.get(), MAX_BYTES);
     }
@@ -75,10 +75,10 @@ public class TestDefaultOrcWriterFlushPolicy
     {
         DefaultOrcWriterFlushPolicy flushPolicy = DefaultOrcWriterFlushPolicy.builder().build();
 
-        Optional<FlushReason> actual = flushPolicy.shouldFlushStripe(1, 1, false);
+        Optional<FlushReason> actual = flushPolicy.shouldFlushStripe(1, 1, 0, false);
         assertFalse(actual.isPresent());
 
-        actual = flushPolicy.shouldFlushStripe(1, 1, true);
+        actual = flushPolicy.shouldFlushStripe(1, 1, 0, true);
         assertTrue(actual.isPresent());
         assertEquals(actual.get(), DICTIONARY_FULL);
     }
