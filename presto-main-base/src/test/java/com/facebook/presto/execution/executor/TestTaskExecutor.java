@@ -262,7 +262,8 @@ public class TestTaskExecutor
                 int phasesForNextLevel = LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i];
                 TestingJob[] drivers = new TestingJob[6];
                 for (int j = 0; j < 6; j++) {
-                    drivers[j] = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), phasesForNextLevel, 1000);
+                    // shouldn't deregister the global phaser upon the completion of process
+                    drivers[j] = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), phasesForNextLevel, 1000, false);
                 }
 
                 taskExecutor.enqueueSplits(taskHandles[0], true, ImmutableList.of(drivers[0], drivers[1]));
@@ -525,6 +526,7 @@ public class TestTaskExecutor
         private final Phaser endQuantaPhaser;
         private final int requiredPhases;
         private final int quantaTimeMillis;
+        private final boolean deregisterGlobalPhaser;
         private final AtomicInteger completedPhases = new AtomicInteger();
 
         private final AtomicInteger firstPhase = new AtomicInteger(-1);
@@ -535,12 +537,18 @@ public class TestTaskExecutor
 
         public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
         {
+            this(ticker, globalPhaser, beginQuantaPhaser, endQuantaPhaser, requiredPhases, quantaTimeMillis, true);
+        }
+
+        public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis, boolean deregisterGlobalPhaser)
+        {
             this.ticker = ticker;
             this.globalPhaser = globalPhaser;
             this.beginQuantaPhaser = beginQuantaPhaser;
             this.endQuantaPhaser = endQuantaPhaser;
             this.requiredPhases = requiredPhases;
             this.quantaTimeMillis = quantaTimeMillis;
+            this.deregisterGlobalPhaser = deregisterGlobalPhaser;
 
             beginQuantaPhaser.register();
             endQuantaPhaser.register();
@@ -578,7 +586,9 @@ public class TestTaskExecutor
             if (completedPhases.incrementAndGet() >= requiredPhases) {
                 endQuantaPhaser.arriveAndDeregister();
                 beginQuantaPhaser.arriveAndDeregister();
-                globalPhaser.arriveAndDeregister();
+                if (deregisterGlobalPhaser) {
+                    globalPhaser.arriveAndDeregister();
+                }
                 completed.set(null);
             }
 
