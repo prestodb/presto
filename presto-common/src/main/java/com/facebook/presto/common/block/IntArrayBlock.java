@@ -171,6 +171,18 @@ public class IntArrayBlock
     }
 
     @Override
+    public void writePositionsTo(int startOffset, int endOffset, BlockBuilder blockBuilder)
+    {
+        if (!(blockBuilder instanceof IntArrayBlockBuilder)) {
+            throw new IllegalArgumentException();
+        }
+        checkReadablePosition(startOffset);
+        checkReadablePosition(endOffset-1);
+        IntArrayBlockBuilder intArrayBlockBuilder = (IntArrayBlockBuilder) blockBuilder;
+        intArrayBlockBuilder.writePositions(arrayOffset + startOffset, arrayOffset + endOffset, this.valueIsNull, this.values);
+    }
+
+    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
