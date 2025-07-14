@@ -394,7 +394,7 @@ public class PayloadJoinOptimizer
             }
 
             context.get().setJoinKeyMap(new HashMap<>(varMap));
-            PlanNode planNodeCopy = clonePlanNode(planNode, session, metadata, planNodeIdAllocator, planNode.getOutputVariables(), varMap);
+            PlanNode planNodeCopy = clonePlanNode(planNode, session, metadata, planNodeIdAllocator, planNode.getOutputVariables(), varMap, variableAllocator);
             context.get().setPayloadNode(planNodeCopy);
 
             return agg;
