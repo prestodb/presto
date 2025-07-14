@@ -52,10 +52,10 @@ public class TaskStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
-    private final int totalNativeDrivers;
-    private final int queuedNativeDrivers;
-    private final int runningNativeDrivers;
-    private final int completedNativeDrivers;
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
 
     private final int totalSplits;
     private final int queuedSplits;
@@ -226,10 +226,10 @@ public class TaskStats
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
-            @JsonProperty("totalNativeDrivers") int totalNativeDrivers,
-            @JsonProperty("queuedNativeDrivers") int queuedNativeDrivers,
-            @JsonProperty("runningNativeDrivers") int runningNativeDrivers,
-            @JsonProperty("completedNativeDrivers") int completedNativeDrivers,
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
 
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
@@ -303,17 +303,17 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        checkArgument(totalNativeDrivers >= 0, "totalNativeDrivers is negative");
-        this.totalNativeDrivers = totalNativeDrivers;
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
 
-        checkArgument(queuedNativeDrivers >= 0, "queuedNativeDrivers is negative");
-        this.queuedNativeDrivers = queuedNativeDrivers;
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
 
-        checkArgument(runningNativeDrivers >= 0, "runningNativeDrivers is negative");
-        this.runningNativeDrivers = runningNativeDrivers;
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
 
-        checkArgument(completedNativeDrivers >= 0, "completedNativeDrivers is negative");
-        this.completedNativeDrivers = completedNativeDrivers;
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
 
         checkArgument(totalSplits >= 0, "totalSplits is negative");
         this.totalSplits = totalSplits;
@@ -709,30 +709,30 @@ public class TaskStats
 
     @JsonProperty
     @ThriftField(46)
-    public int getTotalNativeDrivers()
+    public int getTotalNewDrivers()
     {
-        return totalNativeDrivers;
+        return totalNewDrivers;
     }
 
     @JsonProperty
     @ThriftField(47)
-    public int getQueuedNativeDrivers()
+    public int getQueuedNewDrivers()
     {
-        return queuedNativeDrivers;
+        return queuedNewDrivers;
     }
 
     @JsonProperty
     @ThriftField(48)
-    public int getRunningNativeDrivers()
+    public int getRunningNewDrivers()
     {
-        return runningNativeDrivers;
+        return runningNewDrivers;
     }
 
     @JsonProperty
     @ThriftField(49)
-    public int getCompletedNativeDrivers()
+    public int getCompletedNewDrivers()
     {
-        return completedNativeDrivers;
+        return completedNewDrivers;
     }
 
     public TaskStats summarize()
@@ -754,10 +754,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
-                totalNativeDrivers,
-                queuedNativeDrivers,
-                runningNativeDrivers,
-                completedNativeDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
                 totalSplits,
                 queuedSplits,
                 runningSplits,
@@ -808,10 +808,10 @@ public class TaskStats
                 runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
-                totalNativeDrivers,
-                queuedNativeDrivers,
-                runningNativeDrivers,
-                completedNativeDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
                 totalSplits,
                 queuedSplits,
                 runningSplits,
