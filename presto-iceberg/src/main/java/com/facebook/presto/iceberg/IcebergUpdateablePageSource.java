@@ -151,15 +151,16 @@ public class IcebergUpdateablePageSource
             }
         }
         for (int i = 0; i < outputColumnToDelegateMapping.length; i++) {
-            if (outputColumns.get(i).isUpdateRowIdColumn()) {
+            IcebergColumnHandle outputColumn = outputColumns.get(i);
+            if (outputColumn.isUpdateRowIdColumn() || outputColumn.isMergeRowIdColumn()) {
                 continue;
             }
 
-            if (!columnToIndex.containsKey(outputColumns.get(i).getColumnIdentity())) {
-                throw new PrestoException(ICEBERG_MISSING_COLUMN, format("Column %s not found in delegate column map", outputColumns.get(i)));
+            if (!columnToIndex.containsKey(outputColumn.getColumnIdentity())) {
+                throw new PrestoException(ICEBERG_MISSING_COLUMN, format("Column %s not found in delegate column map", outputColumn));
             }
             else {
-                outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumns.get(i).getColumnIdentity());
+                outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumn.getColumnIdentity());
             }
         }
         this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
@@ -309,7 +310,7 @@ public class IcebergUpdateablePageSource
     }
 
     /**
-     * The $row_id column used for updates is a composite column of at least one other column in the Page.
+     * The $row_id column used for updates and merge is a composite column of at least one other column in the Page.
      * The indexes of the columns needed for the $row_id are in the updateRowIdChildColumnIndexes array.
      *
      * @param page The raw Page from the Parquet/ORC reader.
@@ -317,6 +318,8 @@ public class IcebergUpdateablePageSource
      */
     private Page setUpdateRowIdBlock(Page page)
     {
+        // TODO #20578: Update this method to add support for the MERGE RowId.
+
         Block[] fullPage = new Block[columns.size()];
         Block[] rowIdFields;
         Consumer<Integer> loopFunc;

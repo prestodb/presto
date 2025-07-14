@@ -17,6 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeSink;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
@@ -102,5 +104,35 @@ public class IcebergPageSinkProvider
                 maxOpenPartitions,
                 tableHandle.getSortOrder(),
                 sortParameters);
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
+        IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
+        SchemaTableName schemaTableName = new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName().getTableName());
+        LocationProvider locationProvider = getLocationProvider(schemaTableName, tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+
+        Schema schema = toIcebergSchema(tableHandle.getSchema());
+        PartitionSpec partitionSpec = toIcebergPartitionSpec(tableHandle.getPartitionSpec()).toUnbound().bind(schema);
+        // TODO #20578: In Trino, they use "Map<Integer, PartitionSpec>" instead of "PartitionSpec". Should Presto do the same?
+        //  Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.getPartitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
+
+        ConnectorPageSink pageSink = createPageSink(session, tableHandle);
+
+        return new IcebergMergeSink(
+                locationProvider,
+                fileWriterFactory,
+                hdfsEnvironment,
+//                fileIoProvider, // TODO #20578: Seems that it is only necessary to support Iceberg using AVRO file format. Presto does not have that support, so it looks like we can ignore this parameter for now.
+                jsonCodec,
+                session,
+                tableHandle.getFileFormat(),
+                tableHandle.getStorageProperties(),
+                schema,
+                partitionSpec,
+                pageSink,
+                tableHandle.getInputColumns().size());
     }
 }
