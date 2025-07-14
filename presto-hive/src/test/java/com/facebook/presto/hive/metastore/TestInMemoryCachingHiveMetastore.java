@@ -48,6 +48,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.hive.metastore.Partition.Builder;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.NEW_TABLE;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.PARTITION_VERSION;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_DATABASE;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_METASTORE_CONTEXT;
@@ -195,6 +196,21 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(stats.getGetTable().getThriftExceptions().getTotalCount(), 0);
         assertEquals(stats.getGetTable().getTotalFailures().getTotalCount(), 0);
         assertNotNull(stats.getGetTable().getTime());
+    }
+
+    @Test
+    public void testNonExistentTableCaching()
+    {
+        // NEW_TABLE doesn't exist. We try to get table and cache empty value and invalidate the same.
+        assertFalse(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, NEW_TABLE).isPresent());
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        mockClient.createTable(mockClient.getNewTable());
+
+        // If we didn't invalidate the empty value cache entry, the below assert would fail and access count
+        // would be 1 since cache would be returning an Optional.empty rather than newly created table above.
+        assertTrue(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, NEW_TABLE).isPresent());
+        assertEquals(mockClient.getAccessCount(), 2);
     }
 
     @Test
