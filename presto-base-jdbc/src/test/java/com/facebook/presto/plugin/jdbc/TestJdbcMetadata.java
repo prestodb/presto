@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -64,7 +65,7 @@ public class TestJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
+        BoundedExecutor executor = new BoundedExecutor(newCachedThreadPool(daemonThreadsNamed("jdbc-metadata-cache" + "-%s")), 1);
         jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
         metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));

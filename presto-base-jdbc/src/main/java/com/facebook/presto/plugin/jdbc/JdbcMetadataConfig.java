@@ -29,6 +29,8 @@ public class JdbcMetadataConfig
     private Duration metadataCacheTtl = new Duration(0, TimeUnit.SECONDS);
     private Duration metadataCacheRefreshInterval = new Duration(0, TimeUnit.SECONDS);
     private long metadataCacheMaximumSize = 10000;
+    private int metadataCacheThreadPoolSize = 10;
+    private boolean jdbcMetadataCacheEnabled;
 
     public boolean isAllowDropTable()
     {
@@ -81,6 +83,31 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setMetadataCacheMaximumSize(long metadataCacheMaximumSize)
     {
         this.metadataCacheMaximumSize = metadataCacheMaximumSize;
+        return this;
+    }
+
+    public int getMetadataCacheThreadPoolSize()
+    {
+        return metadataCacheThreadPoolSize;
+    }
+
+    @Min(1)
+    @Config("metadata-cache-thread-pool-size")
+    public JdbcMetadataConfig setMetadataCacheThreadPoolSize(int threadPoolSize)
+    {
+        this.metadataCacheThreadPoolSize = threadPoolSize;
+        return this;
+    }
+
+    public boolean isJdbcMetadataCacheEnabled()
+    {
+        return jdbcMetadataCacheEnabled;
+    }
+
+    @Config("metadata-jdbc-cache-enabled")
+    public JdbcMetadataConfig setJdbcMetadataCacheEnabled(boolean jdbcMetadataCacheEnabled)
+    {
+        this.jdbcMetadataCacheEnabled = jdbcMetadataCacheEnabled;
         return this;
     }
 }
