@@ -126,4 +126,10 @@ public abstract class InternalPlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    @Override
+    public R visitMetadataDelete(com.facebook.presto.spi.plan.MetadataDeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }
