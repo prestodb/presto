@@ -209,6 +209,27 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     }
   }
 
+  void testFlatMapEncoding(
+      const FlatMapVectorPtr& vector,
+      vector_size_t index) {
+    SCOPED_TRACE(vector->toString());
+
+    auto check = [&](auto& decoded) {
+      EXPECT_EQ(vector->encoding(), decoded.base()->encoding());
+      auto base = decoded.base();
+      const FlatMapVector& flatMap = *base->template as<FlatMapVector>();
+      EXPECT_EQ(vector->distinctKeys(), flatMap.distinctKeys());
+      EXPECT_EQ(vector->inMaps()[index], flatMap.inMaps()[index]);
+      EXPECT_EQ(vector->mapValues()[index], flatMap.mapValues()[index]);
+    };
+
+    {
+      SelectivityVector selection(100);
+      DecodedVector decoded(*vector);
+      check(decoded);
+    }
+  }
+
   template <typename T>
   void testConstantOpaque(const std::shared_ptr<T>& value) {
     int uses = value.use_count();
@@ -573,6 +594,43 @@ TEST_F(DecodedVectorTest, constantComplexType) {
   testConstant(mapVector, 0);
   testConstant(mapVector, 3);
   testConstant(mapVector, 5); // null
+
+  auto flatMapVector = makeFlatMapVectorFromJson<int64_t, int32_t>({
+      "{1:10, 2:20, 3:null, 4:40, 5:50}",
+      "{1:10, 2:20, 3:null, 4:40, 5:50}",
+      "{1:10, 2:null, 4:40, 5:null}",
+      "{}",
+      "{2:20, 4:null, 5:null}",
+      "{2:20, 4:null, 5:50}",
+      "{1:10, 4:null, 5:null}",
+      "{2:20, 3:30, 5:null}",
+      "{}",
+      "{1:10, 2:20, 3:30, 4:40, 5:50}",
+  });
+  testConstant(flatMapVector, 0);
+  testConstant(flatMapVector, 3);
+  testConstant(flatMapVector, 5);
+}
+
+TEST_F(DecodedVectorTest, flatMap) {
+  auto flatMapVector = makeFlatMapVectorFromJson<int64_t, int32_t>({
+      "{1:10, 2:20, 3:null, 4:40, 5:50}",
+      "{1:10, 2:20, 3:null, 4:40, 5:50}",
+      "{1:10, 2:null, 4:40, 5:null}",
+      "{}",
+      "{2:20, 4:null, 5:null}",
+      "{2:20, 4:null, 5:50}",
+      "{1:10, 4:null, 5:null}",
+      "{2:20, 3:30, 5:null}",
+      "{}",
+      "{1:10, 2:20, 3:30, 4:40, 5:50}",
+  });
+
+  testFlatMapEncoding(flatMapVector, 0);
+  testFlatMapEncoding(flatMapVector, 1);
+  testFlatMapEncoding(flatMapVector, 2);
+  testFlatMapEncoding(flatMapVector, 3);
+  testFlatMapEncoding(flatMapVector, 4);
 }
 
 TEST_F(DecodedVectorTest, dictionary) {
@@ -640,6 +698,43 @@ TEST_F(DecodedVectorTest, dictionaryOverLazy) {
     DecodedVector decoded(*dictionaryVector, false);
     checkLoaded(decoded);
   }
+}
+
+TEST_F(DecodedVectorTest, dictionaryOverFlatMapVector) {
+  auto flatMapVector = makeFlatMapVectorFromJson<int64_t, int32_t>({
+      "{1:10, 2:20, 3:null, 4:40, 5:50}",
+      "{1:10, 2:20, 3:null, 4:40, 5:50}",
+      "{1:10, 2:null, 4:40, 5:null}",
+      "{}",
+      "{2:20, 4:null, 5:null}",
+      "{2:20, 4:null, 5:50}",
+      "{1:10, 4:null, 5:null}",
+      "{2:20, 3:30, 5:null}",
+      "{}",
+      "{1:10, 2:20, 3:30, 4:40, 5:50}",
+  });
+  auto indices =
+      makeIndices(flatMapVector->size(), [](auto row) { return row; });
+
+  auto dict = BaseVector::wrapInDictionary(
+      nullptr, indices, flatMapVector->size(), flatMapVector);
+  DecodedVector decodedVector(*dict);
+  EXPECT_FALSE(decodedVector.isConstantMapping());
+
+  auto check = [&](auto& decoded, vector_size_t index) {
+    EXPECT_EQ(flatMapVector->encoding(), decoded.base()->encoding());
+    auto base = decoded.base();
+    const FlatMapVector& flatMap = *base->template as<FlatMapVector>();
+    EXPECT_EQ(flatMapVector->distinctKeys(), flatMap.distinctKeys());
+    EXPECT_EQ(flatMapVector->inMaps()[index], flatMap.inMaps()[index]);
+    EXPECT_EQ(flatMapVector->mapValues()[index], flatMap.mapValues()[index]);
+  };
+
+  check(decodedVector, 0);
+  check(decodedVector, 1);
+  check(decodedVector, 2);
+  check(decodedVector, 3);
+  check(decodedVector, 4);
 }
 
 TEST_F(DecodedVectorTest, nestedLazy) {
