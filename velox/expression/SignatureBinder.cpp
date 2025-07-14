@@ -35,17 +35,11 @@ bool isPositiveInteger(const std::string& str) {
       }) == str.end();
 }
 
-std::string buildCalculation(
-    const std::string& variable,
-    const std::string& calculation) {
-  return fmt::format("{}={}", variable, calculation);
-}
-
-std::optional<int64_t> tryResolveLongLiteral(
+std::optional<int> tryResolveLongLiteral(
     const TypeSignature& parameter,
     const std::unordered_map<std::string, SignatureVariable>& variables,
     std::unordered_map<std::string, int>& integerVariablesBindings) {
-  auto variable = parameter.baseName();
+  const auto& variable = parameter.baseName();
 
   if (isPositiveInteger(variable)) {
     // Handle constant.
@@ -61,15 +55,15 @@ std::optional<int64_t> tryResolveLongLiteral(
     return std::nullopt;
   }
 
-  auto& constraints = it->second.constraint();
+  const auto& constraints = it->second.constraint();
 
-  if (constraints == "") {
+  if (constraints.empty()) {
     return std::nullopt;
   }
 
   // Try to assign value based on constraints.
   // Check constraints and evaluate.
-  auto calculation = buildCalculation(variable, constraints);
+  const auto calculation = fmt::format("{}={}", variable, constraints);
   expression::calculation::evaluate(calculation, integerVariablesBindings);
   VELOX_CHECK(
       integerVariablesBindings.count(variable),
@@ -122,17 +116,17 @@ bool SignatureBinder::tryBind() {
     }
   }
 
-  bool allBound = true;
   for (auto i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {
     if (actualTypes_[i]) {
       if (!SignatureBinderBase::tryBind(formalArgs[i], actualTypes_[i])) {
-        allBound = false;
+        return false;
       }
     } else {
-      allBound = false;
+      return false;
     }
   }
-  return allBound;
+
+  return true;
 }
 
 bool SignatureBinderBase::checkOrSetIntegerParameter(
@@ -164,7 +158,7 @@ bool SignatureBinderBase::tryBind(
     return true;
   }
 
-  const auto baseName = typeSignature.baseName();
+  const auto& baseName = typeSignature.baseName();
 
   if (variables().count(baseName)) {
     // Variables cannot have further parameters.
@@ -239,7 +233,7 @@ TypePtr SignatureBinder::tryResolveType(
     const std::unordered_map<std::string, SignatureVariable>& variables,
     const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
     std::unordered_map<std::string, int>& integerVariablesBindings) {
-  const auto baseName = typeSignature.baseName();
+  const auto& baseName = typeSignature.baseName();
 
   if (variables.count(baseName)) {
     auto it = typeVariablesBindings.find(baseName);
@@ -259,7 +253,7 @@ TypePtr SignatureBinder::tryResolveType(
     auto literal =
         tryResolveLongLiteral(param, variables, integerVariablesBindings);
     if (literal.has_value()) {
-      typeParameters.push_back(TypeParameter(literal.value()));
+      typeParameters.emplace_back(literal.value());
       continue;
     }
 
@@ -268,7 +262,7 @@ TypePtr SignatureBinder::tryResolveType(
     if (!type) {
       return nullptr;
     }
-    typeParameters.push_back(TypeParameter(type, param.rowFieldName()));
+    typeParameters.emplace_back(type, param.rowFieldName());
   }
 
   try {

@@ -95,7 +95,7 @@ class SignatureBinder : private SignatureBinderBase {
       const exec::TypeSignature& typeSignature,
       const std::unordered_map<std::string, SignatureVariable>& variables,
       const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables) {
-    std::unordered_map<std::string, int> dummyEmpty = {};
+    std::unordered_map<std::string, int> dummyEmpty;
     return tryResolveType(
         typeSignature, variables, resolvedTypeVariables, dummyEmpty);
   }

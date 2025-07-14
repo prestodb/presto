@@ -39,7 +39,7 @@ class TypeSignature {
       std::optional<std::string> rowFieldName = std::nullopt)
       : baseName_{std::move(baseName)},
         parameters_{std::move(parameters)},
-        rowFieldName_(rowFieldName) {}
+        rowFieldName_(std::move(rowFieldName)) {}
 
   const std::string& baseName() const {
     return baseName_;
@@ -66,7 +66,7 @@ class TypeSignature {
 
   // If this object is a field of another parent row type, it can optionally
   // have a name, e.g, `row(id bigint)`
-  std::optional<std::string> rowFieldName_;
+  const std::optional<std::string> rowFieldName_;
 };
 
 using TypeSignaturePtr = std::shared_ptr<TypeSignature>;
