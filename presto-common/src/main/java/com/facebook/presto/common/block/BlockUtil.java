@@ -308,4 +308,27 @@ public final class BlockUtil
         // No newly loaded blocks
         return blocks;
     }
+
+    static boolean[] copyIsNullAndAppendNull(@Nullable boolean[] isNull, int offsetBase, int positionCount)
+    {
+        int desiredLength = offsetBase + positionCount + 1;
+        boolean[] newIsNull = new boolean[desiredLength];
+        if (isNull != null) {
+            checkArrayRange(isNull, offsetBase, positionCount);
+            System.arraycopy(isNull, 0, newIsNull, 0, desiredLength - 1);
+        }
+        // mark the last element to append null
+        newIsNull[desiredLength - 1] = true;
+        return newIsNull;
+    }
+
+    static int[] copyOffsetsAndAppendNull(int[] offsets, int offsetBase, int positionCount)
+    {
+        int desiredLength = offsetBase + positionCount + 2;
+        checkArrayRange(offsets, offsetBase, positionCount + 1);
+        int[] newOffsets = Arrays.copyOf(offsets, desiredLength);
+        // Null element does not move the offset forward
+        newOffsets[desiredLength - 1] = newOffsets[desiredLength - 2];
+        return newOffsets;
+    }
 }
