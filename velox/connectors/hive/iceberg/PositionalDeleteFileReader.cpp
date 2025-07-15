@@ -92,8 +92,10 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
       /*tableParameters=*/{},
       deleteReaderOpts);
 
-  auto deleteFileHandleCachePtr =
-      fileHandleFactory_->generate(deleteFile_.filePath);
+  const FileHandleKey fileHandleKey{
+      .filename = deleteFile_.filePath,
+      .tokenProvider = connectorQueryCtx_->fsTokenProvider()};
+  auto deleteFileHandleCachePtr = fileHandleFactory_->generate(fileHandleKey);
   auto deleteFileInput = createBufferedInput(
       *deleteFileHandleCachePtr,
       deleteReaderOpts,

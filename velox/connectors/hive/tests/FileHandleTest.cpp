@@ -37,9 +37,10 @@ TEST(FileHandleTest, localFile) {
   }
 
   FileHandleFactory factory(
-      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
+      std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(1000),
       std::make_unique<FileHandleGenerator>());
-  auto fileHandle = factory.generate(filename);
+  FileHandleKey key{filename};
+  auto fileHandle = factory.generate(key);
   ASSERT_EQ(fileHandle->file->size(), 3);
   char buffer[3];
   ASSERT_EQ(fileHandle->file->pread(0, 3, &buffer), "foo");
@@ -61,12 +62,13 @@ TEST(FileHandleTest, localFileWithProperties) {
   }
 
   FileHandleFactory factory(
-      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
+      std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(1000),
       std::make_unique<FileHandleGenerator>());
   FileProperties properties = {
       .fileSize = tempFile->fileSize(),
       .modificationTime = tempFile->fileModifiedTime()};
-  auto fileHandle = factory.generate(filename, &properties);
+  FileHandleKey key{filename};
+  auto fileHandle = factory.generate(key, &properties);
   ASSERT_EQ(fileHandle->file->size(), 3);
   char buffer[3];
   ASSERT_EQ(fileHandle->file->pread(0, 3, &buffer), "foo");

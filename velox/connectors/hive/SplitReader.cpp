@@ -286,9 +286,12 @@ void SplitReader::createReader() {
       baseReaderOpts_.fileFormat(), dwio::common::FileFormat::UNKNOWN);
 
   FileHandleCachedPtr fileHandleCachePtr;
+  FileHandleKey fileHandleKey{
+      .filename = hiveSplit_->filePath,
+      .tokenProvider = connectorQueryCtx_->fsTokenProvider()};
   try {
     fileHandleCachePtr = fileHandleFactory_->generate(
-        hiveSplit_->filePath,
+        fileHandleKey,
         hiveSplit_->properties.has_value() ? &*hiveSplit_->properties : nullptr,
         fsStats_ ? fsStats_.get() : nullptr);
     VELOX_CHECK_NOT_NULL(fileHandleCachePtr.get());

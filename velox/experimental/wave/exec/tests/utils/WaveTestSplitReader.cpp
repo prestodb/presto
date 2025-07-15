@@ -35,8 +35,9 @@ WaveTestSplitReader::WaveTestSplitReader(
   stripe_ = test::Table::getStripe(hiveSplit->filePath);
   if (!stripe_->isLoaded()) {
     try {
+      FileHandleKey key{stripe_->path};
       fileHandle_ = params_.fileHandleFactory->generate(
-          stripe_->path,
+          key,
           hiveSplit->properties.has_value() ? &*hiveSplit->properties
                                             : nullptr);
       VELOX_CHECK_NOT_NULL(fileHandle_.get());

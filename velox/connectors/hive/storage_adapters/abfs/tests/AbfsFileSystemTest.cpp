@@ -163,15 +163,14 @@ TEST_F(AbfsFileSystemTest, openFileForReadWithInvalidOptions) {
 
 TEST_F(AbfsFileSystemTest, fileHandleWithProperties) {
   FileHandleFactory factory(
-      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1),
+      std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(1),
       std::make_unique<FileHandleGenerator>(azuriteServer_->hiveConfig()));
   FileProperties properties = {15 + kOneMB, 1};
-  auto fileHandleProperties =
-      factory.generate(azuriteServer_->fileURI(), &properties);
+  FileHandleKey key{azuriteServer_->fileURI()};
+  auto fileHandleProperties = factory.generate(key, &properties);
   readData(fileHandleProperties->file.get());
 
-  auto fileHandleWithoutProperties =
-      factory.generate(azuriteServer_->fileURI());
+  auto fileHandleWithoutProperties = factory.generate(key);
   readData(fileHandleWithoutProperties->file.get());
 }
 

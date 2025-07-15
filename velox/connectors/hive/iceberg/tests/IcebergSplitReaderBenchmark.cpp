@@ -324,7 +324,7 @@ void IcebergSplitReaderBenchmark::readSingleColumn(
           "");
 
   FileHandleFactory fileHandleFactory(
-      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(
+      std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(
           hiveConfig->numCacheFileHandles()),
       std::make_unique<FileHandleGenerator>(connectorSessionProperties_));
 

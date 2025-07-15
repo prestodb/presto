@@ -17,6 +17,7 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/RuntimeMetrics.h"
+#include "velox/common/file/TokenProvider.h"
 #include "velox/common/memory/MemoryPool.h"
 
 #include <functional>
@@ -84,6 +85,9 @@ struct FileOptions {
   /// A hint to the file system for which region size of the file should be
   /// read. Specifically, the read length.
   std::optional<int64_t> readRangeHint{std::nullopt};
+
+  /// A token provider that can be used to get tokens for accessing the file.
+  std::shared_ptr<TokenProvider> tokenProvider{nullptr};
 };
 
 /// Defines directory options

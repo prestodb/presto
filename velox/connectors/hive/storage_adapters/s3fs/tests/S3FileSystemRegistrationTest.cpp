@@ -69,9 +69,10 @@ TEST_F(S3FileSystemRegistrationTest, fileHandle) {
   }
   auto hiveConfig = minioServer_->hiveConfig();
   FileHandleFactory factory(
-      std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
+      std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(1000),
       std::make_unique<FileHandleGenerator>(hiveConfig));
-  auto fileHandleCachePtr = factory.generate(s3File);
+  FileHandleKey key{s3File};
+  auto fileHandleCachePtr = factory.generate(key);
   readData(fileHandleCachePtr->file.get());
 }
 
