@@ -141,7 +141,8 @@ PlanNodePtr toVeloxPlan(
                 sources[0]->outputType()->childAt(0),
                 sources[0]->outputType()->asRow().nameOf(0))},
         std::vector<std::string>{"a"},
-        std::nullopt, // ordinalityName
+        /*ordinalityName=*/std::nullopt,
+        /*emptyUnnestValueName=*/std::nullopt,
         std::move(sources[0]));
   }
 

@@ -285,6 +285,119 @@ TEST_P(UnnestTest, arrayWithOrdinality) {
   assertQuery(params, expectedInDict);
 }
 
+TEST_P(UnnestTest, arrayWithEmptyUnnestValue) {
+  const auto array = makeArrayVectorFromJson<int32_t>(
+      {"[1, 2, null, 4]", "null", "[5, 6]", "[]", "[null]", "[7, 8, 9]"});
+  const auto input = makeRowVector(
+      {makeNullableFlatVector<double>({1.1, 2.2, 3.3, 4.4, 5.5, std::nullopt}),
+       array});
+
+  const auto expected = makeRowVector(
+      {makeNullableFlatVector<double>(
+           {1.1,
+            1.1,
+            1.1,
+            1.1,
+            3.3,
+            3.3,
+            5.5,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<int32_t>(
+           {1, 2, std::nullopt, 4, 5, 6, std::nullopt, 7, 8, 9})});
+
+  const auto expectedWithOrdinality = makeRowVector(
+      {expected->childAt(0),
+       expected->childAt(1),
+       makeNullableFlatVector<int64_t>({1, 2, 3, 4, 1, 2, 1, 1, 2, 3})});
+
+  const auto expectedWithEmptyUnnestValue = makeRowVector(
+      {makeNullableFlatVector<double>(
+           {1.1,
+            1.1,
+            1.1,
+            1.1,
+            2.2,
+            3.3,
+            3.3,
+            4.4,
+            5.5,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<int32_t>(
+           {1,
+            2,
+            std::nullopt,
+            4,
+            std::nullopt,
+            5,
+            6,
+            std::nullopt,
+            std::nullopt,
+            7,
+            8,
+            9}),
+       makeNullableFlatVector<bool>(
+           {false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false})});
+  const auto expectedWithBoth = makeRowVector(
+      {expectedWithEmptyUnnestValue->childAt(0),
+       expectedWithEmptyUnnestValue->childAt(1),
+       makeNullableFlatVector<int64_t>({1, 2, 3, 4, 0, 1, 2, 0, 1, 1, 2, 3}),
+       expectedWithEmptyUnnestValue->childAt(2)});
+
+  struct {
+    bool hasOrdinality;
+    bool hasEmptyUnnestValue;
+    RowVectorPtr input;
+    RowVectorPtr expected;
+
+    std::string debugString() const {
+      return fmt::format(
+          "hasOrdinality: {}, hasEmptyUnnestValue: {}, input: {}, expected: {}",
+          hasOrdinality,
+          hasEmptyUnnestValue,
+          input->toString(0, input->size()),
+          expected->toString(0, expected->size()));
+    }
+  } testSettings[] = {
+      {false, false, input, expected},
+      {true, false, input, expectedWithOrdinality},
+      {false, true, input, expectedWithEmptyUnnestValue},
+      {true, true, input, expectedWithBoth}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    std::optional<std::string> ordinalityName;
+    if (testData.hasOrdinality) {
+      ordinalityName = "ordinal";
+    }
+    std::optional<std::string> emptyUnnestValueName;
+    if (testData.hasEmptyUnnestValue) {
+      emptyUnnestValueName = "emptyUnnestValue";
+    }
+    auto op = PlanBuilder()
+                  .values({testData.input})
+                  .unnest({"c0"}, {"c1"}, ordinalityName, emptyUnnestValueName)
+                  .planNode();
+    auto params = makeCursorParameters(op);
+    assertQuery(params, testData.expected);
+  }
+}
+
 TEST_P(UnnestTest, basicMap) {
   auto vector = makeRowVector(
       {makeFlatVector<int64_t>(100, [](auto row) { return row; }),
@@ -353,6 +466,92 @@ TEST_P(UnnestTest, mapWithOrdinality) {
   assertQuery(params, expectedInDict);
 }
 
+TEST_P(UnnestTest, mapWithEmptyUnnestValue) {
+  const auto map = makeNullableMapVector<int32_t, double>(
+      {{{{1, 1.1}, {2, std::nullopt}}},
+       common::testutil::optionalEmpty,
+       {{{3, 3.3}, {4, 4.4}, {5, 5.5}}},
+       std::nullopt,
+       {{{6, std::nullopt}}}});
+
+  const auto input =
+      makeRowVector({makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5}), map});
+
+  const auto expected = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 1, 3, 3, 3, 5}),
+       makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+       makeNullableFlatVector<double>(
+           {1.1, std::nullopt, 3.3, 4.4, 5.5, std::nullopt})});
+
+  const auto expectedWithOrdinality = makeRowVector(
+      {expected->childAt(0),
+       expected->childAt(1),
+       expected->childAt(2),
+       makeNullableFlatVector<int64_t>({1, 2, 1, 2, 3, 1})});
+
+  const auto expectedWithEmptyUnnestValue = makeRowVector(
+      {makeNullableFlatVector<int32_t>({1, 1, 2, 3, 3, 3, 4, 5}),
+       makeNullableFlatVector<int32_t>(
+           {1, 2, std::nullopt, 3, 4, 5, std::nullopt, 6}),
+       makeNullableFlatVector<double>(
+           {1.1,
+            std::nullopt,
+            std::nullopt,
+            3.3,
+            4.4,
+            5.5,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<bool>(
+           {false, false, true, false, false, false, true, false})});
+
+  const auto expectedWithBoth = makeRowVector(
+      {expectedWithEmptyUnnestValue->childAt(0),
+       expectedWithEmptyUnnestValue->childAt(1),
+       expectedWithEmptyUnnestValue->childAt(2),
+       makeNullableFlatVector<int64_t>({1, 2, 0, 1, 2, 3, 0, 1}),
+       expectedWithEmptyUnnestValue->childAt(3)});
+
+  struct {
+    bool hasOrdinality;
+    bool hasEmptyUnnestValue;
+    RowVectorPtr input;
+    RowVectorPtr expected;
+
+    std::string debugString() const {
+      return fmt::format(
+          "hasOrdinality: {}, hasEmptyUnnestValue: {}, input: {}, expected: {}",
+          hasOrdinality,
+          hasEmptyUnnestValue,
+          input->toString(0, input->size()),
+          expected->toString(0, expected->size()));
+    }
+  } testSettings[] = {
+      {false, false, input, expected},
+      {true, false, input, expectedWithOrdinality},
+      {false, true, input, expectedWithEmptyUnnestValue},
+      {true, true, input, expectedWithBoth}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    std::optional<std::string> ordinalityName;
+    if (testData.hasOrdinality) {
+      ordinalityName = "ordinal";
+    }
+    std::optional<std::string> emptyUnnestValueName;
+    if (testData.hasEmptyUnnestValue) {
+      emptyUnnestValueName = "emptyUnnestValue";
+    }
+    auto op = PlanBuilder()
+                  .values({testData.input})
+                  .unnest({"c0"}, {"c1"}, ordinalityName, emptyUnnestValueName)
+                  .planNode();
+    auto params = makeCursorParameters(op);
+    assertQuery(params, testData.expected);
+  }
+}
+
 TEST_P(UnnestTest, multipleColumns) {
   std::vector<vector_size_t> offsets(100, 0);
   for (int i = 1; i < 100; ++i) {
@@ -379,8 +578,8 @@ TEST_P(UnnestTest, multipleColumns) {
                 .unnest({"c0"}, {"c1", "c2", "c3"})
                 .planNode();
 
-  // DuckDB doesn't support Unnest from MAP column. Hence,using 2 separate array
-  // columns with the keys and values part of the MAP to validate.
+  // DuckDB doesn't support Unnest from MAP column. Hence,using 2 separate
+  // array columns with the keys and values part of the MAP to validate.
   auto duckDbVector = makeRowVector(
       {makeFlatVector<int64_t>(100, [](auto row) { return row; }),
        makeArrayVector<int64_t>(
@@ -432,8 +631,8 @@ TEST_P(UnnestTest, multipleColumnsWithOrdinality) {
                 .unnest({"c0"}, {"c1", "c2", "c3"}, "ordinal")
                 .planNode();
 
-  // DuckDB doesn't support Unnest from MAP column. Hence,using 2 separate array
-  // columns with the keys and values part of the MAP to validate.
+  // DuckDB doesn't support Unnest from MAP column. Hence,using 2 separate
+  // array columns with the keys and values part of the MAP to validate.
   auto ordinalitySize = [&](auto row) {
     if (row % 42 == 0) {
       return offsets[row + 1] - offsets[row];
@@ -699,8 +898,8 @@ TEST_P(UnnestTest, barrier) {
     ASSERT_EQ(
         exec::toPlanStats(taskStats).at(unnestPlanNodeId).outputRows,
         numSplits * numRowsPerSplit * 3);
-    // NOTE: unnest operator produce the same number of output batches no matter
-    // it is under barrier execution mode or not.
+    // NOTE: unnest operator produce the same number of output batches no
+    // matter it is under barrier execution mode or not.
     ASSERT_EQ(
         exec::toPlanStats(taskStats).at(unnestPlanNodeId).outputVectors,
         numExpectedOutputVectors);

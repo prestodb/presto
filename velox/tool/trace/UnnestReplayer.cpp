@@ -36,6 +36,7 @@ core::PlanNodePtr UnnestReplayer::createPlanNode(
       unnestNode->unnestVariables(),
       unnestNode->unnestNames(),
       unnestNode->ordinalityName(),
+      unnestNode->emptyUnnestValueName(),
       source);
 }
 } // namespace facebook::velox::tool::trace

@@ -3954,13 +3954,36 @@ class UnnestNode : public PlanNode {
   /// names must appear in the same order as unnestVariables.
   /// @param ordinalityName Optional name for the ordinality columns. If not
   /// present, ordinality column is not produced.
+  /// @param emptyUnnestValueName Optional name for column which indicates an
+  /// output row has empty unnest value or not. If not present, emptyUnnestValue
+  /// column is not provided and the unnest operator also skips producing output
+  /// rows with empty unnest value.
   UnnestNode(
       const PlanNodeId& id,
       std::vector<FieldAccessTypedExprPtr> replicateVariables,
       std::vector<FieldAccessTypedExprPtr> unnestVariables,
       std::vector<std::string> unnestNames,
       std::optional<std::string> ordinalityName,
+      std::optional<std::string> emptyUnnestValueName,
       const PlanNodePtr& source);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  UnnestNode(
+      const PlanNodeId& id,
+      std::vector<FieldAccessTypedExprPtr> replicateVariables,
+      std::vector<FieldAccessTypedExprPtr> unnestVariables,
+      std::vector<std::string> unnestNames,
+      std::optional<std::string> ordinalityName,
+      const PlanNodePtr& source)
+      : UnnestNode(
+            id,
+            std::move(replicateVariables),
+            std::move(unnestVariables),
+            std::move(unnestNames),
+            std::move(ordinalityName),
+            std::nullopt,
+            source) {}
+#endif
 
   class Builder {
    public:
@@ -4008,6 +4031,12 @@ class UnnestNode : public PlanNode {
       return *this;
     }
 
+    Builder& emptyUnnestValueName(
+        std::optional<std::string> emptyUnnestValueName) {
+      emptyUnnestValueName_ = std::move(emptyUnnestValueName);
+      return *this;
+    }
+
     std::shared_ptr<UnnestNode> build() const {
       VELOX_USER_CHECK(id_.has_value(), "UnnestNode id is not set");
       VELOX_USER_CHECK(
@@ -4026,6 +4055,7 @@ class UnnestNode : public PlanNode {
           unnestVariables_.value(),
           unnestNames_.value(),
           ordinalityName_,
+          emptyUnnestValueName_,
           source_.value());
     }
 
@@ -4035,6 +4065,7 @@ class UnnestNode : public PlanNode {
     std::optional<std::vector<FieldAccessTypedExprPtr>> unnestVariables_;
     std::optional<std::vector<std::string>> unnestNames_;
     std::optional<std::string> ordinalityName_;
+    std::optional<std::string> emptyUnnestValueName_;
     std::optional<PlanNodePtr> source_;
   };
 
@@ -4072,8 +4103,16 @@ class UnnestNode : public PlanNode {
     return ordinalityName_;
   }
 
-  bool withOrdinality() const {
+  bool hasOrdinality() const {
     return ordinalityName_.has_value();
+  }
+
+  const std::optional<std::string>& emptyUnnestValueName() const {
+    return emptyUnnestValueName_;
+  }
+
+  bool hasEmptyUnnestValue() const {
+    return emptyUnnestValueName_.has_value();
   }
 
   std::string_view name() const override {
@@ -4091,6 +4130,7 @@ class UnnestNode : public PlanNode {
   const std::vector<FieldAccessTypedExprPtr> unnestVariables_;
   const std::vector<std::string> unnestNames_;
   const std::optional<std::string> ordinalityName_;
+  const std::optional<std::string> emptyUnnestValueName_;
   const std::vector<PlanNodePtr> sources_;
   RowTypePtr outputType_;
 };

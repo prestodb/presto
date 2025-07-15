@@ -1156,12 +1156,14 @@ UnnestNode::UnnestNode(
     std::vector<FieldAccessTypedExprPtr> unnestVariables,
     std::vector<std::string> unnestNames,
     std::optional<std::string> ordinalityName,
+    std::optional<std::string> emptyUnnestValueName,
     const PlanNodePtr& source)
     : PlanNode(id),
       replicateVariables_{std::move(replicateVariables)},
       unnestVariables_{std::move(unnestVariables)},
       unnestNames_{std::move(unnestNames)},
       ordinalityName_{std::move(ordinalityName)},
+      emptyUnnestValueName_(std::move(emptyUnnestValueName)),
       sources_{source} {
   // Calculate output type. First come "replicate" columns, followed by
   // "unnest" columns, followed by an optional ordinality column.
@@ -1197,6 +1199,12 @@ UnnestNode::UnnestNode(
     names.emplace_back(ordinalityName_.value());
     types.emplace_back(BIGINT());
   }
+
+  if (emptyUnnestValueName_.has_value()) {
+    names.emplace_back(emptyUnnestValueName_.value());
+    types.emplace_back(BOOLEAN());
+  }
+
   outputType_ = ROW(std::move(names), std::move(types));
 }
 
@@ -1212,6 +1220,9 @@ folly::dynamic UnnestNode::serialize() const {
 
   if (ordinalityName_.has_value()) {
     obj["ordinalityName"] = ordinalityName_.value();
+  }
+  if (emptyUnnestValueName_.has_value()) {
+    obj["emptyUnnestValueName"] = emptyUnnestValueName_.value();
   }
   return obj;
 }
@@ -1233,13 +1244,17 @@ PlanNodePtr UnnestNode::create(const folly::dynamic& obj, void* context) {
   if (obj.count("ordinalityName")) {
     ordinalityName = obj["ordinalityName"].asString();
   }
-
+  std::optional<std::string> emptyUnnestValueName = std::nullopt;
+  if (obj.count("emptyUnnestValueName")) {
+    emptyUnnestValueName = obj["emptyUnnestValueName"].asString();
+  }
   return std::make_shared<UnnestNode>(
       deserializePlanNodeId(obj),
       std::move(replicateVariables),
       std::move(unnestVariables),
       std::move(unnestNames),
-      ordinalityName,
+      std::move(ordinalityName),
+      std::move(emptyUnnestValueName),
       std::move(source));
 }
 

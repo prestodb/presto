@@ -867,7 +867,7 @@ TEST_F(PlanNodeBuilderTest, UnnestNode) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->replicateVariables(), replicateVariables);
     EXPECT_EQ(node->unnestVariables(), unnestVariables);
-    EXPECT_TRUE(node->withOrdinality());
+    EXPECT_TRUE(node->hasOrdinality());
     EXPECT_EQ(node->sources()[0], source);
 
     for (int i = 0; i < node->outputType()->size(); ++i) {

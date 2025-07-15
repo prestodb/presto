@@ -48,18 +48,18 @@ class Unnest : public Operator {
   // Represents the range of rows to process and indicates that the first and
   // last rows may need to be processed partially to match the configured output
   // batch size. When processing a single row, the range is from
-  // 'firstRowStart_' to 'lastRowEnd'. For multiple rows, the range for the
-  // first row is from 'firstRowStart_' to 'rawMaxSizes_[firstRow]', and for the
-  // last row, it is from 0 to 'lastRowEnd', unless the last row is processed
-  // fully, in which case' rawMaxSizes_[lastRow]' is used as the end of the last
-  // row.
+  // 'firstInnerRowStart_' to 'lastRowEnd'. For multiple rows, the range for the
+  // first row is from 'firstInnerRowStart_' to 'rawMaxSizes_[firstRow]', and
+  // for the last row, it is from 0 to 'lastRowEnd', unless the last row is
+  // processed fully, in which case' rawMaxSizes_[lastRow]' is used as the end
+  // of the last row.
   //
   // Single row:
-  //    firstRowStart_  firstRowEnd = lastRowEnd
+  //    firstInnerRowStart_  firstRowEnd = lastRowEnd
   //---|----------------|--- start, size = 1
   //
   // Multiple rows:
-  //    firstRowStart_     firstRowEnd = rawMaxSizes_[start]
+  //    firstInnerRowStart_     firstRowEnd = rawMaxSizes_[start]
   //---|-------------------| start
   //-----------------------
   //-----------------------
@@ -72,14 +72,14 @@ class Unnest : public Operator {
     // number in the '[start, start + size)' range, 'start' is the row number to
     // start processing, and 'size' is the number of rows to process..
     // @param rawMaxSizes Used to compute the end of each row.
-    // @param firstRowStart The index to start processing the first row. Same
-    // with Unnest member firstRowStart_.
+    // @param firstInnerRowStart The index to start processing the first row.
+    // Same with Unnest member firstInnerRowStart_.
     void forEachRow(
-        std::function<void(
+        const std::function<void(
             vector_size_t /*row*/,
             vector_size_t /*start*/,
-            vector_size_t /*size*/)> func,
-        const vector_size_t* const rawMaxSizes,
+            vector_size_t /*size*/)>& func,
+        const vector_size_t* rawMaxSizes,
         vector_size_t firstInnerRowStart) const;
 
     // First input row in 'input_' to be included in the output.
@@ -89,13 +89,18 @@ class Unnest : public Operator {
     // 'startInputRow'.
     const vector_size_t numInputRows;
 
-    // The processing of the last input row starts at index 'firstRowStart_' or
-    // 0, depending on whether it is the first row being processed, and ends at
-    // 'lastRowEnd'. It is nullopt when the last row is processed completely.
+    // The processing of the last input row starts at index
+    // 'firstInnerRowStart_' or 0, depending on whether it is the first row
+    // being processed, and ends at 'lastRowEnd'. It is nullopt when the last
+    // row is processed completely.
     const std::optional<vector_size_t> lastInnerRowEnd;
 
     // Total number of inner rows in the range.
     const vector_size_t numInnerRows;
+
+    // True if the range has input row in which all the unnest columns are
+    // either null or empty.
+    const bool hasEmptyUnnestValue;
   };
 
   // Extract the range of rows to process.
@@ -129,19 +134,27 @@ class Unnest : public Operator {
   // Invoked by generateOutput for the ordinality column.
   VectorPtr generateOrdinalityVector(const RowRange& rowRange);
 
+  // Invoked by generateOutput for the empty unnest value column.
+  VectorPtr generateEmptyUnnestValueVector(const RowRange& rowRange);
+
+  // Invoked when finish one input batch processing to reset the internal
+  // execution state for the next batch.
+  void finishInput();
+
   const bool withOrdinality_;
+  const bool withEmptyUnnestValue_;
+  // The maximum number of output batch rows.
+  const vector_size_t maxOutputSize_;
+
   std::vector<column_index_t> unnestChannels_;
 
   std::vector<DecodedVector> unnestDecoded_;
-
-  // The maximum number of output batch rows.
-  const uint32_t maxOutputSize_;
 
   BufferPtr maxSizes_;
   vector_size_t* rawMaxSizes_{nullptr};
 
   // The index to start processing the first row.
-  vector_size_t firstInnerRowStart_ = 0;
+  vector_size_t firstInnerRowStart_{0};
 
   std::vector<const vector_size_t*> rawSizes_;
   std::vector<const vector_size_t*> rawOffsets_;

@@ -429,6 +429,7 @@ core::PlanNodePtr getTraceNode(
         unnestNode->unnestVariables(),
         unnestNode->unnestNames(),
         unnestNode->ordinalityName(),
+        unnestNode->emptyUnnestValueName(),
         std::make_shared<DummySourceNode>(
             unnestNode->sources().front()->outputType()));
   }
