@@ -1112,4 +1112,38 @@ struct StNumInteriorRingFunction {
   }
 };
 
+template <typename T>
+struct StConvexHullFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Geometry>& result, const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    if (geosGeometry->isEmpty() ||
+        geosGeometry->getGeometryTypeId() ==
+            geos::geom::GeometryTypeId::GEOS_POINT) {
+      result = geometry;
+    } else {
+      geospatial::GeometrySerializer::serialize(
+          *(geosGeometry->convexHull()), result);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct StDimensionFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<int8_t>& result, const arg_type<Geometry>& geometry) {
+    result =
+        geospatial::GeometryDeserializer::deserialize(geometry)->getDimension();
+
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions

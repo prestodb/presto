@@ -307,6 +307,14 @@ Accessors
 
     Returns the cardinality of the collection of interior rings of a polygon.
 
+.. function:: ST_ConvexHull(geometry: Geometry) -> output: Geometry
+
+    Returns the minimum convex geometry that encloses all input geometries.
+
+.. function:: ST_Dimension(geometry: Geometry) -> output: tinyint
+
+    Returns the inherent dimension of this geometry object, which must be less than or equal to the coordinate dimension.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

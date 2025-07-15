@@ -179,6 +179,8 @@ int main(int argc, char** argv) {
       "st_interiorringn",
       "st_numinteriorring",
       "st_numgeometries",
+      "st_convexhull",
+      "st_dimension",
       "geometry_invalid_reason",
       "simplify_geometry",
       "st_xmax",
