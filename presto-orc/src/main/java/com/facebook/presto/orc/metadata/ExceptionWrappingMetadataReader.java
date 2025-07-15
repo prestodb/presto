@@ -51,7 +51,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readPostScript(data, offset, length);
         }
-        catch (InvalidProtocolBufferException e) {
+        catch (InvalidProtocolBufferException | IllegalArgumentException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid postscript");
         }
     }
@@ -63,7 +63,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readMetadata(hiveWriterVersion, inputStream);
         }
-        catch (InvalidProtocolBufferException e) {
+        catch (InvalidProtocolBufferException | IllegalArgumentException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid file metadata");
         }
     }
@@ -80,7 +80,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readFooter(hiveWriterVersion, inputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
-        catch (InvalidProtocolBufferException e) {
+        catch (InvalidProtocolBufferException | IllegalArgumentException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid file footer");
         }
     }
@@ -92,7 +92,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readStripeFooter(orcDataSourceId, types, inputStream);
         }
-        catch (InvalidProtocolBufferException e) {
+        catch (InvalidProtocolBufferException | IllegalArgumentException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid stripe footer");
         }
     }
@@ -104,7 +104,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readRowIndexes(hiveWriterVersion, inputStream, bloomFilters);
         }
-        catch (InvalidProtocolBufferException e) {
+        catch (InvalidProtocolBufferException | IllegalArgumentException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid stripe row index");
         }
     }
@@ -116,7 +116,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readBloomFilterIndexes(inputStream);
         }
-        catch (InvalidProtocolBufferException e) {
+        catch (InvalidProtocolBufferException | IllegalArgumentException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid bloom filter");
         }
     }

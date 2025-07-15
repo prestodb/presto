@@ -106,8 +106,16 @@ public class TestExceptionWrappingMetadataReader
 
     private static void assertExceptions(ThrowingRunnable lambda)
     {
+        // RuntimeException should pass through unchanged
         expectThrows(RuntimeException.class, lambda);
+
+        // IOException should pass through unchanged
         expectThrows(IOException.class, lambda);
+
+        // InvalidProtocolBufferException should be wrapped as OrcCorruptionException
+        expectThrows(OrcCorruptionException.class, lambda);
+
+        // IllegalArgumentException should be wrapped as OrcCorruptionException
         expectThrows(OrcCorruptionException.class, lambda);
     }
 
@@ -117,7 +125,8 @@ public class TestExceptionWrappingMetadataReader
         private static final List<Exception> EXCEPTIONS = ImmutableList.of(
                 new RuntimeException("test runtime exception"),
                 new IOException("test io exception"),
-                new InvalidProtocolBufferException("test protobuf exception"));
+                new InvalidProtocolBufferException("test protobuf exception"),
+                new IllegalArgumentException("test illegal argument exception"));
         private int currentExceptionIndex;
 
         private void throwNextException()
