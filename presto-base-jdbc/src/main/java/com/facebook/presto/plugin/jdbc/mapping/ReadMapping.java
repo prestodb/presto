@@ -20,8 +20,10 @@ import com.facebook.presto.plugin.jdbc.mapping.functions.LongReadFunction;
 import com.facebook.presto.plugin.jdbc.mapping.functions.ObjectReadFunction;
 import com.facebook.presto.plugin.jdbc.mapping.functions.SliceReadFunction;
 
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 /*
@@ -77,6 +79,11 @@ public final class ReadMapping
     public ReadFunction getReadFunction()
     {
         return readFunction;
+    }
+
+    public static ReadMapping varbinaryReadMapping()
+    {
+        return createSliceReadMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)));
     }
 
     @Override
