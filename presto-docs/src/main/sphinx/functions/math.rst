@@ -62,9 +62,11 @@ Mathematical Functions
 
 .. function:: dot_product(x, y) -> double
 
-    Returns the dot product of two vectors ``x`` and ``y``::
+    Returns the dot product of two vectors ``x`` and ``y``, and returns ``null`` if either vector contains a ``null`` value::
 
         SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[null, 4.0]); -- null
 
 .. function:: degrees(x) -> double
 
@@ -298,7 +300,7 @@ Probability Functions: inverse_cdf
 
 .. function:: inverse_f_cdf(df1, df2, p) -> double
 
-    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters
+    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters 
     for the cumulative probability (p): P(N < n). The numerator and denominator df parameters must be positive real numbers.
     The probability p must lie on the interval [0, 1].
 
