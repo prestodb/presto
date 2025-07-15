@@ -47,13 +47,18 @@ class TpchTableHandle : public ConnectorTableHandle {
       double scaleFactor = 1.0)
       : ConnectorTableHandle(std::move(connectorId)),
         table_(table),
-        scaleFactor_(scaleFactor) {
+        scaleFactor_(scaleFactor),
+        name_(velox::tpch::toTableName(table)) {
     VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   }
 
   ~TpchTableHandle() override {}
 
   std::string toString() const override;
+
+  const std::string& name() const override {
+    return name_;
+  }
 
   velox::tpch::Table getTable() const {
     return table_;
@@ -66,6 +71,7 @@ class TpchTableHandle : public ConnectorTableHandle {
  private:
   const velox::tpch::Table table_;
   double scaleFactor_;
+  std::string name_;
 };
 
 class TpchDataSource : public DataSource {
