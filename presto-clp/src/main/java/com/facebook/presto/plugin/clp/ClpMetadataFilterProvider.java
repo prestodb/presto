@@ -85,6 +85,10 @@ public class ClpMetadataFilterProvider
     {
         requireNonNull(config, "config is null");
 
+        if (null == config.getMetadataFilterConfig()) {
+            filterMap = ImmutableMap.of();
+            return;
+        }
         ObjectMapper mapper = new ObjectMapper();
         try {
             filterMap = mapper.readValue(

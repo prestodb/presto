@@ -26,8 +26,10 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Set;
 
+import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestClpMetadataFilterConfig
@@ -72,6 +74,22 @@ public class TestClpMetadataFilterConfig
         assertEquals(ImmutableSet.of("level", "author"), schemaFilterNames);
         Set<String> tableFilterNames = filterProvider.getColumnNames("clp.default.table_1");
         assertEquals(ImmutableSet.of("level", "author", "msg.timestamp", "file_name"), tableFilterNames);
+    }
+
+    @Test
+    public void handleEmptyAndInvalidMetadataFilterConfig()
+    {
+        ClpConfig config = new ClpConfig();
+
+        // Empty config
+        ClpMetadataFilterProvider filterProvider = new ClpMetadataFilterProvider(config);
+        assertTrue(filterProvider.getColumnNames("clp").isEmpty());
+        assertTrue(filterProvider.getColumnNames("abc.xyz").isEmpty());
+        assertTrue(filterProvider.getColumnNames("abc.opq.xyz").isEmpty());
+
+        // Invalid config
+        config.setMetadataFilterConfig(randomUUID().toString());
+        assertThrows(PrestoException.class, () -> new ClpMetadataFilterProvider(config));
     }
 
     @Test
