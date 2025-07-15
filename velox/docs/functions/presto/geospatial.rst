@@ -290,6 +290,23 @@ Accessors
     is not a polygon. Use ``:func:ST_NumInteriorRing`` to find out the total number of
     elements.
 
+.. function:: ST_NumGeometries(geometry: Geometry) -> output: integer
+
+    Returns the number of geometries in the collection. If the geometry is a
+    collection of geometries (e.g., GeometryCollection or Multi*),
+    returns the number of geometries, for single geometries returns 1,
+    for empty geometries returns 0. Note that empty geometries inside of a
+    GeometryCollection will count as a geometry if and only if there is at
+    least 1 non-empty geometry in the collection. e.g.
+    ``ST_NumGeometries(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT EMPTY)'))``
+    will evaluate to 0, but
+    ``ST_NumGeometries(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT EMPTY, POINT (1 2))'))``
+    will evaluate to 1.
+
+.. function:: ST_NumInteriorRing(geometry: Geometry) -> output: integer
+
+    Returns the cardinality of the collection of interior rings of a polygon.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

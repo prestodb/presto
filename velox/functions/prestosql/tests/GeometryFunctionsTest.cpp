@@ -1960,3 +1960,66 @@ TEST_F(GeometryFunctionsTest, testStInteriorRingN) {
       testStInteriorRingNFunc("POINT EMPTY", 0, std::nullopt),
       "ST_InteriorRingN only applies to Polygon. Input type is: Point");
 }
+
+TEST_F(GeometryFunctionsTest, testStNumInteriorRing) {
+  const auto testStNumInteriorRingFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<int32_t>& expected) {
+        std::optional<int32_t> result = evaluateOnce<int32_t>(
+            "ST_NumInteriorRing(ST_GeometryFromText(c0))", wkt);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testStNumInteriorRingFunc("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", 0);
+  testStNumInteriorRingFunc(
+      "POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))", 1);
+  testStNumInteriorRingFunc("POLYGON EMPTY", std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testStNumInteriorRingFunc("LINESTRING (8 4, 5 7)", std::nullopt),
+      "ST_NumInteriorRing only applies to Polygon. Input type is: LineString");
+}
+
+TEST_F(GeometryFunctionsTest, testStNumGeometries) {
+  const auto testStNumGeometriesFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<int32_t>& expected) {
+        std::optional<int32_t> result = evaluateOnce<int32_t>(
+            "ST_NumGeometries(ST_GeometryFromText(c0))", wkt);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  // GeometryCollections with only empty geometries always return 0
+  testStNumGeometriesFunc("GEOMETRYCOLLECTION (POINT EMPTY, POINT EMPTY)", 0);
+  testStNumGeometriesFunc("GEOMETRYCOLLECTION (POINT EMPTY)", 0);
+  // GeometryCollections with at least 1 non-empty geometry return the number of
+  // geometries
+  testStNumGeometriesFunc("GEOMETRYCOLLECTION(POINT EMPTY, POINT (1 2))", 2);
+
+  testStNumGeometriesFunc("POINT EMPTY", 0);
+  testStNumGeometriesFunc("GEOMETRYCOLLECTION EMPTY", 0);
+  testStNumGeometriesFunc("MULTIPOLYGON EMPTY", 0);
+  testStNumGeometriesFunc("POINT (1 2)", 1);
+  testStNumGeometriesFunc(
+      "LINESTRING(77.29 29.07,77.42 29.26,77.27 29.31,77.29 29.07)", 1);
+  testStNumGeometriesFunc("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", 1);
+  testStNumGeometriesFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 4);
+  testStNumGeometriesFunc("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 2);
+  testStNumGeometriesFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      2);
+  testStNumGeometriesFunc(
+      "GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 2);
+}

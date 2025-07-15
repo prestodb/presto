@@ -113,6 +113,10 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_GeometryN"}});
   registerFunction<StInteriorRingNFunction, Geometry, Geometry, int32_t>(
       {{prefix + "ST_InteriorRingN"}});
+  registerFunction<StNumGeometriesFunction, int32_t, Geometry>(
+      {{prefix + "ST_NumGeometries"}});
+  registerFunction<StNumInteriorRingFunction, int32_t, Geometry>(
+      {{prefix + "ST_NumInteriorRing"}});
 }
 
 } // namespace
