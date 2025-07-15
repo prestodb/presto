@@ -13,14 +13,21 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.airlift.log.Level;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TestPrestoSparkNativeGeneralQueries
         extends AbstractTestNativeGeneralQueries
 {
+    private static final Logging logging = Logging.initialize();
+
     @Override
     protected QueryRunner createQueryRunner()
     {
@@ -32,6 +39,26 @@ public class TestPrestoSparkNativeGeneralQueries
             throws Exception
     {
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+    }
+
+    @Override
+    public void testUnicodeInJson()
+    {
+        // Suppress the logging for large volume of query text to avoid console hangs.
+        List<String> suppressLogList = new ArrayList<>();
+        suppressLogList.add("com.facebook.presto.spark.execution.PrestoSparkStaticQueryExecution");
+        suppressLogList.add("com.facebook.presto.spark.PrestoSparkQueryExecutionFactory");
+        try {
+            for (String logLocation : suppressLogList) {
+                logging.setLevel(logLocation, Level.WARN);
+            }
+            super.testUnicodeInJson();
+        }
+        finally {
+            for (String logLocation : suppressLogList) {
+                logging.setLevel(logLocation, Level.INFO);
+            }
+        }
     }
 
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)

@@ -1827,17 +1827,17 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testUnicodeInJson()
     {
-        // Test casting to JSON returning the same results for all unicode characters in the entire range.
-        List<int[]> unicodeRanges = new ArrayList<int[]>()
-        {{
-                add(new int[] {0, 0x7F});
-                add(new int[] {0x80, 0xD7FF});
-                add(new int[] {0xE000, 0xFFFF});
-            }};
-        for (int start = 0x10000; start < 0x110000; ) {
-            int end = start + 0x10000;
-            unicodeRanges.add(new int[] {start, end - 1});
-            start = end;
+        // Test casting to JSON returning the same results for all unicode characters in the
+        // entire range.
+        List<int[]> unicodeRanges = new ArrayList<int[]>() {
+            {
+                add(new int[]{0, 0x7F});
+                add(new int[]{0x80, 0xD7FF});
+                add(new int[]{0xE000, 0xFFFF});
+            }
+        };
+        for (int start = 0x10000; start < 0x110000; start += 0x10000) {
+            unicodeRanges.add(new int[]{start, start + 0xFFFF});
         }
         List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
             StringBuilder unicodeString = new StringBuilder();
@@ -1868,7 +1868,8 @@ public abstract class AbstractTestNativeGeneralQueries
         }).collect(ImmutableList.toImmutableList());
 
         for (String unicodeString : unicodeStrings) {
-            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)", unicodeString));
+            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)",
+                    unicodeString));
         }
     }
 
