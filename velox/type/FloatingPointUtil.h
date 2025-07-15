@@ -162,6 +162,6 @@ struct HashMapNaNAwareTypeTraits<double, Mapped, Alloc> {
 class DoubleUtil {
  public:
   static const std::array<double, 309> kPowersOfTen;
+};
 
-}; // DoubleUtil
 } // namespace facebook::velox

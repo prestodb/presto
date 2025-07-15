@@ -26,9 +26,9 @@ template <typename T>
 void testFloatingPoint() {
   using namespace util::floating_point;
 
-  static const T kNaN = std::numeric_limits<T>::quiet_NaN();
-  static const T kSNAN = std::numeric_limits<T>::signaling_NaN();
-  static const T kInf = std::numeric_limits<T>::infinity();
+  static constexpr T kNaN = std::numeric_limits<T>::quiet_NaN();
+  static constexpr T kSNAN = std::numeric_limits<T>::signaling_NaN();
+  static constexpr T kInf = std::numeric_limits<T>::infinity();
 
   ASSERT_TRUE(NaNAwareEquals<T>{}(kNaN, kNaN));
   ASSERT_TRUE(NaNAwareEquals<T>{}(kNaN, kSNAN));
@@ -64,11 +64,30 @@ void testFloatingPoint() {
   ASSERT_EQ(NaNAwareHash<T>{}(kInf), NaNAwareHash<T>{}(kInf));
   ASSERT_NE(NaNAwareHash<T>{}(kNaN), NaNAwareHash<T>{}(kInf));
   ASSERT_NE(NaNAwareHash<T>{}(kNaN), NaNAwareHash<T>{}(0.0));
+
+  HashSetNaNAware<T> set;
+  set.insert(kNaN);
+  set.insert(kSNAN);
+  ASSERT_EQ(set.size(), 1);
+  ASSERT_TRUE(NaNAwareEquals<T>{}(*set.begin(), kSNAN));
+  ASSERT_TRUE(NaNAwareEquals<T>{}(*set.begin(), kNaN));
+  ASSERT_NE(*set.begin(), kNaN);
+  ASSERT_NE(*set.begin(), kSNAN);
+
+  typename HashMapNaNAwareTypeTraits<
+      T,
+      int32_t,
+      folly::f14::DefaultAlloc<std::pair<const T, int32_t>>>::Type map;
+  map[kNaN] = 1;
+  map[kSNAN] = 2;
+  ASSERT_EQ(map.size(), 1);
+  ASSERT_EQ(map[kNaN], 2);
+  ASSERT_EQ(map[kSNAN], 2);
 }
+} // namespace
 
 TEST(FloatingPointUtilTest, basic) {
   testFloatingPoint<float>();
   testFloatingPoint<double>();
 }
-} // namespace
 } // namespace facebook::velox
