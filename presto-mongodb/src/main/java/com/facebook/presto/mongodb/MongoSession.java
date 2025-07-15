@@ -644,4 +644,22 @@ public class MongoSession
 
         tableCache.invalidate(table.getSchemaTableName());
     }
+
+    public long deleteDocuments(SchemaTableName schemaTableName, Optional<TupleDomain<ColumnHandle>> constraint)
+    {
+        Document filter = new Document();
+
+        if (constraint.isPresent()) {
+            filter = buildQuery(constraint.get());
+        }
+        else {
+            log.debug("Executing DELETE without WHERE clause on {}", schemaTableName);
+        }
+
+        DeleteResult result = getCollection(schemaTableName).deleteMany(filter);
+
+        log.debug("Deleted {} documents from {} with filter keys: {}", result.getDeletedCount(), schemaTableName, filter.keySet());
+
+        return result.getDeletedCount();
+    }
 }
