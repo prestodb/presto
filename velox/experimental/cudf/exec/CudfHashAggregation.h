@@ -32,6 +32,7 @@ class CudfHashAggregation : public exec::Operator, public NvtxHelper {
     cudf::aggregation::Kind kind;
     uint32_t inputIndex;
     VectorPtr constant;
+    TypePtr resultType;
 
     virtual void addGroupbyRequest(
         cudf::table_view const& tbl,
@@ -52,12 +53,14 @@ class CudfHashAggregation : public exec::Operator, public NvtxHelper {
         cudf::aggregation::Kind kind,
         uint32_t inputIndex,
         VectorPtr constant,
-        bool isGlobal)
+        bool isGlobal,
+        const TypePtr& _resultType)
         : step(step),
           is_global(isGlobal),
           kind(kind),
           inputIndex(inputIndex),
-          constant(constant) {}
+          constant(constant),
+          resultType(_resultType) {}
   };
 
   CudfHashAggregation(

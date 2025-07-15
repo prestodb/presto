@@ -34,12 +34,22 @@ struct PrecomputeInstruction {
   int dependent_column_index;
   std::string ins_name;
   int new_column_index;
+  std::vector<int> nested_dependent_column_indices;
 
   // Constructor to initialize the struct with values
   PrecomputeInstruction(int depIndex, const std::string& name, int newIndex)
       : dependent_column_index(depIndex),
         ins_name(name),
         new_column_index(newIndex) {}
+  PrecomputeInstruction(
+      int depIndex,
+      const std::string& name,
+      int newIndex,
+      const std::vector<int>& nestedIndices)
+      : dependent_column_index(depIndex),
+        ins_name(name),
+        new_column_index(newIndex),
+        nested_dependent_column_indices(nestedIndices) {}
 };
 
 cudf::ast::expression const& createAstTree(

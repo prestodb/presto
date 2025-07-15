@@ -16,6 +16,7 @@
 
 #include "velox/experimental/cudf/exec/CudfFilterProject.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 #include "velox/experimental/cudf/vector/CudfVector.h"
 
 #include "velox/expression/Expr.h"
@@ -23,6 +24,7 @@
 #include <cudf/aggregation.hpp>
 #include <cudf/reduction.hpp>
 #include <cudf/stream_compaction.hpp>
+#include <cudf/unary.hpp>
 
 #include <unordered_map>
 
@@ -190,6 +192,16 @@ std::vector<std::unique_ptr<cudf::column>> CudfFilterProject::project(
     }
     VELOX_CHECK_GT(inputChannelCount[identity.inputChannel], 0);
     inputChannelCount[identity.inputChannel]--;
+  }
+
+  for (auto i = 0; i < outputColumns.size(); ++i) {
+    const auto cudfOutputType =
+        cudf::data_type(cudf_velox::veloxToCudfTypeId(outputType_->childAt(i)));
+
+    if (outputColumns[i]->type() != cudfOutputType) {
+      outputColumns[i] =
+          cudf::cast(*(outputColumns[i]), cudfOutputType, stream);
+    }
   }
 
   return outputColumns;

@@ -162,3 +162,7 @@ target_link_libraries(
   gtest_main)
 
 add_subdirectory(utils)
+
+if(${VELOX_ENABLE_SPARK_FUNCTIONS})
+  add_subdirectory(sparksql)
+endif()
