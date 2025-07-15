@@ -1645,13 +1645,18 @@ public final class MathFunctions
 
     @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
     @ScalarFunction("l2_squared")
+    @SqlNullable
     @SqlType(StandardTypes.REAL)
-    public static long arrayL2Squared(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
+    public static Long arrayL2Squared(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
     {
         checkCondition(
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
+
+        if (arraysHaveNull(leftArray, rightArray)) {
+            return null;
+        }
 
         float sum = 0.0f;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
@@ -1661,13 +1666,14 @@ public final class MathFunctions
             sum += diff * diff;
         }
 
-        return floatToRawIntBits(sum);
+        return (long) floatToRawIntBits(sum);
     }
 
     @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
     @ScalarFunction("l2_squared")
+    @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
-    public static double arrayL2SquaredDouble(
+    public static Double arrayL2SquaredDouble(
             @SqlType("array(double)") Block leftArray,
             @SqlType("array(double)") Block rightArray)
     {
@@ -1675,6 +1681,11 @@ public final class MathFunctions
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
+
+        if (arraysHaveNull(leftArray, rightArray)) {
+            return null;
+        }
+
         double sum = 0.0;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
             double left = DOUBLE.getDouble(leftArray, i);
@@ -1743,6 +1754,17 @@ public final class MathFunctions
         }
 
         return Math.sqrt(norm);
+    }
+
+    private static boolean arraysHaveNull(Block leftArray, Block rightArray)
+    {
+        boolean hasNull = false;
+        if (leftArray.mayHaveNull() || rightArray.mayHaveNull()) {
+            for (int i = 0; i < leftArray.getPositionCount(); i++) {
+                hasNull = hasNull | leftArray.isNull(i) | rightArray.isNull(i);
+            }
+        }
+        return hasNull;
     }
 
     @Description("factorial of a given integer in the range of 0 to 20")

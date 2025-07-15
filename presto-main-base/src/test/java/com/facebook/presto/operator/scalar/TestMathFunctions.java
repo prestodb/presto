@@ -1405,6 +1405,14 @@ public class TestMathFunctions
         assertFunction("cosine_similarity(array [], null)",
                 DOUBLE,
                 null);
+
+        assertFunction(
+                "cosine_similarity(array[1.0, null, 3.0], array[1.0, 2.0, 3.0])",
+                DOUBLE, null);
+
+        assertFunction(
+                "cosine_similarity(array[1.0, null, 3.0], array[1.0, 2.0, 3.0])",
+                DOUBLE, null);
     }
 
     @Test
@@ -1434,6 +1442,12 @@ public class TestMathFunctions
         assertFunction(
                 "l2_squared(CAST(null AS array(real)), CAST(null AS array(real)))",
                 REAL, null);
+        assertFunction(
+                "l2_squared(array[REAL '1.0', null, REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, null);
+        assertFunction(
+                "l2_squared(array[REAL '1.0', null, REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, null);
     }
 
     @Test
@@ -1462,6 +1476,12 @@ public class TestMathFunctions
                 DOUBLE, null);
         assertFunction(
                 "l2_squared(CAST(null AS array(double)), CAST(null AS array(double)))",
+                DOUBLE, null);
+        assertFunction(
+                "l2_squared(array[DOUBLE '1.0', null, DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, null);
+        assertFunction(
+                "l2_squared(array[DOUBLE '1.0', null, DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
                 DOUBLE, null);
     }
 
