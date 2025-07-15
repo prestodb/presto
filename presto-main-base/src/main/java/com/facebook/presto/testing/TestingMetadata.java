@@ -324,6 +324,15 @@ public class TestingMetadata
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
     public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());

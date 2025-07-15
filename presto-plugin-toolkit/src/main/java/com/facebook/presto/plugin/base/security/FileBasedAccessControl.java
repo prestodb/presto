@@ -46,6 +46,7 @@ import static com.facebook.presto.plugin.base.security.TableAccessControlRule.Ta
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAlterColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -257,6 +258,14 @@ public class FileBasedAccessControl
         }
         if (!checkTablePermission(identity, tableName, GRANT_SELECT)) {
             denyCreateViewWithSelect(tableName.toString(), identity);
+        }
+    }
+
+    @Override
+    public void checkCanAlterColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyAlterColumn(tableName.toString());
         }
     }
 
