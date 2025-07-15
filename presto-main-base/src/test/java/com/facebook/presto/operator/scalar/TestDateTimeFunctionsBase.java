@@ -1226,10 +1226,23 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("parse_duration('1234.567h')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(51, 10, 34, 1, 200));
         assertFunction("parse_duration('1234.567d')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1234, 13, 36, 28, 800));
 
+        // trailing spaces
+        assertFunction("parse_duration('1234 ns ')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 0));
+        assertFunction("parse_duration('1234 us ')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 0, 1));
+        assertFunction("parse_duration('1234ms ')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(0, 0, 0, 1, 234));
+
         // invalid function calls
         assertInvalidFunction("parse_duration('')", "duration is empty");
         assertInvalidFunction("parse_duration('1f')", "Unknown time unit: f");
         assertInvalidFunction("parse_duration('abc')", "duration is not a valid data duration string: abc");
+
+        // long milliseconds edge cases
+        assertFunction("parse_duration('7702741401940153ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(89152099, 13, 25, 40, 153));
+        assertFunction("parse_duration('9117756383778565ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(105529587, 18, 36, 18, 565));
+
+        // Test precision for large values with fractional seconds
+        assertFunction("parse_duration('7702741401940.153s')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(89152099, 13, 25, 40, 153));
+        assertFunction("parse_duration('7702741401940.153 s')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(89152099, 13, 25, 40, 153));
     }
 
     @Test
