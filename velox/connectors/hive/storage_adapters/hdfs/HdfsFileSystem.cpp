@@ -216,4 +216,36 @@ void HdfsFileSystem::mkdir(
       impl_->hdfsShim()->GetLastExceptionRootCause());
 }
 
+void HdfsFileSystem::rename(
+    std::string_view path,
+    std::string_view newPath,
+    bool overWrite) {
+  VELOX_CHECK_EQ(
+      overWrite, false, "HdfsFileSystem::rename doesn't support overwrite");
+  // Only remove the scheme for hdfs path.
+  if (path.find(kScheme) == 0) {
+    path.remove_prefix(kScheme.length());
+    if (auto index = path.find('/')) {
+      path.remove_prefix(index);
+    }
+  }
+
+  // Only remove the scheme for hdfs path.
+  if (newPath.find(kScheme) == 0) {
+    newPath.remove_prefix(kScheme.length());
+    if (auto index = newPath.find('/')) {
+      newPath.remove_prefix(index);
+    }
+  }
+
+  VELOX_CHECK_EQ(
+      impl_->hdfsShim()->Rename(
+          impl_->hdfsClient(), path.data(), newPath.data()),
+      0,
+      "Cannot rename file from {} to {} in HDFS, error is : {}",
+      path,
+      newPath,
+      impl_->hdfsShim()->GetLastExceptionRootCause());
+}
+
 } // namespace facebook::velox::filesystems

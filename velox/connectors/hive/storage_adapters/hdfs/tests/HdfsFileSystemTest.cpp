@@ -36,6 +36,8 @@ using filesystems::arrow::io::internal::LibHdfsShim;
 
 constexpr int kOneMB = 1 << 20;
 static const std::string kDestinationPath = "/test_file.txt";
+static const std::string kRenamePath = "/rename_file.txt";
+static const std::string kRenameNewPath = "/rename_new_file.txt";
 static const std::string kSimpleDestinationPath = "hdfs://" + kDestinationPath;
 static const std::string kViewfsDestinationPath =
     "viewfs://" + kDestinationPath;
@@ -50,6 +52,7 @@ class HdfsFileSystemTest : public testing::Test {
       miniCluster->start();
       auto tempFile = createFile();
       miniCluster->addFile(tempFile->getPath(), kDestinationPath);
+      miniCluster->addFile(tempFile->getPath(), kRenamePath);
     }
     configurationValues.insert(
         {"hive.hdfs.host", std::string(miniCluster->host())});
@@ -210,6 +213,18 @@ TEST_F(HdfsFileSystemTest, read) {
       std::string(miniCluster->nameNodePort()));
   HdfsReadFile readFile(driver, hdfs, kDestinationPath);
   readData(&readFile);
+}
+
+TEST_F(HdfsFileSystemTest, rename) {
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem =
+      filesystems::getFileSystem(fullDestinationPath_, config);
+
+  ASSERT_TRUE(hdfsFileSystem->exists(kRenamePath));
+  hdfsFileSystem->rename(kRenamePath, kRenameNewPath);
+  ASSERT_FALSE(hdfsFileSystem->exists(kRenamePath));
+  ASSERT_TRUE(hdfsFileSystem->exists(kRenameNewPath));
 }
 
 TEST_F(HdfsFileSystemTest, viaFileSystem) {
