@@ -29,7 +29,10 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -329,5 +332,25 @@ public class TestMongoIntegrationSmokeTest
                 "Can't convert json to MongoDB Document.*");
 
         assertUpdate("DROP TABLE test_json");
+    }
+
+    @Test
+    public void testDeleteDocuments()
+    {
+        assertUpdate("CREATE TABLE test_delete.tmp_delete_rows (value bigint)");
+        MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("test_delete").getCollection("tmp_delete_rows");
+        List<Document> documents = new ArrayList<>();
+        for (int i = 1; i <= 100; i++) {
+            documents.add(new Document(Collections.singletonMap("value", i)));
+        }
+        collection.insertMany(documents);
+        assertQuery("SELECT count(*) FROM test_delete.tmp_delete_rows", "SELECT 100");
+
+        assertUpdate("DELETE FROM test_delete.tmp_delete_rows WHERE value = 100", 1);
+        assertUpdate("DELETE FROM test_delete.tmp_delete_rows WHERE value > 90", 9);
+        assertUpdate("DELETE FROM test_delete.tmp_delete_rows WHERE value IN (SELECT value FROM test_delete.tmp_delete_rows WHERE value > 80)", 10);
+        assertQueryFails("DELETE FROM test_delete.tmp_delete_rows WHERE value = (SELECT MAX(value) FROM test_delete.tmp_delete_rows)", "This connector does not support complex deletes");
+        assertUpdate("DELETE FROM test_delete.tmp_delete_rows", 80);
+        assertQuery("SELECT count(*) FROM test_delete.tmp_delete_rows", "SELECT 0");
     }
 }
