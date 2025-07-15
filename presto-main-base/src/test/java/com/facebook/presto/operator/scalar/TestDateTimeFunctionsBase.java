@@ -1230,6 +1230,10 @@ public abstract class TestDateTimeFunctionsBase
         assertInvalidFunction("parse_duration('')", "duration is empty");
         assertInvalidFunction("parse_duration('1f')", "Unknown time unit: f");
         assertInvalidFunction("parse_duration('abc')", "duration is not a valid data duration string: abc");
+
+        // long milliseconds edge cases
+        assertFunction("parse_duration('7702741401940153ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(89152099, 13, 25, 40, 153));
+        assertFunction("parse_duration('9117756383778565ms')", INTERVAL_DAY_TIME, new SqlIntervalDayTime(105529587, 18, 36, 18, 565));
     }
 
     @Test

@@ -1437,8 +1437,32 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long parseDuration(@SqlType("varchar(x)") Slice duration)
     {
+        String durationStr = duration.toStringUtf8();
+
+        // Special handling for large millisecond values to avoid precision loss
+        if ((durationStr.endsWith("ms") && !durationStr.contains(" ")) ||
+                (durationStr.endsWith(" ms"))) {
+            try {
+                // Extract the numeric part
+                String numericPart;
+                if (durationStr.endsWith(" ms")) {
+                    numericPart = durationStr.substring(0, durationStr.length() - 3).trim();
+                }
+                else {
+                    numericPart = durationStr.substring(0, durationStr.length() - 2);
+                }
+
+                // Try to parse as long (only works for integer values)
+                long milliseconds = Long.parseLong(numericPart);
+                return milliseconds;
+            }
+            catch (NumberFormatException e) {
+                // Fall back to Duration.valueOf() for decimal values or invalid formats
+            }
+        }
+
         try {
-            return Duration.valueOf(duration.toStringUtf8()).toMillis();
+            return Duration.valueOf(durationStr).toMillis();
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
