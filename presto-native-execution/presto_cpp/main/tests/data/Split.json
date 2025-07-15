@@ -5,8 +5,6 @@
         "nodeSelectionStrategy": "NO_PREFERENCE",
         "addresses": [],
         "database": "tpch",
-        "fileSize": 396036393,
-        "length": 33554432,
         "partitionDataColumnCount": 148,
         "cacheQuota": {"cacheQuotaScope": "TABLE"},
         "fileSplit": {

@@ -12,7 +12,5 @@
  * limitations under the License.
  */
 
-void toThrift(const facebook::presto::protocol::Split& split, SplitWrapper& thriftSplitWrapper);
-void toThrift(const facebook::presto::protocol::Split& split, std::string& thriftSplit);
-void fromThrift(const SplitWrapper& thriftSplitWrapper, facebook::presto::protocol::Split& split);
-void fromThrift(const std::string& thriftSplit, facebook::presto::protocol::Split& split);
+void toThrift(const std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>& proto, ConnectorTransactionHandleWrapper& thrift);
+void fromThrift(const ConnectorTransactionHandleWrapper& thrift, std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>& proto);
