@@ -15,6 +15,7 @@
 add_executable(
   velox_core_test
   ConstantTypedExprTest.cpp
+  FilterToExpressionTest.cpp
   PlanFragmentTest.cpp
   PlanNodeTest.cpp
   QueryConfigTest.cpp

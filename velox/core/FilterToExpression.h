@@ -21,6 +21,22 @@
 #include "velox/type/Subfield.h"
 
 namespace facebook::velox::core {
+/// Converts a Filter object to a TypedExpr object that can be used in Velox's
+/// expression evaluation system.
+///
+/// This function takes a filter that applies to a specific subfield and
+/// converts it to an equivalent expression tree.
+///
+/// @param subfield The subfield to which the filter applies. This is used to
+///                 create the base expression that the filter condition will
+///                 be applied to.
+/// @param filter The filter to convert. This can be any subclass of Filter,
+///               such as AlwaysTrue, IsNull, BigintRange, BytesValues, etc.
+/// @param rowType The row type that contains the subfield. This is used to
+///                resolve the subfield path and determine its type.
+/// @param pool Memory pool to use for allocations.
+/// @return A TypedExpr object representing the filter condition applied to
+///         the subfield.
 core::TypedExprPtr filterToExpr(
     const common::Subfield& subfield,
     const common::Filter* filter,

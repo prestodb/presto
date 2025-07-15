@@ -19,6 +19,21 @@
 
 namespace facebook::velox::core {
 
+// Helper function to create a boolean expression from a vector of conditions.
+// If conditions is empty, returns a constant TRUE.
+// If conditions has one element, returns that element.
+// Otherwise, returns an AND expression combining all conditions.
+core::TypedExprPtr createBooleanExpr(
+    const std::vector<TypedExprPtr>& conditions) {
+  if (conditions.empty()) {
+    return std::make_shared<ConstantTypedExpr>(BOOLEAN(), variant(true));
+  } else if (conditions.size() == 1) {
+    return conditions[0];
+  } else {
+    return std::make_shared<CallTypedExpr>(BOOLEAN(), conditions, "and");
+  }
+}
+
 core::TypedExprPtr getTypedExprFromSubfield(
     const common::Subfield& subfield,
     const RowTypePtr& rowType) {
@@ -92,7 +107,340 @@ core::TypedExprPtr filterToExpr(
     const RowTypePtr& rowType,
     memory::MemoryPool* pool) {
   auto subfieldExpr = getTypedExprFromSubfield(subfield, rowType);
-  // TODO add logic to handle filter using subfieldExpr along with pool;
-  return subfieldExpr;
+
+  // Handle different filter types
+  switch (filter->kind()) {
+    case common::FilterKind::kAlwaysFalse:
+      return std::make_shared<ConstantTypedExpr>(BOOLEAN(), variant(false));
+
+    case common::FilterKind::kAlwaysTrue:
+      return std::make_shared<ConstantTypedExpr>(BOOLEAN(), variant(true));
+
+    case common::FilterKind::kIsNull:
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr}, "is_null");
+
+    case common::FilterKind::kIsNotNull:
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr}, "is_not_null");
+
+    case common::FilterKind::kBoolValue: {
+      auto boolFilter = static_cast<const common::BoolValue*>(filter);
+      auto boolValue = std::make_shared<ConstantTypedExpr>(
+          BOOLEAN(), variant(boolFilter->testBool(true)));
+
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, boolValue}, "eq");
+    }
+
+    case common::FilterKind::kBigintRange: {
+      auto rangeFilter = static_cast<const common::BigintRange*>(filter);
+      auto lower = std::make_shared<ConstantTypedExpr>(
+          BIGINT(), variant(rangeFilter->lower()));
+      auto upper = std::make_shared<ConstantTypedExpr>(
+          BIGINT(), variant(rangeFilter->upper()));
+
+      if (rangeFilter->lower() == rangeFilter->upper()) {
+        // Single value comparison
+        return std::make_shared<CallTypedExpr>(
+            BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "eq");
+      } else {
+        // Range comparison
+        auto greaterOrEqual = std::make_shared<CallTypedExpr>(
+            BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "gte");
+
+        auto lessOrEqual = std::make_shared<CallTypedExpr>(
+            BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, upper}, "lte");
+
+        return std::make_shared<CallTypedExpr>(
+            BOOLEAN(),
+            std::vector<TypedExprPtr>{greaterOrEqual, lessOrEqual},
+            "and");
+      }
+    }
+
+    case common::FilterKind::kNegatedBigintRange: {
+      // Create a BigintRange filter with the same bounds
+      auto rangeFilter = static_cast<const common::NegatedBigintRange*>(filter);
+      auto bigintRangeFilter = std::make_shared<common::BigintRange>(
+          rangeFilter->lower(), rangeFilter->upper(), false);
+
+      // Reuse the BigintRange logic and wrap it in a NOT operation
+      auto rangeExpr =
+          filterToExpr(subfield, bigintRangeFilter.get(), rowType, pool);
+
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{rangeExpr}, "not");
+    }
+
+    case common::FilterKind::kDoubleRange: {
+      auto doubleFilter = static_cast<const common::DoubleRange*>(filter);
+      TypePtr numericType = DOUBLE();
+
+      std::vector<TypedExprPtr> conditions;
+
+      if (!doubleFilter->lowerUnbounded()) {
+        auto lower = std::make_shared<ConstantTypedExpr>(
+            numericType, variant(doubleFilter->lower()));
+
+        if (doubleFilter->lowerExclusive()) {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "gt"));
+        } else {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(),
+              std::vector<TypedExprPtr>{subfieldExpr, lower},
+              "gte"));
+        }
+      }
+
+      if (!doubleFilter->upperUnbounded()) {
+        auto upper = std::make_shared<ConstantTypedExpr>(
+            numericType, variant(doubleFilter->upper()));
+
+        if (doubleFilter->upperExclusive()) {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, upper}, "lt"));
+        } else {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(),
+              std::vector<TypedExprPtr>{subfieldExpr, upper},
+              "lte"));
+        }
+      }
+
+      return createBooleanExpr(conditions);
+    }
+
+    case common::FilterKind::kFloatRange: {
+      auto floatFilter = static_cast<const common::FloatRange*>(filter);
+      TypePtr numericType = REAL();
+
+      std::vector<TypedExprPtr> conditions;
+
+      if (!floatFilter->lowerUnbounded()) {
+        auto lower = std::make_shared<ConstantTypedExpr>(
+            numericType, variant(floatFilter->lower()));
+
+        if (floatFilter->lowerExclusive()) {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "gt"));
+        } else {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(),
+              std::vector<TypedExprPtr>{subfieldExpr, lower},
+              "gte"));
+        }
+      }
+
+      if (!floatFilter->upperUnbounded()) {
+        auto upper = std::make_shared<ConstantTypedExpr>(
+            numericType, variant(floatFilter->upper()));
+
+        if (floatFilter->upperExclusive()) {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, upper}, "lt"));
+        } else {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(),
+              std::vector<TypedExprPtr>{subfieldExpr, upper},
+              "lte"));
+        }
+      }
+
+      return createBooleanExpr(conditions);
+    }
+
+    case common::FilterKind::kBytesRange: {
+      auto bytesFilter = static_cast<const common::BytesRange*>(filter);
+
+      std::vector<TypedExprPtr> conditions;
+
+      if (!bytesFilter->isLowerUnbounded()) {
+        auto lower = std::make_shared<ConstantTypedExpr>(
+            VARCHAR(), variant(bytesFilter->lower()));
+
+        if (bytesFilter->isLowerExclusive()) {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "gt"));
+        } else {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(),
+              std::vector<TypedExprPtr>{subfieldExpr, lower},
+              "gte"));
+        }
+      }
+
+      if (!bytesFilter->isUpperUnbounded()) {
+        auto upper = std::make_shared<ConstantTypedExpr>(
+            VARCHAR(), variant(bytesFilter->upper()));
+
+        if (bytesFilter->isUpperExclusive()) {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, upper}, "lt"));
+        } else {
+          conditions.push_back(std::make_shared<CallTypedExpr>(
+              BOOLEAN(),
+              std::vector<TypedExprPtr>{subfieldExpr, upper},
+              "lte"));
+        }
+      }
+
+      return createBooleanExpr(conditions);
+    }
+
+    case common::FilterKind::kBigintValuesUsingHashTable:
+    case common::FilterKind::kBigintValuesUsingBitmask: {
+      std::vector<int64_t> values;
+      if (filter->kind() == common::FilterKind::kBigintValuesUsingHashTable) {
+        auto hashFilter =
+            static_cast<const common::BigintValuesUsingHashTable*>(filter);
+        values = hashFilter->values();
+      } else {
+        auto bitmaskFilter =
+            static_cast<const common::BigintValuesUsingBitmask*>(filter);
+        values = bitmaskFilter->values();
+      }
+
+      std::vector<TypedExprPtr> valueExprs;
+      for (const auto& value : values) {
+        valueExprs.push_back(
+            std::make_shared<ConstantTypedExpr>(BIGINT(), variant(value)));
+      }
+
+      auto arrayExpr = std::make_shared<CallTypedExpr>(
+          ARRAY(BIGINT()), valueExprs, "array_constructor");
+
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{arrayExpr, subfieldExpr}, "in");
+    }
+
+    case common::FilterKind::kNegatedBigintValuesUsingHashTable:
+    case common::FilterKind::kNegatedBigintValuesUsingBitmask: {
+      // Create the corresponding positive filter with the same values
+      std::shared_ptr<common::Filter> positiveFilter;
+
+      if (filter->kind() ==
+          common::FilterKind::kNegatedBigintValuesUsingHashTable) {
+        auto hashFilter =
+            static_cast<const common::NegatedBigintValuesUsingHashTable*>(
+                filter);
+        const auto& values = hashFilter->values();
+        positiveFilter = std::make_shared<common::BigintValuesUsingHashTable>(
+            hashFilter->min(), hashFilter->max(), values, false);
+      } else {
+        auto bitmaskFilter =
+            static_cast<const common::NegatedBigintValuesUsingBitmask*>(filter);
+        const auto& values = bitmaskFilter->values();
+        positiveFilter = std::make_shared<common::BigintValuesUsingBitmask>(
+            bitmaskFilter->min(), bitmaskFilter->max(), values, false);
+      }
+
+      // Reuse the positive filter logic and wrap it in a NOT operation
+      auto positiveExpr =
+          filterToExpr(subfield, positiveFilter.get(), rowType, pool);
+
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{positiveExpr}, "not");
+    }
+
+    case common::FilterKind::kBytesValues: {
+      auto bytesFilter = static_cast<const common::BytesValues*>(filter);
+      const auto& values = bytesFilter->values();
+
+      std::vector<TypedExprPtr> valueExprs;
+      for (const auto& value : values) {
+        valueExprs.push_back(
+            std::make_shared<ConstantTypedExpr>(VARCHAR(), variant(value)));
+      }
+
+      auto arrayExpr = std::make_shared<CallTypedExpr>(
+          ARRAY(VARCHAR()), valueExprs, "array_constructor");
+
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{arrayExpr, subfieldExpr}, "in");
+    }
+
+    case common::FilterKind::kNegatedBytesValues: {
+      auto bytesFilter = static_cast<const common::NegatedBytesValues*>(filter);
+      // Convert F14FastSet to vector for BytesValues constructor
+      const auto& valuesSet = bytesFilter->values();
+      std::vector<std::string> valuesVec(valuesSet.begin(), valuesSet.end());
+      auto bytesValuesFilter =
+          std::make_shared<common::BytesValues>(valuesVec, false);
+
+      // Reuse the BytesValues logic and wrap it in a NOT operation
+      auto bytesValuesExpr =
+          filterToExpr(subfield, bytesValuesFilter.get(), rowType, pool);
+
+      return std::make_shared<CallTypedExpr>(
+          BOOLEAN(), std::vector<TypedExprPtr>{bytesValuesExpr}, "not");
+    }
+
+    case common::FilterKind::kTimestampRange: {
+      auto timestampFilter = static_cast<const common::TimestampRange*>(filter);
+      auto lower = std::make_shared<ConstantTypedExpr>(
+          TIMESTAMP(), variant(timestampFilter->lower()));
+      auto upper = std::make_shared<ConstantTypedExpr>(
+          TIMESTAMP(), variant(timestampFilter->upper()));
+
+      if (timestampFilter->isSingleValue()) {
+        // Single value comparison
+        return std::make_shared<CallTypedExpr>(
+            BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "eq");
+      } else {
+        // Range comparison
+        auto greaterOrEqual = std::make_shared<CallTypedExpr>(
+            BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, lower}, "gte");
+
+        auto lessOrEqual = std::make_shared<CallTypedExpr>(
+            BOOLEAN(), std::vector<TypedExprPtr>{subfieldExpr, upper}, "lte");
+
+        return std::make_shared<CallTypedExpr>(
+            BOOLEAN(),
+            std::vector<TypedExprPtr>{greaterOrEqual, lessOrEqual},
+            "and");
+      }
+    }
+
+    case common::FilterKind::kBigintMultiRange: {
+      auto multiRangeFilter =
+          static_cast<const common::BigintMultiRange*>(filter);
+      const auto& ranges = multiRangeFilter->ranges();
+
+      std::vector<TypedExprPtr> rangeExprs;
+      for (const auto& range : ranges) {
+        auto rangeExpr = filterToExpr(subfield, range.get(), rowType, pool);
+        rangeExprs.push_back(rangeExpr);
+      }
+
+      return std::make_shared<CallTypedExpr>(BOOLEAN(), rangeExprs, "or");
+    }
+
+    case common::FilterKind::kMultiRange: {
+      auto multiRangeFilter = static_cast<const common::MultiRange*>(filter);
+      const auto& filters = multiRangeFilter->filters();
+
+      std::vector<TypedExprPtr> filterExprs;
+      for (const auto& subFilter : filters) {
+        auto filterExpr =
+            filterToExpr(subfield, subFilter.get(), rowType, pool);
+        filterExprs.push_back(filterExpr);
+      }
+
+      return std::make_shared<CallTypedExpr>(BOOLEAN(), filterExprs, "or");
+    }
+
+    // Handle other filter types as needed
+    case common::FilterKind::kHugeintRange:
+    case common::FilterKind::kHugeintValuesUsingHashTable:
+    case common::FilterKind::kNegatedBytesRange:
+    default:
+      // For unhandled filter types, return the subfield expression as is
+      VELOX_NYI(
+          "Filter type not yet implemented in filterToExpr: {}",
+          filter->toString());
+      return subfieldExpr;
+  }
 }
 } // namespace facebook::velox::core
