@@ -3,25 +3,27 @@ name: docs
 on:
   pull_request:
     paths:
-      - 'presto-docs/**'
+      - presto-docs/**
 
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
-  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
+  MAVEN_OPTS: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+  MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true
+  MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         modules:
-          - ":presto-docs"
+          - :presto-docs
     timeout-minutes: 80
     concurrency:
       group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
@@ -30,15 +32,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           show-progress: false
+          persist-credentials: false
       - name: Install LaTeX dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra latexmk tex-gyre texlive-xetex fonts-freefont-otf xindy
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17.0.15
-          cache: 'maven'
+          cache: maven
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"

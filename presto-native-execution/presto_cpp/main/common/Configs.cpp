@@ -46,14 +46,11 @@ uint32_t hardwareConcurrency() {
   return numLogicalCores;
 }
 
-#define STR_PROP(_key_, _val_) \
-  { std::string(_key_), std::string(_val_) }
+#define STR_PROP(_key_, _val_) {std::string(_key_), std::string(_val_)}
 #define NUM_PROP(_key_, _val_) \
-  { std::string(_key_), folly::to<std::string>(_val_) }
-#define BOOL_PROP(_key_, _val_) \
-  { std::string(_key_), bool2String(_val_) }
-#define NONE_PROP(_key_) \
-  { std::string(_key_), folly::none }
+  {std::string(_key_), folly::to<std::string>(_val_)}
+#define BOOL_PROP(_key_, _val_) {std::string(_key_), bool2String(_val_)}
+#define NONE_PROP(_key_) {std::string(_key_), folly::none}
 } // namespace
 
 void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
@@ -166,7 +163,9 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(
               kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
-          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, 0.5 * hardwareConcurrency()),
+          NUM_PROP(
+              kDriverNumStuckOperatorsToDetachWorker,
+              0.5 * hardwareConcurrency()),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
@@ -678,8 +677,9 @@ std::string SystemConfig::sharedArbitratorFastExponentialGrowthCapacityLimit()
       kSharedArbitratorFastExponentialGrowthCapacityLimitDefault = "512MB";
   return optionalProperty<std::string>(
              kSharedArbitratorFastExponentialGrowthCapacityLimit)
-      .value_or(std::string(
-          kSharedArbitratorFastExponentialGrowthCapacityLimitDefault));
+      .value_or(
+          std::string(
+              kSharedArbitratorFastExponentialGrowthCapacityLimitDefault));
 }
 
 std::string SystemConfig::sharedArbitratorSlowCapacityGrowPct() const {
@@ -729,8 +729,9 @@ std::string SystemConfig::sharedArbitratorMemoryReclaimThreadsHwMultiplier()
       kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault = "0.5";
   return optionalProperty<std::string>(
              kSharedArbitratorMemoryReclaimThreadsHwMultiplier)
-      .value_or(std::string(
-          kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault));
+      .value_or(
+          std::string(
+              kSharedArbitratorMemoryReclaimThreadsHwMultiplierDefault));
 }
 
 std::string SystemConfig::sharedArbitratorGlobalArbitrationMemoryReclaimPct()
@@ -739,8 +740,9 @@ std::string SystemConfig::sharedArbitratorGlobalArbitrationMemoryReclaimPct()
       kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault = "10";
   return optionalProperty<std::string>(
              kSharedArbitratorGlobalArbitrationMemoryReclaimPct)
-      .value_or(std::string(
-          kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault));
+      .value_or(
+          std::string(
+              kSharedArbitratorGlobalArbitrationMemoryReclaimPctDefault));
 }
 
 std::string SystemConfig::sharedArbitratorGlobalArbitrationAbortTimeRatio()

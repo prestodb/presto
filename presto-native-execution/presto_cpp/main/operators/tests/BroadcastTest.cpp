@@ -152,8 +152,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
       for (const auto& name : newLayout.value()) {
         columns.push_back(vector->childAt(rowType->getChildIdx(name)));
       }
-      reordered.push_back(std::make_shared<RowVector>(
-          pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
+      reordered.push_back(
+          std::make_shared<RowVector>(
+              pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
     }
     return reordered;
   }
@@ -207,10 +208,11 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
     std::vector<ByteRange> ranges;
     for (const auto& range : *ioBuf) {
-      ranges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()),
-          static_cast<int32_t>(range.size()),
-          0});
+      ranges.emplace_back(
+          ByteRange{
+              const_cast<uint8_t*>(range.data()),
+              static_cast<int32_t>(range.size()),
+              0});
     }
     auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
 
