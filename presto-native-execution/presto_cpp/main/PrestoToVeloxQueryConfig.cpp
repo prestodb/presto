@@ -74,7 +74,8 @@ void updateFromSessionConfigs(
     queryConfigs[velox::core::QueryConfig::kSource] = *session.source;
   }
   if (!session.clientTags.empty()) {
-    queryConfigs[velox::core::QueryConfig::kClientTags] = folly::join(',', session.clientTags);
+    queryConfigs[velox::core::QueryConfig::kClientTags] =
+        folly::join(',', session.clientTags);
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
@@ -140,10 +141,10 @@ void updateFromSystemConfigs(
        velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
 
       {std::string{SystemConfig::kTaskWriterCount},
-        velox::core::QueryConfig::kTaskWriterCount},
+       velox::core::QueryConfig::kTaskWriterCount},
 
       {std::string{SystemConfig::kTaskPartitionedWriterCount},
-        velox::core::QueryConfig::kTaskPartitionedWriterCount},
+       velox::core::QueryConfig::kTaskPartitionedWriterCount},
 
       {std::string(SystemConfig::kSinkMaxBufferSize),
        velox::core::QueryConfig::kMaxOutputBufferSize,
