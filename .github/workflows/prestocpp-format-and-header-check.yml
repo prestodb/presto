@@ -1,11 +1,11 @@
 name: prestocpp-format-and-header-check
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   pull_request:
     paths:
-      - 'presto-native-execution/**'
-      - '.github/workflows/prestocpp-format-and-header-check.yml'
+      - presto-native-execution/**
+      - .github/workflows/prestocpp-format-and-header-check.yml
 
 jobs:
   prestocpp-format-and-header-check:
@@ -13,24 +13,26 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-prestocpp-format-header-check-${{ github.event.pull_request.number }}
       cancel-in-progress: true
-    container:
-      image: public.ecr.aws/oss-presto/velox-dev:check
+    permissions:
+      contents: read
     steps:
+      - run: python -m pip install pre-commit
       - uses: actions/checkout@v4
-
-      - name: Fix git permissions
-        # Usually actions/checkout does this but as we run in a container
-        # it doesn't work
-        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
-
-      - name: Check formatting
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/cache@v4.2.3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-
+      - name: Run pre-commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git fetch origin master
-          cd presto-native-execution
-          make format-check
-
-      - name: Check license headers
-        run: |
-          git fetch origin master
-          cd presto-native-execution
-          make header-check
+          files=$(git diff --name-only HEAD^1 HEAD)
+          echo "::group::Changed files"
+          echo $files | tr ' ' '\n'
+          echo "::endgroup::"
+          pre-commit run --show-diff-on-failure --color=always --files $files

@@ -316,7 +316,6 @@ SessionProperties::SessionProperties() {
       QueryConfig::kQueryTraceMaxBytes,
       std::to_string(c.queryTraceMaxBytes()));
 
-
   addSessionProperty(
       kOpTraceDirectoryCreateConfig,
       "Config used to create operator trace directory. This config is provided to"

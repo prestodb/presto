@@ -12,12 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(binary_sortable_serializer_benchmark
-               BinarySortableSerializerBenchmark.cpp)
+add_executable(binary_sortable_serializer_benchmark BinarySortableSerializerBenchmark.cpp)
 target_link_libraries(
   binary_sortable_serializer_benchmark
-  PRIVATE
-    presto_operators
-    velox_vector_fuzzer
-    Folly::folly
-    Folly::follybenchmark)
+  PRIVATE presto_operators velox_vector_fuzzer Folly::folly Folly::follybenchmark
+)

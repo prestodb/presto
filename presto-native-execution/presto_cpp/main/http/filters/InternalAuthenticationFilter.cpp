@@ -134,8 +134,10 @@ void InternalAuthenticationFilter::processAndVerifyJwt(
     auto secretHash = std::vector<uint8_t>(SHA256_DIGEST_LENGTH);
     folly::ssl::OpenSSLHash::sha256(
         folly::range(secretHash),
-        folly::ByteRange(folly::StringPiece(
-            SystemConfig::instance()->internalCommunicationSharedSecret())));
+        folly::ByteRange(
+            folly::StringPiece(
+                SystemConfig::instance()
+                    ->internalCommunicationSharedSecret())));
 
     // Decode and verify the JWT.
     auto decodedJwt = jwt::decode<jwt::traits::nlohmann_json>(token);
