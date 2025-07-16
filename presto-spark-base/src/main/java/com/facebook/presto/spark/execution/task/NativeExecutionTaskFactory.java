@@ -26,9 +26,8 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.sql.planner.PlanFragment;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.net.URI;
 import java.util.List;

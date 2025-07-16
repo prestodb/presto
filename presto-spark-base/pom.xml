@@ -86,6 +86,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -125,6 +126,7 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -150,11 +152,6 @@
         <dependency>
             <groupId>jakarta.inject</groupId>
             <artifactId>jakarta.inject-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
@@ -355,6 +352,27 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <enforceBytecodeVersion>
+                            <maxJdkVersion>8</maxJdkVersion>
+                            <excludes  combine.children="append">
+                                <exclude>org.eclipse.jetty</exclude>
+                                <exclude>org.eclipse.jetty.http2</exclude>
+                                <exclude>org.eclipse.jetty.ee10</exclude>
+                                <exclude>com.facebook.airlift</exclude>
+                                <exclude>com.facebook.presto:presto-main</exclude>
+                                <exclude>jakarta.servlet</exclude>
+                                <exclude>jakarta.ws.rs</exclude>
+                                <exclude>org.glassfish.jersey.inject</exclude>
+                            </excludes>
+                        </enforceBytecodeVersion>
+                    </rules>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
