@@ -64,10 +64,6 @@ public class TestPrestoSparkNativeGeneralQueries
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     @Override
     @Ignore
-    public void testCatalogWithCacheEnabled() {}
-
-    @Override
-    @Ignore
     public void testAnalyzeStatsOnDecimals() {}
 
     // VeloxUserError:  Unsupported file format in TableWrite: "ORC".
