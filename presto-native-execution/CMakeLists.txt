@@ -70,6 +70,8 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
+option(PRESTO_ENABLE_SPATIAL "Enable spatial support" OFF)
+
 # Set all Velox options below and make sure that if we include folly headers or
 # other dependency headers that include folly headers we turn off the coroutines
 # and turn on int128.
@@ -120,6 +122,12 @@ if(PRESTO_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
+endif()
+
+if(PRESTO_ENABLE_SPATIAL)
+  set(VELOX_ENABLE_GEO
+      ON
+      CACHE BOOL "Enable Velox Geometry (aka spatial) support")
 endif()
 
 set(VELOX_BUILD_TESTING

@@ -138,6 +138,12 @@ The make command will look like:
 
 The required dependencies are bundled from the Velox setup scripts.
 
+#### Spatial type and function support
+To enable support for spatial types and functions, add to the extra cmake flags:
+`EXTRA_CMAKE_FLAGS = -PRESTO_ENABLE_SPATIAL`
+
+The spatial support adds new types (OGC geometry types) and functionality for spatial calculations.
+
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
 ```
