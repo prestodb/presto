@@ -91,6 +91,7 @@ jobs:
             -DPRESTO_ENABLE_JWT=ON \
             -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
             -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_SPATIAL=ON \
             -DCMAKE_PREFIX_PATH=/usr/local \
             -DThrift_ROOT=/usr/local \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
