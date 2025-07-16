@@ -37,7 +37,7 @@ def run(command, compressed=False, **kwargs):
     if "input" in kwargs:
         input = kwargs["input"]
 
-        if type(input) == list:
+        if isinstance(input, list):
             input = "\n".join(input) + "\n"
 
         kwargs["input"] = input.encode("utf-8")
