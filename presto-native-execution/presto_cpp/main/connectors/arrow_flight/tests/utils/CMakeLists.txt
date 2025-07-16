@@ -11,9 +11,17 @@
 # limitations under the License.
 add_library(
   presto_flight_connector_test_lib
-  TestingArrowFlightServer.cpp ArrowFlightConnectorTestBase.cpp Utils.cpp
-  ArrowFlightPlanBuilder.cpp)
+  TestingArrowFlightServer.cpp
+  ArrowFlightConnectorTestBase.cpp
+  Utils.cpp
+  ArrowFlightPlanBuilder.cpp
+)
 
 target_link_libraries(
-  presto_flight_connector_test_lib arrow presto_flight_connector
-  velox_exception presto_flight_connector_utils velox_exec_test_lib)
+  presto_flight_connector_test_lib
+  arrow
+  presto_flight_connector
+  velox_exception
+  presto_flight_connector_utils
+  velox_exec_test_lib
+)

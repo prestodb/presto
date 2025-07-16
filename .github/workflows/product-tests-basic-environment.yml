@@ -1,14 +1,13 @@
 name: product tests (basic)
 
-on:
-  pull_request:
+on: pull_request
 
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
+  MAVEN_OPTS: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+  MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true
   RETRY: .github/bin/retry
 
 jobs:
@@ -21,19 +20,21 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          codechange:
-            - '!presto-docs/**'
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
   product-tests-basic-environment:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17.0.15 ]
+        java: [17.0.15]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: changes
     timeout-minutes: 60
     concurrency:
@@ -51,12 +52,13 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
+          persist-credentials: false
       - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ matrix.java }}
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs

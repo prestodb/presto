@@ -541,7 +541,7 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kUnnestSplitOutput,
       std::to_string(c.unnestSplitOutput()));
-  
+
   addSessionProperty(
       kPreferredOutputBatchBytes,
       "Prefered memory budget for operator output batches. Used in tandem with average row size estimates when available.",
@@ -549,7 +549,7 @@ SessionProperties::SessionProperties() {
       10UL * 1048576,
       QueryConfig::kPreferredOutputBatchBytes,
       std::to_string(c.preferredOutputBatchBytes()));
-  
+
   addSessionProperty(
       kPreferredOutputBatchRows,
       "Preferred row count per operator output batch. Used when average row size estimates are unknown.",

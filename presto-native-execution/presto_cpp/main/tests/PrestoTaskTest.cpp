@@ -24,8 +24,8 @@ DECLARE_bool(velox_memory_leak_check_enabled);
 using namespace facebook::velox;
 using namespace facebook::presto;
 
-using facebook::velox::exec::test::PlanBuilder;
 using facebook::presto::PrestoTaskId;
+using facebook::velox::exec::test::PlanBuilder;
 
 namespace {
 // Create a simple velox task for testing.

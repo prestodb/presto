@@ -41,8 +41,7 @@ class ArrowFlightConfig {
   static constexpr const char* kClientSslCertificate =
       "arrow-flight.client-ssl-certificate";
 
-  static constexpr const char* kClientSslKey =
-      "arrow-flight.client-ssl-key";
+  static constexpr const char* kClientSslKey = "arrow-flight.client-ssl-key";
 
   std::string authenticatorName() const;
 
@@ -57,7 +56,7 @@ class ArrowFlightConfig {
   std::optional<std::string> serverSslCertificate() const;
 
   std::optional<std::string> clientSslCertificate() const;
-  
+
   std::optional<std::string> clientSslKey() const;
 
  private:

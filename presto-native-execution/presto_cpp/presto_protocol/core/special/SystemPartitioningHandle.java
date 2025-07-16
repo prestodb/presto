@@ -187,7 +187,7 @@ public final class SystemPartitioningHandle
         HASH ,
         ROUND_ROBIN ,
         BROADCAST ,
-        UNKNOWN 
+        UNKNOWN
         }
 
         public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount);

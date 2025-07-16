@@ -47,10 +47,10 @@ struct PrometheusStatsReporter::PrometheusImpl {
 };
 
 PrometheusStatsReporter::PrometheusStatsReporter(
-    const std::map<std::string, std::string>& labels, int numThreads)
+    const std::map<std::string, std::string>& labels,
+    int numThreads)
     : executor_(std::make_shared<folly::CPUThreadPoolExecutor>(numThreads)),
-      impl_(std::make_shared<PrometheusImpl>(labels)) {
-}
+      impl_(std::make_shared<PrometheusImpl>(labels)) {}
 
 void PrometheusStatsReporter::registerMetricExportType(
     const char* key,
@@ -133,8 +133,9 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
                               .Register(*impl_->registry);
     ::prometheus::Summary::Quantiles quantiles;
     for (auto pct : pcts) {
-      quantiles.push_back(::prometheus::detail::CKMSQuantiles::Quantile(
-          pct / static_cast<double>(100), 0));
+      quantiles.push_back(
+          ::prometheus::detail::CKMSQuantiles::Quantile(
+              pct / static_cast<double>(100), 0));
     }
     auto& summaryMetric = summaryFamily.Add({impl_->labels}, quantiles);
     registeredMetricsMap_.insert(
@@ -176,14 +177,16 @@ void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
         break;
       }
       case velox::StatType::SUM: {
-        auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+        auto* gauge =
+            reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
         gauge->Increment(static_cast<double>(value));
         break;
       }
       case velox::StatType::AVG:
       case velox::StatType::RATE: {
         // Overrides the existing state.
-        auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+        auto* gauge =
+            reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
         gauge->Set(static_cast<double>(value));
         break;
       }

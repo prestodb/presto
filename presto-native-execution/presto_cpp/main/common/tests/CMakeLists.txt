@@ -11,10 +11,7 @@
 # limitations under the License.
 add_library(presto_mutable_configs MutableConfigs.cpp)
 
-target_link_libraries(
-  presto_mutable_configs
-  presto_common
-  velox_file)
+target_link_libraries(presto_mutable_configs presto_common velox_file)
 
 add_executable(presto_common_test CommonTest.cpp ConfigTest.cpp)
 
@@ -34,7 +31,7 @@ target_link_libraries(
   velox_window
   ${RE2}
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
-set_property(TARGET presto_common_test PROPERTY JOB_POOL_LINK
-                                                presto_link_job_pool)
+set_property(TARGET presto_common_test PROPERTY JOB_POOL_LINK presto_link_job_pool)

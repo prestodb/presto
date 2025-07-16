@@ -159,10 +159,10 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   }
 
   failedAttempts_ = 0;
-  dataRequestRetryState_ =
-      RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
-                     SystemConfig::instance()->exchangeMaxErrorDuration())
-                     .count());
+  dataRequestRetryState_ = RetryState(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          SystemConfig::instance()->exchangeMaxErrorDuration())
+          .count());
   doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWait);
 
   return future;
@@ -474,10 +474,10 @@ void PrestoExchangeSource::abortResults() {
     return;
   }
 
-  abortRetryState_ =
-      RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
-                     SystemConfig::instance()->exchangeMaxErrorDuration())
-                     .count());
+  abortRetryState_ = RetryState(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          SystemConfig::instance()->exchangeMaxErrorDuration())
+          .count());
   VLOG(1) << "Sending abort results " << basePath_;
   doAbortResults(abortRetryState_.nextDelayMs());
 }

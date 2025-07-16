@@ -15,7 +15,8 @@ add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
 add_test(
   NAME presto_function_metadata_test
   COMMAND presto_function_metadata_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   presto_function_metadata_test
@@ -26,4 +27,5 @@ target_link_libraries(
   velox_functions_prestosql
   velox_window
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

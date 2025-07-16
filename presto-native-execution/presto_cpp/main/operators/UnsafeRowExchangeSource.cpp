@@ -77,7 +77,7 @@ UnsafeRowExchangeSource::request(
         })
         .deferError(
             [](folly::exception_wrapper e) mutable
-            -> UnsafeRowExchangeSource::Response {
+                -> UnsafeRowExchangeSource::Response {
               VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
