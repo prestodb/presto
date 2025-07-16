@@ -1180,6 +1180,85 @@ TEST_F(TextReaderTest, simpleTypes) {
   }
 }
 
+TEST_F(TextReaderTest, primitiveLimitsStressTest) {
+  // Create expected vectors with 100 min values followed by 100 max values
+  std::vector<int8_t> tinyintValues;
+  std::vector<int32_t> integerValues;
+  std::vector<int64_t> bigintValues;
+
+  // Add 100 minimum values
+  for (int i = 0; i < 100; ++i) {
+    tinyintValues.push_back(std::numeric_limits<int8_t>::min());
+    integerValues.push_back(std::numeric_limits<int32_t>::min());
+    bigintValues.push_back(std::numeric_limits<int64_t>::min());
+  }
+
+  // Add 100 maximum values
+  for (int i = 0; i < 100; ++i) {
+    tinyintValues.push_back(std::numeric_limits<int8_t>::max());
+    integerValues.push_back(std::numeric_limits<int32_t>::max());
+    bigintValues.push_back(std::numeric_limits<int64_t>::max());
+  }
+
+  auto expected = makeRowVector(
+      {makeFlatVector<int8_t>(tinyintValues),
+       makeFlatVector<int32_t>(integerValues),
+       makeFlatVector<int64_t>(bigintValues)});
+
+  auto type = ROW(
+      {{"col_tinyint", TINYINT()},
+       {"col_integer", INTEGER()},
+       {"col_bigint", BIGINT()}});
+
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path = velox::test::getDataFilePath(
+      "velox/dwio/text/tests/reader/", "examples/primitive_limits");
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  auto serDeOptions = dwio::common::SerDeOptions('\t', '=', '|', '\\', true);
+  readerOptions.setFileSchema(type);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+
+  // Test reading all 200 rows at once
+  ASSERT_EQ(rowReader->next(250, result), 200);
+  for (int i = 0; i < 200; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+
+  // Test reading in smaller batches
+  input = std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  reader = factory->createReader(std::move(input), readerOptions);
+  rowReader = reader->createRowReader(rowReaderOptions);
+
+  ASSERT_EQ(rowReader->next(50, result), 50);
+  for (int i = 0; i < 50; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(75, result), 75);
+  for (int i = 0; i < 75; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, 50 + i));
+  }
+  ASSERT_EQ(rowReader->next(100, result), 75);
+  for (int i = 0; i < 75; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, 125 + i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
 TEST_F(TextReaderTest, DISABLED_nestedComplexTypesWithCustomDelimiters) {
   // Inner maps for the arrays
   const auto innerMapKeys1 = makeFlatVector<int64_t>({1, 11, 22});

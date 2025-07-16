@@ -1,5 +1,5 @@
 hello&42,true,3.14159#2.71828&false
-world&100,false,2.71828#1.41421#0.0&true
+world&100,false,2.71828#1.41421#.0&true
 test&-5,true,1.41421#-123.456&false
-sample&0,false,0.0#999.999&true
+sample&0,false,.0#999.999&true
 data&999,true,-123.456#42.0#3.14159&false

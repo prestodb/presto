@@ -21,7 +21,6 @@
 #include <string>
 
 #include "folly/CppAttributes.h"
-#include "velox/buffer/StringViewBufferHolder.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/TypeWithId.h"
@@ -177,8 +176,8 @@ class TextRowReader : public dwio::common::RowReader {
 
   void resetLine();
 
-  static StringView
-  getStringView(TextRowReader& th, bool& isNull, DelimType& delim);
+  static std::string&
+  getString(TextRowReader& th, bool& isNull, DelimType& delim);
 
   template <typename T>
   static T getInteger(TextRowReader& th, bool& isNull, DelimType& delim);
@@ -222,7 +221,6 @@ class TextRowReader : public dwio::common::RowReader {
   uint64_t limit_; // lowest offset not in the range
   uint64_t fileLength_;
   std::string ownedString_;
-  StringViewBufferHolder stringViewBuffer_;
   std::shared_ptr<dwio::common::DataBuffer<char>> varBinBuf_;
 };
 
