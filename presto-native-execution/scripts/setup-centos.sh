@@ -21,8 +21,7 @@ GPERF_VERSION="3.1"
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-centos9.sh" ]
-then
+if [ -f "${SCRIPT_DIR}/setup-centos9.sh" ]; then
   source "${SCRIPT_DIR}/setup-centos9.sh"
 else
   source "${SCRIPT_DIR}/../velox/scripts/setup-centos9.sh"
@@ -41,9 +40,9 @@ function install_gperf {
   wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
   (
     cd ${DEPENDENCY_DIR}/gperf || exit &&
-    ./configure --prefix=/usr/local/gperf/3_1 &&
-    make "-j${NPROC}" &&
-    make install
+      ./configure --prefix=/usr/local/gperf/3_1 &&
+      make "-j${NPROC}" &&
+      make install
     if [ -f /usr/local/bin/gperf ]; then
       echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
     else

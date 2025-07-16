@@ -1,26 +1,30 @@
-name: 'Maven OWASP Dependency Check Scan'
-description: 'Runs OWASP dependency check Maven scan with consistent settings'
+name: Maven OWASP Dependency Check Scan
+description: Runs OWASP dependency check Maven scan with consistent settings
 inputs:
   working-directory:
-    description: 'Working directory for Maven command'
+    description: Working directory for Maven command
     required: false
-    default: '.'
+    default: .
   owasp-version:
-    description: 'OWASP dependency check plugin version'
+    description: OWASP dependency check plugin version
     required: false
-    default: '12.1.3'
+    default: 12.1.3
   data-directory:
-    description: 'OWASP data directory path'
+    description: OWASP data directory path
     required: false
-    default: '$HOME/.owasp/dependency-check-data'
+    default: /tmp/.owasp/dependency-check-data
+
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Run OWASP dependency check
+      env:
+        OWASP_VERSION: ${{ inputs.owasp-version }}
+        OWASP_DATA_DIRECTORY: ${{ inputs.data-directory }}
       working-directory: ${{ inputs.working-directory }}
       shell: bash
       run: |
-        mvn org.owasp:dependency-check-maven:${{ inputs.owasp-version }}:aggregate \
+        mvn org.owasp:dependency-check-maven:$OWASP_VERSION:aggregate \
           -DskipTests \
           -Dformat=JSON \
           -DprettyPrint=true \
@@ -32,4 +36,4 @@ runs:
           -DcentralAnalyzerEnabled=false \
           -DnuspecAnalyzerEnabled=false \
           -DnvdValidForHours=168 \
-          -DdataDirectory=${{ inputs.data-directory }}
+          -DdataDirectory=$OWASP_DATA_DIRECTORY

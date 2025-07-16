@@ -77,8 +77,9 @@ class PeriodicMemoryChecker {
   virtual void stop();
 
   /// Returns the last known cached 'current' system memory usage in bytes.  If
-  /// 'fetchFresh' is true, retrieves and returns the current system memory usage.
-  /// The returned value is used to compare with 'Config::systemMemLimitBytes'.
+  /// 'fetchFresh' is true, retrieves and returns the current system memory
+  /// usage. The returned value is used to compare with
+  /// 'Config::systemMemLimitBytes'.
   int64_t systemUsedMemoryBytes(bool fetchFresh = false);
 
  protected:

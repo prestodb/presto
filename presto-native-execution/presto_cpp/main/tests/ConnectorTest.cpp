@@ -12,13 +12,13 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/connectors/Registration.h"
+#include "velox/connectors/Connector.h"
 #include <gtest/gtest.h>
 #include <memory>
+#include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/config/Config.h"
-#include "velox/connectors/Connector.h"
 
 using namespace facebook::presto;
 
@@ -198,4 +198,3 @@ TEST_F(ConnectorTest, connectorFactorySingleton) {
 }
 
 } // namespace
-

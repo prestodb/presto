@@ -18,8 +18,7 @@ JWT_VERSION="v0.6.0"
 PROMETHEUS_VERSION="v1.2.4"
 
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-common.sh" ]
-then
+if [ -f "${SCRIPT_DIR}/setup-common.sh" ]; then
   source "${SCRIPT_DIR}/setup-common.sh"
 else
   source "${SCRIPT_DIR}/../velox/scripts/setup-common.sh"
@@ -59,30 +58,30 @@ install_prometheus_cpp=0
 install_arrow_flight=0
 
 if [ "$#" -eq 0 ]; then
-    # Install all adapters by default
-    install_jwt=1
-    install_prometheus_cpp=1
-    install_arrow_flight=1
+  # Install all adapters by default
+  install_jwt=1
+  install_prometheus_cpp=1
+  install_arrow_flight=1
 fi
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    jwt)
-      install_jwt=1
-      shift # past argument
-      ;;
-    prometheus)
-      install_prometheus_cpp=1;
-      shift
-          ;;
-    arrow_flight)
-      install_arrow_flight=1;
-      shift
-      ;;
-    *)
-      echo "ERROR: Unknown option $1! will be ignored!"
-      shift
-      ;;
+  jwt)
+    install_jwt=1
+    shift # past argument
+    ;;
+  prometheus)
+    install_prometheus_cpp=1
+    shift
+    ;;
+  arrow_flight)
+    install_arrow_flight=1
+    shift
+    ;;
+  *)
+    echo "ERROR: Unknown option $1! will be ignored!"
+    shift
+    ;;
 
   esac
 done
@@ -100,6 +99,6 @@ if [ $install_arrow_flight -eq 1 ]; then
 fi
 
 _ret=$?
-if [ $_ret -eq 0 ] ; then
-   echo "All deps for Presto adapters installed!"
+if [ $_ret -eq 0 ]; then
+  echo "All deps for Presto adapters installed!"
 fi

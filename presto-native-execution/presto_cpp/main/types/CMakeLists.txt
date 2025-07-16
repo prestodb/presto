@@ -14,11 +14,9 @@ add_library(presto_type_converter OBJECT TypeParser.cpp)
 target_link_libraries(presto_type_converter velox_presto_type_parser)
 
 add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
-target_link_libraries(presto_velox_expr_conversion velox_presto_types
-                      velox_vector velox_exception)
+target_link_libraries(presto_velox_expr_conversion velox_presto_types velox_vector velox_exception)
 
-add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp
-                         PrestoToVeloxSplit.cpp)
+add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp PrestoToVeloxSplit.cpp)
 target_link_libraries(
   presto_types
   presto_velox_expr_conversion
@@ -27,7 +25,8 @@ target_link_libraries(
   presto_type_converter
   presto_session_properties
   velox_type
-  velox_type_fbhive)
+  velox_type_fbhive
+)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 

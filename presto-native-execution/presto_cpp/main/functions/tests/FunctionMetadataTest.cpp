@@ -46,7 +46,10 @@ class FunctionMetadataTest : public ::testing::Test {
       size_t expectedSize) {
     json metadataList = functionMetadata_.at(name);
     EXPECT_EQ(metadataList.size(), expectedSize);
-    std::string expectedStr = slurp(test::utils::getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/functions/tests/data/", expectedFile));
+    std::string expectedStr = slurp(
+        test::utils::getDataPath(
+            "/github/presto-trunk/presto-native-execution/presto_cpp/main/functions/tests/data/",
+            expectedFile));
     auto expected = json::parse(expectedStr);
     auto comparator = [](const json& a, const json& b) {
       return (a["outputType"] < b["outputType"]);

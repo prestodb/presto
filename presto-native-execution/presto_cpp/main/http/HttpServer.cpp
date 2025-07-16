@@ -132,8 +132,8 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
   sslCfg.sslCiphers = supportedCiphers_;
   if (!clientCaFile_.empty()) {
     sslCfg.clientCAFiles = {clientCaFile_};
-    sslCfg.clientVerification = 
-      folly::SSLContext::VerifyClientCertificate::ALWAYS;
+    sslCfg.clientVerification =
+        folly::SSLContext::VerifyClientCertificate::ALWAYS;
   }
 
   if (http2Enabled_) {

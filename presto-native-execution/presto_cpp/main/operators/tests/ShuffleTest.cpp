@@ -723,12 +723,13 @@ class ShuffleTest : public exec::test::OperatorTestBase {
     for (int it = 0; it < numIterations; it++) {
       auto seed = folly::Random::rand32();
 
-      SCOPED_TRACE(fmt::format(
-          "Iteration {}, numPartitions {}, replicateNullsAndAny {}, seed {}",
-          it,
-          numPartitions,
-          replicateNullsAndAny,
-          seed));
+      SCOPED_TRACE(
+          fmt::format(
+              "Iteration {}, numPartitions {}, replicateNullsAndAny {}, seed {}",
+              it,
+              numPartitions,
+              replicateNullsAndAny,
+              seed));
 
       VectorFuzzer fuzzer(opts, pool_.get(), seed);
       std::vector<RowVectorPtr> inputVectors;
@@ -973,8 +974,9 @@ TEST_F(ShuffleTest, endToEndWithSortedShuffle) {
 
   auto ordering = {velox::core::SortOrder(velox::core::kAscNullsFirst)};
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
-  fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-      velox::BIGINT(), fmt::format("c{}", 1)));
+  fields.push_back(
+      std::make_shared<const velox::core::FieldAccessTypedExpr>(
+          velox::BIGINT(), fmt::format("c{}", 1)));
 
   // Make sure all previously registered exchange factory are gone.
   velox::exec::ExchangeSource::factories().clear();
@@ -1021,8 +1023,9 @@ TEST_F(ShuffleTest, endToEndWithSortedShuffleRowLimit) {
 
   auto ordering = {velox::core::SortOrder(velox::core::kAscNullsFirst)};
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
-  fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-      velox::VARCHAR(), fmt::format("c{}", 1)));
+  fields.push_back(
+      std::make_shared<const velox::core::FieldAccessTypedExpr>(
+          velox::VARCHAR(), fmt::format("c{}", 1)));
 
   // Make sure all previously registered exchange factory are gone.
   velox::exec::ExchangeSource::factories().clear();
@@ -1382,11 +1385,13 @@ class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
 
 TEST_F(ShuffleTest, shuffleInterfaceRegistration) {
   const std::string kShuffleName = "dummy-shuffle";
-  EXPECT_TRUE(ShuffleInterfaceFactory::registerFactory(
-      kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));
+  EXPECT_TRUE(
+      ShuffleInterfaceFactory::registerFactory(
+          kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));
   EXPECT_NO_THROW(ShuffleInterfaceFactory::factory(kShuffleName));
-  EXPECT_FALSE(ShuffleInterfaceFactory::registerFactory(
-      kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));
+  EXPECT_FALSE(
+      ShuffleInterfaceFactory::registerFactory(
+          kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));
 }
 
 TEST_F(ShuffleTest, shuffleReadRuntimeStats) {
@@ -1471,16 +1476,14 @@ TEST_F(ShuffleTest, shuffleReadRuntimeStats) {
     ASSERT_GT(decodeTimeStat.sum, 0);
     ASSERT_EQ(velox::RuntimeCounter::Unit::kNanos, decodeTimeStat.unit);
 
-    ASSERT_EQ(
-        runtimeStats.count("shuffleNumBatchesPerRead"), 1);
+    ASSERT_EQ(runtimeStats.count("shuffleNumBatchesPerRead"), 1);
     const auto& batchesPerReadStat =
         runtimeStats.at("shuffleNumBatchesPerRead");
     ASSERT_EQ(velox::RuntimeCounter::Unit::kNone, batchesPerReadStat.unit);
     ASSERT_GT(batchesPerReadStat.count, 0);
     ASSERT_GT(batchesPerReadStat.sum, 0);
 
-    ASSERT_EQ(
-        runtimeStats.count("shuffleNumBatches"), 1);
+    ASSERT_EQ(runtimeStats.count("shuffleNumBatches"), 1);
     const auto& numBatchesStat = runtimeStats.at("shuffleNumBatches");
     ASSERT_GT(numBatchesStat.count, 0);
     ASSERT_GT(numBatchesStat.sum, 0);

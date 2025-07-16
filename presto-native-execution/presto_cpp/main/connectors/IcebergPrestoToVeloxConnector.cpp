@@ -13,8 +13,8 @@
  */
 
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
-#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"

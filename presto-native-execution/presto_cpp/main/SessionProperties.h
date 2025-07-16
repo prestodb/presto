@@ -343,7 +343,7 @@ class SessionProperties {
   /// a single output for each input batch.
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
-  
+
   /// Preferred size of batches in bytes to be returned by operators from
   /// Operator::getOutput. It is used when an estimate of average row size is
   /// known. Otherwise kPreferredOutputBatchRows is used.
@@ -363,7 +363,8 @@ class SessionProperties {
   /// output rows.
   static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
 
-  /// Enable (reader) row size tracker as a fallback to file level row size estimates.
+  /// Enable (reader) row size tracker as a fallback to file level row size
+  /// estimates.
   static constexpr const char* kRowSizeTrackingEnabled =
       "row_size_tracking_enabled";
 
@@ -375,15 +376,17 @@ class SessionProperties {
 
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);
-    if(sessionProperty == sessionProperties_.end()) {
-        // In this case a queryConfig is being created so we should return
-        // true since it will also have a veloxConfig.
-        return true;
+    if (sessionProperty == sessionProperties_.end()) {
+      // In this case a queryConfig is being created so we should return
+      // true since it will also have a veloxConfig.
+      return true;
     }
     return sessionProperty->second->getVeloxConfig().has_value();
   }
 
-  inline void updateSessionPropertyValue(const std::string& key, const std::string& value) {
+  inline void updateSessionPropertyValue(
+      const std::string& key,
+      const std::string& value) {
     auto sessionProperty = sessionProperties_.find(key);
     VELOX_CHECK(sessionProperty != sessionProperties_.end());
     sessionProperty->second->updateValue(value);

@@ -1,8 +1,8 @@
 name: prestocpp-macos-build
 
 on:
-  workflow_dispatch:
-  pull_request:
+  workflow_dispatch: {}
+  pull_request: {}
 
 jobs:
   changes:
@@ -30,13 +30,15 @@ jobs:
         os: [macos-13, macos-15]
     runs-on: ${{ matrix.os }}
     needs: changes
+    permissions:
+      contents: read
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
       # The arm runners (macos-14 and later) have only 7GB RAM.
       BUILD_TYPE: "${{ matrix.os ==  'macos-15' && 'Release' || 'Debug' }}"
-      INSTALL_PREFIX: "/tmp/deps-install"
+      INSTALL_PREFIX: /tmp/deps-install
     concurrency:
       group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}-${{ matrix.os }}
       cancel-in-progress: true
@@ -44,6 +46,8 @@ jobs:
       - uses: actions/checkout@v4
         if: |
           needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         if: |
@@ -59,7 +63,7 @@ jobs:
           cd presto-native-execution
           make submodules
 
-      - name: "Setup MacOS"
+      - name: Setup MacOS
         if: |
           needs.changes.outputs.codechange == 'true'
         run: |
@@ -111,7 +115,7 @@ jobs:
           needs.changes.outputs.codechange == 'true'
         run: PATH=${INSTALL_PREFIX}/bin:${PATH} ccache -sz
 
-      - name: "Build presto_cpp on MacOS"
+      - name: Build presto_cpp on MacOS
         if: |
           needs.changes.outputs.codechange == 'true'
         run: |
@@ -122,7 +126,7 @@ jobs:
           if [[ "${{ matrix.os }}" == "macos-13" ]]; then
             # Velox sets -Wno-sign-compare but it needs to apply to Arrow.
             # There is also a conflict with Arrow and Velox (Glog) macros which are fixed
-            # in a newer version of Arrow. The issues cannot be easily fixed in Velox so 
+            # in a newer version of Arrow. The issues cannot be easily fixed in Velox so
             # override the warnings that would throw errors.
             export CXXFLAGS="-Wno-error=sign-compare -Wno-error=macro-redefined"
           fi

@@ -13,8 +13,7 @@ add_library(presto_http HttpClient.cpp HttpServer.cpp)
 
 if(PRESTO_ENABLE_JWT)
   add_compile_definitions(JWT_DISABLE_PICOJSON)
-  target_include_directories(
-    presto_http PRIVATE ${CMAKE_SOURCE_DIR}/presto_cpp/external/json)
+  target_include_directories(presto_http PRIVATE ${CMAKE_SOURCE_DIR}/presto_cpp/external/json)
 endif()
 
 add_subdirectory(filters)
@@ -33,7 +32,8 @@ target_link_libraries(
   ${GLOG}
   ${GFLAGS_LIBRARIES}
   ${FMT}
-  ${RE2})
+  ${RE2}
+)
 
 set_property(TARGET presto_http PROPERTY JOB_POOL_LINK presto_link_job_pool)
 

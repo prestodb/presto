@@ -178,7 +178,7 @@
             "schema":"default",
             "typeVariableConstraints":[],
             "variableArity":true
-        }, 
+        },
         {
             "docString":"presto.default.greatest",
             "functionKind":"SCALAR",
