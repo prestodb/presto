@@ -261,6 +261,8 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kOrderBySpillEnabled, true),
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
           STR_PROP(kPluginDir, ""),
+          NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
+          NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
       };
 }
 
@@ -895,6 +897,16 @@ std::string SystemConfig::prestoDefaultNamespacePrefix() const {
 
 std::string SystemConfig::pluginDir() const {
   return optionalProperty(kPluginDir).value();
+}
+
+int32_t SystemConfig::exchangeIoEvbViolationThresholdMs() const {
+  return optionalProperty<int32_t>(kExchangeIoEvbViolationThresholdMs)
+      .value();
+}
+
+int32_t SystemConfig::httpSrvIoEvbViolationThresholdMs() const {
+  return optionalProperty<int32_t>(kHttpSrvIoEvbViolationThresholdMs)
+      .value();
 }
 
 NodeConfig::NodeConfig() {
