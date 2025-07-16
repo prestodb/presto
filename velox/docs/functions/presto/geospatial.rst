@@ -161,6 +161,11 @@ Spatial Operations
     Returns the geometry that represents the all points in either ``geometry1``
     or ``geometry2``.
 
+.. function:: ST_Envelope(geometry: Geometry) -> envelope: Geometry
+
+    Returns the bounding rectangular polygon of a ``geometry``. Empty input will
+    result in empty output.
+
 Accessors
 ---------
 .. function:: ST_IsValid(geometry: Geometry) -> valid: bool
