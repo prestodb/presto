@@ -22,7 +22,8 @@ execute_process(
     bash -c
     "( source ${CMAKE_CURRENT_SOURCE_DIR}/velox/scripts/setup-helper-functions.sh && echo -n $(get_cxx_flags $ENV{CPU_TARGET}))"
   OUTPUT_VARIABLE SCRIPT_CXX_FLAGS
-  RESULT_VARIABLE COMMAND_STATUS)
+  RESULT_VARIABLE COMMAND_STATUS
+)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -30,8 +31,7 @@ message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 
 # Known warnings that are benign can be disabled.
-set(DISABLED_WARNINGS
-    "-Wno-nullability-completeness -Wno-deprecated-declarations")
+set(DISABLED_WARNINGS "-Wno-nullability-completeness -Wno-deprecated-declarations")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.0.0")
@@ -42,8 +42,7 @@ endif()
 # Important warnings that must be explicitly enabled.
 set(ENABLE_WARNINGS "-Wreorder")
 
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
 
 # Add all Presto options below.
 
@@ -84,46 +83,32 @@ option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 add_compile_definitions(FOLLY_HAVE_INT128_T=1 FOLLY_CFG_NO_COROUTINES)
 
 if(PRESTO_ENABLE_S3)
-  set(VELOX_ENABLE_S3
-      ON
-      CACHE BOOL "Build S3 support")
+  set(VELOX_ENABLE_S3 ON CACHE BOOL "Build S3 support")
 endif()
 
 if(PRESTO_ENABLE_HDFS)
-  set(VELOX_ENABLE_HDFS
-      ON
-      CACHE BOOL "Build HDFS support")
+  set(VELOX_ENABLE_HDFS ON CACHE BOOL "Build HDFS support")
 endif()
 
 if(PRESTO_ENABLE_GCS)
-  set(VELOX_ENABLE_GCS
-      ON
-      CACHE BOOL "Build GCS support")
+  set(VELOX_ENABLE_GCS ON CACHE BOOL "Build GCS support")
 endif()
 
 if(PRESTO_ENABLE_ABFS)
-  set(VELOX_ENABLE_ABFS
-      ON
-      CACHE BOOL "Build ABFS support")
+  set(VELOX_ENABLE_ABFS ON CACHE BOOL "Build ABFS support")
 endif()
 
 if(PRESTO_ENABLE_PARQUET)
-  set(VELOX_ENABLE_PARQUET
-      ON
-      CACHE BOOL "Enable Parquet support")
+  set(VELOX_ENABLE_PARQUET ON CACHE BOOL "Enable Parquet support")
 endif()
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  set(VELOX_ENABLE_REMOTE_FUNCTIONS
-      ON
-      CACHE BOOL "Enable remote function support in Velox")
+  set(VELOX_ENABLE_REMOTE_FUNCTIONS ON CACHE BOOL "Enable remote function support in Velox")
   add_compile_definitions(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 endif()
 
 if(PRESTO_ENABLE_CUDF)
-  set(VELOX_ENABLE_CUDF
-      ON
-      CACHE BOOL "Enable cuDF support")
+  set(VELOX_ENABLE_CUDF ON CACHE BOOL "Enable cuDF support")
   add_compile_definitions(PRESTO_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
@@ -131,26 +116,16 @@ if(PRESTO_ENABLE_CUDF)
 endif()
 
 if(PRESTO_ENABLE_SPATIAL)
-  set(VELOX_ENABLE_GEO
-      ON
-      CACHE BOOL "Enable Velox Geometry (aka spatial) support")
+  set(VELOX_ENABLE_GEO ON CACHE BOOL "Enable Velox Geometry (aka spatial) support")
 endif()
 
-set(VELOX_BUILD_TESTING
-    OFF
-    CACHE BOOL "Enable Velox tests")
+set(VELOX_BUILD_TESTING OFF CACHE BOOL "Enable Velox tests")
 
-set(VELOX_ENABLE_SPARK_FUNCTIONS
-    OFF
-    CACHE BOOL "Enable Velox Spark functions")
+set(VELOX_ENABLE_SPARK_FUNCTIONS OFF CACHE BOOL "Enable Velox Spark functions")
 
-set(VELOX_ENABLE_EXAMPLES
-    OFF
-    CACHE BOOL "Enable Velox examples")
+set(VELOX_ENABLE_EXAMPLES OFF CACHE BOOL "Enable Velox examples")
 
-set(VELOX_BUILD_TEST_UTILS
-    ${PRESTO_ENABLE_TESTING}
-    CACHE BOOL "Enable Velox test utils")
+set(VELOX_BUILD_TEST_UTILS ${PRESTO_ENABLE_TESTING} CACHE BOOL "Enable Velox test utils")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -163,15 +138,8 @@ set(Boost_USE_MULTITHREADED TRUE)
 find_package(
   Boost
   1.66.0
-  REQUIRED
-  program_options
-  context
-  filesystem
-  regex
-  thread
-  system
-  date_time
-  atomic)
+  REQUIRED program_options context filesystem regex thread system date_time atomic
+)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 find_package(gflags COMPONENTS shared)
@@ -191,16 +159,18 @@ find_package(ZLIB)
 find_library(SNAPPY snappy)
 
 find_package(folly CONFIG REQUIRED)
-set(FOLLY_WITH_DEPENDENCIES
-    ${FOLLY_LIBRARIES}
-    ${DOUBLE_CONVERSION}
-    Boost::context
-    dl
-    ${EVENT}
-    ${SNAPPY}
-    ${LZ4}
-    ${ZSTD}
-    ${ZLIB_LIBRARIES})
+set(
+  FOLLY_WITH_DEPENDENCIES
+  ${FOLLY_LIBRARIES}
+  ${DOUBLE_CONVERSION}
+  Boost::context
+  dl
+  ${EVENT}
+  ${SNAPPY}
+  ${LZ4}
+  ${ZSTD}
+  ${ZLIB_LIBRARIES}
+)
 
 find_package(BZip2 MODULE)
 if(BZIP2_FOUND)
@@ -224,8 +194,14 @@ find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
-set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ}
-                       ${MVFST_EXCEPTION})
+set(
+  PROXYGEN_LIBRARIES
+  ${PROXYGEN_HTTP_SERVER}
+  ${PROXYGEN}
+  ${WANGLE}
+  ${FIZZ}
+  ${MVFST_EXCEPTION}
+)
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/")
 
@@ -255,8 +231,7 @@ if(PRESTO_ENABLE_JWT)
 endif()
 
 if("${MAX_LINK_JOBS}")
-  set_property(GLOBAL APPEND PROPERTY JOB_POOLS
-                                      "presto_link_job_pool=${MAX_LINK_JOBS}")
+  set_property(GLOBAL APPEND PROPERTY JOB_POOLS "presto_link_job_pool=${MAX_LINK_JOBS}")
 else()
   set_property(GLOBAL APPEND PROPERTY JOB_POOLS "presto_link_job_pool=8")
 endif()

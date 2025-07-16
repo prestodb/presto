@@ -92,10 +92,11 @@ class HttpEndpointLatencyFilterFactory
     : public proxygen::RequestHandlerFactory {
  public:
   explicit HttpEndpointLatencyFilterFactory(http::HttpServer* httpServer)
-      : endpoints_(std::make_shared<std::unordered_map<
-                       proxygen::HTTPMethod,
-                       std::vector<std::unique_ptr<EndPoint>>>>(
-            httpServer->endpoints())) {}
+      : endpoints_(
+            std::make_shared<std::unordered_map<
+                proxygen::HTTPMethod,
+                std::vector<std::unique_ptr<EndPoint>>>>(
+                httpServer->endpoints())) {}
 
   void onServerStart(folly::EventBase* /*evb*/) noexcept override {}
 
