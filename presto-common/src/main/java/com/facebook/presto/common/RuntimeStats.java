@@ -21,7 +21,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,6 +42,8 @@ public class RuntimeStats
 
     private final ConcurrentMap<String, RuntimeMetric> metrics = new ConcurrentHashMap<>();
 
+    private final List<RuntimeStatsInstrument> instruments = new ArrayList<>();
+
     public RuntimeStats()
     {
     }
@@ -52,9 +56,20 @@ public class RuntimeStats
         metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
     }
 
+    public RuntimeStats(Map<String, RuntimeMetric> metrics, List<RuntimeStatsInstrument> instruments)
+    {
+        this(metrics);
+        this.instruments.addAll(instruments);
+    }
+
+    public RuntimeStats(List<RuntimeStatsInstrument> instruments)
+    {
+        this.instruments.addAll(instruments);
+    }
+
     public static RuntimeStats copyOf(RuntimeStats stats)
     {
-        return new RuntimeStats(stats.getMetrics());
+        return new RuntimeStats(stats.getMetrics(), stats.instruments);
     }
 
     /**
@@ -83,6 +98,11 @@ public class RuntimeStats
         return metrics.get(name);
     }
 
+    private void sendMetricValueToInstruments(String name, RuntimeUnit unit, long value)
+    {
+        instruments.forEach(instrument -> instrument.observeMetricValue(name, unit, value));
+    }
+
     @JsonValue
     @ThriftField(1)
     public Map<String, RuntimeMetric> getMetrics()
@@ -93,6 +113,7 @@ public class RuntimeStats
     public void addMetricValue(String name, RuntimeUnit unit, long value)
     {
         metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, unit)).addValue(value);
+        sendMetricValueToInstruments(name, unit, value);
     }
 
     public void addMetricValueIgnoreZero(String name, RuntimeUnit unit, long value)
@@ -171,5 +192,10 @@ public class RuntimeStats
             runnable.run();
             return null;
         });
+    }
+
+    public List<RuntimeStatsInstrument> getRuntimeStatsInstruments()
+    {
+        return instruments;
     }
 }
