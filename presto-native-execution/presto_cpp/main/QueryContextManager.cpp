@@ -63,7 +63,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::createAndCacheQueryCtx(
     QueryContextCache& cache,
     const QueryId& queryId,
     velox::core::QueryConfig&& queryConfig,
-    std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&& connectorConfigs,
+    std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
+        connectorConfigs,
     std::shared_ptr<memory::MemoryPool>&& pool) {
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_,

@@ -9,13 +9,17 @@ on:
 jobs:
   codenotify:
     runs-on: ubuntu-latest
-    name: "Label and notify"
+    name: Label and notify
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           show-progress: false
-      - uses: sourcegraph/codenotify@v0.6.4
+          persist-credentials: false
+      - uses: sourcegraph/codenotify@54e4320f0d93f162a371d8d9dc1fb11018199746 # v0.6.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/labeler@v4.3.0
