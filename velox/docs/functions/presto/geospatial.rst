@@ -315,6 +315,10 @@ Accessors
 
     Returns the inherent dimension of this geometry object, which must be less than or equal to the coordinate dimension.
 
+.. function:: ST_ExteriorRing(geometry: Geometry) -> output: Geometry
+
+    Returns a line string representing the exterior ring of the input polygon.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

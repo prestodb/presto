@@ -121,6 +121,8 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_ConvexHull"}});
   registerFunction<StDimensionFunction, int8_t, Geometry>(
       {{prefix + "ST_Dimension"}});
+  registerFunction<StExteriorRingFunction, Geometry, Geometry>(
+      {{prefix + "ST_ExteriorRing"}});
 }
 
 } // namespace
