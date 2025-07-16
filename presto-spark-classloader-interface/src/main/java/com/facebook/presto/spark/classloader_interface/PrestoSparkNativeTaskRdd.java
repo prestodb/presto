@@ -29,6 +29,7 @@ import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.storage.BlockId;
 import org.apache.spark.storage.BlockManagerId;
 import scala.Tuple2;
+import scala.Tuple3;
 import scala.collection.Iterator;
 import scala.collection.Seq;
 
@@ -38,12 +39,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkUtils.asJavaCollection;
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkUtils.getMapSizesByExecutorId;
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkUtils.seqAsJavaList;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static scala.collection.JavaConversions.asJavaCollection;
-import static scala.collection.JavaConversions.seqAsJavaList;
 
 /**
  * PrestoSparkTaskRdd represents execution of Presto stage, it contains:
@@ -173,34 +175,34 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
     private List<String> getBlockIds(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)
     {
         MapOutputTracker mapOutputTracker = SparkEnv.get().mapOutputTracker();
-        Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
-                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
+        Collection<Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>>> mapSizes = getMapSizesByExecutorId(mapOutputTracker,
+                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1);
         return mapSizes.stream().map(item -> item._1.executorId()).collect(Collectors.toList());
     }
 
     private List<String> getPartitionIds(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)
     {
         MapOutputTracker mapOutputTracker = SparkEnv.get().mapOutputTracker();
-        Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
-                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
+        Collection<Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>>> mapSizes = getMapSizesByExecutorId(mapOutputTracker,
+                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1);
         return mapSizes.stream()
                 .map(item -> asJavaCollection(item._2))
                 .flatMap(Collection::stream)
-                .map(i -> i._1.toString())
+                .map(i -> i._1().toString())
                 .collect(Collectors.toList());
     }
 
     private List<Long> getPartitionSize(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)
     {
         MapOutputTracker mapOutputTracker = SparkEnv.get().mapOutputTracker();
-        Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
-                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
+        Collection<Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>>> mapSizes = getMapSizesByExecutorId(mapOutputTracker,
+                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1);
         //Each partition/BlockManagerId can contain multiple blocks (with BlockId), here sums up all the blocks from each BlockManagerId/Partition
         return mapSizes.stream()
                 .map(
                         item -> seqAsJavaList(item._2)
                                 .stream()
-                                .map(item2 -> ((Long) item2._2))
+                                .map(item2 -> ((Long) item2._2()))
                                 .reduce(0L, Long::sum))
                 .collect(Collectors.toList());
     }
