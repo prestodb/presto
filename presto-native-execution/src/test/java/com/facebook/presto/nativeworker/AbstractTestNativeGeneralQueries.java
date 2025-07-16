@@ -143,14 +143,15 @@ public abstract class AbstractTestNativeGeneralQueries
 
         getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
 
-        Session session = Session.builder(getSession())
+        Session actualSession = Session.builder(getSession())
                 .setCatalog("hivecached")
                 .setCatalogSessionProperty("hivecached", "orc_compression_codec", "ZSTD")
                 .setCatalogSessionProperty("hivecached", "collect_column_statistics_on_write", "false")
                 .build();
         try {
-            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
-            assertQuery("SELECT * FROM tmp");
+            getQueryRunner().execute(actualSession, "CREATE TABLE tmp AS SELECT * FROM nation");
+            Session expectedSession = getSession();
+            assertQuery(actualSession, "SELECT * FROM tmp", expectedSession, "SELECT * FROM tmp");
         }
         finally {
             dropTableIfExists("tmp");
