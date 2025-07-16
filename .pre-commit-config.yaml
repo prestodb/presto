@@ -1,0 +1,116 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# See https://pre-commit.com for more information
+# General excludes, files can also be excluded on a hook level
+files: ^presto-native-execution/.*|^.github/.*\.yml
+exclude: "^(?:presto-native-execution/(?:velox|presto_cpp/external)/.*)|\
+  ^presto-native-execution/presto_cpp/presto_protocol/.*\\.yml|\
+  \\.(?:patch|header|sql)|\
+  ThriftLibrary\\.cmake|\
+  /data/|\
+  build/(?:fb_code_builder|deps)|\
+  cmake-build-debug|\
+  NOTICE\\.txt|\
+  scripts/git-clang-format"
+default_install_hook_types: [pre-commit, pre-push]
+repos:
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+      - id: check-useless-excludes
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  - repo: local
+    hooks:
+      - id: clang-tidy
+        name: clang-tidy
+        description: Run clang-tidy on C/C++ files
+        stages:
+          - manual
+        entry: clang-tidy
+        language: python
+        types_or: [c++, c]
+        additional_dependencies: [clang-tidy==18.1.8]
+        require_serial: true
+
+      - id: license-header
+        name: license-header
+        description: Add missing license headers.
+        entry: presto-native-execution/scripts/license-header.py
+        args: [-i]
+        language: python
+        additional_dependencies: [regex]
+        require_serial: true
+        exclude: ^.github/.*
+
+  # CMake
+  - repo: https://github.com/BlankSpruce/gersemi
+    rev: 0.21.0
+    hooks:
+      - id: gersemi
+        name: CMake formatter
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.8
+    hooks:
+      - id: clang-format
+        # types_or: [c++, c, cuda, metal, objective-c]
+        files: \.(cpp|cc|c|h|hpp|inc|cu|cuh|clcpp|mm|metal)$
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
+    hooks:
+      - id: shfmt
+        # w: write changes, s: simplify, i set indent to 2 spaces
+        args: [-w, -s, -i, '2']
+
+  # Python
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.3
+    hooks:
+      - id: ruff-check
+        args: [ --fix, --no-unsafe-fixes ]
+      - id: ruff-format
+
+  # The following checks mostly target GitHub Actions workflows.
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.0
+    hooks:
+      - id: yamllint
+        args: [ --format, parsable, --strict ]
+        exclude: .*\.clang-(tidy|format)|presto_cpp/main/thrift/.*
+
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.16.0
+    hooks:
+      - id: yamlfmt
+        exclude: .*\.clang-(tidy|format)|presto_cpp/main/thrift/.*
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.7.0
+    hooks:
+      - id: zizmor
+
+  - repo: https://github.com/mpalmer/action-validator
+    rev: v0.7.1
+    hooks:
+      - id: action-validator
