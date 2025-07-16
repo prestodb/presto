@@ -210,7 +210,22 @@ Property Name                                            Description            
  ``hive.metastore.catalog.name``                         Specifies the catalog name to be passed to the metastore.
 
 ``hive.experimental.symlink.optimized-reader.enabled``   Experimental: Enable optimized SymlinkTextInputFormat reader  ``true``
+
+``hive.copy-on-first-write-configuration-enabled``       Optimize the number of configuration copies by enabling       ``false``
+                                                         copy-on-write technique.
+
+                                                         CopyOnFirstWriteConfiguration acts as a wrapper around the
+                                                         standard Hadoop Configuration object, extending its
+                                                         behaviour by introducing an additional layer of
+                                                         indirection. However, many third-party libraries that
+                                                         integrate with Presto rely directly on the Configuration
+                                                         copy `constructor`_. Since this constructor does not
+                                                         recognise or account for the wrapped nature of
+                                                         CopyOnFirstWriteConfiguration, it can result in silent
+                                                         failures where critical configuration properties are not
+                                                         correctly propagated.
 ======================================================== ============================================================ ============
+.. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
 
 Avro Configuration Properties
 -----------------------------
