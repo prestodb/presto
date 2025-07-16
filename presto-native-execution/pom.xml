@@ -16,6 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <dep.pos.classloader.version>2</dep.pos.classloader.version>
     </properties>
 
     <dependencyManagement>
@@ -226,6 +227,53 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-interface</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark${dep.pos.classloader.version}</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-base</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto.spark</groupId>
+            <artifactId>spark-core</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-base</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
@@ -511,6 +559,21 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <profile>
+            <id>spark3</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <properties>
+                <dep.pos.classloader.version>3</dep.pos.classloader.version>
+            </properties>
         </profile>
     </profiles>
 </project>
