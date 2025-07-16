@@ -51,6 +51,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

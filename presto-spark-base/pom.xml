@@ -13,6 +13,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
     </properties>
 
     <dependencyManagement>
@@ -24,6 +25,26 @@
                 <version>2.22.2</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>http-client</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>http-server</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>event</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>discovery</artifactId>
+                <version>0.216</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -84,8 +105,21 @@
             <artifactId>presto-main-base</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-transport-spi</artifactId>
+        </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>com.facebook.airlift.drift</groupId>-->
+<!--            <artifactId>drift-transport-netty</artifactId>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.facebook.airlift.drift</groupId>-->
+<!--            <artifactId>drift-codec</artifactId>-->
+<!--        </dependency>-->
+        <dependency>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-client</artifactId>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -128,6 +162,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-server</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>event</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
@@ -156,7 +202,14 @@
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
@@ -371,6 +424,8 @@
                         <ignoredClassPattern>com.esotericsoftware.minlog.Log</ignoredClassPattern>
                         <ignoredClassPattern>com.esotericsoftware.reflectasm.*</ignoredClassPattern>
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        <ignoredClassPattern>com.facebook.drift.*</ignoredClassPattern>
+                        <ignoredClassPattern>io.jsonwebtoken.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
