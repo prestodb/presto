@@ -45,6 +45,7 @@ public class PlanCheckerRouterPluginPrestoClient
 {
     private static final Logger log = Logger.get(PlanCheckerRouterPluginPrestoClient.class);
     private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
+    private static final CounterStat fallBackToJavaClusterRedirectRequests = new CounterStat();
     private static final CounterStat javaClusterRedirectRequests = new CounterStat();
     private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
     private final OkHttpClient httpClient = new OkHttpClient();
@@ -106,6 +107,7 @@ public class PlanCheckerRouterPluginPrestoClient
                 // If any exception is thrown, log the message and re-route to a Java clusters router.
                 isNativeCompatible = false;
                 log.info(e.getMessage());
+                fallBackToJavaClusterRedirectRequests.update(1L);
             }
             else {
                 // hard failure
@@ -135,6 +137,13 @@ public class PlanCheckerRouterPluginPrestoClient
     public CounterStat getNativeClusterRedirectRequests()
     {
         return nativeClusterRedirectRequests;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getFallBackToJavaClusterRedirectRequests()
+    {
+        return fallBackToJavaClusterRedirectRequests;
     }
 
     private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal)

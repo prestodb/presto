@@ -17,6 +17,7 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.spi.router.Scheduler;
 import com.facebook.presto.spi.router.SchedulerFactory;
 import com.google.inject.Injector;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -37,7 +38,7 @@ public class PlanCheckerRouterPluginSchedulerFactory
     public Scheduler create(Map<String, String> config)
     {
         try {
-            Bootstrap app = new Bootstrap(new PlanCheckerRouterPluginModule());
+            Bootstrap app = new Bootstrap(new PlanCheckerRouterPluginModule(), new MBeanModule());
 
             Injector injector = app
                     .doNotInitializeLogging()
