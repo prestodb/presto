@@ -35,6 +35,7 @@ public class PrestoSparkTaskSourceRdd
         extends RDD<SerializedPrestoSparkTaskSource>
 {
     /**
+     * Reference
      * Each element in taskSourcesByPartitionId is a list of task sources assigned to the same Spark partition.
      * When input tables are unbucketed, task sources are distributed randomly across all partitions (tasks).
      * When input tables are bucketed, each bucket in task sources will be assigned to one Spark partition (task),

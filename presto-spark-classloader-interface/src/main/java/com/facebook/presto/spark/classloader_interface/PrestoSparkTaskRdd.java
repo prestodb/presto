@@ -38,6 +38,7 @@ import static scala.collection.JavaConversions.asScalaBuffer;
 import static scala.collection.JavaConversions.seqAsJavaList;
 
 /**
+ * Reference
  * PrestoSparkTaskRdd represents execution of Presto stage, it contains:
  * - A list of shuffleInputRdds, each of the corresponding to a child stage.
  * - An optional taskSourceRdd, which represents ALL table scan inputs in this stage.
