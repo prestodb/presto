@@ -120,6 +120,7 @@ public class PrestoNativeQueryRunnerUtils
         private Map<String, String> extraCoordinatorProperties = new HashMap<>();
         private Map<String, String> hiveProperties = new HashMap<>();
         private Map<String, String> tpcdsProperties = new HashMap<>();
+        private Optional<String> pluginDirectory = Optional.empty();
         private String security;
         private boolean addStorageFormatToPath;
         private boolean coordinatorSidecarEnabled;
@@ -166,6 +167,12 @@ public class PrestoNativeQueryRunnerUtils
         public HiveQueryRunnerBuilder setRemoteFunctionServerUds(Optional<String> remoteFunctionServerUds)
         {
             this.remoteFunctionServerUds = remoteFunctionServerUds;
+            return this;
+        }
+
+        public HiveQueryRunnerBuilder setPluginDirectory(Optional<String> pluginDirectory)
+        {
+            this.pluginDirectory = pluginDirectory;
             return this;
         }
 
@@ -254,7 +261,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache);
+                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -343,7 +350,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false, false);
+                        Optional.empty(), false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -437,6 +444,7 @@ public class PrestoNativeQueryRunnerUtils
             String prestoServerPath,
             int cacheMaxSize,
             Optional<String> remoteFunctionServerUds,
+            Optional<String> pluginDirectory,
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
             boolean enableRuntimeMetricsCollection,
@@ -482,6 +490,10 @@ public class PrestoNativeQueryRunnerUtils
                                     "remote-function-server.thrift.uds-path=%s%n" +
                                     "remote-function-server.serde=presto_page%n" +
                                     "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                        }
+
+                        if (pluginDirectory.isPresent()) {
+                            configProperties = format("%s%n" + "plugin.dir=%s%n", configProperties, pluginDirectory.get());
                         }
 
                         if (failOnNestedLoopJoin) {
