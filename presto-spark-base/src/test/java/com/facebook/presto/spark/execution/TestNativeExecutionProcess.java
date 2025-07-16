@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskId;
@@ -27,7 +28,6 @@ import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ScheduledExecutorService;
