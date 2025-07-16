@@ -66,14 +66,16 @@ void registerConnectorFactories() {
 void registerConnectors() {
   registerConnectorFactories();
 
-  registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
-      velox::connector::hive::HiveConnectorFactory::kHiveConnectorName));
+  registerPrestoToVeloxConnector(
+      std::make_unique<HivePrestoToVeloxConnector>(
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName));
   registerPrestoToVeloxConnector(
       std::make_unique<HivePrestoToVeloxConnector>(kHiveHadoop2ConnectorName));
   registerPrestoToVeloxConnector(
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
-  registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
-      velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
+  registerPrestoToVeloxConnector(
+      std::make_unique<TpchPrestoToVeloxConnector>(
+          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
@@ -88,8 +90,9 @@ void registerConnectors() {
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-  registerPrestoToVeloxConnector(std::make_unique<ArrowPrestoToVeloxConnector>(
-      ArrowFlightConnectorFactory::kArrowFlightConnectorName));
+  registerPrestoToVeloxConnector(
+      std::make_unique<ArrowPrestoToVeloxConnector>(
+          ArrowFlightConnectorFactory::kArrowFlightConnectorName));
 #endif
 }
 } // namespace facebook::presto

@@ -17,13 +17,19 @@ add_executable(presto_flight_connector_infra_test
 add_test(presto_flight_connector_infra_test presto_flight_connector_infra_test)
 
 target_link_libraries(
-  presto_flight_connector_infra_test presto_protocol
-  presto_flight_connector_test_lib GTest::gtest GTest::gtest_main ${GLOG})
+  presto_flight_connector_infra_test
+  presto_protocol
+  presto_flight_connector_test_lib
+  GTest::gtest
+  GTest::gtest_main
+  ${GLOG})
 
 add_executable(
   presto_flight_connector_test
-  ArrowFlightConnectorTest.cpp ArrowFlightConnectorAuthTest.cpp
-  ArrowFlightConnectorTlsTest.cpp ArrowFlightConnectorDataTypeTest.cpp
+  ArrowFlightConnectorTest.cpp
+  ArrowFlightConnectorAuthTest.cpp
+  ArrowFlightConnectorTlsTest.cpp
+  ArrowFlightConnectorDataTypeTest.cpp
   ArrowFlightConfigTest.cpp)
 
 set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/tls_certs")

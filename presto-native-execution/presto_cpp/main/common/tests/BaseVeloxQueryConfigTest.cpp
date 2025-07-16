@@ -47,8 +47,9 @@ class BaseVeloxQueryConfigTest : public testing::Test {
           fmt::format("{}=true\n", SystemConfig::kUseLegacyArrayAgg));
       systemConfigFile->append(
           fmt::format("{}=17MB\n", SystemConfig::kSinkMaxBufferSize));
-      systemConfigFile->append(fmt::format(
-          "{}=6MB\n", SystemConfig::kDriverMaxPagePartitioningBufferSize));
+      systemConfigFile->append(
+          fmt::format(
+              "{}=6MB\n", SystemConfig::kDriverMaxPagePartitioningBufferSize));
       systemConfigFile->close();
       SystemConfig::instance()->initialize(systemConfigFilePath);
     }

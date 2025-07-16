@@ -235,6 +235,37 @@ Run CLion:
 * The framework will launch single Coordinator and four native workers to test-run the queries.
 * Similarly, the unit tests of Velox and presto_cpp can be run from CLion.
 
+### Pre-commit
+
+The [pre-commit](https://pre-commit.com/) configuration in `.pre-commit-config.yaml`
+provides Git hooks that run automatically before commits and pushes to check and fix
+formatting and license headers.
+
+GitHub Actions run pre-commit checks as part of our continuous integration. Using
+pre-commit hooks locally ensures pull requests pass these checks before they have
+the chance to fail. When pre-commit automatically fixes issues on commit, it is a good
+idea to manually check the modified files to ensure pre-commit did not make unintended
+changes.
+
+To install the pre-commit hooks, first ensure your Python version is 3.9 or higher.
+Then run:
+
+```
+pip install pre-commit
+pre-commit install --allow-missing-config
+```
+
+The option `--allow-missing-config` will allow commits and pushes to succeed locally
+if the config is missing (e.g. you are working on an older branch).
+
+In addition to the Git hooks, pre-commit can be run manually on changed files using
+`pre-commit run` or on all files using `pre-commit run -a`. To run a
+specific hook, use `pre-commit run [hook-id]` and refer to a specific hook `id` in
+`.pre-commit-config.yaml`.
+
+The `clang-tidy` hook is not run locally or in CI by default, but
+can be run manually for optional checks using `pre-commit run --hook-stage manual clang-tidy`.
+
 ### Code formatting, headers, and clang-tidy
 
 Makefile targets exist for showing, fixing and checking formatting, license

@@ -135,9 +135,10 @@ class QueryContextManager {
   void setQueryHasStartedTasks(const protocol::TaskId& taskId);
 
   /// Calls the given functor for every present query context.
-  void visitAllContexts(std::function<void(
-                            const protocol::QueryId&,
-                            const velox::core::QueryCtx*)> visitor) const;
+  void visitAllContexts(
+      std::function<
+          void(const protocol::QueryId&, const velox::core::QueryCtx*)> visitor)
+      const;
 
   /// Test method to clear the query context cache.
   void testingClearCache();
