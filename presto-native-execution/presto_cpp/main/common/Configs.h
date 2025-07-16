@@ -750,6 +750,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
     "exchange.http-client.request-data-sizes-max-wait-sec"};
 
+  static constexpr std::string_view kExchangeIoEvbViolationThresholdMs{
+      "exchange.io-evb-violation-threshold-ms"};
+  static constexpr std::string_view kHttpSrvIoEvbViolationThresholdMs{
+      "http-server.io-evb-violation-threshold-ms"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1026,6 +1031,10 @@ class SystemConfig : public ConfigBase {
   int requestDataSizesMaxWaitSec() const;
 
   std::string pluginDir() const;
+
+  int32_t exchangeIoEvbViolationThresholdMs() const;
+
+  int32_t httpSrvIoEvbViolationThresholdMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
