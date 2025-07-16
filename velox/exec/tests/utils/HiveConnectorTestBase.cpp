@@ -50,7 +50,7 @@ void HiveConnectorTestBase::SetUp() {
   dwio::common::registerFileSinks();
   dwrf::registerDwrfReaderFactory();
   dwrf::registerDwrfWriterFactory();
-  dwio::common::registerTextReaderFactory();
+  text::registerTextReaderFactory();
 }
 
 void HiveConnectorTestBase::TearDown() {
@@ -62,7 +62,7 @@ void HiveConnectorTestBase::TearDown() {
   connector::unregisterConnector(kHiveConnectorId);
   connector::unregisterConnectorFactory(
       connector::hive::HiveConnectorFactory::kHiveConnectorName);
-  dwio::common::unregisterTextReaderFactory();
+  text::unregisterTextReaderFactory();
   OperatorTestBase::TearDown();
 }
 

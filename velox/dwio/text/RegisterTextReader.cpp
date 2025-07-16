@@ -17,9 +17,9 @@
 #include "velox/dwio/text/RegisterTextReader.h"
 #include "velox/dwio/text/reader/TextReader.h"
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::text {
 
-std::unique_ptr<Reader> TextReaderFactory::createReader(
+std::unique_ptr<dwio::common::Reader> TextReaderFactory::createReader(
     std::unique_ptr<BufferedInput> input,
     const ReaderOptions& options) {
   return std::make_unique<text::TextReader>(options, std::move(input));
@@ -30,7 +30,7 @@ void registerTextReaderFactory() {
 }
 
 void unregisterTextReaderFactory() {
-  unregisterReaderFactory(FileFormat::TEXT);
+  unregisterReaderFactory(dwio::common::FileFormat::TEXT);
 }
 
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::text

@@ -18,19 +18,19 @@
 
 #include "velox/dwio/common/ReaderFactory.h"
 
-namespace facebook::velox::dwio::common {
+namespace facebook::velox::text {
 
-class TextReaderFactory : public ReaderFactory {
+class TextReaderFactory : public dwio::common::ReaderFactory {
  public:
-  TextReaderFactory() : ReaderFactory(FileFormat::TEXT) {}
+  TextReaderFactory() : ReaderFactory(dwio::common::FileFormat::TEXT) {}
 
-  std::unique_ptr<Reader> createReader(
-      std::unique_ptr<BufferedInput>,
-      const ReaderOptions&) override;
+  std::unique_ptr<dwio::common::Reader> createReader(
+      std::unique_ptr<dwio::common::BufferedInput>,
+      const dwio::common::ReaderOptions&) override;
 };
 
 void registerTextReaderFactory();
 
 void unregisterTextReaderFactory();
 
-} // namespace facebook::velox::dwio::common
+} // namespace facebook::velox::text

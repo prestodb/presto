@@ -34,16 +34,15 @@ class TextWriterTest : public testing::Test,
   void SetUp() override {
     velox::filesystems::registerLocalFileSystem();
     registerTextWriterFactory();
-    dwio::common::registerTextReaderFactory();
+    registerTextReaderFactory();
     rootPool_ = memory::memoryManager()->addRootPool("TextWriterTests");
     leafPool_ = rootPool_->addLeafChild("TextWriterTests");
     tempPath_ = exec::test::TempDirectoryPath::create();
   }
 
   void TearDown() override {
-    dwio::common::unregisterTextReaderFactory();
     unregisterTextWriterFactory();
-    dwio::common::unregisterTextReaderFactory();
+    unregisterTextReaderFactory();
   }
 
  protected:

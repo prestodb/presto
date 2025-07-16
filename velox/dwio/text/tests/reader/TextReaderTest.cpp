@@ -36,11 +36,11 @@ class TextReaderTest : public testing::Test,
   }
 
   void SetUp() override {
-    dwio::common::registerTextReaderFactory();
+    registerTextReaderFactory();
   }
 
   void TearDown() override {
-    dwio::common::unregisterTextReaderFactory();
+    unregisterTextReaderFactory();
   }
 
   memory::MemoryPool& poolRef() {
