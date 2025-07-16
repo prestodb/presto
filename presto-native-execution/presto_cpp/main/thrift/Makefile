@@ -27,4 +27,3 @@ presto_protocol-to-thrift-json.json: presto_protocol-to-thrift-json.py presto_pr
 
 presto_thrift.json: presto_thrift.thrift ./thrift2json.py
 	./thrift2json.py presto_thrift.thrift | jq . > presto_thrift.json
-	

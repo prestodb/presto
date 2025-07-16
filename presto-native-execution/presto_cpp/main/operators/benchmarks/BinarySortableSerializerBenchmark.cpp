@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -113,9 +111,9 @@ class BinarySortableSerializerBenchmark {
     return size;
   }
   const std::vector<velox::core::SortOrder> ordering_;
-  
+
   std::shared_ptr<memory::MemoryPool> rootPool_{
-    memory::memoryManager()->addRootPool()};
+      memory::memoryManager()->addRootPool()};
   std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("test")};
 
   RowVectorPtr data_;

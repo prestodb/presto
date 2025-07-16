@@ -351,7 +351,8 @@ void updatePipelineStats(
     protocol::PipelineStats& prestoPipelineStats) {
   prestoPipelineStats.inputPipeline = veloxPipelineStats.inputPipeline;
   prestoPipelineStats.outputPipeline = veloxPipelineStats.outputPipeline;
-  prestoPipelineStats.firstStartTimeInMillis = prestoTaskStats.createTimeInMillis;
+  prestoPipelineStats.firstStartTimeInMillis =
+      prestoTaskStats.createTimeInMillis;
   prestoPipelineStats.lastStartTimeInMillis = prestoTaskStats.endTimeInMillis;
   prestoPipelineStats.lastEndTimeInMillis = prestoTaskStats.endTimeInMillis;
 
@@ -442,12 +443,18 @@ void updatePipelineStats(
     prestoOp.blockedWall = protocol::Duration(
         veloxOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
 
-    prestoOp.userMemoryReservationInBytes = veloxOp.memoryStats.userMemoryReservation;
-    prestoOp.revocableMemoryReservationInBytes = veloxOp.memoryStats.revocableMemoryReservation;
-    prestoOp.systemMemoryReservationInBytes = veloxOp.memoryStats.systemMemoryReservation;
-    prestoOp.peakUserMemoryReservationInBytes = veloxOp.memoryStats.peakUserMemoryReservation;
-    prestoOp.peakSystemMemoryReservationInBytes = veloxOp.memoryStats.peakSystemMemoryReservation;
-    prestoOp.peakTotalMemoryReservationInBytes = veloxOp.memoryStats.peakTotalMemoryReservation;
+    prestoOp.userMemoryReservationInBytes =
+        veloxOp.memoryStats.userMemoryReservation;
+    prestoOp.revocableMemoryReservationInBytes =
+        veloxOp.memoryStats.revocableMemoryReservation;
+    prestoOp.systemMemoryReservationInBytes =
+        veloxOp.memoryStats.systemMemoryReservation;
+    prestoOp.peakUserMemoryReservationInBytes =
+        veloxOp.memoryStats.peakUserMemoryReservation;
+    prestoOp.peakSystemMemoryReservationInBytes =
+        veloxOp.memoryStats.peakSystemMemoryReservation;
+    prestoOp.peakTotalMemoryReservationInBytes =
+        veloxOp.memoryStats.peakTotalMemoryReservation;
 
     prestoOp.spilledDataSizeInBytes = veloxOp.spilledBytes;
 

@@ -17,8 +17,8 @@
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
-#include "velox/type/Type.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
+#include "velox/type/Type.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -638,8 +638,8 @@ TEST_F(RowExpressionTest, castToVarchar) {
     ASSERT_NE(returnExpr, nullptr);
     ASSERT_EQ(returnExpr->name(), "presto.default.substr");
 
-    auto returnArg1 = std::dynamic_pointer_cast<const CastTypedExpr>(
-        returnExpr->inputs()[0]);
+    auto returnArg1 =
+        std::dynamic_pointer_cast<const CastTypedExpr>(returnExpr->inputs()[0]);
     auto returnArg2 = std::dynamic_pointer_cast<const ConstantTypedExpr>(
         returnExpr->inputs()[1]);
     auto returnArg3 = std::dynamic_pointer_cast<const ConstantTypedExpr>(
@@ -998,8 +998,7 @@ TEST_F(RowExpressionTest, likeWithEscape) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(
-      callExpr->toString(), "presto.default.like(\"type\",%BRASS,#)");
+  ASSERT_EQ(callExpr->toString(), "presto.default.like(\"type\",%BRASS,#)");
 }
 
 TEST_F(RowExpressionTest, dereference) {
