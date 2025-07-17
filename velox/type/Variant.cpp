@@ -20,7 +20,6 @@
 #include "velox/common/encode/Base64.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/FloatingPointUtil.h"
-#include "velox/type/HugeInt.h"
 
 namespace facebook::velox {
 
@@ -1023,6 +1022,56 @@ void Variant::verifyArrayElements(const std::vector<Variant>& inputs) {
             "All array elements must be of the same kind");
       }
     }
+  }
+}
+
+TypePtr Variant::inferType() const {
+  switch (kind_) {
+    case TypeKind::MAP: {
+      TypePtr keyType;
+      TypePtr valueType;
+      auto& m = map();
+      for (auto& pair : m) {
+        if (keyType == nullptr && !pair.first.isNull()) {
+          keyType = pair.first.inferType();
+        }
+        if (valueType == nullptr && !pair.second.isNull()) {
+          valueType = pair.second.inferType();
+        }
+        if (keyType && valueType) {
+          break;
+        }
+      }
+      return MAP(
+          keyType ? keyType : UNKNOWN(), valueType ? valueType : UNKNOWN());
+    }
+    case TypeKind::ROW: {
+      auto& r = row();
+      std::vector<TypePtr> children{};
+      children.reserve(r.size());
+      for (auto& v : r) {
+        children.push_back(v.inferType());
+      }
+      return ROW(std::move(children));
+    }
+    case TypeKind::ARRAY: {
+      TypePtr elementType = UNKNOWN();
+      if (!isNull()) {
+        auto& a = array();
+        if (!a.empty()) {
+          elementType = a.at(0).inferType();
+        }
+      }
+      return ARRAY(elementType);
+    }
+    case TypeKind::OPAQUE: {
+      return value<TypeKind::OPAQUE>().type;
+    }
+    case TypeKind::UNKNOWN: {
+      return UNKNOWN();
+    }
+    default:
+      return createScalarType(kind_);
   }
 }
 
