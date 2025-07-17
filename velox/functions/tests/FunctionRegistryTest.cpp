@@ -31,8 +31,17 @@
 #include "velox/functions/tests/RegistryTestUtil.h"
 #include "velox/type/Type.h"
 
-namespace facebook::velox {
+#define VELOX_EXPECT_EQ_TYPES(actual, expected)                                \
+  if (expected != nullptr) {                                                   \
+    ASSERT_TRUE(actual != nullptr)                                             \
+        << "Expected: " << expected->toString() << ", got null";               \
+    EXPECT_EQ(*actual, *expected) << "Expected: " << expected->toString()      \
+                                  << ", got " << actual->toString();           \
+  } else {                                                                     \
+    EXPECT_EQ(actual, nullptr) << "Expected null, got " << actual->toString(); \
+  }
 
+namespace facebook::velox {
 namespace {
 
 VELOX_DECLARE_VECTOR_FUNCTION(
@@ -85,7 +94,6 @@ inline void registerTestFunctions() {
 inline void registerTestVectorFunctionOne(const std::string& functionName) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_one, functionName);
 }
-} // namespace
 
 class FunctionRegistryTest : public testing::Test {
  public:
@@ -98,16 +106,92 @@ class FunctionRegistryTest : public testing::Test {
       const std::string& functionName,
       const std::vector<TypePtr>& types,
       const TypePtr& expected) {
-    checkEqual(velox::resolveFunction(functionName, types), expected);
-    checkEqual(velox::resolveVectorFunction(functionName, types), expected);
+    auto type = velox::resolveFunction(functionName, types);
+    VELOX_EXPECT_EQ_TYPES(type, expected);
+
+    type = velox::resolveVectorFunction(functionName, types);
+    VELOX_EXPECT_EQ_TYPES(type, expected);
+
+    std::vector<TypePtr> coercions;
+    type = resolveFunctionWithCoercions(functionName, types, coercions);
+    VELOX_EXPECT_EQ_TYPES(type, expected);
+
+    if (expected != nullptr) {
+      EXPECT_EQ(types.size(), coercions.size());
+      for (const auto& coercion : coercions) {
+        EXPECT_EQ(coercion, nullptr);
+      }
+    }
   }
 
-  void checkEqual(const TypePtr& actual, const TypePtr& expected) {
-    if (expected) {
-      EXPECT_EQ(*actual, *expected);
-    } else {
-      EXPECT_EQ(actual, nullptr);
+  void testCoercions(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes,
+      const TypePtr& expectedReturnType,
+      const std::vector<TypePtr>& expectedCoercions) {
+    auto type = resolveFunction(name, argTypes);
+    ASSERT_TRUE(type == nullptr);
+
+    std::vector<TypePtr> coercions;
+    type = resolveFunctionWithCoercions(name, argTypes, coercions);
+
+    VELOX_EXPECT_EQ_TYPES(type, expectedReturnType);
+
+    EXPECT_EQ(coercions.size(), argTypes.size());
+    EXPECT_EQ(coercions.size(), expectedCoercions.size());
+
+    for (auto i = 0; i < coercions.size(); ++i) {
+      if (expectedCoercions[i] == nullptr) {
+        EXPECT_EQ(coercions[i], nullptr);
+      } else {
+        ASSERT_NE(coercions[i], nullptr);
+        EXPECT_EQ(*coercions[i], *expectedCoercions[i])
+            << "Expected: " << expectedCoercions[i]->toString()
+            << ", but got: " << coercions[i]->toString();
+      }
     }
+  }
+
+  void testNoCoercions(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes,
+      const TypePtr& expectedReturnType) {
+    auto type = resolveFunction(name, argTypes);
+    VELOX_EXPECT_EQ_TYPES(type, expectedReturnType);
+
+    std::vector<TypePtr> coercions;
+    type = resolveFunctionWithCoercions(name, argTypes, coercions);
+
+    VELOX_EXPECT_EQ_TYPES(type, expectedReturnType);
+
+    EXPECT_EQ(coercions.size(), argTypes.size());
+    for (const auto& coercion : coercions) {
+      EXPECT_EQ(coercion, nullptr);
+    }
+  }
+
+  void testCannotResolve(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes) {
+    auto type = resolveFunction(name, argTypes);
+    ASSERT_TRUE(type == nullptr);
+
+    std::vector<TypePtr> coercions;
+    type = resolveFunctionWithCoercions(name, argTypes, coercions);
+    ASSERT_TRUE(type == nullptr);
+  }
+
+  exec::FunctionSignaturePtr makeSignature(
+      const std::string& returnType,
+      const std::vector<std::string>& argTypes) {
+    exec::FunctionSignatureBuilder builder;
+    builder.returnType(returnType);
+
+    for (const auto& argType : argTypes) {
+      builder.argumentType(argType);
+    }
+
+    return builder.build();
   }
 };
 
@@ -503,6 +587,149 @@ TEST_F(FunctionRegistryTest, resolveFunctionsBasedOnPriority) {
   ASSERT_EQ(*result5, *REAL());
 }
 
+class DummyVectorFunction : public velox::exec::VectorFunction {
+ public:
+  void apply(
+      const velox::SelectivityVector& /* rows */,
+      std::vector<velox::VectorPtr>& /* args */,
+      const TypePtr& /* outputType */,
+      velox::exec::EvalCtx& /* context */,
+      velox::VectorPtr& /* result */) const override {}
+};
+
+template <typename TExec>
+struct DummySimpleFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  template <typename T>
+  void call(T&, const T&, const T&) {}
+};
+
+TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
+  removeFunction("foo");
+
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    registerFunction<DummySimpleFunction, int32_t, int32_t, int32_t>({"foo"});
+    registerFunction<DummySimpleFunction, int64_t, int64_t, int64_t>({"foo"});
+    registerFunction<DummySimpleFunction, float, float, float>({"foo"});
+    registerFunction<DummySimpleFunction, double, double, double>({"foo"});
+
+    testCoercions(
+        "foo", {TINYINT(), TINYINT()}, INTEGER(), {INTEGER(), INTEGER()});
+
+    testCoercions(
+        "foo", {TINYINT(), SMALLINT()}, INTEGER(), {INTEGER(), INTEGER()});
+    testCoercions(
+        "foo", {SMALLINT(), TINYINT()}, INTEGER(), {INTEGER(), INTEGER()});
+
+    testCoercions("foo", {TINYINT(), REAL()}, REAL(), {REAL(), nullptr});
+    testCoercions("foo", {REAL(), TINYINT()}, REAL(), {nullptr, REAL()});
+
+    testNoCoercions("foo", {INTEGER(), INTEGER()}, INTEGER());
+    testNoCoercions("foo", {REAL(), REAL()}, REAL());
+    testNoCoercions("foo", {DOUBLE(), DOUBLE()}, DOUBLE());
+
+    testCannotResolve("foo", {TINYINT(), VARCHAR()});
+  }
+
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {
+            makeSignature("integer", {"integer", "integer"}),
+            makeSignature("bigint", {"bigint", "bigint"}),
+            makeSignature("real", {"real", "real"}),
+        },
+        std::make_unique<DummyVectorFunction>());
+
+    testCoercions(
+        "foo", {TINYINT(), TINYINT()}, INTEGER(), {INTEGER(), INTEGER()});
+
+    testCoercions(
+        "foo", {TINYINT(), SMALLINT()}, INTEGER(), {INTEGER(), INTEGER()});
+    testCoercions(
+        "foo", {SMALLINT(), TINYINT()}, INTEGER(), {INTEGER(), INTEGER()});
+
+    testCoercions("foo", {TINYINT(), REAL()}, REAL(), {REAL(), nullptr});
+    testCoercions("foo", {REAL(), TINYINT()}, REAL(), {nullptr, REAL()});
+
+    testNoCoercions("foo", {INTEGER(), INTEGER()}, INTEGER());
+    testNoCoercions("foo", {REAL(), REAL()}, REAL());
+
+    testCannotResolve("foo", {TINYINT(), VARCHAR()});
+  }
+
+  // Coercions with complex types are not supported yet.
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {
+            makeSignature("integer", {"array(integer)", "integer"}),
+            makeSignature("bigint", {"array(bigint)", "bigint"}),
+            makeSignature("real", {"array(real)", "real"}),
+        },
+        std::make_unique<DummyVectorFunction>());
+
+    testCannotResolve("foo", {ARRAY(TINYINT()), SMALLINT()});
+  }
+
+  // Coercions with variable number of arguments are not supported yet.
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {velox::exec::FunctionSignatureBuilder()
+             .returnType("bigint")
+             .argumentType("bigint")
+             .argumentType("bigint")
+             .variableArity()
+             .build(),
+         velox::exec::FunctionSignatureBuilder()
+             .returnType("double")
+             .argumentType("double")
+             .argumentType("double")
+             .variableArity()
+             .build()},
+        std::make_unique<DummyVectorFunction>());
+
+    testCannotResolve("foo", {TINYINT(), SMALLINT(), INTEGER()});
+  }
+
+  // Coercions with generic types are not supported yet.
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {velox::exec::FunctionSignatureBuilder()
+             .typeVariable("T")
+             .returnType("T")
+             .argumentType("T")
+             .argumentType("T")
+             .build()},
+        std::make_unique<DummyVectorFunction>());
+
+    testCannotResolve("foo", {TINYINT(), REAL()});
+  }
+}
+
 TEST_F(FunctionRegistryTest, resolveSpecialForms) {
   auto andResult =
       resolveFunctionOrCallableSpecialForm("and", {BOOLEAN(), BOOLEAN()});
@@ -609,4 +836,7 @@ TEST_F(FunctionRegistryTest, ipPrefixRegistration) {
   EXPECT_FALSE(result->second.supportsFlattening);
 }
 
+} // namespace
 } // namespace facebook::velox
+
+#undef VELOX_EXPECT_EQ_TYPES

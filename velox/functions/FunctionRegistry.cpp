@@ -128,6 +128,22 @@ TypePtr resolveFunction(
   return resolveVectorFunction(functionName, argTypes);
 }
 
+TypePtr resolveFunctionWithCoercions(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes,
+    std::vector<TypePtr>& coercions) {
+  // Check if this is a simple function.
+  if (auto resolvedFunction =
+          exec::simpleFunctions().resolveFunctionWithCoercions(
+              functionName, argTypes, coercions)) {
+    return resolvedFunction->type();
+  }
+
+  // Check if VectorFunctions has this function name + signature.
+  return exec::resolveVectorFunctionWithCoercions(
+      functionName, argTypes, coercions);
+}
+
 std::optional<std::pair<TypePtr, exec::VectorFunctionMetadata>>
 resolveFunctionWithMetadata(
     const std::string& functionName,

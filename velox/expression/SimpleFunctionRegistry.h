@@ -76,7 +76,7 @@ class SimpleFunctionRegistry {
       bool overwrite) {
     const auto& metadata = singletonUdfMetadata<typename UDF::Metadata>(
         UDF::is_default_null_behavior, constraints);
-    const auto factory = []() { return CreateUdf<UDF>(); };
+    const auto factory = []() { return std::make_unique<UDF>(); };
 
     if (aliases.empty()) {
       return registerFunctionInternal(
@@ -152,13 +152,24 @@ class SimpleFunctionRegistry {
 
   std::optional<ResolvedSimpleFunction> resolveFunction(
       const std::string& name,
-      const std::vector<TypePtr>& argTypes) const;
+      const std::vector<TypePtr>& argTypes) const {
+    std::vector<TypePtr> coercions;
+    return resolveFunction(name, argTypes, false, coercions);
+  }
+
+  std::optional<ResolvedSimpleFunction> resolveFunctionWithCoercions(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes,
+      std::vector<TypePtr>& coercions) const {
+    return resolveFunction(name, argTypes, true, coercions);
+  }
 
  private:
-  template <typename T>
-  static std::unique_ptr<T> CreateUdf() {
-    return std::make_unique<T>();
-  }
+  std::optional<ResolvedSimpleFunction> resolveFunction(
+      const std::string& name,
+      const std::vector<TypePtr>& argTypes,
+      bool allowCoercion,
+      std::vector<TypePtr>& coercions) const;
 
   /// Registers a function with the given name and metadata. If an entry with
   /// the name already exists and 'overwrite' is true, the existing entry is

@@ -20,17 +20,80 @@
 
 namespace facebook::velox::exec {
 
+/// Type coercion necessary to bind a type to a signature.
+struct Coercion {
+  TypePtr type;
+  int32_t cost{0};
+
+  std::string toString() const {
+    if (type == nullptr) {
+      return "null";
+    }
+
+    return fmt::format("{} ({})", type->toString(), cost);
+  }
+
+  void reset() {
+    type = nullptr;
+    cost = 0;
+  }
+
+  /// Returns overall cost of a list of coercions by adding up individual costs.
+  static int64_t overallCost(const std::vector<Coercion>& coercions);
+
+  /// Returns an index of the lowest cost coercion in 'candidates' or nullptr if
+  /// 'candidates' is empty or there is a tie.
+  template <typename T>
+  static std::optional<size_t> pickLowestCost(
+      const std::vector<std::pair<std::vector<Coercion>, T>>& candidates) {
+    if (candidates.empty()) {
+      return std::nullopt;
+    }
+
+    if (candidates.size() == 1) {
+      return 0;
+    }
+
+    std::vector<std::pair<size_t, int64_t>> costs;
+    costs.reserve(candidates.size());
+    for (auto i = 0; i < candidates.size(); ++i) {
+      costs.emplace_back(i, overallCost(candidates[i].first));
+    }
+
+    std::sort(costs.begin(), costs.end(), [](const auto& a, const auto& b) {
+      return a.second < b.second;
+    });
+
+    if (costs[0].second < costs[1].second) {
+      return costs[0].first;
+    }
+
+    return std::nullopt;
+  }
+};
+
 class SignatureBinderBase {
  protected:
   explicit SignatureBinderBase(const exec::FunctionSignature& signature)
       : signature_{signature} {}
 
   /// Return true if actualType can bind to typeSignature and update bindings_
-  /// accordingly. The number of parameters in typeSignature and actualType must
-  /// match. Return false otherwise.
+  /// accordingly. The number of parameters in typeSignature and actualType
+  /// must match. Return false otherwise.
   bool tryBind(
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType);
+
+  /// Like 'tryBind', but allows implicit type conversion if actualType
+  /// doesn't match typeSignature exactly.
+  ///
+  /// @param coercion Type coercion necessary to bind actualType to
+  /// typeSignature if there is no exact match. 'coercion.type' is null if
+  /// there is exact match.
+  bool tryBindWithCoercion(
+      const exec::TypeSignature& typeSignature,
+      const TypePtr& actualType,
+      Coercion& coercion);
 
   // Return the variables of the signature.
   auto& variables() const {
@@ -55,6 +118,12 @@ class SignatureBinderBase {
   bool tryBindIntegerParameters(
       const std::vector<exec::TypeSignature>& parameters,
       const TypePtr& actualType);
+
+  bool tryBind(
+      const exec::TypeSignature& typeSignature,
+      const TypePtr& actualType,
+      bool allowCoercion,
+      Coercion& coercion);
 };
 
 /// Resolves generic type names in the function signature using actual input
@@ -75,6 +144,13 @@ class SignatureBinder : private SignatureBinderBase {
 
   /// Returns true if successfully resolved all generic type names.
   bool tryBind();
+
+  /// Like 'tryBind', but allows implicit type conversion if actualTypes don't
+  /// match the signature exactly.
+  /// @param coercions Type coercions necessary to bind actualTypes to the
+  /// signature. There is one entry per argument. Coercion.type is null if no
+  /// coercion is required for that argument.
+  bool tryBindWithCoercions(std::vector<Coercion>& coercions);
 
   /// Returns concrete return type or null if couldn't fully resolve.
   TypePtr tryResolveReturnType() {
@@ -110,6 +186,9 @@ class SignatureBinder : private SignatureBinderBase {
       std::unordered_map<std::string, int>& integerVariablesBindings);
 
  private:
+  bool tryBind(bool allowCoercions, std::vector<Coercion>& coercions);
+
   const std::vector<TypePtr>& actualTypes_;
 };
+
 } // namespace facebook::velox::exec
