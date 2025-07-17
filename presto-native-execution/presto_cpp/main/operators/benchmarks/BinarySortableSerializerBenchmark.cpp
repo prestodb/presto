@@ -15,6 +15,7 @@
  */
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
+#include <numeric>
 
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -52,7 +53,7 @@ class BinarySortableSerializerBenchmark {
     BinarySortableSerializer binarySortableSerializer(
         data_, ordering_, fields_);
     const auto bufferSize =
-        calculateSize(binarySortableSerializer, data_->size());
+        calculateSizeBatched(binarySortableSerializer, data_->size());
     // Create a ResizableVectorBuffer with bufferSize.
     velox::StringVectorBuffer buffer(outputVec_.get(), bufferSize, bufferSize);
     serialize(binarySortableSerializer, data_->size(), &buffer);
@@ -63,6 +64,12 @@ class BinarySortableSerializerBenchmark {
     BinarySortableSerializer binarySortableSerializer(
         data_, ordering_, fields_);
     calculateSize(binarySortableSerializer, data_->size());
+  }
+
+  void calculateSerializedSizeBatched() {
+    BinarySortableSerializer binarySortableSerializer(
+        data_, ordering_, fields_);
+    calculateSizeBatched(binarySortableSerializer, data_->size());
   }
 
   memory::MemoryPool* pool() {
@@ -112,10 +119,35 @@ class BinarySortableSerializerBenchmark {
     }
     return size;
   }
+
+  size_t calculateSizeBatched(
+      const BinarySortableSerializer& binarySortableSerializer,
+      vector_size_t numRows) {
+    // Create size variables and pointer array for batched call
+    std::vector<velox::vector_size_t> sizes(numRows, 0);
+    std::vector<velox::vector_size_t*> sizePointers(numRows);
+    for (velox::vector_size_t i = 0; i < numRows; ++i) {
+      sizePointers[i] = &sizes[i];
+    }
+
+    // Create scratch memory for batched size calculation
+    velox::Scratch scratch;
+
+    // Call batched size calculation
+    binarySortableSerializer.serializedSizeInBytes(
+        0, numRows, sizePointers.data(), scratch);
+
+    // Sum up all sizes
+    size_t totalSize = 0;
+    for (const auto& size : sizes) {
+      totalSize += size;
+    }
+    return totalSize;
+  }
   const std::vector<velox::core::SortOrder> ordering_;
-  
+
   std::shared_ptr<memory::MemoryPool> rootPool_{
-    memory::memoryManager()->addRootPool()};
+      memory::memoryManager()->addRootPool()};
   std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild("test")};
 
   RowVectorPtr data_;
@@ -124,6 +156,29 @@ class BinarySortableSerializerBenchmark {
 };
 
 BENCHMARK_DRAW_TEXT("=============Serialize decimal=============");
+BENCHMARK(decimalsSizeCalculation) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), DECIMAL(12, 2), DECIMAL(38, 18)}), ordering);
+
+  benchmark.calculateSerializedSize();
+}
+
+BENCHMARK_RELATIVE(decimalsSizeCalculationBatched) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), DECIMAL(12, 2), DECIMAL(38, 18)}), ordering);
+
+  benchmark.calculateSerializedSizeBatched();
+}
 
 BENCHMARK_COUNTERS(decimalsSerialize, counters) {
   const auto ordering = {
@@ -136,18 +191,6 @@ BENCHMARK_COUNTERS(decimalsSerialize, counters) {
 
   benchmark.serializeWithStringVectorBuffer();
   counters["memUsage"] = benchmark.pool()->stats().usedBytes;
-}
-
-BENCHMARK_RELATIVE(decimalsSizeCalculation) {
-  const auto ordering = {
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsFirst)};
-
-  BinarySortableSerializerBenchmark benchmark(
-      ROW({BIGINT(), DECIMAL(12, 2), DECIMAL(38, 18)}), ordering);
-
-  benchmark.calculateSerializedSize();
 }
 
 BENCHMARK_COUNTERS_RELATIVE(decimalsSerializeWithSizeCalculation, counters) {
@@ -165,6 +208,28 @@ BENCHMARK_COUNTERS_RELATIVE(decimalsSerializeWithSizeCalculation, counters) {
 
 BENCHMARK_DRAW_TEXT("=============Serialize string1=============");
 
+BENCHMARK(string1SizeCalculation) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kDescNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), VARCHAR()}), ordering);
+
+  benchmark.calculateSerializedSize();
+}
+
+BENCHMARK_RELATIVE(string1SizeCalculationBatched) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kDescNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), VARCHAR()}), ordering);
+
+  benchmark.calculateSerializedSizeBatched();
+}
+
 BENCHMARK_COUNTERS(string1Serialize, counters) {
   const auto ordering = {
       velox::core::SortOrder(velox::core::kAscNullsFirst),
@@ -175,17 +240,6 @@ BENCHMARK_COUNTERS(string1Serialize, counters) {
 
   benchmark.serializeWithStringVectorBuffer();
   counters["memUsage"] = benchmark.pool()->stats().usedBytes;
-}
-
-BENCHMARK_RELATIVE(string1SizeCalculation) {
-  const auto ordering = {
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kDescNullsFirst)};
-
-  BinarySortableSerializerBenchmark benchmark(
-      ROW({BIGINT(), VARCHAR()}), ordering);
-
-  benchmark.calculateSerializedSize();
 }
 
 BENCHMARK_COUNTERS_RELATIVE(string1SerializeWithSizeCalculation, counters) {
@@ -202,6 +256,38 @@ BENCHMARK_COUNTERS_RELATIVE(string1SerializeWithSizeCalculation, counters) {
 
 BENCHMARK_DRAW_TEXT("=============Serialize string5=============");
 
+BENCHMARK(strings5SizeCalculation) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast),
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast),
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR()}),
+      ordering);
+
+  benchmark.calculateSerializedSize();
+}
+
+BENCHMARK_RELATIVE(strings5SizeCalculationBatched) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast),
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast),
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR()}),
+      ordering);
+
+  benchmark.calculateSerializedSizeBatched();
+}
+
 BENCHMARK_COUNTERS(strings5Serialize, counters) {
   const auto ordering = {
       velox::core::SortOrder(velox::core::kAscNullsFirst),
@@ -217,22 +303,6 @@ BENCHMARK_COUNTERS(strings5Serialize, counters) {
 
   benchmark.serializeWithStringVectorBuffer();
   counters["memUsage"] = benchmark.pool()->stats().usedBytes;
-}
-
-BENCHMARK_RELATIVE(strings5SizeCalculation) {
-  const auto ordering = {
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsLast),
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsLast),
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsLast)};
-
-  BinarySortableSerializerBenchmark benchmark(
-      ROW({BIGINT(), VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR()}),
-      ordering);
-
-  benchmark.calculateSerializedSize();
 }
 
 BENCHMARK_COUNTERS_RELATIVE(strings5SerializeWithSizeCalculation, counters) {
@@ -254,6 +324,28 @@ BENCHMARK_COUNTERS_RELATIVE(strings5SerializeWithSizeCalculation, counters) {
 
 BENCHMARK_DRAW_TEXT("=============Serialize array=============");
 
+BENCHMARK(arraysSizeCalculation) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), ARRAY(BIGINT())}), ordering);
+
+  benchmark.calculateSerializedSize();
+}
+
+BENCHMARK_RELATIVE(arraysSizeCalculationBatched) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), ARRAY(BIGINT())}), ordering);
+
+  benchmark.calculateSerializedSizeBatched();
+}
+
 BENCHMARK_COUNTERS(arraysSerialize, counters) {
   const auto ordering = {
       velox::core::SortOrder(velox::core::kAscNullsFirst),
@@ -264,17 +356,6 @@ BENCHMARK_COUNTERS(arraysSerialize, counters) {
 
   benchmark.serializeWithStringVectorBuffer();
   counters["memUsage"] = benchmark.pool()->stats().usedBytes;
-}
-
-BENCHMARK_RELATIVE(arraysSizeCalculation) {
-  const auto ordering = {
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsFirst)};
-
-  BinarySortableSerializerBenchmark benchmark(
-      ROW({BIGINT(), ARRAY(BIGINT())}), ordering);
-
-  benchmark.calculateSerializedSize();
 }
 
 BENCHMARK_COUNTERS_RELATIVE(arraysSerializeWithSizeCalculation, counters) {
@@ -291,6 +372,28 @@ BENCHMARK_COUNTERS_RELATIVE(arraysSerializeWithSizeCalculation, counters) {
 
 BENCHMARK_DRAW_TEXT("=============Serialize nested array=============");
 
+BENCHMARK(nestedArraysSizeCalculation) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), ARRAY(ARRAY(BIGINT()))}), ordering);
+
+  benchmark.calculateSerializedSize();
+}
+
+BENCHMARK_RELATIVE(nestedArraysSizeCalculationBatched) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kAscNullsFirst),
+      velox::core::SortOrder(velox::core::kAscNullsLast)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), ARRAY(ARRAY(BIGINT()))}), ordering);
+
+  benchmark.calculateSerializedSizeBatched();
+}
+
 BENCHMARK_COUNTERS(nestedArraysSerialize, counters) {
   const auto ordering = {
       velox::core::SortOrder(velox::core::kAscNullsFirst),
@@ -301,17 +404,6 @@ BENCHMARK_COUNTERS(nestedArraysSerialize, counters) {
 
   benchmark.serializeWithStringVectorBuffer();
   counters["memUsage"] = benchmark.pool()->stats().usedBytes;
-}
-
-BENCHMARK_RELATIVE(nestedArraysSizeCalculation) {
-  const auto ordering = {
-      velox::core::SortOrder(velox::core::kAscNullsFirst),
-      velox::core::SortOrder(velox::core::kAscNullsLast)};
-
-  BinarySortableSerializerBenchmark benchmark(
-      ROW({BIGINT(), ARRAY(ARRAY(BIGINT()))}), ordering);
-
-  benchmark.calculateSerializedSize();
 }
 
 BENCHMARK_COUNTERS_RELATIVE(
@@ -330,6 +422,30 @@ BENCHMARK_COUNTERS_RELATIVE(
 
 BENCHMARK_DRAW_TEXT("=============Serialize struct=============");
 
+BENCHMARK(structsSizeCalculation) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kDescNullsFirst),
+      velox::core::SortOrder(velox::core::kDescNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), ROW({BIGINT(), DOUBLE(), BOOLEAN(), TINYINT(), REAL()})}),
+      ordering);
+
+  benchmark.calculateSerializedSize();
+}
+
+BENCHMARK_RELATIVE(structsSizeCalculationBatched) {
+  const auto ordering = {
+      velox::core::SortOrder(velox::core::kDescNullsFirst),
+      velox::core::SortOrder(velox::core::kDescNullsFirst)};
+
+  BinarySortableSerializerBenchmark benchmark(
+      ROW({BIGINT(), ROW({BIGINT(), DOUBLE(), BOOLEAN(), TINYINT(), REAL()})}),
+      ordering);
+
+  benchmark.calculateSerializedSizeBatched();
+}
+
 BENCHMARK_COUNTERS(structsSerialize, counters) {
   const auto ordering = {
       velox::core::SortOrder(velox::core::kDescNullsFirst),
@@ -341,18 +457,6 @@ BENCHMARK_COUNTERS(structsSerialize, counters) {
 
   benchmark.serializeWithStringVectorBuffer();
   counters["memUsage"] = benchmark.pool()->stats().usedBytes;
-}
-
-BENCHMARK_RELATIVE(structsSizeCalculation) {
-  const auto ordering = {
-      velox::core::SortOrder(velox::core::kDescNullsFirst),
-      velox::core::SortOrder(velox::core::kDescNullsFirst)};
-
-  BinarySortableSerializerBenchmark benchmark(
-      ROW({BIGINT(), ROW({BIGINT(), DOUBLE(), BOOLEAN(), TINYINT(), REAL()})}),
-      ordering);
-
-  benchmark.calculateSerializedSize();
 }
 
 BENCHMARK_COUNTERS_RELATIVE(structsSerializeWithSizeCalculation, counters) {

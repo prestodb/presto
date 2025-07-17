@@ -41,10 +41,11 @@ int lexicographicalCompare(std::string key1, std::string key2) {
 }
 
 void serializeRow(
-    BinarySortableSerializer binarySortableSerializer,
-    size_t index,
+    const BinarySortableSerializer& binarySortableSerializer,
+    velox::vector_size_t index,
+    velox::vector_size_t offset,
     velox::StringVectorBuffer* out) {
-  binarySortableSerializer.serialize(/*rowId=*/index, out);
+  binarySortableSerializer.serialize(/*rowId=*/index + offset, out);
   out->flushRow(index);
 }
 
@@ -70,8 +71,8 @@ class BinarySortableSerializerTest : public ::testing::Test,
             velox::VARBINARY(), 2, pool_.get());
     // Create a ResizableVectorBuffer with initial and max capacity.
     velox::StringVectorBuffer buffer(vector.get(), 10, 1000);
-    serializeRow(binarySortableSerializer, /*index=*/0, &buffer);
-    serializeRow(binarySortableSerializer, /*index=*/1, &buffer);
+    serializeRow(binarySortableSerializer, /*index=*/0, /*offset=*/0, &buffer);
+    serializeRow(binarySortableSerializer, /*index=*/1, /*offset=*/0, &buffer);
 
     return lexicographicalCompare(vector->valueAt(0), vector->valueAt(1));
   }
@@ -166,7 +167,36 @@ class BinarySortableSerializerFuzzerTest : public ::testing::Test,
     const auto fields = getFields(rowType);
 
     checkSizeCalculation(rowVector, fields, testOrdering);
+    checkBatchedSizeCalculation(
+        rowVector, /*offset=*/0, rowVector->size(), fields, testOrdering);
     ensureSorted(rowVector, fields, testOrdering);
+  }
+
+  void runFuzzerTestBatchedSizeCalculation(
+      const velox::RowTypePtr& rowType,
+      velox::vector_size_t batchSize) {
+    const auto seed = 1;
+    // Create a random number generator and seed it
+    std::mt19937 rng(seed);
+
+    const boost::random::uniform_int_distribution<int> distribution(
+        0, sortingOrders_.size() - 1);
+
+    // Generate random sort ordering
+    std::vector<velox::core::SortOrder> testOrdering;
+    for (uint32_t i = 0; i < rowType->size(); ++i) {
+      const int randomIndex = distribution(rng);
+      testOrdering.push_back(sortingOrders_[randomIndex]);
+    }
+
+    const auto rowVector = makeData(rowType);
+    const auto fields = getFields(rowType);
+
+    for (velox::vector_size_t offset = 0; offset + batchSize < rowVector->size();
+         offset += batchSize) {
+      checkBatchedSizeCalculation(
+          rowVector, offset, batchSize, fields, testOrdering);
+    }
   }
 
   bool sortedAfterSerialization(
@@ -182,8 +212,9 @@ class BinarySortableSerializerFuzzerTest : public ::testing::Test,
         velox::VARBINARY(), vectorSize, pool_.get());
     // Create a ResizableVectorBuffer with initial and max capacity.
     velox::StringVectorBuffer buffer(vec.get(), 1024, 1 << 20);
-    for (size_t i = 0; i < vectorSize; ++i) {
-      serializeRow(binarySortableSerializer, /*index=*/i, &buffer);
+    for (velox::vector_size_t i = 0; i < vectorSize; ++i) {
+      serializeRow(
+          binarySortableSerializer, /*index=*/i, /*offset=*/0, &buffer);
     }
 
     for (velox::vector_size_t i = 0; i < vec->size() - 1; ++i) {
@@ -227,8 +258,44 @@ class BinarySortableSerializerFuzzerTest : public ::testing::Test,
     for (velox::vector_size_t i = 0; i < input->size(); ++i) {
       const size_t expectedSize =
           binarySortableSerializer.serializedSizeInBytes(i);
-      serializeRow(binarySortableSerializer, /*index=*/i, &buffer);
+      serializeRow(
+          binarySortableSerializer, /*index=*/i, /*offset=*/0, &buffer);
       EXPECT_EQ(expectedSize, vec->valueAt(i).size());
+    }
+  }
+
+  void checkBatchedSizeCalculation(
+      const velox::RowVectorPtr& input,
+      velox::vector_size_t offset,
+      velox::vector_size_t size,
+      const std::vector<
+          std::shared_ptr<const velox::core::FieldAccessTypedExpr>>& keys,
+      const std::vector<velox::core::SortOrder>& ordering) {
+    BinarySortableSerializer binarySortableSerializer(input, ordering, keys);
+
+    // Create size variables and pointer array for batched call
+    std::vector<velox::vector_size_t> sizes(size, 0);
+    std::vector<velox::vector_size_t*> sizePointers(size);
+    for (velox::vector_size_t i = 0; i < size; ++i) {
+      sizePointers[i] = &sizes[i];
+    }
+
+    // Call batched size calculation
+    velox::Scratch scratch;
+    binarySortableSerializer.serializedSizeInBytes(
+        offset, size, sizePointers.data(), scratch);
+
+    // Create vector for actual serialization to verify sizes
+    auto vec = velox::BaseVector::create<velox::FlatVector<velox::StringView>>(
+        velox::VARBINARY(), size, pool_.get());
+    velox::StringVectorBuffer buffer(vec.get(), 1024, 1 << 20);
+
+    // Serialize each row and compare with batched size calculation
+    for (velox::vector_size_t i = 0; i < size; ++i) {
+      serializeRow(binarySortableSerializer, /*index=*/i, offset, &buffer);
+      EXPECT_EQ(sizes[i], vec->valueAt(i).size())
+          << "Batched size calculation mismatch at row " << i << ": expected "
+          << sizes[i] << ", actual " << vec->valueAt(i).size();
     }
   }
 
@@ -240,6 +307,7 @@ class BinarySortableSerializerFuzzerTest : public ::testing::Test,
     options.stringVariableLength = true;
     options.containerVariableLength = true;
     options.allowLazyVector = true;
+    options.nullRatio = 0.1;
 
     const auto seed = folly::Random::rand32();
 
@@ -282,7 +350,10 @@ TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestString) {
 
 TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestArray) {
   const auto rowType = velox::ROW(
-      {"c1", "c2"}, {velox::BIGINT(), velox::ARRAY(velox::BIGINT())});
+      {"c1", "c2", "c3"},
+      {velox::BIGINT(),
+       velox::ARRAY(velox::BIGINT()),
+       velox::ARRAY(velox::VARBINARY())});
   runFuzzerTest(rowType);
 }
 
@@ -303,11 +374,23 @@ TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestNestedStruct) {
   const auto innerRowType = velox::ROW(
       {velox::BIGINT(),
        velox::DOUBLE(),
-       velox::BOOLEAN(),
-       velox::ROW({velox::TINYINT(), velox::REAL()})});
+       velox::VARCHAR(),
+       velox::ROW({velox::TINYINT(), velox::VARCHAR()})});
   const auto rowType =
       velox::ROW({"c0", "c1"}, {velox::BIGINT(), innerRowType});
   runFuzzerTest(rowType);
+}
+
+TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestBatchedSizeCalculation) {
+  const auto innerRowType = velox::ROW(
+      {velox::ARRAY(velox::VARCHAR()),
+       velox::DOUBLE(),
+       velox::VARCHAR(),
+       velox::ROW({velox::TINYINT(), velox::VARCHAR()})});
+  const auto rowType =
+      velox::ROW({"c0", "c1"}, {velox::BIGINT(), innerRowType});
+
+  runFuzzerTestBatchedSizeCalculation(rowType, 10);
 }
 
 TEST_F(BinarySortableSerializerTest, LongTypeAllFields) {
