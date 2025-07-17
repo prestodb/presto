@@ -21,6 +21,21 @@
 
 namespace facebook::velox::common {
 
+// static
+std::string_view ScanSpec::columnTypeString(ScanSpec::ColumnType columnType) {
+  switch (columnType) {
+    case ScanSpec::ColumnType::kRegular:
+      return "REGULAR";
+    case ScanSpec::ColumnType::kRowIndex:
+      return "ROW_INDEX";
+    case ScanSpec::ColumnType::kComposite:
+      return "COMPOSITE";
+    default:
+      VELOX_UNREACHABLE(
+          "Unrecognized ColumnType: {}", static_cast<int8_t>(columnType));
+  }
+}
+
 ScanSpec* ScanSpec::getOrCreateChild(const std::string& name) {
   if (auto it = this->childByFieldName_.find(name);
       it != this->childByFieldName_.end()) {

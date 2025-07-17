@@ -39,6 +39,14 @@ void resetIfNotWritable(VectorPtr& vector, const T&... buffer) {
 
 } // namespace detail
 
+// Output type of flat map column reader, indicates the in memory representation
+// the flat map should be read into.
+enum class FlatMapOutput : uint8_t {
+  kMap = 0, // MapVector
+  kStruct = 1, // RowVector
+  kFlatMap = 2, // FlatMapVector
+};
+
 // Struct for keeping track flatmap key stream metrics.
 // Used by keySelectionCallback_ in FlatMapColumnReader
 struct FlatMapKeySelectionStats {

@@ -308,7 +308,7 @@ class RowReaderOptions {
     return flatmapNodeIdAsStruct_;
   }
 
-  void setPreserveFlatMapsInMemory(uint64_t preserveFlatMapsInMemory) {
+  void setPreserveFlatMapsInMemory(bool preserveFlatMapsInMemory) {
     preserveFlatMapsInMemory_ = preserveFlatMapsInMemory;
   }
 

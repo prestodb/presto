@@ -29,13 +29,15 @@ class SelectiveStructColumnReaderBase
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       DwrfParams& params,
       common::ScanSpec& scanSpec,
-      bool isRoot = false)
+      bool isRoot = false,
+      bool generateLazyChildren = true)
       : dwio::common::SelectiveStructColumnReaderBase(
             requestedType,
             fileType,
             params,
             scanSpec,
-            isRoot),
+            isRoot,
+            generateLazyChildren),
         rowsPerRowGroup_(formatData_->rowsPerRowGroup().value()) {
     VELOX_CHECK_EQ(fileType_->id(), fileType->id(), "working on the same node");
   }
@@ -43,35 +45,14 @@ class SelectiveStructColumnReaderBase
   void seekTo(int64_t offset, bool readsNullsOnly) override;
 
   void seekToRowGroup(int64_t index) override {
-    dwio::common::SelectiveStructColumnReaderBase::seekToRowGroup(index);
-    if (isTopLevel_ && !formatData_->hasNulls()) {
-      readOffset_ = index * rowsPerRowGroup_;
-      return;
-    }
-
-    // There may be a nulls stream but no other streams for the struct.
-    formatData_->seekToRowGroup(index);
-    // Set the read offset recursively. Do this before seeking the children
-    // because list/map children will reset the offsets for their children.
-    setReadOffsetRecursive(index * rowsPerRowGroup_);
-    for (auto& child : children_) {
-      child->seekToRowGroup(index);
-    }
+    seekToRowGroupFixedRowsPerRowGroup(index, rowsPerRowGroup_);
   }
 
   /// Advance field reader to the row group closest to specified offset by
   /// calling seekToRowGroup.
   void advanceFieldReader(SelectiveColumnReader* reader, int64_t offset)
       override {
-    if (!reader->isTopLevel()) {
-      return;
-    }
-    const auto rowGroup = reader->readOffset() / rowsPerRowGroup_;
-    const auto nextRowGroup = offset / rowsPerRowGroup_;
-    if (nextRowGroup > rowGroup) {
-      reader->seekToRowGroup(nextRowGroup);
-      reader->setReadOffset(nextRowGroup * rowsPerRowGroup_);
-    }
+    advanceFieldReaderFixedRowsPerRowGroup(reader, offset, rowsPerRowGroup_);
   }
 
  private:

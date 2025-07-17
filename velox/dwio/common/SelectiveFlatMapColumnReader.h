@@ -16,19 +16,12 @@
 
 #pragma once
 
-#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
+#include "velox/vector/FlatMapVector.h"
 
 namespace facebook::velox::dwio::common {
 
 class SelectiveFlatMapColumnReader : public SelectiveStructColumnReaderBase {
- public:
-  void getValues(const RowSet& rows, VectorPtr* result) override;
-
-  void seekToRowGroup(int64_t /* index */) final {
-    VELOX_UNREACHABLE();
-  }
-
  protected:
   SelectiveFlatMapColumnReader(
       const TypePtr& requestedType,
@@ -43,7 +36,21 @@ class SelectiveFlatMapColumnReader : public SelectiveStructColumnReaderBase {
             false,
             false) {}
 
+  void getValues(const RowSet& rows, VectorPtr* result) override;
+
+  void seekTo(int64_t offset, bool /*readsNullsOnly*/) override {
+    seekToPropagateNullsToChildren(offset);
+  }
+
+  virtual const BufferPtr& inMapBuffer(column_index_t childIndex) const = 0;
+
   VectorPtr keysVector_;
+
+ private:
+  FlatMapVector* prepareResult(
+      VectorPtr& result,
+      const VectorPtr& distinctKeys,
+      vector_size_t size) const;
 };
 
 } // namespace facebook::velox::dwio::common

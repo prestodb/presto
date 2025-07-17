@@ -2412,6 +2412,62 @@ TEST_F(TestReader, readFlatMapsWithNullMaps) {
   }
 }
 
+TEST_F(TestReader, readFlatMapsAsFlatMaps) {
+  auto testRoundTrip = [&](const FlatMapVectorPtr& flatMap) {
+    auto input = makeRowVector({flatMap->toMapVector()});
+
+    std::shared_ptr<dwrf::Config> config = std::make_shared<dwrf::Config>();
+    config->set(dwrf::Config::FLATTEN_MAP, true);
+    config->set(dwrf::Config::MAP_FLAT_COLS, {0});
+
+    auto [writer, reader] = createWriterReader({input}, pool(), config);
+
+    auto schema = asRowType(input->type());
+    auto spec = std::make_shared<common::ScanSpec>("<root>");
+    spec->addAllChildFields(*schema);
+
+    RowReaderOptions rowReaderOpts;
+    rowReaderOpts.setScanSpec(spec);
+    rowReaderOpts.setPreserveFlatMapsInMemory(true);
+
+    auto rowReader = reader->createRowReader(rowReaderOpts);
+    VectorPtr batch = BaseVector::create(schema, 0, pool());
+
+    rowReader->next(flatMap->size(), batch);
+    auto rowVector = batch->as<RowVector>();
+    auto resultMaps = rowVector->childAt(0);
+
+    assertEqualVectors(flatMap, resultMaps);
+  };
+
+  testRoundTrip(makeFlatMapVector<int16_t, float>({
+      {},
+      {{1, 1.9}, {2, 2.1}, {0, 3.12}},
+      {{127, 0.12}},
+  }));
+
+  testRoundTrip(makeFlatMapVector<StringView, StringView>({
+      {{"a", "a1"}},
+      {{"b", "b1"}},
+      {{"c", "c1"}},
+      {{"d", "d1"}},
+  }));
+
+  testRoundTrip(makeNullableFlatMapVector<int32_t, int32_t>({
+      {{{101, 1}, {102, 2}, {103, 3}}},
+      {{{105, 0}, {106, 0}}},
+      {std::nullopt},
+      {{{101, 11}, {103, 13}, {105, std::nullopt}}},
+      {{{101, 1}, {102, 2}, {103, 3}}},
+  }));
+
+  testRoundTrip(makeFlatMapVector<int64_t, int64_t>(
+      {{{0, 0}, {1, 1}, {2, 2}, {3, 3}},
+       {{0, 4}, {1, 5}, {2, 6}, {3, 7}},
+       {{0, 8}, {1, 9}, {2, 10}, {3, 11}},
+       {{0, 12}, {1, 13}, {2, 14}, {3, 15}}}));
+}
+
 TEST_F(TestReader, readStructWithWholeBatchFiltered) {
   // Test reading a struct with a pushdown filter that filters out all rows
   // for a certain batch.

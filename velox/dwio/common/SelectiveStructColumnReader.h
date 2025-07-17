@@ -144,6 +144,23 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   /// forward within the row group.
   void recordParentNullsInChildren(int64_t offset, const RowSet& rows);
 
+  /// An implementation of seekTo that calls addSkippedParentNulls on each
+  /// child. Available as a helper function to formats that need it.
+  void seekToPropagateNullsToChildren(const int64_t offset);
+
+  /// A helper function that implements seekToRowGroup for formats that support
+  /// a fixed number of rows per row group.
+  void seekToRowGroupFixedRowsPerRowGroup(
+      const int64_t index,
+      const int32_t rowsPerRowGroup);
+
+  /// A helper function that implements advanceFieldReader for formats that
+  /// support a fixed number of rows per row group
+  void advanceFieldReaderFixedRowsPerRowGroup(
+      SelectiveColumnReader* reader,
+      const int64_t offset,
+      const int32_t rowsPerRowGroup);
+
   std::vector<SelectiveColumnReader*> children_;
 
  private:

@@ -16,9 +16,6 @@
 
 #include "velox/dwio/common/SelectiveFlatMapColumnReader.h"
 
-#include "velox/common/process/TraceContext.h"
-#include "velox/vector/FlatMapVector.h"
-
 namespace facebook::velox::dwio::common {
 namespace {
 
@@ -41,27 +38,6 @@ FlatMapVector* tryReuseResult(
   }
   return nullptr;
 }
-
-FlatMapVector* prepareResult(
-    VectorPtr& result,
-    const VectorPtr& distinctKeys,
-    vector_size_t size) {
-  if (auto reused = tryReuseResult(result, distinctKeys, size)) {
-    return reused;
-  }
-
-  auto flatMap = std::make_shared<FlatMapVector>(
-      result->pool(),
-      result->type(),
-      nullptr,
-      size,
-      distinctKeys,
-      std::vector<VectorPtr>(distinctKeys->size()),
-      std::vector<BufferPtr>{});
-  result = flatMap;
-  return flatMap.get();
-}
-
 } // namespace
 
 void SelectiveFlatMapColumnReader::getValues(
@@ -111,7 +87,33 @@ void SelectiveFlatMapColumnReader::getValues(
         "Flat map only supports regular column types in scan spec.");
 
     children_[index]->getValues(rows, &childResult);
+
+    for (size_t i = 0; i < children_.size(); ++i) {
+      const auto& inMap = inMapBuffer(i);
+      if (inMap) {
+        resultFlatMap->inMapsAt(i, true) = inMap;
+      }
+    }
   }
 }
 
+FlatMapVector* SelectiveFlatMapColumnReader::prepareResult(
+    VectorPtr& result,
+    const VectorPtr& distinctKeys,
+    vector_size_t size) const {
+  if (auto reused = tryReuseResult(result, distinctKeys, size)) {
+    return reused;
+  }
+
+  auto flatMap = std::make_shared<FlatMapVector>(
+      result->pool(),
+      result->type(),
+      nullptr,
+      size,
+      distinctKeys,
+      std::vector<VectorPtr>(distinctKeys->size()),
+      std::vector<BufferPtr>{});
+  result = flatMap;
+  return flatMap.get();
+}
 } // namespace facebook::velox::dwio::common

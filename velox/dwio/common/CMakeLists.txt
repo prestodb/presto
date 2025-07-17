@@ -53,6 +53,7 @@ velox_add_library(
   SeekableInputStream.cpp
   SelectiveByteRleColumnReader.cpp
   SelectiveColumnReader.cpp
+  SelectiveFlatMapColumnReader.cpp
   SelectiveRepeatedColumnReader.cpp
   SelectiveStructColumnReader.cpp
   SortingWriter.cpp

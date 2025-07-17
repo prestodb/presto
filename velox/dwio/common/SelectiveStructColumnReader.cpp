@@ -223,6 +223,74 @@ uint64_t SelectiveStructColumnReaderBase::skip(uint64_t numValues) {
   return numValues;
 }
 
+void SelectiveStructColumnReaderBase::seekToPropagateNullsToChildren(
+    int64_t offset) {
+  if (offset == readOffset_) {
+    return;
+  }
+  if (readOffset_ < offset) {
+    if (numParentNulls_) {
+      VELOX_CHECK_LE(
+          parentNullsRecordedTo_,
+          offset,
+          "Must not seek to before parentNullsRecordedTo_");
+    }
+    auto distance = offset - readOffset_ - numParentNulls_;
+    auto numNonNulls = formatData_->skipNulls(distance);
+    // We inform children how many nulls there were between original position
+    // and destination. The children will seek this many less. The
+    // nulls include the nulls found here as well as the enclosing
+    // level nulls reported to this by parents.
+    for (auto& child : children_) {
+      if (child) {
+        child->addSkippedParentNulls(
+            readOffset_, offset, numParentNulls_ + distance - numNonNulls);
+      }
+    }
+    numParentNulls_ = 0;
+    parentNullsRecordedTo_ = 0;
+    readOffset_ = offset;
+  } else {
+    VELOX_FAIL("Seeking backward on a ColumnReader");
+  }
+}
+
+void SelectiveStructColumnReaderBase::seekToRowGroupFixedRowsPerRowGroup(
+    const int64_t index,
+    const int32_t rowsPerRowGroup) {
+  dwio::common::SelectiveStructColumnReaderBase::seekToRowGroup(index);
+  if (isTopLevel_ && !formatData_->hasNulls()) {
+    readOffset_ = index * rowsPerRowGroup;
+    return;
+  }
+
+  // There may be a nulls stream but no other streams for the struct.
+  formatData_->seekToRowGroup(index);
+  // Set the read offset recursively. Do this before seeking the children
+  // because list/map children will reset the offsets for their children.
+  setReadOffsetRecursive(index * rowsPerRowGroup);
+  for (auto& child : children_) {
+    child->seekToRowGroup(index);
+  }
+}
+
+/// Advance field reader to the row group closest to specified offset by
+/// calling seekToRowGroup.
+void SelectiveStructColumnReaderBase::advanceFieldReaderFixedRowsPerRowGroup(
+    dwio::common::SelectiveColumnReader* reader,
+    const int64_t offset,
+    const int32_t rowsPerRowGroup) {
+  if (!reader->isTopLevel()) {
+    return;
+  }
+  const auto rowGroup = reader->readOffset() / rowsPerRowGroup;
+  const auto nextRowGroup = offset / rowsPerRowGroup;
+  if (nextRowGroup > rowGroup) {
+    reader->seekToRowGroup(nextRowGroup);
+    reader->setReadOffset(nextRowGroup * rowsPerRowGroup);
+  }
+}
+
 void SelectiveStructColumnReaderBase::fillOutputRowsFromMutation(
     vector_size_t size) {
   if (mutation_->deletedRows) {

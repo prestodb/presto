@@ -47,6 +47,9 @@ class ScanSpec {
     kComposite, // A struct with all children not read from file
   };
 
+  // Convert ColumnType to its string name representation.
+  static std::string_view columnTypeString(ColumnType columnType);
+
   static constexpr column_index_t kNoChannel = ~0;
   static constexpr const char* kMapKeysFieldName = "keys";
   static constexpr const char* kMapValuesFieldName = "values";
@@ -509,3 +512,14 @@ bool testFilter(
 } // namespace common
 } // namespace velox
 } // namespace facebook
+
+template <>
+struct fmt::formatter<facebook::velox::common::ScanSpec::ColumnType>
+    : formatter<std::string_view> {
+  auto format(
+      facebook::velox::common::ScanSpec::ColumnType columnType,
+      format_context& ctx) const {
+    return formatter<std::string_view>::format(
+        facebook::velox::common::ScanSpec::columnTypeString(columnType), ctx);
+  }
+};
