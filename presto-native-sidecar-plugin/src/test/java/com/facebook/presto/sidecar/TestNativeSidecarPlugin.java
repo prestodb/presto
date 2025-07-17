@@ -29,8 +29,11 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -51,6 +54,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestNativeSidecarPlugin
@@ -263,6 +267,52 @@ public class TestNativeSidecarPlugin
                 "Failed to find matching function signature for array_sort, matching failures: \n" +
                         " Exception 1: line 1:31: Expected a lambda that takes ([12])" + Pattern.quote(" argument(s) but got 3\n") +
                         " Exception 2: line 1:31: Expected a lambda that takes ([12])" + Pattern.quote(" argument(s) but got 3\n"));
+    }
+
+    @Test
+    public void testApproxPercentile()
+    {
+        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");
+
+        Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
+        Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
+        for (MaterializedRow row : raw.getMaterializedRows()) {
+            orderKeyByStatus.put((String) row.getField(0), ((Number) row.getField(1)).longValue());
+            totalPriceByStatus.put((String) row.getField(0), (Double) row.getField(2));
+        }
+
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, " +
+                "   approx_percentile(orderkey, 0.5), " +
+                "   approx_percentile(totalprice, 0.5)," +
+                "   approx_percentile(orderkey, 2, 0.5)," +
+                "   approx_percentile(totalprice, 2, 0.5)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        for (MaterializedRow row : actual.getMaterializedRows()) {
+            String status = (String) row.getField(0);
+            Long orderKey = ((Number) row.getField(1)).longValue();
+            Double totalPrice = (Double) row.getField(2);
+            Long orderKeyWeighted = ((Number) row.getField(3)).longValue();
+            Double totalPriceWeighted = (Double) row.getField(4);
+
+            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
+            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+
+            // verify real rank of returned value is within 1% of requested rank
+            assertTrue(orderKey >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKey <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
+
+            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+        }
     }
 
     @Test
