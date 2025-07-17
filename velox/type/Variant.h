@@ -23,7 +23,6 @@
 
 #include "folly/dynamic.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/base/VeloxException.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/CppToType.h"
 #include "velox/type/Type.h"
@@ -38,26 +37,6 @@ constexpr double kEpsilon{0.00001};
 // todo(youknowjack): make this class not completely suck
 
 class Variant;
-
-template <TypeKind KIND>
-struct VariantEquality;
-
-template <>
-struct VariantEquality<TypeKind::TIMESTAMP>;
-
-template <>
-struct VariantEquality<TypeKind::ARRAY>;
-
-template <>
-struct VariantEquality<TypeKind::ROW>;
-
-template <>
-struct VariantEquality<TypeKind::MAP>;
-
-bool dispatchDynamicVariantEquality(
-    const Variant& a,
-    const Variant& b,
-    const bool& enableNullEqualsNull);
 
 namespace detail {
 template <typename T, TypeKind KIND, bool usesCustomComparison>
@@ -432,12 +411,7 @@ class Variant {
 
   bool equals(const Variant& other) const;
 
-  bool equalsWithNullEqualsNull(const Variant& other) const {
-    if (other.kind_ != this->kind_) {
-      return false;
-    }
-    return dispatchDynamicVariantEquality(*this, other, true);
-  }
+  bool equalsWithNullEqualsNull(const Variant& other) const;
 
   Variant(Variant&& other) noexcept
       : ptr_{other.ptr_},

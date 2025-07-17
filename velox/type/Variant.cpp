@@ -24,15 +24,11 @@
 namespace facebook::velox {
 
 namespace {
-const folly::json::serialization_opts& getOpts() {
-  static const folly::json::serialization_opts opts_ = []() {
-    folly::json::serialization_opts opts;
-    opts.sort_keys = true;
-    return opts;
-  }();
-  return opts_;
-}
-} // namespace
+
+bool dispatchDynamicVariantEquality(
+    const Variant& a,
+    const Variant& b,
+    const bool& enableNullEqualsNull);
 
 template <bool nullEqualsNull>
 bool evaluateNullEquality(const Variant& a, const Variant& b) {
@@ -43,6 +39,9 @@ bool evaluateNullEquality(const Variant& a, const Variant& b) {
   }
   return false;
 }
+
+template <TypeKind KIND>
+struct VariantEquality;
 
 // scalars
 template <TypeKind KIND>
@@ -162,6 +161,7 @@ bool dispatchDynamicVariantEquality(
   return VELOX_DYNAMIC_TYPE_DISPATCH_METHOD(
       VariantEquality, equals<false>, a.kind(), a, b);
 }
+} // namespace
 
 std::string encloseWithQuote(std::string str) {
   constexpr auto kDoubleQuote = '"';
@@ -256,6 +256,13 @@ std::string Variant::toString(const TypePtr& type) const {
 
   folly::assume_unreachable();
 }
+
+namespace {
+const folly::json::serialization_opts& getOpts() {
+  static const folly::json::serialization_opts kOpts;
+  return kOpts;
+}
+} // namespace
 
 std::string Variant::toJson(const TypePtr& type) const {
   // todo(youknowjack): consistent story around std::stringifying, converting,
@@ -1023,6 +1030,13 @@ void Variant::verifyArrayElements(const std::vector<Variant>& inputs) {
       }
     }
   }
+}
+
+bool Variant::equalsWithNullEqualsNull(const Variant& other) const {
+  if (other.kind_ != this->kind_) {
+    return false;
+  }
+  return dispatchDynamicVariantEquality(*this, other, true);
 }
 
 TypePtr Variant::inferType() const {
