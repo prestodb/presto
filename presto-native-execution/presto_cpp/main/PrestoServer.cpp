@@ -276,7 +276,7 @@ void PrestoServer::run() {
 
   registerFileSinks();
   registerFileSystems();
-  registerFileReadersAndWriters();
+  registerFileReadersAndWriters(systemConfig);
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
@@ -1379,7 +1379,7 @@ void PrestoServer::registerMemoryArbitrators() {
   velox::memory::SharedArbitrator::registerFactory();
 }
 
-void PrestoServer::registerFileReadersAndWriters() {
+void PrestoServer::registerFileReadersAndWriters(SystemConfig* /*systemConfig*/) {
   velox::dwrf::registerDwrfReaderFactory();
   velox::dwrf::registerDwrfWriterFactory();
   velox::orc::registerOrcReaderFactory();

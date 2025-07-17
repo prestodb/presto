@@ -140,7 +140,7 @@ class PrestoServer {
   /// connectors.
   virtual void registerFileSinks();
 
-  virtual void registerFileReadersAndWriters();
+  virtual void registerFileReadersAndWriters(SystemConfig* systemConfig);
 
   virtual void unregisterFileReadersAndWriters();
 
