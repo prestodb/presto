@@ -13,25 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.drift.annotations.ThriftEnum;
-import com.facebook.drift.annotations.ThriftEnumValue;
-
-@ThriftEnum
 public enum BucketFunctionType
 {
-    HIVE_COMPATIBLE(1),
-    PRESTO_NATIVE(2);
-
-    private final int value;
-
-    BucketFunctionType(int value)
-    {
-        this.value = value;
-    }
-
-    @ThriftEnumValue
-    public int getValue()
-    {
-        return value;
-    }
+    HIVE_COMPATIBLE,
+    PRESTO_NATIVE
 }

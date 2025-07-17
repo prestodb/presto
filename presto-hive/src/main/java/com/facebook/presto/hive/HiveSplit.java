@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.drift.annotations.ThriftConstructor;
-import com.facebook.drift.annotations.ThriftField;
-import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -40,7 +38,6 @@ import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINI
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-@ThriftStruct
 public class HiveSplit
         implements ConnectorSplit
 {
@@ -60,12 +57,11 @@ public class HiveSplit
     private final boolean s3SelectPushdownEnabled;
     private final CacheQuotaRequirement cacheQuotaRequirement;
     private final Optional<EncryptionInformation> encryptionInformation;
-    private final Set<HiveColumnHandle> redundantColumnDomains;
+    private final Set<ColumnHandle> redundantColumnDomains;
     private final SplitWeight splitWeight;
     private final Optional<byte[]> rowIdPartitionComponent;
 
     @JsonCreator
-    @ThriftConstructor
     public HiveSplit(
             @JsonProperty("fileSplit") HiveFileSplit fileSplit,
             @JsonProperty("database") String database,
@@ -83,7 +79,7 @@ public class HiveSplit
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
             @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
-            @JsonProperty("redundantColumnDomains") Set<HiveColumnHandle> redundantColumnDomains,
+            @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("rowIdPartitionComponent") Optional<byte[]> rowIdPartitionComponent)
     {
@@ -126,49 +122,42 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @ThriftField(1)
     public HiveFileSplit getFileSplit()
     {
         return fileSplit;
     }
 
     @JsonProperty
-    @ThriftField(5)
     public String getDatabase()
     {
         return database;
     }
 
     @JsonProperty
-    @ThriftField(6)
     public String getTable()
     {
         return table;
     }
 
     @JsonProperty
-    @ThriftField(7)
     public String getPartitionName()
     {
         return partitionName;
     }
 
     @JsonProperty
-    @ThriftField(2)
     public Storage getStorage()
     {
         return storage;
     }
 
     @JsonProperty
-    @ThriftField(3)
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
     }
 
     @JsonProperty
-    @ThriftField(4)
     public List<HostAddress> getAddresses()
     {
         return addresses;
@@ -184,35 +173,30 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @ThriftField(8)
     public OptionalInt getReadBucketNumber()
     {
         return readBucketNumber;
     }
 
     @JsonProperty
-    @ThriftField(9)
     public OptionalInt getTableBucketNumber()
     {
         return tableBucketNumber;
     }
 
     @JsonProperty
-    @ThriftField(11)
     public int getPartitionDataColumnCount()
     {
         return partitionDataColumnCount;
     }
 
     @JsonProperty
-    @ThriftField(12)
     public TableToPartitionMapping getTableToPartitionMapping()
     {
         return tableToPartitionMapping;
     }
 
     @JsonProperty
-    @ThriftField(13)
     public Optional<BucketConversion> getBucketConversion()
     {
         return bucketConversion;
@@ -220,50 +204,43 @@ public class HiveSplit
 
     @JsonProperty
     @Override
-    @ThriftField(10)
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         return nodeSelectionStrategy;
     }
 
     @JsonProperty
-    @ThriftField(14)
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
     }
 
     @JsonProperty
-    @ThriftField(15)
     public CacheQuotaRequirement getCacheQuotaRequirement()
     {
         return cacheQuotaRequirement;
     }
 
     @JsonProperty
-    @ThriftField(16)
     public Optional<EncryptionInformation> getEncryptionInformation()
     {
         return encryptionInformation;
     }
 
     @JsonProperty
-    @ThriftField(17)
-    public Set<HiveColumnHandle> getRedundantColumnDomains()
+    public Set<ColumnHandle> getRedundantColumnDomains()
     {
         return redundantColumnDomains;
     }
 
     @JsonProperty
     @Override
-    @ThriftField(18)
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
     }
 
     @JsonProperty
-    @ThriftField(19)
     public Optional<byte[]> getRowIdPartitionComponent()
     {
         return rowIdPartitionComponent;

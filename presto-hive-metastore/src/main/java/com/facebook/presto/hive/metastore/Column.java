@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.drift.annotations.ThriftConstructor;
-import com.facebook.drift.annotations.ThriftField;
-import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.hive.HiveType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,7 +27,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-@ThriftStruct
 public class Column
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Column.class).instanceSize();
@@ -41,7 +37,6 @@ public class Column
     private final Optional<String> typeMetadata;
 
     @JsonCreator
-    @ThriftConstructor
     public Column(
             @JsonProperty("name") String name,
             @JsonProperty("type") HiveType type,
@@ -55,28 +50,24 @@ public class Column
     }
 
     @JsonProperty
-    @ThriftField(1)
     public String getName()
     {
         return name;
     }
 
     @JsonProperty
-    @ThriftField(2)
     public HiveType getType()
     {
         return type;
     }
 
     @JsonProperty
-    @ThriftField(3)
     public Optional<String> getComment()
     {
         return comment;
     }
 
     @JsonProperty
-    @ThriftField(4)
     public Optional<String> getTypeMetadata()
     {
         return typeMetadata;

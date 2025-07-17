@@ -27,11 +27,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-api</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-common</artifactId>
         </dependency>

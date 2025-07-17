@@ -20,7 +20,6 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
-import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
@@ -76,7 +75,6 @@ public class HiveConnector
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
     private final ConnectorMetadataUpdaterProvider metadataUpdaterProvider;
     private final ConnectorTypeSerdeProvider connectorTypeSerdeProvider;
-    private final ConnectorCodecProvider connectorCodecProvider;
 
     private final HiveTransactionManager transactionManager;
 
@@ -98,8 +96,7 @@ public class HiveConnector
             ConnectorPlanOptimizerProvider planOptimizerProvider,
             ConnectorMetadataUpdaterProvider metadataUpdaterProvider,
             ConnectorTypeSerdeProvider connectorTypeSerdeProvider,
-            ClassLoader classLoader,
-            ConnectorCodecProvider connectorCodecProvider)
+            ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");
@@ -119,7 +116,6 @@ public class HiveConnector
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
         this.metadataUpdaterProvider = requireNonNull(metadataUpdaterProvider, "metadataUpdaterProvider is null");
         this.connectorTypeSerdeProvider = requireNonNull(connectorTypeSerdeProvider, "connectorTypeSerdeProvider is null");
-        this.connectorCodecProvider = requireNonNull(connectorCodecProvider, "connectorThriftCodecProvider is null");
     }
 
     @Override
@@ -170,12 +166,6 @@ public class HiveConnector
     public ConnectorTypeSerdeProvider getConnectorTypeSerdeProvider()
     {
         return connectorTypeSerdeProvider;
-    }
-
-    @Override
-    public ConnectorCodecProvider getConnectorCodecProvider()
-    {
-        return connectorCodecProvider;
     }
 
     @Override

@@ -15,6 +15,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -40,7 +41,7 @@ public class HiveSplitPartitionInfo
     private final int partitionDataColumnCount;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
-    private final Set<HiveColumnHandle> redundantColumnDomains;
+    private final Set<ColumnHandle> redundantColumnDomains;
     private final Optional<byte[]> rowIdPartitionComponent;
 
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
@@ -54,7 +55,7 @@ public class HiveSplitPartitionInfo
             int partitionDataColumnCount,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<HiveSplit.BucketConversion> bucketConversion,
-            Set<HiveColumnHandle> redundantColumnDomains,
+            Set<ColumnHandle> redundantColumnDomains,
             Optional<byte[]> rowIdPartitionComponent)
     {
         requireNonNull(storage, "storage is null");
@@ -112,7 +113,7 @@ public class HiveSplitPartitionInfo
         return bucketConversion;
     }
 
-    public Set<HiveColumnHandle> getRedundantColumnDomains()
+    public Set<ColumnHandle> getRedundantColumnDomains()
     {
         return redundantColumnDomains;
     }

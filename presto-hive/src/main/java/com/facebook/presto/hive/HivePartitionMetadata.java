@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.spi.ColumnHandle;
 
 import java.util.Optional;
 import java.util.Set;
@@ -27,7 +28,7 @@ public class HivePartitionMetadata
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<EncryptionInformation> encryptionInformation;
     // This is a set of columns whose domain could be removed from table layout because all values in the partition will satisfy.
-    private final Set<HiveColumnHandle> redundantColumnDomains;
+    private final Set<ColumnHandle> redundantColumnDomains;
     private final Optional<byte[]> rowIdPartitionComponent;
 
     HivePartitionMetadata(
@@ -35,7 +36,7 @@ public class HivePartitionMetadata
             Optional<Partition> partition,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<EncryptionInformation> encryptionInformation,
-            Set<HiveColumnHandle> redundantColumnDomains,
+            Set<ColumnHandle> redundantColumnDomains,
             Optional<byte[]> rowIdPartitionComponent)
     {
         this.partition = requireNonNull(partition, "partition is null");
@@ -69,7 +70,7 @@ public class HivePartitionMetadata
         return encryptionInformation;
     }
 
-    public Set<HiveColumnHandle> getRedundantColumnDomains()
+    public Set<ColumnHandle> getRedundantColumnDomains()
     {
         return redundantColumnDomains;
     }
