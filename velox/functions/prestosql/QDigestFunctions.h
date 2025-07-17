@@ -158,4 +158,55 @@ struct QuantileAtValueFunction {
   }
 };
 
+struct ScaleQDigestBase {
+ protected:
+  template <typename T, typename ResultT, typename InputT>
+  FOLLY_ALWAYS_INLINE void
+  callImpl(ResultT& result, const InputT& input, double scaleFactor) {
+    std::allocator<T> allocator;
+    qdigest::QuantileDigest<T, std::allocator<T>> digest(
+        allocator, input.data());
+    digest.scale(scaleFactor);
+    int64_t size = digest.serializedByteSize();
+    result.resize(size);
+    digest.serialize(result.data());
+  }
+};
+
+template <typename TExec>
+struct ScaleQDigestDoubleFunction : public ScaleQDigestBase {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<SimpleQDigest<double>>& result,
+      const arg_type<SimpleQDigest<double>>& input,
+      const arg_type<double>& scaleFactor) {
+    this->template callImpl<double>(result, input, scaleFactor);
+  }
+};
+
+template <typename TExec>
+struct ScaleQDigestBigintFunction : public ScaleQDigestBase {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<SimpleQDigest<int64_t>>& result,
+      const arg_type<SimpleQDigest<int64_t>>& input,
+      const arg_type<double>& scaleFactor) {
+    this->template callImpl<int64_t>(result, input, scaleFactor);
+  }
+};
+
+template <typename TExec>
+struct ScaleQDigestRealFunction : public ScaleQDigestBase {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<SimpleQDigest<float>>& result,
+      const arg_type<SimpleQDigest<float>>& input,
+      const arg_type<double>& scaleFactor) {
+    this->template callImpl<float>(result, input, scaleFactor);
+  }
+};
+
 } // namespace facebook::velox::functions

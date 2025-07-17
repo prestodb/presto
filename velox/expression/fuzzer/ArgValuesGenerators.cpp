@@ -322,7 +322,10 @@ std::vector<core::TypedExprPtr> QDigestArgValuesGenerator::generate(
   std::vector<core::TypedExprPtr> inputExpressions;
   VELOX_CHECK_EQ(signature.args.size(), 2);
   const std::vector<std::string> functionNames = {
-      "value_at_quantile", "values_at_quantiles", "quantile_at_value"};
+      "value_at_quantile",
+      "values_at_quantiles",
+      "quantile_at_value",
+      "scale_qdigest"};
   if (std::find(functionNames.begin(), functionNames.end(), functionName_) ==
       functionNames.end()) {
     return inputExpressions;

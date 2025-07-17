@@ -460,3 +460,78 @@ TEST_F(QDigestFunctionsTest, quantileAtValueNullInputs) {
   ASSERT_EQ(quantileAtValueDouble(std::nullopt, std::nullopt), std::nullopt);
   ASSERT_EQ(quantileAtValueReal(std::nullopt, std::nullopt), std::nullopt);
 }
+
+TEST_F(QDigestFunctionsTest, scaleQDigestDouble) {
+  std::vector<double> values = {1.0, 2.0, 3.0, 4.0, 5.0};
+  std::string digest = createQDigest(values);
+
+  auto arg0 = makeNullableFlatVector<std::string>({digest}, QDIGEST_DOUBLE);
+
+  auto scaleUpResult =
+      evaluate("scale_qdigest(c0, 2.0)", makeRowVector({arg0}));
+
+  auto scaleDownResult =
+      evaluate("scale_qdigest(c0, 0.5)", makeRowVector({scaleUpResult}));
+
+  test::assertEqualVectors(arg0, scaleDownResult);
+}
+
+TEST_F(QDigestFunctionsTest, scaleQDigestBigint) {
+  std::vector<int64_t> values = {1, 2, 3, 4, 5};
+  std::string digest = createQDigest(values);
+
+  auto arg0 = makeNullableFlatVector<std::string>({digest}, QDIGEST_BIGINT);
+
+  // Scale up by 2
+  auto scaleUpResult =
+      evaluate("scale_qdigest(c0, 2.0)", makeRowVector({arg0}));
+
+  // Scale down by 0.5
+  auto scaleDownResult =
+      evaluate("scale_qdigest(c0, 0.5)", makeRowVector({scaleUpResult}));
+
+  // Should be approximately equal to original
+  test::assertEqualVectors(arg0, scaleDownResult);
+}
+
+TEST_F(QDigestFunctionsTest, scaleQDigestReal) {
+  std::vector<float> values = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+  std::string digest = createQDigest(values);
+
+  auto arg0 = makeNullableFlatVector<std::string>({digest}, QDIGEST_REAL);
+
+  auto scaleUpResult =
+      evaluate("scale_qdigest(c0, 2.5)", makeRowVector({arg0}));
+
+  auto scaleDownResult =
+      evaluate("scale_qdigest(c0, 0.4)", makeRowVector({scaleUpResult}));
+
+  test::assertEqualVectors(arg0, scaleDownResult);
+}
+
+TEST_F(QDigestFunctionsTest, scaleQDigestNegative) {
+  std::vector<double> values = {1.0, 2.0, 3.0};
+  std::string digest = createQDigest(values);
+
+  const auto scaleQDigest = [&](const std::optional<std::string>& input,
+                                const std::optional<double>& scale) {
+    return evaluateOnce<std::string>(
+        "scale_qdigest(c0, c1)", QDIGEST_DOUBLE, input, scale);
+  };
+
+  VELOX_ASSERT_THROW(
+      scaleQDigest(digest, -1.0), "Scale factor should be positive.");
+  VELOX_ASSERT_THROW(
+      scaleQDigest(digest, 0.0), "Scale factor should be positive.");
+}
+
+TEST_F(QDigestFunctionsTest, scaleQDigestNull) {
+  const auto scaleQDigest = [&](const std::optional<std::string>& input,
+                                const std::optional<double>& scale) {
+    return evaluateOnce<std::string>(
+        "scale_qdigest(c0, c1)", QDIGEST_DOUBLE, input, scale);
+  };
+
+  ASSERT_EQ(std::nullopt, scaleQDigest(std::nullopt, 2.0));
+  ASSERT_EQ(std::nullopt, scaleQDigest("digest", std::nullopt));
+}

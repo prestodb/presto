@@ -508,7 +508,7 @@ double QuantileDigest<T, Allocator>::getCount() const {
 
 template <typename T, typename Allocator>
 void QuantileDigest<T, Allocator>::scale(double scaleFactor) {
-  VELOX_USER_CHECK(scaleFactor > 0.0, "scale factor must be > 0");
+  VELOX_USER_CHECK(scaleFactor > 0.0, "Scale factor should be positive.");
   for (auto i = 0; i < counts_.size(); ++i) {
     counts_[i] *= scaleFactor;
   }
