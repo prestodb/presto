@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.plugin.clp;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -288,20 +292,16 @@ public class TestClpFilterToKql
     private ClpExpression tryPushDown(String sqlExpression, SessionHolder sessionHolder, Set<String> metadataFilterColumns)
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
+        Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>(variableToColumnHandleMap);
         return pushDownExpression.accept(
                 new ClpFilterToKqlConverter(
                         standardFunctionResolution,
                         functionAndTypeManager,
-                        variableToColumnHandleMap,
                         metadataFilterColumns),
-                null);
+                assignments);
     }
 
-    private void testFilter(
-            ClpExpression clpExpression,
-            String expectedKqlExpression,
-            String expectedRemainingExpression,
-            SessionHolder sessionHolder)
+    private void testFilter(ClpExpression clpExpression, String expectedKqlExpression, String expectedRemainingExpression, SessionHolder sessionHolder)
     {
         Optional<String> kqlExpression = clpExpression.getPushDownExpression();
         Optional<RowExpression> remainingExpression = clpExpression.getRemainingExpression();
