@@ -29,7 +29,7 @@ public class NativeQueryRunnerUtils
     public static Map<String, String> getNativeWorkerHiveProperties()
     {
         return ImmutableMap.of("hive.parquet.pushdown-filter-enabled", "true",
-                "hive.orc-compression-codec", "ZSTD");
+            "hive.orc-compression-codec", "ZSTD", "hive.storage-format", "DWRF");
     }
 
     public static Map<String, String> getNativeWorkerIcebergProperties()
