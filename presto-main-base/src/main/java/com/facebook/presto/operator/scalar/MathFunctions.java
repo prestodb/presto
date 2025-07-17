@@ -1698,17 +1698,13 @@ public final class MathFunctions
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments must have identical sizes");
-        double result = 0.0;
 
-        if (leftArray.mayHaveNull() || rightArray.mayHaveNull()) {
-            boolean hasNull = false;
-            for (int i = 0; i < leftArray.getPositionCount(); i++) {
-                hasNull = hasNull || leftArray.isNull(i) || rightArray.isNull(i);
-            }
-            if (hasNull) {
-                return null;
-            }
-        }
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments must not have nulls");
+
+        double result = 0.0;
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
             result += DOUBLE.getDouble(leftArray, i) * DOUBLE.getDouble(rightArray, i);
@@ -1729,17 +1725,13 @@ public final class MathFunctions
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments must have identical sizes");
-        float dotProduct = 0.0F;
 
-        if (leftArray.mayHaveNull() || rightArray.mayHaveNull()) {
-            boolean hasNull = false;
-            for (int i = 0; i < leftArray.getPositionCount(); i++) {
-                hasNull = hasNull || leftArray.isNull(i) || rightArray.isNull(i);
-            }
-            if (hasNull) {
-                return null;
-            }
-        }
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments must not have nulls");
+
+        float dotProduct = 0.0F;
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
             dotProduct += Float.intBitsToFloat((int) REAL.getLong(leftArray, i)) * Float.intBitsToFloat((int) REAL.getLong(rightArray, i));

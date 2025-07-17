@@ -60,13 +60,19 @@ Mathematical Functions
 
         SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
 
-.. function:: dot_product(x, y) -> double
+.. function:: dot_product(array(real), array(real)) -> real
 
-    Returns the dot product of two vectors ``x`` and ``y``, and returns ``null`` if either vector contains a ``null`` value::
+    Returns the dot product of two vectors represented as array(real).
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
 
         SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
 
-        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[null, 4.0]); -- null
+.. function:: dot_product(array(double), array(double)) -> double
+
+    Returns the dot product of two vectors represented as array(double).
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
 
 .. function:: degrees(x) -> double
 
@@ -300,7 +306,7 @@ Probability Functions: inverse_cdf
 
 .. function:: inverse_f_cdf(df1, df2, p) -> double
 
-    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters 
+    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters
     for the cumulative probability (p): P(N < n). The numerator and denominator df parameters must be positive real numbers.
     The probability p must lie on the interval [0, 1].
 

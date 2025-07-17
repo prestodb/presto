@@ -1495,13 +1495,13 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(CAST(null AS array(double)), CAST(null AS array(double)))",
                 DOUBLE, null);
-        // any null inside the equal sized arrays must output null
-        assertFunction(
+        // any null inside the equal sized arrays must throw error
+        assertInvalidFunction(
                 "dot_product(array[DOUBLE '1.0', null, DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
-                DOUBLE, null);
-        assertFunction(
+                "Both array arguments must not have nulls");
+        assertInvalidFunction(
                 "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', null, DOUBLE '3.0'])",
-                DOUBLE, null);
+                "Both array arguments must not have nulls");
         // NaN test
         assertFunction("dot_product(array[nan()], array[nan()])",
                 DOUBLE, Double.NaN);
@@ -1542,13 +1542,13 @@ public class TestMathFunctions
         assertFunction(
                 "dot_product(CAST(null AS array(real)), CAST(null AS array(real)))",
                 REAL, null);
-        // any null inside the equal sized arrays must output null
-        assertFunction(
+        // any null inside the equal sized arrays must throw error
+        assertInvalidFunction(
                 "dot_product(array[REAL '1.0', null, REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
-                REAL, null);
-        assertFunction(
+                "Both array arguments must not have nulls");
+        assertInvalidFunction(
                 "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', null, REAL '3.0'])",
-                REAL, null);
+                "Both array arguments must not have nulls");
         // NaN test
         assertFunction("dot_product(array[CAST(nan() AS REAL)], array[CAST(nan() AS REAL)])",
                 REAL, Float.NaN);
