@@ -1631,6 +1631,11 @@ public final class MathFunctions
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
 
+        checkCondition(
+                !arraysHaveNull(leftArray, rightArray),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
+
         Double normLeftArray = array2Norm(leftArray);
         Double normRightArray = array2Norm(rightArray);
 
@@ -1654,9 +1659,10 @@ public final class MathFunctions
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
 
-        if (arraysHaveNull(leftArray, rightArray)) {
-            return null;
-        }
+        checkCondition(
+                !arraysHaveNull(leftArray, rightArray),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
 
         float sum = 0.0f;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
@@ -1682,9 +1688,10 @@ public final class MathFunctions
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
 
-        if (arraysHaveNull(leftArray, rightArray)) {
-            return null;
-        }
+        checkCondition(
+                !arraysHaveNull(leftArray, rightArray),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
 
         double sum = 0.0;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
