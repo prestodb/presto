@@ -317,28 +317,30 @@ class VariantSerializationTest : public ::testing::Test {
                 obj["name"].asString(), obj["value"].asBool());
           });
     });
-    var_ = Variant::opaque<SerializableClass>(
+
+    value_ = Variant::opaque<SerializableClass>(
         std::make_shared<SerializableClass>("test_class", false));
   }
 
-  Variant var_;
+  Variant value_;
 };
 
 TEST_F(VariantSerializationTest, serializeOpaque) {
-  auto serialized = var_.serialize();
-  auto deserialized_variant = Variant::create(serialized);
-  auto opaque = deserialized_variant.value<TypeKind::OPAQUE>().obj;
-  auto original_class = std::static_pointer_cast<SerializableClass>(opaque);
-  EXPECT_EQ(original_class->name, "test_class");
-  EXPECT_EQ(original_class->value, false);
+  auto serialized = value_.serialize();
+  auto deserialized = Variant::create(serialized);
+  auto opaque = deserialized.value<TypeKind::OPAQUE>().obj;
+  auto original = std::static_pointer_cast<SerializableClass>(opaque);
+  EXPECT_EQ(original->name, "test_class");
+  EXPECT_EQ(original->value, false);
 }
 
-TEST_F(VariantSerializationTest, opaqueToString) {
-  const auto type = var_.inferType();
-  auto s = var_.toJson(type);
-  EXPECT_EQ(
-      s,
-      "Opaque<type:OPAQUE<SerializableClass>,value:\"{\"name\":\"test_class\",\"value\":false}\">");
+TEST_F(VariantSerializationTest, opaqueToJson) {
+  const auto type = value_.inferType();
+
+  const auto expected =
+      R"(Opaque<type:OPAQUE<SerializableClass>,value:"{"name":"test_class","value":false}">)";
+  EXPECT_EQ(value_.toJson(type), expected);
+  EXPECT_EQ(value_.toString(type), expected);
 }
 
 TEST(VariantFloatingToJsonTest, normalTest) {
@@ -546,4 +548,14 @@ TEST(VariantTest, hashMap) {
   ASSERT_NE(a.hash(), b.hash());
   ASSERT_EQ(a.hash(), c.hash());
   ASSERT_NE(a.hash(), d.hash());
+}
+
+TEST(VariantTest, toString) {
+  EXPECT_EQ(Variant::array({1, 2, 3}).toString(ARRAY(INTEGER())), "[1,2,3]");
+  EXPECT_EQ(
+      Variant::map({{1, 2}, {3, 4}}).toString(MAP(INTEGER(), INTEGER())),
+      R"([{"key":1,"value":2},{"key":3,"value":4}])");
+  EXPECT_EQ(
+      Variant::row({1, 2, 3}).toString(ROW({INTEGER(), INTEGER(), INTEGER()})),
+      "[1,2,3]");
 }

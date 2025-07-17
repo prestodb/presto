@@ -252,12 +252,10 @@ std::string Variant::toString(const TypePtr& type) const {
     case TypeKind::FUNCTION:
     case TypeKind::UNKNOWN:
     case TypeKind::INVALID:
-      VELOX_NYI();
+      return toJson(type);
   }
 
-  VELOX_UNSUPPORTED(
-      "Given type {} is not supported in Variant::toString()",
-      mapTypeKindToName(kind_));
+  folly::assume_unreachable();
 }
 
 std::string Variant::toJson(const TypePtr& type) const {
