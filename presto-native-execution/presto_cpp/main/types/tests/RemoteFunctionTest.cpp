@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/functions/remote/client/Remote.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/remote/client/Remote.h"
@@ -33,6 +34,10 @@ class RemoteFunctionTest : public ::testing::Test {
     converter_ =
         std::make_unique<VeloxExprConverter>(memoryPool_.get(), &typeParser_);
 
+    exec::vectorFunctionFactories().withWLock([](auto& factories) {
+      factories.erase("remote.testSchema.testFunction");
+      factories.erase("remote.testSchema.testFunctionWithEndpoint");
+    });
     const std::string str = R"(
         {
           "@type": "RestFunctionHandle",
@@ -53,7 +58,8 @@ class RemoteFunctionTest : public ::testing::Test {
     const json j = json::parse(str);
     const std::shared_ptr<protocol::RestFunctionHandle> restFunctionHandle = j;
 
-    expectedMetadata.serdeFormat = functions::remote::PageFormat::PRESTO_PAGE;
+    expectedMetadata.serdeFormat =
+        facebook::velox::functions::remote::PageFormat::PRESTO_PAGE;
 
     testExpr.functionHandle = restFunctionHandle;
     testExpr.returnType = "bigint";
@@ -67,6 +73,15 @@ class RemoteFunctionTest : public ::testing::Test {
     cexpr2->type = "bigint";
     cexpr2->valueBlock.data = "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA";
     testExpr.arguments.push_back(cexpr2);
+  }
+
+  void TearDown() override {
+    exec::vectorFunctionFactories().withWLock([](auto& factories) {
+      factories.erase("remote.testSchema.testFunction");
+      factories.erase("remote.testSchema.testFunctionWithEndpoint");
+    });
+    converter_.reset();
+    memoryPool_.reset();
   }
 
   static std::unique_ptr<config::ConfigBase> restSystemConfig(
@@ -85,7 +100,7 @@ class RemoteFunctionTest : public ::testing::Test {
 
   std::shared_ptr<protocol::RestFunctionHandle> functionHandle;
   protocol::CallExpression testExpr;
-  functions::RemoteVectorFunctionMetadata expectedMetadata;
+  facebook::presto::functions::PrestoRemoteFunctionsMetadata expectedMetadata;
   std::shared_ptr<memory::MemoryPool> memoryPool_;
   TypeParser typeParser_;
   std::unique_ptr<VeloxExprConverter> converter_;
@@ -111,6 +126,16 @@ TEST_F(RemoteFunctionTest, handlesRestFunctionCorrectly) {
     EXPECT_EQ(arg0->type()->kind(), TypeKind::BIGINT);
     EXPECT_EQ(arg1->type()->kind(), TypeKind::BIGINT);
 
+    std::string expectedBaseUrl = "http://localhost:8080";
+    auto metadataOpt = facebook::velox::exec::getVectorFunctionMetadata(
+        "remote.testSchema.testFunction");
+    ASSERT_TRUE(metadataOpt.has_value());
+    const auto& prestoMetadata = static_cast<
+        const facebook::presto::functions::PrestoRemoteFunctionsMetadata&>(
+        metadataOpt.value());
+
+    EXPECT_TRUE(prestoMetadata.getLocation().find(expectedBaseUrl));
+
   } catch (const std::exception& e) {
     FAIL() << "Exception: " << e.what();
   }
@@ -127,4 +152,73 @@ TEST_F(RemoteFunctionTest, unsupportedSerdeFormat) {
   VELOX_ASSERT_THROW(
       converter_->toVeloxExpr(testExpr),
       "presto_page serde is expected by remote function server but got : 'spark_unsafe_rows'");
+}
+
+TEST_F(RemoteFunctionTest, usesExecutionEndpointIfProvided) {
+  try {
+    auto restConfig = restSystemConfig();
+    auto systemConfig = SystemConfig::instance();
+    systemConfig->initialize(std::move(restConfig));
+
+    const std::string str = R"(
+        {
+          "@type": "RestFunctionHandle",
+          "functionId": "remote.testSchema.testFunctionWithEndpoint;BIGINT;BIGINT",
+          "version": "v1",
+          "signature": {
+            "name": "testFunctionWithEndpoint",
+            "kind": "SCALAR",
+            "returnType": "bigint",
+            "argumentTypes": ["bigint", "bigint"],
+            "typeVariableConstraints": [],
+            "longVariableConstraints": [],
+            "variableArity": false
+          },
+          "executionEndpoint": "http://custom-endpoint:9000"
+        }
+    )";
+    const json j = json::parse(str);
+    const std::shared_ptr<protocol::RestFunctionHandle> restFunctionHandle = j;
+
+    ASSERT_TRUE(restFunctionHandle->executionEndpoint);
+    EXPECT_EQ(
+        *restFunctionHandle->executionEndpoint, "http://custom-endpoint:9000");
+
+    protocol::CallExpression expr;
+    expr.functionHandle = restFunctionHandle;
+    expr.returnType = "bigint";
+    expr.displayName = "testFunctionWithEndpoint";
+    auto cexpr = std::make_shared<protocol::ConstantExpression>();
+    cexpr->type = "bigint";
+    cexpr->valueBlock.data = "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA";
+    expr.arguments.push_back(cexpr);
+
+    auto cexpr2 = std::make_shared<protocol::ConstantExpression>();
+    cexpr2->type = "bigint";
+    cexpr2->valueBlock.data = "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA";
+    expr.arguments.push_back(cexpr2);
+
+    auto resultExpr = converter_->toVeloxExpr(expr);
+    auto callExpr =
+        std::dynamic_pointer_cast<const core::CallTypedExpr>(resultExpr);
+    ASSERT_NE(callExpr, nullptr);
+
+    // The location should use the executionEndpoint
+    EXPECT_EQ(callExpr->name(), "remote.testSchema.testFunctionWithEndpoint");
+    EXPECT_EQ(callExpr->inputs().size(), 2);
+
+    std::string expectedBaseUrl = "http://custom-endpoint:9000";
+    auto metadataOpt = facebook::velox::exec::getVectorFunctionMetadata(
+        "remote.testSchema.testFunctionWithEndpoint");
+    ASSERT_TRUE(metadataOpt.has_value());
+
+    const auto& prestoMetadata = static_cast<
+        const facebook::presto::functions::PrestoRemoteFunctionsMetadata&>(
+        metadataOpt.value());
+
+    EXPECT_TRUE(prestoMetadata.getLocation().find(expectedBaseUrl));
+
+  } catch (const std::exception& e) {
+    FAIL() << "Exception: " << e.what();
+  }
 }

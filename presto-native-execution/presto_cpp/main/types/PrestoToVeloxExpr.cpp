@@ -195,9 +195,18 @@ TypedExprPtr registerRestRemoteFunction(
         serdeName);
   }
 
+  // Use executionEndpoint if present, else fallback to systemConfig
+  std::string baseUrl;
+  if (restFunctionHandle.executionEndpoint &&
+      !restFunctionHandle.executionEndpoint->empty()) {
+    baseUrl = *restFunctionHandle.executionEndpoint;
+  } else {
+    baseUrl = systemConfig->remoteFunctionServerRestURL();
+  }
+
   const std::string location = fmt::format(
       "{}/v1/functions/{}/{}/{}/{}",
-      systemConfig->remoteFunctionServerRestURL(),
+      baseUrl,
       getSchemaName(restFunctionHandle.functionId),
       extractFunctionName(getFunctionName(restFunctionHandle.functionId)),
       urlEncode(restFunctionHandle.functionId),

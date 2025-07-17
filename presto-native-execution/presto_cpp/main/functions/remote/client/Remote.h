@@ -28,6 +28,10 @@ struct PrestoRemoteFunctionsMetadata
   /// The serialization format to be used when sending data to the remote.
   velox::functions::remote::PageFormat serdeFormat{
       velox::functions::remote::PageFormat::PRESTO_PAGE};
+
+  const std::string& getLocation() const {
+    return location;
+  }
 };
 
 void registerPrestoRemoteFunction(

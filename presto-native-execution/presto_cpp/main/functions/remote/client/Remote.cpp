@@ -45,7 +45,7 @@ class PrestoRemoteFunction : public velox::exec::VectorFunction {
     }
     remoteInputType_ = ROW(std::move(types));
     remoteClient_ = std::make_unique<RestRemoteClient>(
-        metadata_.location,
+        metadata_.getLocation(),
         functionName_,
         remoteInputType_,
         serializedInputTypes_,
