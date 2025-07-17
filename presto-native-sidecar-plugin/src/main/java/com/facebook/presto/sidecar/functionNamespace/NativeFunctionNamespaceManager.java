@@ -142,7 +142,7 @@ public class NativeFunctionNamespaceManager
         Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = udfFunctionSignatureMap.getUDFSignatureMap();
         udfSignatureMap.forEach((name, metaInfoList) -> {
             List<SqlInvokedFunction> functions = metaInfoList.stream().map(metaInfo -> createSqlInvokedFunction(name, metaInfo)).collect(toImmutableList());
-            functions.forEach(function -> createFunction(function, false));
+            functions.forEach(this::createFunction);
         });
     }
 
@@ -279,18 +279,7 @@ public class NativeFunctionNamespaceManager
     @Override
     public synchronized void createFunction(SqlInvokedFunction function, boolean replace)
     {
-        checkFunctionLanguageSupported(function);
-        SqlFunctionId functionId = function.getFunctionId();
-        if (!replace && functions.containsKey(function.getFunctionId())) {
-            throw new PrestoException(DUPLICATE_FUNCTION_ERROR, format("Function '%s' already exists", functionId.getId()));
-        }
-
-        SqlInvokedFunction replacedFunction = functions.get(functionId);
-        long version = 1;
-        if (replacedFunction != null) {
-            version = parseLong(replacedFunction.getRequiredVersion()) + 1;
-        }
-        functions.put(functionId, function.withVersion(String.valueOf(version)));
+        throw new PrestoException(NOT_SUPPORTED, "Create Function is not supported in NativeFunctionNamespaceManager");
     }
 
     @Override
@@ -430,6 +419,22 @@ public class NativeFunctionNamespaceManager
     }
 
     // Hack ends here
+
+    private synchronized void createFunction(SqlInvokedFunction function)
+    {
+        checkFunctionLanguageSupported(function);
+        SqlFunctionId functionId = function.getFunctionId();
+        if (functions.containsKey(function.getFunctionId())) {
+            throw new PrestoException(DUPLICATE_FUNCTION_ERROR, format("Function '%s' already exists", functionId.getId()));
+        }
+
+        SqlInvokedFunction replacedFunction = functions.get(functionId);
+        long version = 1;
+        if (replacedFunction != null) {
+            version = parseLong(replacedFunction.getRequiredVersion()) + 1;
+        }
+        functions.put(functionId, function.withVersion(String.valueOf(version)));
+    }
 
     private SqlFunction getSqlFunctionFromSignature(Signature signature)
     {
