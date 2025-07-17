@@ -434,13 +434,12 @@ class Variant {
     return toJsonUnsafe();
   }
 
-  /// Returns a string of the Variant value. Currently only supports scalar
-  /// types.
+  /// Returns a string of the Variant value.
   std::string toString(const TypePtr& type) const;
 
   folly::dynamic serialize() const;
 
-  static Variant create(const folly::dynamic&);
+  static Variant create(const folly::dynamic& obj);
 
   bool hasValue() const {
     return !isNull();
@@ -553,6 +552,11 @@ class Variant {
   }
 
   TypePtr inferType() const;
+
+  /// Returns true if the type of this Variant is compatible with the specified
+  /// type. Similar to inferType()->kindEquals(type), but treats
+  /// TypeKind::UNKNOWN equal to any other TypeKind.
+  bool isTypeCompatible(const TypePtr& type) const;
 
   friend std::ostream& operator<<(std::ostream& stream, const Variant& k) {
     const auto type = k.inferType();
