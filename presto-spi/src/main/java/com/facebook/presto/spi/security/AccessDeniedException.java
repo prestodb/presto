@@ -147,6 +147,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowColumnsMetadata(String tableName)
+    {
+        denyShowColumnsMetadata(tableName, null);
+    }
+
+    public static void denyShowColumnsMetadata(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show columns of table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyAddColumn(String tableName)
     {
         denyAddColumn(tableName, null);

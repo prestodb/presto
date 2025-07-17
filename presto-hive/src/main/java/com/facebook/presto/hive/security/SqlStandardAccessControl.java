@@ -81,6 +81,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -256,6 +257,45 @@ public class SqlStandardAccessControl
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<SchemaTableName> tableNames)
     {
         return tableNames;
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(
+                identity, context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+
+        if (!hasAnyTablePermission(transactionHandle, identity, metastoreContext, tableName)) {
+            denyShowColumnsMetadata(tableName.toString());
+        }
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(
+                identity, context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+
+        if (!hasAnyTablePermission(transactionHandle, identity, metastoreContext, tableName)) {
+            return ImmutableList.of();
+        }
+        return columns;
     }
 
     @Override
@@ -819,6 +859,26 @@ public class SqlStandardAccessControl
                             .collect(toSet());
                     return rolesWithGrantOption.containsAll(roles);
                 })
+                .orElse(false);
+    }
+
+    private boolean hasAnyTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, MetastoreContext metastoreContext, SchemaTableName tableName)
+    {
+        if (isAdmin(transaction, identity, metastoreContext)) {
+            return true;
+        }
+
+        if (tableName.equals(ROLES)) {
+            return false;
+        }
+
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return true;
+        }
+
+        return getMetastore(transaction)
+                .map(metastore -> listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), identity, metastoreContext)
+                .anyMatch(privilegeInfo -> true))
                 .orElse(false);
     }
 

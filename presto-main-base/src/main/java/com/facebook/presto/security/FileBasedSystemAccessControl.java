@@ -75,6 +75,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static com.google.common.base.Preconditions.checkState;
@@ -332,6 +333,24 @@ public class FileBasedSystemAccessControl
         }
 
         return tableNames;
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), READ_ONLY)) {
+            denyShowColumnsMetadata(table.toString());
+        }
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), READ_ONLY)) {
+            return ImmutableList.of();
+        }
+
+        return columns;
     }
 
     @Override
