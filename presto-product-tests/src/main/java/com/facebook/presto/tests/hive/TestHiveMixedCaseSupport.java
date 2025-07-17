@@ -92,16 +92,16 @@ public class TestHiveMixedCaseSupport
                 .containsOnly(row("testtable4"), row("testtable02"), row("testtable3"));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable0"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable4"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable02"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""), row("num", "double", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null), row("num", "double", "", "", 2L, null, null));
 
         assertThat(() -> query("CREATE TABLE " + SCHEMA_NAME + ".TESTTABLE0 (name VARCHAR(50), id INT)"))
                 .failsWithMessage(format("line 1:1: Table 'hive.%s.testtable0' already exists", SCHEMA_NAME));
