@@ -172,7 +172,9 @@
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
         <module>presto-password-authenticators</module>
-        <module>presto-session-property-managers</module>
+        <module>presto-session-property-managers-common</module>
+        <module>presto-db-session-property-manager</module>
+        <module>presto-file-session-property-manager</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-api</module>
         <module>presto-thrift-testing-server</module>
@@ -343,7 +345,26 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-session-property-managers</artifactId>
+                <artifactId>presto-session-property-managers-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-session-property-managers-common</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-db-session-property-manager</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-file-session-property-manager</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

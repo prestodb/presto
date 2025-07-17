@@ -41,8 +41,14 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/session-property-managers">
-        <artifact id="${project.groupId}:presto-session-property-managers:zip:${project.version}">
+    <artifactSet to="plugin/file-session-property-manager">
+        <artifact id="${project.groupId}:presto-file-session-property-manager:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/db-session-property-manager">
+        <artifact id="${project.groupId}:presto-db-session-property-manager:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
