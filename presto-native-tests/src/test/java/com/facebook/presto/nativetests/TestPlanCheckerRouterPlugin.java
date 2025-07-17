@@ -185,9 +185,11 @@ public class TestPlanCheckerRouterPlugin
         if (sidecarEnabled) {
             closeAllRuntimeException(nativeQueryRunner);
             nativeQueryRunner = null;
-            for (String query : getNativeIncompatibleQueries()) {
+            List<String> queries = getNativeIncompatibleQueries();
+            for (String query : queries) {
                 runQuery(query, httpServerUri);
             }
+            assertEquals(planCheckerRouterPluginPrestoClient.getFallBackToJavaClusterRedirectRequests().getTotalCount(), queries.size());
         }
     }
 

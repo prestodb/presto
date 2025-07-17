@@ -169,7 +169,16 @@ public class MemoryMetadata
     {
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
-                .collect(toMap(MemoryTableHandle::toSchemaTableName, handle -> handle.toTableMetadata().getColumns()));
+                .collect(toImmutableMap(MemoryTableHandle::toSchemaTableName, handle -> toTableMetadata(handle, session).getColumns()));
+    }
+
+    public ConnectorTableMetadata toTableMetadata(MemoryTableHandle memoryTableHandle, ConnectorSession session)
+    {
+        List<ColumnMetadata> columns = memoryTableHandle.getColumnHandles().stream()
+                .map(column -> column.toColumnMetadata(normalizeIdentifier(session, column.getName())))
+                .collect(toImmutableList());
+
+        return new ConnectorTableMetadata(memoryTableHandle.toSchemaTableName(), columns);
     }
 
     @Override

@@ -40,6 +40,26 @@ Mathematical Functions
 
         SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
 
+.. function:: cosine_similarity(x, y) -> double
+
+    Returns the cosine similarity between the arrays ``x`` and ``y``::
+
+        SELECT cosine_similarity(ARRAY[1.2], ARRAY[2.0]); -- 1.0
+
+.. function:: l2_squared(array(real), array(real)) -> real
+
+    Returns the squared `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array(real).
+    If the input arrays have different sizes, the function throws user error::
+
+        SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
+
+.. function:: l2_squared(array(double), array(double)) -> double
+
+    Returns the squared `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array(double).
+    If the input arrays have different sizes, the function throws user error::
+
+        SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
+
 .. function:: degrees(x) -> double
 
     Converts angle ``x`` in radians to degrees.
@@ -272,7 +292,7 @@ Probability Functions: inverse_cdf
 
 .. function:: inverse_f_cdf(df1, df2, p) -> double
 
-    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters 
+    Compute the inverse of the F cdf with a given df1 (numerator degrees of freedom) and df2 (denominator degrees of freedom) parameters
     for the cumulative probability (p): P(N < n). The numerator and denominator df parameters must be positive real numbers.
     The probability p must lie on the interval [0, 1].
 

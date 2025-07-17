@@ -116,10 +116,10 @@ public enum RedisInternalFieldDescription
                 true);
     }
 
-    ColumnMetadata getColumnMetadata(boolean hidden)
+    ColumnMetadata getColumnMetadata(boolean hidden, String name)
     {
         return ColumnMetadata.builder()
-                .setName(columnName)
+                .setName(name)
                 .setType(type)
                 .setComment(comment)
                 .setHidden(hidden)

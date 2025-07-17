@@ -113,7 +113,7 @@ public class KafkaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
+        return getTableMetadata(session, convertTableHandle(tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -183,7 +183,7 @@ public class KafkaMetadata
 
         for (SchemaTableName tableName : tableNames) {
             try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
             catch (TableNotFoundException e) {
                 // Normally it would mean the table disappeared during listing operation
@@ -234,7 +234,7 @@ public class KafkaMetadata
         return new ConnectorTableLayout(handle);
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
     {
         KafkaTopicDescription table = getRequiredTopicDescription(schemaTableName);
 
@@ -244,7 +244,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.getColumnMetadata(normalizeIdentifier(session, fieldDescription.getName())));
                 }
             }
         });
@@ -253,13 +253,13 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata());
+                    builder.add(fieldDescription.getColumnMetadata(normalizeIdentifier(session, fieldDescription.getName())));
                 }
             }
         });
 
         for (KafkaInternalFieldDescription fieldDescription : KafkaInternalFieldDescription.values()) {
-            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
+            builder.add(fieldDescription.getColumnMetadata(hideInternalColumns, normalizeIdentifier(session, fieldDescription.getColumnName())));
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());

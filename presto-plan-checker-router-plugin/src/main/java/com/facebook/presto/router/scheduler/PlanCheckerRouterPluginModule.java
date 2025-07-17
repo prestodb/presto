@@ -16,8 +16,13 @@ package com.facebook.presto.router.scheduler;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
+import javax.management.MBeanServer;
+
+import java.lang.management.ManagementFactory;
+
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.Scopes.SINGLETON;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PlanCheckerRouterPluginModule
         implements Module
@@ -28,5 +33,8 @@ public class PlanCheckerRouterPluginModule
         configBinder(binder).bindConfig(PlanCheckerRouterPluginConfig.class);
         binder.bind(PlanCheckerRouterPluginPrestoClient.class).in(SINGLETON);
         binder.bind(PlanCheckerRouterPluginScheduler.class).in(SINGLETON);
+
+        newExporter(binder).export(PlanCheckerRouterPluginPrestoClient.class).withGeneratedName();
+        binder.bind(MBeanServer.class).toInstance(ManagementFactory.getPlatformMBeanServer());
     }
 }

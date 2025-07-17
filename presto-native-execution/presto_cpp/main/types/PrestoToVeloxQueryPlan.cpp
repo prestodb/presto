@@ -1569,6 +1569,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       unnestNames,
       node->ordinalityVariable ? std::optional{node->ordinalityVariable->name}
                                : std::nullopt,
+      std::nullopt,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 

@@ -38,8 +38,6 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeW
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
-import static java.lang.String.format;
-import static java.nio.file.Files.createTempDirectory;
 
 /**
  * Following JVM argument is needed to run Spark native tests.
@@ -190,48 +188,7 @@ public class PrestoSparkNativeQueryRunnerUtils
             return dataDirectory.get();
         }
 
-        Optional<String> dataDirectoryStr = getProperty("DATA_DIR");
-        if (!dataDirectoryStr.isPresent()) {
-            try {
-                dataDirectory = Optional.of(createTempDirectory("PrestoTest").toAbsolutePath());
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        else {
-            dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
-        }
+        dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
         return dataDirectory.get();
-    }
-
-    // This is a temporary replacement for the function from
-    // HiveTestUtils.getProperty. But HiveTestUtils instantiation seems to be
-    // failing due to missing info in Hdfs setup. Until we fix that, this is a
-    // copy of that function. As its a simple utility function, we are ok to punt
-    // fixing this
-    // TODO: Use HiveTestUtils.getProperty and delete this function
-    public static Optional<String> getProperty(String name)
-    {
-        String systemPropertyValue = System.getProperty(name);
-        String environmentVariableValue = System.getenv(name);
-        if (systemPropertyValue == null) {
-            if (environmentVariableValue == null) {
-                return Optional.empty();
-            }
-            else {
-                return Optional.of(environmentVariableValue);
-            }
-        }
-        else {
-            if (environmentVariableValue != null && !systemPropertyValue.equals(environmentVariableValue)) {
-                throw new IllegalArgumentException(format("%s is set in both Java system property and environment variable, but their values are different. The Java system property value is %s, while the" +
-                                " environment variable value is %s. Please use only one value.",
-                        name,
-                        systemPropertyValue,
-                        environmentVariableValue));
-            }
-            return Optional.of(systemPropertyValue);
-        }
     }
 }

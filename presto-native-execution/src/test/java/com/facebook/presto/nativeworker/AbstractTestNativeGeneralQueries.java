@@ -143,14 +143,15 @@ public abstract class AbstractTestNativeGeneralQueries
 
         getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
 
-        Session session = Session.builder(getSession())
+        Session actualSession = Session.builder(getSession())
                 .setCatalog("hivecached")
                 .setCatalogSessionProperty("hivecached", "orc_compression_codec", "ZSTD")
                 .setCatalogSessionProperty("hivecached", "collect_column_statistics_on_write", "false")
                 .build();
         try {
-            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
-            assertQuery("SELECT * FROM tmp");
+            getQueryRunner().execute(actualSession, "CREATE TABLE tmp AS SELECT * FROM nation");
+            Session expectedSession = getSession();
+            assertQuery(actualSession, "SELECT * FROM tmp", expectedSession, "SELECT * FROM tmp");
         }
         finally {
             dropTableIfExists("tmp");
@@ -1210,7 +1211,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={distinct_aggregation_spill_enabled=false}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}}");
     }
 
     @Test
@@ -1827,17 +1828,17 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test
     public void testUnicodeInJson()
     {
-        // Test casting to JSON returning the same results for all unicode characters in the entire range.
-        List<int[]> unicodeRanges = new ArrayList<int[]>()
-        {{
-                add(new int[] {0, 0x7F});
-                add(new int[] {0x80, 0xD7FF});
-                add(new int[] {0xE000, 0xFFFF});
-            }};
-        for (int start = 0x10000; start < 0x110000; ) {
-            int end = start + 0x10000;
-            unicodeRanges.add(new int[] {start, end - 1});
-            start = end;
+        // Test casting to JSON returning the same results for all unicode characters in the
+        // entire range.
+        List<int[]> unicodeRanges = new ArrayList<int[]>() {
+            {
+                add(new int[]{0, 0x7F});
+                add(new int[]{0x80, 0xD7FF});
+                add(new int[]{0xE000, 0xFFFF});
+            }
+        };
+        for (int start = 0x10000; start < 0x110000; start += 0x10000) {
+            unicodeRanges.add(new int[]{start, start + 0xFFFF});
         }
         List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
             StringBuilder unicodeString = new StringBuilder();
@@ -1868,7 +1869,8 @@ public abstract class AbstractTestNativeGeneralQueries
         }).collect(ImmutableList.toImmutableList());
 
         for (String unicodeString : unicodeStrings) {
-            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)", unicodeString));
+            assertQuery(String.format("SELECT CAST(a as JSON) FROM ( VALUES(U&'%s') ) t(a)",
+                    unicodeString));
         }
     }
 
