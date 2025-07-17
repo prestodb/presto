@@ -47,7 +47,6 @@ public class NativeSystemSessionPropertyProviderModule
                 .toInstance(new JsonCodecFactory().listJsonCodec(SessionPropertyMetadata.class));
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);
-        binder.bind(NativeSystemSessionPropertyProviderConfig.class).in(Scopes.SINGLETON);
         binder.bind(NativeSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
         binder.bind(WorkerSessionPropertyProvider.class).to(NativeSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
     }
