@@ -50,6 +50,14 @@
         "field_text": "String",
         "_N": 1,
         "field_local": true
+      },
+      {
+        "field_type": "Optional<String>",
+        "field_name": "kqlQuery",
+        "field_text": "String",
+        "optional": true,
+        "_N": 2,
+        "field_local": true
       }
     ],
     "subclass": true,

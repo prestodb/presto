@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
@@ -32,17 +33,27 @@ public class ClpSplit
         implements ConnectorSplit
 {
     private final String path;
+    private final Optional<String> kqlQuery;
 
     @JsonCreator
-    public ClpSplit(@JsonProperty("path") String path)
+    public ClpSplit(
+            @JsonProperty("path") String path,
+            @JsonProperty("kqlQuery") Optional<String> kqlQuery)
     {
         this.path = requireNonNull(path, "Split path is null");
+        this.kqlQuery = kqlQuery;
     }
 
     @JsonProperty
     public String getPath()
     {
         return path;
+    }
+
+    @JsonProperty
+    public Optional<String> getKqlQuery()
+    {
+        return kqlQuery;
     }
 
     @Override
@@ -60,6 +71,6 @@ public class ClpSplit
     @Override
     public Map<String, String> getInfo()
     {
-        return ImmutableMap.of("path", path);
+        return ImmutableMap.of("path", path, "kqlQuery", kqlQuery.orElse("<null>"));
     }
 }

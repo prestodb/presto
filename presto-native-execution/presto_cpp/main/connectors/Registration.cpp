@@ -81,8 +81,9 @@ void registerConnectors() {
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
-  registerPrestoToVeloxConnector(std::make_unique<ClpPrestoToVeloxConnector>(
-      velox::connector::clp::ClpConnectorFactory::kClpConnectorName));
+  registerPrestoToVeloxConnector(
+      std::make_unique<ClpPrestoToVeloxConnector>(
+          velox::connector::clp::ClpConnectorFactory::kClpConnectorName));
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.

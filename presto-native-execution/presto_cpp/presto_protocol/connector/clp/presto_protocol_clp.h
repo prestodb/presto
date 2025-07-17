@@ -52,6 +52,7 @@ void from_json(const json& j, ClpColumnHandle& p);
 namespace facebook::presto::protocol::clp {
 struct ClpSplit : public ConnectorSplit {
   String path = {};
+  std::shared_ptr<String> kqlQuery = {};
 
   ClpSplit() noexcept;
 };
