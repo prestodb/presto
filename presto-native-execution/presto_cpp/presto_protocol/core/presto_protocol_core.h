@@ -2017,6 +2017,7 @@ struct RestFunctionHandle : public FunctionHandle {
   SqlFunctionId functionId = {};
   String version = {};
   Signature signature = {};
+  std::shared_ptr<URI> executionEndpoint = {};
 
   RestFunctionHandle() noexcept;
 };
