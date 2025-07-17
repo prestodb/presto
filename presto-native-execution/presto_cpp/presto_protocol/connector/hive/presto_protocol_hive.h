@@ -276,18 +276,6 @@ void to_json(json& j, const HiveInsertTableHandle& p);
 void from_json(const json& j, HiveInsertTableHandle& p);
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-struct HiveMetadataUpdateHandle : public ConnectorMetadataUpdateHandle {
-  UUID requestId = {};
-  SchemaTableName schemaTableName = {};
-  std::shared_ptr<String> partitionName = {};
-  std::shared_ptr<String> fileName = {};
-
-  HiveMetadataUpdateHandle() noexcept;
-};
-void to_json(json& j, const HiveMetadataUpdateHandle& p);
-void from_json(const json& j, HiveMetadataUpdateHandle& p);
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
 struct HiveOutputTableHandle : public ConnectorOutputTableHandle {
   String schemaName = {};
   String tableName = {};

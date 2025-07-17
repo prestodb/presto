@@ -16,7 +16,6 @@ package com.facebook.presto.testing;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -68,11 +67,5 @@ public class TestingHandleResolver
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
         return TestingTransactionHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorMetadataUpdateHandle> getMetadataUpdateHandleClass()
-    {
-        return TestingMetadataUpdateHandle.class;
     }
 }

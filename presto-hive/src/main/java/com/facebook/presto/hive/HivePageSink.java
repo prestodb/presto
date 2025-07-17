@@ -22,7 +22,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexer;
@@ -33,13 +32,10 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import org.apache.hadoop.fs.Path;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -49,24 +45,18 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 
-import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
-import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
 import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
 import static com.facebook.presto.hive.HiveUtil.serializeZstdCompressed;
-import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.PartitionUpdate.mergePartitionUpdates;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -105,7 +95,6 @@ public class HivePageSink
     private final List<HiveWriter> writers = new ArrayList<>();
 
     private final ConnectorSession session;
-    private final HiveMetadataUpdater hiveMetadataUpdater;
     private final boolean fileRenamingEnabled;
 
     private long writtenBytes;
@@ -127,8 +116,7 @@ public class HivePageSink
             ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
-            ConnectorSession session,
-            HiveMetadataUpdater hiveMetadataUpdater)
+            ConnectorSession session)
     {
         this.writerFactory = requireNonNull(writerFactory, "writerFactory is null");
 
@@ -199,7 +187,6 @@ public class HivePageSink
         }
 
         this.session = requireNonNull(session, "session is null");
-        this.hiveMetadataUpdater = requireNonNull(hiveMetadataUpdater, "hiveMetadataUpdater is null");
         this.fileRenamingEnabled = isFileRenamingEnabled(session);
     }
 
@@ -280,20 +267,6 @@ public class HivePageSink
         validationCpuNanos = writers.stream()
                 .mapToLong(HiveWriter::getValidationCpuNanos)
                 .sum();
-
-        if (waitForFileRenaming && verificationTasks.isEmpty()) {
-            // Use CopyOnWriteArrayList to prevent race condition when callbacks try to add partitionUpdates to this list
-            List<Slice> partitionUpdatesWithRenamedFileNames = new CopyOnWriteArrayList<>();
-            List<ListenableFuture<?>> futures = new ArrayList<>();
-            for (int i = 0; i < writers.size(); i++) {
-                int writerIndex = i;
-                ListenableFuture<?> fileNameFuture = toListenableFuture(hiveMetadataUpdater.getMetadataResult(writerIndex));
-                SettableFuture renamingFuture = SettableFuture.create();
-                futures.add(renamingFuture);
-                addSuccessCallback(fileNameFuture, obj -> renameFiles((String) obj, writerIndex, renamingFuture, partitionUpdatesWithRenamedFileNames));
-            }
-            return Futures.transform(Futures.allAsList(futures), input -> partitionUpdatesWithRenamedFileNames, directExecutor());
-        }
 
         if (verificationTasks.isEmpty()) {
             return Futures.immediateFuture(serializedPartitionUpdates);
@@ -414,62 +387,6 @@ public class HivePageSink
         }
     }
 
-    private void sendMetadataUpdateRequest(Optional<String> partitionName, int writerIndex, boolean writeTempData)
-    {
-        // Bucketed tables already have unique bucket number as part of fileName. So no need to rename.
-        if (writeTempData || !fileRenamingEnabled || bucketFunction != null) {
-            return;
-        }
-        hiveMetadataUpdater.addMetadataUpdateRequest(schemaName, tableName, partitionName, writerIndex);
-        waitForFileRenaming = true;
-    }
-
-    private void renameFiles(String fileName, int writerIndex, SettableFuture<?> renamingFuture, List<Slice> partitionUpdatesWithRenamedFileNames)
-    {
-        HdfsContext context = new HdfsContext(
-                session,
-                schemaName,
-                tableName,
-                writerFactory.getLocationHandle().getTargetPath().toString(),
-                writerFactory.isCreateTable());
-        HiveWriter writer = writers.get(writerIndex);
-        PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-
-        // Check that only one file is written by a writer
-        checkArgument(partitionUpdate.getFileWriteInfos().size() == 1, "HiveWriter wrote data to more than one file");
-
-        FileWriteInfo fileWriteInfo = partitionUpdate.getFileWriteInfos().get(0);
-        Path fromPath = new Path(partitionUpdate.getWritePath(), fileWriteInfo.getWriteFileName());
-        Path toPath = new Path(partitionUpdate.getWritePath(), fileName);
-        try {
-            ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(context, fromPath);
-            ListenableFuture<Void> asyncFuture = fileSystem.renameFileAsync(fromPath, toPath);
-            addSuccessCallback(asyncFuture, () -> updateFileInfo(partitionUpdatesWithRenamedFileNames, renamingFuture, partitionUpdate, fileName, fileWriteInfo, writerIndex));
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error renaming file. fromPath: %s toPath: %s", fromPath, toPath), e);
-        }
-    }
-
-    private void updateFileInfo(List<Slice> partitionUpdatesWithRenamedFileNames, SettableFuture<?> renamingFuture, PartitionUpdate partitionUpdate, String fileName, FileWriteInfo fileWriteInfo, int writerIndex)
-    {
-        // Update the file info in partitionUpdate with new filename
-        FileWriteInfo fileInfoWithRenamedFileName = new FileWriteInfo(fileName, fileName, fileWriteInfo.getFileSize());
-        PartitionUpdate partitionUpdateWithRenamedFileName = new PartitionUpdate(partitionUpdate.getName(),
-                partitionUpdate.getUpdateMode(),
-                partitionUpdate.getWritePath(),
-                partitionUpdate.getTargetPath(),
-                ImmutableList.of(fileInfoWithRenamedFileName),
-                partitionUpdate.getRowCount(),
-                partitionUpdate.getInMemoryDataSizeInBytes(),
-                partitionUpdate.getOnDiskDataSizeInBytes(),
-                true);
-        partitionUpdatesWithRenamedFileNames.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdateWithRenamedFileName)));
-
-        hiveMetadataUpdater.removeResultFuture(writerIndex);
-        renamingFuture.set(null);
-    }
-
     private int[] getWriterIndexes(Page page)
     {
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
@@ -497,9 +414,6 @@ public class HivePageSink
             }
             HiveWriter writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
             writers.set(writerIndex, writer);
-
-            // Send metadata update request if needed
-            sendMetadataUpdateRequest(writer.getPartitionName(), writerIndex, writer.isWriteTempData());
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));
