@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.db;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import com.facebook.presto.session.SessionMatchSpec;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import java.util.List;
+import java.util.function.Supplier;
 
-public class FileSessionPropertyManagerModule
-        implements Module
+/**
+ * This interface was created to separate the scheduling logic for {@link SessionMatchSpec} loading. This also helps
+ * us test the core logic of {@link DbSessionPropertyManager} in a modular fashion by letting us use a test
+ * implementation of this interface.
+ */
+public interface DbSpecsProvider
+        extends Supplier<List<SessionMatchSpec>>
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        configBinder(binder).bindConfig(FileSessionPropertyManagerConfig.class);
-        binder.bind(FileSessionPropertyManager.class).in(Scopes.SINGLETON);
-    }
 }
