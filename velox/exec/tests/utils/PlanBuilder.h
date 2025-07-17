@@ -1273,9 +1273,18 @@ class PlanBuilder {
       std::optional<int32_t> limit = std::nullopt,
       bool generateRowNumber = true);
 
-  /// Add a TopNRowNumberNode to compute single row_number window function with
-  /// a limit applied to sorted partitions.
+  /// Add a TopNRowNumberNode to compute row_number
+  /// function with a limit applied to sorted partitions.
   PlanBuilder& topNRowNumber(
+      const std::vector<std::string>& partitionKeys,
+      const std::vector<std::string>& sortingKeys,
+      int32_t limit,
+      bool generateRowNumber);
+
+  /// Add a TopNRowNumberNode to compute row_number, rank or dense_rank window
+  /// function with a limit applied to sorted partitions.
+  PlanBuilder& topNRank(
+      std::string_view function,
       const std::vector<std::string>& partitionKeys,
       const std::vector<std::string>& sortingKeys,
       int32_t limit,

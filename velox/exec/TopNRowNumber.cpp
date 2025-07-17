@@ -140,6 +140,9 @@ TopNRowNumber::TopNRowNumber(
           node->sortingOrders(),
           data_.get()),
       decodedVectors_(inputType_->size()) {
+  VELOX_CHECK_EQ(
+      node->rankFunction(), core::TopNRowNumberNode::RankFunction::kRowNumber);
+
   const auto& keys = node->partitionKeys();
   const auto numKeys = keys.size();
 

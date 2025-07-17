@@ -927,37 +927,57 @@ TEST_F(PlanNodeToStringTest, rowNumber) {
       plan->toString(true, false));
 }
 
-TEST_F(PlanNodeToStringTest, topNRowNumber) {
+namespace {
+void topNRankPlanNodeToStringTest(std::string_view function) {
   auto rowType = ROW({"a", "b"}, {BIGINT(), VARCHAR()});
   auto plan = PlanBuilder()
                   .tableScan(rowType)
-                  .topNRowNumber({}, {"a DESC"}, 10, false)
+                  .topNRank(function, {}, {"a DESC"}, 10, false)
                   .planNode();
 
   ASSERT_EQ("-- TopNRowNumber[1]\n", plan->toString());
   ASSERT_EQ(
-      "-- TopNRowNumber[1][order by (a DESC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
+      fmt::format(
+          "-- TopNRowNumber[1][{} order by (a DESC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
+          function),
       plan->toString(true, false));
 
   plan = PlanBuilder()
              .tableScan(rowType)
-             .topNRowNumber({}, {"a DESC"}, 10, true)
+             .topNRank(function, {}, {"a DESC"}, 10, true)
              .planNode();
 
   ASSERT_EQ("-- TopNRowNumber[1]\n", plan->toString());
   ASSERT_EQ(
-      "-- TopNRowNumber[1][order by (a DESC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR, row_number:BIGINT\n",
+      fmt::format(
+          "-- TopNRowNumber[1][{} order by (a DESC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR, row_number:BIGINT\n",
+          function),
       plan->toString(true, false));
 
   plan = PlanBuilder()
              .tableScan(rowType)
-             .topNRowNumber({"a"}, {"b"}, 10, false)
+             .topNRank(function, {"a"}, {"b"}, 10, false)
              .planNode();
 
   ASSERT_EQ("-- TopNRowNumber[1]\n", plan->toString());
   ASSERT_EQ(
-      "-- TopNRowNumber[1][partition by (a) order by (b ASC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
+      fmt::format(
+          "-- TopNRowNumber[1][{} partition by (a) order by (b ASC NULLS LAST) limit 10] -> a:BIGINT, b:VARCHAR\n",
+          function),
       plan->toString(true, false));
+}
+} // namespace
+
+TEST_F(PlanNodeToStringTest, topNRowNumber) {
+  topNRankPlanNodeToStringTest("row_number");
+}
+
+TEST_F(PlanNodeToStringTest, topNRank) {
+  topNRankPlanNodeToStringTest("rank");
+}
+
+TEST_F(PlanNodeToStringTest, topNDenseRank) {
+  topNRankPlanNodeToStringTest("dense_rank");
 }
 
 TEST_F(PlanNodeToStringTest, markDistinct) {

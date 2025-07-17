@@ -81,6 +81,15 @@ PlanNodePtr deserializeSingleSource(const folly::dynamic& obj, void* context) {
 PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
+
+template <typename K, typename V>
+std::unordered_map<V, K> invertMap(const std::unordered_map<K, V>& mapping) {
+  std::unordered_map<V, K> inverted;
+  for (const auto& [key, value] : mapping) {
+    inverted.emplace(value, key);
+  }
+  return inverted;
+}
 } // namespace
 
 const SortOrder kAscNullsFirst(true, true);
@@ -2174,8 +2183,41 @@ PlanNodePtr RowNumberNode::create(const folly::dynamic& obj, void* context) {
       source);
 }
 
+namespace {
+std::unordered_map<TopNRowNumberNode::RankFunction, std::string>
+rankFunctionNames() {
+  return {
+      {TopNRowNumberNode::RankFunction::kRowNumber, "row_number"},
+      {TopNRowNumberNode::RankFunction::kRank, "rank"},
+      {TopNRowNumberNode::RankFunction::kDenseRank, "dense_rank"},
+  };
+}
+} // namespace
+
+// static
+const char* TopNRowNumberNode::rankFunctionName(
+    TopNRowNumberNode::RankFunction function) {
+  static const auto kFunctionNames = rankFunctionNames();
+  auto it = kFunctionNames.find(function);
+  VELOX_CHECK(
+      it != kFunctionNames.end(),
+      "Invalid rank function {}",
+      static_cast<int>(function));
+  return it->second.c_str();
+}
+
+// static
+TopNRowNumberNode::RankFunction TopNRowNumberNode::rankFunctionFromName(
+    std::string_view name) {
+  static const auto kFunctionNames = invertMap(rankFunctionNames());
+  auto it = kFunctionNames.find(name.data());
+  VELOX_CHECK(it != kFunctionNames.end(), "Invalid rank function {}", name);
+  return it->second;
+}
+
 TopNRowNumberNode::TopNRowNumberNode(
     PlanNodeId id,
+    RankFunction function,
     std::vector<FieldAccessTypedExprPtr> partitionKeys,
     std::vector<FieldAccessTypedExprPtr> sortingKeys,
     std::vector<SortOrder> sortingOrders,
@@ -2183,6 +2225,7 @@ TopNRowNumberNode::TopNRowNumberNode(
     int32_t limit,
     PlanNodePtr source)
     : PlanNode(std::move(id)),
+      function_(function),
       partitionKeys_{std::move(partitionKeys)},
       sortingKeys_{std::move(sortingKeys)},
       sortingOrders_{std::move(sortingOrders)},
@@ -2220,6 +2263,8 @@ TopNRowNumberNode::TopNRowNumberNode(
 }
 
 void TopNRowNumberNode::addDetails(std::stringstream& stream) const {
+  stream << rankFunctionName(function_) << " ";
+
   if (!partitionKeys_.empty()) {
     stream << "partition by (";
     addFields(stream, partitionKeys_);
@@ -2235,6 +2280,7 @@ void TopNRowNumberNode::addDetails(std::stringstream& stream) const {
 
 folly::dynamic TopNRowNumberNode::serialize() const {
   auto obj = PlanNode::serialize();
+  obj["function"] = rankFunctionName(function_);
   obj["partitionKeys"] = ISerializable::serialize(partitionKeys_);
   obj["sortingKeys"] = ISerializable::serialize(sortingKeys_);
   obj["sortingOrders"] = serializeSortingOrders(sortingOrders_);
@@ -2256,6 +2302,7 @@ PlanNodePtr TopNRowNumberNode::create(
     const folly::dynamic& obj,
     void* context) {
   auto source = deserializeSingleSource(obj, context);
+  auto function = rankFunctionFromName(obj["function"].asString());
   auto partitionKeys = deserializeFields(obj["partitionKeys"], context);
   auto sortingKeys = deserializeFields(obj["sortingKeys"], context);
 
@@ -2268,6 +2315,7 @@ PlanNodePtr TopNRowNumberNode::create(
 
   return std::make_shared<TopNRowNumberNode>(
       deserializePlanNodeId(obj),
+      function,
       partitionKeys,
       sortingKeys,
       sortingOrders,

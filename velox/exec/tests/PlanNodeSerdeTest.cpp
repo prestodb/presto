@@ -89,6 +89,26 @@ class PlanNodeSerdeTest : public testing::Test,
     }
   }
 
+  void topNRankSerdeTest(std::string_view function) {
+    auto plan = PlanBuilder()
+                    .values({data_})
+                    .topNRank(function, {}, {"c0", "c2"}, 10, false)
+                    .planNode();
+    testSerde(plan);
+
+    plan = PlanBuilder()
+               .values({data_})
+               .topNRank(function, {}, {"c0", "c2"}, 10, true)
+               .planNode();
+    testSerde(plan);
+
+    plan = PlanBuilder()
+               .values({data_})
+               .topNRank(function, {"c0"}, {"c1", "c2"}, 10, false)
+               .planNode();
+    testSerde(plan);
+  }
+
   std::vector<RowVectorPtr> data_;
 };
 
@@ -634,23 +654,15 @@ TEST_F(PlanNodeSerdeTest, scan) {
 }
 
 TEST_F(PlanNodeSerdeTest, topNRowNumber) {
-  auto plan = PlanBuilder()
-                  .values({data_})
-                  .topNRowNumber({}, {"c0", "c2"}, 10, false)
-                  .planNode();
-  testSerde(plan);
+  topNRankSerdeTest("row_number");
+}
 
-  plan = PlanBuilder()
-             .values({data_})
-             .topNRowNumber({}, {"c0", "c2"}, 10, true)
-             .planNode();
-  testSerde(plan);
+TEST_F(PlanNodeSerdeTest, topNRank) {
+  topNRankSerdeTest("rank");
+}
 
-  plan = PlanBuilder()
-             .values({data_})
-             .topNRowNumber({"c0"}, {"c1", "c2"}, 10, false)
-             .planNode();
-  testSerde(plan);
+TEST_F(PlanNodeSerdeTest, topNDemseRank) {
+  topNRankSerdeTest("dense_rank");
 }
 
 TEST_F(PlanNodeSerdeTest, write) {
