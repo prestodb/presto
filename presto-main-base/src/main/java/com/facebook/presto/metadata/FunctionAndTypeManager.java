@@ -69,6 +69,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.weakref.jmx.Managed;
@@ -653,6 +654,12 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty()).stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
+    }
+
+    @VisibleForTesting
+    public Map<String, FunctionNamespaceManager<? extends SqlFunction>> getFunctionNamespaceManagers()
+    {
+        return ImmutableMap.copyOf(functionNamespaceManagers);
     }
 
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)

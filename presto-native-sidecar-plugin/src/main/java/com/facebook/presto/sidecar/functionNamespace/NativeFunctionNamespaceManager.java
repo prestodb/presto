@@ -49,6 +49,7 @@ import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -364,6 +365,12 @@ public class NativeFunctionNamespaceManager
             }
         }
         return newTypeSignaturesList;
+    }
+
+    @VisibleForTesting
+    public FunctionDefinitionProvider getFunctionDefinitionProvider()
+    {
+        return functionDefinitionProvider;
     }
 
     private static List<TypeSignatureParameter> getTypeSignatureParameters(
