@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.file;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;

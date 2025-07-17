@@ -89,6 +89,7 @@
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
+        <dep.mariadb.version>3.5.4</dep.mariadb.version>
 
         <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
 
@@ -2678,6 +2679,11 @@
                 <version>${dep.arrow.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.mariadb.jdbc</groupId>
+                <artifactId>mariadb-java-client</artifactId>
+                <version>${dep.mariadb.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

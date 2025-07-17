@@ -11,27 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.db;
 
-import com.facebook.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
-
-import java.io.File;
-
-public class FileSessionPropertyManagerConfig
+public class TestDbSessionPropertyManagerMariadb
+        extends TestDbSessionPropertyManager
 {
-    private File configFile;
-
-    @NotNull
-    public File getConfigFile()
+    public TestDbSessionPropertyManagerMariadb() throws Exception
     {
-        return configFile;
+        super("mariadb");
     }
 
-    @Config("session-property-manager.config-file")
-    public FileSessionPropertyManagerConfig setConfigFile(File configFile)
+    @Override
+    public String overrideJdbcUrl(String url)
     {
-        this.configFile = configFile;
-        return this;
+        return url.replaceFirst("jdbc:mysql:", "jdbc:mariadb:");
     }
 }

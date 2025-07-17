@@ -11,40 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.file;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
-import com.facebook.presto.spi.session.SessionConfigurationContext;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
+import com.facebook.presto.session.AbstractSessionPropertyManager;
+import com.facebook.presto.session.SessionMatchSpec;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileSessionPropertyManager
-        implements SessionPropertyConfigurationManager
+        extends AbstractSessionPropertyManager
 {
     public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(
             () -> new JsonObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .listJsonCodec(SessionMatchSpec.class);
 
-    private final List<SessionMatchSpec> sessionMatchSpecs;
+    private final ImmutableList<SessionMatchSpec> sessionMatchSpecs;
 
     @Inject
     public FileSessionPropertyManager(FileSessionPropertyManagerConfig config)
@@ -53,7 +49,7 @@ public class FileSessionPropertyManager
 
         Path configurationFile = config.getConfigFile().toPath();
         try {
-            sessionMatchSpecs = CODEC.fromJson(Files.readAllBytes(configurationFile));
+            sessionMatchSpecs = ImmutableList.copyOf(CODEC.fromJson(Files.readAllBytes(configurationFile)));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -80,31 +76,8 @@ public class FileSessionPropertyManager
     }
 
     @Override
-    public SystemSessionPropertyConfiguration getSystemSessionProperties(SessionConfigurationContext context)
+    protected List<SessionMatchSpec> getSessionMatchSpecs()
     {
-        // later properties override earlier properties
-        Map<String, String> defaultProperties = new HashMap<>();
-        Set<String> overridePropertyNames = new HashSet<>();
-        for (SessionMatchSpec sessionMatchSpec : sessionMatchSpecs) {
-            Map<String, String> newProperties = sessionMatchSpec.match(context);
-            defaultProperties.putAll(newProperties);
-            if (sessionMatchSpec.getOverrideSessionProperties().orElse(false)) {
-                overridePropertyNames.addAll(newProperties.keySet());
-            }
-        }
-
-        // Once a property has been overridden it stays that way and the value is updated by any rule
-        Map<String, String> overrideProperties = new HashMap<>();
-        for (String propertyName : overridePropertyNames) {
-            overrideProperties.put(propertyName, defaultProperties.get(propertyName));
-        }
-
-        return new SystemSessionPropertyConfiguration(ImmutableMap.copyOf(defaultProperties), ImmutableMap.copyOf(overrideProperties));
-    }
-
-    @Override
-    public Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context)
-    {
-        return ImmutableMap.of();
+        return sessionMatchSpecs;
     }
 }

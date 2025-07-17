@@ -11,18 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.file;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.google.common.collect.ImmutableList;
+import com.facebook.airlift.configuration.Config;
+import jakarta.validation.constraints.NotNull;
 
-public class FileSessionPropertyManagerPlugin
-        implements Plugin
+import java.io.File;
+
+public class FileSessionPropertyManagerConfig
 {
-    @Override
-    public Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
+    private File configFile;
+
+    @NotNull
+    public File getConfigFile()
     {
-        return ImmutableList.of(new FileSessionPropertyManagerFactory());
+        return configFile;
+    }
+
+    @Config("session-property-manager.config-file")
+    public FileSessionPropertyManagerConfig setConfigFile(File configFile)
+    {
+        this.configFile = configFile;
+        return this;
     }
 }

@@ -17,16 +17,24 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.session.db.SessionPropertiesDao.EMPTY_CATALOG;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class SessionMatchSpec
@@ -39,6 +47,7 @@ public class SessionMatchSpec
     private final Optional<Pattern> resourceGroupRegex;
     private final Optional<Boolean> overrideSessionProperties;
     private final Map<String, String> sessionProperties;
+    private final Map<String, Map<String, String>> catalogSessionProperties;
 
     @JsonCreator
     public SessionMatchSpec(
@@ -49,7 +58,8 @@ public class SessionMatchSpec
             @JsonProperty("group") Optional<Pattern> resourceGroupRegex,
             @JsonProperty("clientInfo") Optional<Pattern> clientInfoRegex,
             @JsonProperty("overrideSessionProperties") Optional<Boolean> overrideSessionProperties,
-            @JsonProperty("sessionProperties") Map<String, String> sessionProperties)
+            @JsonProperty("sessionProperties") Map<String, String> sessionProperties,
+            @JsonProperty("catalogSessionProperties") Map<String, Map<String, String>> catalogSessionProperties)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
@@ -61,9 +71,10 @@ public class SessionMatchSpec
         this.overrideSessionProperties = requireNonNull(overrideSessionProperties, "overrideSessionProperties is null");
         requireNonNull(sessionProperties, "sessionProperties is null");
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
+        this.catalogSessionProperties = ImmutableMap.copyOf(catalogSessionProperties);
     }
 
-    public Map<String, String> match(SessionConfigurationContext context)
+    public <T> Map<String, T> match(Map<String, T> object, SessionConfigurationContext context)
     {
         if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {
             return ImmutableMap.of();
@@ -99,7 +110,7 @@ public class SessionMatchSpec
             }
         }
 
-        return sessionProperties;
+        return object;
     }
 
     @JsonProperty("user")
@@ -148,5 +159,91 @@ public class SessionMatchSpec
     public Map<String, String> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @JsonProperty
+    public Map<String, Map<String, String>> getCatalogSessionProperties()
+    {
+        return catalogSessionProperties;
+    }
+
+    public static class Mapper
+            implements RowMapper<SessionMatchSpec>
+    {
+        @Override
+        public SessionMatchSpec map(ResultSet resultSet, StatementContext context)
+                throws SQLException
+        {
+            SessionInfo sessionInfo = getProperties(
+                    Optional.ofNullable(resultSet.getString("session_property_names")),
+                    Optional.ofNullable(resultSet.getString("session_property_values")),
+                    Optional.ofNullable(resultSet.getString("session_property_catalogs")));
+
+            return new SessionMatchSpec(
+                    Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("client_tags")).map(tag -> Splitter.on(",").splitToList(tag)),
+                    Optional.ofNullable(resultSet.getString("query_type")),
+                    Optional.ofNullable(resultSet.getString("group_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("client_info_regex")).map(Pattern::compile),
+                    Optional.of(resultSet.getBoolean("override_session_properties")),
+                    sessionInfo.getSessionProperties(),
+                    sessionInfo.getCatalogProperties());
+        }
+
+        private SessionInfo getProperties(Optional<String> names, Optional<String> values, Optional<String> catalogs)
+        {
+            if (!names.isPresent()) {
+                return new SessionInfo(ImmutableMap.of(), ImmutableMap.of());
+            }
+
+            checkArgument(catalogs.isPresent(), "names are present, but catalogs are not");
+            checkArgument(values.isPresent(), "names are present, but values are not");
+            List<String> sessionPropertyNames = Splitter.on(",").splitToList(names.get());
+            List<String> sessionPropertyValues = Splitter.on(",").splitToList(values.get());
+            List<String> sessionPropertyCatalogs = Splitter.on(",").splitToList(catalogs.get());
+            checkArgument(sessionPropertyNames.size() == sessionPropertyValues.size(),
+                    "The number of property names and values should be the same");
+
+            checkArgument(sessionPropertyNames.size() == sessionPropertyCatalogs.size(),
+                    "The number of property names and catalog values should be the same");
+
+            Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
+            Map<String, String> systemSessionProperties = new HashMap<>();
+            for (int i = 0; i < sessionPropertyNames.size(); i++) {
+                if (sessionPropertyCatalogs.get(i).equals(EMPTY_CATALOG)) {
+                    systemSessionProperties.put(sessionPropertyNames.get(i), sessionPropertyValues.get(i));
+                }
+                else {
+                    catalogSessionProperties
+                            .computeIfAbsent(sessionPropertyCatalogs.get(i), k -> new HashMap<>())
+                            .put(sessionPropertyNames.get(i), sessionPropertyValues.get(i));
+                }
+            }
+
+            return new SessionInfo(systemSessionProperties, catalogSessionProperties);
+        }
+        static class SessionInfo
+        {
+            private final Map<String, String> sessionProperties;
+            private final Map<String, Map<String, String>> catalogProperties;
+
+            public SessionInfo(Map<String, String> sessionProperties,
+                               Map<String, Map<String, String>> catalogProperties)
+            {
+                this.sessionProperties = sessionProperties;
+                this.catalogProperties = catalogProperties;
+            }
+
+            public Map<String, String> getSessionProperties()
+            {
+                return sessionProperties;
+            }
+
+            public Map<String, Map<String, String>> getCatalogProperties()
+            {
+                return catalogProperties;
+            }
+        }
     }
 }
