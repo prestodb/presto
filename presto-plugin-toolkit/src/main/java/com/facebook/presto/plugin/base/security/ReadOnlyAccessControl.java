@@ -46,6 +46,12 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        // allow
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
     }

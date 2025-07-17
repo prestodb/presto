@@ -107,6 +107,11 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public Set<SchemaTableName> filterTables(Identity identity, AccessControlContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return tableNames;

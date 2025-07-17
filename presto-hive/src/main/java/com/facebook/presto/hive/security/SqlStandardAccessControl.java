@@ -82,6 +82,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetCata
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -174,6 +175,25 @@ public class SqlStandardAccessControl
     public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<String> schemaNames)
     {
         return schemaNames;
+    }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(
+                identity, context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+
+        if (!checkTablePermission(transactionHandle, identity, metastoreContext, tableName, SELECT, true)) {
+            denyShowCreateTable(tableName.toString());
+        }
     }
 
     @Override

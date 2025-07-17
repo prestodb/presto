@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
@@ -114,6 +115,14 @@ public class FileBasedAccessControl
     public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<String> schemaNames)
     {
         return schemaNames;
+    }
+
+    @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, SELECT)) {
+            denyShowCreateTable(tableName.toString());
+        }
     }
 
     @Override
