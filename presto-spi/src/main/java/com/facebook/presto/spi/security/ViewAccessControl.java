@@ -44,6 +44,12 @@ public class ViewAccessControl
     }
 
     @Override
+    public List<ColumnMetadata> filterColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, List<ColumnMetadata> columns)
+    {
+        return delegate.filterColumns(transactionId, identity, context, tableName, columns);
+    }
+
+    @Override
     public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, context, tableName, columnNames);

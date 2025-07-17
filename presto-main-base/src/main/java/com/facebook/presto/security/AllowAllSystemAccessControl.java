@@ -155,6 +155,17 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanShowColumnsMetadata(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    {
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }
