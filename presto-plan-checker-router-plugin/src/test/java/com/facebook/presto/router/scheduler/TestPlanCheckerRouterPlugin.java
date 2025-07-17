@@ -135,7 +135,7 @@ public class TestPlanCheckerRouterPlugin
                                 PRESTO_TIME_ZONE, "America/Bahia_Banderas",
                                 PRESTO_CATALOG, "tpch",
                                 PRESTO_SCHEMA, "tiny"),
-                        "SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l LIMIT 1"));
+                        "SELECT x AS y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x"));
         assertTrue(target.isPresent());
         assertEquals(target.get(), planCheckerRouterConfig.getJavaRouterURI());
     }
