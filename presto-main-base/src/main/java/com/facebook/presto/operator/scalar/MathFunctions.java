@@ -1632,7 +1632,7 @@ public final class MathFunctions
                 "Both array arguments need to have identical size");
 
         checkCondition(
-                !arraysHaveNull(leftArray, rightArray),
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both arrays must not have nulls");
 
@@ -1660,7 +1660,7 @@ public final class MathFunctions
                 "Both array arguments need to have identical size");
 
         checkCondition(
-                !arraysHaveNull(leftArray, rightArray),
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both arrays must not have nulls");
 
@@ -1689,7 +1689,7 @@ public final class MathFunctions
                 "Both array arguments need to have identical size");
 
         checkCondition(
-                !arraysHaveNull(leftArray, rightArray),
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both arrays must not have nulls");
 
@@ -1761,17 +1761,6 @@ public final class MathFunctions
         }
 
         return Math.sqrt(norm);
-    }
-
-    private static boolean arraysHaveNull(Block leftArray, Block rightArray)
-    {
-        boolean hasNull = false;
-        if (leftArray.mayHaveNull() || rightArray.mayHaveNull()) {
-            for (int i = 0; i < leftArray.getPositionCount(); i++) {
-                hasNull = hasNull | leftArray.isNull(i) | rightArray.isNull(i);
-            }
-        }
-        return hasNull;
     }
 
     @Description("factorial of a given integer in the range of 0 to 20")
