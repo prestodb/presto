@@ -13,19 +13,25 @@
  */
 package com.facebook.presto.elasticsearch.client;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.ClearScrollResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.Node;
-import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.RestHighLevelClient;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.ClearScrollRequest;
+import co.elastic.clients.elasticsearch.core.ClearScrollResponse;
+import co.elastic.clients.elasticsearch.core.CountRequest;
+import co.elastic.clients.elasticsearch.core.CountResponse;
+import co.elastic.clients.elasticsearch.core.ScrollRequest;
+import co.elastic.clients.elasticsearch.core.ScrollResponse;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Node;
+import co.elastic.clients.transport.rest5_client.low_level.Request;
+import co.elastic.clients.transport.rest5_client.low_level.RequestOptions;
+import co.elastic.clients.transport.rest5_client.low_level.Response;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHost;
 
 import java.io.IOException;
 import java.util.Map;
@@ -33,29 +39,28 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.client.RequestOptions.DEFAULT;
 
 public class ElasticSearchClientUtils
 {
     private ElasticSearchClientUtils() {}
 
-    public static void setHosts(RestHighLevelClient client, HttpHost... hosts)
+    public static void setHosts(Rest5Client client, HttpHost... hosts)
     {
-        client.getLowLevelClient().setNodes(stream(hosts)
+        client.setNodes(stream(hosts)
                 .map(Node::new)
                 .collect(toImmutableList()));
     }
 
-    public static Response performRequest(String method, String endpoint, RestHighLevelClient client, Header... headers)
+    public static Response performRequest(String method, String endpoint, Rest5Client client, Header... headers)
             throws IOException
     {
-        return client.getLowLevelClient().performRequest(toRequest(method, endpoint, headers));
+        return client.performRequest(toRequest(method, endpoint, headers));
     }
 
-    public static Response performRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, RestHighLevelClient client, Header... headers)
+    public static Response performRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Rest5Client client, Header... headers)
             throws IOException
     {
-        return client.getLowLevelClient().performRequest(toRequest(method, endpoint, params, entity, headers));
+        return client.performRequest(toRequest(method, endpoint, params, entity, headers));
     }
 
     public static Request toRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)
@@ -81,21 +86,33 @@ public class ElasticSearchClientUtils
         return request;
     }
 
-    public static SearchResponse search(SearchRequest searchRequest, RestHighLevelClient client)
-            throws IOException
+    public static ElasticsearchClient createClient(Rest5Client client)
     {
-        return client.search(searchRequest, DEFAULT);
+        Rest5ClientTransport transport = new Rest5ClientTransport(client, new JacksonJsonpMapper());
+        return new ElasticsearchClient(transport);
     }
 
-    public static SearchResponse searchScroll(SearchScrollRequest searchScrollRequest, RestHighLevelClient client)
+    public static SearchResponse search(SearchRequest searchRequest, Rest5Client client)
             throws IOException
     {
-        return client.scroll(searchScrollRequest, DEFAULT);
+        return createClient(client).search(searchRequest);
     }
 
-    public static ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest, RestHighLevelClient client)
+    public static ScrollResponse<Void> searchScroll(ScrollRequest scrollRequest, Rest5Client client)
             throws IOException
     {
-        return client.clearScroll(clearScrollRequest, DEFAULT);
+        return createClient(client).scroll(scrollRequest);
+    }
+
+    public static ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest, Rest5Client client)
+            throws IOException
+    {
+        return createClient(client).clearScroll(clearScrollRequest);
+    }
+
+    public static CountResponse count(CountRequest countRequest, Rest5Client client)
+            throws IOException
+    {
+        return createClient(client).count(countRequest);
     }
 }
