@@ -11,18 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.file;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public class FileSessionPropertyManagerPlugin
-        implements Plugin
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+
+public class FileSessionPropertyManagerModule
+        implements Module
 {
     @Override
-    public Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
+    public void configure(Binder binder)
     {
-        return ImmutableList.of(new FileSessionPropertyManagerFactory());
+        configBinder(binder).bindConfig(FileSessionPropertyManagerConfig.class);
+        binder.bind(FileSessionPropertyManager.class).in(Scopes.SINGLETON);
     }
 }
