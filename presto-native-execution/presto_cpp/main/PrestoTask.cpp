@@ -639,7 +639,7 @@ void PrestoTask::updateOutputBufferInfoLocked(
   const auto& outputBufferStats = veloxTaskStats.outputBufferStats.value();
   auto& outputBufferInfo = info.outputBuffers;
   outputBufferInfo.type =
-      velox::core::PartitionedOutputNode::kindString(outputBufferStats.kind);
+      velox::core::PartitionedOutputNode::toName(outputBufferStats.kind);
   outputBufferInfo.canAddBuffers = !outputBufferStats.noMoreBuffers;
   outputBufferInfo.canAddPages = !outputBufferStats.noMoreData;
   outputBufferInfo.totalBufferedBytes = outputBufferStats.bufferedBytes;
@@ -822,20 +822,33 @@ void PrestoTask::updateExecutionInfoLocked(
   prestoTaskStats.outputPositions = 0;
   prestoTaskStats.outputDataSizeInBytes = 0;
 
-  // Presto Java reports number of drivers to number of splits in Presto UI
-  // because split and driver are 1 to 1 mapping relationship. This is not true
-  // in Prestissimo where 1 driver handles many splits. In order to quickly
-  // unblock developers from viewing the correct progress of splits in
-  // Prestissimo's coordinator UI, we put number of splits in total, queued, and
-  // finished to indicate the progress of the query. Number of running drivers
-  // are passed as it is to have a proper running drivers count in UI.
+  // NOTE: This logic is implemented in a backwards-compatible way because
+  // the coordinator and worker may not be upgraded at the same time.
   //
-  // TODO: We should really extend the API (protocol::TaskStats and Presto
-  // coordinator UI) to have splits information as a proper fix.
+  // To ensure safe rollout:
+  // - We are introducing new fields (e.g., `totalNewDrivers`) instead of modifying or
+  //   removing existing ones.
+  // - The worker is updated first to populate both old and new fields.
+  // - The coordinator continues to use the old fields until it is updated to handle
+  //   the new ones.
+  //
+  // Once both coordinator and worker support the new fields, we can safely remove
+  // the legacy fields in a follow-up cleanup PR.
+
   prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
   prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;
   prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
   prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
+
+  prestoTaskStats.totalNewDrivers = veloxTaskStats.numTotalDrivers;
+  prestoTaskStats.queuedNewDrivers = veloxTaskStats.numQueuedDrivers;
+  prestoTaskStats.runningNewDrivers = veloxTaskStats.numRunningDrivers;
+  prestoTaskStats.completedNewDrivers = veloxTaskStats.numCompletedDrivers;
+
+  prestoTaskStats.totalSplits = veloxTaskStats.numTotalSplits;
+  prestoTaskStats.queuedSplits = veloxTaskStats.numQueuedSplits;
+  prestoTaskStats.runningSplits = veloxTaskStats.numRunningSplits;
+  prestoTaskStats.completedSplits = veloxTaskStats.numFinishedSplits;
 
   if (includePipelineStats) {
     prestoTaskStats.pipelines.resize(veloxTaskStats.pipelineStats.size());

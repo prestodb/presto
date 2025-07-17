@@ -21,7 +21,7 @@ import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
-import com.facebook.presto.plugin.jdbc.ReadMapping;
+import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -40,12 +40,12 @@ import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.bigintReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.decimalReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -166,5 +166,11 @@ public class OracleClient
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
         }
         return super.toPrestoType(session, typeHandle);
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }

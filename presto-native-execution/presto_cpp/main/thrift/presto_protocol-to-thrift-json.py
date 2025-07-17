@@ -43,7 +43,7 @@ def parse_args():
 def special_file(filename, special, thrift_item, key):
     if os.path.isfile(filename):
         (status, stdout, stderr) = util.run(
-            "../../../velox/scripts/license-header.py --header ../../../license.header --remove "
+            "../../../velox/scripts/checks/license-header.py --header ../../../license.header --remove "
             + filename
         )
         thrift_item[key] = stdout
@@ -66,17 +66,24 @@ def main():
     comment = "// This file is generated DO NOT EDIT @" + "generated"
     result = [{"comment": comment}]
 
+    # Skip structs that are not used in cpp
     thrift = [item for item in thrift if "class_name" in item and item.class_name not in config.SkipStruct]
     for thrift_item in thrift:
         if "class_name" not in thrift_item:
             continue
 
+        # For structs that are defined in presto_protocol_core.h        
+        if thrift_item.class_name in config.StructInProtocolCore:
+            thrift_item["core"] = "true"
+        
+        # For structs that have a single field in IDL but defined using type aliases in cpp
         if thrift_item.class_name in config.WrapperStruct:
             thrift_item["wrapper"] = "true"
             del thrift_item["struct"]
             continue
 
         config_item = None
+        # For structs that need special implementations
         if thrift_item.class_name in config.Special:
             hfile = "./special/" + thrift_item.class_name + ".hpp.inc"
             special = special_file(hfile, special, thrift_item, "hinc")
@@ -89,6 +96,7 @@ def main():
 
             special = False
             if "struct" in thrift_item:
+                # For structs that have different field names in cpp and IDL
                 if thrift_item.class_name in config.StructMap:
                     config_item = config.StructMap[thrift_item.class_name]
                     thrift_item["proto_name"] = config_item.class_name

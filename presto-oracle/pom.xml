@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-oracle</artifactId>
+    <name>presto-oracle</name>
     <description>Presto - Oracle Connector</description>
     <packaging>presto-plugin</packaging>
 

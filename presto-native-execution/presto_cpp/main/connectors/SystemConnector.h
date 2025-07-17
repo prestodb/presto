@@ -42,15 +42,15 @@ class SystemTableHandle : public velox::connector::ConnectorTableHandle {
 
   std::string toString() const override;
 
-  const std::string& schemaName() {
+  const std::string& schemaName() const {
     return schemaName_;
   }
 
-  const std::string& tableName() {
+  const std::string& tableName() const {
     return tableName_;
   }
 
-  const velox::RowTypePtr taskSchema();
+  const velox::RowTypePtr taskSchema() const;
 
  private:
   const std::string schemaName_;
@@ -61,11 +61,8 @@ class SystemDataSource : public velox::connector::DataSource {
  public:
   SystemDataSource(
       const velox::RowTypePtr& outputType,
-      const std::shared_ptr<velox::connector::ConnectorTableHandle>&
-          tableHandle,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
+      const velox::connector::ConnectorTableHandlePtr& tableHandle,
+      const velox::connector::ColumnHandleMap& columnHandles,
       const TaskManager* taskManager,
       velox::memory::MemoryPool* pool);
 
@@ -147,11 +144,8 @@ class SystemConnector : public velox::connector::Connector {
 
   std::unique_ptr<velox::connector::DataSource> createDataSource(
       const velox::RowTypePtr& outputType,
-      const std::shared_ptr<velox::connector::ConnectorTableHandle>&
-          tableHandle,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
+      const velox::connector::ConnectorTableHandlePtr& tableHandle,
+      const velox::connector::ColumnHandleMap& columnHandles,
       velox::connector::ConnectorQueryCtx* connectorQueryCtx) override final {
     VELOX_CHECK(taskManager_);
     return std::make_unique<SystemDataSource>(
@@ -164,9 +158,7 @@ class SystemConnector : public velox::connector::Connector {
 
   std::unique_ptr<velox::connector::DataSink> createDataSink(
       velox::RowTypePtr /*inputType*/,
-      std::shared_ptr<
-          velox::connector::
-              ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
+      velox::connector::ConnectorInsertTableHandlePtr /*connectorInsertTableHandle*/,
       velox::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
       velox::connector::CommitStrategy /*commitStrategy*/) override final {
     VELOX_NYI("SystemConnector does not support data sink.");
@@ -194,9 +186,7 @@ class SystemPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+      velox::connector::ColumnHandleMap& assignments)
       const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()

@@ -64,6 +64,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -89,7 +90,6 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
-import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -594,7 +594,7 @@ public class PlanBuilder
                                 deleteSource.getSourceLocation(),
                                 idAllocator.getNextId(),
                                 deleteSource,
-                                deleteRowId,
+                                Optional.of(deleteRowId),
                                 ImmutableList.of(deleteRowId),
                                 Optional.empty()))
                         .addInputsSet(deleteRowId)
@@ -849,7 +849,16 @@ public class PlanBuilder
         return new JoinNode(Optional.empty(), idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
-    public PlanNode indexJoin(JoinType type, TableScanNode probe, TableScanNode index)
+    public PlanNode indexJoin(JoinType type, PlanNode probe, PlanNode index)
+    {
+        return indexJoin(type, probe, index, emptyList(), Optional.empty());
+    }
+
+    public PlanNode indexJoin(JoinType type,
+            PlanNode probe,
+            PlanNode index,
+            List<IndexJoinNode.EquiJoinClause> criteria,
+            Optional<RowExpression> filter)
     {
         return new IndexJoinNode(
                 Optional.empty(),
@@ -857,8 +866,8 @@ public class PlanBuilder
                 type,
                 probe,
                 index,
-                emptyList(),
-                Optional.empty(),
+                criteria,
+                filter,
                 Optional.empty(),
                 Optional.empty());
     }

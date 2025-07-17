@@ -310,12 +310,12 @@ public interface Metadata
     /**
      * Get the row ID column handle used with UpdatablePageSource#deleteRows.
      */
-    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
+    Optional<ColumnHandle> getDeleteRowIdColumn(Session session, TableHandle tableHandle);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
      */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+    Optional<ColumnHandle> getUpdateRowIdColumn(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
 
     /**
      * @return whether delete without table scan is supported

@@ -19,6 +19,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -185,7 +186,7 @@ public class TestEventListenerManager
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         Map<PlanCanonicalizationStrategy, String> hboPlanHash = new HashMap<>();
         Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap = Optional.ofNullable(new HashMap<>());
-
+        UpdateInfo updateInfo = new UpdateInfo("CREATE TABLE", "ctlog.schema.tbl");
         return new QueryCompletedEvent(
                 metadata,
                 statistics,
@@ -213,7 +214,8 @@ public class TestEventListenerManager
                 windowFunctions,
                 prestoSparkExecutionContext,
                 hboPlanHash,
-                planIdNodeMap);
+                planIdNodeMap,
+                Optional.of(updateInfo.getUpdateObject()));
     }
 
     public static QueryStatistics createDummyQueryStatistics()
@@ -303,7 +305,7 @@ public class TestEventListenerManager
         Optional<String> payload = Optional.of("dummy-payload");
         List<String> runtimeOptimizedStages = new ArrayList<>(Arrays.asList("stage1", "stage2"));
         Optional<String> tracingId = Optional.of("dummy-tracing-id");
-        Optional<String> updateType = Optional.of("dummy-type");
+        Optional<String> updateType = Optional.of("CREATE TABLE");
 
         return new QueryMetadata(
                 queryId,

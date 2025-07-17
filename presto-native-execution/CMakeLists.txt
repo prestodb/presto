@@ -62,6 +62,8 @@ option(PRESTO_ENABLE_CUDF "Enable cuDF support" OFF)
 # Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
 option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 
+option(PRESTO_ENABLE_EXAMPLES "Enable Presto examples" OFF)
+
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)

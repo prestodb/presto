@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.enableVerboseHistoryBasedOptimizerRuntimeStats;
+import static com.facebook.presto.SystemSessionProperties.estimateSizeUsingVariablesForHBO;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryInputTableStatisticsMatchingThreshold;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
@@ -203,7 +204,7 @@ public class HistoryBasedPlanStatisticsCalculator
                             if ((toConfidenceLevel(predictedPlanStatistics.getConfidence()).getConfidenceOrdinal() >= delegateStats.confidenceLevel().getConfidenceOrdinal())) {
                                 return delegateStats.combineStats(
                                         predictedPlanStatistics,
-                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
+                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo()), estimateSizeUsingVariablesForHBO(session)));
                             }
                         }
                     }

@@ -42,6 +42,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.base.Supplier;
@@ -90,6 +91,7 @@ public class ApplyConnectorOptimization
             ExceptNode.class,
             SemiJoinNode.class,
             JoinNode.class,
+            UnnestNode.class,
             TableWriterNode.class,
             TableFinishNode.class,
             DeleteNode.class);

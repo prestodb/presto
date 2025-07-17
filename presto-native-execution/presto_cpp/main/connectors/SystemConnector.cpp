@@ -28,7 +28,7 @@ static const std::string kTasksTable = "tasks";
 
 } // namespace
 
-const velox::RowTypePtr SystemTableHandle::taskSchema() {
+const velox::RowTypePtr SystemTableHandle::taskSchema() const {
   static std::vector<std::string> kTaskColumnNames = {
       "node_id",
       "task_id",
@@ -89,16 +89,14 @@ std::string SystemTableHandle::toString() const {
 }
 
 SystemDataSource::SystemDataSource(
-    const std::shared_ptr<const RowType>& outputType,
-    const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<connector::ColumnHandle>>& columnHandles,
+    const RowTypePtr& outputType,
+    const connector::ConnectorTableHandlePtr& tableHandle,
+    const connector::ColumnHandleMap& columnHandles,
     const TaskManager* taskManager,
     velox::memory::MemoryPool* FOLLY_NONNULL pool)
     : taskManager_(taskManager), pool_(pool) {
   auto systemTableHandle =
-      std::dynamic_pointer_cast<SystemTableHandle>(tableHandle);
+      std::dynamic_pointer_cast<const SystemTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(
       systemTableHandle,
       "TableHandle must be an instance of SystemTableHandle");
@@ -112,7 +110,7 @@ SystemDataSource::SystemDataSource(
         "ColumnHandle is missing for output column '{}'",
         outputName);
 
-    auto handle = std::dynamic_pointer_cast<SystemColumnHandle>(it->second);
+    auto handle = std::dynamic_pointer_cast<const SystemColumnHandle>(it->second);
     VELOX_CHECK_NOT_NULL(
         handle,
         "ColumnHandle must be an instance of SystemColumnHandle "
@@ -220,25 +218,25 @@ RowVectorPtr SystemDataSource::getTaskResults() {
 
       case TaskColumnEnum::kSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.totalDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.totalSplits);
         break;
       }
 
       case TaskColumnEnum::kQueuedSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.queuedDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.queuedSplits);
         break;
       }
 
       case TaskColumnEnum::kRunningSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.runningDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.runningSplits);
         break;
       }
 
       case TaskColumnEnum::kCompletedSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.completedDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.completedSplits);
         break;
       }
 
@@ -377,9 +375,7 @@ SystemPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+    velox::connector::ColumnHandleMap& assignments) const {
   auto systemLayout =
       std::dynamic_pointer_cast<const protocol::SystemTableLayoutHandle>(
           tableHandle.connectorTableLayout);

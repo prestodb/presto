@@ -120,7 +120,7 @@ public class PhysicalCteOptimizer
             PlanNode actualSource = node.getSource();
             String partitioningProviderCatalog = getCtePartitioningProviderCatalog(session);
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap =
-                    assignTemporaryTableColumnNames(actualSource.getOutputVariables());
+                    assignTemporaryTableColumnNames(metadata, session, partitioningProviderCatalog, actualSource.getOutputVariables());
             TableHandle temporaryTableHandle;
             try {
                 temporaryTableHandle = metadata.createTemporaryTable(

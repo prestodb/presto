@@ -254,8 +254,6 @@ public class QueryPlanner
     {
         RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
-        ColumnHandle rowIdHandle = metadata.getDeleteRowIdColumnHandle(session, handle);
-        Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
 
         // add table columns
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
@@ -269,11 +267,16 @@ public class QueryPlanner
         }
 
         // add rowId column
-        Field rowIdField = Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType);
-        VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdField.getType());
-        outputVariablesBuilder.add(rowIdVariable);
-        columns.put(rowIdVariable, rowIdHandle);
-        fields.add(rowIdField);
+        Optional<ColumnHandle> rowIdHandle = metadata.getDeleteRowIdColumn(session, handle);
+        Optional<Field> rowIdField = Optional.empty();
+        if (rowIdHandle.isPresent()) {
+            Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle.get()).getType();
+            rowIdField = Optional.of(Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType));
+            VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdType);
+            outputVariablesBuilder.add(rowIdVariable);
+            columns.put(rowIdVariable, rowIdHandle.get());
+            fields.add(rowIdField.get());
+        }
 
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
@@ -291,12 +294,14 @@ public class QueryPlanner
         }
 
         // create delete node
-        VariableReferenceExpression rowId = new VariableReferenceExpression(Optional.empty(), builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField))).getName(), rowIdField.getType());
+        PlanBuilder finalBuilder = builder;
+        Optional<VariableReferenceExpression> rowId = rowIdField.map(f ->
+                new VariableReferenceExpression(Optional.empty(), finalBuilder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(f))).getName(), f.getType()));
         List<VariableReferenceExpression> deleteNodeOutputVariables = ImmutableList.of(
                 variableAllocator.newVariable("partialrows", BIGINT),
                 variableAllocator.newVariable("fragment", VARBINARY));
 
-        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables, Optional.empty());
+        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), finalBuilder.getRoot(), rowId, deleteNodeOutputVariables, Optional.empty());
     }
 
     public UpdateNode plan(Update node)
@@ -313,8 +318,6 @@ public class QueryPlanner
                 .map(Map.Entry::getValue)
                 .collect(toImmutableList());
         handle = metadata.beginUpdate(session, handle, updatedColumns);
-        ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle, updatedColumns);
-        Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
 
         List<String> targetColumnNames = node.getAssignments().stream()
                 .map(assignment -> assignment.getName().getValue())
@@ -339,11 +342,16 @@ public class QueryPlanner
         List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
 
         // add rowId column
-        Field rowIdField = Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType);
-        VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdField.getType());
-        outputVariablesBuilder.add(rowIdVariable);
-        columns.put(rowIdVariable, rowIdHandle);
-        fields.add(rowIdField);
+        Optional<ColumnHandle> rowIdHandle = metadata.getUpdateRowIdColumn(session, handle, updatedColumns);
+        Optional<Field> rowIdField = Optional.empty();
+        if (rowIdHandle.isPresent()) {
+            Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle.get()).getType();
+            rowIdField = Optional.of(Field.newUnqualified(node.getLocation(), Optional.empty(), rowIdType));
+            VariableReferenceExpression rowIdVariable = variableAllocator.newVariable(getSourceLocation(node), "$rowId", rowIdType);
+            outputVariablesBuilder.add(rowIdVariable);
+            columns.put(rowIdVariable, rowIdHandle.get());
+            fields.add(rowIdField.get());
+        }
 
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
@@ -366,8 +374,10 @@ public class QueryPlanner
 
         ImmutableList.Builder<VariableReferenceExpression> updatedColumnValuesBuilder = ImmutableList.builder();
         orderedColumnValues.forEach(columnValue -> updatedColumnValuesBuilder.add(planAndMappings.get(columnValue)));
-        VariableReferenceExpression rowId = new VariableReferenceExpression(Optional.empty(), builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField))).getName(), rowIdField.getType());
-        updatedColumnValuesBuilder.add(rowId);
+        PlanBuilder finalBuilder = builder;
+        Optional<VariableReferenceExpression> rowId = rowIdField.map(f ->
+                new VariableReferenceExpression(Optional.empty(), finalBuilder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(f))).getName(), f.getType()));
+        rowId.ifPresent(r -> updatedColumnValuesBuilder.add(r));
 
         List<VariableReferenceExpression> outputs = ImmutableList.of(
                 variableAllocator.newVariable("partialrows", BIGINT),
@@ -380,7 +390,7 @@ public class QueryPlanner
         return new UpdateNode(
                 getSourceLocation(node),
                 idAllocator.getNextId(),
-                builder.getRoot(),
+                finalBuilder.getRoot(),
                 rowId,
                 updatedColumnValuesBuilder.build(),
                 outputs);

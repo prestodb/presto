@@ -61,7 +61,7 @@ class PrestoToVeloxQueryPlanTest : public testing::Test {
 TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithZeroParam) {
   const std::string str = R"(
       {
-        "@type": "json_file",
+        "@type": "sql_function_handle",
         "functionId": "json_file.test.count;",
         "version": "1"
       }
@@ -76,7 +76,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithZeroParam) {
 TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithOneParam) {
   const std::string str = R"(
           {
-            "@type": "json_file",
+            "@type": "sql_function_handle",
             "functionId": "json_file.test.sum;tinyint",
             "version": "1"
           }
@@ -93,7 +93,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithOneParam) {
 TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithMultipleParam) {
   const std::string str = R"(
         {
-          "@type": "json_file",
+          "@type": "sql_function_handle",
           "functionId": "json_file.test.avg;array(decimal(15, 2));varchar",
           "version": "1"
         }
@@ -111,7 +111,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithMultipleParam) {
 TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleAllComplexTypes) {
   const std::string str = R"(
         {
-          "@type": "json_file",
+          "@type": "sql_function_handle",
           "functionId": "json_file.test.all_complex_types;row(map(hugeint, ipaddress), ipprefix);row(array(varbinary), timestamp, date, json, hyperloglog, timestamp with time zone, interval year to month, interval day to second);function(double, boolean);uuid",
           "version": "1"
         }

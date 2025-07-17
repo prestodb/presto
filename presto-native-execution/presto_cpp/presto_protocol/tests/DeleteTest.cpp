@@ -105,7 +105,8 @@ TEST_F(DeleteTest, jsonRoundtrip) {
   ASSERT_EQ(d.outputVariables[0].name, "$row_group_id");
   ASSERT_EQ(d.outputVariables[1].name, "$row_number");
 
-  ASSERT_EQ(d.rowId.name, "$rowid");
+  ASSERT_NE(d.rowId, nullptr);
+  ASSERT_EQ(d.rowId->name, "$rowid");
 
   testJsonRoundtrip(j, d);
 }

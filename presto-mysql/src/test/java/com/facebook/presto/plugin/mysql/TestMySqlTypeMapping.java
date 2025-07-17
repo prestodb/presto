@@ -261,13 +261,13 @@ public class TestMySqlTypeMapping
     @Test
     public void testDatetime()
     {
-        // TODO MySQL datetime is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
+        // TODO MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
     }
 
     @Test
     public void testTimestamp()
     {
-        // TODO MySQL timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
+        // TODO MySQL timestamp is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
     }
 
     private void testUnsupportedDataType(String databaseDataType)

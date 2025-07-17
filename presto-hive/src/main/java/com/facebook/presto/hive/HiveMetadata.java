@@ -592,7 +592,7 @@ public class HiveMetadata
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
-                .map(key -> ColumnMetadata.builder().setName(key).setType(VARCHAR).build())
+                .map(key -> ColumnMetadata.builder().setName(normalizeIdentifier(session, key)).setType(VARCHAR).build())
                 .collect(toImmutableList());
         List<Type> types = columns.stream()
                 .map(ColumnMetadata::getType)
@@ -625,7 +625,7 @@ public class HiveMetadata
 
         List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
                 .map(column -> ColumnMetadata.builder()
-                        .setName(column.getName())
+                        .setName(normalizeIdentifier(session, column.getName()))
                         .setType(typeManager.getType(column.getTypeSignature()))
                         .setComment(column.getComment().orElse(null))
                         .setHidden(column.isHidden())
@@ -813,7 +813,7 @@ public class HiveMetadata
                     tableLayoutHandle.getPartitions().get().stream()
                             .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toList()),
-                    false));
+                    false, tableLayoutHandle.getTablePath()));
         }
 
         return Optional.empty();
@@ -1811,7 +1811,7 @@ public class HiveMetadata
         metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics, emptyList());
 
         if (handle.getPartitionedBy().isEmpty()) {
-            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID.getPartitionName())));
+            return Optional.of(new HiveOutputMetadata(new HiveOutputInfo(ImmutableList.of(UNPARTITIONED_ID.getPartitionName()), writeInfo.getTargetPath().toString())));
         }
 
         if (isRespectTableFormat(session)) {
@@ -1840,10 +1840,10 @@ public class HiveMetadata
                     partitionStatistics);
         }
 
-        return Optional.of(new HiveWrittenPartitions(
+        return Optional.of(new HiveOutputMetadata(new HiveOutputInfo(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
-                        .collect(toList())));
+                        .collect(toList()), writeInfo.getTargetPath().toString())));
     }
 
     public static boolean shouldCreateFilesForMissingBuckets(Table table, ConnectorSession session)
@@ -2260,11 +2260,11 @@ public class HiveMetadata
             }
         }
 
-        return Optional.of(new HiveWrittenPartitions(
+        return Optional.of(new HiveOutputMetadata(new HiveOutputInfo(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .map(name -> name.isEmpty() ? UNPARTITIONED_ID.getPartitionName() : name)
-                        .collect(toList())));
+                        .collect(toList()), table.getStorage().getLocation())));
     }
 
     /**
@@ -2611,9 +2611,9 @@ public class HiveMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<ColumnHandle> getDeleteRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return updateRowIdHandle();
+        return Optional.of(updateRowIdHandle());
     }
 
     @Override
@@ -2874,7 +2874,8 @@ public class HiveMetadata
             // capture subfields from domainPredicate to add to remainingPredicate
             // so those filters don't get lost
             Map<String, Type> columnTypes = hiveColumnHandles(table).stream()
-                    .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager).getType()));
+                    .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager,
+                            normalizeIdentifier(session, columnHandle.getName())).getType()));
 
             subfieldPredicate = getSubfieldPredicate(session, hiveLayoutHandle, columnTypes, functionResolution, rowExpressionService);
         }

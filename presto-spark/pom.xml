@@ -8,6 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>presto-spark</artifactId>
+    <name>presto-spark</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

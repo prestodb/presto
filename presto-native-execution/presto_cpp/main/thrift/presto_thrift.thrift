@@ -80,14 +80,21 @@ enum BufferType {
   DISCARDING = 3,
   SPOOLING = 4,
 }
-struct SplitWrapper {
-  1: string split;
+struct MetadataUpdatesWrapper {
+  1: string metadataUpdates;
 }
 struct TableWriteInfoWrapper {
   1: string tableWriteInfo;
 }
-struct MetadataUpdatesWrapper {
-  1: string metadataUpdates;
+struct ConnectorSplitWrapper {
+  1: optional string connectorId;
+  2: optional binary customSerializedValue;
+  3: optional string jsonValue;
+}
+struct ConnectorTransactionHandleWrapper {
+  1: optional string connectorId;
+  2: optional binary customSerializedValue;
+  3: optional string jsonValue;
 }
 struct Lifespan {
   1: bool grouped;
@@ -279,10 +286,8 @@ struct TaskSource {
   3: set<Lifespan> noMoreSplitsForLifespan;
   4: bool noMoreSplits;
 }
-struct ScheduledSplit {
-  1: i64 sequenceId;
-  2: PlanNodeId planNodeId;
-  3: SplitWrapper split;
+struct SplitContext {
+  1: bool cacheable;
 }
 struct TaskStatus {
   1: i64 taskInstanceIdLeastSignificantBits;
@@ -476,6 +481,13 @@ struct Signature {
   6: list<TypeVariableConstraint> typeVariableConstraints;
   7: list<LongVariableConstraint> longVariableConstraints;
 }
+struct Split {
+  1: ConnectorId connectorId;
+  2: ConnectorTransactionHandleWrapper transactionHandle;
+  3: ConnectorSplitWrapper connectorSplit;
+  4: Lifespan lifespan;
+  5: SplitContext splitContext;
+}
 struct OutputBuffers {
   1: BufferType type;
   2: i64 version;
@@ -526,6 +538,11 @@ struct SqlInvokedFunction {
   5: bool variableArity;
   6: Signature signature;
   7: SqlFunctionId functionId;
+}
+struct ScheduledSplit {
+  1: i64 sequenceId;
+  2: PlanNodeId planNodeId;
+  3: Split split;
 }
 struct TaskInfo {
   1: TaskId taskId;

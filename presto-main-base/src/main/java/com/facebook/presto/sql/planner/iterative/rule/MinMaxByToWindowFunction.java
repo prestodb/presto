@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -102,10 +103,10 @@ public class MinMaxByToWindowFunction
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
         Map<VariableReferenceExpression, AggregationNode.Aggregation> maxByAggregations = node.getAggregations().entrySet().stream()
-                .filter(x -> functionResolution.isMaxByFunction(x.getValue().getFunctionHandle()) && x.getValue().getArguments().get(0).getType() instanceof MapType)
+                .filter(x -> functionResolution.isMaxByFunction(x.getValue().getFunctionHandle()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         Map<VariableReferenceExpression, AggregationNode.Aggregation> minByAggregations = node.getAggregations().entrySet().stream()
-                .filter(x -> functionResolution.isMinByFunction(x.getValue().getFunctionHandle()) && x.getValue().getArguments().get(0).getType() instanceof MapType)
+                .filter(x -> functionResolution.isMinByFunction(x.getValue().getFunctionHandle()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         boolean isMaxByAggregation;
         Map<VariableReferenceExpression, AggregationNode.Aggregation> candidateAggregation;
@@ -118,6 +119,9 @@ public class MinMaxByToWindowFunction
             candidateAggregation = maxByAggregations;
         }
         else {
+            return Result.empty();
+        }
+        if (candidateAggregation.values().stream().noneMatch(x -> x.getArguments().get(0).getType() instanceof MapType || x.getArguments().get(0).getType() instanceof ArrayType)) {
             return Result.empty();
         }
         boolean allMaxOrMinByWithSameField = candidateAggregation.values().stream().map(x -> x.getArguments().get(1)).distinct().count() == 1;

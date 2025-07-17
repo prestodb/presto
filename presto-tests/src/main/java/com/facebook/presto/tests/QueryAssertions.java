@@ -80,7 +80,7 @@ public final class QueryAssertions
             planAssertion.get().accept(queryPlan);
         }
 
-        if (!results.getUpdateType().isPresent()) {
+        if (!results.getUpdateInfo().isPresent()) {
             fail("update type is not set");
         }
 
@@ -197,8 +197,8 @@ public final class QueryAssertions
             log.info("FINISHED in presto: %s, expected: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
         }
 
-        if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
-            if (!actualResults.getUpdateType().isPresent()) {
+        if (actualResults.getUpdateInfo().isPresent() || actualResults.getUpdateCount().isPresent()) {
+            if (!actualResults.getUpdateInfo().isPresent()) {
                 fail("update count present without update type for query: \n" + actual);
             }
             if (!compareUpdate) {
@@ -210,7 +210,7 @@ public final class QueryAssertions
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
         if (compareUpdate) {
-            if (!actualResults.getUpdateType().isPresent()) {
+            if (!actualResults.getUpdateInfo().isPresent()) {
                 fail("update type not present for query: \n" + actual);
             }
             if (!actualResults.getUpdateCount().isPresent()) {

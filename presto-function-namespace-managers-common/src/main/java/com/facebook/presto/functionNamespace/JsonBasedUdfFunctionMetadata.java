@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -77,6 +78,10 @@ public class JsonBasedUdfFunctionMetadata
     private final Optional<List<LongVariableConstraint>> longVariableConstraints;
     private final Optional<SqlFunctionId> functionId;
     private final Optional<String> version;
+    /**
+     * Optional execution endpoint for routing function execution to a different server
+     */
+    private final Optional<URI> executionEndpoint;
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -91,7 +96,8 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("functionId") Optional<SqlFunctionId> functionId,
             @JsonProperty("version") Optional<String> version,
             @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints,
-            @JsonProperty("longVariableConstraints") Optional<List<LongVariableConstraint>> longVariableConstraints)
+            @JsonProperty("longVariableConstraints") Optional<List<LongVariableConstraint>> longVariableConstraints,
+            @JsonProperty("executionEndpoint") Optional<URI> executionEndpoint)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -108,6 +114,13 @@ public class JsonBasedUdfFunctionMetadata
         this.version = requireNonNull(version, "version is null");
         this.typeVariableConstraints = requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
         this.longVariableConstraints = requireNonNull(longVariableConstraints, "longVariableConstraints is null");
+        this.executionEndpoint = requireNonNull(executionEndpoint, "executionEndpoint is null");
+        executionEndpoint.ifPresent(uri -> {
+            String scheme = uri.getScheme();
+            if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
+                throw new IllegalArgumentException("Execution endpoint must use HTTP or HTTPS protocol: " + uri);
+            }
+        });
     }
 
     @JsonProperty
@@ -186,5 +199,11 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<List<LongVariableConstraint>> getLongVariableConstraints()
     {
         return longVariableConstraints;
+    }
+
+    @JsonProperty
+    public Optional<URI> getExecutionEndpoint()
+    {
+        return executionEndpoint;
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -186,5 +187,61 @@ public class TestMinMaxByToWindowFunction
                             .source(
                                     p.values(ds, a, id)));
                 }).doesNotFire();
+    }
+
+    @Test
+    public void testMaxByOnBothMapNonMap()
+    {
+        tester().assertThat(new MinMaxByToWindowFunction(getFunctionManager()))
+                .setSystemProperty(REWRITE_MIN_MAX_BY_TO_TOP_N, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", new MapType(BIGINT, BIGINT, KEY_BLOCK_EQUALS, KEY_BLOCK_HASH_CODE));
+                    VariableReferenceExpression b = p.variable("b", BIGINT);
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression id = p.variable("id", BIGINT);
+                    return p.aggregation(ap -> ap.singleGroupingSet(id).step(AggregationNode.Step.SINGLE)
+                            .addAggregation(p.variable("expr"), p.rowExpression("max_by(a, ds)"))
+                            .addAggregation(p.variable("expr2"), p.rowExpression("max_by(b, ds)"))
+                            .source(
+                                    p.values(ds, a, b, id)));
+                })
+                .matches(
+                        project(
+                                filter(
+                                        topNRowNumber(
+                                                topNRowNumber -> topNRowNumber
+                                                        .specification(
+                                                                ImmutableList.of("id"),
+                                                                ImmutableList.of("ds"),
+                                                                ImmutableMap.of("ds", DESC_NULLS_LAST))
+                                                        .partial(false),
+                                                values("ds", "a", "b", "id")))));
+    }
+
+    @Test
+    public void testMaxByArray()
+    {
+        tester().assertThat(new MinMaxByToWindowFunction(getFunctionManager()))
+                .setSystemProperty(REWRITE_MIN_MAX_BY_TO_TOP_N, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", new ArrayType(BIGINT));
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression id = p.variable("id", BIGINT);
+                    return p.aggregation(ap -> ap.singleGroupingSet(id).step(AggregationNode.Step.SINGLE)
+                            .addAggregation(p.variable("expr"), p.rowExpression("max_by(a, ds)"))
+                            .source(
+                                    p.values(ds, a, id)));
+                })
+                .matches(
+                        project(
+                                filter(
+                                        topNRowNumber(
+                                                topNRowNumber -> topNRowNumber
+                                                        .specification(
+                                                                ImmutableList.of("id"),
+                                                                ImmutableList.of("ds"),
+                                                                ImmutableMap.of("ds", DESC_NULLS_LAST))
+                                                        .partial(false),
+                                                values("ds", "a", "id")))));
     }
 }

@@ -38,6 +38,8 @@ import io.airlift.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Optional;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -46,7 +48,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
@@ -69,6 +70,7 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
@@ -185,9 +187,9 @@ public abstract class AbstractTestQueries
                     99.0,
                     false));
 
-    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
+    public static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
+    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     @Test
     public void testParsingError()
@@ -294,9 +296,13 @@ public abstract class AbstractTestQueries
                 .distinct()
                 .count();
         assertTrue(distinctCount >= 8, "rand() must produce different rows");
+    }
 
-        materializedResult = computeActual("SELECT apply(1, x -> x + rand()) FROM orders LIMIT 10");
-        distinctCount = materializedResult.getMaterializedRows().stream()
+    @Test
+    public void testNonDeterministicInLambda()
+    {
+        MaterializedResult materializedResult = computeActual("SELECT apply(1, x -> x + rand()) FROM orders LIMIT 10");
+        long distinctCount = materializedResult.getMaterializedRows().stream()
                 .map(row -> row.getField(0))
                 .distinct()
                 .count();
@@ -365,11 +371,16 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testTryLambdaRepeated()
+    public void testApplyLambdaRepeated()
     {
         assertQuery("SELECT x + x FROM (SELECT apply(a, i -> i * i) x FROM (VALUES 3) t(a))", "SELECT 18");
         assertQuery("SELECT apply(a, i -> i * i) + apply(a, i -> i * i) FROM (VALUES 3) t(a)", "SELECT 18");
         assertQuery("SELECT apply(a, i -> i * i), apply(a, i -> i * i) FROM (VALUES 3) t(a)", "SELECT 9, 9");
+    }
+
+    @Test
+    public void testTryLambdaRepeated()
+    {
         assertQuery("SELECT try(10 / a) + try(10 / a) FROM (VALUES 5) t(a)", "SELECT 4");
         assertQuery("SELECT try(10 / a), try(10 / a) FROM (VALUES 5) t(a)", "SELECT 2, 2");
     }
@@ -441,8 +452,11 @@ public abstract class AbstractTestQueries
 
         // Row subscript in join condition
         assertQuery("SELECT n.name, r.name FROM nation n JOIN region r ON ROW (n.name, n.regionkey)[2] = ROW (r.name, r.regionkey)[2] ORDER BY n.name LIMIT 1", "VALUES ('ALGERIA', 'AFRICA')");
+    }
 
-        //Row subscript in a lambda
+    @Test
+    public void testRowSubscriptInLambda()
+    {
         assertQuery("SELECT apply(ROW (1, 2), r -> r[2])", "SELECT 2");
     }
 
@@ -2404,12 +2418,17 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 1 in (1, NULL, 3)", "values true");
         assertQuery("SELECT 2 in (1, NULL, 3)", "values null");
         assertQuery("SELECT x FROM (values DATE '1970-01-01', DATE '1970-01-03') t(x) WHERE x IN (DATE '1970-01-01')", "values DATE '1970-01-01'");
+        assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
+        assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
+    }
+
+    @Test
+    public void testInTimestampWithTimezone()
+    {
         assertEquals(
                 computeActual("SELECT x FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1970-01-01 00:01:00+08:00') t(x) WHERE x IN (TIMESTAMP '1970-01-01 00:01:00+00:00')")
                         .getOnlyColumn().collect(toList()),
                 ImmutableList.of(zonedDateTime("1970-01-01 00:01:00.000 UTC"), zonedDateTime("1970-01-01 08:01:00.000 +08:00")));
-        assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
-        assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
     }
 
     @Test
@@ -2760,7 +2779,7 @@ public abstract class AbstractTestQueries
             fail();
         }
         catch (Exception e) {
-            assertEquals("Escape string must be a single character", e.getMessage());
+            assertTrue(e.getMessage().contains("Escape string must be a single character"));
         }
 
         try {
@@ -2768,7 +2787,7 @@ public abstract class AbstractTestQueries
             fail();
         }
         catch (Exception e) {
-            assertEquals("Escape string must be a single character", e.getMessage());
+            assertTrue(e.getMessage().contains("Escape string must be a single character"));
         }
 
         MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE '%testing$_%' ESCAPE '$'");
@@ -2884,17 +2903,21 @@ public abstract class AbstractTestQueries
         assertThat(result).contains("table_privileges").allMatch(schemaName -> ((String) schemaName).contains("_"));
     }
 
+    @Parameters("storageFormat")
     @Test
-    public void testShowColumns()
+    public void testShowColumns(@Optional("PARQUET") String storageFormat)
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
+        // DWRF does not support date type.
+        String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
+        String orderdateType = format.equals("DWRF") ? "varchar" : "date";
         MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
+                .row("orderdate", orderdateType, "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("clerk", "varchar", "", "")
                 .row("shippriority", "integer", "", "")
@@ -2906,7 +2929,7 @@ public abstract class AbstractTestQueries
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
+                .row("orderdate", orderdateType, "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
                 .row("shippriority", "integer", "", "")
@@ -2922,7 +2945,6 @@ public abstract class AbstractTestQueries
     public void testAtTimeZone()
     {
         // TODO the expected values here are non-sensical due to https://github.com/prestodb/presto/issues/7122
-        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-30 18:09:00.000 +07:09"));
         assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral'"), zonedDateTime("2012-10-30 16:00:00.000 Asia/Oral"));
         assertEquals(computeScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' FROM (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));
         assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE '+07:09'"), zonedDateTime("2012-10-30 18:09:00.000 +07:09"));
@@ -2946,7 +2968,13 @@ public abstract class AbstractTestQueries
         assertEquals(computeScalar("SELECT * FROM (VALUES TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral')"), zonedDateTime("2012-10-30 16:00:00.000 Asia/Oral"));
     }
 
-    private ZonedDateTime zonedDateTime(String value)
+    @Test
+    public void testAtTimeZoneWithInterval()
+    {
+        assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-30 18:09:00.000 +07:09"));
+    }
+
+    public ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
     }
@@ -3070,7 +3098,7 @@ public abstract class AbstractTestQueries
     {
         Session session = new Session(
                 getSession().getQueryId(),
-                Optional.empty(),
+                java.util.Optional.empty(),
                 getSession().isClientTransactionSupport(),
                 getSession().getIdentity(),
                 getSession().getSource(),
@@ -3141,7 +3169,7 @@ public abstract class AbstractTestQueries
             fail();
         }
         catch (Exception e) {
-            assertEquals("Escape string must be a single character", e.getMessage());
+            assertTrue(e.getMessage().contains("Escape string must be a single character"));
         }
 
         try {
@@ -3149,7 +3177,7 @@ public abstract class AbstractTestQueries
             fail();
         }
         catch (Exception e) {
-            assertEquals("Escape string must be a single character", e.getMessage());
+            assertTrue(e.getMessage().contains("Escape string must be a single character"));
         }
     }
 
@@ -3176,7 +3204,7 @@ public abstract class AbstractTestQueries
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}}");
     }
 
     @Test
@@ -3206,13 +3234,8 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
 
         // check that TRY is not pushed down
-        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "/ by zero");
+        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*(/|division) by zero.*");
         assertQuery("SELECT x IS NULL FROM (SELECT TRY(1/y) AS x FROM (VALUES 3, 0, 4) t(y))", "VALUES false, true, false");
-
-        // test try with lambda function
-        assertQuery("SELECT TRY(apply(5, x -> x + 1) / 0)", "SELECT NULL");
-        assertQuery("SELECT TRY(apply(5 + RANDOM(1), x -> x + 1) / 0)", "SELECT NULL");
-        assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
 
         // test try with invalid JSON
         assertQuery("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "SELECT NULL");
@@ -3268,6 +3291,14 @@ public abstract class AbstractTestQueries
         // Test try with array method with an input array containing null values.
         // the error should be suppressed and just return null.
         assertQuery("SELECT TRY(ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]]))", "SELECT NULL");
+    }
+
+    @Test
+    public void testTryWithLambda()
+    {
+        assertQuery("SELECT TRY(apply(5, x -> x + 1) / 0)", "SELECT NULL");
+        assertQuery("SELECT TRY(apply(5 + RANDOM(1), x -> x + 1) / 0)", "SELECT NULL");
+        assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
     }
 
     @Test
@@ -4511,8 +4542,7 @@ public abstract class AbstractTestQueries
     public void testFunctionNotRegistered()
     {
         assertQueryFails(
-                "SELECT length(1)",
-                "\\Qline 1:8: Unexpected parameters (integer) for function length. Expected:\\E.*");
+                "SELECT length(1)", ".*Unexpected parameters \\(integer\\) for function .*length. Expected:.*");
     }
 
     @Test
@@ -4890,7 +4920,7 @@ public abstract class AbstractTestQueries
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
-    @Test(expectedExceptions = {RuntimeException.class, PrestoException.class}, expectedExceptionsMessageRegExp = "Max standard error must be in.*")
+    @Test(expectedExceptions = {RuntimeException.class, PrestoException.class}, expectedExceptionsMessageRegExp = ".*Max standard error must be in.*")
     public void testEmptyApproxSetWithMaxErrorOutsideBounds()
     {
         computeActual("SELECT cardinality(empty_approx_set(0.3))");
@@ -4926,10 +4956,11 @@ public abstract class AbstractTestQueries
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
-    @Test(expectedExceptions = {RuntimeException.class, PrestoException.class}, expectedExceptionsMessageRegExp = "Cannot merge HLLs with different number of buckets.*")
+    @Test
     public void testMergeEmptyNonEmptyApproxSetWithDifferentMaxError()
     {
-        computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey, 0.1) c FROM orders UNION ALL SELECT empty_approx_set(0.2))");
+        assertQueryFails("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey, 0.1) c FROM orders UNION ALL SELECT empty_approx_set(0.2))",
+                "Cannot merge HLLs with different number of buckets.*");
     }
 
     @Test
@@ -5141,19 +5172,19 @@ public abstract class AbstractTestQueries
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
-        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessAllowed("SELECT name FROM (SELECT * FROM nation)", privilege("nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name FROM nation", privilege("nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "Cannot select from columns \\[nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "Cannot select from columns \\[nationkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT count(*) FROM nation", "Cannot select from columns \\[\\] in table .*.nation.*", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
         assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("name", SELECT_COLUMN));
-        assertAccessDenied("SELECT nation.name FROM nation JOIN region USING (regionkey)", "Cannot select from columns \\[regionkey, name\\] in table .*", privilege("regionkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT regionkey FROM nation as n1 join region as r1 using (regionkey)", "Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
         assertAccessDenied("SELECT array_agg(regionkey ORDER BY regionkey) FROM nation JOIN region USING (regionkey)", "Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
     }
 
@@ -5207,8 +5238,11 @@ public abstract class AbstractTestQueries
         // SMALLINT - DECIMAL
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
         assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
+    }
 
-        // Complex coercions across joins
+    @Test
+    public void testComplexCoercions()
+    {
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
@@ -6054,6 +6088,11 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "select group_id, set_union(numbers) from (values (1, array[1, 2]), (2, array[2, 3]), (3, array[4, 5]), (4, array[5, 6])) as t(group_id, numbers) group by group_id",
                 "select group_id, numbers from (values (1, array[1, 2]), (2, array[2, 3]), (3, array[4, 5]), (4, array[5, 6])) as t(group_id, numbers)");
+    }
+
+    @Test
+    public void testSetUnionWithNulls()
+    {
         // all nulls should return empty array to match behavior of array_distinct(flatten(array_agg(x)))
         assertQuery(
                 "select set_union(x) from (values null, null, null) as t(x)",
@@ -6167,9 +6206,9 @@ public abstract class AbstractTestQueries
         assertEquals(actual1.getRowCount(), 1);
         assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L, 3L, 2L));
 
-        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 2, 1, 3, 4, 5) t(x)");
         assertEquals(actual2.getRowCount(), 1);
-        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L));
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 4L, 2L, 3L));
     }
 
     @Test
@@ -6181,7 +6220,8 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
         assertEquals(actual2.getRowCount(), 1);
-        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L));
+        Object actual2Value = actual2.getMaterializedRows().get(0).getFields().get(0);
+        assertTrue(actual2Value.equals(ImmutableMap.of("A", 3L, "B", 2L)) || actual2Value.equals(ImmutableMap.of("A", 3L, "C", 2L)));
     }
 
     @Test
@@ -6295,10 +6335,10 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, varchar>) x)",
-                ".*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function map_union_sum. Expected: map_union_sum\\(map\\(K,V\\)\\) K:comparable, V:nonDecimalNumeric.*");
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function (?:native.default.)?map_union_sum. Expected: (?:native.default.)?map_union_sum\\(map\\((K|k),(V|v)\\)\\) (K|k):comparable, (V|v):nonDecimalNumeric.*");
         assertQueryFails(
                 "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, decimal(10,2)>) x)",
-                ".*line 1:8: Unexpected parameters \\(map\\(varchar,decimal\\(10,2\\)\\)\\) for function map_union_sum. Expected: map_union_sum\\(map\\(K,V\\)\\) K:comparable, V:nonDecimalNumeric.*");
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,decimal\\(10,2\\)\\)\\) for function (?:native.default.)?map_union_sum. Expected: (?:native.default.)?map_union_sum\\(map\\((K|k),(V|v)\\)\\) (K|k):comparable, (V|v):nonDecimalNumeric.*");
     }
 
     @Test
@@ -6306,10 +6346,10 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
-                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds.*");
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
-                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds.*");
     }
 
     @Test
@@ -6614,15 +6654,6 @@ public abstract class AbstractTestQueries
                 "VALUES (1, 2, 'a', 2, 'a', 1, 'a', 1), (1, 3, 'b', 3, 'b', 2, 'b', 2), (1, NULL, NULL, NULL, NULL, 3, 'c', 3)");
         assertQuery("SELECT * from ( SELECT ARRAY[1] AS kv FROM (select 1)) CROSS JOIN UNNEST( kv, kv ) WITH ORDINALITY AS t(r1, r2, ord)", "VALUES (ARRAY[1], 1, 1, 1)");
 
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
-                "VALUES (1, 2, 3, 2, 3), (1, 3, 5, 3, 5)");
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3, r4, r5, r6, r7)",
-                "VALUES (1, 2, 3, 2, 3, 10, 13, 15), (1, 3, 5, 3, 5, 23, 25, 20)");
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
-                "VALUES (1, 2, 3, 2, 3, 1), (1, 3, 5, 3, 5, 2)");
-        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, r7, ord)",
-                "VALUES (1, 2, 3, 2, 3, 10, 13, 15, 1), (1, 3, 5, 3, 5, 23, 25, 20, 2)");
-
         Session useLegacyUnnest = Session.builder(getSession())
                 .setSystemProperty(LEGACY_UNNEST, "true")
                 .build();
@@ -6658,11 +6689,6 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * from unnest(ARRAY[2, 3], ARRAY[10,11,12], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, r3, ord)", "VALUES (2, 10, 2, 1), (3, 11, 3, 2), (NULL, 12, NULL, 3)");
         assertQuery("SELECT * from unnest(ARRAY[2, 3], ARRAY[2, 3], ARRAY[10,11,12]) WITH ORDINALITY AS r(r1, r2, r3, ord)", "VALUES (2, 2, 10, 1), (3, 3, 11, 2), (NULL, NULL, 12, 3)");
 
-        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
-                "VALUES (2, 3, 2, 3), (3, 5, 3, 5)");
-        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
-                "VALUES (2, 3, 2, 3, 1), (3, 5, 3, 5, 2)");
-
         assertQuery(useLegacyUnnest, "SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)) from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2)",
                 "VALUES (row(2, 3), row(2, 3)), (row(3, 5), row(3, 5))");
         assertQuery(useLegacyUnnest, "SELECT cast(r1 as row(x int, y int)), cast(r2 as row(x int, y int)), cast(r3 as row(x int, y int, z int)) from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3)",
@@ -6675,6 +6701,24 @@ public abstract class AbstractTestQueries
         // mixed
         assertQuery("select * from (SELECT * from unnest(ARRAY[2, 3], ARRAY[2, 3]) WITH ORDINALITY AS r(r1, r2, ord)) cross join unnest(ARRAY[2, 3], ARRAY[2, 3])",
                 "VALUES (2, 2, 1, 2, 2), (2, 2, 1, 3, 3), (3, 3, 2, 2, 2), (3, 3, 2, 3, 3)");
+    }
+
+    @Test
+    public void testDuplicateUnnestRows()
+    {
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
+                "VALUES (1, 2, 3, 2, 3), (1, 3, 5, 3, 5)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) AS r(r1, r2, r3, r4, r5, r6, r7)",
+                "VALUES (1, 2, 3, 2, 3, 10, 13, 15), (1, 3, 5, 3, 5, 23, 25, 20)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
+                "VALUES (1, 2, 3, 2, 3, 1), (1, 3, 5, 3, 5, 2)");
+        assertQuery("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)], ARRAY[row(10, 13, 15), row(23, 25, 20)]) WITH ORDINALITY AS r(r1, r2, r3, r4, r5, r6, r7, ord)",
+                "VALUES (1, 2, 3, 2, 3, 10, 13, 15, 1), (1, 3, 5, 3, 5, 23, 25, 20, 2)");
+
+        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) AS r(r1, r2, r3, r4)",
+                "VALUES (2, 3, 2, 3), (3, 5, 3, 5)");
+        assertQuery("SELECT * from unnest(ARRAY[row(2, 3), row(3, 5)], ARRAY[row(2, 3), row(3, 5)]) WITH ORDINALITY AS r(r1, r2, r3, r4, ord)",
+                "VALUES (2, 3, 2, 3, 1), (3, 5, 3, 5, 2)");
     }
 
     @Test
@@ -6804,6 +6848,41 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testReplaceConditionalApproxDistinct()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, "false")
+                .build();
+
+        List<String> queries = ImmutableList.of(
+                "select approx_distinct(if(%s, 1, 2)) from orders %s",
+                "select approx_distinct(if(%s, 3)) from orders %s",
+                "select approx_distinct(if(%s, 4, NULL)) from orders %s",
+                "select approx_distinct(if(%s, NULL, 5)) from orders %s",
+                "select approx_distinct(if(%s, NULL)) from orders %s",
+                "select approx_distinct(if(%s, NULL, NULL)) from orders %s");
+        List<String> conditions = ImmutableList.of(
+                "orderkey = orderkey",
+                "orderkey % 2 = 0");
+        List<String> suffixes = ImmutableList.of(
+                "",
+                "where orderkey % 3 = 0",
+                "group by orderkey");
+
+        for (String query : queries) {
+            for (String condition : conditions) {
+                for (String suffix : suffixes) {
+                    String sql = format(query, condition, suffix);
+                    assertQueryWithSameQueryRunner(enabled, sql, disabled);
+                }
+            }
+        }
+    }
+
+    @Test
     public void testSameAggregationWithAndWithoutFilter()
     {
         Session enableOptimization = Session.builder(getSession())
@@ -6912,12 +6991,18 @@ public abstract class AbstractTestQueries
         assertEqualsIgnoreOrder(resultWithOptimization, resultWithoutOptimization);
     }
 
+    @Parameters("storageFormat")
     @Test
-    public void testQueryWithEmptyInput()
+    public void testQueryWithEmptyInput(@Optional("PARQUET") String storageFormat)
     {
         Session enableOptimization = Session.builder(getSession())
                 .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "true")
                 .build();
+
+        // DWRF does not support date type.
+        String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
+        String orderdate = format.equals("DWRF") ? "cast(o.orderdate as DATE)" : "o.orderdate";
+        String shipdate = format.equals("DWRF") ? "cast(l.shipdate as DATE)" : "l.shipdate";
 
         assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o join (select orderkey, linenumber from lineitem where false) l on o.orderkey = l.orderkey");
         assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o left join (select orderkey, linenumber from lineitem where false) l on o.orderkey = l.orderkey");
@@ -6933,9 +7018,10 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "SELECT (SELECT 1 FROM orders WHERE false LIMIT 1) FROM lineitem");
         assertQuery(enableOptimization, "WITH emptyorders as (select orderkey, totalprice, orderdate from orders where false) SELECT orderkey, orderdate, totalprice, " +
                 "ROW_NUMBER() OVER (ORDER BY orderdate) as row_num FROM emptyorders WHERE totalprice > 10 ORDER BY orderdate ASC LIMIT 10");
-        assertQuery(enableOptimization, "WITH emptyorders as (select * from orders where false) SELECT p.name, l.orderkey, l.partkey, l.quantity, RANK() OVER (PARTITION BY p.name ORDER BY l.quantity DESC) AS rank_quantity " +
-                "FROM lineitem l JOIN emptyorders o ON l.orderkey = o.orderkey JOIN part p ON l.partkey = p.partkey WHERE o.orderdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' " +
-                "AND l.shipdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' AND p.size = 15 ORDER BY p.name, rank_quantity LIMIT 100");
+        String sql = format("WITH emptyorders as (select * from orders where false) SELECT p.name, l.orderkey, l.partkey, l.quantity, RANK() OVER (PARTITION BY p.name ORDER BY l.quantity DESC) AS rank_quantity " +
+                "FROM lineitem l JOIN emptyorders o ON l.orderkey = o.orderkey JOIN part p ON l.partkey = p.partkey WHERE %s BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' " +
+                "AND %s BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' AND p.size = 15 ORDER BY p.name, rank_quantity LIMIT 100", orderdate, shipdate);
+        assertQuery(enableOptimization, sql);
         assertQuery(enableOptimization, "select orderkey, row_number() over (partition by orderpriority), orderpriority from (select orderkey, orderpriority from orders where false)");
         assertQuery(enableOptimization, "select * from (select orderkey, row_number() over (partition by orderpriority order by orderkey) row_number, orderpriority from (select orderkey, orderpriority from orders where false)) where row_number < 2");
 
@@ -7072,14 +7158,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testArrayCumSum()
+    public void testArrayCumSumIntegers()
     {
         // int
         String sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, 0]), (ARRAY[]), (CAST(NULL AS array(integer)))) t(k)";
         assertQuery(sql, "values array[cast(5 as integer), cast(11 as integer), cast(11 as integer)], array[], null");
 
         sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, 0]), (ARRAY[]), (CAST(NULL AS array(integer))), (ARRAY [cast(2147483647 as INTEGER), 2147483647, 2147483647])) t(k)";
-        assertQueryFails(sql, "integer addition overflow:.*");
+        assertQueryFails(sql, "integer (addition )?overflow:.*", true);
 
         sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(5 as integer), cast(11 as integer), cast(null as integer), cast(null as integer), cast(null as integer)]");
@@ -7096,9 +7182,24 @@ public abstract class AbstractTestQueries
 
         sql = "select array_cum_sum(k) from (values (array[cast(null as bigint), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(null as bigint), cast(null as bigint), cast(null as bigint), cast(null as bigint), cast(null as bigint)]");
+    }
 
+    @Test
+    public void testArrayCumSumDecimals()
+    {
+        String sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, 0]), (ARRAY[]), (CAST(NULL AS array(decimal)))) t(k)";
+        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(11.1 as decimal)], array[], null");
+
+        sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, null, 3]), (array[cast(null as decimal(38, 1)), 6, null, 3])) t(k)";
+        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(null as decimal), cast(null as decimal)], " +
+                "array[cast(null as decimal), cast(null as decimal), cast(null as decimal), cast(null as decimal)]");
+    }
+
+    @Test
+    public void testArrayCumSumReals()
+    {
         // real
-        sql = "select array_cum_sum(k) from (values (array[cast(null as real), 6, null, 2, 3])) t(k)";
+        String sql = "select array_cum_sum(k) from (values (array[cast(null as real), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(null as real), cast(null as real), cast(null as real), cast(null as real), cast(null as real)]");
 
         MaterializedResult raw = computeActual("SELECT array_cum_sum(k) FROM (values (ARRAY [cast(5.1 as real), 6.1, 0.5]), (ARRAY[]), (CAST(NULL AS array(real))), " +
@@ -7159,17 +7260,12 @@ public abstract class AbstractTestQueries
         for (int i = 2; i < actualDouble.size(); ++i) {
             assertNull(actualDouble.get(i));
         }
+    }
 
-        // decimal
-        sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, 0]), (ARRAY[]), (CAST(NULL AS array(decimal)))) t(k)";
-        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(11.1 as decimal)], array[], null");
-
-        sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, null, 3]), (array[cast(null as decimal(38, 1)), 6, null, 3])) t(k)";
-        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(null as decimal), cast(null as decimal)], " +
-                "array[cast(null as decimal), cast(null as decimal), cast(null as decimal), cast(null as decimal)]");
-
-        // varchar
-        sql = "select array_cum_sum(k) from (values (array[cast('5.1' as varchar), '6', '0']), (ARRAY[]), (CAST(NULL AS array(varchar)))) t(k)";
+    @Test
+    public void testArrayCumSumVarchar()
+    {
+        String sql = "select array_cum_sum(k) from (values (array[cast('5.1' as varchar), '6', '0']), (ARRAY[]), (CAST(NULL AS array(varchar)))) t(k)";
         assertQueryFails(sql, ".*cannot be applied to.*");
 
         sql = "select array_cum_sum(k) from (values (array[cast(null as varchar), '6', '0'])) t(k)";
@@ -7887,10 +7983,28 @@ public abstract class AbstractTestQueries
                 "values 0.5, 0.1");
         assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
                 "values 0.5, null");
-        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
-                ".*Out of range for integer.*");
         assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
                 "values 0.5, 0.1");
+
+        Session disableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "false")
+                .build();
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[key]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[1, cast(3 as bigint)]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[1, 3, key]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[key]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[1, 400000000000]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", disableOptimization);
+        assertQueryWithSameQueryRunner(enableOptimization, "select map_subset(feature, array[key, 2, 400000000000]) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", disableOptimization);
+    }
+
+    @Test
+    public void testRemoveMapCastFailure()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .build();
+        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
+                ".*Out of range for integer.*");
     }
 
     // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
@@ -7992,8 +8106,9 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "select orderkey, col1 from orders cross join (select cast(col as varchar) col1 from (values 1) t(col))");
     }
 
+    @Parameters("storageFormat")
     @Test
-    public void testAddDistinctForSemiJoinBuild()
+    public void testAddDistinctForSemiJoinBuild(@Optional("PARQUET") String storageFormat)
     {
         Session enabled = Session.builder(getSession())
                 .setSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, "true")
@@ -8001,9 +8116,14 @@ public abstract class AbstractTestQueries
         Session disabled = Session.builder(getSession())
                 .setSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, "false")
                 .build();
-        @Language("SQL") String sql = "SELECT * FROM customer c WHERE custkey in ( SELECT custkey FROM orders o WHERE o.orderdate > date('1995-01-01'))";
+
+        // DWRF does not support date type.
+        String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
+        String orderdate = format.equals("DWRF") ? "cast(o.orderdate as DATE)" : "o.orderdate";
+
+        @Language("SQL") String sql = format("SELECT * FROM customer c WHERE custkey in ( SELECT custkey FROM orders o WHERE %s > date('1995-01-01'))", orderdate);
         assertQueryWithSameQueryRunner(enabled, sql, disabled);
-        sql = "SELECT * FROM customer c WHERE custkey in ( SELECT distinct custkey FROM orders o WHERE o.orderdate > date('1995-01-01'))";
+        sql = format("SELECT * FROM customer c WHERE custkey in ( SELECT distinct custkey FROM orders o WHERE %s > date('1995-01-01'))", orderdate);
         assertQueryWithSameQueryRunner(enabled, sql, disabled);
         sql = "SELECT *\n" +
                 "FROM customer c\n" +
@@ -8184,6 +8304,19 @@ public abstract class AbstractTestQueries
                 "(6, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50]), MAP(ARRAY['c', 'd'], ARRAY[0.90, 0.10])), (2, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21]), MAP(ARRAY['e', 'f'], ARRAY[0.56, 0.44])), " +
                 "(1, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67]), MAP(ARRAY['g', 'h'], ARRAY[0.23, 0.77])) ) t(id, ds, feature, extra_feature)) " +
                 "select id, min(ds), min_by(feature, ds), min_by(extra_feature, ds) from t group by id";
+
+        result = computeActual(enabled, "explain(type distributed) " + sql);
+        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
+
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        sql = "with t as (SELECT * FROM ( VALUES (3, 100, '2025-01-08', MAP(ARRAY[2, 1], ARRAY[0.34, 0.92]), MAP(ARRAY['a', 'b'], ARRAY[0.12, 0.88])), " +
+                "(1, 20, '2025-01-02', MAP(ARRAY[1, 3], ARRAY[0.23, 0.5]), MAP(ARRAY['x', 'y'], ARRAY[0.45, 0.55])), (7, 90, '2025-01-17', MAP(ARRAY[6, 8], ARRAY[0.60, 0.70]), MAP(ARRAY['m', 'n'], ARRAY[0.21, 0.79])), " +
+                "(2, 10, '2025-01-06', MAP(ARRAY[2, 3, 5, 7], ARRAY[0.75, 0.32, 0.19, 0.46]), MAP(ARRAY['p', 'q', 'r'], ARRAY[0.11, 0.22, 0.67])), (5, 65, '2025-01-14', MAP(ARRAY[8, 4, 6], ARRAY[0.88, 0.99, 0.00]), MAP(ARRAY['s', 't', 'u'], ARRAY[0.33, 0.44, 0.23])), " +
+                "(4, 40, '2025-01-12', MAP(ARRAY[7, 3, 2], ARRAY[0.33, 0.44, 0.55]), MAP(ARRAY['v', 'w'], ARRAY[0.66, 0.34])), (8, 68, '2025-01-20', MAP(ARRAY[1, 7, 6], ARRAY[0.35, 0.45, 0.55]), MAP(ARRAY['i', 'j', 'k'], ARRAY[0.78, 0.89, 0.12])), " +
+                "(6, 101, '2025-01-16', MAP(ARRAY[9, 1, 3], ARRAY[0.30, 0.40, 0.50]), MAP(ARRAY['c', 'd'], ARRAY[0.90, 0.10])), (2, 35, '2025-01-05', MAP(ARRAY[3, 4], ARRAY[0.98, 0.21]), MAP(ARRAY['e', 'f'], ARRAY[0.56, 0.44])), " +
+                "(1, 25, '2025-01-04', MAP(ARRAY[1, 2], ARRAY[0.45, 0.67]), MAP(ARRAY['g', 'h'], ARRAY[0.23, 0.77])) ) t(id, key, ds, feature, extra_feature)) " +
+                "select id, min(ds), min_by(feature, ds), min_by(extra_feature, ds), min_by(key, ds) from t group by id";
 
         result = computeActual(enabled, "explain(type distributed) " + sql);
         assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);

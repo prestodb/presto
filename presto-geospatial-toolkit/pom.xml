@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-geospatial-toolkit</artifactId>
+    <name>presto-geospatial-toolkit</name>
     <description>Presto - Geospatial utilities</description>
 
     <properties>

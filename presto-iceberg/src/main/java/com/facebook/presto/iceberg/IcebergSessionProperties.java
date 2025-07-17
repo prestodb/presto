@@ -20,6 +20,7 @@ import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.util.StatisticsUtil;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Joiner;
@@ -33,15 +34,18 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.SUPPORTED_MERGE_FLAGS;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static java.lang.String.format;
 
 public final class IcebergSessionProperties
 {
@@ -62,6 +66,7 @@ public final class IcebergSessionProperties
     public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String DELETE_AS_JOIN_REWRITE_ENABLED = "delete_as_join_rewrite_enabled";
+    public static final String DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS = "delete_as_join_rewrite_max_delete_columns";
     public static final String HIVE_METASTORE_STATISTICS_MERGE_STRATEGY = "hive_statistics_merge_strategy";
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
     public static final String ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD = "rows_for_metadata_optimization_threshold";
@@ -181,6 +186,23 @@ public final class IcebergSessionProperties
                         "When enabled equality delete row filtering will be pushed down into a join.",
                         icebergConfig.isDeleteAsJoinRewriteEnabled(),
                         false))
+                .add(new PropertyMetadata<>(
+                        DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS,
+                        "The maximum number of columns that can be used in a delete as join rewrite. " +
+                                "If the number of columns exceeds this value, the delete as join rewrite will not be applied.",
+                        INTEGER,
+                        Integer.class,
+                        icebergConfig.getDeleteAsJoinRewriteMaxDeleteColumns(),
+                        false,
+                        value -> {
+                            int intValue = ((Number) value).intValue();
+                            if (intValue < 0 || intValue > 400) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY,
+                                        format("Invalid value for %s: %s. It must be between 0 and 400.", DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS, intValue));
+                            }
+                            return intValue;
+                        },
+                        integer -> integer))
                 .add(integerProperty(
                         ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD,
                         "The max partitions number to utilize metadata optimization. When partitions number " +
@@ -309,6 +331,11 @@ public final class IcebergSessionProperties
     public static boolean isDeleteToJoinPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(DELETE_AS_JOIN_REWRITE_ENABLED, Boolean.class);
+    }
+
+    public static int getDeleteAsJoinRewriteMaxDeleteColumns(ConnectorSession session)
+    {
+        return session.getProperty(DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS, Integer.class);
     }
 
     public static int getRowsForMetadataOptimizationThreshold(ConnectorSession session)

@@ -7,6 +7,7 @@
         <version>0.294-SNAPSHOT</version>
     </parent>
     <artifactId>presto-hudi</artifactId>
+    <name>presto-hudi</name>
     <description>Presto - Hudi Connector</description>
     <packaging>presto-plugin</packaging>
 

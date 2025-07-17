@@ -45,6 +45,7 @@ import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.plan.WindowNode.Frame.BoundType;
@@ -66,7 +67,6 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -185,6 +185,22 @@ public final class PlanMatchPattern
     {
         return node(IndexSourceNode.class)
                 .with(new IndexSourceMatcher(expectedTableName));
+    }
+
+    public static PlanMatchPattern indexSource(String expectedTableName, Map<String, String> columnReferences)
+    {
+        return node(IndexSourceNode.class)
+                .with(new IndexSourceMatcher(expectedTableName))
+                .addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern strictIndexSource(String expectedTableName, Map<String, String> columnReferences)
+    {
+        return node(IndexSourceNode.class)
+                .with(new IndexSourceMatcher(expectedTableName))
+                .withExactAssignedOutputs(columnReferences.values().stream()
+                        .map(columnName -> columnReference(expectedTableName, columnName))
+                        .collect(toImmutableList()));
     }
 
     public static PlanMatchPattern constrainedIndexSource(String expectedTableName, Map<String, Domain> constraint, Map<String, String> columnReferences)

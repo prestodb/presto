@@ -20,6 +20,7 @@
 {{/.}}
 
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
+#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 
 namespace facebook::presto::thrift {
 
@@ -227,4 +228,3 @@ void fromThrift(const {{class_name}}& thrift, facebook::presto::protocol::{{clas
 {{/.}}
 
 }
-

@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.hive.avro.PrestoAvroSerDe;
+import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
@@ -105,6 +106,8 @@ import java.math.BigInteger;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -145,12 +148,15 @@ import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.rowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGNORED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
+import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
@@ -178,6 +184,7 @@ import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.apache.hadoop.fs.Path.getPathWithoutSchemeAndAuthority;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
@@ -263,7 +270,7 @@ public final class HiveUtil
         // Only propagate serialization schema configs by default
         Predicate<String> schemaFilter = schemaProperty -> schemaProperty.startsWith("serialization.");
 
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), getDeserializerClassName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
         if (!customSplitInfo.isEmpty()) {
@@ -346,15 +353,39 @@ public final class HiveUtil
         return Optional.ofNullable(compressionCodecFactory.getCodec(file));
     }
 
-    public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
+    public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, String serDe, boolean symlinkTarget)
     {
         try {
             JobConf jobConf = toJobConf(configuration);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
-                // symlink targets are always TextInputFormat
-                inputFormatClass = TextInputFormat.class;
+                if (serDe == null) {
+                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Missing SerDe for SymlinkTextInputFormat");
+                }
+
+                /*
+                 * https://github.com/apache/hive/blob/b240eb3266d4736424678d6c71c3c6f6a6fdbf38/ql/src/java/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.java#L47-L52
+                 * According to Hive implementation of SymlinkInputFormat, The target input data should be in TextInputFormat.
+                 *
+                 * But Delta Lake provides an integration with Presto using Symlink Tables with target input data as MapredParquetInputFormat.
+                 * https://docs.delta.io/latest/presto-integration.html
+                 *
+                 * To comply with Hive implementation, we will keep the default value here as TextInputFormat unless serde is not LazySimpleSerDe
+                 */
+                if (serDe.equals(TEXTFILE.getSerDe())) {
+                    inputFormatClass = TextInputFormat.class;
+                    return ReflectionUtils.newInstance(inputFormatClass, jobConf);
+                }
+
+                for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+                    if (serDe.equals(hiveStorageFormat.getSerDe())) {
+                        inputFormatClass = getInputFormatClass(jobConf, hiveStorageFormat.getInputFormat());
+                        return ReflectionUtils.newInstance(inputFormatClass, jobConf);
+                    }
+                }
+
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Unsupported SerDe for SymlinkTextInputFormat: %s", serDe));
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
@@ -395,7 +426,7 @@ public final class HiveUtil
             return false;
         }
 
-        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), false);
+        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), storage.getStorageFormat().getSerDe(), false);
         return Arrays.stream(inputFormat.getClass().getAnnotations())
                 .map(Annotation::annotationType)
                 .map(Class::getSimpleName)
@@ -1310,5 +1341,83 @@ public final class HiveUtil
             directoryContextProperties.put(PRESTO_CLIENT_TAGS, join(CLIENT_TAGS_DELIMITER, session.getClientTags()));
         }
         return directoryContextProperties.build();
+    }
+
+    public static List<HiveFileInfo> getTargetPathsHiveFileInfos(
+            Path path,
+            HivePartitionMetadata partition,
+            Path targetParent,
+            List<Path> currentTargetPaths,
+            HiveDirectoryContext hiveDirectoryContext,
+            ExtendedFileSystem targetFilesystem,
+            DirectoryLister directoryLister,
+            Table table,
+            NamenodeStats namenodeStats,
+            ConnectorSession session)
+    {
+        boolean parentPathCached = directoryLister.isPathCached(targetParent);
+
+        Map<String, HiveFileInfo> targetParentHiveFileInfos = new HashMap<>(getTargetParentHiveFileInfoMap(
+                partition,
+                targetParent,
+                hiveDirectoryContext,
+                targetFilesystem,
+                directoryLister,
+                table,
+                namenodeStats));
+
+        // If caching is enabled and the parent path was cached, we verify that all target paths exist in the listing.
+        // If any target path is missing (likely due to stale cache), we invalidate the cache for that directory
+        // and re-fetch the listing to ensure we don't miss any files.
+        if (parentPathCached && isUseListDirectoryCache(session)) {
+            boolean allPathsExist = currentTargetPaths.stream()
+                    .map(Path::getPathWithoutSchemeAndAuthority)
+                    .map(Path::toString)
+                    .allMatch(targetParentHiveFileInfos::containsKey);
+
+            if (!allPathsExist) {
+                ((CachingDirectoryLister) directoryLister).invalidateDirectoryListCache(Optional.of(targetParent.toString()));
+
+                targetParentHiveFileInfos.clear();
+                targetParentHiveFileInfos.putAll(getTargetParentHiveFileInfoMap(
+                        partition,
+                        targetParent,
+                        hiveDirectoryContext,
+                        targetFilesystem,
+                        directoryLister,
+                        table,
+                        namenodeStats));
+            }
+        }
+
+        return currentTargetPaths.stream().map(targetPath -> {
+            HiveFileInfo hiveFileInfo = targetParentHiveFileInfos.get(getPathWithoutSchemeAndAuthority(targetPath).toString());
+
+            if (hiveFileInfo == null) {
+                throw new PrestoException(HIVE_FILE_NOT_FOUND, String.format("Invalid path in Symlink manifest file %s: %s does not exist", path, targetPath));
+            }
+
+            return hiveFileInfo;
+        }).collect(toImmutableList());
+    }
+
+    private static Map<String, HiveFileInfo> getTargetParentHiveFileInfoMap(
+            HivePartitionMetadata partition,
+            Path targetParent,
+            HiveDirectoryContext hiveDirectoryContext,
+            ExtendedFileSystem targetFilesystem,
+            DirectoryLister directoryLister,
+            Table table,
+            NamenodeStats namenodeStats)
+    {
+        Map<String, HiveFileInfo> targetParentHiveFileInfos = new HashMap<>();
+        Iterator<HiveFileInfo> hiveFileInfoIterator = directoryLister.list(targetFilesystem, table, targetParent, partition.getPartition(), namenodeStats, hiveDirectoryContext);
+
+        // We will use the path without the scheme and authority since the manifest file may contain entries both with and without them
+        hiveFileInfoIterator.forEachRemaining(hiveFileInfo -> targetParentHiveFileInfos.put(
+                getPathWithoutSchemeAndAuthority(new Path(hiveFileInfo.getPath())).toString(),
+                hiveFileInfo));
+
+        return targetParentHiveFileInfos;
     }
 }

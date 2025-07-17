@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-thrift-connector</artifactId>
+    <name>presto-thrift-connector</name>
     <description>Presto - Thrift Connector</description>
     <packaging>presto-plugin</packaging>
 

@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -62,7 +63,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraMetadata
         implements ConnectorMetadata
@@ -121,15 +121,15 @@ public class CassandraMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
-        return getTableMetadata(getTableName(tableHandle));
+        return getTableMetadata(session, getTableName(tableHandle));
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         CassandraTable table = cassandraSession.getTable(tableName);
         List<ColumnMetadata> columns = table.getColumns().stream()
-                .map(CassandraColumnHandle::getColumnMetadata)
-                .collect(toList());
+                .map(column -> column.getColumnMetadata(normalizeIdentifier(session, cqlNameToSqlName(column.getName()))))
+                .collect(toImmutableList());
         return new ConnectorTableMetadata(tableName, columns);
     }
 
@@ -178,7 +178,7 @@ public class CassandraMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
             catch (NotFoundException e) {
                 // table disappeared during listing operation

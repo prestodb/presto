@@ -7,6 +7,7 @@
         <version>0.294-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
+    <name>presto-iceberg</name>
     <description>Presto - Iceberg Connector</description>
     <packaging>presto-plugin</packaging>
 

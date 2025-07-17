@@ -94,8 +94,7 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
-        assignments) {
+    connector::ColumnHandleMap& assignments) {
   const auto& connector =
       getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
   return connector.toVeloxTableHandle(
@@ -982,8 +981,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& /*tableWriteInfo*/,
     const protocol::TaskId& /*taskId*/) {
   auto rowType = toRowType(node->outputVariables, typeParser_);
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments;
+  velox::connector::ColumnHandleMap assignments;
   for (const auto& [variable, columnHandle] : node->assignments) {
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
@@ -1294,8 +1292,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto rowType = toRowType(node->outputVariables, typeParser_);
-  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
-      assignments;
+  connector::ColumnHandleMap assignments;
   for (const auto& [variable, columnHandle] : node->assignments) {
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
@@ -1572,6 +1569,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       unnestNames,
       node->ordinalityVariable ? std::optional{node->ordinalityVariable->name}
                                : std::nullopt,
+      std::nullopt,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 

@@ -51,7 +51,7 @@ class ArrowFlightColumnHandle : public velox::connector::ColumnHandle {
   explicit ArrowFlightColumnHandle(const std::string& columnName)
       : columnName_(columnName) {}
 
-  const std::string& name() {
+  const std::string& name() const {
     return columnName_;
   }
 
@@ -63,9 +63,7 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
  public:
   ArrowFlightDataSource(
       const velox::RowTypePtr& outputType,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
+      const velox::connector::ColumnHandleMap& columnHandles,
       std::shared_ptr<Authenticator> authenticator,
       const velox::connector::ConnectorQueryCtx* connectorQueryCtx,
       const std::shared_ptr<ArrowFlightConfig>& flightConfig,
@@ -132,16 +130,13 @@ class ArrowFlightConnector : public velox::connector::Connector {
 
   std::unique_ptr<velox::connector::DataSource> createDataSource(
       const velox::RowTypePtr& outputType,
-      const std::shared_ptr<velox::connector::ConnectorTableHandle>&
-          tableHandle,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
+      const velox::connector::ConnectorTableHandlePtr& tableHandle,
+      const velox::connector::ColumnHandleMap& columnHandles,
       velox::connector::ConnectorQueryCtx* connectorQueryCtx) override;
 
   std::unique_ptr<velox::connector::DataSink> createDataSink(
       velox::RowTypePtr inputType,
-      std::shared_ptr<velox::connector::ConnectorInsertTableHandle>
+      velox::connector::ConnectorInsertTableHandlePtr
           connectorInsertTableHandle,
       velox::connector::ConnectorQueryCtx* connectorQueryCtx,
       velox::connector::CommitStrategy commitStrategy) override {

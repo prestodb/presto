@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>presto-redshift</artifactId>
+    <name>presto-redshift</name>
     <description>Presto - Redshift Connector</description>
     <packaging>presto-plugin</packaging>
 

@@ -57,6 +57,16 @@ public class StageExecutionStats
     private final int blockedDrivers;
     private final int completedDrivers;
 
+    private final int totalNewDrivers;
+    private final int queuedNewDrivers;
+    private final int runningNewDrivers;
+    private final int completedNewDrivers;
+
+    private final int totalSplits;
+    private final int queuedSplits;
+    private final int runningSplits;
+    private final int completedSplits;
+
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
     private final long userMemoryReservationInBytes;
@@ -110,6 +120,16 @@ public class StageExecutionStats
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
+
+            @JsonProperty("totalNewDrivers") int totalNewDrivers,
+            @JsonProperty("queuedNewDrivers") int queuedNewDrivers,
+            @JsonProperty("runningNewDrivers") int runningNewDrivers,
+            @JsonProperty("completedNewDrivers") int completedNewDrivers,
+
+            @JsonProperty("totalSplits") int totalSplits,
+            @JsonProperty("queuedSplits") int queuedSplits,
+            @JsonProperty("runningSplits") int runningSplits,
+            @JsonProperty("completedSplits") int completedSplits,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
@@ -169,6 +189,24 @@ public class StageExecutionStats
         this.blockedDrivers = blockedDrivers;
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
+
+        checkArgument(totalNewDrivers >= 0, "totalNewDrivers is negative");
+        this.totalNewDrivers = totalNewDrivers;
+        checkArgument(queuedNewDrivers >= 0, "queuedNewDrivers is negative");
+        this.queuedNewDrivers = queuedNewDrivers;
+        checkArgument(runningNewDrivers >= 0, "runningNewDrivers is negative");
+        this.runningNewDrivers = runningNewDrivers;
+        checkArgument(completedNewDrivers >= 0, "completedNewDrivers is negative");
+        this.completedNewDrivers = completedNewDrivers;
+
+        checkArgument(totalSplits >= 0, "totalSplits is negative");
+        this.totalSplits = totalSplits;
+        checkArgument(queuedSplits >= 0, "queuedSplits is negative");
+        this.queuedSplits = queuedSplits;
+        checkArgument(runningSplits >= 0, "runningSplits is negative");
+        this.runningSplits = runningSplits;
+        checkArgument(completedSplits >= 0, "completedSplits is negative");
+        this.completedSplits = completedSplits;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         checkArgument(cumulativeTotalMemory >= 0, "cumulativeTotalMemory is negative");
@@ -289,6 +327,54 @@ public class StageExecutionStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public int getTotalNewDrivers()
+    {
+        return totalNewDrivers;
+    }
+
+    @JsonProperty
+    public int getQueuedNewDrivers()
+    {
+        return queuedNewDrivers;
+    }
+
+    @JsonProperty
+    public int getRunningNewDrivers()
+    {
+        return runningNewDrivers;
+    }
+
+    @JsonProperty
+    public int getCompletedNewDrivers()
+    {
+        return completedNewDrivers;
+    }
+
+    @JsonProperty
+    public int getTotalSplits()
+    {
+        return totalSplits;
+    }
+
+    @JsonProperty
+    public int getQueuedSplits()
+    {
+        return queuedSplits;
+    }
+
+    @JsonProperty
+    public int getRunningSplits()
+    {
+        return runningSplits;
+    }
+
+    @JsonProperty
+    public int getCompletedSplits()
+    {
+        return completedSplits;
     }
 
     @JsonProperty
@@ -450,6 +536,14 @@ public class StageExecutionStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+                totalNewDrivers,
+                queuedNewDrivers,
+                runningNewDrivers,
+                completedNewDrivers,
+                totalSplits,
+                queuedSplits,
+                runningSplits,
+                completedSplits,
                 rawInputDataSizeInBytes,
                 rawInputPositions,
                 cumulativeUserMemory,
@@ -470,6 +564,15 @@ public class StageExecutionStats
                 0L,
                 new Distribution().snapshot(),
                 0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+
                 0,
                 0,
                 0,

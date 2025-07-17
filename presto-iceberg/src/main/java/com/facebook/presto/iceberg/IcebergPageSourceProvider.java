@@ -78,7 +78,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -145,6 +144,7 @@ import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsPa
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -176,6 +176,7 @@ import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColum
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -858,24 +859,26 @@ public class IcebergPageSourceProvider
                 session,
                 split.getPath(),
                 split.getFileFormat());
-        Supplier<Optional<RowPredicate>> deletePredicate = Suppliers.memoize(() -> {
+        boolean storeDeleteFilePath = icebergColumns.contains(DELETE_FILE_PATH_COLUMN_HANDLE);
+        Supplier<List<DeleteFilter>> deleteFilters = memoize(() -> {
             // If equality deletes are optimized into a join they don't need to be applied here
             List<DeleteFile> deletesToApply = split
                     .getDeletes()
                     .stream()
                     .filter(deleteFile -> deleteFile.content() == POSITION_DELETES || equalityDeletesRequired)
                     .collect(toImmutableList());
-            List<DeleteFilter> deleteFilters = readDeletes(
+            return readDeletes(
                     session,
                     tableSchema,
                     split.getPath(),
                     deletesToApply,
                     partitionInsertingPageSource.getRowPositionDelegate().getStartRowPosition(),
-                    partitionInsertingPageSource.getRowPositionDelegate().getEndRowPosition());
-            return deleteFilters.stream()
-                    .map(filter -> filter.createPredicate(delegateColumns))
-                    .reduce(RowPredicate::and);
+                    partitionInsertingPageSource.getRowPositionDelegate().getEndRowPosition(),
+                    storeDeleteFilePath);
         });
+        Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> deleteFilters.get().stream()
+                .map(filter -> filter.createPredicate(delegateColumns))
+                .reduce(RowPredicate::and));
         Table icebergTable = getShallowWrappedIcebergTable(
                 tableSchema,
                 partitionSpec,
@@ -905,6 +908,7 @@ public class IcebergPageSourceProvider
                 delegateColumns,
                 deleteSinkSupplier,
                 deletePredicate,
+                deleteFilters,
                 updatedRowPageSinkSupplier,
                 table.getUpdatedColumns(),
                 updateRow);
@@ -940,7 +944,8 @@ public class IcebergPageSourceProvider
             String dataFilePath,
             List<DeleteFile> deleteFiles,
             Optional<Long> startRowPosition,
-            Optional<Long> endRowPosition)
+            Optional<Long> endRowPosition,
+            boolean storeDeleteFilePath)
     {
         verify(startRowPosition.isPresent() == endRowPosition.isPresent(), "startRowPosition and endRowPosition must be specified together");
 
@@ -981,6 +986,10 @@ public class IcebergPageSourceProvider
                 catch (IOException e) {
                     throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg delete file: %s", delete.path()), e);
                 }
+                if (storeDeleteFilePath) {
+                    filters.add(new PositionDeleteFilter(deletedRows, delete.path()));
+                    deletedRows = new Roaring64Bitmap(); // Reset the deleted rows for the next file
+                }
             }
             else if (delete.content() == EQUALITY_DELETES) {
                 List<Integer> fieldIds = delete.equalityFieldIds();
@@ -990,7 +999,7 @@ public class IcebergPageSourceProvider
                         .collect(toImmutableList());
 
                 try (ConnectorPageSource pageSource = openDeletes(session, delete, columns, TupleDomain.all())) {
-                    filters.add(readEqualityDeletes(pageSource, columns, schema));
+                    filters.add(readEqualityDeletes(pageSource, columns, storeDeleteFilePath ? delete.path() : null));
                 }
                 catch (IOException e) {
                     throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg delete file: %s", delete.path()), e);
@@ -1001,8 +1010,8 @@ public class IcebergPageSourceProvider
             }
         }
 
-        if (!deletedRows.isEmpty()) {
-            filters.add(new PositionDeleteFilter(deletedRows));
+        if (!deletedRows.isEmpty() && !storeDeleteFilePath) {
+            filters.add(new PositionDeleteFilter(deletedRows, null));
         }
 
         return filters;

@@ -106,6 +106,15 @@ public class SqlFunctionHandle
     public static class Resolver
             implements FunctionHandleResolver
     {
+        private static final Resolver INSTANCE = new Resolver();
+
+        private Resolver() {}
+
+        public static Resolver getInstance()
+        {
+            return INSTANCE;
+        }
+
         @Override
         public Class<? extends FunctionHandle> getFunctionHandleClass()
         {

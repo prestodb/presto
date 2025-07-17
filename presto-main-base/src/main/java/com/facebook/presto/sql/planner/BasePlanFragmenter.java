@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -42,7 +43,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
-import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -301,7 +301,7 @@ public abstract class BasePlanFragmenter
             case REMOTE_STREAMING:
                 return createRemoteStreamingExchange(exchange, context);
             case REMOTE_MATERIALIZED:
-                return createRemoteMaterializedExchange(exchange, context);
+                return createRemoteMaterializedExchange(metadata, session, exchange, context);
             default:
                 throw new IllegalArgumentException("Unexpected exchange scope: " + exchange.getScope());
         }
@@ -352,7 +352,7 @@ public abstract class BasePlanFragmenter
         }
     }
 
-    private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
+    private PlanNode createRemoteMaterializedExchange(Metadata metadata, Session session, ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
         checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
         checkArgument(exchange.getScope() == REMOTE_MATERIALIZED, "Unexpected exchange scope: %s", exchange.getScope());
@@ -370,7 +370,8 @@ public abstract class BasePlanFragmenter
 
         Partitioning partitioning = partitioningScheme.getPartitioning();
         PartitioningVariableAssignments partitioningVariableAssignments = assignPartitioningVariables(variableAllocator, partitioning);
-        Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap = assignTemporaryTableColumnNames(exchange.getOutputVariables(), partitioningVariableAssignments.getConstants().keySet());
+        Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap = assignTemporaryTableColumnNames(metadata,
+                session, connectorId.getCatalogName(), exchange.getOutputVariables(), partitioningVariableAssignments.getConstants().keySet());
         List<VariableReferenceExpression> partitioningVariables = partitioningVariableAssignments.getVariables();
         List<String> partitionColumns = partitioningVariables.stream()
                 .map(variable -> variableToColumnMap.get(variable).getName())

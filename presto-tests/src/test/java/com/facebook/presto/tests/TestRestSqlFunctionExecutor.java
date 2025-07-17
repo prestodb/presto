@@ -39,8 +39,8 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RemoteScalarFunctionImplementation;
+import com.facebook.presto.spi.function.RestFunctionHandle;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -347,8 +347,12 @@ public class TestRestSqlFunctionExecutor
 
     private RemoteScalarFunctionImplementation createRemoteScalarFunctionImplementation(SqlInvokedFunction sqlInvokedFunction)
     {
-        SqlFunctionHandle sqlFunctionHandle = new SqlFunctionHandle(sqlInvokedFunction.getFunctionId(), "123");
-        return new RemoteScalarFunctionImplementation(sqlFunctionHandle, RoutineCharacteristics.Language.CPP, FunctionImplementationType.CPP);
+        RestFunctionHandle functionHandle = new RestFunctionHandle(
+                sqlInvokedFunction.getFunctionId(),
+                "123",
+                sqlInvokedFunction.getSignature(),
+                Optional.of(REST_SERVER_URI));
+        return new RemoteScalarFunctionImplementation(functionHandle, RoutineCharacteristics.Language.CPP, FunctionImplementationType.CPP);
     }
 
     private static PagesSerde createPagesSerde()

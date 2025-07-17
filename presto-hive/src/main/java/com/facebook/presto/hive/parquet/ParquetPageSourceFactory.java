@@ -89,6 +89,7 @@ import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
+import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
@@ -451,7 +452,8 @@ public class ParquetPageSourceFactory
         PrimitiveTypeName parquetTypeName = parquetType.asPrimitiveType().getPrimitiveTypeName();
         switch (parquetTypeName) {
             case INT64:
-                return prestoType.equals(BIGINT) || prestoType.equals(DECIMAL) || prestoType.equals(TIMESTAMP) || prestoType.equals(StandardTypes.REAL) || prestoType.equals(StandardTypes.DOUBLE);
+                return prestoType.equals(BIGINT) || prestoType.equals(DECIMAL) || prestoType.equals(TIMESTAMP) || prestoType.equals(StandardTypes.REAL) || prestoType.equals(StandardTypes.DOUBLE)
+                        || prestoType.equals(TIMESTAMP_WITH_TIME_ZONE);
             case INT32:
                 return prestoType.equals(INTEGER) || prestoType.equals(BIGINT) || prestoType.equals(SMALLINT) || prestoType.equals(DATE) || prestoType.equals(DECIMAL) ||
                     prestoType.equals(TINYINT) || prestoType.equals(REAL) || prestoType.equals(StandardTypes.DOUBLE);
@@ -464,7 +466,7 @@ public class ParquetPageSourceFactory
             case BINARY:
                 return prestoType.equals(VARBINARY) || prestoType.equals(VARCHAR) || prestoType.startsWith(CHAR) || prestoType.equals(DECIMAL);
             case INT96:
-                return prestoType.equals(TIMESTAMP);
+                return prestoType.equals(TIMESTAMP) || prestoType.equals(TIMESTAMP_WITH_TIME_ZONE);
             case FIXED_LEN_BYTE_ARRAY:
                 return prestoType.equals(DECIMAL);
             default:

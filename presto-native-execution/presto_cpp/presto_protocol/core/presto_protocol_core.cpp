@@ -118,6 +118,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
   }
+  if (type == "sql_function_handle") {
+    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type FunctionHandle ");
 }
@@ -145,6 +149,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "json_file") {
+    std::shared_ptr<SqlFunctionHandle> k =
+        std::make_shared<SqlFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "sql_function_handle") {
     std::shared_ptr<SqlFunctionHandle> k =
         std::make_shared<SqlFunctionHandle>();
     j.get_to(*k);
@@ -726,7 +737,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TopNRowNumberNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.UnnestNode") {
+  if (type == ".UnnestNode") {
     j = *std::static_pointer_cast<UnnestNode>(p);
     return;
   }
@@ -906,7 +917,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.UnnestNode") {
+  if (type == ".UnnestNode") {
     std::shared_ptr<UnnestNode> k = std::make_shared<UnnestNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -6341,6 +6352,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "List<LongVariableConstraint>",
       "longVariableConstraints");
+  to_json_key(
+      j,
+      "executionEndpoint",
+      p.executionEndpoint,
+      "JsonBasedUdfFunctionMetadata",
+      "URI",
+      "executionEndpoint");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -6428,6 +6446,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "List<LongVariableConstraint>",
       "longVariableConstraints");
+  from_json_key(
+      j,
+      "executionEndpoint",
+      p.executionEndpoint,
+      "JsonBasedUdfFunctionMetadata",
+      "URI",
+      "executionEndpoint");
 }
 } // namespace facebook::presto::protocol
 // dependency KeyedSubclass
@@ -9326,12 +9351,12 @@ void from_json(const json& j, SpecialFormExpression& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 SqlFunctionHandle::SqlFunctionHandle() noexcept {
-  _type = "json_file";
+  _type = "sql_function_handle";
 }
 
 void to_json(json& j, const SqlFunctionHandle& p) {
   j = json::object();
-  j["@type"] = "json_file";
+  j["@type"] = "sql_function_handle";
   to_json_key(
       j,
       "functionId",
@@ -10178,6 +10203,47 @@ void to_json(json& j, const TaskStats& p) {
       "completedDrivers");
   to_json_key(
       j,
+      "totalNewDrivers",
+      p.totalNewDrivers,
+      "TaskStats",
+      "int",
+      "totalNewDrivers");
+  to_json_key(
+      j,
+      "queuedNewDrivers",
+      p.queuedNewDrivers,
+      "TaskStats",
+      "int",
+      "queuedNewDrivers");
+  to_json_key(
+      j,
+      "runningNewDrivers",
+      p.runningNewDrivers,
+      "TaskStats",
+      "int",
+      "runningNewDrivers");
+  to_json_key(
+      j,
+      "completedNewDrivers",
+      p.completedNewDrivers,
+      "TaskStats",
+      "int",
+      "completedNewDrivers");
+  to_json_key(
+      j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
+  to_json_key(
+      j, "queuedSplits", p.queuedSplits, "TaskStats", "int", "queuedSplits");
+  to_json_key(
+      j, "runningSplits", p.runningSplits, "TaskStats", "int", "runningSplits");
+  to_json_key(
+      j,
+      "completedSplits",
+      p.completedSplits,
+      "TaskStats",
+      "int",
+      "completedSplits");
+  to_json_key(
+      j,
       "cumulativeUserMemory",
       p.cumulativeUserMemory,
       "TaskStats",
@@ -10446,6 +10512,47 @@ void from_json(const json& j, TaskStats& p) {
       "TaskStats",
       "int",
       "completedDrivers");
+  from_json_key(
+      j,
+      "totalNewDrivers",
+      p.totalNewDrivers,
+      "TaskStats",
+      "int",
+      "totalNewDrivers");
+  from_json_key(
+      j,
+      "queuedNewDrivers",
+      p.queuedNewDrivers,
+      "TaskStats",
+      "int",
+      "queuedNewDrivers");
+  from_json_key(
+      j,
+      "runningNewDrivers",
+      p.runningNewDrivers,
+      "TaskStats",
+      "int",
+      "runningNewDrivers");
+  from_json_key(
+      j,
+      "completedNewDrivers",
+      p.completedNewDrivers,
+      "TaskStats",
+      "int",
+      "completedNewDrivers");
+  from_json_key(
+      j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
+  from_json_key(
+      j, "queuedSplits", p.queuedSplits, "TaskStats", "int", "queuedSplits");
+  from_json_key(
+      j, "runningSplits", p.runningSplits, "TaskStats", "int", "runningSplits");
+  from_json_key(
+      j,
+      "completedSplits",
+      p.completedSplits,
+      "TaskStats",
+      "int",
+      "completedSplits");
   from_json_key(
       j,
       "cumulativeUserMemory",
@@ -11134,12 +11241,12 @@ void from_json(const json& j, TopNRowNumberNode& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 UnnestNode::UnnestNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.UnnestNode";
+  _type = ".UnnestNode";
 }
 
 void to_json(json& j, const UnnestNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.UnnestNode";
+  j["@type"] = ".UnnestNode";
   to_json_key(j, "id", p.id, "UnnestNode", "PlanNodeId", "id");
   to_json_key(j, "source", p.source, "UnnestNode", "PlanNode", "source");
   to_json_key(

@@ -57,11 +57,13 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
+import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -243,7 +245,7 @@ public class PrestoSparkQueryRunner
                         .build(),
                 ImmutableMap.of(),
                 dataDirectory,
-                ImmutableList.of(),
+                ImmutableList.of(new NativeExecutionModule()),
                 DEFAULT_AVAILABLE_CPU_COUNT);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
@@ -329,6 +331,12 @@ public class PrestoSparkQueryRunner
         defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
                 .setCatalog(defaultCatalog)
                 .setSchema("tpch")
+                // Sql-Standard Access Control Checker
+                // needs us to specify our role
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        ImmutableMap.of(defaultCatalog, "admin")))
                 .build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -429,6 +437,8 @@ public class PrestoSparkQueryRunner
         logging.setLevel("org.apache.spark", INFO);
         logging.setLevel("org.spark_project", WARN);
         logging.setLevel("com.facebook.presto.spark", INFO);
+        logging.setLevel("com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory", WARN);
+        logging.setLevel("org.apache.spark.scheduler.TaskSetManager", WARN);
         logging.setLevel("org.apache.spark.util.ClosureCleaner", ERROR);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
@@ -743,6 +753,9 @@ public class PrestoSparkQueryRunner
                 if (prestoSparkService.getTaskExecutorFactory() != null) {
                     prestoSparkService.getTaskExecutorFactory().close();
                 }
+                if (prestoSparkService.getNativeTaskExecutorFactory() != null) {
+                    prestoSparkService.getNativeTaskExecutorFactory().close();
+                }
             }
             instances.remove(instanceId);
         }
@@ -762,6 +775,12 @@ public class PrestoSparkQueryRunner
         public IPrestoSparkTaskExecutorFactory get()
         {
             return instances.get(instanceId).getPrestoSparkService().getTaskExecutorFactory();
+        }
+
+        @Override
+        public IPrestoSparkTaskExecutorFactory getNative()
+        {
+            return instances.get(instanceId).getPrestoSparkService().getNativeTaskExecutorFactory();
         }
     }
 

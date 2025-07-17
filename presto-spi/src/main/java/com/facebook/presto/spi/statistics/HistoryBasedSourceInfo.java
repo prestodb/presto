@@ -29,12 +29,14 @@ public class HistoryBasedSourceInfo
     private final Optional<String> hash;
     private final Optional<List<PlanStatistics>> inputTableStatistics;
     private final Optional<HistoricalPlanStatisticsEntryInfo> historicalPlanStatisticsEntryInfo;
+    private final boolean estimateSizeUsingVariables;
 
-    public HistoryBasedSourceInfo(Optional<String> hash, Optional<List<PlanStatistics>> inputTableStatistics, Optional<HistoricalPlanStatisticsEntryInfo> historicalPlanStatisticsEntryInfo)
+    public HistoryBasedSourceInfo(Optional<String> hash, Optional<List<PlanStatistics>> inputTableStatistics, Optional<HistoricalPlanStatisticsEntryInfo> historicalPlanStatisticsEntryInfo, boolean estimateSizeUsingVariables)
     {
         this.hash = requireNonNull(hash, "hash is null");
         this.inputTableStatistics = requireNonNull(inputTableStatistics, "inputTableStatistics is null");
         this.historicalPlanStatisticsEntryInfo = requireNonNull(historicalPlanStatisticsEntryInfo, "historicalPlanStatisticsEntryInfo is null");
+        this.estimateSizeUsingVariables = estimateSizeUsingVariables;
     }
 
     public Optional<String> getHash()
@@ -81,5 +83,11 @@ public class HistoryBasedSourceInfo
     public String getSourceInfoName()
     {
         return "HBO";
+    }
+
+    @Override
+    public boolean estimateSizeUsingVariables()
+    {
+        return estimateSizeUsingVariables;
     }
 }

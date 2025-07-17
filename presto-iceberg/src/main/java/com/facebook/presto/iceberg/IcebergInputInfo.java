@@ -22,16 +22,25 @@ import static java.util.Objects.requireNonNull;
 public class IcebergInputInfo
 {
     private final Optional<Long> snapshotId;
+    private final String tableLocation;
 
     public IcebergInputInfo(
-            @JsonProperty("snapshotId") Optional<Long> snapshotId)
+            @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("tableLocation") String tableLocation)
     {
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
     }
 
     @JsonProperty
     public Optional<Long> getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public String getTableLocation()
+    {
+        return tableLocation;
     }
 }

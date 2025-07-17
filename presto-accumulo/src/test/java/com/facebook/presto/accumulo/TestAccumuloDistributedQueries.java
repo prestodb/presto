@@ -19,6 +19,7 @@ import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
@@ -324,7 +325,7 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testShowColumns()
+    public void testShowColumns(@Optional("PARQUET") String storageFormat)
     {
         // Override base class because table descriptions for Accumulo connector include comments
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");

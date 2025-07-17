@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-i18n-functions</artifactId>
+    <name>presto-i18n-functions</name>
     <description>Internationalization functions for Presto</description>
     <packaging>presto-plugin</packaging>
 
