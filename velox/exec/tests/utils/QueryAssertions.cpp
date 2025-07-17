@@ -20,9 +20,8 @@
 #include "duckdb/common/types.hpp" // @manual
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/exec/Cursor.h"
-#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/vector/VariantToVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 using facebook::velox::duckdb::duckdbTimestampToVelox;
@@ -455,93 +454,6 @@ std::vector<MaterializedRow> materialize(
   return rows;
 }
 
-template <TypeKind kind>
-variant variantAt(VectorPtr vector, int32_t row) {
-  using T = typename KindToFlatVector<kind>::WrapperType;
-  return variant(vector->as<SimpleVector<T>>()->valueAt(row));
-}
-
-template <>
-variant variantAt<TypeKind::VARBINARY>(VectorPtr vector, int32_t row) {
-  return variant::binary(vector->as<SimpleVector<StringView>>()->valueAt(row));
-}
-
-variant variantAt(const VectorPtr& vector, vector_size_t row);
-
-variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
-  auto arrayVector = vector->wrappedVector()->as<ArrayVector>();
-  auto& elements = arrayVector->elements();
-
-  auto wrappedRow = vector->wrappedIndex(row);
-  auto offset = arrayVector->offsetAt(wrappedRow);
-  auto size = arrayVector->sizeAt(wrappedRow);
-
-  std::vector<variant> array;
-  array.reserve(size);
-  for (auto i = 0; i < size; i++) {
-    auto innerRow = offset + i;
-    array.push_back(variantAt(elements, innerRow));
-  }
-  return variant::array(array);
-}
-
-variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
-  auto mapVector = vector->wrappedVector()->as<MapVector>();
-  auto& mapKeys = mapVector->mapKeys();
-  auto& mapValues = mapVector->mapValues();
-
-  auto wrappedRow = vector->wrappedIndex(row);
-  auto offset = mapVector->offsetAt(wrappedRow);
-  auto size = mapVector->sizeAt(wrappedRow);
-
-  std::map<variant, variant> map;
-  for (auto i = 0; i < size; i++) {
-    auto innerRow = offset + i;
-    auto key = variantAt(mapKeys, innerRow);
-    auto value = variantAt(mapValues, innerRow);
-    map.insert({key, value});
-  }
-  return variant::map(map);
-}
-
-variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
-  auto rowValues = vector->wrappedVector()->as<RowVector>();
-  auto wrappedRow = vector->wrappedIndex(row);
-
-  std::vector<variant> values;
-  for (auto& child : rowValues->children()) {
-    values.push_back(variantAt(child, wrappedRow));
-  }
-  return variant::row(std::move(values));
-}
-
-variant variantAt(const VectorPtr& vector, vector_size_t row) {
-  if (vector->isNullAt(row)) {
-    return nullVariant(vector->type());
-  }
-
-  auto typeKind = vector->typeKind();
-  if (typeKind == TypeKind::ROW) {
-    return rowVariantAt(vector, row);
-  }
-
-  if (typeKind == TypeKind::ARRAY) {
-    return arrayVariantAt(vector, row);
-  }
-
-  if (typeKind == TypeKind::MAP) {
-    return mapVariantAt(vector, row);
-  }
-
-  if (isTimestampWithTimeZoneType(vector->type())) {
-    return variant::typeWithCustomComparison<TypeKind::BIGINT>(
-        vector->as<SimpleVector<int64_t>>()->valueAt(row),
-        TIMESTAMP_WITH_TIME_ZONE());
-  }
-
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, typeKind, vector, row);
-}
-
 MaterializedRow getColumns(
     const MaterializedRow& row,
     const std::vector<uint32_t>& columnIndices) {
@@ -899,7 +811,7 @@ std::vector<MaterializedRow> materialize(const RowVectorPtr& vector) {
     MaterializedRow row;
     row.reserve(numColumns);
     for (size_t j = 0; j < numColumns; ++j) {
-      row.push_back(variantAt(simpleVectors[j], i));
+      row.push_back(vectorToVariant(simpleVectors[j], i));
     }
     rows.push_back(row);
   }
