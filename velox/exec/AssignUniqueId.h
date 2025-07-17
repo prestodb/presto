@@ -37,7 +37,7 @@ class AssignUniqueId : public Operator {
   }
 
   bool needsInput() const override {
-    return true;
+    return input_ == nullptr;
   }
 
   void addInput(RowVectorPtr input) override;
