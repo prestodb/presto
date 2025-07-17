@@ -59,6 +59,8 @@ Additionally, the Hive plugin must be configured with location of your Hive meta
 
     -Dhive.metastore.uri=thrift://localhost:9083
 
+To modify the loaded plugins in IntelliJ, modify the `config.properties` located in `presto-main/etc`. You can modify `plugin.bundles` with the location of the plugin pom.xml
+
 ### Additional configuration for Java 17
 
 When running with Java 17, additional `--add-opens` flags are required to allow reflective access used by certain catalogs based on which catalogs are configured.  

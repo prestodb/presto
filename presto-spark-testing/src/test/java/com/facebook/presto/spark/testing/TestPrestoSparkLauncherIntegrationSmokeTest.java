@@ -51,7 +51,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.session.FileSessionPropertyManager.CODEC;
+import static com.facebook.presto.session.file.FileSessionPropertyManager.CODEC;
 import static com.facebook.presto.spark.testing.Processes.destroyProcess;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -181,7 +181,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 Optional.of(Pattern.compile("global.*")),
                 Optional.empty(),
                 Optional.empty(),
-                properties);
+                properties,
+                ImmutableMap.of());
         sessionPropertyConfigJsonFile = new File(tempDir, "session-property-config.json");
         Files.write(sessionPropertyConfigJsonFile.toPath(), CODEC.toJsonBytes(Collections.singletonList(spec)));
         sessionPropertyConfig = new File(tempDir, "session-property-configuration.properties");
