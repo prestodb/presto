@@ -1915,6 +1915,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertThat(getQueryRunner().execute(session, "EXPLAIN (TYPE DISTRIBUTED) " + wideAggregation).getOnlyValue().toString())
                 .contains("Output encoding: ROW_WISE");
     }
+
     @Test
     public void testUuid()
     {
