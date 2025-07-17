@@ -11,21 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.db;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class FileSessionPropertyManagerModule
+public class DbSessionPropertyManagerModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(FileSessionPropertyManagerConfig.class);
-        binder.bind(FileSessionPropertyManager.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DbSessionPropertyManagerConfig.class);
+        binder.bind(DbSessionPropertyManager.class).in(Scopes.SINGLETON);
+        binder.bind(SessionPropertiesDao.class).toProvider(SessionPropertiesDaoProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DbSpecsProvider.class).to(RefreshingDbSpecsProvider.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DbSpecsProvider.class).withGeneratedName();
     }
 }
