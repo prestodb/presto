@@ -480,7 +480,21 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-session-property-managers</artifactId>
+            <artifactId>presto-session-property-managers-common</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-db-session-property-manager</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-file-session-property-manager</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
         </dependency>

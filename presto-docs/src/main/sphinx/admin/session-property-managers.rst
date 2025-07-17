@@ -6,7 +6,8 @@ Administrators can add session properties to control the behavior for subsets of
 These properties are defaults and can be overridden by users (if authorized to do so). Session
 properties can be used to control resource usage, enable or disable features, and change query
 characteristics. Session property managers are pluggable. A session property manager can either
-be database-based or file-based.
+be database-based or file-based. For production environments, the database-based manager is
+recommended as the properties can be updated without requiring a cluster restart.
 
 To enable a built-in manager that reads a JSON configuration file, add an
 ``etc/session-property-config.properties`` file with the following contents:

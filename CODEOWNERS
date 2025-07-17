@@ -76,7 +76,9 @@
 /presto-resource-group-managers @prestodb/committers
 /presto-router @prestodb/committers
 /presto-server @prestodb/committers
-/presto-session-property-managers @prestodb/committers
+/presto-session-property-managers-common @prestodb/committers
+/presto-file-session-property-manager @prestodb/committers
+/presto-db-session-property-manager @prestodb/committers
 /presto-singlestore @prestodb/committers
 /presto-spi @prestodb/committers
 /presto-sqlserver @prestodb/committers
