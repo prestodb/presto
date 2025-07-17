@@ -53,50 +53,6 @@ std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::deserialize(
   }
 }
 
-const std::unique_ptr<geos::geom::Envelope>
-GeometryDeserializer::deserializeEnvelope(const StringView& geometry) {
-  velox::common::InputByteStream inputStream(geometry.data());
-  auto geometryType = static_cast<GeometrySerializationType>(
-      inputStream.read<GeometrySerializationType>());
-
-  switch (geometryType) {
-    case GeometrySerializationType::POINT:
-      return std::make_unique<geos::geom::Envelope>(
-          *readPoint(inputStream)->getEnvelopeInternal());
-    case GeometrySerializationType::MULTI_POINT:
-    case GeometrySerializationType::LINE_STRING:
-    case GeometrySerializationType::MULTI_LINE_STRING:
-    case GeometrySerializationType::POLYGON:
-    case GeometrySerializationType::MULTI_POLYGON:
-      skipEsriType(inputStream);
-      return deserializeEnvelope(inputStream);
-    case GeometrySerializationType::ENVELOPE:
-      return deserializeEnvelope(inputStream);
-    case GeometrySerializationType::GEOMETRY_COLLECTION:
-      return std::make_unique<geos::geom::Envelope>(
-          *readGeometryCollection(inputStream, geometry.size())
-               ->getEnvelopeInternal());
-    default:
-      VELOX_FAIL(
-          "Unrecognized geometry type: {}", static_cast<uint8_t>(geometryType));
-  }
-}
-
-std::unique_ptr<geos::geom::Envelope> GeometryDeserializer::deserializeEnvelope(
-    velox::common::InputByteStream& input) {
-  auto xMin = input.read<double>();
-  auto yMin = input.read<double>();
-  auto xMax = input.read<double>();
-  auto yMax = input.read<double>();
-
-  if (isEsriNaN(xMin) || isEsriNaN(yMin) || isEsriNaN(xMax) ||
-      isEsriNaN(yMax)) {
-    return std::make_unique<geos::geom::Envelope>();
-  }
-
-  return std::make_unique<geos::geom::Envelope>(xMin, xMax, yMin, yMax);
-}
-
 geos::geom::Coordinate GeometryDeserializer::readCoordinate(
     velox::common::InputByteStream& input) {
   auto x = input.read<double>();
@@ -294,6 +250,14 @@ GeometryDeserializer::readGeometryCollection(
 
   return std::unique_ptr<geos::geom::GeometryCollection>(
       getGeometryFactory()->createGeometryCollection(rawGeometries));
+}
+
+const std::unique_ptr<geos::geom::Envelope> getEnvelopeFromGeometry(
+    const StringView& geometry) {
+  std::unique_ptr<geos::geom::Geometry> geosGeometry =
+      geospatial::GeometryDeserializer::deserialize(geometry);
+  return std::make_unique<geos::geom::Envelope>(
+      *geosGeometry->getEnvelopeInternal());
 }
 
 } // namespace facebook::velox::functions::geospatial

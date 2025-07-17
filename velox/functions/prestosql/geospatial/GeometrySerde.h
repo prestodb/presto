@@ -311,9 +311,6 @@ class GeometryDeserializer {
     return deserialize(inputStream, geometryString.size());
   }
 
-  static const std::unique_ptr<geos::geom::Envelope> deserializeEnvelope(
-      const StringView& geometry);
-
  private:
   static std::unique_ptr<geos::geom::Geometry> deserialize(
       velox::common::InputByteStream& stream,
@@ -330,9 +327,6 @@ class GeometryDeserializer {
   static void skipEnvelope(velox::common::InputByteStream& input) {
     input.read<double>(4); // Envelopes are 4 doubles (minX, minY, maxX, maxY)
   }
-
-  static std::unique_ptr<geos::geom::Envelope> deserializeEnvelope(
-      velox::common::InputByteStream& input);
 
   static geos::geom::Coordinate readCoordinate(
       velox::common::InputByteStream& input);
@@ -362,5 +356,9 @@ class GeometryDeserializer {
       velox::common::InputByteStream& input,
       size_t size);
 };
+
+/// Deserialize Velox's internal format to a geometry and get the Envelope.
+const std::unique_ptr<geos::geom::Envelope> getEnvelopeFromGeometry(
+    const StringView& geometry);
 
 } // namespace facebook::velox::functions::geospatial
