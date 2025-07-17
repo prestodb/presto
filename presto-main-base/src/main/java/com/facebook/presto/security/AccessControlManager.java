@@ -393,6 +393,46 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowColumnsMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "table is null");
+
+        CatalogSchemaTableName catalogSchemaTableName = toCatalogSchemaTableName(tableName);
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanShowColumnsMetadata(identity, context, catalogSchemaTableName));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanShowColumnsMetadata(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(), context, catalogSchemaTableName.getSchemaTableName()));
+        }
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, List<ColumnMetadata> columns)
+    {
+        requireNonNull(transactionId, "transaction is null");
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableName.getObjectName());
+
+        if (filterTables(transactionId, identity, context, tableName.getCatalogName(), ImmutableSet.of(schemaTableName)).isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        columns = systemAccessControl.get().filterColumns(identity, context, toCatalogSchemaTableName(tableName), columns);
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            columns = entry.getAccessControl().filterColumns(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(), context, schemaTableName, columns);
+        }
+        return columns;
+    }
+
+    @Override
     public void checkCanAddColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");

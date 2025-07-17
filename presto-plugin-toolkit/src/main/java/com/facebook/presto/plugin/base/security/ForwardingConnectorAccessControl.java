@@ -117,6 +117,18 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanShowColumnsMetadata(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return delegate().filterColumns(transactionHandle, identity, context, tableName, columns);
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate().checkCanAddColumn(transactionHandle, identity, context, tableName);
