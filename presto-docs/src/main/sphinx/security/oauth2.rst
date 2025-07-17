@@ -39,6 +39,9 @@ Below are the key configuration properties for enabling OAuth2 authentication in
     http-server.authentication.oauth2.additional-audiences=your-client-id,another-audience
     http-server.authentication.oauth2.user-mapping.pattern=(.*)
 
+It is worth noting that ``configuration-based-authorizer.role-regex-map.file-path`` must be configured if
+authentication type is set to ``OAUTH2``.
+
 TLS Truststore for IdP
 ----------------------
 
@@ -62,3 +65,4 @@ Notes
 - **Groups Field**: Optional claim used for role-based access control.
 - **State Key**: A secret used to sign the OAuth2 state parameter (HMAC).
 - **Refresh Tokens**: Enable if your IdP supports issuing refresh tokens.
+- **Callback**: When configuring your IdP the callback URI must be set to ``[presto]/oauth2/callback``
