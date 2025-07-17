@@ -42,6 +42,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -899,6 +900,19 @@ public interface ConnectorMetadata
     default boolean isPushdownSupportedForFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter, Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
     {
         return false;
+    }
+
+    /**
+     * Attempt to push down the table function invocation into the connector.
+     * <p>
+     * Connectors can indicate whether they don't support table function invocation pushdown or that the action had no
+     * effect by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * <p>
+     * If the method returns a result, the returned table handle will be used in place of the table function invocation.
+     */
+    default Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        return Optional.empty();
     }
 
     /**

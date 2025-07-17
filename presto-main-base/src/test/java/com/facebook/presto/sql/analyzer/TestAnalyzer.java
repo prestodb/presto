@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
@@ -40,10 +41,19 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_COLUMN_REFERENCE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_COPARTITIONING;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
@@ -52,9 +62,11 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
@@ -87,6 +99,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -1912,5 +1925,411 @@ public class TestAnalyzer
     {
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testTableFunctionNotFound()
+    {
+        assertFails(FUNCTION_NOT_FOUND,
+                "line 1:21: Table function non_existent_table_function not registered",
+                "SELECT * FROM TABLE(non_existent_table_function())");
+    }
+
+    @Test
+    public void testTableFunctionArguments()
+    {
+        assertFails(INVALID_ARGUMENTS, "line 1:51: Too many arguments. Expected at most 2 arguments, got 3 arguments", "SELECT * FROM TABLE(system.two_arguments_function(1, 2, 3))");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', number => 1))");
+
+        assertFails(INVALID_ARGUMENTS,
+                "line 1:51: All arguments must be passed by name or all must be passed positionally",
+                "SELECT * FROM TABLE(system.two_arguments_function('foo', number => 1))");
+
+        assertFails(INVALID_ARGUMENTS,
+                "line 1:51: All arguments must be passed by name or all must be passed positionally",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', 1))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Duplicate argument name: TEXT",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', text => 'bar'))");
+
+        // argument names are resolved in the canonical form
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Duplicate argument name: TEXT",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', TeXt => 'bar'))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Unexpected argument name: BAR",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', bar => 'bar'))");
+
+        assertFails(MISSING_ARGUMENT,
+                "line 1:51: Missing argument: TEXT",
+                "SELECT * FROM TABLE(system.two_arguments_function(number => 1))");
+    }
+
+    @Test
+    public void testTableArgument()
+    {
+        // cannot pass a table function as the argument
+        assertFails(NOT_SUPPORTED,
+                "line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments",
+                "SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(1)))");
+
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+
+        // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:94: mismatched input '('.");
+
+        // a table passed as the argument must be preceded with TABLE
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1)))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:52: Invalid argument INPUT. Expected table, got expression",
+                "SELECT * FROM TABLE(system.table_argument_function(input => t1))");
+
+        // a query passed as the argument must be preceded with TABLE
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT * FROM t1)))");
+
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => SELECT * FROM t1))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:61: mismatched input 'SELECT'.");
+
+        // query passed as the argument is correlated
+        analyze("SELECT * FROM t1 CROSS JOIN LATERAL (SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 WHERE a > 0))))");
+
+        // wrong argument type
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:52: Invalid argument INPUT. Expected table, got expression",
+                "SELECT * FROM TABLE(system.table_argument_function(input => 'foo'))");
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:52: Invalid argument INPUT. Expected table, got descriptor",
+                "SELECT * FROM TABLE(system.table_argument_function(input => DESCRIPTOR(x int, y int)))");
+    }
+
+    @Test
+    public void testTableArgumentProperties()
+    {
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) PARTITION BY a KEEP WHEN EMPTY ORDER BY b))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Invalid argument INPUT. Partitioning specified for table argument with row semantics",
+                "SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PARTITION BY a))");
+
+        assertFails(COLUMN_NOT_FOUND,
+                "line 1:92: Column b is not present in the input relation",
+                "SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) PARTITION BY b))");
+
+        assertFails(INVALID_COLUMN_REFERENCE,
+                "line 1:88: Expected column reference. Actual: 1",
+                "SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY 1))");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:104: HyperLogLog is not comparable, and therefore cannot be used in PARTITION BY",
+                "SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT approx_set(1) a) PARTITION BY a))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT, "line 1:66: Invalid argument INPUT. Ordering specified for table argument with row semantics",
+                "SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) ORDER BY a))");
+
+        assertFails(COLUMN_NOT_FOUND,
+                "line 1:88: Column b is not present in the input relation",
+                "SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY b))");
+
+        assertFails(INVALID_COLUMN_REFERENCE,
+                "line 1:88: Expected column reference. Actual: 1",
+                "SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY 1))");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:100: HyperLogLog is not orderable, and therefore cannot be used in ORDER BY",
+                "SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT approx_set(1) a) ORDER BY a))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:85: Invalid argument INPUT. Empty behavior specified for table argument with row semantics",
+                "SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PRUNE WHEN EMPTY))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:85: Invalid argument INPUT. Empty behavior specified for table argument with row semantics",
+                "SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) KEEP WHEN EMPTY))");
+    }
+
+    @Test
+    public void testDescriptorArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x integer, y boolean)))");
+
+        assertFailsExact(INVALID_FUNCTION_ARGUMENT,
+                "line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'",
+                "SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(1 + 2)))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression",
+                "SELECT * FROM TABLE(system.descriptor_argument_function(schema => 1))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:57: Invalid argument SCHEMA. Expected descriptor, got table",
+                "SELECT * FROM TABLE(system.descriptor_argument_function(schema => TABLE(t1)))");
+
+        assertFails(TYPE_MISMATCH,
+                "line 1:78: Unknown type: verybigint",
+                "SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x verybigint)))");
+    }
+
+    @Test
+    public void testScalarArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:64: Invalid argument NUMBER. Expected expression, got descriptor",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(x integer, y boolean)))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:64: 'descriptor' function is not allowed as a table function argument",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:64: Invalid argument NUMBER. Expected expression, got table",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => TABLE(t1)))");
+
+        assertFails(EXPRESSION_NOT_CONSTANT,
+                "line 1:74: Constant expression cannot contain a subquery",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => (SELECT 1)))");
+    }
+
+    @Test
+    public void testCopartitioning()
+    {
+        // TABLE(t1) is matched by fully qualified name: tpch.s1.t1. It matches the second copartition item s1.t1.
+        // Aliased relation TABLE(SELECT 1, 2) t1(x, y) is matched by unqualified name. It matches the first copartition item t1.
+        analyze("SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1) PARTITION BY (a, b)," +
+                    "input2 => TABLE(SELECT 1, 2) t1(x, y) PARTITION BY (x, y)" +
+                    "COPARTITION (t1, s1.t1)))");
+
+        // Copartition items t1, t2 are first matched to arguments by unqualified names, and when no match is found, by fully qualified names.
+        // TABLE(tpch.s1.t1) is matched by fully qualified name. It matches the first copartition item t1.
+        // TABLE(s1.t2) is matched by unqualified name: tpch.s1.t2. It matches the second copartition item t2.
+        analyze("SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(tpch.s1.t1) PARTITION BY (a, b)," +
+                    "input2 => TABLE(s1.t2) PARTITION BY (a, b)" +
+                    "COPARTITION (t1, t2)))");
+
+        assertFails(INVALID_COPARTITIONING,
+                "No table argument found for name: s1.foo",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1) PARTITION BY (a, b)," +
+                    "input2 => TABLE(t2) PARTITION BY (a, b)" +
+                    "COPARTITION (t1, s1.foo)))");
+
+        // Both table arguments are matched by fully qualified name: tpch.s1.t1
+        assertFails(INVALID_COPARTITIONING, "Ambiguous reference: multiple table arguments found for name: t1",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1) PARTITION BY (a, b)," +
+                    "input2 => TABLE(t1) PARTITION BY (a, b)" +
+                    "COPARTITION (t1, t2)))");
+
+        // Both table arguments are matched by unqualified name: t1
+        assertFails(INVALID_COPARTITIONING,
+                "Ambiguous reference: multiple table arguments found for name: t1",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(SELECT 1, 2) t1(a, b) PARTITION BY (a, b)," +
+                    "input2 => TABLE(SELECT 3, 4) t1(c, d) PARTITION BY (c, d)" +
+                    "COPARTITION (t1, t2)))");
+
+        assertFails(INVALID_COPARTITIONING,
+                "Multiple references to table argument: t1 in COPARTITION clause",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1) PARTITION BY (a, b)," +
+                    "input2 => TABLE(t2) PARTITION BY (a, b)" +
+                    "COPARTITION (t1, t1)))");
+    }
+
+    @Test
+    public void testCopartitionColumns()
+    {
+        assertFails(INVALID_COPARTITIONING,
+                "line 1:67: Table tpch.s1.t1 referenced in COPARTITION clause is not partitioned",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1)," +
+                    "input2 => TABLE(t2) PARTITION BY (a, b)" +
+                    "COPARTITION (t1, t2)))");
+
+        assertFails(INVALID_COPARTITIONING,
+                "line 1:67: No partitioning columns specified for table tpch.s1.t1 referenced in COPARTITION clause",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1) PARTITION BY ()," +
+                    "input2 => TABLE(t2) PARTITION BY ()" +
+                    "COPARTITION (t1, t2)))");
+
+        assertFails(INVALID_COPARTITIONING,
+                "Numbers of partitioning columns in copartitioned tables do not match",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(t1) PARTITION BY (a, b)," +
+                    "input2 => TABLE(t2) PARTITION BY (a)" +
+                    "COPARTITION (t1, t2)))");
+
+        assertFails(TYPE_MISMATCH,
+                "Partitioning columns in copartitioned tables have incompatible types",
+                "SELECT * FROM TABLE(system.two_table_arguments_function(" +
+                    "input1 => TABLE(SELECT 1) t1(a) PARTITION BY (a)," +
+                    "input2 => TABLE(SELECT 'x') t2(b) PARTITION BY (b)" +
+                    "COPARTITION (t1, t2)))");
+    }
+
+    @Test
+    public void testNullArguments()
+    {
+        // cannot pass null for table argument
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:52: Invalid argument INPUT. Expected table, got expression",
+                "SELECT * FROM TABLE(system.table_argument_function(input => null))");
+
+        // the wrong way to pass null for descriptor
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression",
+                "SELECT * FROM TABLE(system.descriptor_argument_function(schema => null))");
+
+        // the right way to pass null for descriptor
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => CAST(null AS DESCRIPTOR)))");
+
+        // the default value for the argument schema is null
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function())");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(null, null))");
+
+        // the default value for the second argument is null
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a'))");
+    }
+
+    @Test
+    public void testTableFunctionInvocationContext()
+    {
+        // cannot specify relation alias for table function with ONLY PASS THROUGH return type
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 1:21: Alias specified for table function with ONLY PASS THROUGH return type",
+                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) f(x)");
+
+        // per SQL standard, relation alias is required for table function with GENERIC TABLE return type. We don't require it.
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x)");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1))");
+
+        // per SQL standard, relation alias is required for table function with statically declared return type, only if the function is polymorphic.
+        // We don't require aliasing polymorphic functions.
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function())");
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) f(x, y)");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
+
+        // sampled
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 1:21: Cannot apply sample to polymorphic table function invocation",
+                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)");
+
+//        // row pattern matching
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true)");
+
+        // aliased + sampled
+        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+                "line 1:15: Cannot apply sample to polymorphic table function invocation",
+                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)");
+
+//        // aliased + row pattern matching
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y)");
+//
+//        // row pattern matching + sampled
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:12: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true) TABLESAMPLE BERNOULLI (10)");
+//
+//        // aliased + row pattern matching + sampled
+//        assertFails(INVALID_TABLE_FUNCTION_INVOCATION,
+//                "line 2:6: Cannot apply row pattern matching to polymorphic table function invocation",
+//                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) MATCH_RECOGNIZE( PATTERN (a*) DEFINE a AS true ) t(y) TABLESAMPLE BERNOULLI (10)");
+    }
+
+    @Test
+    public void testTableFunctionAliasing()
+    {
+        // case-insensitive name matching
+        assertFails(DUPLICATE_RANGE_VARIABLE,
+                "line 1:64: Relation alias: T1 is a duplicate of input table name: tpch.s1.t1",
+                "SELECT * FROM TABLE(system.table_argument_function(TABLE(t1))) T1(x)");
+
+        assertFails(DUPLICATE_RANGE_VARIABLE,
+                "line 1:76: Relation alias: t1 is a duplicate of input table name: t1",
+                "SELECT * FROM TABLE(system.table_argument_function(TABLE(SELECT 1) T1(a))) t1(x)");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1) t2)) T1(x)");
+
+        // the original returned relation type is ("column" : BOOLEAN)
+        analyze("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias");
+
+        analyze("SELECT column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails(MISSING_ATTRIBUTE,
+                "line 1:8: Column 'column' cannot be resolved",
+                "SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails(MISMATCHED_COLUMN_ALIASES,
+                "line 1:20: Column alias list has 3 entries but table function has 1 proper columns",
+                "SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)");
+
+        // the original returned relation type is ("a" : BOOLEAN, "b" : INTEGER)
+        analyze("SELECT column_alias_1, column_alias_2 FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(column_alias_1, column_alias_2)");
+
+        assertFails(DUPLICATE_COLUMN_NAME,
+                "line 1:21: Duplicate name of table function proper column: col",
+                "SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)");
+
+        // case-insensitive name matching
+        assertFails(DUPLICATE_COLUMN_NAME,
+                "line 1:21: Duplicate name of table function proper column: col",
+                "SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)");
+
+        // pass-through columns of an input table must not be aliased, and must be referenced by the original range variables of their corresponding table arguments
+        // the function pass_through_function has one proper column ("x" : BOOLEAN), and one table argument with pass-through property
+        // tha alias applies only to the proper column
+        analyze("SELECT table_alias.x, t1.a, t1.b, t1.c, t1.d FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
+
+        analyze("SELECT table_alias.x, arg_alias.a, arg_alias.b, arg_alias.c, arg_alias.d FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias");
+
+        assertFails(MISSING_ATTRIBUTE,
+                "line 1:23: 't1.a' cannot be resolved",
+                "SELECT table_alias.x, t1.a FROM TABLE(system.pass_through_function(TABLE(t1) arg_alias)) table_alias");
+
+        assertFails(MISSING_ATTRIBUTE,
+                "line 1:23: 'table_alias.a' cannot be resolved",
+                "SELECT table_alias.x, table_alias.a FROM TABLE(system.pass_through_function(TABLE(t1))) table_alias");
+    }
+
+    @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        // the function required_column_function specifies columns 0 and 1 from table argument "INPUT" as required.
+        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(t1)))");
+
+        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(SELECT 1, 2, 3)))");
+
+        assertFails(FUNCTION_IMPLEMENTATION_ERROR,
+                "Invalid index: 1 of required column from table argument INPUT",
+                "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(SELECT 1)))");
+
+        // table s1.t5 has two columns. The second column is hidden. Table function cannot require a hidden column.
+        assertFails(FUNCTION_IMPLEMENTATION_ERROR,
+                "Invalid index: 1 of required column from table argument INPUT",
+                "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
     }
 }

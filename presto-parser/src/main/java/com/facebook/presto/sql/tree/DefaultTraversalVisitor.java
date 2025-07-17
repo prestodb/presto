@@ -163,6 +163,16 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        for (TableFunctionArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitGroupingOperation(GroupingOperation node, C context)
     {
         node.getGroupingColumns().forEach(columnArgument -> process(columnArgument, context));
