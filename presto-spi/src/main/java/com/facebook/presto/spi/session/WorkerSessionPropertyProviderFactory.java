@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.session;
 
+import java.util.Map;
+
 public interface WorkerSessionPropertyProviderFactory
 {
     String getName();
 
-    WorkerSessionPropertyProvider create(SessionPropertyContext context);
+    WorkerSessionPropertyProvider create(SessionPropertyContext context, Map<String, String> config);
 }

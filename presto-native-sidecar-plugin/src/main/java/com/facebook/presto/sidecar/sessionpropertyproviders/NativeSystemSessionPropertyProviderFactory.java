@@ -20,6 +20,8 @@ import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
 import com.google.inject.Injector;
 
+import java.util.Map;
+
 public class NativeSystemSessionPropertyProviderFactory
         implements WorkerSessionPropertyProviderFactory
 {
@@ -32,7 +34,7 @@ public class NativeSystemSessionPropertyProviderFactory
     }
 
     @Override
-    public WorkerSessionPropertyProvider create(SessionPropertyContext context)
+    public WorkerSessionPropertyProvider create(SessionPropertyContext context, Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
                 new NativeSystemSessionPropertyProviderModule(
@@ -42,6 +44,7 @@ public class NativeSystemSessionPropertyProviderFactory
         Injector injector = app
                 .doNotInitializeLogging()
                 .noStrictConfig()
+                .setRequiredConfigurationProperties(config)
                 .initialize();
         return injector.getInstance(NativeSystemSessionPropertyProvider.class);
     }
