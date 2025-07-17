@@ -3967,24 +3967,6 @@ class UnnestNode : public PlanNode {
       std::optional<std::string> emptyUnnestValueName,
       const PlanNodePtr& source);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  UnnestNode(
-      const PlanNodeId& id,
-      std::vector<FieldAccessTypedExprPtr> replicateVariables,
-      std::vector<FieldAccessTypedExprPtr> unnestVariables,
-      std::vector<std::string> unnestNames,
-      std::optional<std::string> ordinalityName,
-      const PlanNodePtr& source)
-      : UnnestNode(
-            id,
-            std::move(replicateVariables),
-            std::move(unnestVariables),
-            std::move(unnestNames),
-            std::move(ordinalityName),
-            std::nullopt,
-            source) {}
-#endif
-
   class Builder {
    public:
     Builder() = default;
