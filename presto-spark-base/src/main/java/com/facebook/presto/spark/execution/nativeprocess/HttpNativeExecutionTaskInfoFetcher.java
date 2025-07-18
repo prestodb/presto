@@ -14,12 +14,11 @@
 package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;

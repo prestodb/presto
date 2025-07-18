@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
@@ -28,7 +29,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 

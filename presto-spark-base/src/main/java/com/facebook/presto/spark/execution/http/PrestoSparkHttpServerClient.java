@@ -20,8 +20,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.net.URI;
 

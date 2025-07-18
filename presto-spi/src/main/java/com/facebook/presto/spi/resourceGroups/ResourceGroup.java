@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 
 public interface ResourceGroup
 {

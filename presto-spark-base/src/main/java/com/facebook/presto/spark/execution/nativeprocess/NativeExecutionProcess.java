@@ -16,6 +16,7 @@ package com.facebook.presto.spark.execution.nativeprocess;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.server.RequestErrorTracker;
@@ -29,11 +30,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
 import org.apache.spark.SparkEnv$;
 import org.apache.spark.SparkFiles;
-
-import javax.annotation.Nullable;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

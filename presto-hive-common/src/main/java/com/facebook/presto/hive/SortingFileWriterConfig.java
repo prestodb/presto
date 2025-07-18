@@ -16,14 +16,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
-import io.airlift.units.MaxDataSize;
-import io.airlift.units.MinDataSize;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.MaxDataSize;
+import com.facebook.airlift.units.MinDataSize;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class SortingFileWriterConfig
 {

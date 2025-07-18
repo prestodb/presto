@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -26,15 +27,14 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spiller.SpillSpaceTracker;
-import io.airlift.units.DataSize;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public final class TestingTaskContext
 {

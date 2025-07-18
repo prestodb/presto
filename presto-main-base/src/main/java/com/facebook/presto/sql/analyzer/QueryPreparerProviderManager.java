@@ -15,8 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.HashMap;
 import java.util.Map;

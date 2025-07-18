@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8.0.452
+          java-version: 17.0.15
           cache: 'maven'
       - name: Maven Install
         run: |

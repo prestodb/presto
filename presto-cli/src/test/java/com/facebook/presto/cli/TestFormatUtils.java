@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;

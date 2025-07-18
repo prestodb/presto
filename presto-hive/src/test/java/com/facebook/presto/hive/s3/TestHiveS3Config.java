@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive.s3;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
+import com.facebook.airlift.units.Duration;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
