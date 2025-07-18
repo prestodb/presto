@@ -165,6 +165,16 @@ public class PrestoSparkNativeQueryRunnerUtils
         logging.setLevel("com.facebook.presto.spark", WARN);
     }
 
+    public static synchronized Path getBaseDataPath()
+    {
+        if (dataDirectory.isPresent()) {
+            return dataDirectory.get();
+        }
+
+        dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
+        return dataDirectory.get();
+    }
+
     private static Database createDatabaseMetastoreObject(String name)
     {
         return Database.builder()
@@ -180,15 +190,5 @@ public class PrestoSparkNativeQueryRunnerUtils
         sparkConfigs.put(SPARK_SHUFFLE_MANAGER, "com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager");
         sparkConfigs.put(FALLBACK_SPARK_SHUFFLE_MANAGER, "org.apache.spark.shuffle.sort.SortShuffleManager");
         return sparkConfigs.build();
-    }
-
-    private static synchronized Path getBaseDataPath()
-    {
-        if (dataDirectory.isPresent()) {
-            return dataDirectory.get();
-        }
-
-        dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
-        return dataDirectory.get();
     }
 }
