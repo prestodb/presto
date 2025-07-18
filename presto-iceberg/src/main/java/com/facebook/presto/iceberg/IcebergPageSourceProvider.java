@@ -186,6 +186,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -387,23 +388,6 @@ public class IcebergPageSourceProvider
                     }
                 }
                 isRowPositionList.add(column.isRowPositionColumn());
-
-                // TODO #20578: Handle RowId columns.
-                //                         else if (identity.getId() == MetadataColumns.FILE_PATH.fieldId()) {
-                //                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
-                //                        }
-                //                        else if (identity.getId() == ROW_POSITION.fieldId()) {
-                //                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
-                //                        }
-                //                        else if (identity.getId() == MERGE_FILE_RECORD_COUNT) {
-                //                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
-                //                        }
-                //                        else if (identity.getId() == MERGE_PARTITION_SPEC_ID) {
-                //                            requiredColumns.add(new IcebergColumnHandle(identity, INTEGER, ImmutableList.of(), INTEGER, Optional.empty()));
-                //                        }
-                //                        else if (identity.getId() == MERGE_PARTITION_DATA) {
-                //                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
-                //                        }
             }
 
             return new ConnectorPageSourceWithRowPositions(
@@ -886,6 +870,28 @@ public class IcebergPageSourceProvider
             }
             else if (icebergColumn.isDataSequenceNumberColumn()) {
                 metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getDataSequenceNumber());
+            }
+            else if (icebergColumn.isMergeRowIdColumn()) {
+                for (ColumnIdentity subColumn : icebergColumn.getColumnIdentity().getChildren()) {
+                    if (subColumn.getId() == FILE_PATH.fieldId()) {
+                        metadataValues.put(subColumn.getId(), utf8Slice(split.getPath()));
+                    }
+                    else if (subColumn.getId() == MERGE_FILE_RECORD_COUNT.getId()) {
+                        metadataValues.put(subColumn.getId(), split.getDataSequenceNumber()); // TODO #20578: verificar si getDataSequenceNumber() es lo que hay que pasar aquí.
+                    }
+                    else if (subColumn.getId() == MERGE_PARTITION_SPEC_ID.getId()) {
+                        metadataValues.put(subColumn.getId(), (long) partitionSpec.specId());
+                    }
+                    else if (subColumn.getId() == MERGE_PARTITION_DATA.getId()) {
+                        Optional<String> partitionDataJson = split.getPartitionDataJson();
+                        metadataValues.put(subColumn.getId(), partitionDataJson.isPresent() ? utf8Slice(partitionDataJson.get()) : EMPTY_SLICE); // TODO #20578: Ojo con "split.getPartitionDataJson()" puede que haya que usar "partitionDataFromJson(partitionSpec, split.getPartitionDataJson())"
+                    }
+//                    FILE_PATH(MetadataColumns.FILE_PATH.fieldId(), "$path", VARCHAR, PRIMITIVE),
+//                    DATA_SEQUENCE_NUMBER(Integer.MAX_VALUE - 1001, "$data_sequence_number", BIGINT, PRIMITIVE),
+//                    MERGE_FILE_RECORD_COUNT(Integer.MIN_VALUE + 2, "file_record_count", BIGINT, PRIMITIVE),
+//                    MERGE_PARTITION_SPEC_ID(Integer.MIN_VALUE + 3, "partition_spec_id", INTEGER, PRIMITIVE),
+//                    MERGE_PARTITION_DATA(Integer.MIN_VALUE + 4, "partition_data", VARCHAR, PRIMITIVE)
+                }
             }
         }
 
