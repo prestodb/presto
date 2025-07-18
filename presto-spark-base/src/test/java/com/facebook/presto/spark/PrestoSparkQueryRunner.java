@@ -65,6 +65,8 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.spi.security.SelectedRole.Type;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -333,10 +335,16 @@ public class PrestoSparkQueryRunner
                 .setSchema("tpch")
                 // Sql-Standard Access Control Checker
                 // needs us to specify our role
-                .setIdentity(new Identity(
+                .setIdentity(
+                    new Identity(
                         "hive",
                         Optional.empty(),
-                        ImmutableMap.of(defaultCatalog, "admin")))
+                        ImmutableMap.of(defaultCatalog,
+                            new SelectedRole(Type.ROLE, Optional.of("admin"))),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()))
                 .build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
