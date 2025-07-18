@@ -81,7 +81,11 @@ public class TestTaskManagerConfig
                 .setHighMemoryTaskKillerHeapMemoryThreshold(0.9)
                 .setTaskUpdateSizeTrackingEnabled(true)
                 .setSlowMethodThresholdOnEventLoop(new Duration(0, SECONDS))
-                .setEventLoopEnabled(false));
+                .setEventLoopEnabled(false)
+                .setReactorNettyHttpClientEnabled(false)
+                .setNettyMaxTotalConnections(100)
+                .setNettyMaxStreamPerChannel(100)
+                .setNettyEventLoopThreadCount(50));
     }
 
     @Test
@@ -132,6 +136,10 @@ public class TestTaskManagerConfig
                 .put("task.update-size-tracking-enabled", "false")
                 .put("task.enable-event-loop", "true")
                 .put("task.event-loop-slow-method-threshold", "10m")
+                .put("task.reactor-netty-client-enabled", "true")
+                .put("task.netty-max-total-connections", "3000")
+                .put("task.netty-max-stream-per-channel", "200")
+                .put("task.netty-event-loop-thread-count", "200")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -178,7 +186,11 @@ public class TestTaskManagerConfig
                 .setHighMemoryTaskKillerHeapMemoryThreshold(0.8)
                 .setTaskUpdateSizeTrackingEnabled(false)
                 .setEventLoopEnabled(true)
-                .setSlowMethodThresholdOnEventLoop(new Duration(10, MINUTES));
+                .setSlowMethodThresholdOnEventLoop(new Duration(10, MINUTES))
+                .setReactorNettyHttpClientEnabled(true)
+                .setNettyMaxTotalConnections(3000)
+                .setNettyMaxStreamPerChannel(200)
+                .setNettyEventLoopThreadCount(200);
 
         assertFullMapping(properties, expected);
     }
