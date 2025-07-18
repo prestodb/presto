@@ -981,6 +981,7 @@ int32_t WaveStream::getOutput(
     auto id = operands[i];
     auto exe = operandExecutable(id);
     VELOX_CHECK_NOT_NULL(exe);
+    exe->stream->wait();
     auto ordinal = exe->outputOperands.ordinal(id);
     auto waveVectorPtr = &exe->output[ordinal];
     if (!waveVectorPtr->get()) {

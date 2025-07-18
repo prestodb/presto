@@ -58,8 +58,7 @@ void SplitStaging::copyColumns(
     char* destination,
     bool release) {
   for (auto i = begin; i < end; ++i) {
-    memcpy(destination, staging_[i].hostData, staging_[i].size);
-    destination += staging_[i].size;
+    memcpy(destination + offsets_[i], staging_[i].hostData, staging_[i].size);
   }
   if (release) {
     sem_.release();

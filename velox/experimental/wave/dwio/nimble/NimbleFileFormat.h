@@ -108,7 +108,8 @@ class NimbleEncoding {
       SplitStaging& staging,
       BufferId bufferId,
       const NimbleEncoding& rootEncoding,
-      int32_t blockIdx) = 0;
+      int32_t blockIdx,
+      int32_t resultOffset) = 0;
 
   void* deviceEncodedDataPtr() const {
     return deviceEncodedData_;
@@ -121,8 +122,11 @@ class NimbleEncoding {
  protected:
   facebook::velox::TypePtr nimbleDataTypeToVeloxType(
       facebook::wave::nimble::DataType nimbleDataType) const;
-  std::unique_ptr<GpuDecode>
-  makeStepCommon(ColumnOp& op, ReadStream& stream, int32_t blockIdx);
+  std::unique_ptr<GpuDecode> makeStepCommon(
+      ColumnOp& op,
+      ReadStream& stream,
+      int32_t blockIdx,
+      int32_t resultOffset);
   void getDeviceEncodingInput(
       SplitStaging& staging,
       BufferId bufferId,
@@ -156,7 +160,8 @@ class NimbleDictionaryEncoding : public NimbleEncoding {
       SplitStaging& staging,
       BufferId bufferId,
       const NimbleEncoding& rootEncoding,
-      int32_t blockIdx) override;
+      int32_t blockIdx,
+      int32_t resultOffset) override;
 };
 
 // Trivial encoding subclass
@@ -171,7 +176,8 @@ class NimbleTrivialEncoding : public NimbleEncoding {
       SplitStaging& staging,
       BufferId bufferId,
       const NimbleEncoding& rootEncoding,
-      int32_t blockIdx) override;
+      int32_t blockIdx,
+      int32_t resultOffset) override;
 };
 
 // RLE encoding subclass
@@ -187,7 +193,8 @@ class NimbleRLEEncoding : public NimbleEncoding {
       SplitStaging& staging,
       BufferId bufferId,
       const NimbleEncoding& rootEncoding,
-      int32_t blockIdx) override;
+      int32_t blockIdx,
+      int32_t resultOffset) override;
 };
 
 // Nullable encoding subclass
@@ -203,7 +210,8 @@ class NimbleNullableEncoding : public NimbleEncoding {
       SplitStaging& staging,
       BufferId bufferId,
       const NimbleEncoding& rootEncoding,
-      int32_t blockIdx) override;
+      int32_t blockIdx,
+      int32_t resultOffset) override;
 };
 
 class NimbleChunk {

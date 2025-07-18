@@ -239,7 +239,8 @@ std::unique_ptr<NimbleEncoding> NimbleEncoding::create(
 std::unique_ptr<GpuDecode> NimbleEncoding::makeStepCommon(
     ColumnOp& op,
     ReadStream& stream,
-    int32_t blockIdx) {
+    int32_t blockIdx,
+    int32_t resultOffset) {
   auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
   auto maxRowsPerThread = (rowsPerBlock / kBlockSize);
   [[maybe_unused]] int32_t numBlocks =
@@ -260,8 +261,8 @@ std::unique_ptr<GpuDecode> NimbleEncoding::makeStepCommon(
   step->dataType = columnKind;
   auto kindSize = waveTypeKindSize(columnKind);
 
-  step->result =
-      op.waveVector->values<char>() + kindSize * blockIdx * rowsPerBlock;
+  step->result = op.waveVector->values<char>() + kindSize * resultOffset +
+      kindSize * blockIdx * rowsPerBlock;
   step->resultNulls = nullptr;
 
   return step;
@@ -303,9 +304,9 @@ std::unique_ptr<GpuDecode> NimbleDictionaryEncoding::makeStep(
     SplitStaging& staging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
-    int32_t blockIdx) {
-  // TODO(bowenwu): populate the the encoding specific data correctly
-  return makeStepCommon(op, stream, blockIdx);
+    int32_t blockIdx,
+    int32_t resultOffset) {
+  VELOX_NYI("Dicionary encoding is not supported yet.");
 }
 
 // NimbleTrivialEncoding implementation
@@ -319,21 +320,26 @@ NimbleEncoding* NimbleTrivialEncoding::lengthsEncoding() {
 std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
     ColumnOp& op,
     ReadStream& stream,
-    SplitStaging& staging,
+    SplitStaging& splitStaging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
-    int32_t blockIdx) {
-  auto step = makeStepCommon(op, stream, blockIdx);
+    int32_t blockIdx,
+    int32_t resultOffset) {
+  auto step = makeStepCommon(op, stream, blockIdx, resultOffset);
   step->step = DecodeStep::kTrivial;
   step->data.trivial.dataType = step->dataType;
   step->data.trivial.result = step->result;
   step->data.trivial.begin = 0;
-  step->data.trivial.end = numValues();
+  step->data.trivial.end = step->maxRow - step->baseRow;
   step->data.trivial.scatter = nullptr;
   auto hostPtr = encodedDataPtr();
-  encoding::readChar(hostPtr); // skip the lengths compression
+  auto compressionType =
+      static_cast<CompressionType>(encoding::readChar(hostPtr));
+  if (compressionType != CompressionType::Uncompressed) {
+    VELOX_NYI("Trivial encoding does not support compression yet");
+  }
   getDeviceEncodingInput(
-      staging,
+      splitStaging,
       bufferId,
       rootEncoding,
       hostPtr + step->baseRow * waveTypeKindSize(step->dataType),
@@ -362,9 +368,9 @@ std::unique_ptr<GpuDecode> NimbleRLEEncoding::makeStep(
     SplitStaging& staging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
-    int32_t blockIdx) {
-  // TODO(bowenwu): populate the the encoding specific data correctly
-  return makeStepCommon(op, stream, blockIdx);
+    int32_t blockIdx,
+    int32_t resultOffset) {
+  VELOX_NYI("RLE encoding is not supported yet.");
 }
 
 // NimbleNullableEncoding implementation
@@ -385,9 +391,9 @@ std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
     SplitStaging& staging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
-    int32_t blockIdx) {
-  // TODO(bowenwu): populate the the encoding specific data correctly
-  return makeStepCommon(op, stream, blockIdx);
+    int32_t blockIdx,
+    int32_t resultOffset) {
+  VELOX_NYI("Nullable encoding is not supported yet.");
 }
 
 /// NimbleChunk implementation

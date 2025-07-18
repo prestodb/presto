@@ -42,7 +42,11 @@ class ColumnReader {
             fileType_,
             scanSpec,
             operand ? operand->id : kNoOperand)),
-        scanSpec_(&scanSpec) {}
+        scanSpec_(&scanSpec) {
+    if (operand) {
+      operand->notNull = !formatData_->hasNulls();
+    }
+  }
 
   virtual ~ColumnReader() = default;
 

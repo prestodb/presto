@@ -39,7 +39,7 @@ class NimbleChunkDecodePipeline {
   NimbleEncoding& operator[](uint32_t index) {
     return *pipeline_[index];
   }
-  NimbleEncoding& rootEncoding() {
+  NimbleEncoding& rootEncoding() const {
     return *encoding_;
   }
 
@@ -59,10 +59,23 @@ class NimbleFormatData : public wave::FormatData {
       std::vector<NimbleChunkDecodePipeline>&& pipelines)
       : operand_(operand),
         totalRows_(totalRows),
-        pipelines_(std::move(pipelines)) {}
+        pipelines_(std::move(pipelines)) {
+    offsets_.resize(pipelines_.size());
+    int32_t sum = 0;
+    for (size_t i = 0; i < pipelines_.size(); ++i) {
+      offsets_[i] = sum;
+      sum += pipelines_[i].rootEncoding().numValues();
+    }
+  }
 
   bool hasNulls() const override {
-    return false; // TODO: support nulls
+    for (int i = 0; i < pipelines_.size(); i++) {
+      auto& pipeline = pipelines_[i];
+      if (pipeline.rootEncoding().isNullableEncoding()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   int32_t totalRows() const override {
@@ -106,6 +119,7 @@ class NimbleFormatData : public wave::FormatData {
 
   const NimbleEncoding* encoding_;
   std::vector<NimbleChunkDecodePipeline> pipelines_;
+  std::vector<int32_t> offsets_;
 };
 
 class NimbleFormatParams : public wave::FormatParams {

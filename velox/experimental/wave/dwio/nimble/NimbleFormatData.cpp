@@ -79,7 +79,8 @@ void NimbleFormatData::startOp(
     ReadStream& stream) {
   op.isFinal = true;
 
-  for (auto& pipeline : pipelines_) {
+  for (size_t i = 0; i < pipelines_.size(); ++i) {
+    auto& pipeline = pipelines_[i];
     auto& rootEncoding = pipeline.rootEncoding();
     BufferId id = kNoBufferId;
     if (!streamStaged_) {
@@ -97,33 +98,27 @@ void NimbleFormatData::startOp(
     }
 
     while (auto encoding = pipeline.next()) {
+      auto offset = encoding == &rootEncoding ? offsets_[i] : 0;
       auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
       int32_t numBlocks =
           bits::roundUp(encoding->numValues(), rowsPerBlock) / rowsPerBlock;
+      if (numBlocks > program.programs.size()) {
+        program.programs.resize(numBlocks);
+      }
       if (numBlocks > 1) {
         VELOX_CHECK(griddized_);
       }
       VELOX_CHECK_LT(numBlocks, 256 * 256, "Overflow 16 bit block number");
       for (auto blockIdx = 0; blockIdx < numBlocks; ++blockIdx) {
         auto step = encoding->makeStep(
-            op, stream, splitStaging, id, rootEncoding, blockIdx);
-
-        std::vector<std::unique_ptr<GpuDecode>>* steps;
-
-        // Programs are parallel after filters
-        if (stream.filtersDone() || !previousFilter) {
-          program.programs.emplace_back();
-          steps = &program.programs.back();
-        } else {
-          steps = &program.programs[blockIdx];
-        }
-        steps->push_back(std::move(step));
+            op, stream, splitStaging, id, rootEncoding, blockIdx, offset);
+        program.programs[blockIdx].push_back(std::move(step));
       }
     }
 
     op.isFinal &= pipeline.finished();
-    streamStaged_ = true;
   }
+  streamStaged_ = true;
 }
 
 // NimbleChunkDecodePipeline implementation
