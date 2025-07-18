@@ -56,6 +56,8 @@ jobs:
           install_mvfst
 
           # Velox dependencies that Presto directly depends on.
+          # Re2 depends on absl - use brew for now.
+          brew install abseil
           install_re2
           install_fbthrift
 
@@ -90,7 +92,10 @@ jobs:
             # override the warnings that would throw errors.
             export CXXFLAGS="-Wno-error=sign-compare -Wno-error=macro-redefined"
           fi
-          cmake -B _build/${BUILD_TYPE} -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+          cmake -B _build/${BUILD_TYPE} \
+            -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
           ninja -C _build/${BUILD_TYPE} -j ${NJOBS}
 
       - name: Ccache after
