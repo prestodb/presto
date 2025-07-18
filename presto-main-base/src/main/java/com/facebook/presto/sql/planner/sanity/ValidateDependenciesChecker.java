@@ -472,9 +472,7 @@ public final class ValidateDependenciesChecker
                 checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index variable from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputVariables());
             }
 
-            Set<VariableReferenceExpression> lookupVariables = node.getCriteria().stream()
-                    .map(IndexJoinNode.EquiJoinClause::getIndex)
-                    .collect(toImmutableSet());
+            Set<VariableReferenceExpression> lookupVariables = ImmutableSet.copyOf(node.getLookupVariables());
             Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupVariables);
             checkArgument(!trace.isEmpty() && lookupVariables.containsAll(trace.keySet()),
                     "Index lookup symbols are not traceable to index source: %s",
