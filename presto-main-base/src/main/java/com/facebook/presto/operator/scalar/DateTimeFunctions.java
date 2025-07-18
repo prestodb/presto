@@ -26,7 +26,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.TimestampOperators;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
@@ -38,8 +37,12 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
@@ -1437,11 +1440,66 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long parseDuration(@SqlType("varchar(x)") Slice duration)
     {
-        try {
-            return Duration.valueOf(duration.toStringUtf8()).toMillis();
+        String durationStr = duration.toStringUtf8().trim();
+
+        if (durationStr.isEmpty()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "duration is empty");
         }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+
+        try {
+            Pattern pattern = Pattern.compile("^(\\d+(?:\\.\\d+)?)\\s*([a-zA-Z]+)$");
+            Matcher matcher = pattern.matcher(durationStr);
+
+            if (!matcher.matches()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                        "duration is not a valid data duration string: " + durationStr);
+            }
+
+            String valueStr = matcher.group(1);
+            String unitString = matcher.group(2);
+
+            BigDecimal value = new BigDecimal(valueStr);
+
+            // Convert to milliseconds based on the unit
+            BigDecimal milliseconds;
+            switch (unitString) {
+                case "ns":
+                    milliseconds = value.divide(BigDecimal.valueOf(1_000_000), RoundingMode.HALF_UP);
+                    break;
+                case "us":
+                    milliseconds = value.divide(BigDecimal.valueOf(1_000), RoundingMode.HALF_UP);
+                    break;
+                case "ms":
+                    milliseconds = value;
+                    break;
+                case "s":
+                    milliseconds = value.multiply(BigDecimal.valueOf(1_000));
+                    break;
+                case "m":
+                    milliseconds = value.multiply(BigDecimal.valueOf(60_000));
+                    break;
+                case "h":
+                    milliseconds = value.multiply(BigDecimal.valueOf(3_600_000));
+                    break;
+                case "d":
+                    milliseconds = value.multiply(BigDecimal.valueOf(86_400_000));
+                    break;
+                default:
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                            "Unknown time unit: " + unitString);
+            }
+
+            try {
+                return milliseconds.longValueExact();
+            }
+            catch (ArithmeticException e) {
+                // If exact conversion fails, use rounding
+                return milliseconds.setScale(0, RoundingMode.HALF_UP).longValue();
+            }
+        }
+        catch (NumberFormatException | ArithmeticException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                    "Invalid duration value: " + durationStr, e);
         }
     }
 
