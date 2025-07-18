@@ -111,8 +111,17 @@ void NimbleFormatData::startOp(
       VELOX_CHECK_LT(numBlocks, 256 * 256, "Overflow 16 bit block number");
       for (auto blockIdx = 0; blockIdx < numBlocks; ++blockIdx) {
         auto step = encoding->makeStep(
-            op, stream, splitStaging, id, rootEncoding, blockIdx, offset);
-        program.programs[blockIdx].push_back(std::move(step));
+            op,
+            stream,
+            splitStaging,
+            deviceStaging,
+            id,
+            rootEncoding,
+            blockIdx,
+            offset);
+        if (step) {
+          program.programs[blockIdx].push_back(std::move(step));
+        }
       }
     }
 

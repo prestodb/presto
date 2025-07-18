@@ -192,6 +192,8 @@ class ReadStream : public Executable {
   // launch cost but run all non-filter columns in their own TBs.
   bool decodenonFiltersInFiltersKernel();
 
+  void initializeResultNulls(Stream& stream);
+
   StructColumnReader* reader_;
   std::vector<AbstractOperand*> abstractOperands_;
 

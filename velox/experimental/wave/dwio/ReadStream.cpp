@@ -342,6 +342,16 @@ void ReadStream::syncStaging(Stream& stream) {
   });
 }
 
+void ReadStream::initializeResultNulls(Stream& stream) {
+  for (auto i = 0; i < ops_.size(); ++i) {
+    if (ops_[i].reader->formatData()->hasNulls()) {
+      auto waveVector = ops_[i].waveVector;
+      VELOX_CHECK(waveVector != nullptr && waveVector->nulls() != nullptr);
+      stream.memset(waveVector->nulls(), 1, waveVector->size());
+    }
+  }
+}
+
 void ReadStream::launch(
     std::unique_ptr<ReadStream> readStream,
     int32_t row,
@@ -366,6 +376,7 @@ void ReadStream::launch(
         if (!readStream->inited_) {
           readStream->makeOps();
           readStream->makeGrid(stream);
+          readStream->initializeResultNulls(*stream);
           griddizedHere = true;
           readStream->inited_ = true;
         }

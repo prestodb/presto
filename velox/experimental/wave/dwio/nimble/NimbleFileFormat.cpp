@@ -28,8 +28,8 @@ DECLARE_int32(wave_reader_rows_per_tb);
 namespace facebook::velox::wave {
 
 /// NimbleEncoding implementation
-NimbleEncoding::NimbleEncoding(std::string_view encodingData)
-    : encodingData_(encodingData) {
+NimbleEncoding::NimbleEncoding(std::string_view encodingData, bool encodeNulls)
+    : encodingData_(encodingData), encodeNulls_(encodeNulls) {
   encodingType_ = encoding::peek<uint8_t, EncodingType>(encodingData_.data());
   dataType_ = encoding::peek<uint8_t, DataType>(
       encodingData_.data() + Encoding::kDataTypeOffset);
@@ -135,6 +135,7 @@ NimbleEncoding* NimbleEncoding::createChildEncodingByIndex(uint8_t childIndex) {
   const char* pos = encodedDataPtr();
 
   std::string_view childEncodingData;
+  bool encodeNulls = false;
 
   switch (encodingType) {
     case EncodingType::Dictionary: {
@@ -175,6 +176,7 @@ NimbleEncoding* NimbleEncoding::createChildEncodingByIndex(uint8_t childIndex) {
         const size_t nullsBytes =
             encodingData_.size() - (pos - encodingData_.data());
         childEncodingData = std::string_view(pos, nullsBytes);
+        encodeNulls = true;
       }
       break;
     }
@@ -187,7 +189,7 @@ NimbleEncoding* NimbleEncoding::createChildEncodingByIndex(uint8_t childIndex) {
     VELOX_NYI("Invalid child index for this encoding type");
   }
 
-  auto child = create(childEncodingData);
+  auto child = create(childEncodingData, encodeNulls);
   NimbleEncoding* childPtr = child.get();
   children_.push_back(std::move(child));
   return childPtr;
@@ -217,10 +219,11 @@ bool NimbleEncoding::isReadyToDecode() const {
 
 #define NIMBLE_ENCODING_FACTORY_CASE(type, className) \
   case EncodingType::type:                            \
-    return std::make_unique<className>(encodingData);
+    return std::make_unique<className>(encodingData, encodeNulls);
 
 std::unique_ptr<NimbleEncoding> NimbleEncoding::create(
-    std::string_view encodingData) {
+    std::string_view encodingData,
+    bool encodeNulls) {
   EncodingType encodingType =
       encoding::peek<uint8_t, EncodingType>(encodingData.data());
 
@@ -240,6 +243,7 @@ std::unique_ptr<GpuDecode> NimbleEncoding::makeStepCommon(
     ColumnOp& op,
     ReadStream& stream,
     int32_t blockIdx,
+    bool isRoot,
     int32_t resultOffset) {
   auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
   auto maxRowsPerThread = (rowsPerBlock / kBlockSize);
@@ -261,8 +265,15 @@ std::unique_ptr<GpuDecode> NimbleEncoding::makeStepCommon(
   step->dataType = columnKind;
   auto kindSize = waveTypeKindSize(columnKind);
 
-  step->result = op.waveVector->values<char>() + kindSize * resultOffset +
-      kindSize * blockIdx * rowsPerBlock;
+  if (isRoot) {
+    step->result = op.waveVector->values<char>();
+  } else {
+    if (decodedResultBuffer_ == nullptr) {
+      decodedResultBuffer_ = stream.waveStream->deviceArena().allocate<char>(
+          kindSize * numValues());
+    }
+    step->result = decodedResultBuffer_->as<char>();
+  }
   step->resultNulls = nullptr;
 
   return step;
@@ -287,8 +298,13 @@ void NimbleEncoding::getDeviceEncodingInput(
 
 // NimbleDictionaryEncoding implementation
 NimbleDictionaryEncoding::NimbleDictionaryEncoding(
-    std::string_view encodingData)
-    : NimbleEncoding(encodingData) {}
+    std::string_view encodingData,
+    bool encodeNulls)
+    : NimbleEncoding(encodingData, encodeNulls) {
+  if (encodeNulls) {
+    VELOX_NYI("Dictionary-encoded null is not supported for decoding yet.");
+  }
+}
 
 NimbleEncoding* NimbleDictionaryEncoding::alphabetEncoding() {
   return childAt(EncodingIdentifiers::Dictionary::Alphabet);
@@ -302,6 +318,7 @@ std::unique_ptr<GpuDecode> NimbleDictionaryEncoding::makeStep(
     ColumnOp& op,
     ReadStream& stream,
     SplitStaging& staging,
+    ResultStaging& deviceStaging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
     int32_t blockIdx,
@@ -310,8 +327,10 @@ std::unique_ptr<GpuDecode> NimbleDictionaryEncoding::makeStep(
 }
 
 // NimbleTrivialEncoding implementation
-NimbleTrivialEncoding::NimbleTrivialEncoding(std::string_view encodingData)
-    : NimbleEncoding(encodingData) {}
+NimbleTrivialEncoding::NimbleTrivialEncoding(
+    std::string_view encodingData,
+    bool encodeNulls)
+    : NimbleEncoding(encodingData, encodeNulls) {}
 
 NimbleEncoding* NimbleTrivialEncoding::lengthsEncoding() {
   VELOX_NYI("Trivial encoding does not support strings yet");
@@ -321,23 +340,40 @@ std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
     ColumnOp& op,
     ReadStream& stream,
     SplitStaging& splitStaging,
+    ResultStaging& deviceStaging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
     int32_t blockIdx,
     int32_t resultOffset) {
-  auto step = makeStepCommon(op, stream, blockIdx, resultOffset);
-  step->step = DecodeStep::kTrivial;
-  step->data.trivial.dataType = step->dataType;
-  step->data.trivial.result = step->result;
-  step->data.trivial.begin = 0;
-  step->data.trivial.end = step->maxRow - step->baseRow;
-  step->data.trivial.scatter = nullptr;
   auto hostPtr = encodedDataPtr();
   auto compressionType =
       static_cast<CompressionType>(encoding::readChar(hostPtr));
   if (compressionType != CompressionType::Uncompressed) {
     VELOX_NYI("Trivial encoding does not support compression yet");
   }
+
+  if (encodeNulls_) {
+    return makeStepNulls(
+        op,
+        stream,
+        splitStaging,
+        deviceStaging,
+        bufferId,
+        rootEncoding,
+        blockIdx,
+        resultOffset);
+  }
+
+  auto step =
+      makeStepCommon(op, stream, blockIdx, this == &rootEncoding, resultOffset);
+  auto kindSize = waveTypeKindSize(step->dataType);
+  step->step = DecodeStep::kTrivial;
+  step->data.trivial.dataType = step->dataType;
+  step->data.trivial.result = static_cast<char*>(step->result) +
+      kindSize * resultOffset + kindSize * step->baseRow;
+  step->data.trivial.begin = 0;
+  step->data.trivial.end = step->maxRow - step->baseRow;
+  step->data.trivial.scatter = nullptr;
   getDeviceEncodingInput(
       splitStaging,
       bufferId,
@@ -347,9 +383,62 @@ std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
   return step;
 }
 
+std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStepNulls(
+    ColumnOp& op,
+    ReadStream& stream,
+    SplitStaging& splitStaging,
+    ResultStaging& deviceStaging,
+    BufferId bufferId,
+    const NimbleEncoding& rootEncoding,
+    int32_t blockIdx,
+    int32_t offset) {
+  constexpr int32_t kCountStride = 1024;
+
+  if (stagedNulls_) {
+    return nullptr;
+  }
+  stagedNulls_ = true;
+
+  // For bools, we don't need to decode the data, just transfer the data
+  // we do not transfer the nulls with the root encoding because we want to
+  // make sure the null encodings are aligned.
+  Staging staging(
+      encodedDataPtr() + 1, // skip the compression type
+      bits::nwords(numValues()) * sizeof(uint64_t),
+      common::Region{0, 0});
+  auto nullStageId = splitStaging.add(staging);
+  splitStaging.registerPointer(nullStageId, &nulls_, true);
+
+  auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
+  auto numBlocks = bits::roundUp(numValues(), rowsPerBlock) / rowsPerBlock;
+
+  // A single thread block is enough to decode the nulls
+  if (numBlocks == 1) {
+    return nullptr;
+  }
+
+  auto count = std::make_unique<GpuDecode>();
+  splitStaging.registerPointer(nullStageId, &count->data.countBits.bits, true);
+  auto numStrides = bits::roundUp(numValues(), kCountStride) / kCountStride;
+  auto resultId = deviceStaging.reserve(sizeof(int32_t) * numStrides);
+  deviceStaging.registerPointer(resultId, &count->result, true);
+  deviceStaging.registerPointer(resultId, &numNonNull_, true);
+  count->step = DecodeStep::kCountBits;
+  count->data.countBits.numBits = numValues();
+  count->data.countBits.resultStride = kCountStride;
+
+  return count;
+}
+
 // NimbleRLEEncoding implementation
-NimbleRLEEncoding::NimbleRLEEncoding(std::string_view encodingData)
-    : NimbleEncoding(encodingData) {}
+NimbleRLEEncoding::NimbleRLEEncoding(
+    std::string_view encodingData,
+    bool encodeNulls)
+    : NimbleEncoding(encodingData, encodeNulls) {
+  if (encodeNulls) {
+    VELOX_NYI("RLE-encoded null is not supported for decoding yet.");
+  }
+}
 
 NimbleEncoding* NimbleRLEEncoding::runLengthsEncoding() {
   return childAt(EncodingIdentifiers::RunLength::RunLengths);
@@ -366,6 +455,8 @@ std::unique_ptr<GpuDecode> NimbleRLEEncoding::makeStep(
     ColumnOp& op,
     ReadStream& stream,
     SplitStaging& staging,
+    ResultStaging& deviceStaging,
+
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
     int32_t blockIdx,
@@ -374,8 +465,12 @@ std::unique_ptr<GpuDecode> NimbleRLEEncoding::makeStep(
 }
 
 // NimbleNullableEncoding implementation
-NimbleNullableEncoding::NimbleNullableEncoding(std::string_view encodingData)
-    : NimbleEncoding(encodingData) {}
+NimbleNullableEncoding::NimbleNullableEncoding(
+    std::string_view encodingData,
+    bool encodeNulls)
+    : NimbleEncoding(encodingData, encodeNulls) {
+  VELOX_CHECK(!encodeNulls, "Nullable encoding cannot be used to encode nulls");
+}
 
 NimbleEncoding* NimbleNullableEncoding::nullsEncoding() {
   return childAt(EncodingIdentifiers::Nullable::Nulls);
@@ -389,11 +484,53 @@ std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
     ColumnOp& op,
     ReadStream& stream,
     SplitStaging& staging,
+    ResultStaging& deviceStaging,
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
     int32_t blockIdx,
     int32_t resultOffset) {
-  VELOX_NYI("Nullable encoding is not supported yet.");
+  VELOX_CHECK(
+      this == &rootEncoding,
+      "Only root encoding can be decoded for nullable encoding");
+  auto step =
+      makeStepCommon(op, stream, blockIdx, this == &rootEncoding, resultOffset);
+  auto kindSize = waveTypeKindSize(step->dataType);
+  if (kindSize != 4 && kindSize != 8) {
+    VELOX_NYI(
+        "Unsupported data type for nullable encoding. The data type must be either 4 or 8 bytes.");
+  }
+  step->step =
+      kindSize == 4 ? DecodeStep::kSelective32 : DecodeStep::kSelective64;
+  step->encoding = DecodeStep::kDictionaryOnBitpack;
+  step->nullMode =
+      NullMode::kDenseNullable; // todo(bowenwu): revisit other null modes
+  step->dictMode = DictMode::kNone;
+  step->data.dictionaryOnBitpack.dataType = step->dataType;
+  step->data.dictionaryOnBitpack.alphabet = nullptr;
+  step->data.dictionaryOnBitpack.scatter = nullptr;
+  step->data.dictionaryOnBitpack.bitWidth = 8 * kindSize;
+
+  // Input is exclusive to a chunk and does not need to be specified the chunk
+  // offset. TB offset is also not needed if we set baseRow and maxRow
+  // correctly.
+  step->data.dictionaryOnBitpack.indices =
+      childAt(EncodingIdentifiers::Nullable::Data)
+          ->decodedResultBuffer()
+          ->as<uint64_t>();
+  step->nulls =
+      childAt(EncodingIdentifiers::Nullable::Nulls)->nulls(); // chunk local
+  step->nonNullBases =
+      childAt(EncodingIdentifiers::Nullable::Nulls)->numNonNull();
+
+  // Output is shared across chunks and must be specified the chunk offset and
+  // the TB offset.
+  step->resultNulls = op.waveVector->nulls() + resultOffset +
+      step->baseRow; // shared across chunks
+  step->result = step->data.dictionaryOnBitpack.result =
+      static_cast<char*>(step->result) + resultOffset * kindSize +
+      step->baseRow * kindSize;
+
+  return step;
 }
 
 /// NimbleChunk implementation
@@ -417,7 +554,7 @@ std::unique_ptr<NimbleEncoding> NimbleChunk::parseEncodingFromChunk(
   std::string_view encodingData =
       chunkData.substr(headerSize, encodingDataLength);
 
-  return NimbleEncoding::create(encodingData);
+  return NimbleEncoding::create(encodingData, false);
 }
 
 /// NimbleChunkedStream implementation
