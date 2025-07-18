@@ -412,6 +412,11 @@ public class DispatchManager
                 });
     }
 
+    public long getDurationUntilExpirationInMillis(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getDurationUntilExpirationInMillis();
+    }
+
     /**
      * Check if a given queryId exists in query tracker
      *

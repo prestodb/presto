@@ -60,5 +60,6 @@ public interface ExecutingQueryResponseProvider
             DataSize targetResultSize,
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
-            boolean binaryResults);
+            boolean binaryResults,
+            long durationUntilExpirationMs);
 }

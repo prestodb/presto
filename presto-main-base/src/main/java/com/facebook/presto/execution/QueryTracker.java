@@ -405,6 +405,13 @@ public class QueryTracker<T extends TrackedQuery>
 
         long getEndTimeInMillis();
 
+        default long getDurationUntilExpirationInMillis()
+        {
+            Duration queryClientTimeout = getQueryClientTimeout(getSession());
+            long expireTime = getLastHeartbeatInMillis() + queryClientTimeout.toMillis();
+            return Math.max(0, expireTime - currentTimeMillis());
+        }
+
         Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits();
 
         void fail(Throwable cause);
