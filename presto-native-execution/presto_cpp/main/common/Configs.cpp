@@ -264,6 +264,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kPluginDir, ""),
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
+          NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
       };
 }
 
@@ -912,6 +913,10 @@ int32_t SystemConfig::exchangeIoEvbViolationThresholdMs() const {
 int32_t SystemConfig::httpSrvIoEvbViolationThresholdMs() const {
   return optionalProperty<int32_t>(kHttpSrvIoEvbViolationThresholdMs)
       .value();
+}
+
+uint64_t SystemConfig::maxLocalExchangePartitionBufferSize() const {
+  return optionalProperty<uint64_t>(kMaxLocalExchangePartitionBufferSize).value();
 }
 
 NodeConfig::NodeConfig() {

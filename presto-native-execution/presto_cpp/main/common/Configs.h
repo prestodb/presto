@@ -760,6 +760,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpSrvIoEvbViolationThresholdMs{
       "http-server.io-evb-violation-threshold-ms"};
 
+  static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
+      "local-exchange.max-partition-buffer-size"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1042,6 +1045,8 @@ class SystemConfig : public ConfigBase {
   int32_t exchangeIoEvbViolationThresholdMs() const;
 
   int32_t httpSrvIoEvbViolationThresholdMs() const;
+
+  uint64_t maxLocalExchangePartitionBufferSize() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

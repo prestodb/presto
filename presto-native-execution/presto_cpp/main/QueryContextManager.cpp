@@ -59,7 +59,9 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kRequestDataSizesMaxWaitSec,
           std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
           {core::QueryConfig::kMaxSplitPreloadPerDriver,
-          std::string(SystemConfig::kDriverMaxSplitPreload)}};
+          std::string(SystemConfig::kDriverMaxSplitPreload)},
+          {core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
+          std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)}};
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;

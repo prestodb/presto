@@ -226,6 +226,14 @@ avoid exceeding memory limits for the query.
 When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by to
 avoid exceeding memory limits for the query.
 
+``local-exchange.max-partition-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``65536`` (64KB)
+
+  Specifies the maximum size in bytes to accumulate for a single partition of a local exchange before flushing.
+
 
 ``shared-arbitrator.reserved-capacity``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
