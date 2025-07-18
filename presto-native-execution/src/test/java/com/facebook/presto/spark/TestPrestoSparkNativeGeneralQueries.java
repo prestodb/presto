@@ -61,45 +61,49 @@ public class TestPrestoSparkNativeGeneralQueries
         }
     }
 
+    // Disable: Only applicable for Presto-Native single node mode, not applicable for POS.
+    @Override
+    @Ignore
+    public void testDistributedSortSingleNode() {}
+
+    // Disable: Text file reader is not supported. This test is also disabled in pom.xml through disabling groups "textfile_reader".
+    @Override
+    public void testReadTableWithTextfileFormat() {}
+
+    // Disable: Not supporte by POS
+    @Override
+    @Ignore
+    public void testInformationSchemaTables() {}
+
+    // Disable: Not supporte by POS
+    @Override
+    @Ignore
+    public void testShowAndDescribe() {}
+
+    // Disable: Not supporte by POS
+    @Override
+    @Ignore
+    public void testSystemTables() {}
+
+    // Disable: Not supporte by POS
+    @Override
+    @Ignore
+    public void testShowSessionWithoutJavaSessionProperties() {}
+
+    // Disable: Not supporte by POS
+    @Override
+    @Ignore
+    public void testSetSessionJavaWorkerSessionProperty() {}
+
+    // Disable: PrestoSparkQueryRunner does not support pattern assertion.
+    @Override
+    @Ignore
+    public void testRowWiseExchange() {}
+
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
 
     // This test is broken likely due to Parquet related issues.
     @Override
     @Ignore
     public void testAnalyzeStatsOnDecimals() {}
-
-    // pattern assertion is only supported for DistributedQueryRunner
-    @Override
-    @Ignore
-    public void testDistributedSortSingleNode() {}
-
-    // VeloxRuntimeError: ReaderFactory is not registered for format text
-    @Override
-    @Ignore
-    public void testReadTableWithTextfileFormat() {}
-
-    // java.lang.IllegalArgumentException: pattern assertion is only supported for DistributedQueryRunner
-    @Override
-    @Ignore
-    public void testRowWiseExchange() {}
-
-    @Override
-    @Ignore
-    public void testInformationSchemaTables() {}
-
-    @Override
-    @Ignore
-    public void testShowAndDescribe() {}
-
-    @Override
-    @Ignore
-    public void testSystemTables() {}
-
-    @Override
-    @Ignore
-    public void testShowSessionWithoutJavaSessionProperties() {}
-
-    @Override
-    @Ignore
-    public void testSetSessionJavaWorkerSessionProperty() {}
 }
