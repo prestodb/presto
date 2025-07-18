@@ -278,7 +278,8 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        // TODO: requires https://issues.apache.org/jira/browse/HIVE-21002
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -397,7 +398,8 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        // TODO: requires https://issues.apache.org/jira/browse/HIVE-21002
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",
