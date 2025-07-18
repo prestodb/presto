@@ -61,8 +61,11 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.plugin.jdbc.GeometryUtils.getAsText;
+import static com.facebook.presto.plugin.jdbc.GeometryUtils.stGeomFromBinary;
 import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createBooleanReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createDoubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createLongReadMapping;
@@ -444,5 +447,10 @@ public final class StandardColumnMappings
             return Optional.of(uuidWriteMapping());
         }
         return Optional.empty();
+    }
+    public static ReadMapping geometryReadMapping()
+    {
+        return createSliceReadMapping(VARCHAR,
+                (resultSet, columnIndex) -> getAsText(stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex)))));
     }
 }
