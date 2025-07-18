@@ -61,6 +61,8 @@ class BaseVeloxQueryConfigTest : public testing::Test {
       sysConfigFile->append(
           fmt::format("{}=100\n", QueryConfig::kMaxOutputBatchRows));
       sysConfigFile->append(
+          fmt::format("{}=100\n", QueryConfig::kMaxLocalExchangePartitionBufferSize));
+      sysConfigFile->append(
           fmt::format("{}=true\n", ConfigBase::kMutableConfig));
     }
     sysConfigFile->close();
@@ -85,6 +87,11 @@ TEST_F(BaseVeloxQueryConfigTest, defaultConfig) {
       cfg->optionalProperty<uint32_t>(
              std::string(QueryConfig::kMaxOutputBatchRows))
           .value());
+  ASSERT_EQ(
+      65'536,
+      cfg->optionalProperty<uint64_t>(
+             std::string(QueryConfig::kMaxLocalExchangePartitionBufferSize))
+          .value());
   ASSERT_EQ("", cfg->optionalProperty(tzPropName).value());
   ASSERT_THROW(cfg->setValue(tzPropName, "TZ1"), VeloxException);
 }
@@ -102,6 +109,11 @@ TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
       100,
       cfg->optionalProperty<uint32_t>(
              std::string(QueryConfig::kMaxOutputBatchRows))
+          .value());
+  ASSERT_EQ(
+      100,
+      cfg->optionalProperty<uint64_t>(
+             std::string(QueryConfig::kMaxLocalExchangePartitionBufferSize))
           .value());
   ASSERT_EQ("", cfg->optionalProperty(tzPropName).value());
   auto ret = cfg->setValue(tzPropName, "TZ1");

@@ -995,6 +995,9 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               QueryConfig::kMaxLocalExchangeBufferSize,
               c.maxLocalExchangeBufferSize()),
           NUM_PROP(
+              QueryConfig::kMaxLocalExchangePartitionBufferSize,
+              c.maxLocalExchangePartitionBufferSize()),
+          NUM_PROP(
               QueryConfig::kMaxPartialAggregationMemory,
               c.maxPartialAggregationMemoryUsage()),
           NUM_PROP(
