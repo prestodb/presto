@@ -143,6 +143,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
+import com.facebook.presto.server.remotetask.ReactorNettyHttp2ClientConfig;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
 import com.facebook.presto.server.thrift.SplitCodec;
@@ -550,6 +551,7 @@ public class ServerMainModule
         binder.bind(PageFunctionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
+        configBinder(binder).bindConfig(ReactorNettyHttp2ClientConfig.class);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IndexJoinLookupStats.class).withGeneratedName();
         binder.bind(AsyncHttpExecutionMBean.class).in(Scopes.SINGLETON);

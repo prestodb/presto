@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
+import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.server.HttpServerBinder.HttpResourceBinding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.cost.CostCalculator;
@@ -83,6 +84,8 @@ import com.facebook.presto.server.protocol.QueryBlockingRateLimiter;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.protocol.RetryCircuitBreaker;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
+import com.facebook.presto.server.remotetask.ReactorNettyHttp2Client;
+import com.facebook.presto.server.remotetask.ReactorNettyHttp2ClientConfig;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -142,7 +145,7 @@ public class CoordinatorModule
 {
     private static final String DEFAULT_WEBUI_CSP =
             "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-            "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:";
+                    "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:";
 
     public static HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
     {
@@ -268,13 +271,20 @@ public class CoordinatorModule
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
 
-        httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
-                .withTracing()
-                .withFilter(GenerateTraceTokenRequestFilter.class)
-                .withConfigDefaults(config -> {
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
-                });
+        ReactorNettyHttp2ClientConfig reactorNettyHttp2ClientConfig = buildConfigObject(ReactorNettyHttp2ClientConfig.class);
+        if (reactorNettyHttp2ClientConfig.isReactorNettyHttp2ClientEnabled()) {
+            binder.bind(ReactorNettyHttp2Client.class).in(Scopes.SINGLETON);
+            binder.bind(HttpClient.class).annotatedWith(ForScheduler.class).to(ReactorNettyHttp2Client.class);
+        }
+        else {
+            httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
+                    .withTracing()
+                    .withFilter(GenerateTraceTokenRequestFilter.class)
+                    .withConfigDefaults(config -> {
+                        config.setRequestTimeout(new Duration(10, SECONDS));
+                        config.setMaxConnectionsPerServer(250);
+                    });
+        }
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
