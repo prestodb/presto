@@ -155,10 +155,11 @@ class Cursor {
   std::vector<RowVectorPtr> deserialize(folly::IOBuf* buffer) {
     std::vector<ByteRange> byteRanges;
     for (auto& range : *buffer) {
-      byteRanges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()),
-          static_cast<int32_t>(range.size()),
-          0});
+      byteRanges.emplace_back(
+          ByteRange{
+              const_cast<uint8_t*>(range.data()),
+              static_cast<int32_t>(range.size()),
+              0});
     }
 
     const auto input =
@@ -239,8 +240,9 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
               nullptr);
         });
 
-    registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName));
+    registerPrestoToVeloxConnector(
+        std::make_unique<HivePrestoToVeloxConnector>(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName));
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -273,10 +275,11 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
             std::move(httpServer));
     auto serverAddress = httpServerWrapper_->start().get();
 
-    taskManager_->setBaseUri(fmt::format(
-        "http://{}:{}",
-        serverAddress.getAddressStr(),
-        serverAddress.getPort()));
+    taskManager_->setBaseUri(
+        fmt::format(
+            "http://{}:{}",
+            serverAddress.getAddressStr(),
+            serverAddress.getPort()));
     writerFactory_ =
         dwio::common::getWriterFactory(dwio::common::FileFormat::DWRF);
   }
@@ -628,12 +631,13 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     auto nodeConfigFilePath =
         fmt::format("{}/node.properties", spillDirectory->getPath());
     auto nodeConfigFile = fileSystem->openFileForWrite(nodeConfigFilePath);
-    nodeConfigFile->append(fmt::format(
-        "{}={}\n{}={}",
-        NodeConfig::kNodeInternalAddress,
-        "192.16.7.66",
-        NodeConfig::kNodeId,
-        "12"));
+    nodeConfigFile->append(
+        fmt::format(
+            "{}={}\n{}={}",
+            NodeConfig::kNodeInternalAddress,
+            "192.16.7.66",
+            NodeConfig::kNodeId,
+            "12"));
     nodeConfigFile->close();
     NodeConfig::instance()->initialize(nodeConfigFilePath);
 
@@ -1521,8 +1525,9 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
   // Cleanup old tasks between test iterations.
   taskManager_->setOldTaskCleanUpMs(0);
   for (bool buildSpillDirectoryFailure : {false}) {
-    SCOPED_TRACE(fmt::format(
-        "buildSpillDirectoryFailure: {}", buildSpillDirectoryFailure));
+    SCOPED_TRACE(
+        fmt::format(
+            "buildSpillDirectoryFailure: {}", buildSpillDirectoryFailure));
     auto spillDir = setupSpillPath();
 
     std::vector<RowVectorPtr> batches = makeVectors(1, 1'000);

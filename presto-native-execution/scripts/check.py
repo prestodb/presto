@@ -17,7 +17,6 @@ import argparse
 from collections import OrderedDict
 import os
 import regex
-import subprocess
 import sys
 
 from util import attrdict
@@ -224,9 +223,9 @@ def add_options(parser):
     tree_parser = add_check_options(files, "tree")
     tree_parser.add_argument("path", default="")
 
-    branch_parser = add_check_options(files, "main")
-    branch_parser = add_check_options(files, "master")
-    commit_parser = add_check_options(files, "commit")
+    add_check_options(files, "main")
+    add_check_options(files, "master")
+    add_check_options(files, "commit")
 
 
 def add_check_command(parser, name):
@@ -249,9 +248,9 @@ def parse_args():
     command = parser.add_subparsers(dest="command")
     command.add_parser("help")
 
-    format_command_parser = add_check_command(command, "format")
-    header_command_parser = add_check_command(command, "header")
-    tidy_command_parser = add_check_command(command, "tidy")
+    add_check_command(command, "format")
+    add_check_command(command, "header")
+    add_check_command(command, "tidy")
 
     parser.set_defaults(path="")
     parser.set_defaults(command="help")

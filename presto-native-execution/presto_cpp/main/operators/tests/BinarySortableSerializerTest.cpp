@@ -87,8 +87,9 @@ class BinarySortableSerializerTest : public ::testing::Test,
 
     std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>>
         fields;
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::CppToType<T>::create(), /*name=*/"c0"));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::CppToType<T>::create(), /*name=*/"c0"));
     return compareRowVector(rowVector, fields, {ordering});
   }
 
@@ -103,8 +104,9 @@ class BinarySortableSerializerTest : public ::testing::Test,
 
     std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>>
         fields;
-    fields.push_back(std::make_shared<velox::core::FieldAccessTypedExpr>(
-        velox::CppToType<T>::create(), /*name=*/"c0"));
+    fields.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            velox::CppToType<T>::create(), /*name=*/"c0"));
     return compareRowVector(rowVector, fields, {ordering});
   }
 
@@ -128,8 +130,9 @@ class BinarySortableSerializerTest : public ::testing::Test,
     }
     std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>>
         fields;
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        rowField->type(), /*name=*/"c0"));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            rowField->type(), /*name=*/"c0"));
     return compareRowVector(rowVector, fields, {ordering});
   }
 
@@ -405,8 +408,9 @@ TEST_F(BinarySortableSerializerTest, LongTypeAllFields) {
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -428,8 +432,9 @@ TEST_F(BinarySortableSerializerTest, LongTypeAllFieldsDescending) {
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -453,8 +458,9 @@ TEST_F(BinarySortableSerializerTest, LongTypeAllFieldsWithNulls) {
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -478,8 +484,9 @@ TEST_F(BinarySortableSerializerTest, DefaultNullsOrdering) {
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -505,8 +512,9 @@ TEST_F(
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -532,8 +540,9 @@ TEST_F(
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -553,10 +562,12 @@ TEST_F(BinarySortableSerializerTest, LongTypeSubsetOfFields) {
   auto c2 = vectorMaker_.flatVectorNullable<int64_t>({2, 0});
 
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
-  fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-      velox::BIGINT(), /*name=*/"c2"));
-  fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-      velox::BIGINT(), /*name=*/"c0"));
+  fields.push_back(
+      std::make_shared<const velox::core::FieldAccessTypedExpr>(
+          velox::BIGINT(), /*name=*/"c2"));
+  fields.push_back(
+      std::make_shared<const velox::core::FieldAccessTypedExpr>(
+          velox::BIGINT(), /*name=*/"c0"));
 
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 
@@ -656,8 +667,9 @@ TEST_F(BinarySortableSerializerTest, ConstantVector) {
   std::vector<std::shared_ptr<const velox::core::FieldAccessTypedExpr>> fields;
   fields.reserve(3);
   for (int32_t i = 0; i < 3; ++i) {
-    fields.push_back(std::make_shared<const velox::core::FieldAccessTypedExpr>(
-        velox::BIGINT(), fmt::format("c{}", i)));
+    fields.push_back(
+        std::make_shared<const velox::core::FieldAccessTypedExpr>(
+            velox::BIGINT(), fmt::format("c{}", i)));
   }
   auto rowVector = vectorMaker_.rowVector({c0, c1, c2});
 

@@ -106,11 +106,10 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory(
-      []() {
-        return std::make_unique<
-            velox::serializer::presto::PrestoOutputStreamListener>();
-      });
+  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory([]() {
+    return std::make_unique<
+        velox::serializer::presto::PrestoOutputStreamListener>();
+  });
 }
 
 // Log only the catalog keys that are configured to avoid leaking
