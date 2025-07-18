@@ -2386,9 +2386,13 @@ class StatementAnalyzer
                         session.getAccessControlContext(), targetTableQualifiedName, allUpdateColumnNames);
             }
 
+            List<ColumnMetadata> updatedColumns = targetColumnsMetadata.stream()
+                    .filter(column -> allUpdateColumnNames.contains(column.getName()))
+                    .collect(toImmutableList());
+            analysis.setUpdatedColumns(updatedColumns);
             analysis.setUpdateType("MERGE");
 
-            // TODO #20578: Verify if this is still needed.
+            // TODO #20578: Verify if this is still needed. Answer: Probably no. We currently use analysis.setUpdatedColumns(updatedColumns);
 //            List<OutputColumn> updatedColumns = allColumnHandles.keySet().stream()
 //                    .filter(allUpdateColumnNames::contains)
 //                    .map(columnHandle -> new OutputColumn(new Column(columnHandle, dataColumnTypes.get(columnHandle).toString()), ImmutableSet.of()))
