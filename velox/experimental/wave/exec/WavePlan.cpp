@@ -436,6 +436,7 @@ bool CompileState::tryPlanOperator(
     step->state = state;
     step->id = atoi(node->id().c_str());
     segments_.back().steps.push_back(step);
+    step->joinType = node->joinType();
     auto expand = makeStep<JoinExpand>();
     step->expand = expand;
     expand->nthWrap = wrapId_++;
