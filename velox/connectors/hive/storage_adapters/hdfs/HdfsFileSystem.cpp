@@ -248,4 +248,22 @@ void HdfsFileSystem::rename(
       impl_->hdfsShim()->GetLastExceptionRootCause());
 }
 
+void HdfsFileSystem::rmdir(std::string_view path) {
+  // Only remove the scheme for hdfs path.
+  if (path.find(kScheme) == 0) {
+    path.remove_prefix(kScheme.length());
+    if (auto index = path.find('/')) {
+      path.remove_prefix(index);
+    }
+  }
+
+  VELOX_CHECK_EQ(
+      impl_->hdfsShim()->Delete(
+          impl_->hdfsClient(), path.data(), /*recursive=*/true),
+      0,
+      "Cannot remove directory {} recursively in HDFS, error is : {}",
+      path,
+      impl_->hdfsShim()->GetLastExceptionRootCause());
+}
+
 } // namespace facebook::velox::filesystems

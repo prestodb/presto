@@ -248,7 +248,7 @@ TEST_F(HdfsFileSystemTest, exists) {
   ASSERT_FALSE(hdfsFileSystem->exists(notExistFilePath));
 }
 
-TEST_F(HdfsFileSystemTest, mkdir) {
+TEST_F(HdfsFileSystemTest, mkdirAndRmdir) {
   auto config = std::make_shared<const config::ConfigBase>(
       std::unordered_map<std::string, std::string>(configurationValues));
   auto hdfsFileSystem =
@@ -257,6 +257,8 @@ TEST_F(HdfsFileSystemTest, mkdir) {
   ASSERT_FALSE(hdfsFileSystem->exists(newDir));
   hdfsFileSystem->mkdir(newDir);
   ASSERT_TRUE(hdfsFileSystem->exists(newDir));
+  hdfsFileSystem->rmdir(newDir);
+  ASSERT_FALSE(hdfsFileSystem->exists(newDir));
 }
 
 TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
