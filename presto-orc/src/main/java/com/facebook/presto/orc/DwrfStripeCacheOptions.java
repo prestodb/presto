@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
-import io.airlift.units.DataSize;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

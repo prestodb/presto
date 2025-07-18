@@ -27,8 +27,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Joiner;
 import com.sap.db.jdbc.Driver;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

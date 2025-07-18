@@ -17,9 +17,8 @@ import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.util.Objects;
 import java.util.OptionalInt;

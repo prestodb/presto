@@ -15,13 +15,12 @@ package com.facebook.presto.cache.filemerge;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
+import jakarta.validation.constraints.Min;
 
-import javax.validation.constraints.Min;
-
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class FileMergeCacheConfig

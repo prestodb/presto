@@ -23,8 +23,7 @@ import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.google.common.annotations.VisibleForTesting;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

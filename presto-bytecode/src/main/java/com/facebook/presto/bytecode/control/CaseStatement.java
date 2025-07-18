@@ -15,8 +15,7 @@ package com.facebook.presto.bytecode.control;
 
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 
