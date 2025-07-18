@@ -118,6 +118,7 @@ public class FeaturesConfig
     private boolean enableIntermediateAggregations;
     private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
+    private boolean pushSemiJoinThroughUnion = true;
     private CompressionCodec exchangeCompressionCodec = CompressionCodec.NONE;
     private boolean exchangeChecksumEnabled;
     private boolean optimizeMixedDistinctAggregations;
@@ -1133,6 +1134,18 @@ public class FeaturesConfig
     public FeaturesConfig setPushTableWriteThroughUnion(boolean pushTableWriteThroughUnion)
     {
         this.pushTableWriteThroughUnion = pushTableWriteThroughUnion;
+        return this;
+    }
+
+    public boolean isPushSemiJoinThroughUnion()
+    {
+        return pushSemiJoinThroughUnion;
+    }
+
+    @Config("optimizer.push-semi-join-through-union")
+    public FeaturesConfig setPushSemiJoinThroughUnion(boolean pushSemiJoinThroughUnion)
+    {
+        this.pushSemiJoinThroughUnion = pushSemiJoinThroughUnion;
         return this;
     }
 
