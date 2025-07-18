@@ -99,6 +99,22 @@
       _errorCode,                           \
       _errorMessage)
 
+#define VELOX_EXPECT_EQ_TYPES(actual, expected)                         \
+  {                                                                     \
+    auto _actualType = (actual);                                        \
+    auto _expectedType = (expected);                                    \
+    if (_expectedType != nullptr) {                                     \
+      ASSERT_TRUE(_actualType != nullptr)                               \
+          << "Expected: " << _expectedType->toString() << ", got null"; \
+      EXPECT_EQ(*_actualType, *_expectedType)                           \
+          << "Expected: " << _expectedType->toString() << ", got "      \
+          << _actualType->toString();                                   \
+    } else {                                                            \
+      EXPECT_EQ(_actualType, nullptr)                                   \
+          << "Expected null, got " << _actualType->toString();          \
+    }                                                                   \
+  }
+
 #ifndef NDEBUG
 #define DEBUG_ONLY_TEST(test_fixture, test_name) TEST(test_fixture, test_name)
 #define DEBUG_ONLY_TEST_F(test_fixture, test_name) \

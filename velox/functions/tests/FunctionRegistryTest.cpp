@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/RegisterSpecialForm.h"
 #include "velox/expression/VectorFunction.h"
@@ -30,16 +31,6 @@
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/tests/RegistryTestUtil.h"
 #include "velox/type/Type.h"
-
-#define VELOX_EXPECT_EQ_TYPES(actual, expected)                                \
-  if (expected != nullptr) {                                                   \
-    ASSERT_TRUE(actual != nullptr)                                             \
-        << "Expected: " << expected->toString() << ", got null";               \
-    EXPECT_EQ(*actual, *expected) << "Expected: " << expected->toString()      \
-                                  << ", got " << actual->toString();           \
-  } else {                                                                     \
-    EXPECT_EQ(actual, nullptr) << "Expected null, got " << actual->toString(); \
-  }
 
 namespace facebook::velox {
 namespace {
@@ -838,5 +829,3 @@ TEST_F(FunctionRegistryTest, ipPrefixRegistration) {
 
 } // namespace
 } // namespace facebook::velox
-
-#undef VELOX_EXPECT_EQ_TYPES

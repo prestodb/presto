@@ -90,17 +90,6 @@ bool checkNamedRowField(
 
 } // namespace
 
-int64_t Coercion::overallCost(const std::vector<Coercion>& coercions) {
-  int64_t cost = 0;
-  for (const auto& coercion : coercions) {
-    if (coercion.type != nullptr) {
-      cost += coercion.cost;
-    }
-  }
-
-  return cost;
-}
-
 bool SignatureBinder::tryBindWithCoercions(std::vector<Coercion>& coercions) {
   return tryBind(true, coercions);
 }
@@ -199,32 +188,6 @@ bool SignatureBinderBase::tryBind(
   return tryBind(typeSignature, actualType, false, coercion);
 }
 
-namespace {
-
-std::unordered_map<std::pair<std::string, std::string>, Coercion>
-allowedCoercions() {
-  std::unordered_map<std::pair<std::string, std::string>, Coercion> coercions;
-
-  auto add = [&](const TypePtr& from, const std::vector<TypePtr>& to) {
-    int32_t cost = 0;
-    for (const auto& toType : to) {
-      coercions.emplace(
-          std::make_pair<std::string, std::string>(
-              from->kindName(), toType->kindName()),
-          Coercion{.type = toType, .cost = ++cost});
-    }
-  };
-
-  add(TINYINT(), {SMALLINT(), INTEGER(), BIGINT(), REAL(), DOUBLE()});
-  add(SMALLINT(), {INTEGER(), BIGINT(), REAL(), DOUBLE()});
-  add(INTEGER(), {BIGINT(), REAL(), DOUBLE()});
-  add(BIGINT(), {DOUBLE()});
-  add(REAL(), {DOUBLE()});
-
-  return coercions;
-}
-} // namespace
-
 bool SignatureBinderBase::tryBind(
     const exec::TypeSignature& typeSignature,
     const TypePtr& actualType,
@@ -274,11 +237,9 @@ bool SignatureBinderBase::tryBind(
 
   if (typeName != actualTypeName) {
     if (allowCoercion) {
-      static const auto kAllowedCoercions = allowedCoercions();
-
-      auto it = kAllowedCoercions.find({actualTypeName, typeName});
-      if (it != kAllowedCoercions.end()) {
-        coercion = it->second;
+      if (auto availableCoercion =
+              TypeCoercer::coerceTypeBase(actualType, typeName)) {
+        coercion = availableCoercion.value();
         return true;
       }
     }
