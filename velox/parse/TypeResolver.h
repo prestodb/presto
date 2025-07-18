@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/core/ITypedExpr.h"
+#include "velox/expression/SignatureBinder.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -95,5 +96,13 @@ class Expressions {
   static TypeResolverHook resolverHook_;
   static FieldAccessHook fieldAccessHook_;
 };
+
+/// Returns a signature for 'call' if a signature involving lambda arguments is
+/// found, nullptr otherwise.
+/// Assumes no overlap in function names between scalar and aggregate
+// functions,
+/// i.e. 'foo' is either a scalar or aggregate function.
+const exec::FunctionSignature* findLambdaSignature(
+    const std::shared_ptr<const CallExpr>& callExpr);
 
 } // namespace facebook::velox::core

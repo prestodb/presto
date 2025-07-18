@@ -463,11 +463,10 @@ const exec::FunctionSignature* FOLLY_NULLABLE findLambdaSignature(
 
   return matchingSignature;
 }
+} // namespace
 
-// Assumes no overlap in function names between scalar and aggregate functions,
-// i.e. 'foo' is either a scalar or aggregate function.
-const exec::FunctionSignature* FOLLY_NULLABLE
-findLambdaSignature(const std::shared_ptr<const CallExpr>& callExpr) {
+const exec::FunctionSignature* findLambdaSignature(
+    const std::shared_ptr<const CallExpr>& callExpr) {
   // Look for a scalar lambda function.
   auto scalarSignatures = getFunctionSignatures(callExpr->name());
   if (!scalarSignatures.empty()) {
@@ -482,8 +481,6 @@ findLambdaSignature(const std::shared_ptr<const CallExpr>& callExpr) {
 
   return nullptr;
 }
-
-} // namespace
 
 // static
 TypedExprPtr Expressions::tryResolveCallWithLambdas(
