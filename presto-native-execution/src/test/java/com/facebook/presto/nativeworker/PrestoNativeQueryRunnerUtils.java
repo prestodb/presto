@@ -182,6 +182,13 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setUseReactorNettyHttpClient(boolean useReactorNettyHttpClient)
+        {
+            this.extraProperties
+                    .put("reactor.netty-http-client-enabled", String.valueOf(useReactorNettyHttpClient));
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setSingleNodeExecutionEnabled(boolean singleNodeExecutionEnabled)
         {
             if (singleNodeExecutionEnabled) {
