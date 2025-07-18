@@ -311,11 +311,11 @@ public class NumericHistogram
         });
     }
 
-    private static double computePenalty(double value1, double value2, double weight1, double weight2)
+    private static double computePenalty(double value1, double weight1, double value2, double weight2)
     {
-        double weight = value2 + weight2;
-        double squaredDifference = (value1 - weight1) * (value1 - weight1);
-        double proportionsProduct = (value2 * weight2) / ((value2 + weight2) * (value2 + weight2));
+        double weight = weight1 + weight2;
+        double squaredDifference = (value1 - value2) * (value1 - value2);
+        double proportionsProduct = (weight1 * weight2) / ((weight1 + weight2) * (weight1 + weight2));
         return weight * squaredDifference * proportionsProduct;
     }
 
