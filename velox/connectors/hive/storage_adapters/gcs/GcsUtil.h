@@ -30,6 +30,8 @@ namespace facebook::velox {
 // upload this buffer with zero copies if possible.
 auto constexpr kUploadBufferSize = 256 * 1024;
 
+constexpr const char* kGcsDefaultCacheKeyPrefix = "gcs-default-key";
+
 namespace {
 constexpr const char* kSep{"/"};
 constexpr std::string_view kGcsScheme{"gs://"};

@@ -18,6 +18,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GcsUtil.h"
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/gcs/tests/GcsEmulator.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
@@ -249,5 +250,27 @@ TEST_F(GcsFileSystemTest, credentialsConfig) {
   VELOX_ASSERT_THROW(
       gcfs.openFileForRead(gcsFile), "Invalid ServiceAccountCredentials");
 }
+
+TEST_F(GcsFileSystemTest, defaultCacheKey) {
+  registerGcsFileSystem();
+  std::unordered_map<std::string, std::string> configWithoutEndpoint = {};
+  auto hiveConfigDefault = std::make_shared<const config::ConfigBase>(
+      std::move(configWithoutEndpoint));
+  const auto gcsFile1 = gcsURI(
+      emulator_->preexistingBucketName(), emulator_->preexistingObjectName());
+  // FileSystem should be cached by the default key.
+  auto defaultGcs = filesystems::getFileSystem(gcsFile1, hiveConfigDefault);
+
+  std::unordered_map<std::string, std::string> configWithEndpoint = {
+      {connector::hive::HiveConfig::kGcsEndpoint, kGcsDefaultCacheKeyPrefix}};
+  auto hiveConfigCustom =
+      std::make_shared<const config::ConfigBase>(std::move(configWithEndpoint));
+  const auto gcsFile2 = gcsURI(emulator_->preexistingBucketName(), "dummy.txt");
+  auto customGcs = filesystems::getFileSystem(gcsFile2, hiveConfigCustom);
+  // The same FileSystem should be cached by the value of key
+  // kGcsDefaultCacheKeyPrefix.
+  ASSERT_EQ(customGcs, defaultGcs);
+}
+
 } // namespace
 } // namespace facebook::velox::filesystems

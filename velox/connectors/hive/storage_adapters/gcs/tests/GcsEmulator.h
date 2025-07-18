@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 #include "velox/common/config/Config.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GcsUtil.h"
 #include "velox/exec/tests/utils/PortUtil.h"
 
@@ -92,7 +93,7 @@ class GcsEmulator : public testing::Environment {
       const std::unordered_map<std::string, std::string> configOverride = {})
       const {
     std::unordered_map<std::string, std::string> config(
-        {{"hive.gcs.endpoint", endpoint_}});
+        {{connector::hive::HiveConfig::kGcsEndpoint, endpoint_}});
 
     // Update the default config map with the supplied configOverride map
     for (const auto& [configName, configValue] : configOverride) {

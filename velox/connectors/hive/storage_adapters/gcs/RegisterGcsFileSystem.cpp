@@ -16,6 +16,7 @@
 
 #ifdef VELOX_ENABLE_GCS
 #include "velox/common/config/Config.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GcsFileSystem.h" // @manual
 #include "velox/connectors/hive/storage_adapters/gcs/GcsUtil.h" // @manual
 #include "velox/dwio/common/FileSink.h"
@@ -46,7 +47,9 @@ gcsFileSystemGenerator() {
         setBucketAndKeyFromGcsPath(file, bucket, object);
         auto cacheKey = fmt::format(
             "{}-{}",
-            properties->get<std::string>("hive.gcs.endpoint").value(),
+            properties->get<std::string>(
+                connector::hive::HiveConfig::kGcsEndpoint,
+                kGcsDefaultCacheKeyPrefix),
             bucket);
 
         // Check if an instance exists with a read lock (shared).
