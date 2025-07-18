@@ -93,11 +93,11 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     }
 
-    private static boolean canRewriteToInnerJoin(FunctionResolution functionResolution, RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    private static boolean canRewriteToInnerJoin(FunctionResolution functionResolution, RowExpression filter, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right, Session session)
     {
         return getCandidateOrExpression(filter, left, right) != null
-                || getCandidateArrayContainsExpression(functionResolution, filter, left, right) != null
-                || getCandidateArrayNotContainsExpression(functionResolution, filter, left, right) != null;
+                || getCandidateArrayContainsExpression(functionResolution, filter, left, right, session) != null
+                || getCandidateArrayNotContainsExpression(functionResolution, filter, left, right, session) != null;
     }
 
     @Override
@@ -139,7 +139,7 @@ public class PushDownFilterExpressionEvaluationThroughCrossJoin
 
         // Only enable if the cross join can be rewritten to inner join after the rewrite
         if (getPushdownFilterExpressionEvaluationThroughCrossJoinStrategy(context.getSession()).equals(REWRITTEN_TO_INNER_JOIN)
-                && !canRewriteToInnerJoin(functionResolution, rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables())) {
+                && !canRewriteToInnerJoin(functionResolution, rewrittenFilter, leftInput.getOutputVariables(), rightInput.getOutputVariables(), context.getSession())) {
             return Result.empty();
         }
 
