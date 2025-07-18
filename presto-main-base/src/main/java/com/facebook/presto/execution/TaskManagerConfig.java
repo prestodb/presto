@@ -103,6 +103,11 @@ public class TaskManagerConfig
     private boolean enableEventLoop;
     private Duration slowMethodThresholdOnEventLoop = new Duration(0, SECONDS);
 
+    private boolean reactorNettyHttpClientEnabled;
+    private int nettyMaxTotalConnections = 100;
+    private int nettyMaxStreamPerChannel = 100;
+    private int nettyEventLoopThreadCount = 50;
+
     public long getSlowMethodThresholdOnEventLoop()
     {
         return slowMethodThresholdOnEventLoop.roundTo(NANOSECONDS);
@@ -702,6 +707,57 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskUpdateSizeTrackingEnabled(boolean taskUpdateSizeTrackingEnabled)
     {
         this.taskUpdateSizeTrackingEnabled = taskUpdateSizeTrackingEnabled;
+        return this;
+    }
+
+    public boolean isReactorNettyHttpClientEnabled()
+    {
+        return reactorNettyHttpClientEnabled;
+    }
+
+    @Config("task.reactor-netty-client-enabled")
+    public TaskManagerConfig setReactorNettyHttpClientEnabled(boolean reactorNettyHttpClientEnabled)
+    {
+        this.reactorNettyHttpClientEnabled = reactorNettyHttpClientEnabled;
+        return this;
+    }
+
+    public int getNettyMaxTotalConnections()
+    {
+        return nettyMaxTotalConnections;
+    }
+
+    @Config("task.netty-max-total-connections")
+    @ConfigDescription("Max total number of connections in the pool used by the netty client to talk to the workers")
+    public TaskManagerConfig setNettyMaxTotalConnections(int nettyMaxTotalConnections)
+    {
+        this.nettyMaxTotalConnections = nettyMaxTotalConnections;
+        return this;
+    }
+
+    public int getNettyMaxStreamPerChannel()
+    {
+        return nettyMaxStreamPerChannel;
+    }
+
+    @Config("task.netty-max-stream-per-channel")
+    @ConfigDescription("Max number of streams per single HTTP2 connection between coordinator and worker")
+    public TaskManagerConfig setNettyMaxStreamPerChannel(int nettyMaxStreamPerChannel)
+    {
+        this.nettyMaxStreamPerChannel = nettyMaxStreamPerChannel;
+        return this;
+    }
+
+    public int getNettyEventLoopThreadCount()
+    {
+        return nettyEventLoopThreadCount;
+    }
+
+    @Config("task.netty-event-loop-thread-count")
+    @ConfigDescription("Number of event loop threads used by netty to handle the http messages")
+    public TaskManagerConfig setNettyEventLoopThreadCount(int nettyEventLoopThreadCount)
+    {
+        this.nettyEventLoopThreadCount = nettyEventLoopThreadCount;
         return this;
     }
 }
