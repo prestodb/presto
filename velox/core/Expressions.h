@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <iomanip>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/vector/BaseVector.h"
@@ -199,20 +198,7 @@ class CallTypedExpr : public ITypedExpr {
         type(), rewriteInputsRecursive(mapping), name_);
   }
 
-  std::string toString() const override {
-    std::string str{};
-    str += name();
-    str += "(";
-    for (size_t i = 0; i < inputs().size(); ++i) {
-      auto& input = inputs().at(i);
-      if (i != 0) {
-        str += ",";
-      }
-      str += input->toString();
-    }
-    str += ")";
-    return str;
-  }
+  std::string toString() const override;
 
   size_t localHash() const override {
     static const size_t kBaseHash = std::hash<const char*>()("CallTypedExpr");
@@ -279,43 +265,9 @@ class FieldAccessTypedExpr : public ITypedExpr {
 
   TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping)
-      const override {
-    if (inputs().empty()) {
-      auto it = mapping.find(name_);
-      return it != mapping.end()
-          ? it->second
-          : std::make_shared<FieldAccessTypedExpr>(type(), name_);
-    }
+      const override;
 
-    auto newInputs = rewriteInputsRecursive(mapping);
-    VELOX_CHECK_EQ(1, newInputs.size());
-    // Only rewrite name if input in InputTypedExpr. Rewrite in other
-    // cases(like dereference) is unsound.
-    if (!std::dynamic_pointer_cast<const InputTypedExpr>(newInputs[0])) {
-      return std::make_shared<FieldAccessTypedExpr>(
-          type(), newInputs[0], name_);
-    }
-    auto it = mapping.find(name_);
-    auto newName = name_;
-    if (it != mapping.end()) {
-      if (auto name = std::dynamic_pointer_cast<const FieldAccessTypedExpr>(
-              it->second)) {
-        newName = name->name();
-      }
-    }
-    return std::make_shared<FieldAccessTypedExpr>(
-        type(), newInputs[0], newName);
-  }
-
-  std::string toString() const override {
-    std::stringstream ss;
-    ss << std::quoted(name(), '"', '"');
-    if (inputs().empty()) {
-      return fmt::format("{}", ss.str());
-    }
-
-    return fmt::format("{}[{}]", inputs()[0]->toString(), ss.str());
-  }
+  std::string toString() const override;
 
   size_t localHash() const override {
     static const size_t kBaseHash =
@@ -443,8 +395,7 @@ class ConcatTypedExpr : public ITypedExpr {
  public:
   ConcatTypedExpr(
       const std::vector<std::string>& names,
-      const std::vector<TypedExprPtr>& inputs)
-      : ITypedExpr{toType(names, inputs), inputs} {}
+      const std::vector<TypedExprPtr>& inputs);
 
   TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping)
@@ -453,19 +404,7 @@ class ConcatTypedExpr : public ITypedExpr {
         type()->asRow().names(), rewriteInputsRecursive(mapping));
   }
 
-  std::string toString() const override {
-    std::string str{};
-    str += "CONCAT(";
-    for (size_t i = 0; i < inputs().size(); ++i) {
-      auto& input = inputs().at(i);
-      if (i != 0) {
-        str += ",";
-      }
-      str += input->toString();
-    }
-    str += ")";
-    return str;
-  }
+  std::string toString() const override;
 
   size_t localHash() const override {
     static const size_t kBaseHash = std::hash<const char*>()("ConcatTypedExpr");
@@ -499,19 +438,6 @@ class ConcatTypedExpr : public ITypedExpr {
   folly::dynamic serialize() const override;
 
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
-
- private:
-  static TypePtr toType(
-      const std::vector<std::string>& names,
-      const std::vector<TypedExprPtr>& expressions) {
-    std::vector<TypePtr> children{};
-    std::vector<std::string> namesCopy{};
-    for (size_t i = 0; i < names.size(); ++i) {
-      namesCopy.push_back(names.at(i));
-      children.push_back(expressions.at(i)->type());
-    }
-    return ROW(std::move(namesCopy), std::move(children));
-  }
 };
 
 using ConcatTypedExprPtr = std::shared_ptr<const ConcatTypedExpr>;
@@ -535,15 +461,7 @@ class LambdaTypedExpr : public ITypedExpr {
 
   TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping)
-      const override {
-    for (const auto& name : signature_->names()) {
-      if (mapping.count(name)) {
-        VELOX_USER_FAIL("Ambiguous variable: {}", name);
-      }
-    }
-    return std::make_shared<LambdaTypedExpr>(
-        signature_, body_->rewriteInputNames(mapping));
-  }
+      const override;
 
   std::string toString() const override {
     return fmt::format(
@@ -612,15 +530,7 @@ class CastTypedExpr : public ITypedExpr {
         type(), rewriteInputsRecursive(mapping), isTryCast_);
   }
 
-  std::string toString() const override {
-    if (isTryCast_) {
-      return fmt::format(
-          "try_cast {} as {}", inputs()[0]->toString(), type()->toString());
-    } else {
-      return fmt::format(
-          "cast {} as {}", inputs()[0]->toString(), type()->toString());
-    }
-  }
+  std::string toString() const override;
 
   size_t localHash() const override {
     static const size_t kBaseHash = std::hash<const char*>()("CastTypedExpr");
