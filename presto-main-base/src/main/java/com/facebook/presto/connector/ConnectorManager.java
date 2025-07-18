@@ -119,7 +119,7 @@ public class ConnectorManager
     private final FilterStatsCalculator filterStatsCalculator;
     private final BlockEncodingSerde blockEncodingSerde;
     private final ConnectorSystemConfig connectorSystemConfig;
-    private final ConnectorThriftCodecManager connectorThriftCodecManager;
+    private final ConnectorCodecManager connectorCodecManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -154,7 +154,7 @@ public class ConnectorManager
             FilterStatsCalculator filterStatsCalculator,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
-            ConnectorThriftCodecManager connectorThriftCodecManager)
+            ConnectorCodecManager connectorCodecManager)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
@@ -179,7 +179,7 @@ public class ConnectorManager
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.connectorSystemConfig = () -> featuresConfig.isNativeExecutionEnabled();
-        this.connectorThriftCodecManager = requireNonNull(connectorThriftCodecManager, "connectorThriftCodecManager is null");
+        this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
     }
 
     @PreDestroy
@@ -308,7 +308,7 @@ public class ConnectorManager
                     .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
         }
 
-        connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorThriftCodecManager.addConnectorThriftCodecProvider(connectorId, connectorCodecProvider));
+        connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorId, connectorCodecProvider));
 
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
 

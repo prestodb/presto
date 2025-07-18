@@ -14,13 +14,49 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import java.util.Optional;
 
 public interface ConnectorCodecProvider
 {
-    Optional<ConnectorCodec<ConnectorSplit>> getConnectorSplitCodec();
+    default Optional<ConnectorCodec<ConnectorSplit>> getConnectorSplitCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
 
-    Optional<ConnectorCodec<ConnectorTransactionHandle>> getConnectorTransactionHandleCodec();
+    default Optional<ConnectorCodec<ConnectorTransactionHandle>> getConnectorTransactionHandleCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
+
+    default Optional<ConnectorCodec<ConnectorOutputTableHandle>> getConnectorOutputTableHandleCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
+
+    default Optional<ConnectorCodec<ConnectorInsertTableHandle>> getConnectorInsertTableHandleCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
+
+    default Optional<ConnectorCodec<ConnectorDeleteTableHandle>> getConnectorDeleteTableHandleCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
+
+    default Optional<ConnectorCodec<ConnectorTableLayoutHandle>> getConnectorTableLayoutHandleCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
+
+    default Optional<ConnectorCodec<ConnectorTableHandle>> getConnectorTableHandleCodec()
+    {
+        throw new UnsupportedOperationException("This method is not implemented yet.");
+    }
 }

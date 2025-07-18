@@ -14,6 +14,9 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -38,10 +41,12 @@ import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TableWriteInfo
 {
     private final Optional<ExecutionWriterTarget> writerTarget;
     private final Optional<AnalyzeTableHandle> analyzeTableHandle;
+    private final short dummy = 1;
 
     @JsonCreator
     public TableWriteInfo(
@@ -49,6 +54,17 @@ public class TableWriteInfo
             @JsonProperty("analyzeTableHandle") Optional<AnalyzeTableHandle> analyzeTableHandle)
     {
         this.writerTarget = requireNonNull(writerTarget, "writerTarget is null");
+        this.analyzeTableHandle = requireNonNull(analyzeTableHandle, "analyzeTableHandle is null");
+        checkArgument(!analyzeTableHandle.isPresent() || !writerTarget.isPresent(), "analyzeTableHandle is present, so no other fields should be present");
+    }
+
+    @ThriftConstructor
+    public TableWriteInfo(
+            Optional<ExecutionWriterTargetUnion> writerTargetUnion,
+            Optional<AnalyzeTableHandle> analyzeTableHandle,
+            short dummy)
+    {
+        this.writerTarget = writerTargetUnion.map(ExecutionWriterTargetUnion::toExecutionWriterTarget);
         this.analyzeTableHandle = requireNonNull(analyzeTableHandle, "analyzeTableHandle is null");
         checkArgument(!analyzeTableHandle.isPresent() || !writerTarget.isPresent(), "analyzeTableHandle is present, so no other fields should be present");
     }
@@ -159,9 +175,22 @@ public class TableWriteInfo
         return writerTarget;
     }
 
+    @ThriftField(value = 1, name = "writerTarget")
+    public Optional<ExecutionWriterTargetUnion> getWriterTargetUnion()
+    {
+        return writerTarget.map(ExecutionWriterTargetUnion::fromExecutionWriterTarget);
+    }
+
     @JsonProperty
+    @ThriftField(2)
     public Optional<AnalyzeTableHandle> getAnalyzeTableHandle()
     {
         return analyzeTableHandle;
+    }
+
+    @ThriftField(3)
+    public short getDummy()
+    {
+        return dummy;
     }
 }

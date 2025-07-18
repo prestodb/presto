@@ -41,8 +41,8 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.ConnectorThriftCodecManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
@@ -142,7 +142,6 @@ import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.HandleThriftModule;
-import com.facebook.presto.server.thrift.TableWriteInfoCodec;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
@@ -431,8 +430,7 @@ public class ServerMainModule
 
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(TableWriteInfoCodec.class);
-        binder.bind(ConnectorThriftCodecManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);

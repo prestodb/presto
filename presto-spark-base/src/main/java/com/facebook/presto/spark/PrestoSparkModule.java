@@ -33,8 +33,8 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.ConnectorThriftCodecManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
@@ -430,7 +430,7 @@ public class PrestoSparkModule
 
         // for thrift serde
         binder.bind(ThriftCodecManager.class).toInstance(new ThriftCodecManager());
-        binder.bind(ConnectorThriftCodecManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);

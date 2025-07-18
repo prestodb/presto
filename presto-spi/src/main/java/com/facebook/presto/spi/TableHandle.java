@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +27,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class TableHandle
 {
     private final ConnectorId connectorId;
@@ -38,6 +42,7 @@ public final class TableHandle
     private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter;
 
     @JsonCreator
+    @ThriftConstructor
     public TableHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
@@ -62,24 +67,28 @@ public final class TableHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public ConnectorId getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public ConnectorTableHandle getConnectorHandle()
     {
         return connectorHandle;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public ConnectorTransactionHandle getTransaction()
     {
         return transaction;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public Optional<ConnectorTableLayoutHandle> getLayout()
     {
         return layout;

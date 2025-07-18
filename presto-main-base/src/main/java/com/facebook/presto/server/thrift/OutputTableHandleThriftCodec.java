@@ -20,7 +20,7 @@ import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
 import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 
 import javax.inject.Inject;
 
@@ -28,19 +28,19 @@ import java.nio.ByteBuffer;
 
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorSplitThriftCodec
-        extends AbstractTypedThriftCodec<ConnectorSplit>
+public class OutputTableHandleThriftCodec
+        extends AbstractTypedThriftCodec<ConnectorOutputTableHandle>
 {
-    private static final ThriftType THRIFT_TYPE = createThriftType(ConnectorSplit.class);
+    private static final ThriftType THRIFT_TYPE = createThriftType(ConnectorOutputTableHandle.class);
     private final ConnectorCodecManager connectorCodecManager;
 
     @Inject
-    public ConnectorSplitThriftCodec(HandleResolver handleResolver, ConnectorCodecManager connectorCodecManager, JsonCodec<ConnectorSplit> jsonCodec)
+    public OutputTableHandleThriftCodec(HandleResolver handleResolver, ConnectorCodecManager connectorCodecManager, JsonCodec<ConnectorOutputTableHandle> jsonCodec)
     {
-        super(ConnectorSplit.class,
+        super(ConnectorOutputTableHandle.class,
                 requireNonNull(jsonCodec, "jsonCodec is null"),
                 requireNonNull(handleResolver, "handleResolver is null")::getId,
-                handleResolver::getSplitClass);
+                handleResolver::getOutputTableHandleClass);
         this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
     }
 
@@ -57,26 +57,26 @@ public class ConnectorSplitThriftCodec
     }
 
     @Override
-    public ConnectorSplit readConcreteValue(String connectorId, TProtocolReader reader)
+    public ConnectorOutputTableHandle readConcreteValue(String connectorId, TProtocolReader reader)
             throws Exception
     {
         ByteBuffer byteBuffer = reader.readBinary();
         assert (byteBuffer.position() == 0);
         byte[] bytes = byteBuffer.array();
-        return connectorCodecManager.getConnectorSplitCodec(connectorId).map(codec -> codec.deserialize(bytes)).orElse(null);
+        return connectorCodecManager.getOutputTableHandleCodec(connectorId).map(codec -> codec.deserialize(bytes)).orElse(null);
     }
 
     @Override
-    public void writeConcreteValue(String connectorId, ConnectorSplit value, TProtocolWriter writer)
+    public void writeConcreteValue(String connectorId, ConnectorOutputTableHandle value, TProtocolWriter writer)
             throws Exception
     {
         requireNonNull(value, "value is null");
-        writer.writeBinary(ByteBuffer.wrap(connectorCodecManager.getConnectorSplitCodec(connectorId).map(codec -> codec.serialize(value)).orElseThrow(() -> new IllegalArgumentException("Cannot serialize " + value))));
+        writer.writeBinary(ByteBuffer.wrap(connectorCodecManager.getOutputTableHandleCodec(connectorId).map(codec -> codec.serialize(value)).orElseThrow(() -> new IllegalArgumentException("Can not serialize " + value))));
     }
 
     @Override
     public boolean isThriftCodecAvailable(String connectorId)
     {
-        return connectorCodecManager.getConnectorSplitCodec(connectorId).isPresent();
+        return connectorCodecManager.getOutputTableHandleCodec(connectorId).isPresent();
     }
 }

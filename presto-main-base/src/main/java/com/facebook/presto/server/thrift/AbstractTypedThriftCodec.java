@@ -32,8 +32,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -41,6 +43,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractTypedThriftCodec<T>
         implements ThriftCodec<T>
 {
+    private static final Set<String> NON_THRIFT_CONNECTOR = new HashSet<>();
     private static final Logger log = Logger.get(AbstractTypedThriftCodec.class);
     private static final String TYPE_VALUE = "connectorId";
     private static final String CUSTOM_SERIALIZED_VALUE = "customSerializedValue";
@@ -186,7 +189,11 @@ public abstract class AbstractTypedThriftCodec<T>
             writer.writeFieldEnd();
         }
         else {
-            // For non-thrift-enabled connectors, fall back to json
+            // If thrift codec is not available for this connector, fall back to its json
+            if (!NON_THRIFT_CONNECTOR.contains(connectorId)) {
+                NON_THRIFT_CONNECTOR.add(connectorId);
+                log.warn("Can not find thrift codec for connector " + connectorId);
+            }
             writer.writeFieldBegin(new TField(JSON_VALUE, TType.STRING, JSON_FIELD_ID));
             writer.writeString(jsonCodec.toJson(value));
             writer.writeFieldEnd();

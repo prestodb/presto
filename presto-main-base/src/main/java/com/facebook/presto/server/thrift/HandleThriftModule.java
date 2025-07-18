@@ -14,7 +14,12 @@
 package com.facebook.presto.server.thrift;
 
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -31,9 +36,19 @@ public class HandleThriftModule
     {
         thriftCodecBinder(binder).bindCustomThriftCodec(ConnectorSplitThriftCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(TransactionHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(OutputTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(InsertTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(DeleteTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(TableLayoutHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(TableHandleThriftCodec.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
         jsonCodecBinder(binder).bindJsonCodec(ConnectorTransactionHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorOutputTableHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorInsertTableHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorDeleteTableHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorTableLayoutHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorTableHandle.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
     }

@@ -66,7 +66,11 @@
                             <customCodecs>
                                 <codec>com.facebook.presto.server.thrift.ConnectorSplitThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TransactionHandleThriftCodec</codec>
-                                <codec>com.facebook.presto.server.thrift.TableWriteInfoCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.OutputTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.DeleteTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.InsertTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.TableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec</codec>
