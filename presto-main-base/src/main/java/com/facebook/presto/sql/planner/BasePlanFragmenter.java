@@ -43,6 +43,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -260,6 +262,21 @@ public abstract class BasePlanFragmenter
         if (node.isSingleWriterPerPartitionRequired()) {
             context.get().setDistribution(node.getTablePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
         }
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
+    {
+        if (node.getPartitioningScheme().isPresent()) {
+            context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+        }
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<FragmentProperties> context)
+    {
         return context.defaultRewrite(node, context.get());
     }
 
