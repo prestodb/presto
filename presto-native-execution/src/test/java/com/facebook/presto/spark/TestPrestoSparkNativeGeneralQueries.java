@@ -68,29 +68,6 @@ public class TestPrestoSparkNativeGeneralQueries
     @Ignore
     public void testAnalyzeStatsOnDecimals() {}
 
-    // Access Denied: Cannot set catalog session property hive.pushdown_filter_enabled
-    @Override
-    @Ignore
-    public void testColumnFilter() {}
-
-    // Access Denied: Cannot set catalog session property
-    // hive.parquet_pushdown_filter_enabled
-    @Override
-    @Ignore
-    public void testDecimalApproximateAggregates() {}
-
-    // Access Denied: Cannot set catalog session property
-    // hive.parquet_pushdown_filter_enabled
-    @Override
-    @Ignore
-    public void testDecimalRangeFilters() {}
-
-    // Access Denied: Cannot set catalog session property
-    // hive.pushdown_filter_enabled
-    @Override
-    @Ignore
-    public void testTimestampWithTimeZone() {}
-
     // pattern assertion is only supported for DistributedQueryRunner
     @Override
     @Ignore
@@ -100,11 +77,6 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testReadTableWithTextfileFormat() {}
-
-    // https://github.com/prestodb/presto/issues/22275
-    @Override
-    @Ignore
-    public void testUnionAllInsert() {}
 
     // java.lang.IllegalArgumentException: pattern assertion is only supported for DistributedQueryRunner
     @Override
