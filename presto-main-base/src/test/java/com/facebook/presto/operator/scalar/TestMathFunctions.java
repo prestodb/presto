@@ -1466,6 +1466,100 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testArrayDotProduct()
+    {
+        // functionality test
+        assertFunction(
+                "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, 14.0d);
+        assertFunction(
+                "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '4.0', DOUBLE '5.0', DOUBLE '6.0'])",
+                DOUBLE, 32.0d);
+        assertFunction(
+                "dot_product(array[DOUBLE '-1.0', DOUBLE '-2.0', DOUBLE '-3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, -14.0d);
+        assertFunction(
+                "dot_product(array[DOUBLE '0.0', DOUBLE '0.0', DOUBLE '0.0'], array[DOUBLE '0.0', DOUBLE '0.0', DOUBLE '0.0'])",
+                DOUBLE, 0.0d);
+        // identical size test
+        assertInvalidFunction(
+                "dot_product(array[DOUBLE '1.0', DOUBLE '2.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                "Both array arguments must have identical sizes");
+        // null test
+        assertFunction(
+                "dot_product(CAST(null AS array(double)), array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                DOUBLE, null);
+        assertFunction(
+                "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], CAST(null AS array(double)))",
+                DOUBLE, null);
+        assertFunction(
+                "dot_product(CAST(null AS array(double)), CAST(null AS array(double)))",
+                DOUBLE, null);
+        // any null inside the equal sized arrays must throw error
+        assertInvalidFunction(
+                "dot_product(array[DOUBLE '1.0', null, DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])",
+                "Both array arguments must not have nulls");
+        assertInvalidFunction(
+                "dot_product(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', null, DOUBLE '3.0'])",
+                "Both array arguments must not have nulls");
+        // NaN test
+        assertFunction("dot_product(array[nan()], array[nan()])",
+                DOUBLE, Double.NaN);
+        // infinity test
+        assertFunction("dot_product(array[infinity()], array[infinity()])",
+                DOUBLE, Double.POSITIVE_INFINITY);
+        assertFunction("dot_product(array[infinity()], array[-1.0])",
+                DOUBLE, Double.NEGATIVE_INFINITY);
+    }
+
+    @Test
+    public void testArrayDotProductReal()
+    {
+        // functionality test
+        assertFunction(
+                "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, 14.0f);
+        assertFunction(
+                "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '4.0', REAL '5.0', REAL '6.0'])",
+                REAL, 32.0f);
+        assertFunction(
+                "dot_product(array[REAL '-1.0', REAL '-2.0', REAL '-3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, -14.0f);
+        assertFunction(
+                "dot_product(array[REAL '0.0', REAL '0.0', REAL '0.0'], array[REAL '0.0', REAL '0.0', REAL '0.0'])",
+                REAL, 0.0f);
+        // identical size test
+        assertInvalidFunction(
+                "dot_product(array[REAL '1.0', REAL '2.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                "Both array arguments must have identical sizes");
+        // null test
+        assertFunction(
+                "dot_product(CAST(null AS array(real)), array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                REAL, null);
+        assertFunction(
+                "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], CAST(null AS array(real)))",
+                REAL, null);
+        assertFunction(
+                "dot_product(CAST(null AS array(real)), CAST(null AS array(real)))",
+                REAL, null);
+        // any null inside the equal sized arrays must throw error
+        assertInvalidFunction(
+                "dot_product(array[REAL '1.0', null, REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])",
+                "Both array arguments must not have nulls");
+        assertInvalidFunction(
+                "dot_product(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', null, REAL '3.0'])",
+                "Both array arguments must not have nulls");
+        // NaN test
+        assertFunction("dot_product(array[CAST(nan() AS REAL)], array[CAST(nan() AS REAL)])",
+                REAL, Float.NaN);
+        // infinity test
+        assertFunction("dot_product(array[CAST(infinity() AS REAL)], array[CAST(infinity() AS REAL)])",
+                REAL, Float.POSITIVE_INFINITY);
+        assertFunction("dot_product(array[CAST(infinity() AS REAL)], array[REAL '-1.0'])",
+                REAL, Float.NEGATIVE_INFINITY);
+    }
+
+    @Test
     public void testInverseNormalCdf()
     {
         assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
