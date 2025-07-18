@@ -642,7 +642,7 @@ struct StXMinFunction {
 
   bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
     const std::unique_ptr<geos::geom::Envelope> env =
-        geospatial::getEnvelopeFromGeometry(geometry);
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
     if (env->isNull()) {
       return false;
     }
@@ -657,7 +657,7 @@ struct StYMinFunction {
 
   bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
     const std::unique_ptr<geos::geom::Envelope> env =
-        geospatial::getEnvelopeFromGeometry(geometry);
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
     if (env->isNull()) {
       return false;
     }
@@ -672,7 +672,7 @@ struct StXMaxFunction {
 
   bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
     const std::unique_ptr<geos::geom::Envelope> env =
-        geospatial::getEnvelopeFromGeometry(geometry);
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
     if (env->isNull()) {
       return false;
     }
@@ -687,7 +687,7 @@ struct StYMaxFunction {
 
   bool call(out_type<double>& result, const arg_type<Geometry>& geometry) {
     const std::unique_ptr<geos::geom::Envelope> env =
-        geospatial::getEnvelopeFromGeometry(geometry);
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
     if (env->isNull()) {
       return false;
     }
@@ -822,8 +822,13 @@ struct StIsEmptyFunction {
 
   FOLLY_ALWAYS_INLINE Status
   call(out_type<bool>& result, const arg_type<Geometry>& geometry) {
-    GEOS_TRY(result = geospatial::getEnvelopeFromGeometry(geometry)->isNull();
-             , "Failed to get envelope from geometry");
+    GEOS_TRY(
+        {
+          const std::unique_ptr<geos::geom::Envelope> env =
+              geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
+          result = env->isNull();
+        },
+        "Failed to get envelope from geometry");
     return Status::OK();
   }
 };
