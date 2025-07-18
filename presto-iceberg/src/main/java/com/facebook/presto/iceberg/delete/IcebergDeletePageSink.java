@@ -180,6 +180,9 @@ public class IcebergDeletePageSink
             this.writer = createWriter();
         }
 
+        /**
+         * @param page Only one channel. It contains the list of row positions to delete.
+         */
         public void appendPage(Page page)
         {
             if (page.getChannelCount() == 1) {
