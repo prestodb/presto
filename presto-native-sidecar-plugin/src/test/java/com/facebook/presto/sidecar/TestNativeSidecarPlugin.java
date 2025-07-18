@@ -286,6 +286,19 @@ public class TestNativeSidecarPlugin
         }
     }
 
+    @Test
+    public void testGeometryQueries()
+    {
+        assertQuery("SELECT ST_DISTANCE(ST_POINT(0,  0), ST_POINT(3, 4))");
+        assertQuery("SELECT ST_CONTAINS(" +
+                "ST_GeometryFromText('POLYGON((0 0, 0 10, 10 10, 10 0, 0 0))'), " +
+                "ST_POINT(5, 5))");
+        assertQuery("SELECT ST_POINT(nationkey, regionkey) from nation");
+        assertQuery("SELECT " +
+                "ST_DISTANCE(ST_POINT(a.nationkey, a.regionkey), ST_POINT(b.nationkey, b.regionkey)) " +
+                "FROM nation a JOIN nation b ON a.nationkey < b.nationkey");
+    }
+
     private String generateRandomTableName()
     {
         String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
