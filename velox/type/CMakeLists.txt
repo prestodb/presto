@@ -33,6 +33,7 @@ velox_add_library(
   TimestampConversion.cpp
   Tokenizer.cpp
   Type.cpp
+  TypeCoercer.cpp
   TypeEncodingUtil.cpp
   TypeUtil.cpp
   Variant.cpp)

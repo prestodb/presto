@@ -26,6 +26,7 @@ add_executable(
   TimestampConversionTest.cpp
   TimestampTest.cpp
   TypeTest.cpp
+  TypeCoercerTest.cpp
   VariantTest.cpp)
 
 add_test(velox_type_test velox_type_test)
