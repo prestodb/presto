@@ -1631,6 +1631,11 @@ public final class MathFunctions
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
 
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
+
         Double normLeftArray = array2Norm(leftArray);
         Double normRightArray = array2Norm(rightArray);
 
@@ -1645,13 +1650,19 @@ public final class MathFunctions
 
     @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
     @ScalarFunction("l2_squared")
+    @SqlNullable
     @SqlType(StandardTypes.REAL)
-    public static long arrayL2Squared(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
+    public static Long arrayL2Squared(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
     {
         checkCondition(
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
 
         float sum = 0.0f;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
@@ -1661,13 +1672,14 @@ public final class MathFunctions
             sum += diff * diff;
         }
 
-        return floatToRawIntBits(sum);
+        return (long) floatToRawIntBits(sum);
     }
 
     @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
     @ScalarFunction("l2_squared")
+    @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
-    public static double arrayL2SquaredDouble(
+    public static Double arrayL2SquaredDouble(
             @SqlType("array(double)") Block leftArray,
             @SqlType("array(double)") Block rightArray)
     {
@@ -1675,6 +1687,12 @@ public final class MathFunctions
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
                 INVALID_FUNCTION_ARGUMENT,
                 "Both array arguments need to have identical size");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
+
         double sum = 0.0;
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
             double left = DOUBLE.getDouble(leftArray, i);

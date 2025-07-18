@@ -1392,9 +1392,7 @@ public class TestMathFunctions
                 DOUBLE,
                 null);
 
-        assertFunction("cosine_similarity(array [1.0E0, null], array [1.0E0, 3.0E0])",
-                DOUBLE,
-                null);
+        assertInvalidFunction("cosine_similarity(array [1.0E0, null], array [1.0E0, 3.0E0])", "Both arrays must not have nulls");
 
         assertInvalidFunction("cosine_similarity(array [], array [1.0E0, 3.0E0])", "Both array arguments need to have identical size");
 
@@ -1405,6 +1403,12 @@ public class TestMathFunctions
         assertFunction("cosine_similarity(array [], null)",
                 DOUBLE,
                 null);
+
+        assertInvalidFunction(
+                "cosine_similarity(array[1.0, null, 3.0], array[1.0, 2.0, 3.0])", "Both arrays must not have nulls");
+
+        assertInvalidFunction(
+                "cosine_similarity(array[1.0, 2.0, 3.0], array[1.0, null, 3.0])", "Both arrays must not have nulls");
     }
 
     @Test
@@ -1434,6 +1438,10 @@ public class TestMathFunctions
         assertFunction(
                 "l2_squared(CAST(null AS array(real)), CAST(null AS array(real)))",
                 REAL, null);
+        assertInvalidFunction(
+                "l2_squared(array[REAL '1.0', null, REAL '3.0'], array[REAL '1.0', REAL '2.0', REAL '3.0'])", "Both arrays must not have nulls");
+        assertInvalidFunction(
+                "l2_squared(array[REAL '1.0', REAL '2.0', REAL '3.0'], array[REAL '1.0', null, REAL '3.0'])", "Both arrays must not have nulls");
     }
 
     @Test
@@ -1463,6 +1471,10 @@ public class TestMathFunctions
         assertFunction(
                 "l2_squared(CAST(null AS array(double)), CAST(null AS array(double)))",
                 DOUBLE, null);
+        assertInvalidFunction(
+                "l2_squared(array[DOUBLE '1.0', null, DOUBLE '3.0'], array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'])", "Both arrays must not have nulls");
+        assertInvalidFunction(
+                "l2_squared(array[DOUBLE '1.0', DOUBLE '2.0', DOUBLE '3.0'], array[DOUBLE '1.0', null, DOUBLE '3.0'])", "Both arrays must not have nulls");
     }
 
     @Test
