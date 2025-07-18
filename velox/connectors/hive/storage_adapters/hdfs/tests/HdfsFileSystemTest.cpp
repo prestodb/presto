@@ -38,6 +38,7 @@ constexpr int kOneMB = 1 << 20;
 static const std::string kDestinationPath = "/test_file.txt";
 static const std::string kRenamePath = "/rename_file.txt";
 static const std::string kRenameNewPath = "/rename_new_file.txt";
+static const std::string kDeletedPath = "/delete_file.txt";
 static const std::string kSimpleDestinationPath = "hdfs://" + kDestinationPath;
 static const std::string kViewfsDestinationPath =
     "viewfs://" + kDestinationPath;
@@ -53,6 +54,7 @@ class HdfsFileSystemTest : public testing::Test {
       auto tempFile = createFile();
       miniCluster->addFile(tempFile->getPath(), kDestinationPath);
       miniCluster->addFile(tempFile->getPath(), kRenamePath);
+      miniCluster->addFile(tempFile->getPath(), kDeletedPath);
     }
     configurationValues.insert(
         {"hive.hdfs.host", std::string(miniCluster->host())});
@@ -227,6 +229,17 @@ TEST_F(HdfsFileSystemTest, rename) {
   ASSERT_TRUE(hdfsFileSystem->exists(kRenameNewPath));
 }
 
+TEST_F(HdfsFileSystemTest, delete) {
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem =
+      filesystems::getFileSystem(fullDestinationPath_, config);
+
+  ASSERT_TRUE(hdfsFileSystem->exists(kDeletedPath));
+  hdfsFileSystem->remove(kDeletedPath);
+  ASSERT_FALSE(hdfsFileSystem->exists(kDeletedPath));
+}
+
 TEST_F(HdfsFileSystemTest, viaFileSystem) {
   auto config = std::make_shared<const config::ConfigBase>(
       std::unordered_map<std::string, std::string>(configurationValues));
@@ -366,16 +379,6 @@ TEST_F(HdfsFileSystemTest, writeSupported) {
   auto hdfsFileSystem =
       filesystems::getFileSystem(fullDestinationPath_, config);
   hdfsFileSystem->openFileForWrite("/path");
-}
-
-TEST_F(HdfsFileSystemTest, removeNotSupported) {
-  auto config = std::make_shared<const config::ConfigBase>(
-      std::unordered_map<std::string, std::string>(configurationValues));
-  auto hdfsFileSystem =
-      filesystems::getFileSystem(fullDestinationPath_, config);
-  VELOX_ASSERT_THROW(
-      hdfsFileSystem->remove("/path"),
-      "Does not support removing files from hdfs");
 }
 
 TEST_F(HdfsFileSystemTest, multipleThreadsWithReadFile) {

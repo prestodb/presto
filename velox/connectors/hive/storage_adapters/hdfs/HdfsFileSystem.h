@@ -61,6 +61,7 @@ class HdfsFileSystem : public FileSystem {
       std::string_view path,
       const FileOptions& options = {}) override;
 
+  // Deletes the hdfs files.
   void remove(std::string_view path) override;
 
   void rename(

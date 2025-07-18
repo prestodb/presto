@@ -152,7 +152,20 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
 }
 
 void HdfsFileSystem::remove(std::string_view path) {
-  VELOX_UNSUPPORTED("Does not support removing files from hdfs");
+  // Only remove the scheme for hdfs path.
+  if (path.find(kScheme) == 0) {
+    path.remove_prefix(kScheme.length());
+    if (auto index = path.find('/')) {
+      path.remove_prefix(index);
+    }
+  }
+
+  VELOX_CHECK_EQ(
+      impl_->hdfsShim()->Delete(impl_->hdfsClient(), path.data(), 0),
+      0,
+      "Cannot delete file : {} in HDFS, error is : {}",
+      path,
+      impl_->hdfsShim()->GetLastExceptionRootCause());
 }
 
 std::vector<std::string> HdfsFileSystem::list(std::string_view path) {
