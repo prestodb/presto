@@ -45,7 +45,7 @@ public class BaseJdbcConfig
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
     private boolean caseSensitiveNameMatchingEnabled;
 
-    @NotNull
+    @Nullable
     public String getConnectionUrl()
     {
         return connectionUrl;
