@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -52,6 +53,8 @@ public final class AccumuloQueryRunner
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
+
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
         TestingAccumuloServer server = TestingAccumuloServer.getInstance();
         queryRunner.installPlugin(new AccumuloPlugin());

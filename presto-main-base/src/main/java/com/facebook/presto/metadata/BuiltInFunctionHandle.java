@@ -30,12 +30,16 @@ public class BuiltInFunctionHandle
         implements FunctionHandle
 {
     private final Signature signature;
+    private final boolean isBuiltInPluginFunction;
 
     @JsonCreator
-    public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature)
+    public BuiltInFunctionHandle(
+            @JsonProperty("signature") Signature signature,
+            @JsonProperty("isBuiltInPluginFunction") boolean isBuiltInPluginFunction)
     {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
+        this.isBuiltInPluginFunction = isBuiltInPluginFunction;
     }
 
     @JsonProperty
@@ -60,6 +64,12 @@ public class BuiltInFunctionHandle
     public List<TypeSignature> getArgumentTypes()
     {
         return signature.getArgumentTypes();
+    }
+
+    @Override
+    public boolean isBuiltInPluginFunction()
+    {
+        return isBuiltInPluginFunction;
     }
 
     @Override
