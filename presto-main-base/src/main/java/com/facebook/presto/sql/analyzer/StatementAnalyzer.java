@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
@@ -31,15 +32,19 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.TableFunctionMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
@@ -47,9 +52,22 @@ import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.table.Argument;
+import com.facebook.presto.spi.function.table.ArgumentSpecification;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.Descriptor;
+import com.facebook.presto.spi.function.table.DescriptorArgument;
+import com.facebook.presto.spi.function.table.DescriptorArgumentSpecification;
+import com.facebook.presto.spi.function.table.ReturnTypeSpecification;
+import com.facebook.presto.spi.function.table.ScalarArgument;
+import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
+import com.facebook.presto.spi.function.table.TableArgument;
+import com.facebook.presto.spi.function.table.TableArgumentSpecification;
+import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
@@ -60,6 +78,8 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.SqlFormatterUtil;
+import com.facebook.presto.sql.analyzer.Analysis.TableArgumentAnalysis;
+import com.facebook.presto.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -97,6 +117,7 @@ import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.EmptyTableTreatment;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
@@ -131,6 +152,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -164,6 +186,10 @@ import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
@@ -177,6 +203,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.sql.util.AstUtils;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -214,9 +241,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.DATATYPE_MISMATCH;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
@@ -227,6 +252,9 @@ import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOpe
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
+import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
@@ -249,24 +277,36 @@ import static com.facebook.presto.sql.analyzer.PredicateStitcher.PredicateStitch
 import static com.facebook.presto.sql.analyzer.RefreshMaterializedViewPredicateAnalyzer.extractTablePredicates;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_RETURN_TYPE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_COLUMN_REFERENCE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_COPARTITIONING;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIALIZED_VIEW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_RETURN_TYPE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -288,6 +328,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static com.facebook.presto.sql.tree.DereferenceExpression.getQualifiedName;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -311,6 +352,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -1321,7 +1363,7 @@ class StatementAnalyzer
                     outputFields.add(Field.newUnqualified(expression.getLocation(), Optional.empty(), ((MapType) expressionType).getValueType()));
                 }
                 else {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
+                    throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
             }
             if (node.isWithOrdinality()) {
@@ -1339,6 +1381,565 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
+        {
+            TableFunctionMetadata tableFunctionMetadata = metadata.getFunctionAndTypeManager().getTableFunctionRegistry().resolve(session, node.getName());
+            if (tableFunctionMetadata == null) {
+                throw new SemanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName());
+            }
+
+            ConnectorTableFunction function = tableFunctionMetadata.getFunction();
+            ConnectorId connectorId = tableFunctionMetadata.getConnectorId();
+
+            Node errorLocation = node;
+            if (!node.getArguments().isEmpty()) {
+                errorLocation = node.getArguments().get(0);
+            }
+            ArgumentsAnalysis argumentsAnalysis = analyzeArguments(function.getArguments(), node.getArguments(), scope, errorLocation);
+
+            TransactionManager transactionManager = metadata.getFunctionAndTypeManager().getTransactionManager();
+            CatalogMetadata registrationCatalogMetadata = transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), connectorId.getCatalogName()).orElseThrow(() -> new IllegalStateException("Missing catalog metadata"));
+            ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
+                    session.getRequiredTransactionId(), registrationCatalogMetadata.getConnectorId());
+
+            TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(connectorId), transactionHandle, argumentsAnalysis.getPassedArguments());
+            List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
+
+            // determine the result relation type per SQL standard ISO/IEC 9075-2, 4.33 SQL-invoked routines, p. 123, 413, 414
+            ReturnTypeSpecification returnTypeSpecification = function.getReturnTypeSpecification();
+            if (returnTypeSpecification == GENERIC_TABLE || !argumentsAnalysis.getTableArgumentAnalyses().isEmpty()) {
+                analysis.addPolymorphicTableFunction(node);
+            }
+            Optional<Descriptor> analyzedProperColumnsDescriptor = functionAnalysis.getReturnedType();
+            Descriptor properColumnsDescriptor;
+            if (returnTypeSpecification == ONLY_PASS_THROUGH) {
+                if (analysis.isAliased(node)) {
+                    // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
+                    // table alias is prohibited for a table function with ONLY PASS THROUGH returned type.
+                    throw new SemanticException(INVALID_TABLE_FUNCTION_INVOCATION, node, "Alias specified for table function with ONLY PASS THROUGH return type");
+                }
+                if (analyzedProperColumnsDescriptor.isPresent()) {
+                    // If a table function has ONLY PASS THROUGH returned type, it does not produce any proper columns,
+                    // so the function's analyze() method should not return the proper columns descriptor.
+                    throw new SemanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
+                }
+                if (function.getArguments().stream()
+                        .filter(TableArgumentSpecification.class::isInstance)
+                        .map(TableArgumentSpecification.class::cast)
+                        .noneMatch(TableArgumentSpecification::isPassThroughColumns)) {
+                    // According to SQL standard ISO/IEC 9075-2, 10.4 <routine invocation>, p. 764,
+                    // if there is no generic table parameter that specifies PASS THROUGH, then number of proper columns shall be positive.
+                    // For GENERIC_TABLE and DescribedTable returned types, this is enforced by the Descriptor constructor, which requires positive number of fields.
+                    // Here we enforce it for the remaining returned type specification: ONLY_PASS_THROUGH.
+                    throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
+                }
+                properColumnsDescriptor = null;
+            }
+            else if (returnTypeSpecification == GENERIC_TABLE) {
+                // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
+                // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
+                // We don't enforce this requirement.
+                properColumnsDescriptor = analyzedProperColumnsDescriptor
+                        .orElseThrow(() -> new SemanticException(MISSING_RETURN_TYPE, node, "Cannot determine returned relation type for table function " + node.getName()));
+            }
+            else {
+                // returned type is statically declared at function declaration and cannot be overridden
+                // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
+                // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
+                // We don't enforce this requirement.
+                if (analyzedProperColumnsDescriptor.isPresent()) {
+                    // If a table function has statically declared returned type, it is returned in TableFunctionMetadata
+                    // so the function's analyze() method should not return the proper columns descriptor.
+                    throw new SemanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
+                }
+                properColumnsDescriptor = ((ReturnTypeSpecification.DescribedTable) returnTypeSpecification).getDescriptor();
+            }
+
+            // validate the required input columns
+            Map<String, List<Integer>> requiredColumns = functionAnalysis.getRequiredColumns();
+            Map<String, TableArgumentAnalysis> tableArgumentsByName = argumentsAnalysis.getTableArgumentAnalyses().stream()
+                    .collect(toImmutableMap(TableArgumentAnalysis::getArgumentName, Function.identity()));
+            Set<String> allInputs = ImmutableSet.copyOf(tableArgumentsByName.keySet());
+            requiredColumns.forEach((name, columns) -> {
+                if (!allInputs.contains(name)) {
+                    throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s specifies required columns from table argument %s which cannot be found", node.getName(), name);
+                }
+                if (columns.isEmpty()) {
+                    throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s specifies empty list of required columns from table argument %s", node.getName(), name);
+                }
+                // the scope is recorded, because table arguments are already analyzed
+                Scope inputScope = analysis.getScope(tableArgumentsByName.get(name).getRelation());
+                columns.stream()
+                        .filter(column -> column < 0 || column >= inputScope.getRelationType().getVisibleFieldCount())
+                        .findFirst()
+                        .ifPresent(column -> {
+                            throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Invalid index: %s of required column from table argument %s", column, name);
+                        });
+            });
+            Set<String> requiredInputs = ImmutableSet.copyOf(requiredColumns.keySet());
+            allInputs.stream()
+                    .filter(input -> !requiredInputs.contains(input))
+                    .findFirst()
+                    .ifPresent(input -> {
+                        throw new SemanticException(FUNCTION_IMPLEMENTATION_ERROR, "Table function %s does not specify required input columns from table argument %s", node.getName(), input);
+                    });
+
+            // The result relation type of a table function consists of:
+            // 1. columns created by the table function, called the proper columns.
+            // 2. passed columns from input tables:
+            // - for tables with the "pass through columns" option, these are all columns of the table,
+            // - for tables without the "pass through columns" option, these are the partitioning columns of the table, if any.
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
+
+            // proper columns first
+            if (properColumnsDescriptor != null) {
+                properColumnsDescriptor.getFields().stream()
+                        // per spec, field names are mandatory. We support anonymous fields.
+                        .map(field -> Field.newUnqualified(Optional.empty(), field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+                        .forEach(fields::add);
+            }
+
+            // next, columns derived from table arguments, in order of argument declarations
+            List<String> tableArgumentNames = function.getArguments().stream()
+                    .filter(argumentSpecification -> argumentSpecification instanceof TableArgumentSpecification)
+                    .map(ArgumentSpecification::getName)
+                    .collect(toImmutableList());
+
+            // table arguments in order of argument declarations
+            ImmutableList.Builder<TableArgumentAnalysis> orderedTableArguments = ImmutableList.builder();
+
+            for (String name : tableArgumentNames) {
+                TableArgumentAnalysis argument = tableArgumentsByName.get(name);
+                orderedTableArguments.add(argument);
+                Scope argumentScope = analysis.getScope(argument.getRelation());
+                if (argument.isPassThroughColumns()) {
+                    argumentScope.getRelationType().getAllFields().stream()
+                            .forEach(fields::add);
+                }
+                else if (argument.getPartitionBy().isPresent()) {
+                    argument.getPartitionBy().get().stream()
+                            .map(expression -> validateAndGetInputField(expression, argumentScope))
+                            .forEach(fields::add);
+                }
+            }
+
+            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
+                    connectorId,
+                    function.getName(),
+                    argumentsAnalysis.getPassedArguments(),
+                    orderedTableArguments.build(),
+                    functionAnalysis.getRequiredColumns(),
+                    copartitioningLists,
+                    properColumnsDescriptor == null ? 0 : properColumnsDescriptor.getFields().size(),
+                    functionAnalysis.getHandle(),
+                    transactionHandle));
+
+            return createAndAssignScope(node, scope, fields.build());
+        }
+
+        private ArgumentsAnalysis analyzeArguments(List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments, Optional<Scope> scope, Node errorLocation)
+        {
+            if (argumentSpecifications.size() < arguments.size()) {
+                throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "Too many arguments. Expected at most %s arguments, got %s arguments", argumentSpecifications.size(), arguments.size());
+            }
+
+            if (argumentSpecifications.isEmpty()) {
+                return new ArgumentsAnalysis(ImmutableMap.of(), ImmutableList.of());
+            }
+
+            boolean argumentsPassedByName = !arguments.isEmpty() && arguments.stream().allMatch(argument -> argument.getName().isPresent());
+            boolean argumentsPassedByPosition = arguments.stream().allMatch(argument -> !argument.getName().isPresent());
+            if (!argumentsPassedByName && !argumentsPassedByPosition) {
+                throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");
+            }
+
+            ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
+            ImmutableList.Builder<TableArgumentAnalysis> tableArgumentAnalyses = ImmutableList.builder();
+            if (argumentsPassedByName) {
+                Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
+                for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
+                    if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                        // this should never happen, because the argument names are validated at function registration time
+                        throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
+                    }
+                }
+                Set<String> uniqueArgumentNames = new HashSet<>();
+                for (TableFunctionArgument argument : arguments) {
+                    String argumentName = argument.getName().orElseThrow(() -> new IllegalStateException("Missing table function argument name")).getCanonicalValue();
+                    if (!uniqueArgumentNames.add(argumentName)) {
+                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: " + argumentName);
+                    }
+                    ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
+                    if (argumentSpecification == null) {
+                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: " + argumentName);
+                    }
+                    ArgumentAnalysis argumentAnalysis = analyzeArgument(argumentSpecification, argument, scope);
+                    passedArguments.put(argumentSpecification.getName(), argumentAnalysis.getArgument());
+                    argumentAnalysis.getTableArgumentAnalysis().ifPresent(tableArgumentAnalyses::add);
+                }
+                // apply defaults for not specified arguments
+                for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
+                    ArgumentSpecification argumentSpecification = entry.getValue();
+                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                }
+            }
+            else {
+                for (int i = 0; i < arguments.size(); i++) {
+                    TableFunctionArgument argument = arguments.get(i);
+                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i); // TODO args passed positionally - can one only pass some prefix of args?
+                    ArgumentAnalysis argumentAnalysis = analyzeArgument(argumentSpecification, argument, scope);
+                    passedArguments.put(argumentSpecification.getName(), argumentAnalysis.getArgument());
+                    argumentAnalysis.getTableArgumentAnalysis().ifPresent(tableArgumentAnalyses::add);
+                }
+                // apply defaults for not specified arguments
+                for (int i = arguments.size(); i < argumentSpecifications.size(); i++) {
+                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i);
+                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                }
+            }
+
+            return new ArgumentsAnalysis(passedArguments.buildOrThrow(), tableArgumentAnalyses.build());
+        }
+
+        private ArgumentAnalysis analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument, Optional<Scope> scope)
+        {
+            String actualType;
+            if (argument.getValue() instanceof TableFunctionTableArgument) {
+                actualType = "table";
+            }
+            else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
+                actualType = "descriptor";
+            }
+            else if (argument.getValue() instanceof Expression) {
+                actualType = "expression";
+            }
+            else {
+                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: ", argument.getClass().getSimpleName());
+            }
+
+            if (argumentSpecification instanceof TableArgumentSpecification) {
+                if (!(argument.getValue() instanceof TableFunctionTableArgument)) {
+                    if (argument.getValue() instanceof FunctionCall) {
+                        // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
+                        throw new SemanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
+                    }
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected table, got %s", argumentSpecification.getName(), actualType);
+                }
+                return analyzeTableArgument(argument, (TableArgumentSpecification) argumentSpecification, scope);
+            }
+            if (argumentSpecification instanceof DescriptorArgumentSpecification) {
+                if (!(argument.getValue() instanceof TableFunctionDescriptorArgument)) {
+                    if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                        // malformed descriptor which parsed as a function call
+                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", (Object) argumentSpecification.getName());
+                    }
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
+                }
+                return analyzeDescriptorArgument((TableFunctionDescriptorArgument) argument.getValue());
+            }
+            if (argumentSpecification instanceof ScalarArgumentSpecification) {
+                if (!(argument.getValue() instanceof Expression)) {
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected expression, got %s", argumentSpecification.getName(), actualType);
+                }
+                Expression expression = (Expression) argument.getValue();
+                // 'descriptor' as a function name is not allowed in this context
+                if (expression instanceof FunctionCall && ((FunctionCall) expression).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
+                }
+                return analyzeScalarArgument(expression, ((ScalarArgumentSpecification) argumentSpecification).getType());
+            }
+            throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
+        }
+
+        private Argument analyzeDefault(ArgumentSpecification argumentSpecification, Node errorLocation)
+        {
+            if (argumentSpecification.isRequired()) {
+                throw new SemanticException(MISSING_ARGUMENT, errorLocation, "Missing argument: " + argumentSpecification.getName());
+            }
+
+            checkArgument(!(argumentSpecification instanceof TableArgumentSpecification), "invalid table argument specification: default set");
+
+            if (argumentSpecification instanceof DescriptorArgumentSpecification) {
+                return DescriptorArgument.builder()
+                        .descriptor((Descriptor) argumentSpecification.getDefaultValue())
+                        .build();
+            }
+            if (argumentSpecification instanceof ScalarArgumentSpecification) {
+                return ScalarArgument.builder()
+                        .type(((ScalarArgumentSpecification) argumentSpecification).getType())
+                        .value(argumentSpecification.getDefaultValue())
+                        .build();
+            }
+
+            throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
+        }
+
+        private ArgumentAnalysis analyzeTableArgument(TableFunctionArgument argument, TableArgumentSpecification argumentSpecification, Optional<Scope> scope)
+        {
+            TableFunctionTableArgument tableArgument = (TableFunctionTableArgument) argument.getValue();
+
+            TableArgument.Builder argumentBuilder = TableArgument.builder();
+            TableArgumentAnalysis.Builder analysisBuilder = TableArgumentAnalysis.builder();
+            analysisBuilder.withArgumentName(argumentSpecification.getName());
+
+            // process the relation
+            Relation relation = tableArgument.getTable();
+            analysisBuilder.withRelation(relation);
+            Scope argumentScope = process(relation, scope);
+            QualifiedName relationName = analysis.getRelationName(relation);
+            if (relationName != null) {
+                analysisBuilder.withName(relationName);
+            }
+
+            argumentBuilder.rowType(RowType.from(argumentScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> new RowType.Field(field.getName(), field.getType()))
+                    .collect(toImmutableList())));
+
+            // analyze PARTITION BY
+            if (tableArgument.getPartitionBy().isPresent()) {
+                if (argumentSpecification.isRowSemantics()) {
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Partitioning specified for table argument with row semantics", argumentSpecification.getName());
+                }
+                List<Expression> partitionBy = tableArgument.getPartitionBy().get();
+                analysisBuilder.withPartitionBy(partitionBy);
+                partitionBy.stream()
+                        .forEach(partitioningColumn -> {
+                            validateAndGetInputField(partitioningColumn, argumentScope);
+                            Type type = analyzeExpression(partitioningColumn, argumentScope).getType(partitioningColumn);
+                            if (!type.isComparable()) {
+                                throw new SemanticException(TYPE_MISMATCH, partitioningColumn, "%s is not comparable, and therefore cannot be used in PARTITION BY", type);
+                            }
+                        });
+                argumentBuilder.partitionBy(partitionBy.stream()
+                        // each expression is either an Identifier or a DereferenceExpression
+                        .map(Expression::toString)
+                        .collect(toImmutableList()));
+            }
+
+            // analyze ORDER BY
+            if (tableArgument.getOrderBy().isPresent()) {
+                if (argumentSpecification.isRowSemantics()) {
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Ordering specified for table argument with row semantics", argumentSpecification.getName());
+                }
+                OrderBy orderBy = tableArgument.getOrderBy().get();
+                analysisBuilder.withOrderBy(orderBy);
+                orderBy.getSortItems().stream()
+                        .map(SortItem::getSortKey)
+                        .forEach(orderingColumn -> {
+                            validateAndGetInputField(orderingColumn, argumentScope);
+                            Type type = analyzeExpression(orderingColumn, argumentScope).getType(orderingColumn);
+                            if (!type.isOrderable()) {
+                                throw new SemanticException(TYPE_MISMATCH, orderingColumn, "%s is not orderable, and therefore cannot be used in ORDER BY", type);
+                            }
+                        });
+                argumentBuilder.orderBy(orderBy.getSortItems().stream()
+                        // each sort key is either an Identifier or a DereferenceExpression
+                        .map(sortItem -> sortItem.getSortKey().toString())
+                        .collect(toImmutableList()));
+            }
+
+            // analyze the PRUNE/KEEP WHEN EMPTY property
+            boolean pruneWhenEmpty = argumentSpecification.isPruneWhenEmpty();
+            if (tableArgument.getEmptyTableTreatment().isPresent()) {
+                if (argumentSpecification.isRowSemantics()) {
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, tableArgument.getEmptyTableTreatment().get(), "Invalid argument %s. Empty behavior specified for table argument with row semantics", argumentSpecification.getName());
+                }
+                pruneWhenEmpty = tableArgument.getEmptyTableTreatment().get().getTreatment() == EmptyTableTreatment.Treatment.PRUNE;
+            }
+            analysisBuilder.withPruneWhenEmpty(pruneWhenEmpty);
+
+            // record remaining properties
+            analysisBuilder.withRowSemantics(argumentSpecification.isRowSemantics());
+            analysisBuilder.withPassThroughColumns(argumentSpecification.isPassThroughColumns());
+
+            return new ArgumentAnalysis(argumentBuilder.build(), Optional.of(analysisBuilder.build()));
+        }
+
+        private ArgumentAnalysis analyzeDescriptorArgument(TableFunctionDescriptorArgument argument)
+        {
+            return new ArgumentAnalysis(
+                    argument.getDescriptor()
+                            .map(descriptor -> DescriptorArgument.builder()
+                                    .descriptor(new Descriptor(descriptor.getFields().stream()
+                                            .map(field -> new Descriptor.Field(
+                                                    field.getName().getCanonicalValue(),
+                                                    field.getType().map(type -> {
+                                                        try {
+                                                            return functionAndTypeResolver.getType(parseTypeSignature(type));
+                                                        }
+                                                        catch (IllegalArgumentException | UnknownTypeException e) {
+                                                            throw new SemanticException(TYPE_MISMATCH, field, "Unknown type: %s", type);
+                                                        }
+                                                    })))
+                                            .collect(toImmutableList())))
+                                    .build())
+                            .orElse(NULL_DESCRIPTOR),
+                    Optional.empty());
+        }
+
+        private Field validateAndGetInputField(Expression expression, Scope inputScope)
+        {
+            QualifiedName qualifiedName;
+            if (expression instanceof Identifier) {
+                qualifiedName = QualifiedName.of(ImmutableList.of(((Identifier) expression).getValue()));
+            }
+            else if (expression instanceof DereferenceExpression) {
+                qualifiedName = getQualifiedName((DereferenceExpression) expression);
+            }
+            else {
+                throw new SemanticException(INVALID_COLUMN_REFERENCE, expression, "Expected column reference. Actual: %s", expression);
+            }
+            Optional<ResolvedField> field = inputScope.tryResolveField(expression, qualifiedName);
+            if (!field.isPresent() || !field.get().isLocal()) {
+                throw new SemanticException(COLUMN_NOT_FOUND, expression, "Column %s is not present in the input relation", expression);
+            }
+
+            return field.get().getField();
+        }
+
+        private ArgumentAnalysis analyzeScalarArgument(Expression expression, Type type)
+        {
+            // inline parameters
+            Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    if (analysis.isDescribe()) {
+                        // We cannot handle DESCRIBE when a table function argument involves a parameter.
+                        // In DESCRIBE, the parameter values are not known. We cannot pass a dummy value for a parameter.
+                        // The value of a table function argument can affect the returned relation type. The returned
+                        // relation type can affect the assumed types for other parameters in the query.
+                        throw new SemanticException(NOT_SUPPORTED, node, "DESCRIBE is not supported if a table function uses parameters");
+                    }
+                    return analysis.getParameters().get(NodeRef.of(node));
+                }
+            }, expression);
+            // currently, only constant arguments are supported
+            Object constantValue = ExpressionInterpreter.evaluateConstantExpression(inlined, type, metadata, session, analysis.getParameters());
+            return new ArgumentAnalysis(
+                    ScalarArgument.builder()
+                            .type(type)
+                            .value(constantValue)
+                            .build(),
+                    Optional.empty());
+        }
+
+        private List<List<String>> analyzeCopartitioning(List<List<QualifiedName>> copartitioning, List<TableArgumentAnalysis> tableArgumentAnalyses)
+        {
+            // map table arguments by relation names. usa a multimap, because multiple arguments can have the same value, e.g. input_1 => tpch.tiny.orders, input_2 => tpch.tiny.orders
+            ImmutableMultimap.Builder<QualifiedName, TableArgumentAnalysis> unqualifiedInputsBuilder = ImmutableMultimap.builder();
+            ImmutableMultimap.Builder<QualifiedName, TableArgumentAnalysis> qualifiedInputsBuilder = ImmutableMultimap.builder();
+            tableArgumentAnalyses.stream()
+                    .filter(argument -> argument.getName().isPresent())
+                    .forEach(argument -> {
+                        QualifiedName name = argument.getName().get();
+                        if (name.getParts().size() == 1) {
+                            unqualifiedInputsBuilder.put(name, argument);
+                        }
+                        else if (name.getParts().size() == 3) {
+                            qualifiedInputsBuilder.put(name, argument);
+                        }
+                        else {
+                            throw new IllegalStateException("relation name should be unqualified or fully qualified");
+                        }
+                    });
+            Multimap<QualifiedName, TableArgumentAnalysis> unqualifiedInputs = unqualifiedInputsBuilder.build();
+            Multimap<QualifiedName, TableArgumentAnalysis> qualifiedInputs = qualifiedInputsBuilder.build();
+
+            ImmutableList.Builder<List<String>> copartitionBuilder = ImmutableList.builder();
+            Set<String> referencedArguments = new HashSet<>();
+            for (List<QualifiedName> nameList : copartitioning) {
+                ImmutableList.Builder<TableArgumentAnalysis> copartitionListBuilder = ImmutableList.builder();
+
+                // resolve copartition tables as references to table arguments
+                for (QualifiedName name : nameList) {
+                    Collection<TableArgumentAnalysis> candidates = emptyList();
+                    if (name.getParts().size() == 1) {
+                        // try to match unqualified name. it might be a reference to a CTE or an aliased relation
+                        candidates = unqualifiedInputs.get(name);
+                    }
+                    if (candidates.isEmpty()) {
+                        // qualify the name using current schema and catalog
+                        // Since we lost the Identifier context, create a new one here
+                        QualifiedObjectName fullyQualifiedName = createQualifiedObjectName(session, new Identifier(name.getOriginalParts().get(0)), name, metadata);
+                        candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.getCatalogName(), fullyQualifiedName.getSchemaName(), fullyQualifiedName.getObjectName()));
+                    }
+                    if (candidates.isEmpty()) {
+                        throw new SemanticException(INVALID_COPARTITIONING, "No table argument found for name: " + name);
+                    }
+                    if (candidates.size() > 1) {
+                        throw new SemanticException(INVALID_COPARTITIONING, "Ambiguous reference: multiple table arguments found for name: " + name);
+                    }
+                    TableArgumentAnalysis argument = getOnlyElement(candidates);
+                    if (!referencedArguments.add(argument.getArgumentName())) {
+                        // multiple references to argument in COPARTITION clause are implicitly prohibited by
+                        // ISO/IEC TR REPORT 19075-7, p.33, Feature B203, “More than one copartition specification”
+                        throw new SemanticException(INVALID_COPARTITIONING, "Multiple references to table argument: %s in COPARTITION clause", name);
+                    }
+                    copartitionListBuilder.add(argument);
+                }
+                List<TableArgumentAnalysis> copartitionList = copartitionListBuilder.build();
+
+                // analyze partitioning columns
+                copartitionList.stream()
+                        .filter(argument -> !argument.getPartitionBy().isPresent())
+                        .findFirst().ifPresent(unpartitioned -> {
+                            throw new SemanticException(INVALID_COPARTITIONING, unpartitioned.getRelation(), "Table %s referenced in COPARTITION clause is not partitioned", unpartitioned.getName().orElseThrow(() -> new IllegalStateException("Missing unpartitioned TableArgumentAnalysis name")));
+                        });
+                // TODO make sure that copartitioned tables cannot have empty partitioning lists.
+                //  ISO/IEC TR REPORT 19075-7, 4.5 Partitioning and ordering, p.25 is not clear: "With copartitioning, the copartitioned table arguments must have the same number of partitioning columns,
+                //  and corresponding partitioning columns must be comparable. The DBMS effectively performs a full outer equijoin on the copartitioning columns"
+                copartitionList.stream()
+                        .filter(argument -> argument.getPartitionBy().orElseThrow(() -> new IllegalStateException("PartitionBy not present in copartitionList")).isEmpty())
+                        .findFirst().ifPresent(partitionedOnEmpty -> {
+                            // table is partitioned but no partitioning columns are specified (single partition)
+                            throw new SemanticException(INVALID_COPARTITIONING, partitionedOnEmpty.getRelation(), "No partitioning columns specified for table %s referenced in COPARTITION clause", partitionedOnEmpty.getName().orElseThrow(() -> new IllegalStateException("Missing partitionedOnEmpty TableArgumentAnalysis name")));
+                        });
+                List<List<Expression>> partitioningColumns = copartitionList.stream()
+                        .map(TableArgumentAnalysis::getPartitionBy)
+                        .map(opt -> opt.orElseThrow(() -> new IllegalStateException("PartitionBy not present in partitioningColumns")))
+                        .collect(toImmutableList());
+                if (partitioningColumns.stream()
+                        .map(List::size)
+                        .distinct()
+                        .count() > 1) {
+                    throw new SemanticException(INVALID_COPARTITIONING, "Numbers of partitioning columns in copartitioned tables do not match");
+                }
+
+                // coerce corresponding copartition columns to common supertype
+                for (int index = 0; index < partitioningColumns.get(0).size(); index++) {
+                    Type commonSuperType = analysis.getType(partitioningColumns.get(0).get(index));
+                    // find common supertype
+                    for (List<Expression> columnList : partitioningColumns) {
+                        Optional<Type> superType = functionAndTypeResolver.getCommonSuperType(commonSuperType, analysis.getType(columnList.get(index)));
+                        if (!superType.isPresent()) {
+                            throw new SemanticException(TYPE_MISMATCH, "Partitioning columns in copartitioned tables have incompatible types");
+                        }
+                        commonSuperType = superType.get();
+                    }
+                    for (List<Expression> columnList : partitioningColumns) {
+                        Expression column = columnList.get(index);
+                        Type type = analysis.getType(column);
+                        if (!type.equals(commonSuperType)) {
+                            if (!functionAndTypeResolver.canCoerce(type, commonSuperType)) {
+                                throw new SemanticException(TYPE_MISMATCH, column, "Cannot coerce column of type %s to common supertype: %s", type.getDisplayName(), commonSuperType.getDisplayName());
+                            }
+                            analysis.addCoercion(column, commonSuperType, functionAndTypeResolver.isTypeOnlyCoercion(type, commonSuperType));
+                        }
+                    }
+                }
+
+                // record the resolved copartition arguments by argument names
+                copartitionBuilder.add(copartitionList.stream()
+                        .map(TableArgumentAnalysis::getArgumentName)
+                        .collect(toImmutableList()));
+            }
+
+            return copartitionBuilder.build();
+        }
+
+        @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
             if (!table.getName().getPrefix().isPresent()) {
@@ -1349,6 +1950,7 @@ class StatementAnalyzer
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
                     analysis.registerNamedQuery(table, query, false);
+                    analysis.setRelationName(table, table.getName());
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
@@ -1388,12 +1990,13 @@ class StatementAnalyzer
                                         field.isAliased()))
                                 .collect(toImmutableList());
                     }
-
                     return createAndAssignScope(table, scope, fields);
                 }
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName(), metadata);
+            analysis.setRelationName(table, QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()));
+
             if (name.getObjectName().isEmpty()) {
                 throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
             }
@@ -1524,7 +2127,7 @@ class StatementAnalyzer
             analysis.recordSubqueries(table, expressionAnalysis);
             Type stateExprType = expressionAnalysis.getType(stateExpr);
             if (stateExprType == UNKNOWN) {
-                throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF/BEFORE expression cannot be NULL for %s", name.toString()));
+                throw new PrestoException(StandardErrorCode.INVALID_ARGUMENTS, format("Table version AS OF/BEFORE expression cannot be NULL for %s", name.toString()));
             }
             Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters());
             if (tableVersionType == TIMESTAMP) {
@@ -1766,10 +2369,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
+            analysis.setRelationName(relation, QualifiedName.of(relation.getAlias().getValue()));
+            analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
+            RelationType relationType = relationScope.getRelationType();
+
+            // special-handle table function invocation
+            if (relation.getRelation() instanceof TableFunctionInvocation) {
+                return createAndAssignScope(relation, scope,
+                        aliasTableFunctionInvocation(relation, relationType, (TableFunctionInvocation) relation.getRelation()));
+            }
 
             // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
-            RelationType relationType = relationScope.getRelationType();
             if (relation.getColumnNames() != null) {
                 int totalColumns = relationType.getVisibleFieldCount();
                 if (totalColumns != relation.getColumnNames().size()) {
@@ -1787,6 +2398,85 @@ class StatementAnalyzer
             RelationType descriptor = relationType.withAlias(relation.getAlias().getValue(), aliases);
 
             return createAndAssignScope(relation, scope, descriptor);
+        }
+
+        // As described by the SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409
+        private RelationType aliasTableFunctionInvocation(AliasedRelation relation, RelationType relationType, TableFunctionInvocation function)
+        {
+            TableFunctionInvocationAnalysis tableFunctionAnalysis = analysis.getTableFunctionAnalysis(function);
+            int properColumnsCount = tableFunctionAnalysis.getProperColumnsCount();
+
+            // check that relation alias is different from range variables of all table arguments
+            tableFunctionAnalysis.getTableArgumentAnalyses().stream()
+                    .map(TableArgumentAnalysis::getName)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .filter(name -> name.hasSuffix(QualifiedName.of(ImmutableList.of(relation.getAlias().getValue()))))
+                    .findFirst()
+                    .ifPresent(name -> {
+                        throw new SemanticException(DUPLICATE_RANGE_VARIABLE, relation.getAlias(), "Relation alias: %s is a duplicate of input table name: %s", relation.getAlias(), name);
+                    });
+
+            // build the new relation type. the alias must be applied to the proper columns only,
+            // and it must not shadow the range variables exposed by the table arguments
+            ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
+            // first, put the table function's proper columns with alias
+            if (relation.getColumnNames() != null) {
+                // check that number of column aliases matches number of table function's proper columns
+                if (properColumnsCount != relation.getColumnNames().size()) {
+                    throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but table function has %s proper columns", relation.getColumnNames().size(), properColumnsCount);
+                }
+                for (int i = 0; i < properColumnsCount; i++) {
+                    // proper columns are not hidden, so we don't need to skip hidden fields
+                    Field field = relationType.getFieldByIndex(i);
+                    fieldsBuilder.add(Field.newQualified(
+                            field.getNodeLocation(),
+                            QualifiedName.of(ImmutableList.of(relation.getAlias().getValue())),
+                            Optional.of(relation.getColumnNames().get(i).getCanonicalValue()), // although the canonical name is recorded, fields are resolved case-insensitive
+                            field.getType(),
+                            field.isHidden(),
+                            field.getOriginTable(),
+                            field.getOriginColumnName(),
+                            field.isAliased()));
+                }
+            }
+            else {
+                for (int i = 0; i < properColumnsCount; i++) {
+                    Field field = relationType.getFieldByIndex(i);
+                    fieldsBuilder.add(Field.newQualified(
+                            field.getNodeLocation(),
+                            QualifiedName.of(ImmutableList.of(relation.getAlias().getValue())),
+                            field.getName(),
+                            field.getType(),
+                            field.isHidden(),
+                            field.getOriginTable(),
+                            field.getOriginColumnName(),
+                            field.isAliased()));
+                }
+            }
+
+            // append remaining fields. They are not being aliased, so hidden fields are included
+            for (int i = properColumnsCount; i < relationType.getAllFieldCount(); i++) {
+                fieldsBuilder.add(relationType.getFieldByIndex(i));
+            }
+
+            List<Field> fields = fieldsBuilder.build();
+
+            // check that there are no duplicate names within the table function's proper columns
+            Set<String> names = new HashSet<>();
+            fields.subList(0, properColumnsCount).stream()
+                    .map(Field::getName)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    // field names are resolved case-insensitive
+                    .map(name -> name.toLowerCase(ENGLISH))
+                    .forEach(name -> {
+                        if (!names.add(name)) {
+                            throw new SemanticException(DUPLICATE_COLUMN_NAME, relation.getRelation(), "Duplicate name of table function proper column: " + name);
+                        }
+                    });
+
+            return new RelationType(fields);
         }
 
         @Override
@@ -1832,7 +2522,31 @@ class StatementAnalyzer
 
             analysis.setSampleRatio(relation, samplePercentageValue / 100);
             Scope relationScope = process(relation.getRelation(), scope);
+
+            // TABLESAMPLE cannot be applied to a polymorphic table function (SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409)
+            // Note: the below method finds a table function immediately nested in SampledRelation, or aliased.
+            // Potentially, a table function could be also nested with intervening PatternRecognitionRelation.
+            // Such case is handled in visitPatternRecognitionRelation().
+            validateNoNestedTableFunction(relation.getRelation(), "sample");
+
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
+        }
+
+        // this method should run after the `base` relation is processed, so that it is
+        // determined whether the table function is polymorphic
+        private void validateNoNestedTableFunction(Relation base, String context)
+        {
+            TableFunctionInvocation tableFunctionInvocation = null;
+            if (base instanceof TableFunctionInvocation) {
+                tableFunctionInvocation = (TableFunctionInvocation) base;
+            }
+            else if (base instanceof AliasedRelation &&
+                    ((AliasedRelation) base).getRelation() instanceof TableFunctionInvocation) {
+                tableFunctionInvocation = (TableFunctionInvocation) ((AliasedRelation) base).getRelation();
+            }
+            if (tableFunctionInvocation != null && analysis.isPolymorphicTableFunction(tableFunctionInvocation)) {
+                throw new SemanticException(INVALID_TABLE_FUNCTION_INVOCATION, base, "Cannot apply %s to polymorphic table function invocation", context);
+            }
         }
 
         @Override
@@ -2580,7 +3294,7 @@ class StatementAnalyzer
                 }
 
                 if (expressions.size() == 1) {
-                    return Iterables.getOnlyElement(expressions);
+                    return getOnlyElement(expressions);
                 }
 
                 // otherwise, couldn't resolve name against output aliases, so fall through...
@@ -2751,7 +3465,7 @@ class StatementAnalyzer
                         name = QualifiedName.of(((Identifier) expression).getValue());
                     }
                     else if (expression instanceof DereferenceExpression) {
-                        name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+                        name = getQualifiedName((DereferenceExpression) expression);
                     }
 
                     if (name != null) {
@@ -3367,5 +4081,49 @@ class StatementAnalyzer
         }
 
         return false;
+    }
+
+    private static final class ArgumentAnalysis
+    {
+        private final Argument argument;
+        private final Optional<TableArgumentAnalysis> tableArgumentAnalysis;
+
+        public ArgumentAnalysis(Argument argument, Optional<TableArgumentAnalysis> tableArgumentAnalysis)
+        {
+            this.argument = requireNonNull(argument, "argument is null");
+            this.tableArgumentAnalysis = requireNonNull(tableArgumentAnalysis, "tableArgumentAnalysis is null");
+        }
+
+        public Argument getArgument()
+        {
+            return argument;
+        }
+
+        public Optional<TableArgumentAnalysis> getTableArgumentAnalysis()
+        {
+            return tableArgumentAnalysis;
+        }
+    }
+
+    private static final class ArgumentsAnalysis
+    {
+        private final Map<String, Argument> passedArguments;
+        private final List<TableArgumentAnalysis> tableArgumentAnalyses;
+
+        public ArgumentsAnalysis(Map<String, Argument> passedArguments, List<TableArgumentAnalysis> tableArgumentAnalyses)
+        {
+            this.passedArguments = ImmutableMap.copyOf(requireNonNull(passedArguments, "passedArguments is null"));
+            this.tableArgumentAnalyses = ImmutableList.copyOf(requireNonNull(tableArgumentAnalyses, "tableArgumentAnalyses is null"));
+        }
+
+        public Map<String, Argument> getPassedArguments()
+        {
+            return passedArguments;
+        }
+
+        public List<TableArgumentAnalysis> getTableArgumentAnalyses()
+        {
+            return tableArgumentAnalyses;
+        }
     }
 }
