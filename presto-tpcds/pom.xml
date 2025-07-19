@@ -42,6 +42,16 @@
             <artifactId>jackson-datatype-jdk8</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec-utils</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

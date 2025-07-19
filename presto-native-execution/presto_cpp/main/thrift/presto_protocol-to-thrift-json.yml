@@ -53,13 +53,12 @@ WrapperStruct:
   TimeZoneKey:
 
 Special:
-  ConnectorTransactionHandleWrapper:
-  ConnectorSplitWrapper:
+  ConnectorTransactionHandle:
+  ConnectorSplit:
   QualifiedObjectName:
-  MetadataUpdatesWrapper:
   OperatorInfoUnion:
   OutputBufferId:
-  TableWriteInfoWrapper:
+  TableWriteInfo:
   TaskId:
   Type:
   TypeSignature:
