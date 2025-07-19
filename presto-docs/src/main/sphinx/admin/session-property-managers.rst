@@ -5,10 +5,11 @@ Session Property Managers
 Administrators can add session properties to control the behavior for subsets of their workload.
 These properties are defaults and can be overridden by users (if authorized to do so). Session
 properties can be used to control resource usage, enable or disable features, and change query
-characteristics. Session property managers are pluggable.
+characteristics. Session property managers are pluggable. A session property manager can either
+be database- or file-based.
 
-Add an ``etc/session-property-config.properties`` file with the following contents to enable
-the built-in manager that reads a JSON config file:
+To enable a built-in manager that reads a JSON configuration file, add an
+``etc/session-property-config.properties`` file with the following contents:
 
 .. code-block:: none
 
@@ -23,6 +24,53 @@ conditions that the query must meet, and a list of session properties that shoul
 by default. All matching rules contribute to constructing a list of session properties. Rules
 are applied in the order they are specified. Rules specified later in the file override values
 for properties that have been previously encountered.
+
+
+For the database-based built-in manager, add an
+``etc/session-property-config.properties`` file with the following contents:
+
+.. code-block:: none
+
+    session-property-manager.db.url=url
+    session-property-manager.db.username=username
+    session-property-manager.db.password=password
+    session-property-manager.db.refresh-period=50s
+
+This database consists of three tables: session specs, client tags and properties.
+
+.. code-block:: text
+
+    presto:tpch> DESCRIBE session_specs;
+      Column                     |  Type   | Extra | Comment
+    -----------------------------+---------+-------+---------
+     spec_id                     | bigint  |       |
+     user_regex                  | varchar |       |
+     source_regex                | varchar |       |
+     query_type                  | varchar |       |
+     group_regex                 | varchar |       |
+     client_info_regex           | varchar |       |
+     override_session_properties | tinyint |       |
+     priority                    | varchar |       |
+    (8 rows)
+
+.. code-block:: text
+
+    presto:tpch> DESCRIBE session_client_tags;
+      Column     |  Type   | Extra | Comment
+    -------------+---------+-------+---------
+     tag_spec_id | bigint  |       |
+     client_tag  | varchar |       |
+    (2 rows)
+
+.. code-block:: text
+
+    presto:tpch> DESCRIBE session_property_values;
+      Column                |  Type   | Extra | Comment
+    ------------------------+---------+-------+---------
+     property_spec_id       | bigint  |       |
+     session_property_name  | varchar |       |
+     session_property_value | varchar |       |
+    (3 rows)
 
 Match Rules
 -----------
