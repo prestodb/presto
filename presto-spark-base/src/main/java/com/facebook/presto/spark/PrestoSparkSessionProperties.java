@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -72,6 +73,9 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY = "spark_hash_partition_count_scaling_factor_on_out_of_memory";
     public static final String SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED = "spark_adaptive_query_execution_enabled";
     public static final String ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED = "adaptive_join_side_switching_enabled";
+    public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
+    public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
+    public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_EXECUTION_BROADCAST_BASE_PATH = "native_execution_broadcast_base_path";
     public static final String NATIVE_TERMINATE_WITH_CORE_WHEN_UNRESPONSIVE_ENABLED = "native_terminate_with_core_when_unresponsive_enabled";
     public static final String NATIVE_TERMINATE_WITH_CORE_TIMEOUT = "native_terminate_with_core_timeout";
@@ -84,11 +88,11 @@ public class PrestoSparkSessionProperties
 
     public PrestoSparkSessionProperties()
     {
-        this(new PrestoSparkConfig());
+        this(new PrestoSparkConfig(), new FeaturesConfig());
     }
 
     @Inject
-    public PrestoSparkSessionProperties(PrestoSparkConfig prestoSparkConfig)
+    public PrestoSparkSessionProperties(PrestoSparkConfig prestoSparkConfig, FeaturesConfig featuresConfig)
     {
         executionStrategyValidator = new ExecutionStrategyValidator();
         sessionProperties = ImmutableList.of(
@@ -266,6 +270,31 @@ public class PrestoSparkSessionProperties
                         ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED,
                         "Enables the adaptive optimizer to switch the build and probe sides of a join",
                         prestoSparkConfig.isAdaptiveJoinSideSwitchingEnabled(),
+                        false),
+                stringProperty(
+                        NATIVE_EXECUTION_EXECUTABLE_PATH,
+                        "The native engine executable file path for pos native engine execution",
+                        featuresConfig.getNativeExecutionExecutablePath(),
+                        false),
+                stringProperty(
+                        NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
+                        "Program arguments for native engine execution. The main target use case for this " +
+                                "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
+                                "'--v 1'. More advanced glog gflags usage can be found at " +
+                                "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
+                                "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
+                                "will:\n" +
+                                "\n" +
+                                "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
+                                "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
+                                "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
+                                "d. Print VLOG(0) and lower messages from elsewhere",
+                        featuresConfig.getNativeExecutionProgramArguments(),
+                        false),
+                booleanProperty(
+                        NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
+                        "Enable reuse the native process within the same JVM",
+                        true,
                         false),
                 stringProperty(
                         NATIVE_EXECUTION_BROADCAST_BASE_PATH,
@@ -487,5 +516,20 @@ public class PrestoSparkSessionProperties
     public static int getAttemptNumberToApplyDynamicMemoryPoolTuning(Session session)
     {
         return session.getSystemProperty(ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING, Integer.class);
+    }
+
+    public static boolean isNativeExecutionProcessReuseEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_PROCESS_REUSE_ENABLED, Boolean.class);
+    }
+
+    public static String getNativeExecutionExecutablePath(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, String.class);
+    }
+
+    public static String getNativeExecutionProgramArguments(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_PROGRAM_ARGUMENTS, String.class);
     }
 }

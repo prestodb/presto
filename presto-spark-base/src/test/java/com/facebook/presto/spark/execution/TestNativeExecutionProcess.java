@@ -26,14 +26,13 @@ import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.spark.util.PrestoSparkTestSessionBuilder.getPrestoSparkTestingSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.testng.Assert.assertFalse;
@@ -48,7 +47,7 @@ public class TestNativeExecutionProcess
     @Test
     public void testNativeProcessIsAlive()
     {
-        Session session = testSessionBuilder().build();
+        Session session = getPrestoSparkTestingSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
         NativeExecutionProcess process = factory.getNativeExecutionProcess(session);
         // Simulate the process is closed (crashed)
@@ -59,7 +58,7 @@ public class TestNativeExecutionProcess
     @Test
     public void testNativeProcessRelaunch()
     {
-        Session session = testSessionBuilder().build();
+        Session session = getPrestoSparkTestingSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
         NativeExecutionProcess process = factory.getNativeExecutionProcess(session);
         // Simulate the process is closed (crashed)
@@ -74,7 +73,7 @@ public class TestNativeExecutionProcess
     @Test
     public void testNativeProcessShutdown()
     {
-        Session session = testSessionBuilder().build();
+        Session session = getPrestoSparkTestingSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
         // Set the maxRetryDuration to 0 ms to allow the RequestErrorTracker failing immediately
         NativeExecutionProcess process = factory.createNativeExecutionProcess(session, new Duration(0, TimeUnit.MILLISECONDS));
@@ -99,8 +98,7 @@ public class TestNativeExecutionProcess
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
-                workerProperty,
-                new FeaturesConfig().setNativeExecutionExecutablePath("/bin/echo"));
+                workerProperty);
         return factory;
     }
 }

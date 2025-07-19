@@ -342,9 +342,6 @@ public final class SystemSessionProperties
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
-    private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
-    private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
-    public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String INNER_JOIN_PUSHDOWN_ENABLED = "optimizer_inner_join_pushdown_enabled";
     public static final String INEQUALITY_JOIN_PUSHDOWN_ENABLED = "optimizer_inequality_join_pushdown_enabled";
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
@@ -1569,11 +1566,6 @@ public final class SystemSessionProperties
                         "Enable execution on native engine",
                         featuresConfig.isNativeExecutionEnabled(),
                         true),
-                booleanProperty(
-                        NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
-                        "Enable reuse the native process within the same JVM",
-                        true,
-                        false),
                 booleanProperty(
                         NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION,
                         "Enforce that the join build input is partitioned on join key",
@@ -2999,11 +2991,6 @@ public final class SystemSessionProperties
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
     {
         return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
-    }
-
-    public static boolean isNativeExecutionProcessReuseEnabled(Session session)
-    {
-        return session.getSystemProperty(NATIVE_EXECUTION_PROCESS_REUSE_ENABLED, Boolean.class);
     }
 
     public static boolean isNativeJoinBuildPartitionEnforced(Session session)
