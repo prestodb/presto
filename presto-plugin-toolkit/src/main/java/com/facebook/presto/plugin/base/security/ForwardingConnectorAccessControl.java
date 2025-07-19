@@ -81,6 +81,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanShowCreateTable(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate().checkCanCreateTable(transactionHandle, identity, context, tableName);
@@ -114,6 +120,18 @@ public abstract class ForwardingConnectorAccessControl
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, Set<SchemaTableName> tableNames)
     {
         return delegate().filterTables(transactionHandle, identity, context, tableNames);
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanShowColumnsMetadata(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return delegate().filterColumns(transactionHandle, identity, context, tableName, columns);
     }
 
     @Override

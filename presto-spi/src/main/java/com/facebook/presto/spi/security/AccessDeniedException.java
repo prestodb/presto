@@ -97,6 +97,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show schemas%s", formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowCreateTable(String tableName)
+    {
+        denyShowCreateTable(tableName, null);
+    }
+
+    public static void denyShowCreateTable(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show create table for %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateTable(String tableName)
     {
         denyCreateTable(tableName, null);
@@ -145,6 +155,16 @@ public class AccessDeniedException
     public static void denyShowTablesMetadata(String schemaName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot show metadata of tables in %s%s", schemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyShowColumnsMetadata(String tableName)
+    {
+        denyShowColumnsMetadata(tableName, null);
+    }
+
+    public static void denyShowColumnsMetadata(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show columns of table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyAddColumn(String tableName)

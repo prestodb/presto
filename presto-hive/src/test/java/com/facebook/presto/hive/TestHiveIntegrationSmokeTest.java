@@ -142,6 +142,8 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -4440,6 +4442,48 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE TABLE invalid_partition_value (a, b) WITH (partitioned_by = ARRAY['b']) AS SELECT 4, chr(9731)",
                 "\\QHive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: E2 98 83\\E");
+    }
+
+    @Test
+    public void testShowColumnMetadata()
+    {
+        String tableName = "test_show_column_table";
+
+        @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
+
+        Session testSession = testSessionBuilder()
+                .setIdentity(new Identity("test_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        assertUpdate(createTable);
+
+        // verify showing columns over a table requires SELECT privileges for the table
+        assertAccessAllowed("SHOW COLUMNS FROM " + tableName);
+        assertAccessDenied(testSession,
+                "SHOW COLUMNS FROM " + tableName,
+                "Cannot show columns of table .*." + tableName + ".*",
+                privilege(tableName, SELECT_COLUMN));
+
+        @Language("SQL") String getColumnsSql = "" +
+                "SELECT lower(column_name) " +
+                "FROM information_schema.columns " +
+                "WHERE table_name = '" + tableName + "'";
+        assertEquals(computeActual(getColumnsSql).getOnlyColumnAsSet(), ImmutableSet.of("a", "b", "c"));
+
+        // verify with no SELECT privileges on table, querying information_schema will return empty columns
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().deny(privilege(tableName, SELECT_COLUMN));
+                assertQueryReturnsEmptyResult(testSession, getColumnsSql);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

@@ -123,6 +123,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanShowCreateTable(identity, context, table);
+    }
+
+    @Override
     public void checkCanCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanCreateTable(identity, context, table);
@@ -156,6 +162,18 @@ public abstract class ForwardingSystemAccessControl
     public Set<SchemaTableName> filterTables(Identity identity, AccessControlContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return delegate().filterTables(identity, context, catalogName, tableNames);
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanShowColumnsMetadata(identity, context, table);
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    {
+        return delegate().filterColumns(identity, context, table, columns);
     }
 
     @Override
