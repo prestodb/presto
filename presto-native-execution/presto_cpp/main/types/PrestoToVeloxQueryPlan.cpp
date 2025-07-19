@@ -1757,6 +1757,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   return std::make_shared<core::TopNRowNumberNode>(
       node->id,
+      core::TopNRowNumberNode::RankFunction::kRowNumber,
       partitionFields,
       sortFields,
       sortOrders,
