@@ -108,7 +108,7 @@ public class SqlFunctionHandle
     {
         private static final Resolver INSTANCE = new Resolver();
 
-        private Resolver() {}
+        public Resolver() {}
 
         public static Resolver getInstance()
         {
