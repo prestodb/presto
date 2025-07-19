@@ -53,7 +53,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.tinyIntProperty;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NativeSystemSessionPropertyProvider
         implements WorkerSessionPropertyProvider
@@ -71,16 +70,13 @@ public class NativeSystemSessionPropertyProvider
             @ForSidecarInfo HttpClient httpClient,
             JsonCodec<List<SessionPropertyMetadata>> nativeSessionPropertiesJsonCodec,
             NodeManager nodeManager,
-            TypeManager typeManager,
-            NativeSystemSessionPropertyProviderConfig config)
+            TypeManager typeManager)
     {
         this.nativeSessionPropertiesJsonCodec = requireNonNull(nativeSessionPropertiesJsonCodec, "nativeSessionPropertiesJsonCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        requireNonNull(config, "config is null");
-        this.memoizedSessionPropertiesSupplier =
-                Suppliers.memoizeWithExpiration(this::fetchSessionProperties, config.getSessionPropertiesCacheExpiration().toMillis(), MILLISECONDS);
+        this.memoizedSessionPropertiesSupplier = Suppliers.memoize(this::fetchSessionProperties);
     }
 
     @Override
