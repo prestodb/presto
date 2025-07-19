@@ -1013,12 +1013,12 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public void loadSessionPropertyProvider(String sessionPropertyProviderName)
+    public void loadSessionPropertyProvider(String sessionPropertyProviderName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
             server.getMetadata().getSessionPropertyManager().loadSessionPropertyProvider(
                     sessionPropertyProviderName,
-                    ImmutableMap.of(),
+                    properties,
                     Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
                     Optional.ofNullable(server.getPluginNodeManager()));
         }

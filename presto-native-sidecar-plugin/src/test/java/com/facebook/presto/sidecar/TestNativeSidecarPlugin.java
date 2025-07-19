@@ -14,6 +14,9 @@
 package com.facebook.presto.sidecar;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProvider;
+import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -28,12 +31,14 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -76,6 +81,16 @@ public class TestNativeSidecarPlugin
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
+    }
+
+    @Test
+    public void testHttpClientProperties()
+    {
+        WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
+        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected  NativeSystemSessionPropertyProvider but got  %s", sessionPropertyProvider);
+        Long httpClientConfigContentSize = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getHttpClient().getMaxContentLength();
+
+        assertEquals(httpClientConfigContentSize, java.lang.Long.valueOf(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB * 1024 * 1024));
     }
 
     @Test

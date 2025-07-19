@@ -21,12 +21,16 @@ import com.google.common.collect.ImmutableMap;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
-    private NativeSidecarPluginQueryRunnerUtils() {};
+    public static final int SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
+
+    private NativeSidecarPluginQueryRunnerUtils() {}
 
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
     {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
-        queryRunner.loadSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME);
+        queryRunner.loadSessionPropertyProvider(
+                NativeSystemSessionPropertyProviderFactory.NAME,
+                ImmutableMap.of("sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",
