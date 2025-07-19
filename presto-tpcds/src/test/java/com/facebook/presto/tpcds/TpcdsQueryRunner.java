@@ -17,11 +17,17 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.tpcds.TpcdsTableName;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.QueryAssertions.copyTables;
+import static com.facebook.presto.tpcds.TpcdsMetadata.TINY_SCHEMA_NAME;
+import static java.util.Locale.ENGLISH;
 
 public final class TpcdsQueryRunner
 {
@@ -42,10 +48,22 @@ public final class TpcdsQueryRunner
     public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> tpcdsProperties)
             throws Exception
     {
-        return createQueryRunner(extraProperties, tpcdsProperties, ImmutableMap.of());
+        return createQueryRunner(extraProperties, tpcdsProperties, getAllTpcdsTableNames());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> tpcdsProperties, Map<String, String> coordinatorProperties)
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, List<String> tpcdsTableNames)
+            throws Exception
+    {
+        return createQueryRunner(extraProperties, ImmutableMap.of(), tpcdsTableNames);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> tpcdsProperties, List<String> tpcdsTableNames)
+            throws Exception
+    {
+        return createQueryRunner(extraProperties, tpcdsProperties, ImmutableMap.of(), tpcdsTableNames);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> tpcdsProperties, Map<String, String> coordinatorProperties, List<String> tpcdsTableNames)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -63,6 +81,8 @@ public final class TpcdsQueryRunner
         try {
             queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
+
+            copyTables(queryRunner, "tpcds", TINY_SCHEMA_NAME, session, tpcdsTableNames, true, false);
             return queryRunner;
         }
         catch (Exception e) {
@@ -71,11 +91,28 @@ public final class TpcdsQueryRunner
         }
     }
 
+    public static List<String> getAllTpcdsTableNames()
+    {
+        ImmutableList.Builder<String> tables = ImmutableList.builder();
+        for (TpcdsTableName tpcdsTable : TpcdsTableName.getBaseTables()) {
+            tables.add(tpcdsTable.getTableName().toLowerCase(ENGLISH));
+        }
+        return tables.build();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(
+                ImmutableMap.<String, String>builder()
+                        .put("http-server.http.port", "8080")
+                        .put("task.enable-event-loop", "true")
+                        .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
+                        .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
+                        .build(),
+                getAllTpcdsTableNames());
+        queryRunner.execute("SELECT * FROM tpcds.sf1.customer LIMIT 10");
         Thread.sleep(10);
         Logger log = Logger.get(TpcdsQueryRunner.class);
         log.info("======== SERVER STARTED ========");
