@@ -15,6 +15,7 @@
  */
 #include <limits>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 using namespace facebook::velox::test;

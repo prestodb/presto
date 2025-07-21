@@ -17,6 +17,7 @@
 #include <optional>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 

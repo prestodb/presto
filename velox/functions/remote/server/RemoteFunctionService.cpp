@@ -15,10 +15,11 @@
  */
 
 #include "velox/functions/remote/server/RemoteFunctionService.h"
-#include "velox/common/base/Exceptions.h"
+#include "velox/core/Expressions.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/remote/if/GetSerde.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
+#include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::functions {

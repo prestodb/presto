@@ -23,7 +23,6 @@
 #include "velox/common/base/Portability.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
 

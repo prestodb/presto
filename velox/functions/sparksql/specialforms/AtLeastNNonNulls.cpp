@@ -30,6 +30,7 @@ class AtLeastNNonNullsExpr : public SpecialForm {
       std::vector<ExprPtr>&& inputs,
       int n)
       : SpecialForm(
+            SpecialFormKind::kCustom,
             std::move(type),
             std::move(inputs),
             AtLeastNNonNullsCallToSpecialForm::kAtLeastNNonNulls,

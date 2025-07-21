@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include <random>
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/EvalCtx.h"
-#include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::functions {

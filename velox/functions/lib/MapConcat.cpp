@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "MapConcat.h"
-#include "velox/expression/Expr.h"
+#include "velox/functions/lib/MapConcat.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/vector/TypeAliases.h"
 

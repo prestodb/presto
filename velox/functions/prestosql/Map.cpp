@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/CheckDuplicateKeys.h"
 

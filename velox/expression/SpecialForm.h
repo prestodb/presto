@@ -22,6 +22,7 @@ namespace facebook::velox::exec {
 class SpecialForm : public Expr {
  public:
   SpecialForm(
+      SpecialFormKind kind,
       TypePtr type,
       std::vector<ExprPtr> inputs,
       const std::string& name,
@@ -31,7 +32,7 @@ class SpecialForm : public Expr {
             std::move(type),
             std::move(inputs),
             name,
-            true /* specialForm */,
+            kind,
             supportsFlatNoNullsFastPath,
             trackCpuUsage) {}
 
@@ -39,6 +40,10 @@ class SpecialForm : public Expr {
   // expressions.
   virtual void computePropagatesNulls() {
     VELOX_NYI();
+  }
+
+  SpecialFormKind kind() const {
+    return specialFormKind();
   }
 };
 } // namespace facebook::velox::exec

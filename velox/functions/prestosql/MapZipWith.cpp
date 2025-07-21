@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include <optional>
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"

@@ -22,19 +22,17 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
-#include "velox/expression/Expr.h"
-
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/CoalesceExpr.h"
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/ConstantExpr.h"
+#include "velox/expression/Expr.h"
 #include "velox/expression/SwitchExpr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/SelectivityVector.h"
@@ -4687,7 +4685,8 @@ TEST_P(ParameterizedExprTest, switchRowInputTypesAreTheSame) {
       EXPECT_TRUE(false) << "Expected an error";
     } catch (VeloxException& e) {
       EXPECT_EQ(
-          "Switch expression type different than then clause. Expected ROW<f1:BOOLEAN> but got Actual ROW<c0:BOOLEAN>.",
+          "Switch expression type different than then clause. "
+          "Expected ROW<f1:BOOLEAN>, but got ROW<c0:BOOLEAN>.",
           e.message());
     }
   }
@@ -4713,7 +4712,8 @@ TEST_P(ParameterizedExprTest, coalesceRowInputTypesAreTheSame) {
       EXPECT_TRUE(false) << "Expected an error";
     } catch (VeloxException& e) {
       EXPECT_EQ(
-          "Coalesce expression type different than its inputs. Expected ROW<f1:BOOLEAN> but got Actual ROW<c0:BOOLEAN>.",
+          "Coalesce expression type different than its inputs. "
+          "Expected ROW<f1:BOOLEAN>, but got ROW<c0:BOOLEAN>.",
           e.message());
     }
   }

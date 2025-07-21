@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/memory/Memory.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/Udf.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"

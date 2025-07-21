@@ -15,7 +15,7 @@
  */
 
 #include "velox/functions/lib/Slice.h"
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::functions {

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <vector>
-#include "velox/core/Expressions.h"
+#include "velox/core/ITypedExpr.h"
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/FunctionMetadata.h"
 #include "velox/expression/FunctionSignature.h"

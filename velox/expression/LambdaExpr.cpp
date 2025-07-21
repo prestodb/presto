@@ -165,6 +165,7 @@ LambdaExpr::LambdaExpr(
     std::shared_ptr<Expr>&& body,
     bool trackCpuUsage)
     : SpecialForm(
+          SpecialFormKind::kLambda,
           std::move(type),
           std::vector<std::shared_ptr<Expr>>(),
           "lambda",
@@ -183,6 +184,7 @@ LambdaExpr::LambdaExpr(
 void LambdaExpr::computeDistinctFields() {
   SpecialForm::computeDistinctFields();
   std::vector<FieldReference*> capturedFields;
+  capturedFields.reserve(capture_.size());
   for (auto& field : capture_) {
     capturedFields.push_back(field.get());
   }

@@ -23,7 +23,8 @@ namespace facebook::velox::core {
 
 class InputTypedExpr : public ITypedExpr {
  public:
-  explicit InputTypedExpr(TypePtr type) : ITypedExpr{std::move(type)} {}
+  explicit InputTypedExpr(TypePtr type)
+      : ITypedExpr{ExprKind::kInput, std::move(type)} {}
 
   bool operator==(const ITypedExpr& other) const final {
     const auto* casted = dynamic_cast<const InputTypedExpr*>(&other);
@@ -59,12 +60,13 @@ class ConstantTypedExpr : public ITypedExpr {
   // Creates constant expression. For complex types, only
   // Variant::null() value is supported.
   ConstantTypedExpr(TypePtr type, Variant value)
-      : ITypedExpr{std::move(type)}, value_{std::move(value)} {}
+      : ITypedExpr{ExprKind::kConstant, std::move(type)},
+        value_{std::move(value)} {}
 
   // Creates constant expression of scalar or complex type. The value comes from
   // index zero.
   explicit ConstantTypedExpr(const VectorPtr& value)
-      : ITypedExpr{value->type()},
+      : ITypedExpr{ExprKind::kConstant, value->type()},
         valueVector_{
             value->isConstantEncoding()
                 ? value
@@ -184,7 +186,7 @@ class CallTypedExpr : public ITypedExpr {
       TypePtr type,
       std::vector<TypedExprPtr> inputs,
       std::string name)
-      : ITypedExpr{std::move(type), std::move(inputs)},
+      : ITypedExpr{ExprKind::kCall, std::move(type), std::move(inputs)},
         name_(std::move(name)) {}
 
   virtual const std::string& name() const {
@@ -247,14 +249,14 @@ class FieldAccessTypedExpr : public ITypedExpr {
  public:
   /// Used as a leaf in an expression tree specifying input column by name.
   FieldAccessTypedExpr(TypePtr type, std::string name)
-      : ITypedExpr{std::move(type)},
+      : ITypedExpr{ExprKind::kFieldAccess, std::move(type)},
         name_(std::move(name)),
         isInputColumn_(true) {}
 
   /// Used as a dereference expression which selects a subfield in a struct by
   /// name.
   FieldAccessTypedExpr(TypePtr type, TypedExprPtr input, std::string name)
-      : ITypedExpr{std::move(type), {std::move(input)}},
+      : ITypedExpr{ExprKind::kFieldAccess, std::move(type), {std::move(input)}},
         name_(std::move(name)),
         isInputColumn_(dynamic_cast<const InputTypedExpr*>(inputs()[0].get())) {
   }
@@ -323,7 +325,8 @@ using FieldAccessTypedExprPtr = std::shared_ptr<const FieldAccessTypedExpr>;
 class DereferenceTypedExpr : public ITypedExpr {
  public:
   DereferenceTypedExpr(TypePtr type, TypedExprPtr input, uint32_t index)
-      : ITypedExpr{std::move(type), {std::move(input)}}, index_(index) {
+      : ITypedExpr{ExprKind::kDereference, std::move(type), {std::move(input)}},
+        index_(index) {
     // Make sure this isn't being used to access a top level column.
     VELOX_USER_CHECK_NULL(
         std::dynamic_pointer_cast<const InputTypedExpr>(inputs()[0]));
@@ -445,9 +448,11 @@ using ConcatTypedExprPtr = std::shared_ptr<const ConcatTypedExpr>;
 class LambdaTypedExpr : public ITypedExpr {
  public:
   LambdaTypedExpr(RowTypePtr signature, TypedExprPtr body)
-      : ITypedExpr(std::make_shared<FunctionType>(
-            std::vector<TypePtr>(signature->children()),
-            body->type())),
+      : ITypedExpr(
+            ExprKind::kLambda,
+            std::make_shared<FunctionType>(
+                std::vector<TypePtr>(signature->children()),
+                body->type())),
         signature_(std::move(signature)),
         body_(std::move(body)) {}
 
@@ -512,13 +517,13 @@ class CastTypedExpr : public ITypedExpr {
   /// and expected to be different from to-type.
   /// @param isTryCast Whether this expression is used for `try_cast`.
   CastTypedExpr(const TypePtr& type, const TypedExprPtr& input, bool isTryCast)
-      : ITypedExpr{type, {input}}, isTryCast_(isTryCast) {}
+      : ITypedExpr{ExprKind::kCast, type, {input}}, isTryCast_(isTryCast) {}
 
   CastTypedExpr(
       const TypePtr& type,
       const std::vector<TypedExprPtr>& inputs,
       bool isTryCast)
-      : ITypedExpr{type, inputs}, isTryCast_(isTryCast) {
+      : ITypedExpr{ExprKind::kCast, type, inputs}, isTryCast_(isTryCast) {
     VELOX_USER_CHECK_EQ(
         1, inputs.size(), "Cast expression requires exactly one input");
   }

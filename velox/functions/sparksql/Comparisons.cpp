@@ -15,8 +15,8 @@
  */
 #include "velox/functions/sparksql/LeastGreatest.h"
 
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/EvalCtx.h"
-#include "velox/expression/Expr.h"
 #include "velox/functions/lib/SIMDComparisonUtil.h"
 #include "velox/functions/sparksql/Comparisons.h"
 #include "velox/type/Type.h"

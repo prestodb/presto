@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/WidthBucketArray.h"
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/DecodedVector.h"

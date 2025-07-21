@@ -15,11 +15,11 @@
  */
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"

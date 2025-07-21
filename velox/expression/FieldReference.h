@@ -26,6 +26,7 @@ class FieldReference : public SpecialForm {
       const std::vector<ExprPtr>& inputs,
       const std::string& field)
       : SpecialForm(
+            SpecialFormKind::kFieldAccess,
             std::move(type),
             inputs,
             field,
@@ -38,6 +39,7 @@ class FieldReference : public SpecialForm {
       const std::vector<ExprPtr>& inputs,
       int32_t index)
       : SpecialForm(
+            SpecialFormKind::kFieldAccess,
             std::move(type),
             inputs,
             inputs.at(0)->type()->asRow().nameOf(index),
@@ -50,8 +52,8 @@ class FieldReference : public SpecialForm {
     return field_;
   }
 
-  bool isConstant() const override {
-    return SpecialForm::isConstant() && !inputs_.empty();
+  bool isConstantExpr() const override {
+    return Expr::isConstantExpr() && !inputs_.empty();
   }
 
   int32_t index(const EvalCtx& context) {

@@ -32,6 +32,7 @@ SwitchExpr::SwitchExpr(
     const std::vector<ExprPtr>& inputs,
     bool inputsSupportFlatNoNullsFastPath)
     : SpecialForm(
+          SpecialFormKind::kSwitch,
           std::move(type),
           inputs,
           "switch",
@@ -51,7 +52,7 @@ SwitchExpr::SwitchExpr(
   auto typeExpected = resolveType(inputTypes);
   VELOX_CHECK(
       *typeExpected == *this->type(),
-      "Switch expression type different than then clause. Expected {} but got Actual {}.",
+      "Switch expression type different than then clause. Expected {}, but got {}.",
       typeExpected->toString(),
       this->type()->toString());
 }

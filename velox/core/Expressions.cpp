@@ -640,7 +640,7 @@ TypePtr toRowType(
 ConcatTypedExpr::ConcatTypedExpr(
     const std::vector<std::string>& names,
     const std::vector<TypedExprPtr>& inputs)
-    : ITypedExpr{toRowType(names, inputs), inputs} {}
+    : ITypedExpr{ExprKind::kConcat, toRowType(names, inputs), inputs} {}
 
 std::string ConcatTypedExpr::toString() const {
   std::string str{};

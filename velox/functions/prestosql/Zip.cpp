@@ -15,7 +15,7 @@
  */
 #include <boost/algorithm/string/join.hpp>
 #include <limits>
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 

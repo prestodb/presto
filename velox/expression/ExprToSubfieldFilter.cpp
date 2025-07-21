@@ -28,7 +28,7 @@ VectorPtr toConstant(
     const core::TypedExprPtr& expr,
     core::ExpressionEvaluator* evaluator) {
   auto exprSet = evaluator->compile(expr);
-  if (!exprSet->exprs()[0]->isConstant()) {
+  if (!exprSet->exprs()[0]->isConstantExpr()) {
     return nullptr;
   }
   RowVector input(

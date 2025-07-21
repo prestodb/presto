@@ -90,6 +90,7 @@ class CastExpr : public SpecialForm {
       bool isTryCast,
       std::shared_ptr<CastHooks> hooks)
       : SpecialForm(
+            SpecialFormKind::kCast,
             type,
             std::vector<ExprPtr>({expr}),
             isTryCast ? kTryCast.data() : kCast.data(),

@@ -22,6 +22,7 @@ class ConstantExpr : public SpecialForm {
  public:
   explicit ConstantExpr(VectorPtr value)
       : SpecialForm(
+            SpecialFormKind::kConstant,
             value->type(),
             std::vector<ExprPtr>(),
             "literal",

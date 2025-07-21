@@ -16,6 +16,7 @@
 
 #include "velox/functions/sparksql/DecimalArithmetic.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 

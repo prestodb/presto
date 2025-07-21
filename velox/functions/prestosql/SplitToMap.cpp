@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/prestosql/SplitToMap.h"
+#include "velox/core/Expressions.h"
 
 namespace facebook::velox::functions {
 

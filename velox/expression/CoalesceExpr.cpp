@@ -22,6 +22,7 @@ CoalesceExpr::CoalesceExpr(
     std::vector<ExprPtr>&& inputs,
     bool inputsSupportFlatNoNullsFastPath)
     : SpecialForm(
+          SpecialFormKind::kCoalesce,
           std::move(type),
           std::move(inputs),
           kCoalesce,
@@ -39,7 +40,7 @@ CoalesceExpr::CoalesceExpr(
   auto expectedType = resolveType(inputTypes);
   VELOX_CHECK(
       *expectedType == *this->type(),
-      "Coalesce expression type different than its inputs. Expected {} but got Actual {}.",
+      "Coalesce expression type different than its inputs. Expected {}, but got {}.",
       expectedType->toString(),
       this->type()->toString());
 }

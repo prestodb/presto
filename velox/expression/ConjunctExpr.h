@@ -32,6 +32,7 @@ class ConjunctExpr : public SpecialForm {
       bool isAnd,
       bool inputsSupportFlatNoNullsFastPath)
       : SpecialForm(
+            isAnd ? SpecialFormKind::kAnd : SpecialFormKind::kOr,
             std::move(type),
             std::move(inputs),
             isAnd ? kAnd : kOr,
@@ -123,7 +124,7 @@ class ConjunctCallToSpecialForm : public FunctionCallToSpecialForm {
       const core::QueryConfig& config) override;
 
  private:
-  bool isAnd_;
+  const bool isAnd_;
 };
 
 } // namespace facebook::velox::exec

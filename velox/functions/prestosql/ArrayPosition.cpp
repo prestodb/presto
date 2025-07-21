@@ -15,7 +15,7 @@
  */
 #include <folly/CPortability.h>
 
-#include "velox/expression/Expr.h"
+#include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/FloatingPointUtil.h"
 #include "velox/vector/DecodedVector.h"

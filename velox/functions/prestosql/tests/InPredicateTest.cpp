@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/OptionalEmpty.h"
-#include "velox/functions/lib/DateTimeFormatter.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::velox::test;
 using namespace facebook::velox::functions::test;
@@ -30,7 +28,7 @@ class InPredicateTest : public FunctionBaseTest {
  protected:
   template <typename T>
   ArrayVectorPtr getInList(
-      std::vector<std::optional<T>> input,
+      const std::vector<std::optional<T>>& input,
       const TypePtr& type) {
     FlatVectorPtr<T> flatVec = makeNullableFlatVector<T>(input, type);
 

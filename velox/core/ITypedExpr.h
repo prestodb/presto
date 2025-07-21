@@ -19,6 +19,19 @@
 
 namespace facebook::velox::core {
 
+enum class ExprKind : int32_t {
+  kInput = 0,
+  kFieldAccess = 1,
+  kDereference = 2,
+  kCall = 3,
+  kCast = 5,
+  kConstant = 6,
+  kConcat = 7,
+  kLambda = 8,
+};
+
+VELOX_DECLARE_ENUM_NAME(ExprKind);
+
 class ITypedExpr;
 class ITypedExprVisitor;
 class ITypedExprVisitorContext;
@@ -28,19 +41,61 @@ using TypedExprPtr = std::shared_ptr<const ITypedExpr>;
 /// Strongly-typed expression, e.g. literal, function call, etc.
 class ITypedExpr : public ISerializable {
  public:
-  explicit ITypedExpr(TypePtr type) : type_{std::move(type)}, inputs_{} {}
+  ITypedExpr(ExprKind kind, TypePtr type)
+      : kind_{kind}, type_{std::move(type)}, inputs_{} {}
 
-  ITypedExpr(TypePtr type, std::vector<TypedExprPtr> inputs)
-      : type_{std::move(type)}, inputs_{std::move(inputs)} {}
+  ITypedExpr(ExprKind kind, TypePtr type, std::vector<TypedExprPtr> inputs)
+      : kind_{kind}, type_{std::move(type)}, inputs_{std::move(inputs)} {}
+
+  virtual ~ITypedExpr() = default;
+
+  ExprKind kind() const {
+    return kind_;
+  }
 
   const TypePtr& type() const {
     return type_;
   }
 
-  virtual ~ITypedExpr() = default;
-
   const std::vector<TypedExprPtr>& inputs() const {
     return inputs_;
+  }
+
+  bool isInputKind() const {
+    return kind_ == ExprKind::kInput;
+  }
+
+  bool isFieldAccessKind() const {
+    return kind_ == ExprKind::kFieldAccess;
+  }
+
+  bool isDereferenceKind() const {
+    return kind_ == ExprKind::kDereference;
+  }
+
+  bool isCallKind() const {
+    return kind_ == ExprKind::kCall;
+  }
+
+  bool isCastKind() const {
+    return kind_ == ExprKind::kCast;
+  }
+
+  bool isConstantKind() const {
+    return kind_ == ExprKind::kConstant;
+  }
+
+  bool isConcatKind() const {
+    return kind_ == ExprKind::kConcat;
+  }
+
+  bool isLambdaKind() const {
+    return kind_ == ExprKind::kLambda;
+  }
+
+  template <typename T>
+  const T* asUnchecked() const {
+    return dynamic_cast<const T*>(this);
   }
 
   /// Returns a copy of this expression with input fields replaced according
@@ -88,8 +143,9 @@ class ITypedExpr : public ISerializable {
   }
 
  private:
-  TypePtr type_;
-  std::vector<TypedExprPtr> inputs_;
+  const ExprKind kind_;
+  const TypePtr type_;
+  const std::vector<TypedExprPtr> inputs_;
 };
 
 } // namespace facebook::velox::core

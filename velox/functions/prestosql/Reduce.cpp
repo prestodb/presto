@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/RuntimeMetrics.h"
+#include "velox/core/Expressions.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 

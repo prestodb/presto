@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/sparksql/specialforms/DecimalRound.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 namespace facebook::velox::functions::sparksql::test {

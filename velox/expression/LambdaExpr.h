@@ -35,7 +35,7 @@ class LambdaExpr : public SpecialForm {
       std::shared_ptr<Expr>&& body,
       bool trackCpuUsage);
 
-  bool isConstant() const override {
+  bool isConstantExpr() const override {
     return false;
   }
 

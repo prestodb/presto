@@ -16,14 +16,12 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <fstream>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/process/ThreadDebugInfo.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/core/Expressions.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/expression/ConstantExpr.h"
 #include "velox/expression/Expr.h"
@@ -42,6 +40,28 @@ DECLARE_bool(force_eval_simplified);
 DECLARE_bool(velox_experimental_save_input_on_fatal_signal);
 
 namespace facebook::velox::exec {
+
+namespace {
+folly::F14FastMap<SpecialFormKind, std::string> specialFormNames() {
+  static const folly::F14FastMap<SpecialFormKind, std::string> kNames = {
+      {SpecialFormKind::kFieldAccess, "FIELD"},
+      {SpecialFormKind::kConstant, "CONSTANT"},
+      {SpecialFormKind::kCast, "CAST"},
+      {SpecialFormKind::kCoalesce, "COALESCE"},
+      {SpecialFormKind::kSwitch, "SWITCH"},
+      {SpecialFormKind::kLambda, "LAMBDA"},
+      {SpecialFormKind::kTry, "TRY"},
+      {SpecialFormKind::kAnd, "AND"},
+      {SpecialFormKind::kOr, "OR"},
+      {SpecialFormKind::kCustom, "CUSTOM"},
+  };
+
+  return kNames;
+}
+} // namespace
+
+VELOX_DEFINE_ENUM_NAME(SpecialFormKind, specialFormNames);
+
 folly::Synchronized<std::vector<std::shared_ptr<ExprSetListener>>>&
 exprSetListeners() {
   static folly::Synchronized<std::vector<std::shared_ptr<ExprSetListener>>>
@@ -122,7 +142,7 @@ Expr::Expr(
       name_(std::move(name)),
       vectorFunction_(std::move(vectorFunction)),
       vectorFunctionMetadata_{std::move(metadata)},
-      specialForm_{false},
+      specialFormKind_{std::nullopt},
       supportsFlatNoNullsFastPath_{
           vectorFunction_->supportsFlatNoNullsFastPath() &&
           type_->isPrimitiveType() && type_->isFixedWidth() &&
@@ -1682,7 +1702,7 @@ void Expr::appendInputsSql(
   }
 }
 
-bool Expr::isConstant() const {
+bool Expr::isConstantExpr() const {
   return isDeterministic() && distinctFields_.empty();
 }
 
@@ -2056,7 +2076,7 @@ VectorPtr tryEvaluateConstantExpression(
   // If constant folding didn't succeed, but suppressEvaluationFailures is
   // false, we need to re-evaluate the expression to propagate the failure.
   const bool doEvaluate = exprSet.expr(0)->is<ConstantExpr>() ||
-      (!suppressEvaluationFailures && exprSet.expr(0)->isConstant());
+      (!suppressEvaluationFailures && exprSet.expr(0)->isConstantExpr());
 
   if (doEvaluate) {
     auto data = BaseVector::create<RowVector>(ROW({}), 1, pool);

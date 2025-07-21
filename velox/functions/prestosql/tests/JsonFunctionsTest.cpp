@@ -17,6 +17,7 @@
 #include "folly/Unicode.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/OptionalEmpty.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 

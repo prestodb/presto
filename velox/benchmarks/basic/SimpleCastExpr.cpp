@@ -19,6 +19,7 @@
 
 #include <gflags/gflags.h>
 
+#include "velox/core/Expressions.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
