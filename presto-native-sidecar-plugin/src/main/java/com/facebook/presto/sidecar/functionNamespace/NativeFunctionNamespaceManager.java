@@ -66,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TypeSignatureUtils.resolveIntermediateType;
@@ -110,8 +109,7 @@ public class NativeFunctionNamespaceManager
         super(catalogName, sqlFunctionExecutors, config);
         this.functionDefinitionProvider = requireNonNull(functionDefinitionProvider, "functionDefinitionProvider is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.memoizedFunctionsSupplier = Suppliers.memoizeWithExpiration(this::bootstrapNamespace,
-                config.getFunctionCacheExpiration().toMillis(), TimeUnit.MILLISECONDS);
+        this.memoizedFunctionsSupplier = Suppliers.memoize(this::bootstrapNamespace);
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.specializedFunctionKeyCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
