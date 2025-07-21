@@ -38,8 +38,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
