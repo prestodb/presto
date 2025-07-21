@@ -485,6 +485,26 @@ class QueryPlanner
         //             (target table)             (source table)
         Analysis.MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
 
+        Table targetTable = mergeStmt.getTargetTable();
+        TableHandle targetTableHandle = analysis.getTableHandle(targetTable);
+
+        List<ColumnMetadata> updatedColumnMetadata = analysis.getUpdatedColumns()
+                .orElseThrow(() -> new VerifyException("updated columns not set"));
+
+        Set<String> updatedColumnNames = updatedColumnMetadata.stream().map(ColumnMetadata::getName).collect(toImmutableSet());
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle);
+        List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
+                .filter(entry -> updatedColumnNames.contains(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .collect(toImmutableList());
+
+        Optional<MergeHandle> mergeHandle = Optional.of(metadata.beginMerge(session, targetTableHandle, updatedColumns));
+
+        targetTableHandle = mergeHandle.get().getTableHandle();
+
+        analysis.registerTable(targetTable, targetTableHandle);
+
         // Make the plan for the merge target table scan
         RelationPlan targetTableRelationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
                 .process(mergeStmt.getTarget(), sqlPlannerContext);
@@ -667,11 +687,6 @@ class QueryPlanner
                 TRUE_LITERAL);
 
         FilterNode filterNode = new FilterNode(getSourceLocation(mergeStmt), idAllocator.getNextId(), markDistinctNode, rowExpression(filter, sqlPlannerContext));
-
-        Table targetTable = mergeStmt.getTargetTable();
-        TableHandle targetTableHandle = analysis.getTableHandle(targetTable);
-
-        Optional<MergeHandle> mergeHandle = Optional.of(metadata.beginMerge(session, targetTableHandle));
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle);
 

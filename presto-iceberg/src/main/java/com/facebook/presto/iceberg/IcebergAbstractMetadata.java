@@ -764,7 +764,7 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
@@ -792,7 +792,11 @@ public abstract class IcebergAbstractMetadata
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()));
 
-        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle);
+        IcebergTableHandle icebergTableHandleWithUpdateColumns =
+                icebergTableHandle.withUpdatedColumns(updatedColumns.stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .collect(toImmutableList()));
+        return new IcebergMergeTableHandle(icebergTableHandleWithUpdateColumns, insertHandle);
     }
 
     @Override
