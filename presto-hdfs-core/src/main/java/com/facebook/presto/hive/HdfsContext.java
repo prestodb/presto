@@ -38,8 +38,8 @@ public class HdfsContext
     private final Optional<ConnectorSession> session;
 
     /**
-     *  Table information is expected to be provided when accessing a storage.
-     *  Do not use this constructor.
+     * Table information is expected to be provided when accessing a storage.
+     * Do not use this constructor.
      */
     @Deprecated
     public HdfsContext(ConnectorIdentity identity)
@@ -58,8 +58,8 @@ public class HdfsContext
     }
 
     /**
-     *  Table information is expected to be provided when accessing a storage.
-     *  Do not use this constructor.
+     * Table information is expected to be provided when accessing a storage.
+     * Do not use this constructor.
      */
     @Deprecated
     public HdfsContext(ConnectorSession session)
@@ -68,10 +68,10 @@ public class HdfsContext
     }
 
     /**
-     *  Table information is expected to be provided when accessing a storage.
-     *  Currently the only legit use case for this constructor is the schema
-     *  level operations (e.g.: create/drop schema) or drop a view
-     *  Do not use this constructor for any other use cases.
+     * Table information is expected to be provided when accessing a storage.
+     * Currently the only legit use case for this constructor is the schema
+     * level operations (e.g.: create/drop schema) or drop a view
+     * Do not use this constructor for any other use cases.
      */
     @Deprecated
     public HdfsContext(ConnectorSession session, String schemaName)
@@ -80,8 +80,8 @@ public class HdfsContext
     }
 
     /**
-     *  Table information is expected to be provided when accessing a storage.
-     *  Do not use this constructor.
+     * Table information is expected to be provided when accessing a storage.
+     * Do not use this constructor.
      */
     @Deprecated
     public HdfsContext(ConnectorSession session, String schemaName, String tableName)
@@ -110,6 +110,7 @@ public class HdfsContext
                 Optional.of(isNewTable),
                 Optional.of(isPathValidationNeeded));
     }
+
     public HdfsContext(
             ConnectorSession session,
             String schemaName,
@@ -141,6 +142,7 @@ public class HdfsContext
                 isNewTable,
                 Optional.empty());
     }
+
     private HdfsContext(
             ConnectorSession session,
             Optional<String> schemaName,
@@ -149,14 +151,41 @@ public class HdfsContext
             Optional<Boolean> isNewTable,
             Optional<Boolean> isPathValidationNeeded)
     {
-        this.session = Optional.of(requireNonNull(session, "session is null"));
-        this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
-        this.source = requireNonNull(session.getSource(), "session.getSource() is null");
-        this.queryId = Optional.of(session.getQueryId());
+        this(
+                Optional.of(requireNonNull(session, "session is null")),
+                session.getIdentity(),
+                session.getSource(),
+                Optional.of(session.getQueryId()),
+                schemaName,
+                tableName,
+                session.getClientInfo(),
+                Optional.of(session.getClientTags()),
+                tablePath,
+                isNewTable,
+                isPathValidationNeeded);
+    }
+
+    public HdfsContext(
+            Optional<ConnectorSession> session,
+            ConnectorIdentity identity,
+            Optional<String> source,
+            Optional<String> queryId,
+            Optional<String> schemaName,
+            Optional<String> tableName,
+            Optional<String> clientInfo,
+            Optional<Set<String>> clientTags,
+            Optional<String> tablePath,
+            Optional<Boolean> isNewTable,
+            Optional<Boolean> isPathValidationNeeded)
+    {
+        this.session = session;
+        this.identity = requireNonNull(identity, "identity is null");
+        this.source = requireNonNull(source, "source is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.clientInfo = session.getClientInfo();
-        this.clientTags = Optional.of(session.getClientTags());
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.isNewTable = requireNonNull(isNewTable, "isNewTable is null");
         this.isPathValidationNeeded = requireNonNull(isPathValidationNeeded, "isPathValidationNeeded is null");
