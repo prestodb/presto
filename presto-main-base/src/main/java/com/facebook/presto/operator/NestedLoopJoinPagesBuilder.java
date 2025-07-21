@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.addExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

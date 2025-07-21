@@ -15,9 +15,9 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class JavaFeaturesConfig
 {

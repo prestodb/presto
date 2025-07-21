@@ -20,9 +20,8 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

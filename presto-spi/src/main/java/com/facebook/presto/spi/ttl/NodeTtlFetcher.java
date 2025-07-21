@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.ttl;
 
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 import java.util.Map;
 import java.util.Set;

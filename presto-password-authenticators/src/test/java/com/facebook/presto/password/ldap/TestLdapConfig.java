@@ -14,12 +14,11 @@
  */
 package com.facebook.presto.password.ldap;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -77,7 +76,7 @@ public class TestLdapConfig
         assertFailsValidation(new LdapConfig().setLdapUrl("localhost"), "ldapUrl", "LDAP without SSL/TLS unsupported. Expected ldaps://", Pattern.class);
         assertFailsValidation(new LdapConfig().setLdapUrl("ldaps:/localhost"), "ldapUrl", "LDAP without SSL/TLS unsupported. Expected ldaps://", Pattern.class);
 
-        assertFailsValidation(new LdapConfig(), "ldapUrl", "may not be null", NotNull.class);
-        assertFailsValidation(new LdapConfig(), "userBindSearchPattern", "may not be null", NotNull.class);
+        assertFailsValidation(new LdapConfig(), "ldapUrl", "must not be null", NotNull.class);
+        assertFailsValidation(new LdapConfig(), "userBindSearchPattern", "must not be null", NotNull.class);
     }
 }

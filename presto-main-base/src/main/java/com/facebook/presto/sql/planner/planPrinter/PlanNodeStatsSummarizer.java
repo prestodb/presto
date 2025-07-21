@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.DynamicFilterStats;
@@ -23,7 +24,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.WindowInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,11 +33,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.succinctDataSize;
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctDataSize;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
