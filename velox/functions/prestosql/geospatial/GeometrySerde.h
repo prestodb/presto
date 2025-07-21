@@ -36,7 +36,7 @@ enum class GeometrySerializationType : uint8_t {
   ENVELOPE = 7
 };
 
-enum class EsriShapeType : int {
+enum class EsriShapeType : uint32_t {
   POINT = 1,
   POLYLINE = 3,
   POLYGON = 5,
@@ -109,7 +109,8 @@ class GeometrySerializer {
         break;
       default:
         VELOX_FAIL(
-            "Unrecognized geometry type: {}", static_cast<int>(geometryType));
+            "Unrecognized geometry type: {}",
+            static_cast<uint32_t>(geometryType));
         break;
     }
   }
@@ -173,8 +174,8 @@ class GeometrySerializer {
       const geos::geom::Geometry& geometry,
       VarbinaryWriter<T>& writer,
       bool multiType) {
-    int numParts;
-    int numPoints = geometry.getNumPoints();
+    size_t numParts;
+    size_t numPoints = geometry.getNumPoints();
 
     if (multiType) {
       numParts = geometry.getNumGeometries();
@@ -190,18 +191,18 @@ class GeometrySerializer {
 
     writeEnvelope(geometry, writer);
 
-    writer.write(numParts);
-    writer.write(numPoints);
+    writer.write(static_cast<int32_t>(numParts));
+    writer.write(static_cast<int32_t>(numPoints));
 
-    int partIndex = 0;
-    for (int i = 0; i < numParts; ++i) {
-      writer.write(partIndex);
-      partIndex += geometry.getGeometryN(i)->getNumPoints();
+    size_t partIndex = 0;
+    for (size_t geomIdx = 0; geomIdx < numParts; ++geomIdx) {
+      writer.write(static_cast<int32_t>(partIndex));
+      partIndex += geometry.getGeometryN(geomIdx)->getNumPoints();
     }
 
     if (multiType) {
-      for (int i = 0; i < numParts; ++i) {
-        const auto* part = geometry.getGeometryN(i);
+      for (size_t partIdx = 0; partIdx < numParts; ++partIdx) {
+        const auto* part = geometry.getGeometryN(partIdx);
         writeCoordinates(part->getCoordinates(), writer);
       }
     } else {
@@ -214,13 +215,13 @@ class GeometrySerializer {
       const geos::geom::Geometry& geometry,
       VarbinaryWriter<T>& writer,
       bool multiType) {
-    int numGeometries = geometry.getNumGeometries();
-    int numParts = 0;
-    int numPoints = geometry.getNumPoints();
+    size_t numGeometries = geometry.getNumGeometries();
+    size_t numParts = 0;
+    size_t numPoints = geometry.getNumPoints();
 
-    for (int i = 0; i < numGeometries; i++) {
-      auto polygon =
-          dynamic_cast<const geos::geom::Polygon*>(geometry.getGeometryN(i));
+    for (size_t geomIdx = 0; geomIdx < numGeometries; geomIdx++) {
+      auto polygon = dynamic_cast<const geos::geom::Polygon*>(
+          geometry.getGeometryN(geomIdx));
       if (polygon && polygon->getNumPoints() > 0) {
         numParts += polygon->getNumInteriorRing() + 1;
       }
@@ -236,29 +237,30 @@ class GeometrySerializer {
     writer.write(static_cast<int32_t>(EsriShapeType::POLYGON));
     writeEnvelope(geometry, writer);
 
-    writer.write(numParts);
-    writer.write(numPoints);
+    writer.write(static_cast<int32_t>(numParts));
+    writer.write(static_cast<int32_t>(numPoints));
 
     if (numParts == 0) {
       return;
     }
 
-    std::vector<int> partIndexes(numParts);
+    std::vector<size_t> partIndexes(numParts);
     std::vector<bool> shellPart(numParts);
 
-    int currentPart = 0;
-    int currentPoint = 0;
-    for (int i = 0; i < numGeometries; i++) {
+    size_t currentPart = 0;
+    size_t currentPoint = 0;
+    for (size_t geomIdx = 0; geomIdx < numGeometries; geomIdx++) {
       const geos::geom::Polygon* polygon =
-          dynamic_cast<const geos::geom::Polygon*>(geometry.getGeometryN(i));
+          dynamic_cast<const geos::geom::Polygon*>(
+              geometry.getGeometryN(geomIdx));
 
       partIndexes[currentPart] = currentPoint;
       shellPart[currentPart] = true;
       currentPart++;
       currentPoint += polygon->getExteriorRing()->getNumPoints();
 
-      int holesCount = polygon->getNumInteriorRing();
-      for (int holeIndex = 0; holeIndex < holesCount; holeIndex++) {
+      size_t holesCount = polygon->getNumInteriorRing();
+      for (size_t holeIndex = 0; holeIndex < holesCount; holeIndex++) {
         partIndexes[currentPart] = currentPoint;
         shellPart[currentPart] = false;
         currentPart++;
@@ -266,8 +268,8 @@ class GeometrySerializer {
       }
     }
 
-    for (int partIndex : partIndexes) {
-      writer.write(partIndex);
+    for (size_t partIndex : partIndexes) {
+      writer.write(static_cast<int32_t>(partIndex));
     }
 
     auto coordinates = geometry.getCoordinates();
@@ -339,7 +341,7 @@ class GeometryDeserializer {
 
   static std::unique_ptr<geos::geom::CoordinateSequence> readCoordinates(
       velox::common::InputByteStream& input,
-      int count);
+      size_t count);
 
   static std::unique_ptr<geos::geom::Point> readPoint(
       velox::common::InputByteStream& input);
