@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class PlanCheckerRouterPluginPrestoClient
 {
     private static final Logger log = Logger.get(PlanCheckerRouterPluginPrestoClient.class);
-    private static final String ANALYZE_CALL = "EXPLAIN (TYPE DISTRIBUTED) ";
+    private static final String ANALYZE_CALL = "EXPLAIN (TYPE VALIDATE) ";
     private static final CounterStat fallBackToJavaClusterRedirectRequests = new CounterStat();
     private static final CounterStat javaClusterRedirectRequests = new CounterStat();
     private static final CounterStat nativeClusterRedirectRequests = new CounterStat();
