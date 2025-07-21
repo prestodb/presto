@@ -1223,7 +1223,7 @@ jobs:
           chmod +x velox_aggregation_fuzzer_test
           echo "signatures folder"
           ls /tmp/signatures/
-          echo "Biased functions: $(< cat /tmp/signatures/presto_aggregate_bias_functions)"
+          echo "Biased functions: $(< /tmp/signatures/presto_aggregate_bias_functions)"
           random_seed=${RANDOM}
           echo "Random seed: ${random_seed}"
           echo "Running Fuzzer for $DURATION"
@@ -1235,7 +1235,7 @@ jobs:
                 --log_dir=/tmp/aggregate_fuzzer_repro/logs \
                 --repro_persist_path=/tmp/aggregate_fuzzer_repro \
                 --enable_sorted_aggregations=true \
-                --only=$(cat /tmp/signatures/presto_aggregate_bias_functions) \
+                --only=$(< /tmp/signatures/presto_aggregate_bias_functions) \
                 --presto_url=http://127.0.0.1:8080 \
           && echo -e "\n\nAggregation fuzzer run finished successfully."
 
