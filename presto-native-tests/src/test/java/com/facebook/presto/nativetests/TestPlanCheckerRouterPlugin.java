@@ -147,7 +147,8 @@ public class TestPlanCheckerRouterPlugin
             for (String query : queries) {
                 runQuery(query, httpServerUri);
             }
-            assertEquals(planCheckerRouterPluginPrestoClient.getNativeClusterRedirectRequests().getTotalCount(), queries.size());
+            // testFailingNativeQueries() test case will run before this.
+            assertEquals(planCheckerRouterPluginPrestoClient.getNativeClusterRedirectRequests().getTotalCount(), queries.size() + getFailingNativeQueries().length);
         }
     }
 
@@ -166,6 +167,16 @@ public class TestPlanCheckerRouterPlugin
         }
     }
 
+    // These are the queries that are redirected to a native cluster as the failures won't be caught during the EXPLAIN (TYPE VALIDATE) call.
+    @Test(dataProvider = "failingNativeQueriesProvider")
+    public void testFailingNativeQueries(String query, String exceptionMessage)
+            throws Exception
+    {
+        if (sidecarEnabled) {
+            runQuery(query, httpServerUri, Optional.of(exceptionMessage));
+        }
+    }
+
     @Test(dataProvider = "failingQueriesOnBothClustersProvider")
     public void testFailingQueriesOnBothClusters(String query, String exceptionMessage)
             throws SQLException
@@ -177,6 +188,7 @@ public class TestPlanCheckerRouterPlugin
 
     @Test(dependsOnMethods =
             {"testFailingQueriesOnBothClusters",
+                    "testFailingNativeQueries",
                     "testNativeCompatibleQueries",
                     "testNativeIncompatibleQueries"})
     public void testPlanCheckerClusterNotAvailable()
@@ -200,6 +212,14 @@ public class TestPlanCheckerRouterPlugin
                 {"select * from nation", "line 1:15: Schema must be specified when session schema is not set"}};
     }
 
+    @DataProvider(name = "failingNativeQueriesProvider")
+    public Object[][] getFailingNativeQueries()
+    {
+        return new Object[][] {
+                {"SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND 2 FOLLOWING) FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                        "Error from native plan checker:  Unsupported window type: 2"}};
+    }
+
     private static List<String> getNativeCompatibleQueries()
     {
         String catalog = "hive";
@@ -213,7 +233,8 @@ public class TestPlanCheckerRouterPlugin
     private static List<String> getNativeIncompatibleQueries()
     {
         return ImmutableList.of(
-                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND 2 FOLLOWING) FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) T(a)",
+                "SELECT array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)]," +
+                        " (x, y) -> if (x < y, 1, if (x > y, -1, 0)))",
                 "SELECT x AS y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x");
     }
 
