@@ -30,7 +30,8 @@ message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 
 # Known warnings that are benign can be disabled:
-# - `restrict` since it triggers a bug in gcc 12. See
+#
+# * `restrict` since it triggers a bug in gcc 12. See
 #   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105651
 set(DISABLED_WARNINGS
     "-Wno-nullability-completeness \
@@ -69,9 +70,10 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
-# Set all Velox options below
-# Make sure that if we include folly headers or other dependency headers
-# that include folly headers we turn off the coroutines and turn on int128.
+# Set all Velox options below.
+
+# Make sure that if we include folly headers or other dependency headers that
+# include folly headers we turn off the coroutines and turn on int128.
 add_compile_definitions(FOLLY_HAVE_INT128_T=1 FOLLY_CFG_NO_COROUTINES)
 
 if(PRESTO_ENABLE_S3)
@@ -199,7 +201,8 @@ find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
-set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ} ${MVFST_EXCEPTION})
+set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ}
+                       ${MVFST_EXCEPTION})
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
 
