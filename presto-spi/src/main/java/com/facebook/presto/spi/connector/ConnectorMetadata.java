@@ -624,7 +624,7 @@ public interface ConnectorMetadata
      * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
      * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
      */
-    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new PrestoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }

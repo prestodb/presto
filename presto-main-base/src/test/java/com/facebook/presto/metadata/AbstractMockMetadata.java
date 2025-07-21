@@ -474,7 +474,7 @@ public abstract class AbstractMockMetadata
     /**
      * Begin merge query
      */
-    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new UnsupportedOperationException();
     }

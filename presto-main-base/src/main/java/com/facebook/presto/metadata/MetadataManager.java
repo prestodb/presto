@@ -1003,11 +1003,11 @@ public class MetadataManager
     }
 
     @Override
-    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        ConnectorMergeTableHandle newHandle = metadata.beginMerge(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        ConnectorMergeTableHandle newHandle = metadata.beginMerge(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), updatedColumns);
         return new MergeHandle(tableHandle.cloneWithConnectorHandle(newHandle.getTableHandle()), newHandle);
     }
 

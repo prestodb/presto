@@ -372,7 +372,7 @@ public interface Metadata
     /**
      * Begin merge query
      */
-    MergeHandle beginMerge(Session session, TableHandle tableHandle);
+    MergeHandle beginMerge(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
 
     /**
      * Finish merge query
