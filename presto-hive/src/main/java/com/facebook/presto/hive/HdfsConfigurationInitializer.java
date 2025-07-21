@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.SocksSocketFactory;
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.google.common.annotations.VisibleForTesting;
@@ -21,9 +23,9 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
 import org.apache.hadoop.net.DNSToSwitchMapping;
-import org.apache.hadoop.net.SocksSocketFactory;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
@@ -41,9 +43,8 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SE
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_READ_SHORTCIRCUIT_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 
 public class HdfsConfigurationInitializer
 {
@@ -57,17 +58,18 @@ public class HdfsConfigurationInitializer
     private final int fileSystemMaxCacheSize;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
     private final GcsConfigurationInitializer gcsConfigurationInitialize;
+    private final AzureConfigurationInitializer azureConfigurationInitialize;
     private final boolean isHdfsWireEncryptionEnabled;
     private int textMaxLineLength;
 
     @VisibleForTesting
     public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig)
     {
-        this(config, metastoreConfig, ignored -> {}, ignored -> {});
+        this(config, metastoreConfig, ignored -> {}, ignored -> {}, ignored -> {});
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
+    public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize, AzureConfigurationInitializer azureConfigurationInitialize)
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
@@ -86,6 +88,7 @@ public class HdfsConfigurationInitializer
 
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
+        this.azureConfigurationInitialize = requireNonNull(azureConfigurationInitialize, "azureConfigurationInitialize is null");
     }
 
     private static Configuration readConfiguration(List<String> resourcePaths)
@@ -119,7 +122,7 @@ public class HdfsConfigurationInitializer
 
         // only enable short circuit reads if domain socket path is properly configured
         if (!config.get(DFS_DOMAIN_SOCKET_PATH_KEY, "").trim().isEmpty()) {
-            config.setBooleanIfUnset(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
+            config.setBooleanIfUnset(HdfsClientConfigKeys.Read.ShortCircuit.KEY, true);
         }
 
         config.setInt(DFS_CLIENT_SOCKET_TIMEOUT_KEY, toIntExact(dfsTimeout.toMillis()));
@@ -138,6 +141,7 @@ public class HdfsConfigurationInitializer
 
         s3ConfigurationUpdater.updateConfiguration(config);
         gcsConfigurationInitialize.updateConfiguration(config);
+        azureConfigurationInitialize.updateConfiguration(config);
     }
 
     public static class NoOpDNSToSwitchMapping
