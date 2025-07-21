@@ -68,6 +68,12 @@ public class MergeInsert
     }
 
     @Override
+    public List<Expression> getSetExpressions()
+    {
+        return values;
+    }
+
+    @Override
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
