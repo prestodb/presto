@@ -101,6 +101,14 @@ public class IcebergMergeSink
         this.columnCount = columnCount;
     }
 
+    /**
+     * @param page It has N + 2 channels/blocks, where N is the number of columns in the source table. <br>
+     *                        1: Source table column 1.<br>
+     *                        2: Source table column 2.<br>
+     *                        N: Source table column N.<br>
+     *                        N + 1: Operation: INSERT(1), DELETE(2), UPDATE(3). More info: {@link ConnectorMergeSink}<br>
+     *                        N + 2: Merge Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar).
+     */
     @Override
     public void storeMergedRows(Page page)
     {
@@ -112,6 +120,7 @@ public class IcebergMergeSink
             ColumnarRow rowIdRow = toColumnarRow(deletions.getBlock(deletions.getChannelCount() - 1));
 
             for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
+                // TODO #20578: The "rowIdRow" is empty. It does not have the required data to continue the execution.
                 Slice filePath = VarcharType.VARCHAR.getSlice(rowIdRow.getField(0), position);
                 long rowPosition = BIGINT.getLong(rowIdRow.getField(1), position);
 

@@ -16,6 +16,7 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.spi.ConnectorMergeSink;
 
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -58,6 +59,15 @@ public final class MergePage
         return insertionsPage;
     }
 
+    /**
+     * @param inputPage It has N + 2 channels/blocks, where N is the number of columns in the source table. <br>
+     *                                1: Source table column 1.<br>
+     *                                2: Source table column 2.<br>
+     *                                N: Source table column N.<br>
+     *                                N + 1: Operation: INSERT(1), DELETE(2), UPDATE(3). More info: {@link ConnectorMergeSink}<br>
+     *                                N + 2: Merge Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar).<br>
+     * @param dataColumnCount Number of columns of the MERGE INTO target table.
+     */
     public static MergePage createDeleteAndInsertPages(Page inputPage, int dataColumnCount)
     {
         // see page description in ConnectorMergeSink
@@ -66,7 +76,7 @@ public final class MergePage
             throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 2", inputChannelCount, dataColumnCount));
         }
 
-        int positionCount = inputPage.getPositionCount();
+        int positionCount = inputPage.getPositionCount(); // number of rows inserted, deleted or updated in this page. The updated rows count double.
         if (positionCount <= 0) {
             throw new IllegalArgumentException("positionCount should be > 0, but is " + positionCount);
         }
@@ -100,7 +110,7 @@ public final class MergePage
             for (int i = 0; i < dataColumnCount; i++) {
                 columns[i] = i;
             }
-            columns[dataColumnCount] = dataColumnCount + 1; // row ID channel
+            columns[dataColumnCount] = dataColumnCount + 1; // Merge Row ID channel
             deletePage = Optional.of(inputPage
                     .getColumns(columns)
                     .getPositions(deletePositions, 0, deletePositionCount));
