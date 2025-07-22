@@ -70,24 +70,49 @@ class MapFilterTest : public functions::test::FunctionBaseTest {
 };
 
 TEST_F(MapFilterTest, filter) {
-  auto rowType =
-      ROW({"long_val", "map_val"}, {BIGINT(), MAP(BIGINT(), INTEGER())});
-  auto data = std::static_pointer_cast<RowVector>(
-      BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
+  {
+    auto rowType =
+        ROW({"long_val", "map_val"}, {BIGINT(), MAP(BIGINT(), INTEGER())});
+    auto data = std::static_pointer_cast<RowVector>(
+        BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
 
-  auto result = evaluate("map_filter(map_val, (k, v) -> (k > long_val))", data);
-  auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
-  checkMapFilter<SimpleVector<int64_t>, SimpleVector<int32_t>>(
-      data->childAt(1).get(),
-      *result,
-      [&](SimpleVector<int64_t>* keys,
-          SimpleVector<int32_t>* values,
-          vector_size_t elementRow,
-          vector_size_t row) {
-        return cutoff->isNullAt(row) || keys->isNullAt(elementRow)
-            ? false
-            : keys->valueAt(elementRow) > cutoff->valueAt(row);
-      });
+    auto result =
+        evaluate("map_filter(map_val, (k, v) -> (k > long_val))", data);
+    auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
+    checkMapFilter<SimpleVector<int64_t>, SimpleVector<int32_t>>(
+        data->childAt(1).get(),
+        *result,
+        [&](SimpleVector<int64_t>* keys,
+            SimpleVector<int32_t>* values,
+            vector_size_t elementRow,
+            vector_size_t row) {
+          return cutoff->isNullAt(row) || keys->isNullAt(elementRow)
+              ? false
+              : keys->valueAt(elementRow) > cutoff->valueAt(row);
+        });
+  }
+  {
+    const auto rowType = ROW({"map_val"}, {MAP(BIGINT(), INTEGER())});
+    const auto map = makeMapVectorFromJson<int64_t, int32_t>(
+        {"{1: \"1\", 2: \"2\", 5: \"5\"}",
+         "{3: \"3\", 7: \"7\"}",
+         "{4: \"4\", 5: \"5\"}",
+         "{6: \"6\", 7: \"7\"}",
+         "{1: \"1\", 8: \"8\"}",
+         "{4: \"4\", 9: \"9\"}"});
+    const auto data = makeRowVector({"map_val"}, {map});
+    const auto result = evaluate(
+        "map_filter(map_val, (k, v) -> (contains(ARRAY[1,2,7], k))) as map_val",
+        data);
+    const auto expectedMap = makeMapVectorFromJson<int64_t, int32_t>(
+        {"{1: \"1\", 2: \"2\"}",
+         "{7: \"7\"}",
+         "{}",
+         "{7: \"7\"}",
+         "{1: \"1\"}",
+         "{}"});
+    assertEqualVectors(expectedMap, result);
+  }
 }
 
 TEST_F(MapFilterTest, empty) {

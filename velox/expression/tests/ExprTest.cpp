@@ -24,6 +24,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/Expressions.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/CoalesceExpr.h"
 #include "velox/expression/ConjunctExpr.h"
@@ -5184,5 +5185,62 @@ TEST_F(ExprTest, lambdaConstantFolded) {
   exprSet.clear();
 }
 
+TEST_F(ExprTest, simpleExpressionEvaluator) {
+  exec::SimpleExpressionEvaluator evaluator{queryCtx_.get(), pool_.get()};
+  const auto rowType = ROW({"c0", "c1"}, {ARRAY(INTEGER()), INTEGER()});
+  const auto array = makeArrayVectorFromJson<int32_t>(
+      {"[1, 2, 3, 4]", "null", "[5, 6]", "[]", "[null]", "[7, 8, 9]"});
+  const auto data = makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6});
+  const auto input = makeRowVector({array, data});
+
+  const auto parseExpr = [&](const std::string& sql) {
+    return parseExpression(sql, rowType);
+  };
+  const auto arrayExpr = parseExpr("element_at(c0, 1)");
+  const auto expectedArrayExprResult = makeNullableFlatVector<int32_t>(
+      {1, std::nullopt, 5, std::nullopt, std::nullopt, 7});
+  const auto scalarExpr = parseExpr("cast(c1 + 1 as integer)");
+  const auto expectedScalarExprResult =
+      makeFlatVector<int32_t>({2, 3, 4, 5, 6, 7});
+
+  auto validateSingleExpr = [&](const core::TypedExprPtr typedExpr,
+                                const RowVectorPtr& input,
+                                const VectorPtr& expected) {
+    auto exprSet = evaluator.compile(typedExpr);
+    SelectivityVector rows;
+    rows.resize(input->size());
+    VectorPtr result;
+    evaluator.evaluate(exprSet.get(), rows, *input, result);
+    assertEqualVectors(expected, result);
+  };
+  validateSingleExpr(arrayExpr, input, expectedArrayExprResult);
+  validateSingleExpr(scalarExpr, input, expectedScalarExprResult);
+
+  auto validateMultiExprs =
+      [&](const std::vector<core::TypedExprPtr>& typedExprs,
+          const RowVectorPtr& input,
+          const std::vector<VectorPtr>& expectedResults) {
+        auto exprSet = evaluator.compile(typedExprs);
+        SelectivityVector rows;
+        rows.resize(input->size());
+        std::vector<VectorPtr> results;
+        evaluator.evaluate(exprSet.get(), rows, *input, results);
+        ASSERT_EQ(results.size(), expectedResults.size());
+        for (int i = 0; i < expectedResults.size(); ++i) {
+          assertEqualVectors(expectedResults[i], results[i]);
+        }
+      };
+  validateMultiExprs(
+      {arrayExpr, arrayExpr},
+      input,
+      {expectedArrayExprResult, expectedArrayExprResult});
+  validateMultiExprs({scalarExpr}, input, {expectedScalarExprResult});
+  validateMultiExprs(
+      {arrayExpr, scalarExpr, arrayExpr},
+      input,
+      {expectedArrayExprResult,
+       expectedScalarExprResult,
+       expectedArrayExprResult});
+}
 } // namespace
 } // namespace facebook::velox::test

@@ -2054,6 +2054,15 @@ void SimpleExpressionEvaluator::evaluate(
   result = results[0];
 }
 
+void SimpleExpressionEvaluator::evaluate(
+    exec::ExprSet* exprSet,
+    const SelectivityVector& rows,
+    const RowVector& input,
+    std::vector<VectorPtr>& results) {
+  EvalCtx context(ensureExecCtx(), exprSet, &input);
+  exprSet->eval(0, exprSet->size(), true, rows, context, results);
+}
+
 core::ExecCtx* SimpleExpressionEvaluator::ensureExecCtx() {
   if (!execCtx_) {
     execCtx_ = std::make_unique<core::ExecCtx>(pool_, queryCtx_);

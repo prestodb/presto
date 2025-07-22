@@ -41,6 +41,9 @@ class ExpressionEvaluator {
   virtual std::unique_ptr<exec::ExprSet> compile(
       const std::shared_ptr<const ITypedExpr>& expression) = 0;
 
+  virtual std::unique_ptr<exec::ExprSet> compile(
+      const std::vector<std::shared_ptr<const ITypedExpr>>& expressions) = 0;
+
   // Evaluates previously compiled expression on the specified rows.
   // Re-uses result vector if it is not null.
   virtual void evaluate(
@@ -48,6 +51,12 @@ class ExpressionEvaluator {
       const SelectivityVector& rows,
       const RowVector& input,
       VectorPtr& result) = 0;
+
+  virtual void evaluate(
+      exec::ExprSet* exprSet,
+      const SelectivityVector& rows,
+      const RowVector& input,
+      std::vector<VectorPtr>& results) = 0;
 
   // Memory pool used to construct input or output vectors.
   virtual memory::MemoryPool* pool() = 0;

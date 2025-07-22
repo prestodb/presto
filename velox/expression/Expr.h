@@ -938,11 +938,22 @@ class SimpleExpressionEvaluator : public core::ExpressionEvaluator {
         std::vector<core::TypedExprPtr>{expression}, ensureExecCtx());
   }
 
+  std::unique_ptr<ExprSet> compile(
+      const std::vector<core::TypedExprPtr>& expressions) override {
+    return std::make_unique<ExprSet>(expressions, ensureExecCtx());
+  }
+
   void evaluate(
       ExprSet* exprSet,
       const SelectivityVector& rows,
       const RowVector& input,
       VectorPtr& result) override;
+
+  void evaluate(
+      exec::ExprSet* exprSet,
+      const SelectivityVector& rows,
+      const RowVector& input,
+      std::vector<VectorPtr>& results) override;
 
   memory::MemoryPool* pool() override {
     return pool_;
