@@ -670,3 +670,18 @@ TEST_F(BingTileFunctionsTest, bingTilesAroundWithRadius) {
       testBingTilesAroundWithRadiusFunc(-85, -180, 1, 1001, std::nullopt),
       "Radius in km must between 0 and 1000, got 1001");
 }
+
+TEST_F(BingTileFunctionsTest, bingTileOrdering) {
+  auto bingTileType = BINGTILE();
+  ASSERT_FALSE(bingTileType->isOrderable());
+  ASSERT_TRUE(bingTileType->isComparable());
+
+  // Test that ARRAY_SORT fails with BingTile arrays since they're not orderable
+  VELOX_ASSERT_THROW(
+      evaluateOnce<int64_t>(
+          "CAST(ARRAY_SORT(ARRAY[bing_tile(c0, c1, c2), bing_tile(c0, c1, c2)])[1] AS BIGINT)",
+          std::optional<int32_t>(1),
+          std::optional<int32_t>(1),
+          std::optional<int32_t>(5)),
+      "Scalar function signature is not supported: array_sort(ARRAY<BINGTILE>).");
+}
