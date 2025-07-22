@@ -103,6 +103,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExcha
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.PushSemiJoinThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveCrossJoinWithConstantInput;
@@ -418,6 +419,7 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
+                                        new PushSemiJoinThroughUnion(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
