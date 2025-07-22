@@ -32,7 +32,15 @@ import static java.util.Collections.emptySet;
 
 public interface Connector
 {
-    ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
+    default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean autoCommitContext, boolean readOnly)
+    {
+        return beginTransaction(isolationLevel, readOnly);
+    }
 
     /**
      * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
