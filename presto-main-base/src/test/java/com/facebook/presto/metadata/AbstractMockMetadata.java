@@ -88,6 +88,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void registerBuiltInPluginFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public MetadataResolver getMetadataResolver(Session session)
     {
         return new MetadataResolver() {

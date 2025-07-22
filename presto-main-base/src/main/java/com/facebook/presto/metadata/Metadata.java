@@ -74,6 +74,8 @@ public interface Metadata
 
     void registerBuiltInFunctions(List<? extends SqlFunction> functions);
 
+    void registerBuiltInPluginFunctions(String catalogName, List<? extends SqlFunction> functionInfos);
+
     List<String> listSchemaNames(Session session, String catalogName);
 
     /**
