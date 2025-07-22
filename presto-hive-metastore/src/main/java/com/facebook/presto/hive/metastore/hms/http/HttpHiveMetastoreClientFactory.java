@@ -49,6 +49,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Base64.getEncoder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.http.conn.ssl.SSLConnectionSocketFactory.getDefaultHostnameVerifier;
 
 public class HttpHiveMetastoreClientFactory
         implements MetastoreClientFactory
@@ -97,8 +98,8 @@ public class HttpHiveMetastoreClientFactory
     {
         HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
         if ("https".equals(uri.getScheme().toLowerCase(ENGLISH))) {
-            HostnameVerifier customHostnameVerifier = (hostname, session) -> true;
-            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext.orElseThrow(null), customHostnameVerifier);
+            HostnameVerifier defaultHostnameVerifier = getDefaultHostnameVerifier();
+            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext.orElseThrow(null), defaultHostnameVerifier);
             Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
                     .register("https", sslSocketFactory)
                     .build();
