@@ -46,5 +46,70 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-docs'
-      - name: Clean Maven Output
-        run: ./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'
+      - name: "Upload presto-server"
+        if: matrix.java == '8.0.442'
+        uses: "actions/upload-artifact@v4"
+        with:
+          name: "presto-server"
+          path: "presto-server/target/presto-server-0.293.tar.gz"
+          if-no-files-found: "error"
+          retention-days: 1
+      - name: "Upload presto-cli"
+        if: matrix.java == '8.0.442'
+        uses: "actions/upload-artifact@v4"
+        with:
+          name: "presto-cli"
+          path: "presto-cli/target/presto-cli-0.293-executable.jar"
+          if-no-files-found: "error"
+          retention-days: 1
+      - name: "Clean Maven output"
+        run: "./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'"
+
+  presto-coordinator-image:
+    name: "presto-coordinator-image"
+    needs: "maven-checks"
+    runs-on: "ubuntu-22.04"
+    steps:
+      - uses: "actions/checkout@v4"
+        with:
+          submodules: "recursive"
+
+      - name: "Download presto-server"
+        uses: "actions/download-artifact@v4"
+        with:
+          name: "presto-server"
+          path: "./docker"
+
+      - name: "Download presto-cli"
+        uses: "actions/download-artifact@v4"
+        with:
+          name: "presto-cli"
+          path: "./docker"
+
+      - name: "Login to image registry"
+        uses: "docker/login-action@v3"
+        with:
+          registry: "ghcr.io"
+          username: "${{github.actor}}"
+          password: "${{secrets.GITHUB_TOKEN}}"
+
+      - name: "Set up container image metadata"
+        id: "meta"
+        uses: "docker/metadata-action@v5"
+        with:
+          images: "ghcr.io/${{github.repository}}/coordinator"
+          tags: "type=raw,value=dev"
+
+      - name: "Build and push"
+        uses: "docker/build-push-action@v6"
+        with:
+          build-args: |-
+            JMX_PROMETHEUS_JAVA_AGENT_VERSION=0.20.0
+            PRESTO_VERSION=0.293
+          context: "./docker"
+          file: "./docker/Dockerfile"
+          push: >-
+            ${{github.event_name != 'pull_request'
+            && github.ref == 'refs/heads/release-0.293-clp-connector'}}
+          tags: "${{steps.meta.outputs.tags}}"
+          labels: "${{steps.meta.outputs.labels}}"
