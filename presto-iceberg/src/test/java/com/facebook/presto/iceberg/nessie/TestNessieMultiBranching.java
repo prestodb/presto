@@ -19,8 +19,8 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.projectnessie.client.NessieClientBuilder;
 import org.projectnessie.client.api.NessieApiV1;
-import org.projectnessie.client.http.HttpClientBuilder;
 import org.projectnessie.error.NessieConflictException;
 import org.projectnessie.error.NessieNotFoundException;
 import org.projectnessie.model.Branch;
@@ -53,7 +53,7 @@ public class TestNessieMultiBranching
     {
         nessieContainer = NessieContainer.builder().build();
         nessieContainer.start();
-        nessieApiV1 = HttpClientBuilder.builder().withUri(nessieContainer.getRestApiUri()).build(NessieApiV1.class);
+        nessieApiV1 = NessieClientBuilder.createClientBuilder(null, null).withUri(nessieContainer.getRestApiUri()).build(NessieApiV1.class);
         super.init();
     }
 
