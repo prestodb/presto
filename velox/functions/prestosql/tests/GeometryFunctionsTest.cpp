@@ -99,6 +99,87 @@ class GeometryFunctionsTest : public FunctionBaseTest {
   }
 };
 
+TEST_F(GeometryFunctionsTest, errorStGeometryFromTextAndParsing) {
+  const auto assertGeomFromText = [&](const std::optional<std::string>& a) {
+    return evaluateOnce<std::string>("ST_GeometryFromText(c0)", a);
+  };
+  const auto assertGeomFromBinary = [&](const std::optional<std::string>& wkt) {
+    return evaluateOnce<std::string>(
+        "to_hex(ST_AsBinary(ST_GeomFromBinary(from_hex(c0))))", wkt);
+  };
+
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("xyz"),
+      "Failed to parse WKT: ParseException: Unknown type: 'XYZ'");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("LINESTRING (-71.3839245 42.3128124)"),
+      "Failed to parse WKT: IllegalArgumentException: point array must contain 0 or >1 elements");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText(
+          "POLYGON ((-13.637339 9.617113, -13.637339 9.617113))"),
+      "Failed to parse WKT: IllegalArgumentException: Invalid number of points in LinearRing found 2 - must be 0 or >= 4");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("POLYGON(0 0)"),
+      "Failed to parse WKT: ParseException: Expected word but encountered number: '0'");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("POLYGON((0 0))"),
+      "Failed to parse WKT: IllegalArgumentException: point array must contain 0 or >1 elements");
+
+  // WKT invalid cases
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText(""), "Expected word but encountered end of stream");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("RANDOM_TEXT"), "Unknown type: 'RANDOM_TEXT'");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("LINESTRING (1 1)"),
+      "point array must contain 0 or >1 elements");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("LINESTRING ()"),
+      "Expected number but encountered ')'");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("POLYGON ((0 0, 0 0))"),
+      "Invalid number of points in LinearRing found 2 - must be 0 or >= 4");
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromText("POLYGON ((0 0, 0 1, 1 1, 1 0))"),
+      "Points of LinearRing do not form a closed linestring");
+
+  // WKB invalid cases
+  // Empty
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromBinary(""), "Unexpected EOF parsing WKB");
+
+  // Random bytes
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromBinary("ABCDEF"), "Unexpected EOF parsing WKB");
+
+  // Unrecognized geometry type
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromBinary("0109000000000000000000F03F0000000000000040"),
+      "Unknown WKB type 9");
+
+  // Point with missing y
+  VELOX_ASSERT_USER_THROW(
+      assertGeomFromBinary("0101000000000000000000F03F"),
+      "Unexpected EOF parsing WKB");
+
+  // LineString with only one point
+  VELOX_ASSERT_THROW(
+      assertGeomFromBinary(
+          "010200000001000000000000000000F03F000000000000F03F"),
+      "point array must contain 0 or >1 elements");
+
+  // Polygon with unclosed LinString
+  VELOX_ASSERT_THROW(
+      assertGeomFromBinary(
+          "01030000000100000004000000000000000000000000000000000000000000000000000000000000000000F03F000000000000F03F000000000000F03F000000000000F03F0000000000000000"),
+      "Points of LinearRing do not form a closed linestring");
+
+  VELOX_ASSERT_THROW(
+      assertGeomFromBinary(
+          "010300000001000000020000000000000000000000000000000000000000000000000000000000000000000000"),
+      "Invalid number of points in LinearRing found 2 - must be 0 or >= 4");
+}
+
 TEST_F(GeometryFunctionsTest, wktAndWkb) {
   const auto wktRoundTrip = [&](const std::optional<std::string>& a) {
     return evaluateOnce<std::string>("ST_AsText(ST_GeometryFromText(c0))", a);
@@ -184,55 +265,6 @@ TEST_F(GeometryFunctionsTest, wktAndWkb) {
     EXPECT_EQ(emptyGeometryWkts[i], wkbToWkT(emptyGeometryWkbs[i]));
     EXPECT_EQ(emptyGeometryWkbs[i], wkbRoundTrip(emptyGeometryWkbs[i]));
   }
-
-  // WKT invalid cases
-  VELOX_ASSERT_USER_THROW(
-      wktRoundTrip(""), "Expected word but encountered end of stream");
-  VELOX_ASSERT_USER_THROW(
-      wktRoundTrip("RANDOM_TEXT"), "Unknown type: 'RANDOM_TEXT'");
-  VELOX_ASSERT_USER_THROW(
-      wktRoundTrip("LINESTRING (1 1)"),
-      "point array must contain 0 or >1 elements");
-  VELOX_ASSERT_USER_THROW(
-      wktRoundTrip("LINESTRING ()"), "Expected number but encountered ')'");
-  VELOX_ASSERT_USER_THROW(
-      wktRoundTrip("POLYGON ((0 0, 0 0))"),
-      "Invalid number of points in LinearRing found 2 - must be 0 or >= 4");
-  VELOX_ASSERT_USER_THROW(
-      wktRoundTrip("POLYGON ((0 0, 0 1, 1 1, 1 0))"),
-      "Points of LinearRing do not form a closed linestring");
-
-  // WKB invalid cases
-  // Empty
-  VELOX_ASSERT_USER_THROW(wkbRoundTrip(""), "Unexpected EOF parsing WKB");
-
-  // Random bytes
-  VELOX_ASSERT_USER_THROW(wkbRoundTrip("ABCDEF"), "Unexpected EOF parsing WKB");
-
-  // Unrecognized geometry type
-  VELOX_ASSERT_USER_THROW(
-      wkbRoundTrip("0109000000000000000000F03F0000000000000040"),
-      "Unknown WKB type 9");
-
-  // Point with missing y
-  VELOX_ASSERT_USER_THROW(
-      wkbRoundTrip("0101000000000000000000F03F"), "Unexpected EOF parsing WKB");
-
-  // LineString with only one point
-  VELOX_ASSERT_THROW(
-      wkbRoundTrip("010200000001000000000000000000F03F000000000000F03F"),
-      "point array must contain 0 or >1 elements");
-
-  // Polygon with unclosed LinString
-  VELOX_ASSERT_THROW(
-      wkbRoundTrip(
-          "01030000000100000004000000000000000000000000000000000000000000000000000000000000000000F03F000000000000F03F000000000000F03F000000000000F03F0000000000000000"),
-      "Points of LinearRing do not form a closed linestring");
-
-  VELOX_ASSERT_THROW(
-      wkbRoundTrip(
-          "010300000001000000020000000000000000000000000000000000000000000000000000000000000000000000"),
-      "Invalid number of points in LinearRing found 2 - must be 0 or >= 4");
 }
 
 // Constructors and accessors
