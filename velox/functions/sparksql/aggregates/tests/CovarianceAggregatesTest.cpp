@@ -154,6 +154,15 @@ TEST_F(CovarianceAggregatesTest, covarSamp) {
   expected = makeRowVector({makeFlatVector<double>(
       std::vector<double>{std::numeric_limits<double>::quiet_NaN()})});
   testCovarianceAggResult(agg, input, expected, true);
+
+  // Output NaN when c2 is ±inf.
+  input = makeRowVector(
+      {makeFlatVector<double>({22, std::numeric_limits<double>::infinity()}),
+       makeFlatVector<double>({0.688, 0.225})});
+  expected = makeRowVector({makeFlatVector<double>(
+      std::vector<double>{std::numeric_limits<double>::quiet_NaN()})});
+  testCovarianceAggResult(agg, input, expected);
+  testCovarianceAggResult(agg, input, expected, true);
 }
 
 } // namespace

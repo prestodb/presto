@@ -81,9 +81,7 @@ int main(int argc, char** argv) {
       "first_ignore_null",
       "last_ignore_null",
       "regr_replacement",
-      // TODO: Fix the incorrect result.
-      "corr",
-      "covar_samp"};
+      "corr"};
 
   using facebook::velox::exec::test::TransformResultVerifier;
 

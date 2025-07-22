@@ -40,6 +40,9 @@ struct CovarSampResultAccessor {
           "NaN is returned only when m2 is 0 and nullOnDivideByZero is false.");
       return std::numeric_limits<double>::quiet_NaN();
     }
+    if (FOLLY_UNLIKELY(std::isinf(accumulator.c2()))) {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
     return accumulator.c2() / (accumulator.count() - 1);
   }
 };
