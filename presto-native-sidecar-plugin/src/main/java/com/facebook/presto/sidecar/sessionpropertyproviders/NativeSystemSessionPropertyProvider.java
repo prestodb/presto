@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
@@ -139,5 +140,11 @@ public class NativeSystemSessionPropertyProvider
                 .uriBuilderFrom(sidecarNode.getHttpUri())
                 .appendPath(SESSION_PROPERTIES_ENDPOINT)
                 .build();
+    }
+
+    @VisibleForTesting
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
     }
 }

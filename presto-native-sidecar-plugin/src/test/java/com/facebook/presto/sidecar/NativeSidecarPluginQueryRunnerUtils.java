@@ -21,12 +21,14 @@ import com.google.common.collect.ImmutableMap;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
-    private NativeSidecarPluginQueryRunnerUtils() {};
+    private NativeSidecarPluginQueryRunnerUtils() {}
 
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
     {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
-        queryRunner.loadSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME);
+        queryRunner.loadSessionPropertyProvider(
+                NativeSystemSessionPropertyProviderFactory.NAME,
+                ImmutableMap.of());
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",

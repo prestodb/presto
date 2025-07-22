@@ -14,12 +14,24 @@
 package com.facebook.presto.sidecar;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
+import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
+import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManager;
+import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
+import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProvider;
+import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -28,13 +40,14 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -45,6 +58,7 @@ public class TestNativeSidecarPlugin
 {
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
+    private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
 
     @Override
     protected void createTables()
@@ -76,6 +90,39 @@ public class TestNativeSidecarPlugin
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
+    }
+
+    public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
+    {
+        queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
+        queryRunner.loadSessionPropertyProvider(
+                NativeSystemSessionPropertyProviderFactory.NAME,
+                ImmutableMap.of("sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+        queryRunner.loadFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                "native",
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP",
+                        "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
+        queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
+        queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
+    }
+
+    @Test
+    public void testHttpClientProperties()
+    {
+        WorkerSessionPropertyProvider sessionPropertyProvider = getQueryRunner().getMetadata().getSessionPropertyManager().getWorkerSessionPropertyProviders().get(NativeSystemSessionPropertyProviderFactory.NAME);
+        checkArgument(sessionPropertyProvider instanceof NativeSystemSessionPropertyProvider, "Expected  NativeSystemSessionPropertyProvider but got  %s", sessionPropertyProvider);
+        long sessionProviderHttpClientConfigContentSize = ((NativeSystemSessionPropertyProvider) sessionPropertyProvider).getHttpClient().getMaxContentLength();
+        assertEquals(sessionProviderHttpClientConfigContentSize, new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+
+        FunctionNamespaceManager<? extends SqlFunction> functionNamespaceManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getFunctionNamespaceManagers().get(NativeFunctionNamespaceManagerFactory.NAME);
+        checkArgument(functionNamespaceManager instanceof NativeFunctionNamespaceManager, "Expected  NativeFunctionNamespaceManager but got  %s", functionNamespaceManager);
+        FunctionDefinitionProvider functionDefinitionProvider = ((NativeFunctionNamespaceManager) functionNamespaceManager).getFunctionDefinitionProvider();
+        checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected  NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
+        long functionProviderHttpClientConfigContentSize = ((NativeFunctionDefinitionProvider) functionDefinitionProvider).getHttpClient().getMaxContentLength();
+        assertEquals(functionProviderHttpClientConfigContentSize, new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
     }
 
     @Test

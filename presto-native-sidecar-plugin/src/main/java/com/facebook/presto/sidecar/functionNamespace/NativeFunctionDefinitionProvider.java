@@ -24,6 +24,7 @@ import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -77,5 +78,11 @@ public class NativeFunctionDefinitionProvider
                 .uriBuilderFrom(sidecarNode.getHttpUri())
                 .appendPath(FUNCTION_SIGNATURES_ENDPOINT)
                 .build();
+    }
+
+    @VisibleForTesting
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
     }
 }

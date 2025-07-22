@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -181,11 +182,17 @@ public final class SessionPropertyManager
         log.info("-- Loading %s session property provider --", sessionPropertyProviderName);
         WorkerSessionPropertyProviderFactory factory = workerSessionPropertyProviderFactories.get(sessionPropertyProviderName);
         checkState(factory != null, "No factory for session property provider : " + sessionPropertyProviderName);
-        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager));
+        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager), properties);
         if (workerSessionPropertyProviders.putIfAbsent(sessionPropertyProviderName, sessionPropertyProvider) != null) {
             throw new IllegalArgumentException("System session property provider is already registered for property provider : " + sessionPropertyProviderName);
         }
         log.info("-- Added session property provider [%s] --", sessionPropertyProviderName);
+    }
+
+    @VisibleForTesting
+    public Map<String, WorkerSessionPropertyProvider> getWorkerSessionPropertyProviders()
+    {
+        return ImmutableMap.copyOf(workerSessionPropertyProviders);
     }
 
     public void addSessionPropertyProviderFactory(WorkerSessionPropertyProviderFactory factory)
