@@ -126,7 +126,7 @@ services:
     image: ghcr.io/facebookincubator/velox-dev:presto-java
     build:
       args:
-        - PRESTO_VERSION=0.290
+        - PRESTO_VERSION=0.293
       context: .
       dockerfile: scripts/docker/prestojava-container.dockerfile
     environment:

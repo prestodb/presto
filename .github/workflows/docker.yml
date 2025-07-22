@@ -92,7 +92,7 @@ jobs:
             tags: ghcr.io/facebookincubator/velox-dev:adapters
           - name: Presto Java
             file: scripts/docker/prestojava-container.dockerfile
-            args: PRESTO_VERSION=0.290
+            args: PRESTO_VERSION=0.293
             tags: ghcr.io/facebookincubator/velox-dev:presto-java
           - name: Spark server
             file: scripts/docker/spark-container.dockerfile
