@@ -149,6 +149,8 @@ int main(int argc, char** argv) {
       "max_data_size_for_stats",
       "any_value",
       // Skip non-deterministic functions.
+      "noisy_approx_set_sfm",
+      "noisy_approx_distinct_sfm",
       // https://github.com/facebookincubator/velox/issues/13547
       "merge",
   };

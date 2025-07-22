@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_functions_prestosql_aggregates_sketch_test
-               SfmSketchTest.cpp)
+add_executable(velox_functions_prestosql_aggregates_sfm_test SfmSketchTest.cpp)
 
-add_test(velox_functions_prestosql_aggregates_sketch_test
-         velox_functions_prestosql_aggregates_sketch_test)
+add_test(velox_functions_prestosql_aggregates_sfm_test
+         velox_functions_prestosql_aggregates_sfm_test)
 
 target_link_libraries(
-  velox_functions_prestosql_aggregates_sketch_test
-  velox_functions_prestosql_aggregates_sketch
+  velox_functions_prestosql_aggregates_sfm_test
+  velox_functions_prestosql_aggregates_sfm
   velox_memory
   GTest::gtest
   GTest::gtest_main)

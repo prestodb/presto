@@ -16,8 +16,10 @@
 
 #pragma once
 
+#define XXH_INLINE_ALL
+#include <xxhash.h> // @manual=third-party//xxHash:xxhash
+
 #include <folly/Range.h>
-#include <xxhash.h>
 #include <cstdint>
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/functions/prestosql/aggregates/sfm/MersenneTwisterRandomizationStrategy.h"
@@ -148,6 +150,11 @@ class SfmSketch {
     return randomizedResponseProbability_ > 0;
   }
 
+  // Check if the sketch is initialized.
+  bool isInitialized() const {
+    return numIndexBits_ > 0;
+  }
+
  private:
   // Epsilon for non-private sketch.
   static constexpr double kNonPrivateEpsilon =
@@ -159,11 +166,6 @@ class SfmSketch {
   // Java implementation use a format_tag to identify the sketch.
   // We need this tag to be able to deserialize the sketch from Java.
   static constexpr int8_t kFormatTag = 7;
-
-  // Check if the sketch is initialized.
-  bool isInitialized() const {
-    return numIndexBits_ > 0;
-  }
 
   // Calculate the RandomizedResponseProbabilities for merged sketches.
   // For math details, see Theorem 4.8,

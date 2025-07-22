@@ -39,9 +39,9 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
   template <typename T>
   variant generateTyped() {
     HashStringAllocator allocator(pool_);
-    // Create SfmSketch with random parameters
 
-    auto indexBitLength = rand<int32_t>(rng_, 1, 16); // 1 to 16 index bits
+    // Create SfmSketch with random parameters.
+    auto indexBitLength = rand<int32_t>(rng_, 1, 16);
     auto numberOfBuckets = SfmSketch::numBuckets(indexBitLength);
     auto precision = rand<int32_t>(rng_, 1, 64 - indexBitLength);
 
@@ -49,21 +49,23 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
     sketch.initialize(numberOfBuckets, precision);
 
     // Add values to the sketch
-    auto numValues = rand<int32_t>(
-        rng_, 1, 10); // we don't want type generation to take too long.
+    auto numValues = rand<int32_t>(rng_, 1, 10);
     for (auto i = 0; i < numValues; ++i) {
       if constexpr (
           std::is_same_v<T, std::string> || std::is_same_v<T, StringView>) {
-        std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter;
+        // Generate a random string directly without using randString since it
+        // is deprecated.
         auto size = rand<int32_t>(rng_, 0, 100); // size of the string.
-        std::string result;
-        static const std::vector<UTF8CharList> encodings{
-            UTF8CharList::ASCII,
-            UTF8CharList::UNICODE_CASE_SENSITIVE,
-            UTF8CharList::EXTENDED_UNICODE,
-            UTF8CharList::MATHEMATICAL_SYMBOLS};
-        auto str = randString(rng_, size, encodings, result, converter);
-        sketch.add(std::hash<std::string>{}(str));
+        std::string str;
+        str.reserve(size);
+
+        // Generate random ASCII characters.
+        for (int j = 0; j < size; ++j) {
+          char c = static_cast<char>(rand<int32_t>(rng_, 32, 126));
+          str.push_back(c);
+        }
+
+        sketch.add(str);
       } else if (std::is_same_v<T, UnknownValue>) {
         // No-op since SfmSketch ignores input nulls.
       } else {
@@ -78,7 +80,7 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
       sketch.enablePrivacy(epsilon);
     }
 
-    // Serialize the sketch
+    // Serialize the sketch.
     auto size = sketch.serializedSize();
     std::string buff(size, '\0');
     sketch.serialize(buff.data());

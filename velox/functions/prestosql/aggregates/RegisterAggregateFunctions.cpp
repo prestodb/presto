@@ -41,6 +41,7 @@
 #include "velox/functions/prestosql/aggregates/MinByAggregate.h"
 #include "velox/functions/prestosql/aggregates/MinMaxAggregates.h"
 #include "velox/functions/prestosql/aggregates/MultiMapAggAggregate.h"
+#include "velox/functions/prestosql/aggregates/NoisyApproxSfmAggregate.h"
 #include "velox/functions/prestosql/aggregates/NoisyAvgGaussianAggregate.h"
 #include "velox/functions/prestosql/aggregates/NoisyCountGaussianAggregate.h"
 #include "velox/functions/prestosql/aggregates/NoisyCountIfGaussianAggregate.h"
@@ -245,6 +246,7 @@ void registerAllAggregateFunctions(
   registerSumAggregate(prefix, withCompanionFunctions, overwrite);
   registerVarianceAggregates(prefix, withCompanionFunctions, overwrite);
   registerTDigestAggregate(prefix, withCompanionFunctions, overwrite);
+  registerNoisyApproxSfmAggregate(prefix, withCompanionFunctions, overwrite);
 }
 
 void registerInternalAggregateFunctions(const std::string& prefix) {

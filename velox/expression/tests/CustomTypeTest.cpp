@@ -20,6 +20,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/SfmSketchRegistration.h"
 #include "velox/type/OpaqueCustomTypes.h"
 
 namespace facebook::velox::test {
@@ -221,6 +222,10 @@ TEST_F(CustomTypeTest, customType) {
 }
 
 TEST_F(CustomTypeTest, getCustomTypeNames) {
+  // SFMSKETCH is a newly registered custom type, unlike others,
+  // registerSfmSketchType() is not called in the constructor of CustomTypeTest,
+  // so we explicitly call it here.
+  registerSfmSketchType();
   auto names = getCustomTypeNames();
   ASSERT_EQ(
       (std::unordered_set<std::string>{
@@ -233,7 +238,9 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "BINGTILE",
           "TDIGEST",
           "QDIGEST",
-          "GEOMETRY"}),
+          "GEOMETRY",
+          "SFMSKETCH",
+      }),
       names);
 
   ASSERT_TRUE(registerCustomType(
@@ -252,7 +259,9 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "FANCY_INT",
           "TDIGEST",
           "QDIGEST",
-          "GEOMETRY"}),
+          "GEOMETRY",
+          "SFMSKETCH",
+      }),
       names);
 
   ASSERT_TRUE(unregisterCustomType("fancy_int"));

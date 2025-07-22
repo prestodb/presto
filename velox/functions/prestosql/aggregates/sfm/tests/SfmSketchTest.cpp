@@ -15,7 +15,6 @@
  */
 
 #include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
-#include <xxhash.h>
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Base64.h"

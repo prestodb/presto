@@ -809,6 +809,32 @@ Counts, Sums, and Averages
     If provided, random_seed is used to seed the random number generator.
     Otherwise, noise is drawn from a secure random.
 
+.. function:: noisy_approx_set_sfm(col, epsilon[, buckets[, precision]]) -> SfmSketch
+
+    Returns an SFM sketch of the input values in ``col``. This is analogous to the ``approx_set()`` function,
+    which returns a (deterministic) HyperLogLog sketch.
+
+    * ``col`` currently supports types: "bigint", "double", "string", "varbinary".
+    * ``epsilon`` (double) is a positive number that controls the level of noise in the sketch, as described in [Hehir2023]_.
+      Smaller values of epsilon correspond to noisier sketches.
+    * ``buckets`` (int) defaults to 4096.
+    * ``precision`` (int) defaults to 24.
+
+    .. note::
+
+        Unlike ``approx_set()``, this function returns ``NULL`` when ``col`` is empty.
+        If this behavior is undesirable, use ``coalesce()`` with :func:`noisy_empty_approx_set_sfm`.
+
+.. function:: noisy_approx_distinct_sfm(col, epsilon[, buckets[, precision]]) -> bigint
+
+    Equivalent to ``cardinality(noisy_approx_set_sfm(col, epsilon, buckets, precision))``,
+    this returns the approximate cardinality (distinct count) of the column col.
+    This is analogous to the (deterministic) :func:`approx_distinct` function.
+
+    .. note::
+
+        Unlike :func:`approx_distinct`, this function returns NULL when col is empty.
+
 Limitations
 ~~~~~~~~~~~
 

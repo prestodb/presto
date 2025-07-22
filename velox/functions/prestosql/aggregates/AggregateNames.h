@@ -84,4 +84,6 @@ const char* const kVarPop = "var_pop";
 const char* const kVarSamp = "var_samp";
 const char* const kMaxSizeForStats = "max_data_size_for_stats";
 const char* const kSumDataSizeForStats = "sum_data_size_for_stats";
+const char* const kNoisyApproxSetSfm = "noisy_approx_set_sfm";
+const char* const kNoisyApproxDistinctSfm = "noisy_approx_distinct_sfm";
 } // namespace facebook::velox::aggregate

@@ -13,7 +13,7 @@
 # limitations under the License.
 velox_add_library(
   velox_presto_types_fuzzer_utils TimestampWithTimeZoneInputGenerator.cpp
-  HyperLogLogInputGenerator.cpp)
+  HyperLogLogInputGenerator.cpp SfmSketchInputGenerator.cpp)
 
 velox_link_libraries(
   velox_presto_types_fuzzer_utils
