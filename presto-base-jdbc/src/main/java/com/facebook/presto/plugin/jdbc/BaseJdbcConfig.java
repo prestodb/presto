@@ -33,6 +33,17 @@ import java.util.Set;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+/**
+ * Base configuration class for JDBC connectors.
+ *
+ * This class is provided for convenience and contains common configuration properties
+ * that many JDBC connectors may need. However, core JDBC functionality should not
+ * depend on this class, as JDBC connectors may choose to use their own mechanisms
+ * for connection management, authentication, and other configuration needs.
+ *
+ * Connectors are free to implement their own configuration classes and connection
+ * strategies without extending or using this base configuration.
+ */
 public class BaseJdbcConfig
 {
     private String connectionUrl;
@@ -175,6 +186,10 @@ public class BaseJdbcConfig
         if (isCaseInsensitiveNameMatching() && isCaseSensitiveNameMatching()) {
             throw new ConfigurationException(ImmutableList.of(new Message("Only one of 'case-insensitive-name-matching=true' or 'case-sensitive-name-matching=true' can be set. " +
                     "These options are mutually exclusive.")));
+        }
+
+        if (connectionUrl == null) {
+            throw new ConfigurationException(ImmutableList.of(new Message("connection-url is required but was not provided")));
         }
     }
 }

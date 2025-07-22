@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -66,7 +67,11 @@ public class TestJdbcMetadata
         database = new TestingDatabase();
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, new BaseJdbcConfig());
+
+        BaseJdbcConfig baseConfig = new BaseJdbcConfig();
+        baseConfig.setConnectionUrl("jdbc:h2:mem:test");
+
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, new DefaultTableLocationProvider(baseConfig));
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -261,7 +266,10 @@ public class TestJdbcMetadata
             assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
         }
 
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true, new BaseJdbcConfig());
+        // Create BaseJdbcConfig with connection URL for drop table test
+        BaseJdbcConfig dropConfig = new BaseJdbcConfig();
+        dropConfig.setConnectionUrl("jdbc:h2:mem:test");
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true, new DefaultTableLocationProvider(dropConfig));
         metadata.dropTable(SESSION, tableHandle);
 
         try {
@@ -271,5 +279,47 @@ public class TestJdbcMetadata
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
         }
+    }
+
+    @Test
+    public void testCustomTableLocationProvider()
+    {
+        // Create a custom TableLocationProvider that returns a specific location
+        TableLocationProvider customProvider = new TableLocationProvider()
+        {
+            @Override
+            public String getTableLocation()
+            {
+                return "custom://test-location:8080/database";
+            }
+        };
+
+        // Create JdbcMetadata with the custom provider
+        JdbcMetadata customMetadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, customProvider);
+
+        // Verify that the metadata can be created and basic operations work
+        JdbcTableHandle customTableHandle = customMetadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        assertEquals(customTableHandle, tableHandle);
+
+        // Verify table metadata can be retrieved
+        ConnectorTableMetadata tableMetadata = customMetadata.getTableMetadata(SESSION, customTableHandle);
+        assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
+        assertEquals(tableMetadata.getColumns().size(), 3);
+
+        // Verify column handles work
+        Map<String, ColumnHandle> columnHandles = customMetadata.getColumnHandles(SESSION, customTableHandle);
+        assertEquals(columnHandles.size(), 3);
+        assertTrue(columnHandles.containsKey("text"));
+        assertTrue(columnHandles.containsKey("text_short"));
+        assertTrue(columnHandles.containsKey("value"));
+
+        // Verify schema listing works
+        assertTrue(customMetadata.listSchemaNames(SESSION).containsAll(ImmutableSet.of("example", "tpch")));
+
+        // Verify table listing works
+        assertEquals(ImmutableSet.copyOf(customMetadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
+                new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "view_source"),
+                new SchemaTableName("example", "view")));
     }
 }
