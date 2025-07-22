@@ -359,8 +359,8 @@ public final class VarbinaryFunctions
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
     public static Slice xxhash64(
-            @SqlType(StandardTypes.BIGINT) long seed,
-            @SqlType(StandardTypes.VARBINARY) Slice slice)
+            @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.BIGINT) long seed)
     {
         Slice hash = Slices.allocate(Long.BYTES);
         hash.setLong(0, Long.reverseBytes(XxHash64.hash(seed, slice)));

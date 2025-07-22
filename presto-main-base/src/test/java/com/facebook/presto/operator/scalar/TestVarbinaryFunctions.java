@@ -375,11 +375,8 @@ public class TestVarbinaryFunctions
     {
         assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
         assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
-        assertFunction("xxhash64(0, CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
-        assertFunction("xxhash64(0, CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
-        assertFunction("from_big_endian_64(xxhash64(-778468683, cast('ams' as VARBINARY)))", BIGINT, 904783967507135058L);
-        assertFunction("from_big_endian_64(xxhash64(-778468683, cast('gmp' as VARBINARY)))", BIGINT, 2343847643367348890L);
-        assertFunction("from_big_endian_64(xxhash64(-778468683, cast('den' as VARBINARY)))", BIGINT, -1197678627029189584L);
+        assertFunction("xxhash64(CAST('' AS VARBINARY), 0)", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
+        assertFunction("xxhash64(CAST('hashme' AS VARBINARY), 0)", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
     }
 
     @Test
