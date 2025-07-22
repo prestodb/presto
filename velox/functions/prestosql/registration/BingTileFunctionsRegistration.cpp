@@ -27,7 +27,7 @@ namespace {
 
 void registerSimpleBingTileFunctions(const std::string& prefix) {
   // BingTile constructors
-  registerFunction<BingTileFunction, BingTile, int32_t, int32_t, int8_t>(
+  registerFunction<BingTileFunction, BingTile, int32_t, int32_t, int32_t>(
       {prefix + "bing_tile"});
   registerFunction<BingTileFunction, BingTile, Varchar>({prefix + "bing_tile"});
 
@@ -48,24 +48,27 @@ void registerSimpleBingTileFunctions(const std::string& prefix) {
       {prefix + "bing_tile_parent"});
   registerFunction<BingTileChildrenFunction, Array<BingTile>, BingTile>(
       {prefix + "bing_tile_children"});
-  registerFunction<BingTileChildrenFunction, Array<BingTile>, BingTile, int8_t>(
-      {prefix + "bing_tile_children"});
+  registerFunction<
+      BingTileChildrenFunction,
+      Array<BingTile>,
+      BingTile,
+      int32_t>({prefix + "bing_tile_children"});
   registerFunction<BingTileToQuadKeyFunction, Varchar, BingTile>(
       {prefix + "bing_tile_quadkey"});
-  registerFunction<BingTileAtFunction, BingTile, double, double, int8_t>(
+  registerFunction<BingTileAtFunction, BingTile, double, double, int32_t>(
       {prefix + "bing_tile_at"});
   registerFunction<
       BingTilesAroundFunction,
       Array<BingTile>,
       double,
       double,
-      int8_t>({prefix + "bing_tiles_around"});
+      int32_t>({prefix + "bing_tiles_around"});
   registerFunction<
       BingTilesAroundFunction,
       Array<BingTile>,
       double,
       double,
-      int8_t,
+      int32_t,
       double>({prefix + "bing_tiles_around"});
 }
 
