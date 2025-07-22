@@ -54,5 +54,7 @@ public class JdbcModule
         newOptionalBinder(binder, JdbcSessionPropertiesProvider.class);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        binder.bind(TableLocationProvider.class).to(DefaultTableLocationProvider.class).in(Scopes.SINGLETON);
     }
 }

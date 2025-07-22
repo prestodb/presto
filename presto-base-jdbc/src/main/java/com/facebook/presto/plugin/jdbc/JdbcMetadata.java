@@ -58,12 +58,12 @@ public class JdbcMetadata
     private final String url;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, BaseJdbcConfig baseJdbcConfig)
+    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, TableLocationProvider tableLocationProvider)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
         this.allowDropTable = allowDropTable;
-        this.url = baseJdbcConfig.getConnectionUrl();
+        this.url = requireNonNull(tableLocationProvider, "tableLocationProvider is null").getTableLocation();
     }
 
     @Override
