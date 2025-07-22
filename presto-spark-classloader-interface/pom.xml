@@ -30,4 +30,38 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>sapphire</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto.spark</groupId>
+                        <artifactId>spark-core</artifactId>
+                        <version>3.4.1-1-20250715.082553-3</version>
+                        <scope>compile</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+
+            <dependencies>
+                <dependency>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                    <version>2.13.8</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+
+        </profile>
+    </profiles>
+
 </project>

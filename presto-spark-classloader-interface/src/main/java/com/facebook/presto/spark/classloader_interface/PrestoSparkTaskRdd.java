@@ -21,7 +21,7 @@ import org.apache.spark.rdd.ZippedPartitionsBaseRDD;
 import org.apache.spark.rdd.ZippedPartitionsPartition;
 import scala.Tuple2;
 import scala.collection.Iterator;
-import scala.collection.Seq;
+import scala.collection.immutable.Seq;
 import scala.reflect.ClassTag;
 
 import java.util.ArrayList;
@@ -34,8 +34,8 @@ import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptySc
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
-import static scala.collection.JavaConversions.asScalaBuffer;
-import static scala.collection.JavaConversions.seqAsJavaList;
+import static scala.collection.JavaConverters.asScalaBuffer;
+import static scala.collection.JavaConverters.seqAsJavaList;
 
 /**
  * Reference

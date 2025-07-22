@@ -391,6 +391,13 @@
 
             <dependencies>
                 <dependency>
+                    <groupId>com.facebook.presto.spark</groupId>
+                    <artifactId>spark-core</artifactId>
+                    <version>3.4.1-1-20250715.082553-3</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
                     <groupId>com.google.inject</groupId>
                     <artifactId>guice</artifactId>
                     <scope>provided</scope>
@@ -425,7 +432,6 @@
                     <artifactId>validation-api</artifactId>
                     <scope>provided</scope>
                 </dependency>
-
 
                 <dependency>
                     <groupId>org.scala-lang</groupId>

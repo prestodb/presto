@@ -23,7 +23,9 @@ import org.apache.spark.shuffle.BaseShuffleHandle;
 import org.apache.spark.shuffle.ShuffleBlockResolver;
 import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.shuffle.ShuffleManager;
+import org.apache.spark.shuffle.ShuffleReadMetricsReporter;
 import org.apache.spark.shuffle.ShuffleReader;
+import org.apache.spark.shuffle.ShuffleWriteMetricsReporter;
 import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
 import org.apache.spark.storage.BlockManager;
@@ -77,26 +79,26 @@ public class PrestoSparkNativeExecutionShuffleManager
         }
     }
 
-    protected void registerShuffleHandle(BaseShuffleHandle handle, int stageId, int mapId)
+    protected void registerShuffleHandle(BaseShuffleHandle handle, int stageId, long mapId)
     {
         partitionIdToShuffleHandle.put(new StageAndMapId(stageId, mapId), handle);
         shuffleIdToBaseShuffleHandle.put(handle.shuffleId(), handle);
     }
 
-    protected void unregisterShuffleHandle(int shuffleId, int stageId, int mapId)
+    protected void unregisterShuffleHandle(int shuffleId, int stageId, long mapId)
     {
         partitionIdToShuffleHandle.remove(new StageAndMapId(stageId, mapId));
         shuffleIdToBaseShuffleHandle.remove(shuffleId);
     }
 
     @Override
-    public <K, V, C> ShuffleHandle registerShuffle(int shuffleId, int numMaps, ShuffleDependency<K, V, C> dependency)
+    public <K, V, C> ShuffleHandle registerShuffle(int shuffleId, ShuffleDependency<K, V, C> dependency)
     {
-        return fallbackShuffleManager.registerShuffle(shuffleId, numMaps, dependency);
+        return fallbackShuffleManager.registerShuffle(shuffleId, dependency);
     }
 
     @Override
-    public <K, V> ShuffleWriter<K, V> getWriter(ShuffleHandle handle, int mapId, TaskContext context)
+    public <K, V> ShuffleWriter<K, V> getWriter(ShuffleHandle handle, long mapId, TaskContext context, ShuffleWriteMetricsReporter metrics)
     {
         checkState(
                 requireNonNull(handle, "handle is null") instanceof BypassMergeSortShuffleHandle,
@@ -111,7 +113,13 @@ public class PrestoSparkNativeExecutionShuffleManager
     }
 
     @Override
-    public <K, C> ShuffleReader<K, C> getReader(ShuffleHandle handle, int startPartition, int endPartition, TaskContext context)
+    public <K, C> ShuffleReader<K, C> getReader(ShuffleHandle handle, int startPartition, int endPartition, TaskContext context, ShuffleReadMetricsReporter metrics)
+    {
+        return new EmptyShuffleReader<>();
+    }
+
+    @Override
+    public <K, C> ShuffleReader<K, C> getReader(ShuffleHandle handle, int startMapIndex, int endMapIndex, int startPartition, int endPartition, TaskContext context, ShuffleReadMetricsReporter metrics)
     {
         return new EmptyShuffleReader<>();
     }
@@ -196,16 +204,23 @@ public class PrestoSparkNativeExecutionShuffleManager
         {
             onStop.run();
             BlockManager blockManager = SparkEnv.get().blockManager();
-            return Option.apply(MapStatus$.MODULE$.apply(blockManager.blockManagerId(), mapStatus));
+            return Option.apply(
+                MapStatus$.MODULE$.apply(blockManager.blockManagerId(), mapStatus, 0L));
+        }
+
+        @Override
+        public long[] getPartitionLengths()
+        {
+            return mapStatus;
         }
     }
 
     public static class StageAndMapId
     {
         private final int stageId;
-        private final int mapId;
+        private final long mapId;
 
-        public StageAndMapId(int stageId, int mapId)
+        public StageAndMapId(int stageId, long mapId)
         {
             this.stageId = stageId;
             this.mapId = mapId;
@@ -216,7 +231,7 @@ public class PrestoSparkNativeExecutionShuffleManager
             return stageId;
         }
 
-        public int getMapId()
+        public long getMapId()
         {
             return mapId;
         }
