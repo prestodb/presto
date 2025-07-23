@@ -29,8 +29,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +54,7 @@ public final class MetadataUtils
     private static final String CATALOG_DB_THRIFT_NAME_MARKER = "@";
     private static final String DB_EMPTY_MARKER = "!";
     private static final String DEFAULT_DATABASE = "default";
+
     private MetadataUtils() {}
 
     public static Optional<DiscretePredicates> getDiscretePredicates(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)

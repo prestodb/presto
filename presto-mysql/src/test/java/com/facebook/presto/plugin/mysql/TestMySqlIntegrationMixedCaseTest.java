@@ -22,7 +22,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -36,7 +35,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -45,7 +43,6 @@ public class TestMySqlIntegrationMixedCaseTest
         extends AbstractTestQueryFramework
 {
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .setCommandTimeout(new Duration(90, SECONDS))
             .build();
 
     private final TestingMySqlServer mysqlServer;

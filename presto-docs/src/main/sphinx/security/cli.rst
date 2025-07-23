@@ -33,8 +33,6 @@ principal.
 
 .. include:: ktadd-note.fragment
 
-.. include:: jce-policy.fragment
-
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

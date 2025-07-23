@@ -14,8 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.List;
 import java.util.Objects;

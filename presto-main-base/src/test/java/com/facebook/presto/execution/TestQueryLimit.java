@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
 import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
 import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
@@ -24,8 +26,6 @@ import static com.facebook.presto.execution.QueryLimit.createDataSizeLimit;
 import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
 import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertThrows;

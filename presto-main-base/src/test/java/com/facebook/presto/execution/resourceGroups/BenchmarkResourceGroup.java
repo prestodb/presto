@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.execution.MockManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -39,7 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)

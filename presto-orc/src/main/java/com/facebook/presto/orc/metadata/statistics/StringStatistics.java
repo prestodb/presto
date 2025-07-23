@@ -15,9 +15,8 @@ package com.facebook.presto.orc.metadata.statistics;
 
 import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import io.airlift.slice.Slice;
+import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
 
 import java.util.Objects;
 

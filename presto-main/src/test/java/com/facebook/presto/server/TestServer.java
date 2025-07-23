@@ -79,11 +79,11 @@ import static com.facebook.presto.server.TestHttpRequestSessionContext.createSql
 import static com.facebook.presto.server.TestHttpRequestSessionContext.urlEncode;
 import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPage;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static jakarta.ws.rs.core.Response.Status.OK;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
