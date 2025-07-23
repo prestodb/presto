@@ -72,4 +72,10 @@ public interface ConnectorSession
      * @return
      */
     ConnectorSession forConnectorId(ConnectorId connectorId);
+
+    /**
+     * returns the max size of a serializable object in bytes
+     * @return
+     */
+    long getMaxSerializableObjectSize();
 }

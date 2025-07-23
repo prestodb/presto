@@ -136,6 +136,12 @@ public final class TestingSession
         {
             return this;
         }
+
+        @Override
+        public long getMaxSerializableObjectSize()
+        {
+            return 1000;
+        }
     };
 
     private TestingSession() {}

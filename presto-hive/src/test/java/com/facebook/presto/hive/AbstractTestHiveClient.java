@@ -1250,6 +1250,12 @@ public abstract class AbstractTestHiveClient
             {
                 return this;
             }
+
+            @Override
+            public long getMaxSerializableObjectSize()
+            {
+                return session.getMaxSerializableObjectSize();
+            }
         };
     }
 

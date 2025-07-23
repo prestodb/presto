@@ -122,7 +122,6 @@ import static java.util.stream.Collectors.toList;
 
 public class RowExpressionInterpreter
 {
-    private static final long MAX_SERIALIZABLE_OBJECT_SIZE = 1000;
     private final RowExpression expression;
     private final ConnectorSession session;
     private final Level optimizationLevel;
@@ -779,7 +778,7 @@ public class RowExpressionInterpreter
         private boolean isSerializable(Object value, Type type)
         {
             // If value is already RowExpression, constant values contained inside should already have been made serializable. Otherwise, we make sure the object is small and serializable.
-            return value instanceof RowExpression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
+            return value instanceof RowExpression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= session.getMaxSerializableObjectSize());
         }
 
         private SpecialCallResult tryHandleArrayConstructor(CallExpression callExpression, List<Object> argumentValues)

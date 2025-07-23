@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.MAX_SERIALIZABLE_OBJECT_SIZE;
 import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -184,6 +185,7 @@ public class FullConnectorSession
                 .add("locale", getLocale())
                 .add("startTime", getStartTime())
                 .add("properties", properties)
+                .add("maxSerializableObjectSize", getMaxSerializableObjectSize())
                 .omitNullValues()
                 .toString();
     }
@@ -204,5 +206,11 @@ public class FullConnectorSession
     public ConnectorSession forConnectorId(ConnectorId connectorId)
     {
         return new FullConnectorSession(session, identity);
+    }
+
+    @Override
+    public long getMaxSerializableObjectSize()
+    {
+        return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
     }
 }
