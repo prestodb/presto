@@ -3008,16 +3008,15 @@ public class LocalExecutionPlanner
         {
             Integer[] columnValueAndRowIdChannels = new Integer[columnValueAndRowIdSymbols.size()];
             int symbolCounter = 0;
-            // This depends on the outputSymbols being ordered as the blocks of the
-            // resulting page are ordered.
-            for (VariableReferenceExpression variableReferenceExpression : variableReferenceExpressions) {
-                int index = columnValueAndRowIdSymbols.indexOf(variableReferenceExpression);
-                if (index >= 0) {
-                    columnValueAndRowIdChannels[index] = symbolCounter;
-                }
+            for (VariableReferenceExpression columnValueAndRowIdSymbol : columnValueAndRowIdSymbols) {
+                int index = variableReferenceExpressions.indexOf(columnValueAndRowIdSymbol);
+
+                verify(index >= 0, "Could not find columnValueAndRowIdSymbol %s in the variableReferenceExpressions %s", columnValueAndRowIdSymbol, variableReferenceExpressions);
+                columnValueAndRowIdChannels[symbolCounter] = index;
+
                 symbolCounter++;
             }
-            checkArgument(symbolCounter == columnValueAndRowIdSymbols.size(), "symbolCounter %s should be columnValueAndRowIdChannels.size() %s", symbolCounter);
+
             return Arrays.asList(columnValueAndRowIdChannels);
         }
 
