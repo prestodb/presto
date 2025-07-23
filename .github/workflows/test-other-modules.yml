@@ -66,7 +66,7 @@ jobs:
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
         run: |
-          ./mvnw test -T 1 ${MAVEN_TEST} -pl '
+          ./mvnw test -T 1 ${MAVEN_TEST} -P skip-native-sidecar-tests -pl '
             !presto-tests, 
             !presto-native-tests,
             !presto-accumulo,
@@ -90,6 +90,5 @@ jobs:
             !presto-test-coverage,
             !presto-iceberg,
             !presto-singlestore,
-            !presto-native-sidecar-plugin,
             !presto-base-arrow-flight,
             !presto-plan-checker-router-plugin'
