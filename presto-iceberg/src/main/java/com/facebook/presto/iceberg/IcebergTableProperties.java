@@ -28,6 +28,7 @@ import org.apache.iceberg.TableProperties;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -113,8 +114,9 @@ public class IcebergTableProperties
     private static final String DEFAULT_FORMAT_VERSION = "2";
 
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> deprecatedTableProperties;
     private final List<PropertyMetadata<?>> columnProperties;
-    private final Map<String, PropertyMetadata<?>> deprecatedPropertyMetadata;
+    private static Map<String, PropertyMetadata<?>> deprecatedPropertyMetadata = new HashMap<>();
 
     @Inject
     public IcebergTableProperties(IcebergConfig icebergConfig)
@@ -226,6 +228,10 @@ public class IcebergTableProperties
                 .addAll(deprecatedPropertyMetadata.values().iterator())
                 .build();
 
+        deprecatedTableProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .addAll(deprecatedPropertyMetadata.values())
+                .build();
+
         columnProperties = ImmutableList.of(stringProperty(
                 PARTITIONING_PROPERTY,
                 "This column's partition transform",
@@ -236,6 +242,11 @@ public class IcebergTableProperties
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public List<PropertyMetadata<?>> getDeprecatedTableProperties()
+    {
+        return deprecatedTableProperties;
     }
 
     public List<PropertyMetadata<?>> getColumnProperties()

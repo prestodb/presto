@@ -154,6 +154,7 @@ public class MetadataManager
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final DeprecatedTablePropertyManager deprecatedTablePropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
@@ -168,6 +169,7 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
+            DeprecatedTablePropertyManager deprecatedTablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
@@ -178,6 +180,7 @@ public class MetadataManager
                 sessionPropertyManager,
                 schemaPropertyManager,
                 tablePropertyManager,
+                deprecatedTablePropertyManager,
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
@@ -191,6 +194,7 @@ public class MetadataManager
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
+            DeprecatedTablePropertyManager deprecatedTablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
@@ -201,6 +205,7 @@ public class MetadataManager
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+        this.deprecatedTablePropertyManager = requireNonNull(deprecatedTablePropertyManager, "tableDeprecatedPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -249,6 +254,7 @@ public class MetadataManager
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new DeprecatedTablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
@@ -1349,6 +1355,11 @@ public class MetadataManager
     public TablePropertyManager getTablePropertyManager()
     {
         return tablePropertyManager;
+    }
+
+    public DeprecatedTablePropertyManager getTableDeprecatedPropertyManager()
+    {
+        return deprecatedTablePropertyManager;
     }
 
     @Override
