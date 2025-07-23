@@ -16,20 +16,16 @@ package com.facebook.presto.hive;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.net.URISyntaxException;
-import java.nio.file.Paths;
-
-// TODO: these tests are disabled because they rely on an expired certificate
-@Test(enabled = false)
+@Test
 public class TestHiveSslWithKeyStore
         extends AbstractHiveSslTest
 {
-    TestHiveSslWithKeyStore() throws URISyntaxException
+    TestHiveSslWithKeyStore()
     {
         super(ImmutableMap.<String, String>builder()
                 // This is required when connecting to ssl enabled hms
                 .put("hive.metastore.thrift.client.tls.enabled", "true")
-                .put("hive.metastore.thrift.client.tls.keystore-path", Paths.get((TestHiveSslWithKeyStore.class.getResource("/hive_ssl_enable/hive-metastore.jks")).toURI()).toFile().toString())
+                .put("hive.metastore.thrift.client.tls.keystore-path", HiveSslTestKeystoreManager.getKeystorePath())
                 .put("hive.metastore.thrift.client.tls.keystore-password", "123456")
                 .build());
     }
