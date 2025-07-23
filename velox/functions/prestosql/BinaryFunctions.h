@@ -44,15 +44,19 @@ struct CRC32Function {
 };
 
 /// xxhash64(varbinary) → varbinary
-/// Return an 8-byte binary to hash64 of input (varbinary such as string)
+/// Return an 8-byte binary to hash64 of input (varbinary such as string) with
+/// optional seed
 template <typename T>
 struct XxHash64Function {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE
-  void call(out_type<Varbinary>& result, const arg_type<Varbinary>& input) {
-    // Seed is set to 0.
-    int64_t hash = folly::Endian::swap64(XXH64(input.data(), input.size(), 0));
+  void call(
+      out_type<Varbinary>& result,
+      const arg_type<Varbinary>& input,
+      const arg_type<int64_t>& seed = 0) {
+    int64_t hash =
+        folly::Endian::swap64(XXH64(input.data(), input.size(), seed));
     static constexpr auto kLen = sizeof(int64_t);
 
     // Resizing output and copy

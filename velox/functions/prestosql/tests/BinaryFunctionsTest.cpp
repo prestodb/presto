@@ -315,6 +315,20 @@ TEST_F(BinaryFunctionsTest, xxhash64) {
       hexToDec("D73C92CF24E6EC82"), xxhash64("more_than_12_characters_string"));
 }
 
+TEST_F(BinaryFunctionsTest, xxhash64WithSeed) {
+  const auto xxhash64WithSeed = [&](std::optional<std::string> value,
+                                    std::optional<int64_t> seed) {
+    return evaluateOnce<std::string>(
+        "xxhash64(c0, c1)", {VARBINARY(), BIGINT()}, value, seed);
+  };
+
+  EXPECT_EQ(hexToDec("F9D96E0E1165E892"), xxhash64WithSeed("hashme", 0));
+  EXPECT_NE(hexToDec("F9D96EAE1165E892"), xxhash64WithSeed("hashme", 0));
+  EXPECT_NE(hexToDec("F9D96E0E1165E892"), xxhash64WithSeed("hashme", 1));
+  EXPECT_EQ(hexToDec("26C7827D889F6DA3"), xxhash64WithSeed("hello", 0));
+  EXPECT_NE(hexToDec("26C7827D889F6DA3"), xxhash64WithSeed("hello", 1224));
+}
+
 TEST_F(BinaryFunctionsTest, toHex) {
   const auto toHex = [&](std::optional<std::string> value) {
     return evaluateOnce<std::string>("to_hex(cast(c0 as varbinary))", value);

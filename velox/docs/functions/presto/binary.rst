@@ -150,3 +150,7 @@ Binary Functions
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.
+
+.. function:: xxhash64(binary, bigint) -> varbinary
+
+    Computes the xxhash64 hash of ``binary`` with ``bigint`` seed.
