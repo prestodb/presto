@@ -91,6 +91,8 @@
         <dep.guice.version>5.1.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
+        <dep.pos.spark.version>2</dep.pos.spark.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -07:00, offset Jan 2018: -06:00)
@@ -216,6 +218,7 @@
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
         <module>presto-plan-checker-router-plugin</module>
+        <module>presto-spark-classloader-spark${dep.pos.spark.version}</module>
     </modules>
 
     <dependencyManagement>
@@ -892,6 +895,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark-classloader-interface</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-classloader-spark${dep.pos.spark.version}</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -3071,6 +3080,10 @@
                     <value>true</value>
                 </property>
             </activation>
+
+            <properties>
+                <dep.pos.spark.version>3</dep.pos.spark.version>
+            </properties>
 
             <dependencyManagement>
                 <dependencies>
