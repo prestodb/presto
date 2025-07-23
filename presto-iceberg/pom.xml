@@ -18,6 +18,12 @@
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
@@ -262,16 +268,6 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-          <groupId>com.amazonaws</groupId>
-          <artifactId>aws-java-sdk-core</artifactId>
-        </dependency>
-
-        <dependency>
-          <groupId>com.amazonaws</groupId>
-          <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
 
         <dependency>
@@ -681,7 +677,14 @@
                             <dependency>com.facebook.airlift:node:jar</dependency>
                             <dependency>javax.servlet:javax.servlet-api:jar</dependency>
                             <dependency>org.apache.httpcomponents.core5:httpcore5:jar</dependency>
+                            <dependency>software.amazon.awssdk:regions:jar</dependency>
+                            <dependency>software.amazon.awssdk:sdk-core:jar</dependency>
+                            <dependency>software.amazon.awssdk:auth:jar</dependency>
+                            <dependency>software.amazon.awssdk:aws-core:jar</dependency>
                         </ignoredUsedUndeclaredDependencies>
+                        <ignoredUnusedDeclaredDependencies>
+                            <ignoredUnusedDeclaredDependency>commons-codec:commons-codec</ignoredUnusedDeclaredDependency>
+                        </ignoredUnusedDeclaredDependencies>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -712,6 +715,7 @@
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <exclude>com.google.guava:guava</exclude>
+                                    <exclude>commons-codec:commons-codec</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>

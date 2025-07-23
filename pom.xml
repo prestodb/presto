@@ -104,6 +104,8 @@
         <air.test.jvmsize>4g</air.test.jvmsize>
         <grpc.version>1.70.0</grpc.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <dep.commons.codec.version>1.17.1</dep.commons.codec.version>
+        <aws.sdk.version>2.32.4</aws.sdk.version>
     </properties>
 
     <modules>
@@ -220,6 +222,20 @@
 
     <dependencyManagement>
         <dependencies>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>${dep.commons.codec.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>commons-beanutils</groupId>
@@ -1975,12 +1991,6 @@
             </dependency>
 
             <dependency>
-                <groupId>commons-codec</groupId>
-                <artifactId>commons-codec</artifactId>
-                <version>1.17.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
                 <version>hadoop2-${dep.gcs.version}</version>
@@ -2709,6 +2719,7 @@
                         </ignoredClassPatterns>
                         <ignoredResourcePatterns combine.children="append">
                             <ignoredResourcePattern>git.properties</ignoredResourcePattern>
+                            <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                         </ignoredResourcePatterns>
                     </configuration>
                 </plugin>
