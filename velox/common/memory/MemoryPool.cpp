@@ -384,7 +384,7 @@ void MemoryPool::dropChild(const MemoryPool* child) {
       1,
       "Child memory pool {} doesn't exist in {}",
       child->name(),
-      toString());
+      name());
 }
 
 bool MemoryPool::aborted() const {
