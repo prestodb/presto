@@ -146,6 +146,10 @@ Binary Functions
 
     Computes the xxhash64 hash of ``binary``.
 
+.. function:: xxhash64(binary, bigint) -> varbinary
+
+    Computes the xxhash64 hash of ``binary`` with seed ``bigint``.
+
 .. function:: spooky_hash_v2_32(binary) -> varbinary
 
     Computes the 32-bit SpookyHashV2 hash of ``binary``.
