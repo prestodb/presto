@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -60,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxSerializableObjectSize;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -122,7 +124,6 @@ import static java.util.stream.Collectors.toList;
 
 public class RowExpressionInterpreter
 {
-    private static final long MAX_SERIALIZABLE_OBJECT_SIZE = 1000;
     private final RowExpression expression;
     private final ConnectorSession session;
     private final Level optimizationLevel;
@@ -779,7 +780,7 @@ public class RowExpressionInterpreter
         private boolean isSerializable(Object value, Type type)
         {
             // If value is already RowExpression, constant values contained inside should already have been made serializable. Otherwise, we make sure the object is small and serializable.
-            return value instanceof RowExpression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
+            return value instanceof RowExpression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= getMaxSerializableObjectSize(((FullConnectorSession) session).getSession()));
         }
 
         private SpecialCallResult tryHandleArrayConstructor(CallExpression callExpression, List<Object> argumentValues)

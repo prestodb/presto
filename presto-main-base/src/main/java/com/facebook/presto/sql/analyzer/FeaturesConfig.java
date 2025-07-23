@@ -308,6 +308,7 @@ public class FeaturesConfig
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
     private boolean pushdownSubfieldForMapFunctions = true;
+    private long maxSerializableObjectSize = 1000;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3082,5 +3083,18 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldForMapFunctions()
     {
         return pushdownSubfieldForMapFunctions;
+    }
+
+    @Config("max_serializable_object_size")
+    @ConfigDescription("Configure the maximum byte size of a serializable object in expression interpreters")
+    public FeaturesConfig setMaxSerializableObjectSize(long maxSerializableObjectSize)
+    {
+        this.maxSerializableObjectSize = maxSerializableObjectSize;
+        return this;
+    }
+
+    public long getMaxSerializableObjectSize()
+    {
+        return maxSerializableObjectSize;
     }
 }

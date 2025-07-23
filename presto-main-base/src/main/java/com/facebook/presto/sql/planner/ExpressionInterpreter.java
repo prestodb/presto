@@ -116,6 +116,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxSerializableObjectSize;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -160,7 +161,6 @@ import static java.util.stream.Collectors.toList;
 @Deprecated
 public class ExpressionInterpreter
 {
-    private static final long MAX_SERIALIZABLE_OBJECT_SIZE = 1000;
     private final Expression expression;
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
@@ -1318,7 +1318,7 @@ public class ExpressionInterpreter
         {
             requireNonNull(type, "type is null");
             // If value is already Expression, literal values contained inside should already have been made serializable. Otherwise, we make sure the object is small and serializable.
-            return value instanceof Expression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
+            return value instanceof Expression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= getMaxSerializableObjectSize(session));
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)

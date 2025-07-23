@@ -125,6 +125,16 @@ To avoid these problems:
 
 The corresponding configuration property is :ref:`admin/properties:\`\`check-access-control-on-utilized-columns-only\`\``.
 
+``max_serializable_object_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``long``
+* **Default value:** ``1000``
+
+Maximum object size in bytes that can be considered serializable in a function call by the coordinator.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`max-serializable-object-size\`\``.
+
 Spilling Properties
 -------------------
 

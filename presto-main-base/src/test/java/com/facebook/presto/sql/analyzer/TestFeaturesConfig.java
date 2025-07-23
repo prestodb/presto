@@ -265,7 +265,8 @@ public class TestFeaturesConfig
                 .setBroadcastSemiJoinForDelete(true)
                 .setInEqualityJoinPushdownEnabled(false)
                 .setRewriteMinMaxByToTopNEnabled(false)
-                .setPrestoSparkExecutionEnvironment(false));
+                .setPrestoSparkExecutionEnvironment(false)
+                .setMaxSerializableObjectSize(1000));
     }
 
     @Test
@@ -478,6 +479,7 @@ public class TestFeaturesConfig
                 .put("optimizer.add-distinct-below-semi-join-build", "true")
                 .put("optimizer.pushdown-subfield-for-map-functions", "false")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
+                .put("max_serializable_object_size", "50")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -688,7 +690,8 @@ public class TestFeaturesConfig
                 .setBroadcastSemiJoinForDelete(false)
                 .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
-                .setPrestoSparkExecutionEnvironment(true);
+                .setPrestoSparkExecutionEnvironment(true)
+                .setMaxSerializableObjectSize(50);
         assertFullMapping(properties, expected);
     }
 
