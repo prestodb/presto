@@ -81,7 +81,7 @@ public class NativeExecutionSystemConfig
     private static final String MEMORY_ARBITRATOR_CAPACITY_GB = "query-memory-gb";
     // Set memory arbitrator reserved capacity. Since there is only one query
     // running at Presto-on-Spark at a time, then we shall set this to zero.
-    private static final String MEMORY_ARBITRATOR_RESERVED_CAPACITY_GB = "query-reserved-memory-gb";
+    private static final String SHARED_ARBITRATOR_RESERVED_CAPACITY = "shared-arbitrator.reserved-capacity";
     // Set the initial memory capacity when we create a query memory pool. For
     // Presto-on-Spark, we set it to 'query-memory-gb' to allocate all the
     // memory arbitrator capacity to the query memory pool on its creation as
@@ -137,7 +137,7 @@ public class NativeExecutionSystemConfig
     private boolean useMmapAllocator = true;
     private String memoryArbitratorKind = "SHARED";
     private int memoryArbitratorCapacityGb = 8;
-    private int memoryArbitratorReservedCapacityGb;
+    private DataSize sharedArbitratorReservedCapacity = new DataSize(0, DataSize.Unit.GIGABYTE);
     private long memoryPoolInitCapacity = 8L << 30;
     private long memoryPoolReservedCapacity;
     private long memoryPoolTransferCapacity = 2L << 30;
@@ -180,7 +180,7 @@ public class NativeExecutionSystemConfig
                 .put(USE_MMAP_ALLOCATOR, String.valueOf(getUseMmapAllocator()))
                 .put(MEMORY_ARBITRATOR_KIND, String.valueOf(getMemoryArbitratorKind()))
                 .put(MEMORY_ARBITRATOR_CAPACITY_GB, String.valueOf(getMemoryArbitratorCapacityGb()))
-                .put(MEMORY_ARBITRATOR_RESERVED_CAPACITY_GB, String.valueOf(getMemoryArbitratorReservedCapacityGb()))
+                .put(SHARED_ARBITRATOR_RESERVED_CAPACITY, String.valueOf(getSharedArbitratorReservedCapacity()))
                 .put(MEMORY_POOL_INIT_CAPACITY, String.valueOf(getMemoryPoolInitCapacity()))
                 .put(MEMORY_POOL_RESERVED_CAPACITY, String.valueOf(getMemoryPoolReservedCapacity()))
                 .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
@@ -482,16 +482,16 @@ public class NativeExecutionSystemConfig
         return memoryArbitratorCapacityGb;
     }
 
-    @Config(MEMORY_ARBITRATOR_RESERVED_CAPACITY_GB)
-    public NativeExecutionSystemConfig setMemoryArbitratorReservedCapacityGb(int memoryArbitratorReservedCapacityGb)
+    @Config(SHARED_ARBITRATOR_RESERVED_CAPACITY)
+    public NativeExecutionSystemConfig setSharedArbitratorReservedCapacity(DataSize sharedArbitratorReservedCapacity)
     {
-        this.memoryArbitratorReservedCapacityGb = memoryArbitratorReservedCapacityGb;
+        this.sharedArbitratorReservedCapacity = sharedArbitratorReservedCapacity;
         return this;
     }
 
-    public int getMemoryArbitratorReservedCapacityGb()
+    public DataSize getSharedArbitratorReservedCapacity()
     {
-        return memoryArbitratorReservedCapacityGb;
+        return sharedArbitratorReservedCapacity;
     }
 
     @Config(MEMORY_POOL_INIT_CAPACITY)
