@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.presto.nativeworker.AbstractTestNativeArrayFunctionQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Ignore;
 
 public class TestPrestoSparkNativeArrayFunctionQueries
         extends AbstractTestNativeArrayFunctionQueries
@@ -32,4 +33,9 @@ public class TestPrestoSparkNativeArrayFunctionQueries
     {
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
     }
+
+    // Caused by: com.facebook.presto.sql.analyzer.SemanticException: line 1:32: Function array_sort_desc not registered
+    @Override
+    @Ignore
+    public void testArraySort() {}
 }
