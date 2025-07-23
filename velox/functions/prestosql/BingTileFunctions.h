@@ -54,9 +54,9 @@ struct BingTileFunction {
           fmt::format("Bing tile Y coordinate {} cannot be negative", y));
     }
 
-    auto zoomCheck = checkBingTileZoom(zoom);
+    Status zoomCheck = checkBingTileZoom(zoom);
     if (FOLLY_UNLIKELY(!zoomCheck.ok())) {
-      return std::move(zoomCheck);
+      return zoomCheck;
     }
 
     uint64_t tile = BingTileType::bingTileCoordsToInt(
@@ -215,9 +215,9 @@ struct BingTileChildrenFunction {
       const arg_type<int32_t>& childZoom) {
     uint64_t tileInt = tile;
     VELOX_DCHECK(BingTileType::isBingTileIntValid(tileInt));
-    auto zoomCheck = checkBingTileZoom(childZoom);
+    Status zoomCheck = checkBingTileZoom(childZoom);
     if (FOLLY_UNLIKELY(!zoomCheck.ok())) {
-      return std::move(zoomCheck);
+      return zoomCheck;
     }
     auto childrenRes =
         BingTileType::bingTileChildren(tileInt, childZoom, maxZoomShift);
@@ -253,9 +253,9 @@ struct BingTileAtFunction {
       const arg_type<double>& latitude,
       const arg_type<double>& longitude,
       const arg_type<int32_t>& zoomLevel) {
-    auto zoomCheck = checkBingTileZoom(zoomLevel);
+    Status zoomCheck = checkBingTileZoom(zoomLevel);
     if (FOLLY_UNLIKELY(!zoomCheck.ok())) {
-      return std::move(zoomCheck);
+      return zoomCheck;
     }
     auto latitudeLongitudeToTileResult = BingTileType::latitudeLongitudeToTile(
         latitude, longitude, static_cast<uint8_t>(zoomLevel));
@@ -276,9 +276,9 @@ struct BingTilesAroundFunction {
       const arg_type<double>& latitude,
       const arg_type<double>& longitude,
       const arg_type<int32_t>& zoomLevel) {
-    auto zoomCheck = checkBingTileZoom(zoomLevel);
+    Status zoomCheck = checkBingTileZoom(zoomLevel);
     if (FOLLY_UNLIKELY(!zoomCheck.ok())) {
-      return std::move(zoomCheck);
+      return zoomCheck;
     }
     auto bingTilesAroundResult = BingTileType::bingTilesAround(
         latitude, longitude, static_cast<uint8_t>(zoomLevel));
@@ -297,9 +297,9 @@ struct BingTilesAroundFunction {
       const arg_type<double>& longitude,
       const arg_type<int32_t>& zoomLevel,
       const arg_type<double>& radiusInKm) {
-    auto zoomCheck = checkBingTileZoom(zoomLevel);
+    Status zoomCheck = checkBingTileZoom(zoomLevel);
     if (FOLLY_UNLIKELY(!zoomCheck.ok())) {
-      return std::move(zoomCheck);
+      return zoomCheck;
     }
     auto bingTilesAroundResult = BingTileType::bingTilesAround(
         latitude, longitude, static_cast<uint8_t>(zoomLevel), radiusInKm);
