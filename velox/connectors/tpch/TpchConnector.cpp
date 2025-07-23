@@ -15,6 +15,8 @@
  */
 
 #include "velox/connectors/tpch/TpchConnector.h"
+#include "velox/exec/OperatorUtils.h"
+#include "velox/expression/Expr.h"
 #include "velox/tpch/gen/TpchGen.h"
 
 namespace facebook::velox::connector::tpch {
@@ -88,8 +90,9 @@ TpchDataSource::TpchDataSource(
     const RowTypePtr& outputType,
     const connector::ConnectorTableHandlePtr& tableHandle,
     const connector::ColumnHandleMap& columnHandles,
-    velox::memory::MemoryPool* pool)
-    : pool_(pool) {
+    ConnectorQueryCtx* connectorQueryCtx)
+    : connectorQueryCtx_(connectorQueryCtx),
+      pool_(connectorQueryCtx->memoryPool()) {
   auto tpchTableHandle =
       std::dynamic_pointer_cast<const TpchTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(
@@ -102,7 +105,6 @@ TpchDataSource::TpchDataSource(
   VELOX_CHECK_NOT_NULL(tpchTableSchema, "TpchSchema can't be null.");
 
   outputColumnMappings_.reserve(outputType->size());
-
   for (const auto& outputName : outputType->names()) {
     auto it = columnHandles.find(outputName);
     VELOX_CHECK(
@@ -128,6 +130,11 @@ TpchDataSource::TpchDataSource(
     outputColumnMappings_.emplace_back(*idx);
   }
   outputType_ = outputType;
+
+  if (tpchTableHandle->filterExpression()) {
+    filterExpression_ = connectorQueryCtx_->expressionEvaluator()->compile(
+        tpchTableHandle->filterExpression());
+  }
 }
 
 RowVectorPtr TpchDataSource::projectOutputColumns(RowVectorPtr inputVector) {
@@ -168,6 +175,55 @@ void TpchDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   splitEnd_ = splitOffset_ + partSize;
 }
 
+RowVectorPtr TpchDataSource::applyFilter(
+    RowVectorPtr& vector,
+    exec::ExprSet* filter) {
+  if (!filter) {
+    return projectOutputColumns(vector);
+  }
+
+  filterSelectivityVector_.resize(vector->size());
+  filterSelectivityVector_.setAll();
+  filterEvalCtx_.selectedIndices =
+      allocateIndices(vector->size(), vector->pool());
+
+  if (!filterMask_ || filterMask_->size() < vector->size()) {
+    filterMask_ = BaseVector::create(BOOLEAN(), vector->size(), pool_);
+  }
+  connectorQueryCtx_->expressionEvaluator()->evaluate(
+      filter, filterSelectivityVector_, *vector, filterMask_);
+
+  auto filterResults = filterMask_->as<SimpleVector<bool>>();
+  filterSelectivityVector_.applyToSelected([&](vector_size_t row) {
+    if (filterResults->isNullAt(row) || !filterResults->valueAt(row)) {
+      filterSelectivityVector_.setValid(row, false);
+    }
+  });
+  filterSelectivityVector_.updateBounds();
+
+  if (filterSelectivityVector_.isAllSelected()) {
+    return projectOutputColumns(vector);
+  }
+
+  auto* selected = filterEvalCtx_.getRawSelectedIndices(
+      filterSelectivityVector_.size(), pool_);
+  vector_size_t remaining = 0;
+  filterSelectivityVector_.applyToSelected(
+      [&selected, &remaining](int32_t row) { selected[remaining++] = row; });
+
+  std::vector<VectorPtr> children;
+  children.reserve(outputType_->size());
+  for (int i = 0; i < outputType_->size(); ++i) {
+    auto& child = vector->childAt(outputColumnMappings_[i]);
+    children.emplace_back(
+        exec::wrapChild(remaining, filterEvalCtx_.selectedIndices, child));
+  }
+
+  filterEvalCtx_.selectedIndices.reset();
+  return std::make_shared<RowVector>(
+      vector->pool(), outputType_, BufferPtr(), remaining, std::move(children));
+}
+
 std::optional<RowVectorPtr> TpchDataSource::next(
     uint64_t size,
     velox::ContinueFuture& /*future*/) {
@@ -200,7 +256,8 @@ std::optional<RowVectorPtr> TpchDataSource::next(
   completedRows_ += outputVector->size();
   completedBytes_ += outputVector->retainedSize();
 
-  return projectOutputColumns(outputVector);
+  // Apply any filters pushed down into the DataSource
+  return applyFilter(outputVector, filterExpression_.get());
 }
 
 bool TpchDataSource::isLineItem() const {

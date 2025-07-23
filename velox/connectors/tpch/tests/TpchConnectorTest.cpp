@@ -249,6 +249,147 @@ TEST_F(TpchConnectorTest, multipleSplits) {
   }
 }
 
+// Test filtering in the TpchConnector.
+TEST_F(TpchConnectorTest, filterPushdown) {
+  // Test equality filter
+  auto plan = PlanBuilder(pool())
+                  .tpchTableScan(
+                      Table::TBL_NATION,
+                      {"n_nationkey", "n_name", "n_regionkey"},
+                      1.0,
+                      kTpchConnectorId,
+                      "n_regionkey = 1")
+                  .planNode();
+
+  auto output = getResults(plan, {makeTpchSplit()});
+
+  // Should only return nations with regionkey = 1
+  auto expected = makeRowVector({
+      // n_nationkey
+      makeFlatVector<int64_t>({1, 2, 3, 17, 24}),
+      // n_name
+      makeFlatVector<StringView>({
+          "ARGENTINA",
+          "BRAZIL",
+          "CANADA",
+          "PERU",
+          "UNITED STATES",
+      }),
+      // n_regionkey
+      makeFlatVector<int64_t>({1, 1, 1, 1, 1}),
+  });
+  test::assertEqualVectors(expected, output);
+}
+
+// Test more complex filters in the TpchConnector.
+TEST_F(TpchConnectorTest, complexFilterPushdown) {
+  // Test range filter
+  auto plan = PlanBuilder(pool())
+                  .tpchTableScan(
+                      Table::TBL_NATION,
+                      {"n_nationkey", "n_name", "n_regionkey"},
+                      1.0,
+                      kTpchConnectorId,
+                      "n_nationkey < 5 AND n_regionkey > 0")
+                  .planNode();
+
+  auto output = getResults(plan, {makeTpchSplit()});
+
+  // Should only return nations with nationkey < 5 AND regionkey > 0
+  auto expected = makeRowVector({
+      // n_nationkey
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      // n_name
+      makeFlatVector<StringView>({
+          "ARGENTINA",
+          "BRAZIL",
+          "CANADA",
+          "EGYPT",
+      }),
+      // n_regionkey
+      makeFlatVector<int64_t>({1, 1, 1, 4}),
+  });
+  test::assertEqualVectors(expected, output);
+}
+
+// Test filtering with LIKE operator
+TEST_F(TpchConnectorTest, likeFilterPushdown) {
+  // Test LIKE filter
+  auto plan = PlanBuilder(pool())
+                  .tpchTableScan(
+                      Table::TBL_NATION,
+                      {"n_nationkey", "n_name", "n_regionkey"},
+                      1.0,
+                      kTpchConnectorId,
+                      "n_name LIKE 'A%'")
+                  .planNode();
+
+  auto output = getResults(plan, {makeTpchSplit()});
+
+  // Should only return nations with names starting with 'A'
+  auto expected = makeRowVector({
+      // n_nationkey
+      makeFlatVector<int64_t>({0, 1}),
+      // n_name
+      makeFlatVector<StringView>({
+          "ALGERIA",
+          "ARGENTINA",
+      }),
+      // n_regionkey
+      makeFlatVector<int64_t>({0, 1}),
+  });
+  test::assertEqualVectors(expected, output);
+}
+
+// Test filtering with IN operator
+TEST_F(TpchConnectorTest, inFilterPushdown) {
+  // Test IN filter
+  auto plan = PlanBuilder(pool())
+                  .tpchTableScan(
+                      Table::TBL_NATION,
+                      {"n_nationkey", "n_name", "n_regionkey"},
+                      1.0,
+                      kTpchConnectorId,
+                      "n_nationkey IN (0, 5, 10, 15, 20)")
+                  .planNode();
+
+  auto output = getResults(plan, {makeTpchSplit()});
+
+  // Should only return nations with nationkey in the specified list
+  auto expected = makeRowVector({
+      // n_nationkey
+      makeFlatVector<int64_t>({0, 5, 10, 15, 20}),
+      // n_name
+      makeFlatVector<StringView>({
+          "ALGERIA",
+          "ETHIOPIA",
+          "IRAN",
+          "MOROCCO",
+          "SAUDI ARABIA",
+      }),
+      // n_regionkey
+      makeFlatVector<int64_t>({0, 0, 4, 0, 4}),
+  });
+  test::assertEqualVectors(expected, output);
+}
+
+TEST_F(TpchConnectorTest, namespaceInfer) {
+  std::vector<std::pair<double, std::string>> expect = {
+      {0.05, "tiny.customer"},
+      {1.0, "sf1.customer"},
+      {5.0, "sf5.customer"},
+      {10.0, "sf10.customer"},
+      {100.0, "sf100.customer"},
+      {300.0, "sf300.customer"},
+      {10000.0, "sf10000.customer"},
+  };
+  for (const auto& expectpair : expect) {
+    auto handle = std::make_shared<TpchTableHandle>(
+        kTpchConnectorId, Table::TBL_CUSTOMER, expectpair.first);
+    EXPECT_EQ(handle->name(), expectpair.second);
+  }
+}
+
 // Join nation and region.
 TEST_F(TpchConnectorTest, join) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();

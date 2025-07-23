@@ -123,7 +123,8 @@ PlanBuilder& PlanBuilder::tpchTableScan(
     tpch::Table table,
     std::vector<std::string> columnNames,
     double scaleFactor,
-    std::string_view connectorId) {
+    std::string_view connectorId,
+    const std::string& filter) {
   connector::ColumnHandleMap assignmentsMap;
   std::vector<TypePtr> outputTypes;
 
@@ -137,11 +138,24 @@ PlanBuilder& PlanBuilder::tpchTableScan(
     outputTypes.emplace_back(resolveTpchColumn(table, columnName));
   }
   auto rowType = ROW(std::move(columnNames), std::move(outputTypes));
+
+  core::TypedExprPtr filterExpression;
+  if (!filter.empty()) {
+    auto expression = parse::parseExpr(filter, options_);
+    filterExpression =
+        core::Expressions::inferTypes(expression, rowType, pool_);
+  }
+
+  auto tableHandle = std::make_shared<connector::tpch::TpchTableHandle>(
+      std::string(connectorId),
+      table,
+      scaleFactor,
+      std::move(filterExpression));
+
   return TableScanBuilder(*this)
       .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
       .outputType(rowType)
-      .tableHandle(std::make_shared<connector::tpch::TpchTableHandle>(
-          std::string(connectorId), table, scaleFactor))
+      .tableHandle(tableHandle)
       .assignments(assignmentsMap)
       .endTableScan();
 }
