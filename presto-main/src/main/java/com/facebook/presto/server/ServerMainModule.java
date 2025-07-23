@@ -108,6 +108,7 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.StaticTypeManagerStore;
 import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
+import com.facebook.presto.metadata.DeprecatedTablePropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
@@ -380,6 +381,9 @@ public class ServerMainModule
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
+
+        // deprecated table properties
+        binder.bind(DeprecatedTablePropertyManager.class).in(Scopes.SINGLETON);
 
         // column properties
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
