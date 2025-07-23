@@ -339,6 +339,7 @@ public final class SystemSessionProperties
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET = "pushdown_subfields_for_map_subset";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
+    public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1936,6 +1937,10 @@ public final class SystemSessionProperties
                         "Enable subfield pruning for map functions, currently include map_subset and map_filter",
                         featuresConfig.isPushdownSubfieldForMapFunctions(),
                         false),
+                longProperty(MAX_SERIALIZABLE_OBJECT_SIZE,
+                        "Configure the maximum byte size of a serializable object in expression interpreters",
+                        featuresConfig.getMaxSerializableObjectSize(),
+                        false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3323,5 +3328,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeConditionalApproxDistinctEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, Boolean.class);
+    }
+
+    public static long getMaxSerializableObjectSize(Session session)
+    {
+        return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
     }
 }
