@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
+        <dep.pos.spark.version>2</dep.pos.spark.version>
     </properties>
 
     <dependencies>
@@ -201,6 +202,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark${dep.pos.spark.version}</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -475,6 +482,21 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <profile>
+            <id>sapphire</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <properties>
+                <dep.pos.spark.version>3</dep.pos.spark.version>
+            </properties>
         </profile>
     </profiles>
 </project>
