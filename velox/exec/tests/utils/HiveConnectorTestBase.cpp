@@ -209,23 +209,23 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
         infoColumns) {
   auto file =
       filesystems::getFileSystem(filePath, nullptr)->openFileForRead(filePath);
-  const int64_t fileSize = file->size();
+  const uint64_t fileSize = file->size();
   // Take the upper bound.
-  const int64_t splitSize = std::ceil((fileSize) / splitCount);
+  const uint64_t splitSize = std::ceil((fileSize) / splitCount);
   std::vector<std::shared_ptr<connector::hive::HiveConnectorSplit>> splits;
   // Add all the splits.
-  for (int i = 0; i < splitCount; i++) {
+  for (uint32_t i = 0; i < splitCount; i++) {
     auto splitBuilder = HiveConnectorSplitBuilder(filePath)
                             .fileFormat(format)
                             .start(i * splitSize)
                             .length(splitSize);
     if (infoColumns.has_value()) {
-      for (auto infoColumn : infoColumns.value()) {
+      for (const auto& infoColumn : infoColumns.value()) {
         splitBuilder.infoColumn(infoColumn.first, infoColumn.second);
       }
     }
     if (partitionKeys.has_value()) {
-      for (auto partitionKey : partitionKeys.value()) {
+      for (const auto& partitionKey : partitionKeys.value()) {
         splitBuilder.partitionKey(partitionKey.first, partitionKey.second);
       }
     }
@@ -265,7 +265,8 @@ std::vector<std::shared_ptr<connector::ConnectorSplit>>
 HiveConnectorTestBase::makeHiveConnectorSplits(
     const std::vector<std::shared_ptr<TempFilePath>>& filePaths) {
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
-  for (auto filePath : filePaths) {
+  splits.reserve(filePaths.size());
+  for (const auto& filePath : filePaths) {
     splits.push_back(makeHiveConnectorSplit(
         filePath->getPath(),
         filePath->fileSize(),

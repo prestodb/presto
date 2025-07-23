@@ -352,7 +352,7 @@ void LocalPlanner::plan(
       planFragment.planNode,
       nullptr,
       nullptr,
-      detail::makeOperatorSupplier(consumerSupplier),
+      detail::makeOperatorSupplier(std::move(consumerSupplier)),
       driverFactories);
 
   (*driverFactories)[0]->outputDriver = true;
@@ -402,14 +402,14 @@ void LocalPlanner::determineGroupedExecutionPipelines(
       size_t numGroupedExecutionSources{0};
       for (const auto& sourceNode : localPartitionNode->sources()) {
         for (auto& anotherFactory : driverFactories) {
-          if (sourceNode == anotherFactory->planNodes.back() and
+          if (sourceNode == anotherFactory->planNodes.back() &&
               anotherFactory->groupedExecution) {
             ++numGroupedExecutionSources;
             break;
           }
         }
       }
-      if (numGroupedExecutionSources > 0 and
+      if (numGroupedExecutionSources > 0 &&
           numGroupedExecutionSources == localPartitionNode->sources().size()) {
         factory->groupedExecution = true;
       }

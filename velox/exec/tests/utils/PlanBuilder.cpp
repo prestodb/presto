@@ -526,6 +526,7 @@ PlanBuilder& PlanBuilder::projectExpressions(
 PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
   VELOX_CHECK_NOT_NULL(planNode_, "Project cannot be the source node");
   std::vector<std::shared_ptr<const core::IExpr>> expressions;
+  expressions.reserve(projections.size());
   for (auto i = 0; i < projections.size(); ++i) {
     expressions.push_back(parse::parseExpr(projections[i], options_));
   }

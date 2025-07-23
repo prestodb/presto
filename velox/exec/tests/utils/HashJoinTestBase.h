@@ -791,7 +791,7 @@ class HashJoinTestBase : public HiveConnectorTestBase {
   }
 
   // Make splits with each plan node having a number of source files.
-  SplitInput makeSpiltInput(
+  SplitInput makeSplitInput(
       const std::vector<core::PlanNodeId>& nodeIds,
       const std::vector<std::vector<std::shared_ptr<TempFilePath>>>& files) {
     VELOX_CHECK_EQ(nodeIds.size(), files.size());

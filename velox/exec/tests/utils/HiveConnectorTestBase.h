@@ -248,7 +248,7 @@ class HiveConnectorSplitBuilder
     : public connector::hive::HiveConnectorSplitBuilder {
  public:
   explicit HiveConnectorSplitBuilder(std::string filePath)
-      : connector::hive::HiveConnectorSplitBuilder(filePath) {
+      : connector::hive::HiveConnectorSplitBuilder(std::move(filePath)) {
     connectorId(kHiveConnectorId);
   }
 };
