@@ -15,6 +15,7 @@ package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -84,7 +85,7 @@ public class TestNativeExecutionSystemConfig
                 .setUseMmapAllocator(true)
                 .setMemoryArbitratorKind("SHARED")
                 .setMemoryArbitratorCapacityGb(8)
-                .setMemoryArbitratorReservedCapacityGb(0)
+                .setSharedArbitratorReservedCapacity(new DataSize(0, Unit.GIGABYTE))
                 .setMemoryPoolInitCapacity(8L << 30)
                 .setMemoryPoolReservedCapacity(0)
                 .setMemoryPoolTransferCapacity(2L << 30)
@@ -125,7 +126,7 @@ public class TestNativeExecutionSystemConfig
                 .setUseMmapAllocator(false)
                 .setMemoryArbitratorKind("")
                 .setMemoryArbitratorCapacityGb(10)
-                .setMemoryArbitratorReservedCapacityGb(8)
+                .setSharedArbitratorReservedCapacity(new DataSize(8, Unit.GIGABYTE))
                 .setMemoryPoolInitCapacity(7L << 30)
                 .setMemoryPoolReservedCapacity(6L << 30)
                 .setMemoryPoolTransferCapacity(1L << 30)
