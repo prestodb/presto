@@ -125,6 +125,12 @@ public abstract class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public Duration getQueuedTime()
+    {
+        return stateMachine.getQueuedTime();
+    }
+
+    @Override
     public long getExecutionStartTimeInMillis()
     {
         return stateMachine.getExecutionStartTimeInMillis();

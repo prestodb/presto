@@ -26,6 +26,9 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import static io.airlift.units.Duration.succinctDuration;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 public class MockQueryExecution
         implements QueryExecution
 {
@@ -177,6 +180,12 @@ public class MockQueryExecution
     public long getCreateTimeInMillis()
     {
         return 0L;
+    }
+
+    @Override
+    public Duration getQueuedTime()
+    {
+        return succinctDuration(0, MILLISECONDS);
     }
 
     @Override
