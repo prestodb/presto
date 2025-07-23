@@ -2597,6 +2597,25 @@ TEST_P(ParameterizedExprTest, constantToString) {
   EXPECT_EQ("{1, 2, 3, 4, 5, ...4 more}:ARRAY<INTEGER>", exprs[3]->toString());
 }
 
+TEST_F(ExprTest, constantEqualsNullConsistency) {
+  // Constant expr created using variant
+  auto nullVariantToExpr =
+      std::make_shared<core::ConstantTypedExpr>(VARCHAR(), Variant{});
+  auto nonNullVariantToExpr =
+      std::make_shared<core::ConstantTypedExpr>(VARCHAR(), Variant{"test"});
+
+  // Constant expr created using vectors
+  auto nullBaseVectorToExpr = std::make_shared<core::ConstantTypedExpr>(
+      BaseVector::createNullConstant(VARCHAR(), 1, pool()));
+  auto nonNullBaseVectorToExpr = std::make_shared<core::ConstantTypedExpr>(
+      BaseVector::createConstant(VARCHAR(), Variant{"test"}, 1, pool()));
+
+  EXPECT_FALSE(nonNullVariantToExpr->equals(*nullBaseVectorToExpr));
+  EXPECT_FALSE(nullVariantToExpr->equals(*nonNullBaseVectorToExpr));
+  EXPECT_TRUE(nonNullVariantToExpr->equals(*nonNullBaseVectorToExpr));
+  EXPECT_TRUE(nullVariantToExpr->equals(*nullBaseVectorToExpr));
+}
+
 // Verify consistency of ConstantTypeExpr::toString/hash/equals APIs. The
 // outcome should not depend on whether expression was created using a Variant
 // of a Vector.

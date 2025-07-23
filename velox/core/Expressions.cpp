@@ -364,7 +364,7 @@ bool equalsImpl(
 
   if (otherNull || thisNull) {
     return BaseVector::compareNulls(thisNull, otherNull, kEqualValueAtFlags)
-        .value();
+               .value() == 0;
   }
 
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
@@ -383,11 +383,9 @@ bool ConstantTypedExpr::equals(const ITypedExpr& other) const {
   }
 
   if (this->hasValueVector() != casted->hasValueVector()) {
-    if (this->hasValueVector()) {
-      return equalsImpl(this->valueVector_, 0, casted->value_);
-    } else {
-      return equalsImpl(casted->valueVector_, 0, this->value_);
-    }
+    return this->hasValueVector()
+        ? equalsImpl(this->valueVector_, 0, casted->value_)
+        : equalsImpl(casted->valueVector_, 0, this->value_);
   }
 
   if (this->hasValueVector()) {
