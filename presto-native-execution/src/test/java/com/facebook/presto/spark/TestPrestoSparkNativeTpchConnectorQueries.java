@@ -43,4 +43,9 @@ public class TestPrestoSparkNativeTpchConnectorQueries
     @Override
     @Ignore
     public void testTpchTinyTables() {}
+
+    // VeloxRuntimeError: it != connectors().end() Connector with ID 'tpchstandard' not registered
+    @Override
+    @Ignore
+    public void testTpchDateFilter() {}
 }

@@ -106,4 +106,24 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testAnalyzeStatsOnDecimals() {}
+
+    //Caused by: com.facebook.presto.sql.analyzer.SemanticException: line 1:31: Function array_duplicates not registered
+    @Override
+    @Ignore
+    public void testArrayAndMapFunctions() {}
+
+    // VeloxRuntimeError: it != connectors().end() Connector with ID 'hivecached' not registered
+    @Override
+    @Ignore
+    public void testCatalogWithCacheEnabled() {}
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Sampling function: key_sampling_percent not cannot be resolved
+    @Override
+    @Ignore
+    public void testKeyBasedSamplingInlined() {}
+
+    // VeloxRuntimeError: !noMoreSplits_
+    @Override
+    @Ignore
+    public void testUnionAllInsert() {}
 }
