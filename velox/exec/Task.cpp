@@ -31,7 +31,9 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/TableScan.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/TaskTraceWriter.h"
 #include "velox/exec/TraceUtil.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -55,7 +57,7 @@ class EventCompletionNotifier {
       std::vector<ContinuePromise> promises,
       std::function<void()> callback = nullptr) {
     active_ = true;
-    callback_ = callback;
+    callback_ = std::move(callback);
     promises_ = std::move(promises);
   }
 

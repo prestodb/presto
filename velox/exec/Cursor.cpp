@@ -15,7 +15,6 @@
  */
 #include "velox/exec/Cursor.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/exec/Operator.h"
 
 #include <filesystem>
 

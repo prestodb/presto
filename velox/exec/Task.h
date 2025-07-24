@@ -23,11 +23,10 @@
 #include "velox/exec/LocalPartition.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/MergeSource.h"
+#include "velox/exec/ScaledScanController.h"
 #include "velox/exec/Split.h"
-#include "velox/exec/TableScan.h"
 #include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
-#include "velox/exec/TaskTraceWriter.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec {

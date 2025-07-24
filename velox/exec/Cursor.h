@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <velox/exec/Driver.h>
+
 #include "velox/core/PlanNode.h"
+#include "velox/exec/Driver.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
