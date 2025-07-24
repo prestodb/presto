@@ -130,6 +130,7 @@ public final class SystemSessionProperties
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String OPTIMIZED_SCALE_WRITER_PRODUCER_BUFFER = "optimized_scale_writer_producer_buffer";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
+    public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
@@ -545,6 +546,11 @@ public final class SystemSessionProperties
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
                         featuresConfig.isPushTableWriteThroughUnion(),
+                        false),
+                booleanProperty(
+                        PUSH_SEMI_JOIN_THROUGH_UNION,
+                        "Push semi join filter when using UNION ALL in queries.",
+                        featuresConfig.isPushSemiJoinThroughUnion(),
                         false),
                 new PropertyMetadata<>(
                         TASK_CONCURRENCY,
@@ -2126,6 +2132,11 @@ public final class SystemSessionProperties
     public static boolean isPushTableWriteThroughUnion(Session session)
     {
         return session.getSystemProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
+    }
+
+    public static boolean isPushSemiJoinThroughUnion(Session session)
+    {
+        return session.getSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, Boolean.class);
     }
 
     public static int getTaskConcurrency(Session session)
