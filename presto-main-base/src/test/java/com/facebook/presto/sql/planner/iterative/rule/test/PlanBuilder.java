@@ -865,7 +865,8 @@ public class PlanBuilder
                 criteria,
                 filter,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                index.getOutputVariables());
     }
 
     public CteProducerNode cteProducerNode(String ctename,
