@@ -82,6 +82,7 @@ int main(int argc, char** argv) {
 
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
+  //
   // This list can include a mix of function names and function signatures.
   // Use function name to exclude all signatures of a given function from
   // testing. Use function signature to exclude only a specific signature.
@@ -248,6 +249,7 @@ int main(int argc, char** argv) {
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
   std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
+
   if (!FLAGS_presto_url.empty()) {
     // Add additional functions to skip since we are now querying Presto
     // directly and are aware of certain failures.
@@ -380,6 +382,10 @@ int main(int argc, char** argv) {
                               // https://github.com/facebookincubator/velox/pull/13604
         // Not registered
         "array_sum_propagate_element_null",
+
+        // Skipping until the new signature is merged and released in Presto:
+        // https://github.com/prestodb/presto/pull/25521
+        "xxhash64(varbinary,bigint) -> varbinary",
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
