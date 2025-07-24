@@ -64,6 +64,7 @@ using facebook::velox::fuzzer::JsonParseArgValuesGenerator;
 using facebook::velox::fuzzer::QDigestArgValuesGenerator;
 using facebook::velox::fuzzer::TDigestArgValuesGenerator;
 using facebook::velox::fuzzer::UnifiedDigestArgValuesGenerator;
+using facebook::velox::fuzzer::URLArgValuesGenerator;
 using facebook::velox::test::ReferenceQueryRunner;
 
 int main(int argc, char** argv) {
@@ -217,6 +218,15 @@ int main(int argc, char** argv) {
           {"cast", std::make_shared<CastVarcharAndJsonArgValuesGenerator>()},
           {"json_parse", std::make_shared<JsonParseArgValuesGenerator>()},
           {"json_extract", std::make_shared<JsonExtractArgValuesGenerator>()},
+          {"scale_tdigest",
+           std::make_shared<TDigestArgValuesGenerator>("scale_tdigest")},
+          {"url_extract_fragment", std::make_shared<URLArgValuesGenerator>()},
+          {"url_extract_host", std::make_shared<URLArgValuesGenerator>()},
+          {"url_extract_parameter", std::make_shared<URLArgValuesGenerator>()},
+          {"url_extract_path", std::make_shared<URLArgValuesGenerator>()},
+          {"url_extract_port", std::make_shared<URLArgValuesGenerator>()},
+          {"url_extract_protocol", std::make_shared<URLArgValuesGenerator>()},
+          {"url_extract_query", std::make_shared<URLArgValuesGenerator>()},
           {"value_at_quantile",
            std::make_shared<UnifiedDigestArgValuesGenerator>(
                "value_at_quantile")},
@@ -265,14 +275,11 @@ int main(int argc, char** argv) {
         "array_intersect", // https://github.com/facebookincubator/velox/issues/10740
         "f_cdf", // https://github.com/facebookincubator/velox/issues/10633
         "truncate", // https://github.com/facebookincubator/velox/issues/10628
-        "url_extract_query", // https://github.com/facebookincubator/velox/issues/10659
         "laplace_cdf", // https://github.com/facebookincubator/velox/issues/10974
         "inverse_beta_cdf", // https://github.com/facebookincubator/velox/issues/11802
         "conjunct", // https://github.com/facebookincubator/velox/issues/10678
-        "url_extract_host", // https://github.com/facebookincubator/velox/issues/10578
         "weibull_cdf", // https://github.com/facebookincubator/velox/issues/10977
         "zip_with", // https://github.com/facebookincubator/velox/issues/10844
-        "url_extract_path", // https://github.com/facebookincubator/velox/issues/10579
         "bitwise_shift_left", // https://github.com/facebookincubator/velox/issues/10870
         "split_part", // https://github.com/facebookincubator/velox/issues/10839
         "bitwise_arithmetic_shift_right", // https://github.com/facebookincubator/velox/issues/10750
@@ -284,8 +291,6 @@ int main(int argc, char** argv) {
         "format_datetime", // https://github.com/facebookincubator/velox/issues/10779
         "inverse_cauchy_cdf", // https://github.com/facebookincubator/velox/issues/10840
         "array_position", // https://github.com/facebookincubator/velox/issues/10580
-        "url_extract_fragment", // https://github.com/facebookincubator/velox/issues/12324
-        "url_extract_protocol", // https://github.com/facebookincubator/velox/issues/12325
         "chi_squared_cdf", // https://github.com/facebookincubator/velox/issues/12327
         "bitwise_left_shift", // https://github.com/facebookincubator/velox/issues/12330
         "log2", // https://github.com/facebookincubator/velox/issues/12338

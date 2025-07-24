@@ -631,4 +631,216 @@ variant CastVarcharInputGenerator::generate() {
   return variant(input);
 }
 
+// URLInputGenerator creates URL input data for URL functions.
+URLInputGenerator::URLInputGenerator(
+    size_t seed,
+    const TypePtr& type,
+    double nullRatio,
+    std::string functionName,
+    std::vector<std::string> functionsToSkipForMailTo,
+    std::vector<std::string> functionsToSkipForTruncate)
+    : AbstractInputGenerator(seed, type, nullptr, nullRatio),
+      functionName_{std::move(functionName)},
+      functionsToSkipForMailTo_{std::move(functionsToSkipForMailTo)},
+      functionsToSkipForTruncate_{std::move(functionsToSkipForTruncate)} {}
+
+URLInputGenerator::~URLInputGenerator() = default;
+
+std::shared_ptr<RuleList> URLInputGenerator::generateURLRules() {
+  auto url = RuleList({
+      std::make_shared<ChoiceRule>(
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("http"),
+              std::make_shared<ConstantRule>("https"),
+          })),
+      std::make_shared<ConstantRule>("://"),
+      std::make_shared<WordRule>(rng_), // domain
+      std::make_shared<ConstantRule>("."),
+      std::make_shared<WordRule>(rng_, 2, 3, true),
+      std::make_shared<OptionalRule>( // port
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>(":"),
+              std::make_shared<NumRule>(rng_, 3, 7, true)})),
+      std::make_shared<RepeatingRule>( // path
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("/"),
+              std::make_shared<WordRule>(rng_),
+          }),
+          0,
+          5),
+      std::make_shared<OptionalRule>( // query
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("?"),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<ConstantRule>("="),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<RepeatingRule>(
+                  rng_,
+                  std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+                      std::make_shared<ConstantRule>("&"),
+                      std::make_shared<WordRule>(rng_),
+                      std::make_shared<ConstantRule>("="),
+                      std::make_shared<WordRule>(rng_)}),
+                  1,
+                  3),
+              std::make_shared<RepeatingRule>(
+                  rng_,
+                  std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+                      std::make_shared<ConstantRule>("["),
+                      std::make_shared<ConstantRule>("]")}),
+                  0,
+                  3),
+          })),
+      std::make_shared<OptionalRule>( // fragment
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("#"),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<RepeatingRule>(
+                  rng_,
+                  std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+                      std::make_shared<ConstantRule>("["),
+                      std::make_shared<ConstantRule>("]")}),
+                  0,
+                  3),
+          })),
+  });
+
+  return std::make_shared<RuleList>(url);
+}
+
+std::shared_ptr<RuleList> URLInputGenerator::generateChromeExtensionRules() {
+  auto chrome_extension = RuleList({
+      std::make_shared<ConstantRule>("chrome-extension:/"),
+      std::make_shared<RepeatingRule>(
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("/"),
+              std::make_shared<WordRule>(rng_)}),
+          1,
+          3),
+      std::make_shared<ConstantRule>("/"),
+      std::make_shared<WordRule>(rng_),
+      std::make_shared<ConstantRule>(".html"),
+  });
+
+  return std::make_shared<RuleList>(chrome_extension);
+}
+
+std::shared_ptr<RuleList> URLInputGenerator::generateMailToRules() {
+  auto mailTo = RuleList({
+      std::make_shared<ConstantRule>("mailto:"),
+      std::make_shared<WordRule>(rng_),
+      std::make_shared<ConstantRule>("@"),
+      std::make_shared<WordRule>(rng_),
+      std::make_shared<ConstantRule>("."),
+      std::make_shared<WordRule>(rng_, 2, 3, true),
+      std::make_shared<OptionalRule>( // subject
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("&"),
+              std::make_shared<ConstantRule>("subject"),
+              std::make_shared<ConstantRule>("="),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<RepeatingRule>(
+                  rng_,
+                  std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+                      std::make_shared<ConstantRule>("\%20"),
+                      std::make_shared<WordRule>(rng_)}),
+                  1,
+                  3)})),
+      std::make_shared<OptionalRule>( // recipients
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("&"),
+              std::make_shared<ConstantRule>("cc"),
+              std::make_shared<ConstantRule>("="),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<ConstantRule>("@"),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<ConstantRule>("."),
+              std::make_shared<WordRule>(rng_, 2, 3, true),
+              std::make_shared<RepeatingRule>(
+                  rng_,
+                  std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+                      std::make_shared<ConstantRule>("&"),
+                      std::make_shared<ConstantRule>("bcc"),
+                      std::make_shared<ConstantRule>("="),
+                      std::make_shared<WordRule>(rng_),
+                      std::make_shared<ConstantRule>("@"),
+                      std::make_shared<WordRule>(rng_),
+                      std::make_shared<ConstantRule>("."),
+                      std::make_shared<WordRule>(rng_, 2, 3, true),
+                  }),
+                  1,
+                  3)})),
+      std::make_shared<OptionalRule>( // body
+          rng_,
+          std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+              std::make_shared<ConstantRule>("&"),
+              std::make_shared<ConstantRule>("body"),
+              std::make_shared<ConstantRule>("="),
+              std::make_shared<WordRule>(rng_),
+              std::make_shared<RepeatingRule>(
+                  rng_,
+                  std::make_shared<RuleList>(std::vector<std::shared_ptr<Rule>>{
+                      std::make_shared<ConstantRule>("\%20"),
+                      std::make_shared<WordRule>(rng_)}),
+                  1,
+                  3)})),
+  });
+
+  return std::make_shared<RuleList>(mailTo);
+}
+
+variant URLInputGenerator::generate() {
+  // Randomly add nulls.
+  if (coinToss(rng_, nullRatio_)) {
+    return variant::null(type_->kind());
+  }
+
+  std::vector<std::shared_ptr<Rule>> rules;
+  rules.push_back(generateURLRules());
+  rules.push_back(generateChromeExtensionRules());
+  if (std::find(
+          functionsToSkipForMailTo_.begin(),
+          functionsToSkipForMailTo_.end(),
+          functionName_) == functionsToSkipForMailTo_.end()) {
+    rules.push_back(generateMailToRules());
+  }
+
+  auto choices = ChoiceRule(rng_, std::make_shared<RuleList>(rules));
+
+  auto input = choices.generate();
+
+  // Make additional random variations to valid input data to see how these
+  // functions process them.
+  if (coinToss(rng_, 0.2)) {
+    makeRandomStrVariation(
+        input,
+        rng_,
+        RandomStrVariationOptions{
+            0.0,
+            0.1,
+            std::find(
+                functionsToSkipForTruncate_.begin(),
+                functionsToSkipForTruncate_.end(),
+                functionName_) != functionsToSkipForTruncate_.end()
+                ? 0.0
+                : 0.1});
+  }
+
+  // Intentionally ignore these cases due to intentional differences, see
+  // https://github.com/facebookincubator/velox/issues/14204
+  if (input == "https://" || input == "https:") {
+    return variant::null(type_->kind());
+  }
+
+  return variant(input);
+}
+
 } // namespace facebook::velox::fuzzer

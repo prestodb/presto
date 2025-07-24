@@ -93,6 +93,17 @@ class CastVarcharAndJsonArgValuesGenerator : public ArgValuesGenerator {
       ExpressionFuzzerState& state) override;
 };
 
+class URLArgValuesGenerator : public ArgValuesGenerator {
+ public:
+  ~URLArgValuesGenerator() override = default;
+
+  std::vector<core::TypedExprPtr> generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) override;
+};
+
 class TDigestArgValuesGenerator : public ArgValuesGenerator {
  public:
   explicit TDigestArgValuesGenerator(std::string functionName) {

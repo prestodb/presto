@@ -480,6 +480,33 @@ class CastVarcharInputGenerator : public AbstractInputGenerator {
   std::string generateValidPrimitiveAsString();
 };
 
+class URLInputGenerator : public AbstractInputGenerator {
+ public:
+  URLInputGenerator(
+      size_t seed,
+      const TypePtr& type,
+      double nullRatio,
+      std::string functionName,
+      std::vector<std::string> functionsToSkipForMailTo,
+      std::vector<std::string> functionsToSkipForTruncate);
+
+  ~URLInputGenerator() override;
+
+  variant generate() override;
+
+ private:
+  std::shared_ptr<RuleList> generateURLRules();
+  std::shared_ptr<RuleList> generateMailToRules();
+  std::shared_ptr<RuleList> generateChromeExtensionRules();
+
+  const std::string functionName_;
+  // Particular UDFs are known to have mismatches for mailto and trucated input.
+  // Let's skip those test cases for now. More info can be found in
+  // https://github.com/facebookincubator/velox/issues/14204.
+  const std::vector<std::string> functionsToSkipForMailTo_;
+  const std::vector<std::string> functionsToSkipForTruncate_;
+};
+
 class TDigestInputGenerator : public AbstractInputGenerator {
  public:
   TDigestInputGenerator(size_t seed, const TypePtr& type, double nullRatio);

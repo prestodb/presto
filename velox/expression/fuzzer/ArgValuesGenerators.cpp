@@ -367,6 +367,54 @@ std::vector<core::TypedExprPtr> QDigestArgValuesGenerator::generate(
   return inputExpressions;
 }
 
+std::vector<core::TypedExprPtr> URLArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  VELOX_CHECK_GE(signature.args.size(), 1);
+  populateInputTypesAndNames(signature, state);
+  std::vector<core::TypedExprPtr> inputExpressions;
+
+  const auto seed = rand<uint32_t>(rng);
+  const auto nullRatio = options.nullRatio;
+
+  // Only URL part of input should have URL input generation.
+  state.customInputGenerators_.emplace_back(
+      std::make_shared<fuzzer::URLInputGenerator>(
+          seed,
+          signature.args[0],
+          nullRatio,
+          signature.name,
+          std::vector<std::string>(
+              {"url_extract_query",
+               "url_extract_path",
+               "url_extract_host",
+               "url_extract_protocol"}),
+          std::vector<std::string>(
+              {"url_extract_path",
+               "url_extract_fragment",
+               "url_extract_query",
+               "url_extract_protocol",
+               "url_extract_host"})));
+
+  VELOX_CHECK_GE(signature.args.size(), 1);
+  inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+      signature.args[0], state.inputRowNames_.back()));
+
+  // Add null generators for remaining arguments
+  for (size_t i = 1; i < signature.args.size(); i++) {
+    state.customInputGenerators_.emplace_back(nullptr);
+    VELOX_CHECK_GE(state.inputRowNames_.size(), signature.args.size() - i);
+    inputExpressions.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[i],
+        state.inputRowNames_
+            [state.inputRowNames_.size() + i - signature.args.size()]));
+  }
+
+  return inputExpressions;
+}
+
 std::vector<core::TypedExprPtr> TDigestArgValuesGenerator::generate(
     const CallableSignature& signature,
     const VectorFuzzer::Options& options,
