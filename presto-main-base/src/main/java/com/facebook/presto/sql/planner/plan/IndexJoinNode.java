@@ -42,6 +42,7 @@ public class IndexJoinNode
     private final Optional<RowExpression> filter;
     private final Optional<VariableReferenceExpression> probeHashVariable;
     private final Optional<VariableReferenceExpression> indexHashVariable;
+    private final List<VariableReferenceExpression> lookupVariables;
 
     @JsonCreator
     public IndexJoinNode(
@@ -53,7 +54,8 @@ public class IndexJoinNode
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
             @JsonProperty("filter") Optional<RowExpression> filter,
             @JsonProperty("probeHashVariable") Optional<VariableReferenceExpression> probeHashVariable,
-            @JsonProperty("indexHashVariable") Optional<VariableReferenceExpression> indexHashVariable)
+            @JsonProperty("indexHashVariable") Optional<VariableReferenceExpression> indexHashVariable,
+            @JsonProperty("lookupVariables") List<VariableReferenceExpression> lookupVariables)
     {
         this(sourceLocation,
                 id,
@@ -64,7 +66,8 @@ public class IndexJoinNode
                 criteria,
                 filter,
                 probeHashVariable,
-                indexHashVariable);
+                indexHashVariable,
+                lookupVariables);
     }
 
     public IndexJoinNode(
@@ -77,7 +80,8 @@ public class IndexJoinNode
             List<EquiJoinClause> criteria,
             Optional<RowExpression> filter,
             Optional<VariableReferenceExpression> probeHashVariable,
-            Optional<VariableReferenceExpression> indexHashVariable)
+            Optional<VariableReferenceExpression> indexHashVariable,
+            List<VariableReferenceExpression> lookupVariables)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.type = requireNonNull(type, "type is null");
@@ -87,6 +91,7 @@ public class IndexJoinNode
         this.filter = requireNonNull(filter, "filter is null");
         this.probeHashVariable = requireNonNull(probeHashVariable, "probeHashVariable is null");
         this.indexHashVariable = requireNonNull(indexHashVariable, "indexHashVariable is null");
+        this.lookupVariables = requireNonNull(lookupVariables, "lookupVariables is null");
     }
 
     @JsonProperty
@@ -131,6 +136,12 @@ public class IndexJoinNode
         return indexHashVariable;
     }
 
+    @JsonProperty
+    public List<VariableReferenceExpression> getLookupVariables()
+    {
+        return lookupVariables;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -166,7 +177,8 @@ public class IndexJoinNode
                 criteria,
                 filter,
                 probeHashVariable,
-                indexHashVariable);
+                indexHashVariable,
+                lookupVariables);
     }
 
     @Override
@@ -182,7 +194,8 @@ public class IndexJoinNode
                 criteria,
                 filter,
                 probeHashVariable,
-                indexHashVariable);
+                indexHashVariable,
+                lookupVariables);
     }
 
     public static class EquiJoinClause
