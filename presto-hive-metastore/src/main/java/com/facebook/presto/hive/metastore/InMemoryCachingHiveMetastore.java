@@ -452,6 +452,21 @@ public class InMemoryCachingHiveMetastore
     }
 
     @Override
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Function<PartitionStatistics, PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        try {
+            return getDelegate().persistTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges, update, additionalParameters);
+        }
+        finally {
+            invalidateTableCache(databaseName, tableName);
+            invalidateTableCache(newTable.getDatabaseName(), newTable.getTableName());
+            tableStatisticsCache.asMap().keySet().stream()
+                    .filter(hiveTableNameKey -> hiveTableNameKey.getKey().equals(hiveTableName(databaseName, tableName)))
+                    .forEach(tableStatisticsCache::invalidate);
+        }
+    }
+
+    @Override
     public void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         try {
