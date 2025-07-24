@@ -85,6 +85,8 @@ int main(int argc, char** argv) {
   // Use function name to exclude all signatures of a given function from
   // testing. Use function signature to exclude only a specific signature.
   std::unordered_set<std::string> skipFunctions = {
+      "noisy_empty_approx_set_sfm", // Non-deterministic because of privacy.
+      "merge_sfm", // Fuzzer can generate sketches of different sizes.
       "element_at",
       "width_bucket",
       // Fuzzer and the underlying engine are confused about TDigest functions
@@ -240,6 +242,7 @@ int main(int argc, char** argv) {
     // Add additional functions to skip since we are now querying Presto
     // directly and are aware of certain failures.
     skipFunctions.insert({
+        "noisy_empty_approx_set_sfm", // non-deterministic because of privacy.
         // https://github.com/facebookincubator/velox/issues/11034
         "cast(real) -> varchar",
         "cast(row(real)) -> row(varchar)",

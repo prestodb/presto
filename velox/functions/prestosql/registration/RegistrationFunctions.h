@@ -37,6 +37,8 @@ void registerTDigestFunctions(const std::string& prefix = "");
 
 void registerQDigestFunctions(const std::string& prefix = "");
 
+void registerSfmSketchFunctions(const std::string& prefix = "");
+
 void registerBingTileFunctions(const std::string& prefix = "");
 
 void registerGeneralFunctions(const std::string& prefix = "");

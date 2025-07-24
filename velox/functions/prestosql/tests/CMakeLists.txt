@@ -98,6 +98,7 @@ add_executable(
   RoundTest.cpp
   ScalarFunctionRegTest.cpp
   SequenceTest.cpp
+  SfmSketchFunctionsTest.cpp
   SimpleComparisonMatcherTest.cpp
   SliceTest.cpp
   SplitTest.cpp

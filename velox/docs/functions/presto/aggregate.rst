@@ -833,7 +833,33 @@ Counts, Sums, and Averages
 
     .. note::
 
-        Unlike :func:`approx_distinct`, this function returns NULL when col is empty.
+        Unlike :func:`approx_distinct`, this function returns ``NULL`` when ``col`` is empty.
+
+.. function:: noisy_empty_approx_set_sfm(epsilon[, buckets[, precision]]) -> SfmSketch
+
+    Returns an SFM sketch with no items in it. This is analogous to the ``empty_approx_set()`` function,
+    which returns an empty (deterministic) ``HyperLogLog`` sketch.
+    * ``epsilon`` (double) is a positive number that controls the level of noise in the sketch, as described in [Hehir2023]_.
+      Smaller values of epsilon correspond to noisier sketches.
+    * ``buckets`` (int) defaults to 4096.
+    * ``precision`` (int) defaults to 24.
+
+.. function:: cardinality(SfmSketch) -> bigint
+
+    Returns the estimated cardinality (distinct count) of an ``SfmSketch`` object.
+
+.. function:: merge_sfm(ARRAY[SfmSketch, ...]) -> SfmSketch
+
+    A scalar function that returns a merged ``SfmSketch`` of the set union of an array of ``SfmSketch`` objects, similar to ``merge_hll()``.
+
+    ::
+
+        SELECT cardinality(merge_sfm(ARRAY[
+            noisy_approx_set_sfm(col_1, 5.0),
+            noisy_approx_set_sfm(col_2, 5.0),
+            noisy_approx_set_sfm(col_3, 5.0)
+        ])) AS distinct_count_over_3_cols
+        FROM my_table
 
 Limitations
 ~~~~~~~~~~~

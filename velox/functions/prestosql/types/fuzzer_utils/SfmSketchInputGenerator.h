@@ -40,13 +40,16 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
   variant generateTyped() {
     HashStringAllocator allocator(pool_);
 
-    // Create SfmSketch with random parameters.
-    auto indexBitLength = rand<int32_t>(rng_, 1, 16);
-    auto numberOfBuckets = SfmSketch::numBuckets(indexBitLength);
-    auto precision = rand<int32_t>(rng_, 1, 64 - indexBitLength);
+    // SFM sketch require indexBitLength and precision to be the same for
+    // functions such as merge and mergeArray.
+    if (!indexBitLength_.has_value() && !precision_.has_value()) {
+      indexBitLength_ = rand<int32_t>(rng_, 1, 16);
+      numberOfBuckets_ = SfmSketch::numBuckets(*indexBitLength_);
+      precision_ = rand<int32_t>(rng_, 1, 64 - *indexBitLength_);
+    }
 
-    auto sketch = SfmSketch(&allocator);
-    sketch.initialize(numberOfBuckets, precision);
+    auto sketch = SfmSketch(&allocator, /* seed */ 1);
+    sketch.initialize(*numberOfBuckets_, *precision_);
 
     // Add values to the sketch
     auto numValues = rand<int32_t>(rng_, 1, 10);
@@ -73,13 +76,6 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
       }
     }
 
-    // Randomly enable privacy after adding values.
-    if (rand<bool>(rng_)) {
-      auto epsilon =
-          rand<double>(rng_, 0.1, std::numeric_limits<double>::max());
-      sketch.enablePrivacy(epsilon);
-    }
-
     // Serialize the sketch.
     auto size = sketch.serializedSize();
     std::string buff(size, '\0');
@@ -89,6 +85,9 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
 
   TypePtr baseType_;
   memory::MemoryPool* pool_;
+  std::optional<int32_t> indexBitLength_;
+  std::optional<int32_t> precision_;
+  std::optional<int32_t> numberOfBuckets_;
 };
 
 } // namespace facebook::velox::fuzzer

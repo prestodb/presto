@@ -45,6 +45,7 @@ velox_add_library(
   Reverse.cpp
   RowFunction.cpp
   Sequence.cpp
+  SfmSketchFunctions.cpp
   SimpleComparisonMatcher.cpp
   Split.cpp
   SplitToMap.cpp
