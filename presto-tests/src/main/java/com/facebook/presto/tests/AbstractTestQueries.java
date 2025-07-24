@@ -3204,7 +3204,8 @@ public abstract class AbstractTestQueries
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
-                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, " +
+                                "clearTransactionId=false}");
     }
 
     @Test

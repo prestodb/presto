@@ -593,6 +593,7 @@ public class PrestoSparkQueryRunner
                         ImmutableSet.of(),
                         p.getUpdateType(),
                         getOnlyElement(getOnlyElement(rows).getFields()) == null ? OptionalLong.empty() : OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                        false,
                         ImmutableList.of());
             }
         }
@@ -605,6 +606,7 @@ public class PrestoSparkQueryRunner
                     ImmutableSet.of(),
                     Optional.empty(),
                     OptionalLong.empty(),
+                    false,
                     ImmutableList.of());
         }
         else {
@@ -615,6 +617,7 @@ public class PrestoSparkQueryRunner
                     ImmutableSet.of(),
                     Optional.empty(),
                     OptionalLong.empty(),
+                    false,
                     ImmutableList.of());
         }
     }

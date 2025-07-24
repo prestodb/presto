@@ -79,6 +79,9 @@ public class ElasticsearchLoader
         private ElasticsearchLoadingSession() {}
 
         @Override
+        public void setClearTransactionId(boolean clearTransactionId) {}
+
+        @Override
         public void setWarnings(List<PrestoWarning> warnings) {}
 
         @Override

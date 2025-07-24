@@ -56,7 +56,8 @@ public class TestQueryResults
                 "    \"processedRows\" : 0,\n" +
                 "    \"processedBytes\" : 0,\n" +
                 "    \"peakMemoryBytes\" : 0\n" +
-                "  }\n" +
+                "  },\n" +
+                "  \"clearTransactionId\" : false\n" +
                 "}";
 
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(goldenValue);

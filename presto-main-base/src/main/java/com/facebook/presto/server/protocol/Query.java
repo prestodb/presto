@@ -442,7 +442,8 @@ class Query
                 null,
                 ImmutableList.of(),
                 queryResults.getUpdateInfo(),
-                queryResults.getUpdateCount());
+                queryResults.getUpdateCount(),
+                queryResults.isClearTransactionId());
     }
 
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
@@ -598,7 +599,8 @@ class Query
                 toQueryError(queryInfo),
                 queryInfo.getWarnings(),
                 queryInfo.getUpdateInfo(),
-                updateCount);
+                updateCount,
+                clearTransactionId);
 
         // cache the new result
         lastToken = token;

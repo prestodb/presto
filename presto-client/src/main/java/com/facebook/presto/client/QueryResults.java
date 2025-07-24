@@ -48,6 +48,7 @@ public class QueryResults
     private final List<PrestoWarning> warnings;
     private final UpdateInfo updateInfo;
     private final Long updateCount;
+    private final boolean clearTransactionId;
 
     @JsonCreator
     public QueryResults(
@@ -62,7 +63,8 @@ public class QueryResults
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("updateInfo") UpdateInfo updateInfo,
-            @JsonProperty("updateCount") Long updateCount)
+            @JsonProperty("updateCount") Long updateCount,
+            @JsonProperty("clearTransactionId") Boolean clearTransactionId)
     {
         this(
                 id,
@@ -76,7 +78,8 @@ public class QueryResults
                 error,
                 firstNonNull(warnings, ImmutableList.of()),
                 updateInfo,
-                updateCount);
+                updateCount,
+                clearTransactionId);
     }
 
     public QueryResults(
@@ -91,7 +94,8 @@ public class QueryResults
             QueryError error,
             List<PrestoWarning> warnings,
             UpdateInfo updateInfo,
-            Long updateCount)
+            Long updateCount,
+            Boolean clearTransactionId)
     {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
@@ -106,6 +110,7 @@ public class QueryResults
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
         this.updateInfo = updateInfo;
         this.updateCount = updateCount;
+        this.clearTransactionId = clearTransactionId;
     }
 
     /**
@@ -243,6 +248,13 @@ public class QueryResults
         return updateCount;
     }
 
+    @JsonProperty
+    @Override
+    public Boolean isClearTransactionId()
+    {
+        return clearTransactionId;
+    }
+
     @Override
     public String toString()
     {
@@ -258,6 +270,7 @@ public class QueryResults
                 .add("error", error)
                 .add("updateInfo", updateInfo)
                 .add("updateCount", updateCount)
+                .add("clearTransactionId", clearTransactionId)
                 .toString();
     }
 }

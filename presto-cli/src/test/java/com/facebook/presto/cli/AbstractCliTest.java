@@ -102,7 +102,8 @@ public abstract class AbstractCliTest
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                null,
+                false);
     }
 
     protected MockResponse createMockResponse()
