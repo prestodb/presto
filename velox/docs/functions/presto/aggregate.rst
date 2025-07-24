@@ -872,6 +872,17 @@ Counts, Sums, and Averages
 
     Returns the estimated cardinality (distinct count) of an ``SfmSketch`` object.
 
+.. function:: merge(SfmSketch) -> SfmSketch
+
+    An aggregator function that returns a merged ``SfmSketch`` of the set union of
+    individual ``SfmSketch`` objects, similar to ``merge(HyperLogLog)``. ::
+
+    ::
+
+        SELECT year, cardinality(merge(sketch)) AS annual_distinct_count
+        FROM monthly_sketches
+        GROUP BY 1
+
 .. function:: merge_sfm(ARRAY[SfmSketch, ...]) -> SfmSketch
 
     A scalar function that returns a merged ``SfmSketch`` of the set union of an array of ``SfmSketch`` objects, similar to ``merge_hll()``.

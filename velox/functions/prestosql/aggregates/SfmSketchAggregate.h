@@ -23,21 +23,27 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
-template <bool sketchAsFinalResult, bool indexAsInput>
+template <bool sketchAsFinalResult, bool indexAsInput, bool sketchAsInput>
 class SfmSketchAggregate : public exec::Aggregate {
-  using SfmSketchAccumulator =
-      facebook::velox::functions::aggregate::SfmSketchAccumulator;
+  // When the input is a sketch which happens in merge aggregation,
+  // we use SfmSketch as the accumulator type. Otherwise, we use
+  // SfmSketchAccumulator as the accumulator type.
+  using Accumulator = typename std::conditional<
+      sketchAsInput,
+      facebook::velox::functions::aggregate::SfmSketch,
+      facebook::velox::functions::aggregate::SfmSketchAccumulator>::type;
+  using SfmSketch = facebook::velox::functions::aggregate::SfmSketch;
 
  public:
   explicit SfmSketchAggregate(TypePtr resultType)
       : exec::Aggregate(std::move(resultType)) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return static_cast<int32_t>(sizeof(SfmSketchAccumulator));
+    return static_cast<int32_t>(sizeof(Accumulator));
   }
 
   int32_t accumulatorAlignmentSize() const override {
-    return alignof(SfmSketchAccumulator);
+    return alignof(Accumulator);
   }
 
   bool isFixedSize() const override {
@@ -49,6 +55,10 @@ class SfmSketchAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       [[maybe_unused]] bool mayPushdown) override {
+    if constexpr (sketchAsInput) {
+      addIntermediateResults(groups, rows, args, false /*unused*/);
+      return;
+    }
     decodeInput(rows, args);
     rows.applyToSelected([&](vector_size_t i) {
       auto group = groups[i];
@@ -61,6 +71,10 @@ class SfmSketchAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       [[maybe_unused]] bool mayPushdown) override {
+    if constexpr (sketchAsInput) {
+      addSingleGroupIntermediateResults(group, rows, args, false /*unused*/);
+      return;
+    }
     decodeInput(rows, args);
     rows.applyToSelected([&](vector_size_t i) { updateFromInput(group, i); });
   }
@@ -71,10 +85,10 @@ class SfmSketchAggregate : public exec::Aggregate {
         groups,
         numGroups,
         result,
-        [](const SfmSketchAccumulator& accumulator) -> size_t {
+        [](const Accumulator& accumulator) -> size_t {
           return accumulator.serializedSize();
         },
-        [](const SfmSketchAccumulator& accumulator, char* buffer) -> void {
+        [](const Accumulator& accumulator, char* buffer) -> void {
           accumulator.serialize(buffer);
         });
   }
@@ -84,16 +98,29 @@ class SfmSketchAggregate : public exec::Aggregate {
     if constexpr (sketchAsFinalResult) {
       // For final sketch result, serialize only the SfmSketch, not the
       // SfmSketchAccumulator.
-      serializeToStringVector(
-          groups,
-          numGroups,
-          result,
-          [](SfmSketchAccumulator& accumulator) -> size_t {
-            return accumulator.sketch().serializedSize();
-          },
-          [](SfmSketchAccumulator& accumulator, char* buffer) -> void {
-            accumulator.sketch().serialize(buffer);
-          });
+      if constexpr (sketchAsInput) {
+        serializeToStringVector(
+            groups,
+            numGroups,
+            result,
+            [](const Accumulator& accumulator) -> size_t {
+              return accumulator.serializedSize();
+            },
+            [](const Accumulator& accumulator, char* buffer) -> void {
+              accumulator.serialize(buffer);
+            });
+      } else {
+        serializeToStringVector(
+            groups,
+            numGroups,
+            result,
+            [](Accumulator& accumulator) -> size_t {
+              return accumulator.sketch().serializedSize();
+            },
+            [](Accumulator& accumulator, char* buffer) -> void {
+              accumulator.sketch().serialize(buffer);
+            });
+      }
       return;
     }
 
@@ -105,7 +132,7 @@ class SfmSketchAggregate : public exec::Aggregate {
       if (isNull(group)) {
         flatResult->setNull(i, true);
       } else {
-        auto accumulator = value<SfmSketchAccumulator>(group);
+        auto accumulator = value<Accumulator>(group);
         if (!accumulator->isInitialized()) {
           flatResult->setNull(i, true);
           continue;
@@ -155,12 +182,12 @@ class SfmSketchAggregate : public exec::Aggregate {
     setAllNulls(groups, indices);
     for (auto i : indices) {
       auto* group = groups[i];
-      new (value<SfmSketchAccumulator>(group)) SfmSketchAccumulator(allocator_);
+      new (value<Accumulator>(group)) Accumulator(allocator_);
     }
   }
 
   void destroyInternal(folly::Range<char**> groups) override {
-    destroyAccumulators<SfmSketchAccumulator>(groups);
+    destroyAccumulators<Accumulator>(groups);
   }
 
  private:
@@ -182,7 +209,7 @@ class SfmSketchAggregate : public exec::Aggregate {
     for (auto i = 0; i < numGroups; i++) {
       auto group = groups[i];
       if (!isNull(group)) {
-        auto* accumulator = value<SfmSketchAccumulator>(group);
+        auto* accumulator = value<Accumulator>(group);
         if (accumulator->isInitialized()) {
           groupSizes[i] = sizeFunc(*accumulator);
           totalSize += groupSizes[i];
@@ -199,7 +226,7 @@ class SfmSketchAggregate : public exec::Aggregate {
       if (isNull(group)) {
         flatResult->setNull(i, true);
       } else {
-        auto* accumulator = value<SfmSketchAccumulator>(group);
+        auto* accumulator = value<Accumulator>(group);
         if (!accumulator->isInitialized()) {
           flatResult->setNull(i, true);
         } else {
@@ -252,52 +279,63 @@ class SfmSketchAggregate : public exec::Aggregate {
       return;
     }
     auto tracker = trackRowSize(group);
-    auto* accumulator = value<SfmSketchAccumulator>(group);
+    auto* accumulator = value<Accumulator>(group);
     clearNull(group);
 
-    std::optional<int32_t> buckets;
-    std::optional<int32_t> precision;
-
-    if constexpr (indexAsInput) {
-      // For index input: args[3] = buckets, args[4] = precision
-      buckets = getValue(decodedBuckets_, i);
-      precision = numArgs_ > 4 ? getValue(decodedPrecision_, i) : std::nullopt;
+    if constexpr (sketchAsInput) {
+      // When sketchAsInput is true, we should be using updateFromIntermediate
+      // instead of updateFromInput. This code should never be reached.
+      // This branch exists only to avoid compiler errors because compiler
+      // need to compile all combinations of template parameters.
+      VELOX_FAIL(
+          "updateFromInput should never be called with sketchAsInput=true.");
     } else {
-      // For value input: args[2] = buckets, args[3] = precision
-      buckets = numArgs_ > 2 ? getValue(decodedBuckets_, i) : std::nullopt;
-      precision = numArgs_ > 3 ? getValue(decodedPrecision_, i) : std::nullopt;
-    }
+      std::optional<int32_t> buckets;
+      std::optional<int32_t> precision;
 
-    if (!accumulator->isInitialized()) {
-      accumulator->initialize(buckets, precision);
-      accumulator->setEpsilon(decodedEpsilon_.valueAt<double>(i));
-    }
+      if constexpr (indexAsInput) {
+        // For index input: args[3] = buckets, args[4] = precision
+        buckets = getValue(decodedBuckets_, i);
+        precision =
+            numArgs_ > 4 ? getValue(decodedPrecision_, i) : std::nullopt;
+      } else {
+        // For value input: args[2] = buckets, args[3] = precision
+        buckets = numArgs_ > 2 ? getValue(decodedBuckets_, i) : std::nullopt;
+        precision =
+            numArgs_ > 3 ? getValue(decodedPrecision_, i) : std::nullopt;
+      }
 
-    if constexpr (indexAsInput) {
-      auto index = decodedIndex_.valueAt<int64_t>(i);
-      auto zeros = decodedZeros_.valueAt<int64_t>(i);
-      accumulator->addIndexAndZeros(
-          static_cast<int32_t>(index), static_cast<int32_t>(zeros));
-    } else {
-      // Handle different input types.
-      auto inputType = decodedValue_.base()->type();
-      switch (inputType->kind()) {
-        case TypeKind::BIGINT:
-          accumulator->add(decodedValue_.valueAt<int64_t>(i));
-          break;
-        case TypeKind::DOUBLE:
-          accumulator->add(decodedValue_.valueAt<double>(i));
-          break;
-        case TypeKind::VARCHAR:
-        case TypeKind::VARBINARY: {
-          auto stringValue = decodedValue_.valueAt<StringView>(i);
-          accumulator->add(stringValue);
-          break;
+      if (!accumulator->isInitialized()) {
+        accumulator->initialize(buckets, precision);
+        accumulator->setEpsilon(decodedEpsilon_.valueAt<double>(i));
+      }
+
+      if constexpr (indexAsInput) {
+        auto index = decodedIndex_.valueAt<int64_t>(i);
+        auto zeros = decodedZeros_.valueAt<int64_t>(i);
+        accumulator->addIndexAndZeros(
+            static_cast<int32_t>(index), static_cast<int32_t>(zeros));
+      } else {
+        // Handle different input types.
+        auto inputType = decodedValue_.base()->type();
+        switch (inputType->kind()) {
+          case TypeKind::BIGINT:
+            accumulator->add(decodedValue_.valueAt<int64_t>(i));
+            break;
+          case TypeKind::DOUBLE:
+            accumulator->add(decodedValue_.valueAt<double>(i));
+            break;
+          case TypeKind::VARCHAR:
+          case TypeKind::VARBINARY: {
+            auto stringValue = decodedValue_.valueAt<StringView>(i);
+            accumulator->add(stringValue);
+            break;
+          }
+          default:
+            VELOX_UNSUPPORTED(
+                "Unsupported input type for SfmSketch: {}",
+                inputType->toString());
         }
-        default:
-          VELOX_UNSUPPORTED(
-              "Unsupported input type for SfmSketch: {}",
-              inputType->toString());
       }
     }
   }
@@ -310,12 +348,26 @@ class SfmSketchAggregate : public exec::Aggregate {
       return;
     }
     auto tracker = trackRowSize(group);
-    auto* accumulator = value<SfmSketchAccumulator>(group);
+    auto* accumulator = value<Accumulator>(group);
     clearNull(group);
     auto serialized = decodedVector.valueAt<StringView>(i);
-    auto otherAccumulator =
-        SfmSketchAccumulator::deserialize(serialized.data(), allocator_);
-    accumulator->mergeWith(otherAccumulator);
+    if constexpr (sketchAsInput) {
+      auto otherAccumulator =
+          SfmSketch::deserialize(serialized.data(), allocator_);
+      if (!otherAccumulator.isInitialized()) {
+        return;
+      }
+      if (!accumulator->isInitialized()) {
+        accumulator->initialize(
+            SfmSketch::numBuckets(otherAccumulator.numIndexBits()),
+            otherAccumulator.precision());
+      }
+      accumulator->mergeWith(otherAccumulator);
+    } else {
+      auto otherAccumulator =
+          Accumulator::deserialize(serialized.data(), allocator_);
+      accumulator->mergeWith(otherAccumulator);
+    }
   }
 
   std::optional<int32_t> getValue(

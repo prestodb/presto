@@ -19,8 +19,11 @@
 #include "velox/functions/prestosql/aggregates/HyperLogLogAggregate.h"
 #include "velox/functions/prestosql/aggregates/MergeQDigestAggregate.h"
 #include "velox/functions/prestosql/aggregates/MergeTDigestAggregate.h"
+#include "velox/functions/prestosql/aggregates/SfmSketchAggregate.h"
 #include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
 #include "velox/functions/prestosql/types/QDigestRegistration.h"
+#include "velox/functions/prestosql/types/SfmSketchRegistration.h"
+#include "velox/functions/prestosql/types/SfmSketchType.h"
 #include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 
@@ -36,6 +39,7 @@ exec::AggregateRegistrationResult registerMerge(
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   auto inputTypes = std::vector<std::string>{
       "hyperloglog",
+      "sfmsketch",
       "tdigest(double)",
       "qdigest(bigint)",
       "qdigest(real)",
@@ -67,6 +71,14 @@ exec::AggregateRegistrationResult registerMerge(
             *argTypes[0] == *QDIGEST(DOUBLE())) {
           return createMergeQDigestAggregate(resultType, argTypes[0]);
         }
+        if (argTypes[0] == SFMSKETCH()) {
+          if (exec::isPartialOutput(step)) {
+            return std::make_unique<SfmSketchAggregate<true, false, true>>(
+                VARBINARY());
+          }
+          return std::make_unique<SfmSketchAggregate<true, false, true>>(
+              resultType);
+        }
         if (argTypes[0]->isUnKnown()) {
           return std::make_unique<HyperLogLogAggregate<UnknownValue, true>>(
               resultType, hllAsRawInput, defaultError);
@@ -94,6 +106,7 @@ void registerMergeAggregate(
     const std::string& prefix,
     bool /* withCompanionFunctions */,
     bool overwrite) {
+  registerSfmSketchType();
   registerHyperLogLogType();
   registerTDigestType();
   registerQDigestType();
