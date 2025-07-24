@@ -31,6 +31,7 @@ public class IcebergHiveTableOperationsConfig
     private Duration tableRefreshMaxRetryTime = succinctDuration(1, MINUTES);
     private double tableRefreshBackoffScaleFactor = 4.0;
     private int tableRefreshRetries = 20;
+    private boolean lockingEnabled = true;
 
     @MinDuration("1ms")
     public Duration getTableRefreshBackoffMinSleepTime()
@@ -100,5 +101,18 @@ public class IcebergHiveTableOperationsConfig
     public int getTableRefreshRetries()
     {
         return tableRefreshRetries;
+    }
+
+    @Config("iceberg.engine.hive.lock-enabled")
+    @ConfigDescription("Whether to use HMS locks to ensure atomicity of commits")
+    public IcebergHiveTableOperationsConfig setLockingEnabled(boolean lockingEnabled)
+    {
+        this.lockingEnabled = lockingEnabled;
+        return this;
+    }
+
+    public boolean getLockingEnabled()
+    {
+        return lockingEnabled;
     }
 }
