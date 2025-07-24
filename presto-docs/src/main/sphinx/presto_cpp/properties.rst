@@ -38,6 +38,14 @@ Presto C++ workers.
 These Presto coordinator configuration properties are described here, in
 alphabetical order.
 
+``driver.max-split-preload``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``integer``
+* **Default value:** ``2``
+
+  Maximum number of splits to preload per driver.
+  Set to 0 to disable preloading.
+
 ``driver.cancel-tasks-with-stuck-operators-threshold-ms``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``string``
