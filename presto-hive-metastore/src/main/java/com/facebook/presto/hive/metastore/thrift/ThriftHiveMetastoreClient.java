@@ -23,6 +23,7 @@ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.DropConstraintRequest;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
@@ -197,6 +198,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.alter_table(constructSchemaName(catalogName, databaseName), tableName, newTable);
+    }
+
+    @Override
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
+            throws TException
+    {
+        client.alter_table_with_environment_context(constructSchemaName(catalogName, databaseName), tableName, newTable, context);
     }
 
     @Override
