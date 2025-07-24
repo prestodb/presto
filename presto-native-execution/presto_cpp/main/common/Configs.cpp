@@ -152,6 +152,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kTaskPartitionedWriterCount),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
           STR_PROP(kTaskMaxPartialAggregationMemory, "16MB"),
+          NUM_PROP(kDriverMaxSplitPreload, 2),
           NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kHttpServerHttpsPort),
@@ -400,6 +401,10 @@ std::string SystemConfig::remoteFunctionServerSerde() const {
 
 int32_t SystemConfig::maxDriversPerTask() const {
   return optionalProperty<int32_t>(kMaxDriversPerTask).value();
+}
+
+int32_t SystemConfig::driverMaxSplitPreload() const {
+  return optionalProperty<int32_t>(kDriverMaxSplitPreload).value();
 }
 
 folly::Optional<int32_t> SystemConfig::taskWriterCount() const {
