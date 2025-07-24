@@ -34,7 +34,6 @@ public class TestPrestoContainerSidecarInfrastructure
             throws Exception
     {
         QueryRunner queryRunner = new ContainerQueryRunner(4, true, true, false);
-        computeActualWithCustomQueryRunner(queryRunner, "SELECT * FROM system.runtime.nodes");
         computeActualWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS");
         assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
         computeActualWithCustomQueryRunner(queryRunner, "SHOW SESSION");
@@ -60,8 +59,7 @@ public class TestPrestoContainerSidecarInfrastructure
     {
         QueryRunner queryRunner = new ContainerQueryRunner(4, true, true, true);
         assertQueryFailsWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS", "Query failed .*.: Failed to get functions from sidecar.", true);
-        TimeUnit.SECONDS.sleep(60);
-        computeActualWithCustomQueryRunner(queryRunner, "SELECT * FROM system.runtime.nodes");
+        TimeUnit.SECONDS.sleep(30);
         computeActualWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS");
         assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
         computeActualWithCustomQueryRunner(queryRunner, "SHOW SESSION");

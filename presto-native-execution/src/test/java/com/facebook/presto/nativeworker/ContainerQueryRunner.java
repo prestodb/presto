@@ -92,6 +92,7 @@ public class ContainerQueryRunner
         this.sidecar = Optional.empty();
 
         this.coordinator = createCoordinator();
+        coordinator.start();
         startWorkers(numberOfWorkers, true, false);
 
         startCoordinatorAndLogUI();
@@ -108,6 +109,7 @@ public class ContainerQueryRunner
         this.numberOfWorkers = numberOfWorkers;
 
         this.coordinator = createCoordinator(isNativeCluster, isSidecarEnabled);
+        coordinator.start();
         startWorkers(numberOfWorkers, isNativeCluster, isSidecarEnabled);
 
         if (isSidecarEnabled) {
@@ -124,7 +126,10 @@ public class ContainerQueryRunner
 
         // Need some extra time for sidecar to register otherwise it throws sidecar not found error
         if (isSidecarEnabled && !isSidecarDelayed) {
-            TimeUnit.SECONDS.sleep(60);
+            TimeUnit.SECONDS.sleep(35);
+        }
+        else {
+            TimeUnit.SECONDS.sleep(5);
         }
 
         startCoordinatorAndLogUI();
@@ -135,7 +140,6 @@ public class ContainerQueryRunner
     private void startWorkers(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled)
             throws InterruptedException, IOException
     {
-        coordinator.start();
         ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
 
         if (isNativeCluster) {
@@ -150,8 +154,6 @@ public class ContainerQueryRunner
         }
 
         workers.forEach(GenericContainer::start);
-
-        TimeUnit.SECONDS.sleep(5);
     }
 
     private void cleanupDirectories(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled)
