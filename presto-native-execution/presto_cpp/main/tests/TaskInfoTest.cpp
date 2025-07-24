@@ -13,15 +13,15 @@
  */
 
 #include <gtest/gtest.h>
-#include "presto_cpp/main/thrift/ProtocolToThrift.h"
-#include "presto_cpp/presto_protocol/core/Duration.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/thrift/ProtocolToThrift.h"
+#include "presto_cpp/presto_protocol/core/Duration.h"
 
 using namespace facebook::presto;
 
 class TaskInfoTest : public ::testing::Test {
-  protected:
+ protected:
   void SetUp() override {
     registerPrestoToVeloxConnector(
         std::make_unique<facebook::presto::HivePrestoToVeloxConnector>("hive"));
@@ -32,11 +32,13 @@ class TaskInfoTest : public ::testing::Test {
   }
 };
 
-const std::string BASE_DATA_PATH = "/github/presto-trunk/presto-native-execution/presto_cpp/main/tests/data/";
+const std::string BASE_DATA_PATH =
+    "/github/presto-trunk/presto-native-execution/presto_cpp/main/tests/data/";
 
 TEST_F(TaskInfoTest, duration) {
   double thrift = 0;
-  thrift::toThrift(protocol::Duration(123, protocol::TimeUnit::MILLISECONDS), thrift);
+  thrift::toThrift(
+      protocol::Duration(123, protocol::TimeUnit::MILLISECONDS), thrift);
   ASSERT_EQ(thrift, 123);
 }
 
@@ -44,7 +46,8 @@ TEST_F(TaskInfoTest, binaryMetadataUpdates) {
   std::string str = slurp(getDataPath(BASE_DATA_PATH, "MetadataUpdates.json"));
   json j = json::parse(str);
   protocol::MetadataUpdates metadataUpdates = j;
-  std::unique_ptr<std::string> thriftMetadataUpdates = std::make_unique<std::string>();
+  std::unique_ptr<std::string> thriftMetadataUpdates =
+      std::make_unique<std::string>();
   thrift::toThrift(metadataUpdates, *thriftMetadataUpdates);
 
   json thriftJson = json::parse(*thriftMetadataUpdates);
@@ -57,24 +60,32 @@ TEST_F(TaskInfoTest, taskInfo) {
   protocol::TaskInfo taskInfo = j;
   thrift::TaskInfo thriftTaskInfo;
   thrift::toThrift(taskInfo, thriftTaskInfo);
-  
-  json thriftJson = json::parse(*thriftTaskInfo.metadataUpdates()->metadataUpdates());
+
+  json thriftJson =
+      json::parse(*thriftTaskInfo.metadataUpdates()->metadataUpdates());
   ASSERT_EQ(taskInfo.metadataUpdates, thriftJson);
   ASSERT_EQ(thriftTaskInfo.needsPlan(), false);
   ASSERT_EQ(thriftTaskInfo.outputBuffers()->buffers()->size(), 2);
   ASSERT_EQ(thriftTaskInfo.outputBuffers()->buffers()[0].bufferId()->id(), 100);
   ASSERT_EQ(thriftTaskInfo.outputBuffers()->buffers()[1].bufferId()->id(), 200);
-  ASSERT_EQ(thriftTaskInfo.stats()->blockedReasons()->count(thrift::BlockedReason::WAITING_FOR_MEMORY), 1);
+  ASSERT_EQ(
+      thriftTaskInfo.stats()->blockedReasons()->count(
+          thrift::BlockedReason::WAITING_FOR_MEMORY),
+      1);
   ASSERT_EQ(thriftTaskInfo.stats()->runtimeStats()->metrics()->size(), 2);
-  ASSERT_EQ(thriftTaskInfo.stats()->runtimeStats()->metrics()["test_metric1"].sum(), 123);
-  ASSERT_EQ(thriftTaskInfo.stats()->runtimeStats()->metrics()["test_metric2"].name(), "test_metric2");
+  ASSERT_EQ(
+      thriftTaskInfo.stats()->runtimeStats()->metrics()["test_metric1"].sum(),
+      123);
+  ASSERT_EQ(
+      thriftTaskInfo.stats()->runtimeStats()->metrics()["test_metric2"].name(),
+      "test_metric2");
 }
 
 TEST_F(TaskInfoTest, taskId) {
   protocol::TaskId taskId = "queryId.1.2.3.4";
   thrift::TaskId thriftTaskId;
   thrift::toThrift(taskId, thriftTaskId);
-  
+
   ASSERT_EQ(thriftTaskId.stageExecutionId()->stageId()->queryId(), "queryId");
   ASSERT_EQ(thriftTaskId.stageExecutionId()->stageId()->id(), 1);
   ASSERT_EQ(thriftTaskId.stageExecutionId()->id(), 2);
@@ -82,14 +93,14 @@ TEST_F(TaskInfoTest, taskId) {
   ASSERT_EQ(thriftTaskId.attemptNumber(), 4);
 }
 
-
 TEST_F(TaskInfoTest, operatorStatsEmptyBlockedReason) {
-  std::string str = slurp(getDataPath(BASE_DATA_PATH, "OperatorStatsEmptyBlockedReason.json"));
+  std::string str = slurp(
+      getDataPath(BASE_DATA_PATH, "OperatorStatsEmptyBlockedReason.json"));
   json j = json::parse(str);
   protocol::OperatorStats operatorStats = j;
   thrift::OperatorStats thriftOperatorStats;
   thrift::toThrift(operatorStats, thriftOperatorStats);
-  
+
   ASSERT_EQ(thriftOperatorStats.blockedReason().has_value(), false);
   ASSERT_EQ(thriftOperatorStats.blockedWall(), 80);
   ASSERT_EQ(thriftOperatorStats.finishCpu(), 1000);
@@ -101,6 +112,8 @@ TEST_F(TaskInfoTest, operatorStats) {
   protocol::OperatorStats operatorStats = j;
   thrift::OperatorStats thriftOperatorStats;
   thrift::toThrift(operatorStats, thriftOperatorStats);
-  
-  ASSERT_EQ(thriftOperatorStats.blockedReason(), thrift::BlockedReason::WAITING_FOR_MEMORY);
+
+  ASSERT_EQ(
+      thriftOperatorStats.blockedReason(),
+      thrift::BlockedReason::WAITING_FOR_MEMORY);
 }

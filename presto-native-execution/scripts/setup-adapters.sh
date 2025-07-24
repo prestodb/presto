@@ -15,8 +15,7 @@
 set -eufx -o pipefail
 
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
-then
+if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]; then
   source "${SCRIPT_DIR}/setup-helper-functions.sh"
 else
   source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
@@ -61,20 +60,20 @@ function install_grpc {
 
 function install_arrow_flight {
   ARROW_VERSION="${ARROW_VERSION:-15.0.0}"
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  if [[ $OSTYPE == "linux-gnu"* ]]; then
     export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
     LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
-    if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" ]]; then
+    if [[ $LINUX_DISTRIBUTION == "ubuntu" || $LINUX_DISTRIBUTION == "debian" ]]; then
       SUDO="${SUDO:-"sudo --preserve-env"}"
       ${SUDO} apt install -y libc-ares-dev
-      ${SUDO} ldconfig -v 2>/dev/null | grep "${INSTALL_PREFIX}/lib" || \
-        echo "${INSTALL_PREFIX}/lib" | ${SUDO} tee /etc/ld.so.conf.d/local-libraries.conf > /dev/null \
-        && ${SUDO} ldconfig
+      ${SUDO} ldconfig -v 2>/dev/null | grep "${INSTALL_PREFIX}/lib" ||
+        echo "${INSTALL_PREFIX}/lib" | ${SUDO} tee /etc/ld.so.conf.d/local-libraries.conf >/dev/null &&
+        ${SUDO} ldconfig
     else
       dnf -y install c-ares-devel
-      ldconfig -v 2>/dev/null | grep "${INSTALL_PREFIX}/lib" || \
-        echo "${INSTALL_PREFIX}/lib" | tee /etc/ld.so.conf.d/local-libraries.conf > /dev/null \
-        && ldconfig
+      ldconfig -v 2>/dev/null | grep "${INSTALL_PREFIX}/lib" ||
+        echo "${INSTALL_PREFIX}/lib" | tee /etc/ld.so.conf.d/local-libraries.conf >/dev/null &&
+        ldconfig
     fi
   else
     # The installation script for the Arrow Flight connector currently works only on Linux distributions.
@@ -100,30 +99,30 @@ install_prometheus_cpp=0
 install_arrow_flight=0
 
 if [ "$#" -eq 0 ]; then
-    # Install all adapters by default
-    install_jwt=1
-    install_prometheus_cpp=1
-    install_arrow_flight=1
+  # Install all adapters by default
+  install_jwt=1
+  install_prometheus_cpp=1
+  install_arrow_flight=1
 fi
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    jwt)
-      install_jwt=1
-      shift # past argument
-      ;;
-    prometheus)
-      install_prometheus_cpp=1;
-      shift
-          ;;
-    arrow_flight)
-      install_arrow_flight=1;
-      shift
-      ;;
-    *)
-      echo "ERROR: Unknown option $1! will be ignored!"
-      shift
-      ;;
+  jwt)
+    install_jwt=1
+    shift # past argument
+    ;;
+  prometheus)
+    install_prometheus_cpp=1
+    shift
+    ;;
+  arrow_flight)
+    install_arrow_flight=1
+    shift
+    ;;
+  *)
+    echo "ERROR: Unknown option $1! will be ignored!"
+    shift
+    ;;
 
   esac
 done
@@ -141,6 +140,6 @@ if [ $install_arrow_flight -eq 1 ]; then
 fi
 
 _ret=$?
-if [ $_ret -eq 0 ] ; then
-   echo "All deps for Presto adapters installed!"
+if [ $_ret -eq 0 ]; then
+  echo "All deps for Presto adapters installed!"
 fi

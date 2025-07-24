@@ -9,16 +9,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  presto_protocol OBJECT
-  presto_protocol.cpp
-  Base64Util.cpp
-  core/DataSize.cpp
-  core/Duration.cpp
-  core/ConnectorProtocol.cpp)
 
-target_link_libraries(presto_protocol velox_type velox_presto_serializer ${RE2})
+# Currently this config mostly mirrors the default with the addition of custom functions
+format:
+  line_width: 80
+  tab_size: 2
+  use_tabchars: false
+  max_pargs_hwrap: 4
+  max_subgroups_hwrap: 2
+  min_prefix_chars: 4
+  max_prefix_chars: 6
+  separate_ctrl_name_with_space: false
+  separate_fn_name_with_space: false
+  dangle_parens: false
+  command_case: canonical
+  keyword_case: unchanged
 
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+markup:
+  first_comment_is_literal: true
+  enable_markup: false

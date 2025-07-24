@@ -67,15 +67,21 @@ def main():
     result = [{"comment": comment}]
 
     # Skip structs that are not used in cpp
-    thrift = [item for item in thrift if "class_name" in item and item.class_name not in config.SkipStruct]
+    thrift = [
+        item
+        for item in thrift
+        if "class_name" in item and item.class_name not in config.SkipStruct
+    ]
     for thrift_item in thrift:
+        special = False
+
         if "class_name" not in thrift_item:
             continue
 
-        # For structs that are defined in presto_protocol_core.h        
+        # For structs that are defined in presto_protocol_core.h
         if thrift_item.class_name in config.StructInProtocolCore:
             thrift_item["core"] = "true"
-        
+
         # For structs that have a single field in IDL but defined using type aliases in cpp
         if thrift_item.class_name in config.WrapperStruct:
             thrift_item["wrapper"] = "true"
@@ -143,7 +149,9 @@ def main():
                         + thrift_item.class_name
                     )
         else:
-            eprint("Thrift item missing from presto_protocol: " + thrift_item.class_name)
+            eprint(
+                "Thrift item missing from presto_protocol: " + thrift_item.class_name
+            )
 
     result.extend(thrift)
     print(util.to_json(result))

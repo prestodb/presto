@@ -210,7 +210,12 @@ find_package(wangle CONFIG)
 find_package(FBThrift)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
-set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ} ${MVFST_EXCEPTION})
+set(PROXYGEN_LIBRARIES
+    ${PROXYGEN_HTTP_SERVER}
+    ${PROXYGEN}
+    ${WANGLE}
+    ${FIZZ}
+    ${MVFST_EXCEPTION})
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
 
