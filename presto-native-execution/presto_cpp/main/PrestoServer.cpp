@@ -84,6 +84,7 @@
 #include <pthread.h>
 #include <sched.h>
 #endif
+#include <iostream>
 
 using namespace facebook;
 
@@ -396,10 +397,9 @@ void PrestoServer::run() {
           proxygen::HTTPMessage* message,
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream) {
-        std::string connectorTableMetadataJson = util::extractMessageBody(body);
-        // protocol::ConnectorTableMetadata connectorTableMetadata;
-        // protocol::from_json(json(connectorTableMetadataJson), connectorTableMetadata);
-          http::sendOkResponse(downstream, json("response"));
+        http::sendOkResponse(
+            downstream,
+            getAnalyzedTableValueFunction(util::extractMessageBody(body)));
       });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
@@ -1335,12 +1335,6 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
-  if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerAllScalarFunctions(
-        "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "json.test_schema.");
-  }
 
   // #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
   velox::exec::Operator::registerOperator(

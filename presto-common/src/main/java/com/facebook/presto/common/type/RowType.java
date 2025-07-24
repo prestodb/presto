@@ -44,16 +44,28 @@ public class RowType
 
     private RowType(List<Field> fields)
     {
-        super(Block.class);
-        this.fields = fields;
-        this.fieldTypes = fields.stream()
+        this(fields, fields.stream()
                 .map(Field::getType)
-                .collect(toList());
-        this.typeSignature = containsDistinctType(this.fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields));
+                .collect(toList()));
+    }
+
+    private RowType(List<Field> fields, List<Type> fieldTypes)
+    {
+        this(fields, fieldTypes, containsDistinctType(fieldTypes) ? Optional.empty() : Optional.of(makeSignature(fields)));
     }
 
     @JsonCreator
-    public static RowType from(@JsonProperty("fields") List<Field> fields)
+    public RowType(List<Field> fields,
+            List<Type> fieldTypes,
+            @JsonProperty("typeSignature") Optional<TypeSignature> typeSignature)
+    {
+        super(Block.class);
+        this.fields = fields;
+        this.fieldTypes = fieldTypes;
+        this.typeSignature = typeSignature;
+    }
+
+    public static RowType from(List<Field> fields)
     {
         return new RowType(fields);
     }
@@ -121,6 +133,12 @@ public class RowType
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+    }
+
+    @JsonProperty
+    public List<Field> getFields()
+    {
+        return fields;
     }
 
     @Override
@@ -196,18 +214,13 @@ public class RowType
         return fieldTypes;
     }
 
-    public List<Field> getFields()
-    {
-        return fields;
-    }
-
     public static class Field
     {
         private final Type type;
         private final Optional<String> name;
         private final boolean delimited;
 
-        public Field(Optional<String> name, Type type)
+        public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type)
         {
             this(name, type, false);
         }
@@ -219,11 +232,13 @@ public class RowType
             this.delimited = delimited;
         }
 
+        @JsonProperty
         public Type getType()
         {
             return type;
         }
 
+        @JsonProperty
         public Optional<String> getName()
         {
             return name;

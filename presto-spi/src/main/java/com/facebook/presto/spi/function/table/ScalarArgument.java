@@ -42,7 +42,6 @@ public class ScalarArgument
 
     public ScalarArgument(Type type, Object value)
     {
-        super("");
         this.type = requireNonNull(type, "type is null");
         this.value = value;
     }

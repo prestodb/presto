@@ -3050,6 +3050,10 @@ void to_json(json& j, const std::shared_ptr<Argument>& p) {
     j = *std::static_pointer_cast<DescriptorArgument>(p);
     return;
   }
+  if (type == "scalar") {
+    j = *std::static_pointer_cast<ScalarArgument>(p);
+    return;
+  }
   if (type == "table") {
     j = *std::static_pointer_cast<TableArgument>(p);
     return;
@@ -3069,6 +3073,12 @@ void from_json(const json& j, std::shared_ptr<Argument>& p) {
   if (type == "descriptor") {
     std::shared_ptr<DescriptorArgument> k =
         std::make_shared<DescriptorArgument>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<Argument>(k);
+    return;
+  }
+  if (type == "scalar") {
+    std::shared_ptr<ScalarArgument> k = std::make_shared<ScalarArgument>();
     j.get_to(*k);
     p = std::static_pointer_cast<Argument>(k);
     return;
@@ -3093,7 +3103,7 @@ void to_json(json& j, const ConnectorTableMetadata1& p) {
       "arguments",
       p.arguments,
       "ConnectorTableMetadata1",
-      "Map<String, Argument>",
+      "Map<String, std::shared_ptr<Argument>>",
       "arguments");
 }
 
@@ -3104,7 +3114,7 @@ void from_json(const json& j, ConnectorTableMetadata1& p) {
       "arguments",
       p.arguments,
       "ConnectorTableMetadata1",
-      "Map<String, Argument>",
+      "Map<String, std::shared_ptr<Argument>>",
       "arguments");
 }
 } // namespace facebook::presto::protocol
@@ -7540,6 +7550,42 @@ void from_json(const json& j, NodeStatus& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const Serializable& p) {
+  j = json::object();
+  to_json_key(j, "type", p.type, "Serializable", "Type", "type");
+  to_json_key(j, "block", p.block, "Serializable", "Block", "block");
+}
+
+void from_json(const json& j, Serializable& p) {
+  from_json_key(j, "type", p.type, "Serializable", "Type", "type");
+  from_json_key(j, "block", p.block, "Serializable", "Block", "block");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const NullableValue& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "serializable",
+      p.serializable,
+      "NullableValue",
+      "Serializable",
+      "serializable");
+}
+
+void from_json(const json& j, NullableValue& p) {
+  from_json_key(
+      j,
+      "serializable",
+      p.serializable,
+      "NullableValue",
+      "Serializable",
+      "serializable");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 OnlyPassThroughReturnTypeSpecification::
     OnlyPassThroughReturnTypeSpecification() noexcept {
   _type = "only_pass_through_table";
@@ -9288,11 +9334,23 @@ namespace facebook::presto::protocol {
 
 void to_json(json& j, const RowType& p) {
   j = json::object();
-  to_json_key(j, "fields", p.fields, "RowType", "List<Field>", "fields");
+  to_json_key(
+      j,
+      "typeSignature",
+      p.typeSignature,
+      "RowType",
+      "TypeSignature",
+      "typeSignature");
 }
 
 void from_json(const json& j, RowType& p) {
-  from_json_key(j, "fields", p.fields, "RowType", "List<Field>", "fields");
+  from_json_key(
+      j,
+      "typeSignature",
+      p.typeSignature,
+      "RowType",
+      "TypeSignature",
+      "typeSignature");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -9425,6 +9483,34 @@ void from_json(const json& j, SampleNode& p) {
       "SampleNode",
       "SampleNodeType",
       "sampleType");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+ScalarArgument::ScalarArgument() noexcept {
+  _type = "scalar";
+}
+
+void to_json(json& j, const ScalarArgument& p) {
+  j = json::object();
+  j["@type"] = "scalar";
+  to_json_key(
+      j,
+      "nullableValue",
+      p.nullableValue,
+      "ScalarArgument",
+      "NullableValue",
+      "nullableValue");
+}
+
+void from_json(const json& j, ScalarArgument& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "nullableValue",
+      p.nullableValue,
+      "ScalarArgument",
+      "NullableValue",
+      "nullableValue");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -10295,6 +10381,7 @@ void to_json(json& j, const TableArgument& p) {
       "partitionBy");
   to_json_key(
       j, "orderBy", p.orderBy, "TableArgument", "List<String>", "orderBy");
+  to_json_key(j, "fields", p.fields, "TableArgument", "List<Field>", "fields");
 }
 
 void from_json(const json& j, TableArgument& p) {
@@ -10309,6 +10396,8 @@ void from_json(const json& j, TableArgument& p) {
       "partitionBy");
   from_json_key(
       j, "orderBy", p.orderBy, "TableArgument", "List<String>", "orderBy");
+  from_json_key(
+      j, "fields", p.fields, "TableArgument", "List<Field>", "fields");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

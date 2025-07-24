@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.CatalogSchemaFunctionName;
 import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
@@ -32,7 +33,7 @@ import java.util.Map;
 import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.spi.StandardErrorCode.TABLE_FUNCTION_ANALYSIS_FAILED;
 import static com.facebook.presto.tvf.NativeTVFProvider.getWorkerLocation;
 import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -72,7 +73,7 @@ public class NativeConnectorTableFunction
                     createJsonResponseHandler(tableFunctionAnalysisJsonCodec));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to analyze function.", e);
+            throw new PrestoException(TABLE_FUNCTION_ANALYSIS_FAILED, "Failed to analyze function.", e);
         }
     }
 
@@ -81,7 +82,7 @@ public class NativeConnectorTableFunction
         return preparePost()
                 .setUri(getWorkerLocation(nodeManager, TVF_ANALYZE_ENDPOINT))
                 .setBodyGenerator(
-                        jsonBodyGenerator(connectorTableMetadataJsonCodec, new ConnectorTableMetadata1(getName(), arguments)))
+                        jsonBodyGenerator(connectorTableMetadataJsonCodec, new ConnectorTableMetadata1(new CatalogSchemaFunctionName("presto", "default", getName()).toString(), arguments)))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .build();

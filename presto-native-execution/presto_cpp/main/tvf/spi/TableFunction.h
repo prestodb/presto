@@ -89,7 +89,8 @@ using TableFunctionFactory = std::function<std::unique_ptr<TableFunction>(
 
 using TableFunctionAnalyzer =
     std::function<std::unique_ptr<TableFunctionAnalysis>(
-        const std::unordered_map<std::string, std::shared_ptr<Argument>>& args)>;
+        const std::unordered_map<std::string, std::shared_ptr<Argument>>&
+            args)>;
 
 /// Register a Table function with the specified name.
 /// Registering a function with the same name a second time overrides the first

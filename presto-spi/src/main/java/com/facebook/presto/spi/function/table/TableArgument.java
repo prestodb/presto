@@ -39,9 +39,9 @@ public class TableArgument
     public TableArgument(
             @JsonProperty("rowType") RowType rowType,
             @JsonProperty("partitionBy") List<String> partitionBy,
-            @JsonProperty("orderBy") List<String> orderBy)
+            @JsonProperty("orderBy") List<String> orderBy,
+            @JsonProperty("fields") List<RowType.Field> fields)
     {
-        super("");
         this.rowType = requireNonNull(rowType, "rowType is null");
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
@@ -51,6 +51,12 @@ public class TableArgument
     public RowType getRowType()
     {
         return rowType;
+    }
+
+    @JsonProperty
+    public List<RowType.Field> getFields()
+    {
+        return rowType.getFields();
     }
 
     @JsonProperty
@@ -98,7 +104,7 @@ public class TableArgument
 
         public TableArgument build()
         {
-            return new TableArgument(rowType, partitionBy, orderBy);
+            return new TableArgument(rowType, partitionBy, orderBy, rowType.getFields());
         }
     }
 }

@@ -37,7 +37,6 @@ public class DescriptorArgument
     @JsonCreator
     public DescriptorArgument(@JsonProperty("descriptor") Optional<Descriptor> descriptor)
     {
-        super("");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         descriptor.ifPresent(descriptorValue -> checkArgument(
                 descriptorValue.getFields().stream().allMatch(field -> field.getName().isPresent()),

@@ -32,7 +32,6 @@ import com.google.common.collect.Iterables;
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -90,7 +89,7 @@ public class NativeTVFProvider
 
     private synchronized Map<String, TableFunctionMetadata> loadConnectorTableFunctions()
     {
-        Map<String, JsonBasedTableFunctionMetadata> connectorTableFunctions = new HashMap<>();
+        Map<String, JsonBasedTableFunctionMetadata> connectorTableFunctions;
         try {
             Request request = prepareGet().setUri(getWorkerLocation(nodeManager, TABLE_FUNCTIONS_ENDPOINT)).build();
             connectorTableFunctions = httpClient.execute(request, createJsonResponseHandler(connectorTableFunctionListJsonCodec));

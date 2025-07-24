@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/tvf/spi/TableFunction.h"
+#include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateFunctionRegistry.h"
@@ -276,7 +277,8 @@ protocol::Descriptor buildDescriptor(const Descriptor& descriptor) {
     std::shared_ptr<std::string> type = (i < types.size())
         ? std::make_shared<std::string>(types.at(i)->toString())
         : nullptr;
-    fields.emplace_back(protocol::Field{names[i], type});
+    fields.emplace_back(
+        protocol::Field{std::make_shared<std::string>(names.at(i)), type});
   }
   return protocol::Descriptor{fields};
 }
@@ -317,7 +319,7 @@ buildArgumentSpecsList(TableArgumentSpecList argumentsSpec) {
       descriptorArgumentSpecification->name = descriptorArgumentSpec->name();
       descriptorArgumentSpecification->defaultValue =
           buildDescriptor(descriptorArgumentSpec->descriptor());
-          descriptorArgumentSpecification->required = false;
+      descriptorArgumentSpecification->required = false;
       argumentsSpecsList.emplace_back(descriptorArgumentSpecification);
     } else {
       VELOX_FAIL("Failed to convert to a valid argumentSpec");
@@ -332,13 +334,13 @@ std::shared_ptr<protocol::ReturnTypeSpecification> buildReturnTypeSpecification(
   if (returnTypeSpecification ==
       ReturnTypeSpecification::ReturnType::kGenericTable) {
     std::shared_ptr<protocol::GenericTableReturnTypeSpecification>
-        genericTableReturnTypeSpecification
-        = std::make_shared<protocol::GenericTableReturnTypeSpecification>();
+        genericTableReturnTypeSpecification =
+            std::make_shared<protocol::GenericTableReturnTypeSpecification>();
     return genericTableReturnTypeSpecification;
   } else {
     std::shared_ptr<protocol::DescribedTableReturnTypeSpecification>
-    describedTableReturnTypeSpecification
-        = std::make_shared<protocol::DescribedTableReturnTypeSpecification>();
+        describedTableReturnTypeSpecification =
+            std::make_shared<protocol::DescribedTableReturnTypeSpecification>();
     auto describedTable =
         std::dynamic_pointer_cast<DescribedTableReturnType>(returnSpec);
     describedTableReturnTypeSpecification->descriptor =
@@ -415,14 +417,65 @@ json getTableValuedFunctionsMetadata() {
     function.name = functionName;
     function.schema = schema;
     function.returnTypeSpecification =
-        buildReturnTypeSpecification(
-          getTableFunctionReturnType(entry.first));
-    function.arguments = 
-        buildArgumentSpecsList(
-          getTableFunctionArgumentSpecs(entry.first));
+        buildReturnTypeSpecification(getTableFunctionReturnType(entry.first));
+    function.arguments =
+        buildArgumentSpecsList(getTableFunctionArgumentSpecs(entry.first));
     protocol::to_json(tj, function);
     j[functionName] = tj;
   }
   return j;
+}
+
+json getTableFunctionAnalysis(
+    std::string functionName,
+    std::unordered_map<std::string, std::shared_ptr<tvf::Argument>> args) {
+  auto tableFunctionAnalysis = tvf::TableFunction::analyze(functionName, args);
+  return json("response");
+}
+
+json getAnalyzedTableValueFunction(std::string connectorTableMetadataJson) {
+  TypeParser parser;
+  protocol::ConnectorTableMetadata1 connectorTableMetadata =
+      json::parse(connectorTableMetadataJson);
+  std::unordered_map<std::string, std::shared_ptr<tvf::Argument>> args;
+  for (const auto& entry : connectorTableMetadata.arguments) {
+    std::shared_ptr<tvf::Argument> functionArg;
+    if (auto scalarArgument =
+            std::dynamic_pointer_cast<protocol::ScalarArgument>(entry.second)) {
+      auto serializableNullableValue =
+          scalarArgument->nullableValue.serializable;
+      // arg = std::make_shared<tvf::ScalarArgument>(
+      //   parser.parse(serializableNullableValue.type),
+      //   BaseVector::create(rowType, 0, &streams_.getMemoryPool())
+      //   BaseVector::create(serializableNullableValue.block));
+    } else if (
+        auto tableArgument =
+            std::dynamic_pointer_cast<protocol::TableArgument>(entry.second)) {
+      std::vector<std::string> fieldNames;
+      std::vector<velox::TypePtr> fieldTypes;
+      for (auto& arg : tableArgument->fields) {
+        fieldNames.push_back(boost::algorithm::to_lower_copy(*arg.name));
+        fieldTypes.push_back(parser.parse(*arg.type));
+      }
+      functionArg = std::make_shared<tvf::TableArgument>(
+          ROW(std::move(fieldNames), std::move(fieldTypes)));
+    } else if (
+        auto descriptorArgument =
+            std::dynamic_pointer_cast<protocol::DescriptorArgument>(
+                entry.second)) {
+      std::vector<std::string> fieldNames;
+      std::vector<velox::TypePtr> fieldTypes;
+      for (auto& arg : descriptorArgument->descriptor->fields) {
+        fieldNames.push_back(boost::algorithm::to_lower_copy(*arg.name));
+        fieldTypes.push_back(parser.parse(*arg.type));
+      }
+      functionArg = std::make_shared<tvf::Descriptor>(
+          std::move(fieldNames), std::move(fieldTypes));
+    } else {
+      VELOX_FAIL("Failed to convert to a valid Argument");
+    }
+    args[entry.first] = functionArg;
+  }
+  return getTableFunctionAnalysis(connectorTableMetadata.name, args);
 }
 } // namespace facebook::presto

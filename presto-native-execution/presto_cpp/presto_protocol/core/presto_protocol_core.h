@@ -893,7 +893,7 @@ void from_json(const json& j, Column& p);
 namespace facebook::presto::protocol {
 struct ConnectorTableMetadata1 {
   String name = {};
-  Map<String, Argument> arguments = {};
+  Map<String, std::shared_ptr<Argument>> arguments = {};
 };
 void to_json(json& j, const ConnectorTableMetadata1& p);
 void from_json(const json& j, ConnectorTableMetadata1& p);
@@ -1828,6 +1828,21 @@ void to_json(json& j, const NodeStatus& p);
 void from_json(const json& j, NodeStatus& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct Serializable {
+  Type type = {};
+  Block block = {};
+};
+void to_json(json& j, const Serializable& p);
+void from_json(const json& j, Serializable& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NullableValue {
+  Serializable serializable = {};
+};
+void to_json(json& j, const NullableValue& p);
+void from_json(const json& j, NullableValue& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct OnlyPassThroughReturnTypeSpecification : public ReturnTypeSpecification {
   String dummy = {};
 
@@ -2114,7 +2129,7 @@ void from_json(const json& j, RowNumberNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct RowType {
-  List<Field> fields = {};
+  std::shared_ptr<TypeSignature> typeSignature = {};
 };
 void to_json(json& j, const RowType& p);
 void from_json(const json& j, RowType& p);
@@ -2151,6 +2166,15 @@ struct SampleNode : public PlanNode {
 };
 void to_json(json& j, const SampleNode& p);
 void from_json(const json& j, SampleNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ScalarArgument : public Argument {
+  NullableValue nullableValue = {};
+
+  ScalarArgument() noexcept;
+};
+void to_json(json& j, const ScalarArgument& p);
+void from_json(const json& j, ScalarArgument& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 enum class DistributionType { PARTITIONED, REPLICATED };
@@ -2348,6 +2372,7 @@ struct TableArgument : public Argument {
   RowType rowType = {};
   List<String> partitionBy = {};
   List<String> orderBy = {};
+  List<Field> fields = {};
 
   TableArgument() noexcept;
 };
