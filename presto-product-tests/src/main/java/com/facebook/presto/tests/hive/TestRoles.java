@@ -676,7 +676,7 @@ public class TestRoles
             onPresto().executeQuery("CREATE SCHEMA hive.test");
             onPresto().executeQuery("GRANT admin TO alice");
             onPrestoAlice().executeQuery("SET ROLE ADMIN");
-            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT)");
+            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT) with (external_location='/tmp')");
 
             QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table_bob"))
                     .containsOnly(ImmutableList.of(
