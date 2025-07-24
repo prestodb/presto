@@ -235,4 +235,27 @@ core::TypedExprPtr ExprBank::getRandomExpression(
   return nullptr;
 }
 
+std::string filterOnly(
+    const std::string& onlyFunctions,
+    const std::unordered_set<std::string>& skipFunctions) {
+  if (onlyFunctions.empty() || skipFunctions.empty()) {
+    return onlyFunctions;
+  }
+
+  if (!onlyFunctions.empty()) {
+    std::vector<std::string> onlyFunctionsVec;
+    folly::split(',', onlyFunctions, onlyFunctionsVec);
+    std::vector<std::string> filteredFunctions;
+    for (const auto& func : onlyFunctionsVec) {
+      if (skipFunctions.find(func) == skipFunctions.end()) {
+        filteredFunctions.push_back(func);
+      }
+    }
+
+    return folly::join(",", filteredFunctions);
+  }
+
+  return onlyFunctions;
+}
+
 } // namespace facebook::velox::fuzzer

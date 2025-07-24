@@ -68,6 +68,12 @@ void compareExceptions(
     std::exception_ptr exceptionPtr,
     std::exception_ptr otherExceptionPr);
 
+/// Returns a new string that filters signatures in 'onlyFunctions' that are
+/// also in 'skipFunctions'.
+std::string filterOnly(
+    const std::string& onlyFunctions,
+    const std::unordered_set<std::string>& skipFunctions);
+
 /// Parse the comma separated list of function names, and use it to filter the
 /// input signatures. Return a signature map that (1) only include functions
 /// appearing in onlyFunctions if onlyFunctions is non-empty, and (2) not
@@ -80,15 +86,23 @@ SignatureMapType filterSignatures(
     const SignatureMapType& input,
     const std::string& onlyFunctions,
     const std::unordered_set<std::string>& skipFunctions) {
-  if (onlyFunctions.empty() && skipFunctions.empty()) {
+  // Filter signatures in 'onlyFunctions' that are also in 'skipFunctions'.
+  auto filteredFunctions = filterOnly(onlyFunctions, skipFunctions);
+
+  if (filteredFunctions != onlyFunctions) {
+    LOG(INFO) << "Functions present in skip list filtered, Only functions: "
+              << filteredFunctions;
+  }
+
+  if (filteredFunctions.empty() && skipFunctions.empty()) {
     return input;
   }
 
   SignatureMapType output;
-  if (!onlyFunctions.empty()) {
+  if (!filteredFunctions.empty()) {
     // Parse, lower case and trim it.
     std::vector<folly::StringPiece> nameList;
-    folly::split(',', onlyFunctions, nameList);
+    folly::split(',', filteredFunctions, nameList);
     std::unordered_set<std::string> nameSet;
     for (const auto& it : nameList) {
       auto str = folly::trimWhitespace(it).toString();
