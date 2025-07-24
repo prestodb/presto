@@ -72,6 +72,9 @@ class SfmSketchAccumulator {
     sketch_.add(value);
   }
 
+  // Add a value to the sketch through index and zeros.
+  void addIndexAndZeros(int32_t bucketIndex, int32_t zeros);
+
   // Merge with another accumulator.
   void mergeWith(SfmSketchAccumulator& other);
 

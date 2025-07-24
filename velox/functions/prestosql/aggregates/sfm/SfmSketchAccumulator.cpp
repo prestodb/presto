@@ -87,6 +87,13 @@ void SfmSketchAccumulator::mergeWith(SfmSketchAccumulator& other) {
   sketch_.mergeWith(other.sketch_);
 }
 
+void SfmSketchAccumulator::addIndexAndZeros(
+    int32_t bucketIndex,
+    int32_t zeros) {
+  VELOX_CHECK(isInitialized(), "Sketch is not set");
+  sketch_.addIndexAndZeros(bucketIndex, zeros);
+}
+
 int64_t SfmSketchAccumulator::cardinality() {
   VELOX_CHECK(
       isInitialized(), "Cardinality is not available for empty sketch.");

@@ -79,6 +79,25 @@ void registerNoisyApproxSfmAggregate(
                                   .build());
   }
 
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>>
+      setFromIndexAndZerosSignatures;
+
+  setFromIndexAndZerosSignatures.push_back(
+      setBuilder()
+          .argumentType("bigint") // col_index
+          .argumentType("bigint") // col_zeros
+          .constantArgumentType("double") // epsilon
+          .constantArgumentType("bigint") // buckets
+          .build());
+  setFromIndexAndZerosSignatures.push_back(
+      setBuilder()
+          .argumentType("bigint") // col_index
+          .argumentType("bigint") // col_zeros
+          .constantArgumentType("double") // epsilon
+          .constantArgumentType("bigint") // buckets
+          .constantArgumentType("bigint") // precision
+          .build());
+
   exec::registerAggregateFunction(
       prefix + kNoisyApproxSetSfm,
       setSignatures,
@@ -89,9 +108,9 @@ void registerNoisyApproxSfmAggregate(
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
         if (exec::isPartialOutput(step)) {
-          return std::make_unique<SfmSketchAggregate<true>>(VARBINARY());
+          return std::make_unique<SfmSketchAggregate<true, false>>(VARBINARY());
         }
-        return std::make_unique<SfmSketchAggregate<true>>(resultType);
+        return std::make_unique<SfmSketchAggregate<true, false>>(resultType);
       },
       withCompanionFunctions,
       overwrite);
@@ -106,9 +125,27 @@ void registerNoisyApproxSfmAggregate(
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
         if (exec::isPartialOutput(step)) {
-          return std::make_unique<SfmSketchAggregate<false>>(VARBINARY());
+          return std::make_unique<SfmSketchAggregate<false, false>>(
+              VARBINARY());
         }
-        return std::make_unique<SfmSketchAggregate<false>>(resultType);
+        return std::make_unique<SfmSketchAggregate<false, false>>(resultType);
+      },
+      withCompanionFunctions,
+      overwrite);
+
+  exec::registerAggregateFunction(
+      prefix + kNoisyApproxSetSfmFromIndexAndZeros,
+      setFromIndexAndZerosSignatures,
+      [prefix](
+          core::AggregationNode::Step step,
+          const std::vector<TypePtr>& /*argTypes*/,
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
+        if (exec::isPartialOutput(step)) {
+          return std::make_unique<SfmSketchAggregate<true, true>>(VARBINARY());
+        }
+        return std::make_unique<SfmSketchAggregate<true, true>>(resultType);
       },
       withCompanionFunctions,
       overwrite);

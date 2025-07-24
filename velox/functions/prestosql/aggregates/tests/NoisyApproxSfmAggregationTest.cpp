@@ -314,4 +314,90 @@ TEST_F(NoisyApproxSfmAggregationTest, fuzzerInput) {
   testFuzzerWithType(VARBINARY());
 }
 
+TEST_F(NoisyApproxSfmAggregationTest, addFromIndexAndZeros) {
+  const vector_size_t numElements = 100'000;
+  const int32_t numBuckets_ = 4096;
+
+  auto computeIndexAndZeros = [&](int32_t value) {
+    const auto hash = XXH64(&value, sizeof(value), 0);
+    const int32_t kBitWidth = sizeof(uint64_t) * 8;
+    const auto numIndexBits = static_cast<int32_t>(std::log2(numBuckets_));
+    const uint64_t trailing = hash | (1ULL << (kBitWidth - numIndexBits));
+    const auto index = static_cast<int32_t>(hash >> (kBitWidth - numIndexBits));
+    const auto zeros = __builtin_ctzll(trailing);
+    return std::make_pair(index, zeros);
+  };
+
+  auto indexVector = makeFlatVector<int64_t>(numElements);
+  auto zerosVector = makeFlatVector<int64_t>(numElements);
+  for (int32_t i = 0; i < numElements; i++) {
+    const auto [index, zeros] = computeIndexAndZeros(i);
+    indexVector->set(i, index);
+    zerosVector->set(i, zeros);
+  }
+
+  auto vectors = makeRowVector(
+      {indexVector,
+       zerosVector,
+       makeConstant<double>(8.0, numElements), // epsilon
+       makeConstant<int64_t>(4096, numElements), // buckets
+       makeConstant<int64_t>(36, numElements)}); // precision
+
+  auto result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values({vectors})
+              .singleAggregation(
+                  {},
+                  {"noisy_approx_set_sfm_from_index_and_zeros(c0, c1, c2, c3)"},
+                  {})
+              .planNode())
+          .copyResults(pool());
+
+  auto serializedView =
+      result->childAt(0)->asFlatVector<StringView>()->valueAt(0);
+  auto deserialized =
+      SfmSketch::deserialize(serializedView.data(), &allocator_);
+
+  ASSERT_NEAR(deserialized.cardinality(), numElements, numElements * 0.25);
+
+  // Specify precision.
+  result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values({vectors})
+              .singleAggregation(
+                  {},
+                  {"noisy_approx_set_sfm_from_index_and_zeros(c0, c1, c2, c3, c4)"},
+                  {})
+              .planNode())
+          .copyResults(pool());
+
+  serializedView = result->childAt(0)->asFlatVector<StringView>()->valueAt(0);
+  deserialized = SfmSketch::deserialize(serializedView.data(), &allocator_);
+
+  ASSERT_NEAR(deserialized.cardinality(), numElements, numElements * 0.25);
+
+  // Input is null.
+  vectors = makeRowVector({
+      makeAllNullFlatVector<int64_t>(numElements), // index
+      makeAllNullFlatVector<int64_t>(numElements), // zeros
+      makeConstant<double>(8.0, numElements), // epsilon
+      makeConstant<int64_t>(4096, numElements), // buckets
+  });
+
+  result =
+      AssertQueryBuilder(
+          PlanBuilder()
+              .values({vectors})
+              .singleAggregation(
+                  {},
+                  {"noisy_approx_set_sfm_from_index_and_zeros(c0, c1, c2, c3)"},
+                  {})
+              .planNode())
+          .copyResults(pool());
+
+  ASSERT_TRUE(result->childAt(0)->isNullAt(0));
+}
+
 } // namespace facebook::velox::aggregate::test
