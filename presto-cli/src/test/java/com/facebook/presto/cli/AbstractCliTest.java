@@ -103,6 +103,7 @@ public abstract class AbstractCliTest
                 ImmutableList.of(),
                 null,
                 null,
+                Optional.empty(),
                 false);
     }
 

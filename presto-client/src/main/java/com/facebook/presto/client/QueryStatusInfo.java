@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 public interface QueryStatusInfo
 {
@@ -40,6 +42,8 @@ public interface QueryStatusInfo
     UpdateInfo getUpdateInfo();
 
     Long getUpdateCount();
+
+    Optional<TransactionId> getStartedTransactionId();
 
     Boolean isClearTransactionId();
 }

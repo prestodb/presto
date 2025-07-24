@@ -18,6 +18,7 @@ import com.facebook.presto.client.IntervalDayTime;
 import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.DecimalType;
@@ -113,6 +114,7 @@ public class TestingPrestoClient
 
         private final AtomicReference<Optional<UpdateInfo>> updateInfo = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
+        private final AtomicReference<Optional<TransactionId>> startedTransactionId = new AtomicReference<>(Optional.empty());
         private final AtomicReference<Boolean> isClearTransactionId = new AtomicReference<>(false);
         private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(ImmutableList.of());
 
@@ -126,6 +128,12 @@ public class TestingPrestoClient
         public void setUpdateCount(long count)
         {
             updateCount.set(OptionalLong.of(count));
+        }
+
+        @Override
+        public void setStartedTransactionId(Optional<TransactionId> transactionId)
+        {
+            startedTransactionId.set(transactionId);
         }
 
         @Override
@@ -164,6 +172,7 @@ public class TestingPrestoClient
                     resetSessionProperties,
                     updateInfo.get(),
                     updateCount.get(),
+                    startedTransactionId.get(),
                     isClearTransactionId.get(),
                     warnings.get());
         }
