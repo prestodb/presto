@@ -67,8 +67,8 @@ function termination_handler(){
   exit 130
 }
 
-export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-imjalpreet/hdp3.1-hive}"
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-latest}
+export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-prestodb/hdp3.1-hive}"
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-11}
 
 SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."
