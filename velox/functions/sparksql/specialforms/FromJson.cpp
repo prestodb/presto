@@ -27,6 +27,7 @@
 #include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
+#include "velox/type/DecimalUtil.h"
 
 using namespace facebook::velox::exec;
 
@@ -192,7 +193,24 @@ struct ExtractJsonTypeImpl {
         const folly::
             F14FastMap<int64_t, JsonRowSchemaInfo>& /*jsonRowSchemaInfo*/,
         column_index_t /*nodeIndex*/) {
+      if (writer.type()->isShortDecimal()) {
+        return castJsonToDecimal<int64_t>(value, writer);
+      }
       return castJsonToInt<int64_t>(value, writer);
+    }
+  };
+
+  template <typename Dummy>
+  struct KindDispatcher<TypeKind::HUGEINT, Dummy> {
+    static simdjson::error_code apply(
+        Input value,
+        exec::GenericWriter& writer,
+        bool /*isRoot*/,
+        const folly::
+            F14FastMap<int64_t, JsonRowSchemaInfo>& /*jsonRowSchemaInfo*/,
+        column_index_t /*nodeIndex*/) {
+      VELOX_CHECK(writer.type()->isLongDecimal());
+      return castJsonToDecimal<int128_t>(value, writer);
     }
   };
 
@@ -524,6 +542,38 @@ struct ExtractJsonTypeImpl {
     return simdjson::SUCCESS;
   }
 
+  template <typename T>
+  static simdjson::error_code castJsonToDecimal(
+      Input value,
+      exec::GenericWriter& writer) {
+    SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+    std::string_view s;
+    switch (type) {
+      case simdjson::ondemand::json_type::string: {
+        SIMDJSON_ASSIGN_OR_RAISE(s, value.get_string());
+        break;
+      }
+      case simdjson::ondemand::json_type::number: {
+        s = value.raw_json_token();
+        break;
+      }
+      default:
+        return simdjson::INCORRECT_TYPE;
+    }
+    const auto toPrecisionScale = getDecimalPrecisionScale(*writer.type());
+    T decimalValue;
+    const auto status = velox::DecimalUtil::castFromString<T>(
+        StringView(s),
+        toPrecisionScale.first,
+        toPrecisionScale.second,
+        decimalValue);
+    if (!status.ok()) {
+      return simdjson::INCORRECT_TYPE;
+    }
+    writer.castTo<T>() = decimalValue;
+    return simdjson::SUCCESS;
+  }
+
   constexpr static std::string_view kGMT{"GMT"};
 };
 
@@ -742,12 +792,8 @@ bool isSupportedType(const TypePtr& type, bool isRootType) {
           type->childAt(0)->kind() == TypeKind::VARCHAR &&
           isSupportedType(type->childAt(1), false));
     }
-    case TypeKind::BIGINT: {
-      if (type->isDecimal()) {
-        return false;
-      }
-      return !isRootType;
-    }
+    case TypeKind::HUGEINT:
+    case TypeKind::BIGINT:
     case TypeKind::INTEGER:
     case TypeKind::BOOLEAN:
     case TypeKind::SMALLINT:
