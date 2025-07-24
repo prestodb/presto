@@ -1348,6 +1348,33 @@ TEST_F(HiveDataSinkTest, raceWithCacheEviction) {
   cacheCleaner.get();
 }
 
+#ifdef VELOX_ENABLE_PARQUET
+TEST_F(HiveDataSinkTest, lazyVectorForParquet) {
+  // This test ensures that lazy vector is handled correctly in HiveDataSink.
+  VectorFuzzer::Options options{.vectorSize = 100};
+  VectorFuzzer fuzzer(options, pool());
+
+  auto lazyVector = fuzzer.wrapInLazyVector(fuzzer.fuzzFlat(BIGINT(), 100));
+  auto lazyMapVector = fuzzer.wrapInLazyVector(fuzzer.fuzzMap(
+      fuzzer.fuzzFlat(BIGINT(), 100), fuzzer.fuzzFlat(VARCHAR(), 100), 100));
+
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), MAP(BIGINT(), VARCHAR())});
+  std::vector<VectorPtr> children;
+  children.emplace_back(lazyVector);
+  children.emplace_back(lazyMapVector);
+  auto row = std::make_shared<RowVector>(
+      pool(), rowType, nullptr, 100, std::move(children));
+
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto dataSink = createDataSink(
+      rowType, outputDirectory->getPath(), dwio::common::FileFormat::PARQUET);
+
+  dataSink->appendData(row);
+  ASSERT_TRUE(dataSink->finish());
+  dataSink->close();
+}
+#endif
+
 } // namespace
 } // namespace facebook::velox::connector::hive
 

@@ -474,6 +474,9 @@ bool HiveDataSink::canReclaim() const {
 void HiveDataSink::appendData(RowVectorPtr input) {
   checkRunning();
 
+  // Lazy load all the input columns.
+  input->loadedVector();
+
   // Write to unpartitioned (and unbucketed) table.
   if (!isPartitioned() && !isBucketed()) {
     const auto index = ensureWriter(HiveWriterId::unpartitionedId());
@@ -483,11 +486,6 @@ void HiveDataSink::appendData(RowVectorPtr input) {
 
   // Compute partition and bucket numbers.
   computePartitionAndBucketIds(input);
-
-  // Lazy load all the input columns.
-  for (column_index_t i = 0; i < input->childrenSize(); ++i) {
-    input->childAt(i)->loadedVector();
-  }
 
   // All inputs belong to a single non-bucketed partition. The partition id
   // must be zero.
