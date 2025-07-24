@@ -35,6 +35,7 @@
 #include "velox/exec/NestedLoopJoinProbe.h"
 #include "velox/exec/OperatorTraceScan.h"
 #include "velox/exec/OrderBy.h"
+#include "velox/exec/ParallelProject.h"
 #include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/RowNumber.h"
@@ -496,6 +497,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::ProjectNode>(planNode)) {
       operators.push_back(
           std::make_unique<FilterProject>(id, ctx.get(), nullptr, projectNode));
+    } else if (
+        auto projectNode =
+            std::dynamic_pointer_cast<const core::ParallelProjectNode>(
+                planNode)) {
+      operators.push_back(
+          std::make_unique<ParallelProject>(id, ctx.get(), projectNode));
     } else if (
         auto valuesNode =
             std::dynamic_pointer_cast<const core::ValuesNode>(planNode)) {

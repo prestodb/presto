@@ -1067,6 +1067,63 @@ PlanNodePtr ProjectNode::create(const folly::dynamic& obj, void* context) {
       std::move(source));
 }
 
+namespace {
+// makes a list of all names for use in the ProjectNode.
+std::vector<std::string> allNames(
+    const std::vector<std::string>& names,
+    const std::vector<std::string>& moreNames) {
+  auto result = names;
+  result.insert(result.end(), moreNames.begin(), moreNames.end());
+  return result;
+}
+
+// Flattens out projection exprs and adds dummy  exprs for noLoadIdentities.
+// Used to fill in ProjectNode members for use in the summary functions.
+std::vector<core::TypedExprPtr> flattenExprs(
+    const std::vector<std::vector<core::TypedExprPtr>>& exprs,
+    const std::vector<std::string>& moreNames,
+    const core::PlanNodePtr& input) {
+  std::vector<core::TypedExprPtr> result;
+  for (auto& group : exprs) {
+    result.insert(result.end(), group.begin(), group.end());
+  }
+  auto sourceType = input->outputType();
+  for (auto& name : moreNames) {
+    auto idx = sourceType->getChildIdx(name);
+    result.push_back(std::make_shared<core::FieldAccessTypedExpr>(
+        sourceType->childAt(idx), name));
+  }
+  return result;
+}
+} // namespace
+
+ParallelProjectNode::ParallelProjectNode(
+    const core::PlanNodeId& id,
+    std::vector<std::string> names,
+    std::vector<std::vector<core::TypedExprPtr>> exprs,
+    std::vector<std::string> noLoadIdentities,
+    core::PlanNodePtr input)
+    : AbstractProjectNode(
+          id,
+          allNames(names, noLoadIdentities),
+          flattenExprs(exprs, noLoadIdentities, input),
+          input),
+      exprNames_(std::move(names)),
+      exprs_(std::move(exprs)),
+      noLoadIdentities_(std::move(noLoadIdentities)) {}
+
+void ParallelProjectNode::addDetails(std::stringstream& stream) const {
+  AbstractProjectNode::addDetails(stream);
+  stream << " Parallel expr groups: ";
+  int32_t start = 0;
+  for (auto i = 0; i < exprs_.size(); ++i) {
+    stream << fmt::format("[{}-{}]", start, start + exprs_[i].size() - 1)
+           << (i < exprs_.size() - 1 ? ", " : "");
+    start += exprs_[i].size();
+  }
+  stream << std::endl;
+}
+
 const std::vector<PlanNodePtr>& TableScanNode::sources() const {
   return kEmptySources;
 }

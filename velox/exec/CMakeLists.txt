@@ -62,6 +62,7 @@ velox_add_library(
   OperatorTraceReader.cpp
   OperatorTraceScan.cpp
   OperatorTraceWriter.cpp
+  ParallelProject.cpp
   TaskTraceReader.cpp
   TaskTraceWriter.cpp
   Trace.cpp
