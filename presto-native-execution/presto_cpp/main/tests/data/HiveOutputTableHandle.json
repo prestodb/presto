@@ -1,0 +1,27 @@
+{
+    "@type": "hive",
+    "schemaName": "test_schema",
+    "tableName": "test_table",
+    "inputColumns": [],
+    "pageSinkMetadata": {
+        "schemaTableName": {
+        "schema": "test_schema",
+        "table": "test_table"
+        },
+        "modifiedPartitions": {}
+    },
+    "locationHandle": {
+        "targetPath": "/path/to/target",
+        "writePath": "/path/to/write",
+        "tableType": "NEW",
+        "writeMode": "STAGE_AND_MOVE_TO_TARGET_DIRECTORY"
+    },
+    "tableStorageFormat": "ORC",
+    "partitionStorageFormat": "ORC",
+    "actualStorageFormat": "ORC",
+    "compressionCodec": "NONE",
+    "partitionedBy": [],
+    "preferredOrderingColumns": [],
+    "tableOwner": "owner_name",
+    "additionalTableParameters": {}
+}
