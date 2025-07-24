@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class UnimplementedHiveMetastore
         implements ExtendedHiveMetastore
@@ -124,6 +125,12 @@ public class UnimplementedHiveMetastore
 
     @Override
     public MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters)
     {
         throw new UnsupportedOperationException();
     }

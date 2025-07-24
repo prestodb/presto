@@ -56,6 +56,15 @@ import static org.testng.Assert.assertTrue;
 public class TestIcebergDistributedHive
         extends IcebergDistributedTestBase
 {
+    public TestIcebergDistributedHive(Map<String, String> extraConnectorProperties)
+    {
+        super(HIVE, ImmutableMap.<String, String>builder()
+                .put("iceberg.hive-statistics-merge-strategy", Joiner.on(",").join(
+                        NUMBER_OF_DISTINCT_VALUES.name(),
+                        TOTAL_SIZE_IN_BYTES.name()))
+                .putAll(extraConnectorProperties)
+                .build());
+    }
     public TestIcebergDistributedHive()
     {
         super(HIVE, ImmutableMap.of("iceberg.hive-statistics-merge-strategy", Joiner.on(",").join(NUMBER_OF_DISTINCT_VALUES.name(), TOTAL_SIZE_IN_BYTES.name())));

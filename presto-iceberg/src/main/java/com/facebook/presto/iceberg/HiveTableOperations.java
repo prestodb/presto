@@ -28,14 +28,17 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
+import org.apache.iceberg.BaseMetastoreTableOperations;
 import org.apache.iceberg.LocationProviders;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadata.MetadataLogEntry;
@@ -106,6 +109,7 @@ public class HiveTableOperations
     private final Optional<String> owner;
     private final Optional<String> location;
     private final HdfsFileIO fileIO;
+
     private final IcebergHiveTableOperationsConfig config;
 
     private TableMetadata currentMetadata;
@@ -251,14 +255,18 @@ public class HiveTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
 
         Table table;
-        // getting a process-level lock per table to avoid concurrent commit attempts to the same table from the same
-        // JVM process, which would result in unnecessary and costly HMS lock acquisition requests
         Optional<Long> lockId = Optional.empty();
-        ReentrantLock tableLevelMutex = commitLockCache.getUnchecked(database + "." + tableName);
-        tableLevelMutex.lock();
+        ReentrantLock tableLevelMutex = null;
+        boolean useLock = config.getLockingEnabled() || metadata.propertyAsBoolean(TableProperties.HIVE_LOCK_ENABLED, TableProperties.HIVE_LOCK_ENABLED_DEFAULT);
         try {
             try {
-                lockId = metastore.lock(metastoreContext, database, tableName);
+                if (useLock) {
+                    tableLevelMutex = commitLockCache.getUnchecked(database + "." + tableName);
+                    // getting a process-level lock per table to avoid concurrent commit attempts to the same table from the same
+                    // JVM process, which would result in unnecessary and costly HMS lock acquisition requests
+                    tableLevelMutex.lock();
+                    lockId = metastore.lock(metastoreContext, database, tableName);
+                }
                 if (base == null) {
                     String tableComment = metadata.properties().get(TABLE_COMMENT);
                     Map<String, String> parameters = new HashMap<>();
@@ -318,10 +326,7 @@ public class HiveTableOperations
             }
             else {
                 PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
-                metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
-
-                // attempt to put back previous table statistics
-                metastore.updateTableStatistics(metastoreContext, database, tableName, oldStats -> tableStats);
+                metastore.persistTable(metastoreContext, database, tableName, table, privileges, () -> tableStats, useLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));
             }
             deleteRemovedMetadataFiles(base, metadata);
         }
@@ -334,7 +339,9 @@ public class HiveTableOperations
                 log.error(e, "Failed to unlock: %s", lockId.orElse(null));
             }
             finally {
-                tableLevelMutex.unlock();
+                if (useLock) {
+                    tableLevelMutex.unlock();
+                }
             }
         }
     }
@@ -499,5 +506,20 @@ public class HiveTableOperations
                             log.warn("Delete failed for previous metadata file: %s", previousMetadataFile, exc))
                     .run(previousMetadataFile -> io().deleteFile(previousMetadataFile.file()));
         }
+    }
+
+    private Map<String, String> hmsEnvContext(String metadataLocation)
+    {
+        return ImmutableMap.of(
+                org.apache.iceberg.hive.HiveTableOperations.NO_LOCK_EXPECTED_KEY,
+                BaseMetastoreTableOperations.METADATA_LOCATION_PROP,
+                org.apache.iceberg.hive.HiveTableOperations.NO_LOCK_EXPECTED_VALUE,
+                metadataLocation);
+    }
+
+    @VisibleForTesting
+    public IcebergHiveTableOperationsConfig getConfig()
+    {
+        return config;
     }
 }
