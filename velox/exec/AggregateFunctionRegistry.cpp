@@ -16,18 +16,16 @@
 #include "velox/exec/AggregateFunctionRegistry.h"
 
 #include "velox/exec/Aggregate.h"
-#include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
 
 std::pair<TypePtr, TypePtr> resolveAggregateFunction(
-    const std::string& functionName,
+    const std::string& name,
     const std::vector<TypePtr>& argTypes) {
-  if (auto aggregateFunctionSignatures =
-          getAggregateFunctionSignatures(functionName)) {
-    for (const auto& signature : aggregateFunctionSignatures.value()) {
+  if (auto signatures = getAggregateFunctionSignatures(name)) {
+    for (const auto& signature : signatures.value()) {
       SignatureBinder binder(*signature, argTypes);
       if (binder.tryBind()) {
         return std::make_pair(
@@ -35,9 +33,16 @@ std::pair<TypePtr, TypePtr> resolveAggregateFunction(
             binder.tryResolveType(signature->intermediateType()));
       }
     }
-  }
 
-  return std::make_pair(nullptr, nullptr);
+    std::stringstream error;
+    error << "Aggregate function signature is not supported: "
+          << toString(name, argTypes)
+          << ". Supported signatures: " << toString(signatures.value()) << ".";
+    VELOX_USER_FAIL(error.str());
+
+  } else {
+    VELOX_USER_FAIL("Aggregate function not registered: {}", name);
+  }
 }
 
 } // namespace facebook::velox::exec

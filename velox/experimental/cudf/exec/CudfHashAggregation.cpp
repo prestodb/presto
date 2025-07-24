@@ -20,6 +20,7 @@
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/AggregateFunctionRegistry.h"
 #include "velox/exec/PrefixSort.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
@@ -532,8 +533,8 @@ auto toAggregators(
     auto const companionStep = getCompanionStep(kind, step);
     const auto originalName = getOriginalName(kind);
     const auto resultType = exec::isPartialOutput(companionStep)
-        ? exec::Aggregate::intermediateType(
-              originalName, aggregate.rawInputTypes)
+        ? exec::resolveAggregateFunction(originalName, aggregate.rawInputTypes)
+              .second
         : outputType->childAt(numKeys + i);
 
     aggregators.push_back(createAggregator(
@@ -561,8 +562,9 @@ auto toIntermediateAggregators(
     const auto originalName = getOriginalName(kind);
     auto const companionStep = getCompanionStep(kind, step);
     if (exec::isPartialOutput(companionStep)) {
-      const auto resultType = exec::Aggregate::intermediateType(
-          originalName, aggregate.rawInputTypes);
+      const auto resultType =
+          exec::resolveAggregateFunction(originalName, aggregate.rawInputTypes)
+              .second;
       aggregators.push_back(createAggregator(
           step, kind, inputIndex, constant, isGlobal, resultType));
     } else {

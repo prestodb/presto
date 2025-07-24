@@ -16,6 +16,7 @@
 
 #include "velox/exec/AggregateInfo.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/AggregateFunctionRegistry.h"
 #include "velox/exec/Operator.h"
 #include "velox/expression/Expr.h"
 
@@ -82,8 +83,9 @@ std::vector<AggregateInfo> toAggregateInfo(
     }
 
     info.distinct = aggregate.distinct;
-    info.intermediateType = Aggregate::intermediateType(
-        aggregate.call->name(), aggregate.rawInputTypes);
+    info.intermediateType = resolveAggregateFunction(
+                                aggregate.call->name(), aggregate.rawInputTypes)
+                                .second;
 
     // Setup aggregation mask: convert the Variable Reference name to the
     // channel (projection) index, if there is a mask.

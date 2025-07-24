@@ -22,10 +22,9 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
-#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
-#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/AggregateCompanionSignatures.h"
+#include "velox/exec/AggregateFunctionRegistry.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Spill.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -1202,30 +1201,6 @@ void AggregationTestBase::testAggregations(
   }
 }
 
-namespace {
-std::pair<TypePtr, TypePtr> getResultTypes(
-    const std::string& name,
-    const std::vector<TypePtr>& rawInputTypes) {
-  auto signatures = exec::getAggregateFunctionSignatures(name);
-  if (!signatures.has_value()) {
-    VELOX_FAIL("Aggregate {} not registered", name);
-  }
-  for (auto& signature : signatures.value()) {
-    exec::SignatureBinder binder(*signature, rawInputTypes);
-    if (binder.tryBind()) {
-      auto intermediateType =
-          binder.tryResolveType(signature->intermediateType());
-      VELOX_CHECK(
-          intermediateType, "failed to resolve intermediate type for {}", name);
-      auto finalType = binder.tryResolveType(signature->returnType());
-      VELOX_CHECK(finalType, "failed to resolve final type for {}", name);
-      return {intermediateType, finalType};
-    }
-  }
-  VELOX_FAIL("Could not infer intermediate type for aggregate {}", name);
-}
-} // namespace
-
 VectorPtr AggregationTestBase::testStreaming(
     const std::string& functionName,
     bool testGlobal,
@@ -1254,7 +1229,8 @@ std::unique_ptr<exec::Aggregate> createAggregateFunction(
     const std::vector<TypePtr>& inputTypes,
     HashStringAllocator& allocator,
     const std::unordered_map<std::string, std::string>& config) {
-  auto [intermediateType, finalType] = getResultTypes(functionName, inputTypes);
+  auto [finalType, intermediateType] =
+      exec::resolveAggregateFunction(functionName, inputTypes);
   core::QueryConfig queryConfig({config});
   auto func = exec::Aggregate::create(
       functionName,
@@ -1264,10 +1240,6 @@ std::unique_ptr<exec::Aggregate> createAggregateFunction(
       queryConfig);
   func->setAllocator(&allocator);
   func->setOffsets(kOffset, 0, 1, 0, 2, kRowSizeOffset);
-
-  VELOX_CHECK(intermediateType->equivalent(
-      *func->intermediateType(functionName, inputTypes)));
-  VELOX_CHECK(finalType->equivalent(*func->resultType()));
 
   return func;
 }
@@ -1324,10 +1296,11 @@ void AggregationTestBase::testIncrementalAggregation(
     func->addSingleGroupRawInput(
         group.data(), SelectivityVector(inputSize), input, false);
 
+    auto [finalType, intermediateType] =
+        exec::resolveAggregateFunction(functionName, aggregate.rawInputTypes);
+
     // Extract intermediate result from the same accumulator twice and expect
     // results to be the same.
-    auto intermediateType =
-        func->intermediateType(functionName, aggregate.rawInputTypes);
     auto intermediateResult1 = BaseVector::create(intermediateType, 1, pool());
     auto intermediateResult2 = BaseVector::create(intermediateType, 1, pool());
     func->extractAccumulators(groups.data(), 1, &intermediateResult1);
@@ -1380,7 +1353,10 @@ VectorPtr AggregationTestBase::testStreaming(
     func->addRawInput(
         groups.data(), SelectivityVector(rawInput1Size), rawInput1, false);
   }
-  auto intermediateType = func->intermediateType(functionName, rawInputTypes);
+
+  auto [finalType, intermediateType] =
+      exec::resolveAggregateFunction(functionName, rawInputTypes);
+
   auto intermediate = BaseVector::create(intermediateType, 1, pool());
   func->extractAccumulators(groups.data(), 1, &intermediate);
   // Destroy accumulators to avoid memory leak.

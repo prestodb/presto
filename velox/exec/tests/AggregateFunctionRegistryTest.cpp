@@ -16,76 +16,77 @@
 
 #include "velox/exec/AggregateFunctionRegistry.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateUtil.h"
 #include "velox/exec/WindowFunction.h"
 #include "velox/exec/tests/AggregateRegistryTestUtil.h"
-#include "velox/functions/Registerer.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec::test {
 
-class FunctionRegistryTest : public testing::Test {
+class AggregateFunctionRegistryTest : public testing::Test {
  public:
-  FunctionRegistryTest() {
+  AggregateFunctionRegistryTest() {
     registerAggregateFunc("aggregate_func");
     registerAggregateFunc("Aggregate_Func_Alias");
   }
 
-  void checkEqual(const TypePtr& actual, const TypePtr& expected) {
-    if (expected) {
-      EXPECT_EQ(*actual, *expected);
-    } else {
-      EXPECT_EQ(actual, nullptr);
-    }
-  }
-
-  void testResolveAggregateFunction(
-      const std::string& functionName,
+  void testResolve(
+      const std::string& name,
       const std::vector<TypePtr>& argTypes,
-      const TypePtr& expectedReturn,
-      const TypePtr& expectedIntermediate) {
-    auto result = resolveAggregateFunction(functionName, argTypes);
-    checkEqual(result.first, expectedReturn);
-    checkEqual(result.second, expectedIntermediate);
+      const TypePtr& expectedFinalType,
+      const TypePtr& expectedIntermediateType) {
+    auto [finalType, intermediateType] =
+        resolveAggregateFunction(name, argTypes);
+    EXPECT_EQ(*finalType, *expectedFinalType);
+    EXPECT_EQ(*intermediateType, *expectedIntermediateType);
   }
 };
 
-TEST_F(FunctionRegistryTest, hasAggregateFunctionSignature) {
-  testResolveAggregateFunction(
+TEST_F(AggregateFunctionRegistryTest, basic) {
+  testResolve(
       "aggregate_func", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func", {DOUBLE(), DOUBLE()}, DOUBLE(), ARRAY(DOUBLE()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func",
       {ARRAY(BOOLEAN()), ARRAY(BOOLEAN())},
       ARRAY(BOOLEAN()),
       ARRAY(ARRAY(BOOLEAN())));
-  testResolveAggregateFunction("aggregate_func", {}, DATE(), DATE());
+  testResolve("aggregate_func", {}, DATE(), DATE());
 }
 
-TEST_F(FunctionRegistryTest, hasAggregateFunctionSignatureWrongFunctionName) {
-  testResolveAggregateFunction(
-      "aggregate_func_nonexist", {BIGINT(), BIGINT()}, nullptr, nullptr);
-  testResolveAggregateFunction("aggregate_func_nonexist", {}, nullptr, nullptr);
+TEST_F(AggregateFunctionRegistryTest, wrongFunctionName) {
+  VELOX_ASSERT_THROW(
+      resolveAggregateFunction("aggregate_func_nonexist", {BIGINT(), BIGINT()}),
+      "Aggregate function not registered: aggregate_func_nonexist");
+  VELOX_ASSERT_THROW(
+      resolveAggregateFunction("aggregate_func_nonexist", {}),
+      "Aggregate function not registered: aggregate_func_nonexist");
 }
 
-TEST_F(FunctionRegistryTest, hasAggregateFunctionSignatureWrongArgType) {
-  testResolveAggregateFunction(
-      "aggregate_func", {DOUBLE(), BIGINT()}, nullptr, nullptr);
-  testResolveAggregateFunction("aggregate_func", {BIGINT()}, nullptr, nullptr);
-  testResolveAggregateFunction(
-      "aggregate_func", {BIGINT(), BIGINT(), BIGINT()}, nullptr, nullptr);
+TEST_F(AggregateFunctionRegistryTest, wrongArgType) {
+  VELOX_ASSERT_THROW(
+      resolveAggregateFunction("aggregate_func", {DOUBLE(), BIGINT()}),
+      "Aggregate function signature is not supported");
+  VELOX_ASSERT_THROW(
+      resolveAggregateFunction("aggregate_func", {BIGINT()}),
+      "Aggregate function signature is not supported");
+  VELOX_ASSERT_THROW(
+      resolveAggregateFunction(
+          "aggregate_func", {BIGINT(), BIGINT(), BIGINT()}),
+      "Aggregate function signature is not supported");
 }
 
-TEST_F(FunctionRegistryTest, functionNameInMixedCase) {
-  testResolveAggregateFunction(
+TEST_F(AggregateFunctionRegistryTest, functionNameInMixedCase) {
+  testResolve(
       "aggregatE_funC", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregatE_funC_aliaS", {DOUBLE(), DOUBLE()}, DOUBLE(), ARRAY(DOUBLE()));
 }
 
-TEST_F(FunctionRegistryTest, getAggregateFunctionSignatures) {
+TEST_F(AggregateFunctionRegistryTest, getSignatures) {
   auto functionSignatures = getAggregateFunctionSignatures();
   auto aggregateFuncSignatures = functionSignatures["aggregate_func"];
   std::vector<std::string> aggregateFuncSignaturesStr;
@@ -106,7 +107,7 @@ TEST_F(FunctionRegistryTest, getAggregateFunctionSignatures) {
   ASSERT_EQ(aggregateFuncSignaturesStr, expectedSignaturesStr);
 }
 
-TEST_F(FunctionRegistryTest, aggregateWindowFunctionSignature) {
+TEST_F(AggregateFunctionRegistryTest, windowFunction) {
   auto windowFunctionSignatures = getWindowFunctionSignatures("aggregate_func");
   ASSERT_EQ(windowFunctionSignatures->size(), 3);
 
@@ -121,12 +122,12 @@ TEST_F(FunctionRegistryTest, aggregateWindowFunctionSignature) {
   ASSERT_EQ(functionSignatures.count("(T,T) -> array(T) -> T"), 1);
 }
 
-TEST_F(FunctionRegistryTest, duplicateRegistration) {
+TEST_F(AggregateFunctionRegistryTest, duplicateRegistration) {
   EXPECT_FALSE(registerAggregateFunc("aggregate_func"));
   EXPECT_TRUE(registerAggregateFunc("aggregate_func", true));
 }
 
-TEST_F(FunctionRegistryTest, multipleNames) {
+TEST_F(AggregateFunctionRegistryTest, multipleNames) {
   auto signatures = AggregateFunc::signatures();
   auto factory = [&](core::AggregationNode::Step step,
                      const std::vector<TypePtr>& argTypes,
@@ -149,9 +150,9 @@ TEST_F(FunctionRegistryTest, multipleNames) {
       /*overwrite*/ false);
   exec::AggregateRegistrationResult allSuccess{true, true, true, true, true};
   EXPECT_EQ(registrationResult, allSuccess);
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func1", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func1_partial",
       {BIGINT(), DOUBLE()},
       ARRAY(BIGINT()),
@@ -166,7 +167,7 @@ TEST_F(FunctionRegistryTest, multipleNames) {
   exec::AggregateRegistrationResult onlyMainSuccess{
       true, false, false, false, false};
   EXPECT_EQ(registrationResult, onlyMainSuccess);
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func2", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
 
   auto registrationResults = registerAggregateFunction(
@@ -179,16 +180,16 @@ TEST_F(FunctionRegistryTest, multipleNames) {
       false, true, true, true, true};
   EXPECT_EQ(registrationResults[0], allSuccessExceptMain);
   EXPECT_EQ(registrationResults[1], allSuccess);
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func2", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func2_partial",
       {BIGINT(), DOUBLE()},
       ARRAY(BIGINT()),
       ARRAY(BIGINT()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func3", {BIGINT(), DOUBLE()}, BIGINT(), ARRAY(BIGINT()));
-  testResolveAggregateFunction(
+  testResolve(
       "aggregate_func3_partial",
       {BIGINT(), DOUBLE()},
       ARRAY(BIGINT()),
