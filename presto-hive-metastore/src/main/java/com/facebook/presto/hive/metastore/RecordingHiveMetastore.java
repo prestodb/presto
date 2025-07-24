@@ -316,6 +316,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        verifyRecordingMode();
+        return delegate.persistTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges, update, additionalParameters);
+    }
+
+    @Override
     public MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         verifyRecordingMode();

@@ -93,6 +93,10 @@ Property Name                                            Description            
 
 ``iceberg.hive.table-refresh.backoff-scale-factor``      The multiple used to scale subsequent wait time between       4.0
                                                          retries.
+
+``iceberg.engine.hive.lock-enabled``                     Whether to use locks to ensure atomicity of commits.          true
+                                                         This will turn off locks but is overridden at a table level
+                                                         with the table configuration ``engine.hive.lock-enabled``.
 ======================================================== ============================================================= ============
 
 Nessie catalog
