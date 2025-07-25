@@ -65,7 +65,8 @@ class LocalRunner : public Runner,
   LocalRunner(
       const MultiFragmentPlanPtr& plan,
       std::shared_ptr<core::QueryCtx> queryCtx,
-      std::shared_ptr<SplitSourceFactory> splitSourceFactory);
+      std::shared_ptr<SplitSourceFactory> splitSourceFactory,
+      std::shared_ptr<memory::MemoryPool> outputPool = nullptr);
 
   RowVectorPtr next() override;
 

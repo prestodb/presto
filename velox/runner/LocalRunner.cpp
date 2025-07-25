@@ -93,11 +93,13 @@ std::vector<ExecutableFragment> topologicalSort(
 LocalRunner::LocalRunner(
     const MultiFragmentPlanPtr& plan,
     std::shared_ptr<core::QueryCtx> queryCtx,
-    std::shared_ptr<SplitSourceFactory> splitSourceFactory)
+    std::shared_ptr<SplitSourceFactory> splitSourceFactory,
+    std::shared_ptr<memory::MemoryPool> outputPool)
     : fragments_(topologicalSort(plan->fragments())),
       options_(plan->options()),
       splitSourceFactory_(std::move(splitSourceFactory)) {
   params_.queryCtx = std::move(queryCtx);
+  params_.outputPool = outputPool;
 }
 
 RowVectorPtr LocalRunner::next() {
