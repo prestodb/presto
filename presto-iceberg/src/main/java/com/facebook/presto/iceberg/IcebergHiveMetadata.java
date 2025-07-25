@@ -161,7 +161,7 @@ public class IcebergHiveMetadata
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
-    private final IcebergHiveTableOperationsConfig hiveTableOeprationsConfig;
+    private final IcebergHiveTableOperationsConfig hiveTableOperationsConfig;
     private final ConnectorSystemConfig connectorSystemConfig;
     private final Cache<SchemaTableName, Optional<Table>> tableCache;
     private final ManifestFileCache manifestFileCache;
@@ -176,7 +176,7 @@ public class IcebergHiveMetadata
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
+            IcebergHiveTableOperationsConfig hiveTableOperationsConfig,
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
@@ -186,7 +186,7 @@ public class IcebergHiveMetadata
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
+        this.hiveTableOperationsConfig = requireNonNull(hiveTableOperationsConfig, "hiveTableOperationsConfig is null");
         this.tableCache = CacheBuilder.newBuilder().maximumSize(MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE).build();
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
@@ -213,7 +213,7 @@ public class IcebergHiveMetadata
     @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, manifestFileCache, session, catalogName, schemaTableName);
+        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOperationsConfig, manifestFileCache, session, catalogName, schemaTableName);
     }
 
     @Override
@@ -367,7 +367,7 @@ public class IcebergHiveMetadata
                 getMetastoreContext(session),
                 hdfsEnvironment,
                 hdfsContext,
-                hiveTableOeprationsConfig,
+                hiveTableOperationsConfig,
                 manifestFileCache,
                 schemaName,
                 tableName,
