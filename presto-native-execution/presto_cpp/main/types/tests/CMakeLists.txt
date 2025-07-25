@@ -50,31 +50,19 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   presto_connectors
-  $<TARGET_OBJECTS:presto_protocol>
-  $<TARGET_OBJECTS:presto_type_converter>
-  $<TARGET_OBJECTS:presto_types>
+  presto_protocol
+  presto_type_converter
+  presto_types
   presto_operators
   presto_type_test_utils
   velox_core
-  velox_dwio_common_exception
-  velox_encode
   velox_exec
   velox_exec_test_lib
   velox_functions_prestosql
-  velox_functions_lib
   velox_hive_connector
   velox_tpch_connector
-  velox_hive_partition_function
-  velox_presto_serializer
-  velox_serialization
   velox_type
-  velox_type_parser
-  Boost::filesystem
-  ${RE2}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
-  pthread)
+  Boost::filesystem)
 
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
                                                      presto_link_job_pool)
