@@ -516,14 +516,20 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
+            String schema = handle.getSchemaName();
+            String table = handle.getTableName();
+            String columnName = jdbcColumn.getColumnName();
             if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
+                table = table.toUpperCase(ENGLISH);
+                columnName = columnName.toUpperCase(ENGLISH);
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    jdbcColumn.getColumnName(),
-                    newColumnName);
+                    quoted(handle.getCatalogName(), schema, table),
+                    quoted(columnName),
+                    quoted(newColumnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -535,10 +541,19 @@ public class BaseJdbcClient
     public void dropColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            String schema = handle.getSchemaName();
+            String table = handle.getTableName();
+            String columnName = column.getColumnName();
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
+                table = table.toUpperCase(ENGLISH);
+                columnName = columnName.toUpperCase(ENGLISH);
+            }
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    column.getColumnName());
+                    quoted(handle.getCatalogName(), schema, table),
+                    quoted(columnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
