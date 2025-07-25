@@ -196,7 +196,7 @@ public final class EquivalenceClassProperty
     private static boolean isVariableEqualVariableOrConstant(FunctionResolution functionResolution, RowExpression expression)
     {
         if (expression instanceof CallExpression
-                && functionResolution.isEqualFunction(((CallExpression) expression).getFunctionHandle())
+                && functionResolution.isEqualsFunction(((CallExpression) expression).getFunctionHandle())
                 && ((CallExpression) expression).getArguments().size() == 2) {
             RowExpression e1 = ((CallExpression) expression).getArguments().get(0);
             RowExpression e2 = ((CallExpression) expression).getArguments().get(1);

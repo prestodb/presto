@@ -443,7 +443,7 @@ public class ReorderJoins
 
             for (RowExpression predicate : joinPredicates) {
                 if (predicate instanceof CallExpression
-                        && functionResolution.isEqualFunction(((CallExpression) predicate).getFunctionHandle())
+                        && functionResolution.isEqualsFunction(((CallExpression) predicate).getFunctionHandle())
                         && ((CallExpression) predicate).getArguments().size() == 2) {
                     RowExpression argument0 = ((CallExpression) predicate).getArguments().get(0);
                     RowExpression argument1 = ((CallExpression) predicate).getArguments().get(1);
