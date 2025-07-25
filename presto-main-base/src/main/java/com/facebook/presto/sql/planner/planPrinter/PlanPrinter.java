@@ -98,6 +98,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -1317,6 +1318,20 @@ public class PlanPrinter
         public Void visitOffset(OffsetNode node, Void context)
         {
             addNode(node, "Offset", format("[%s]", node.getCount()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(
+                    node,
+                    "TableFunction",
+                    node.getName());
+
+            checkArgument(
+                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty(),
+                    "Table or descriptor arguments are not yet supported in PlanPrinter");
 
             return processChildren(node, context);
         }

@@ -69,6 +69,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -114,6 +115,12 @@ public final class ValidateDependenciesChecker
         public Void visitPlan(PlanNode node, Set<VariableReferenceExpression> boundVariables)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            return null;
         }
 
         @Override
