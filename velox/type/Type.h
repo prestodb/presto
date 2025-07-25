@@ -2052,6 +2052,7 @@ struct InputGeneratorConfig {
   size_t seed_;
   double nullRatio_;
   memory::MemoryPool* pool_;
+  TypePtr type_{nullptr}; // Added type to support
 };
 
 /// Associates custom types with their custom operators to be the payload in

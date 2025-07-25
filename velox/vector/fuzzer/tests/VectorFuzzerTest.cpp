@@ -22,6 +22,8 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/QDigestRegistration.h"
+#include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/type/TypeEncodingUtil.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -39,6 +41,7 @@ class VectorFuzzerTest : public testing::Test {
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     registerJsonType();
+    registerQDigestType();
   }
 
   memory::MemoryPool* pool() const {
@@ -1097,6 +1100,41 @@ TEST_F(VectorFuzzerTest, setConstrained) {
   for (auto i = 0; i < kSize; ++i) {
     std::string value = decoded.valueAt<StringView>(i);
     EXPECT_TRUE(value == "a" || value == "b");
+  }
+}
+
+TEST_F(VectorFuzzerTest, qdigestTypeGeneration) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.2;
+  opts.vectorSize = 10;
+  VectorFuzzer fuzzer(opts, pool());
+
+  const auto qdigestRealType = QDIGEST(REAL());
+  const auto qdigestDoulbeType = QDIGEST(DOUBLE());
+  const auto qdigestBigIntType = QDIGEST(BIGINT());
+
+  // Test QDigest with BIGINT parameter
+  {
+    auto vector = fuzzer.fuzz(QDIGEST(BIGINT()));
+    ASSERT_NE(vector, nullptr);
+    EXPECT_TRUE(vector->type()->equivalent(*qdigestBigIntType));
+    EXPECT_EQ(vector->size(), opts.vectorSize);
+  }
+
+  // Test QDigest with REAL parameter
+  {
+    auto vector = fuzzer.fuzz(QDIGEST(REAL()));
+    ASSERT_NE(vector, nullptr);
+    EXPECT_TRUE(vector->type()->equivalent(*qdigestRealType));
+    EXPECT_EQ(vector->size(), opts.vectorSize);
+  }
+
+  // Test QDigest with DOUBLE parameter
+  {
+    auto vector = fuzzer.fuzz(QDIGEST(BIGINT()));
+    ASSERT_NE(vector, nullptr);
+    EXPECT_TRUE(vector->type()->equivalent(*qdigestBigIntType));
+    EXPECT_EQ(vector->size(), opts.vectorSize);
   }
 }
 } // namespace

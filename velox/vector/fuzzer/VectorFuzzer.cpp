@@ -247,7 +247,7 @@ AbstractInputGeneratorPtr maybeGetCustomTypeInputGenerator(
     FuzzerGenerator& rng,
     memory::MemoryPool* pool) {
   if (customTypeExists(type->name())) {
-    InputGeneratorConfig config{rand<uint32_t>(rng), nullRatio, pool};
+    InputGeneratorConfig config{rand<uint32_t>(rng), nullRatio, pool, type};
     return getCustomTypeInputGenerator(type->name(), config);
   }
 
