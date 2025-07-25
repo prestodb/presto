@@ -24,7 +24,9 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -53,11 +55,13 @@ public class LocalExecutingQueryResponseProvider
             DataSize targetResultSize,
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
-            boolean binaryResults)
+            boolean binaryResults,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime)
     {
         Query query;
         try {
-            query = queryProvider.getQuery(queryId, slug);
+            query = queryProvider.getQuery(queryId, slug, retryUrl, retryExpirationEpochTime);
         }
         catch (WebApplicationException e) {
             return Optional.empty();

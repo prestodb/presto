@@ -95,6 +95,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -111,6 +112,8 @@ class Query
     private final QueryId queryId;
     private final Session session;
     private final String slug;
+    private final Optional<URI> retryUrl;
+    private final OptionalLong retryExpirationEpochTime;
 
     @GuardedBy("this")
     private final ExchangeClient exchangeClient;
@@ -184,9 +187,22 @@ class Query
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde,
-            RetryCircuitBreaker retryCircuitBreaker)
+            RetryCircuitBreaker retryCircuitBreaker,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime)
     {
-        Query result = new Query(session, slug, queryManager, transactionManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, retryCircuitBreaker);
+        Query result = new Query(
+                session,
+                slug,
+                retryUrl,
+                retryExpirationEpochTime,
+                queryManager,
+                transactionManager,
+                exchangeClient,
+                dataProcessorExecutor,
+                timeoutExecutor,
+                blockEncodingSerde,
+                retryCircuitBreaker);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -203,6 +219,8 @@ class Query
     private Query(
             Session session,
             String slug,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime,
             QueryManager queryManager,
             TransactionManager transactionManager,
             ExchangeClient exchangeClient,
@@ -213,6 +231,8 @@ class Query
     {
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
+        requireNonNull(retryUrl, "retryUrl is null");
+        requireNonNull(retryExpirationEpochTime, "retryExpirationEpochTime is null");
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(exchangeClient, "exchangeClient is null");
@@ -227,6 +247,8 @@ class Query
         this.queryId = session.getQueryId();
         this.session = session;
         this.slug = slug;
+        this.retryUrl = retryUrl;
+        this.retryExpirationEpochTime = retryExpirationEpochTime;
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
@@ -427,11 +449,13 @@ class Query
 
         // build a new query with next uri
         // we expect failed nodes have been removed from discovery server upon query failure
+        URI nextUri = createRetryUri(scheme, uriInfo);
+
         return new QueryResults(
                 queryId.toString(),
                 queryResults.getInfoUri(),
                 queryResults.getPartialCancelUri(),
-                createRetryUri(scheme, uriInfo),
+                nextUri,
                 queryResults.getColumns(),
                 null,
                 null,
@@ -669,6 +693,20 @@ class Query
 
     private synchronized URI createRetryUri(String scheme, UriInfo uriInfo)
     {
+        // Check if we have external retry URL information
+        if (retryUrl.isPresent()) {
+            // Check if the retry URL has not expired
+            long currentTime = currentTimeMillis();
+            if (currentTime < retryExpirationEpochTime.getAsLong()) {
+                return retryUrl.get();
+            }
+            else {
+                log.warn("Retry URL for query %s has expired. Current time: %d, Expiration: %d",
+                         queryId, currentTime, retryExpirationEpochTime.getAsLong());
+            }
+        }
+
+        // Use the default retry mechanism
         UriBuilder uri = uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement/queued/retry")
