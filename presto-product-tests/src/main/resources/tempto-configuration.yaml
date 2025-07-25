@@ -2,7 +2,7 @@ hdfs:
   username: hive
   webhdfs:
     host: ${databases.hive.host}
-    port: 50070
+    port: 9870
 
 databases:
   default:
