@@ -37,7 +37,8 @@ public class TestHiveTableOperationsConfig
                 .setTableRefreshBackoffMaxSleepTime(succinctDuration(5, SECONDS))
                 .setTableRefreshMaxRetryTime(succinctDuration(1, MINUTES))
                 .setTableRefreshBackoffScaleFactor(4.0)
-                .setTableRefreshRetries(20));
+                .setTableRefreshRetries(20)
+                .setLockingEnabled(true));
     }
 
     @Test

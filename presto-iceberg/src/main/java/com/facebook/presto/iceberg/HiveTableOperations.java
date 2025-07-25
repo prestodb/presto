@@ -255,10 +255,15 @@ public class HiveTableOperations
         // JVM process, which would result in unnecessary and costly HMS lock acquisition requests
         Optional<Long> lockId = Optional.empty();
         ReentrantLock tableLevelMutex = commitLockCache.getUnchecked(database + "." + tableName);
-        tableLevelMutex.lock();
+        boolean useLock = config.lockingEnabled() || metadata.propertyAsBoolean(TableProperties.HIVE_LOCK_ENABLED, TableProperties.HIVE_LOCK_ENABLED_DEFAULT);
+        if (useLock) {
+            tableLevelMutex.lock();
+        }
         try {
             try {
-                lockId = metastore.lock(metastoreContext, database, tableName);
+                if (useLock) {
+                    lockId = metastore.lock(metastoreContext, database, tableName);
+                }
                 if (base == null) {
                     String tableComment = metadata.properties().get(TABLE_COMMENT);
                     Map<String, String> parameters = new HashMap<>();
@@ -319,7 +324,6 @@ public class HiveTableOperations
             else {
                 PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
                 metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
-
                 // attempt to put back previous table statistics
                 metastore.updateTableStatistics(metastoreContext, database, tableName, oldStats -> tableStats);
             }
@@ -327,14 +331,16 @@ public class HiveTableOperations
         }
         finally {
             shouldRefresh = true;
-            try {
-                lockId.ifPresent(id -> metastore.unlock(metastoreContext, id));
-            }
-            catch (Exception e) {
-                log.error(e, "Failed to unlock: %s", lockId.orElse(null));
-            }
-            finally {
-                tableLevelMutex.unlock();
+            if (useLock) {
+                try {
+                    lockId.ifPresent(id -> metastore.unlock(metastoreContext, id));
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to unlock: %s", lockId.orElse(null));
+                }
+                finally {
+                    tableLevelMutex.unlock();
+                }
             }
         }
     }
