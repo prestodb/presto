@@ -910,6 +910,8 @@ dwio::common::FileFormat toFileFormat(
     case protocol::hive::HiveStorageFormat::ALPHA:
       // This has been renamed in Velox from ALPHA to NIMBLE.
       return dwio::common::FileFormat::NIMBLE;
+    case protocol::hive::HiveStorageFormat::TEXTFILE:
+      return dwio::common::FileFormat::TEXT;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",

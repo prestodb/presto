@@ -403,6 +403,64 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test(groups = {"textfile_reader"})
+    public void testTableWrite()
+    {
+        String tmpTableName = generateRandomTableName();
+        try {
+            getQueryRunner().execute(String.format(
+                    "CREATE TABLE %s (" +
+                            "id BIGINT," +
+                            "name VARCHAR," +
+                            "is_active BOOLEAN," +
+                            "score DOUBLE," +
+                            "created_at TIMESTAMP," +
+                            "tags ARRAY<VARCHAR>," +
+                            "metrics ARRAY<DOUBLE>," +
+                            "properties MAP<VARCHAR, VARCHAR>," +
+                            "flags MAP<TINYINT, BOOLEAN>," +
+                            "nested_struct ROW(sub_id INTEGER, sub_name VARCHAR, sub_scores ARRAY<REAL>, sub_map MAP<SMALLINT, VARCHAR>)," +
+                            "ds VARCHAR" +
+                            ") WITH (format = 'TEXTFILE', oncall = 'presto', partitioned_by = ARRAY['ds'], retention_days = 30)", tmpTableName));
+
+            getQueryRunner().execute(String.format(
+                    "INSERT INTO %s (" +
+                            "id," +
+                            "name," +
+                            "is_active," +
+                            "score," +
+                            "created_at," +
+                            "tags," +
+                            "metrics," +
+                            "properties," +
+                            "flags," +
+                            "nested_struct," +
+                            "ds" +
+                            ") VALUES (" +
+                            "1001," +
+                            "'Jane Doe'," +
+                            "TRUE," +
+                            "88.5," +
+                            "TIMESTAMP '2025-07-23 10:00:00'," +
+                            "ARRAY['alpha', 'beta', 'gamma']," +
+                            "ARRAY[3.14, 2.71, 1.41]," +
+                            "MAP(ARRAY['color', 'size'], ARRAY['blue', 'large'])," +
+                            "MAP(ARRAY[TINYINT '1', TINYINT '2'], ARRAY[TRUE, FALSE])," +
+                            "ROW(" +
+                            "42," +
+                            "'sub_jane'," +
+                            "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']," +
+                            "MAP(ARRAY[SMALLINT '10', SMALLINT '20'], ARRAY['foo', 'bar'])" +
+                            ")," +
+                            "'2025-07-01'" +
+                            ")", tmpTableName));
+            assertQueryResultCount(String.format("SELECT count(*) FROM %s", tmpTableName), 1);
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
     @Test
     public void testOrderBy()
     {
@@ -1259,18 +1317,6 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
     }
 
-    @Test(groups = {"no_textfile_reader"})
-    public void testReadTableWithUnsupportedTextfileFormat()
-    {
-        assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
-    }
-
-    @Test(groups = {"textfile_reader"})
-    public void testReadTableWithTextfileFormat()
-    {
-        assertQuery("SELECT * FROM nation_text");
-    }
-
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
@@ -1671,10 +1717,10 @@ public abstract class AbstractTestNativeGeneralQueries
                     ColumnMetadata.builder()
                             .setName("col")
                             .setType(RowType.from(ImmutableList.of(
-                            new RowType.Field(Optional.of("NationKey"), BIGINT),
-                            new RowType.Field(Optional.of("NAME"), VARCHAR),
-                            new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
-                            new RowType.Field(Optional.of("commenT"), VARCHAR))))
+                                    new RowType.Field(Optional.of("NationKey"), BIGINT),
+                                    new RowType.Field(Optional.of("NAME"), VARCHAR),
+                                    new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                                    new RowType.Field(Optional.of("commenT"), VARCHAR))))
                             .build()),
                     tableProperties);
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
@@ -1830,15 +1876,16 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         // Test casting to JSON returning the same results for all unicode characters in the
         // entire range.
-        List<int[]> unicodeRanges = new ArrayList<int[]>() {
+        List<int[]> unicodeRanges = new ArrayList<int[]>()
+        {
             {
-                add(new int[]{0, 0x7F});
-                add(new int[]{0x80, 0xD7FF});
-                add(new int[]{0xE000, 0xFFFF});
+                add(new int[] {0, 0x7F});
+                add(new int[] {0x80, 0xD7FF});
+                add(new int[] {0xE000, 0xFFFF});
             }
         };
         for (int start = 0x10000; start < 0x110000; start += 0x10000) {
-            unicodeRanges.add(new int[]{start, start + 0xFFFF});
+            unicodeRanges.add(new int[] {start, start + 0xFFFF});
         }
         List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
             StringBuilder unicodeString = new StringBuilder();
