@@ -83,4 +83,10 @@ public class TableFunctionDescriptorArgument
     {
         return descriptor.map(Descriptor::toString).orElse("CAST (NULL AS DESCRIPTOR)");
     }
+
+    @Override
+    public String getArgumentTypeString()
+    {
+        return "descriptor";
+    }
 }

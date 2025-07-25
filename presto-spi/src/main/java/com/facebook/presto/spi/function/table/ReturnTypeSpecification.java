@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
  */
 public abstract class ReturnTypeSpecification
 {
+    public static final String returnType = "Abstract";
     /**
      * The proper columns of the table function are not known at function declaration time.
      * They must be determined at query analysis time based on the actual call arguments.
@@ -34,9 +35,16 @@ public abstract class ReturnTypeSpecification
     public static class GenericTable
             extends ReturnTypeSpecification
     {
+        public static final String returnType = "GenericTable";
         public static final GenericTable GENERIC_TABLE = new GenericTable();
 
         private GenericTable() {}
+
+        @Override
+        public String getReturnType()
+        {
+            return returnType;
+        }
     }
 
     /**
@@ -45,9 +53,16 @@ public abstract class ReturnTypeSpecification
     public static class OnlyPassThrough
             extends ReturnTypeSpecification
     {
+        public static final String returnType = "OnlyPassThrough";
         public static final OnlyPassThrough ONLY_PASS_THROUGH = new OnlyPassThrough();
 
         private OnlyPassThrough() {}
+
+        @Override
+        public String getReturnType()
+        {
+            return returnType;
+        }
     }
 
     /**
@@ -57,6 +72,7 @@ public abstract class ReturnTypeSpecification
     public static class DescribedTable
             extends ReturnTypeSpecification
     {
+        public static final String returnType = "DescribedTable";
         private final Descriptor descriptor;
 
         public DescribedTable(Descriptor descriptor)
@@ -70,5 +86,16 @@ public abstract class ReturnTypeSpecification
         {
             return descriptor;
         }
+
+        @Override
+        public String getReturnType()
+        {
+            return returnType;
+        }
+    }
+
+    public String getReturnType()
+    {
+        return returnType;
     }
 }
