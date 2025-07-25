@@ -57,7 +57,9 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kAggregationSpillEnabled,
           std::string(SystemConfig::kAggregationSpillEnabled)},
           {core::QueryConfig::kRequestDataSizesMaxWaitSec,
-          std::string(SystemConfig::kRequestDataSizesMaxWaitSec)}};
+          std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
+          {core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
+          std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)}};
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;
