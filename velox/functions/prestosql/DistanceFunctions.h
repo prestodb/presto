@@ -224,6 +224,65 @@ struct L2SquaredFunctionDoubleArray {
   }
 };
 
+template <typename T>
+struct DotProductFloatArray {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void callNullFree(
+      out_type<float>& result,
+      const facebook::velox::exec::ArrayView<false, float>& leftArray,
+      const facebook::velox::exec::ArrayView<false, float>& rightArray) {
+    VELOX_USER_CHECK(
+        leftArray.size() == rightArray.size(),
+        "Both array arguments must have identical sizes");
+    size_t d = leftArray.size();
+    if (d == 0) {
+      result = std::numeric_limits<float>::quiet_NaN();
+      return;
+    }
+
+    std::vector<float> leftBuffer, rightBuffer;
+    const float* x = getArrayDataOrCopy(leftArray, leftBuffer);
+    const float* y = getArrayDataOrCopy(rightArray, rightBuffer);
+
+    result = faiss::fvec_inner_product(x, y, d);
+  }
+};
+
+template <typename T>
+struct DotProductArray {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void callNullFree(
+      out_type<double>& result,
+      const facebook::velox::exec::ArrayView<false, double>& leftArray,
+      const facebook::velox::exec::ArrayView<false, double>& rightArray) {
+    VELOX_USER_CHECK(
+        leftArray.size() == rightArray.size(),
+        "Both array arguments must have identical sizes");
+    size_t d = leftArray.size();
+    if (d == 0) {
+      result = std::numeric_limits<float>::quiet_NaN();
+      return;
+    }
+
+    std::vector<float> x(static_cast<std::vector<float>::size_type>(d * 2), 0);
+    for (size_t i = 0; i < leftArray.size(); i++) {
+      if (i < x.size()) { // Check buffer bounds
+        x[i] = static_cast<float>(leftArray[i]);
+      }
+    }
+    for (size_t i = 0; i < rightArray.size(); i++) {
+      if (i + d < x.size()) { // Check buffer bounds
+        x[i + d] = static_cast<float>(rightArray[i]);
+      }
+    }
+
+    result = static_cast<double>(
+        faiss::fvec_inner_product(x.data(), /*y=*/x.data() + d, d));
+  }
+};
+
 #else // VELOX_ENABLE_FAISS
 
 template <typename T>
@@ -321,6 +380,33 @@ struct CosineSimilarityFunctionArray {
     result = product / (normLeftArray * normRightArray);
   }
 };
+
+template <typename T>
+struct DotProductArray {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void callNullFree(
+      out_type<double>& result,
+      const facebook::velox::exec::ArrayView<false, double>& leftArray,
+      const facebook::velox::exec::ArrayView<false, double>& rightArray) {
+    VELOX_USER_CHECK(
+        leftArray.size() == rightArray.size(),
+        "Both array arguments must have identical sizes");
+    size_t d = leftArray.size();
+    if (d == 0) {
+      result = std::numeric_limits<float>::quiet_NaN();
+      return;
+    }
+
+    double dotProduct = 0.0;
+    for (size_t i = 0; i < leftArray.size(); i++) {
+      dotProduct += leftArray[i] * rightArray[i];
+    }
+
+    result = dotProduct;
+  }
+};
+
 #endif // VELOX_ENABLE_FAISS
 
 } // namespace

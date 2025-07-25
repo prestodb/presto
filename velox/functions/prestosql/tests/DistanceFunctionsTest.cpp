@@ -118,6 +118,25 @@ TEST_F(DistanceFunctionsTest, cosineSimilarityArray) {
   EXPECT_TRUE(std::isnan(cosineSimilarity({1, 3}, {kInf, 1})));
 }
 
+TEST_F(DistanceFunctionsTest, dotProductArray) {
+  const auto dotProduct = [&](const std::vector<double>& left,
+                              const std::vector<double>& right) {
+    auto leftArray = makeArrayVector<double>({left});
+    auto rightArray = makeArrayVector<double>({right});
+    return evaluateOnce<double>(
+               "dot_product(c0,c1)", makeRowVector({leftArray, rightArray}))
+        .value();
+  };
+  EXPECT_NEAR((1 * 1 + 2 * 3), dotProduct({{1, 2}}, {{1, 3}}), 1e-6);
+
+  EXPECT_NEAR(
+      (1 * 1 + 2 * 3 + (-1) * 5), dotProduct({{1, 2, -1}}, {{1, 3, 5}}), 1e-6);
+
+  EXPECT_TRUE(std::isnan(dotProduct({}, {})));
+  VELOX_ASSERT_THROW(
+      dotProduct({1, 3}, {}), "Both array arguments must have identical sizes");
+}
+
 #ifdef VELOX_ENABLE_FAISS
 
 TEST_F(DistanceFunctionsTest, cosineSimilarityFloatArray) {
@@ -195,6 +214,24 @@ TEST_F(DistanceFunctionsTest, l2SquaredFunctionDoubleArray) {
       l2Squared({1.0, 3.0}, {}), "Both arrays need to have identical size");
 }
 
+TEST_F(DistanceFunctionsTest, dotProductFloatArray) {
+  const auto dotProduct = [&](const std::vector<float>& left,
+                              const std::vector<float>& right) {
+    auto leftArray = makeArrayVector<float>({left});
+    auto rightArray = makeArrayVector<float>({right});
+    return evaluateOnce<float>(
+               "dot_product(c0,c1)", makeRowVector({leftArray, rightArray}))
+        .value();
+  };
+  EXPECT_NEAR((1 * 1 + 2 * 3), dotProduct({{1, 2}}, {{1, 3}}), 1e-6);
+
+  EXPECT_NEAR(
+      (1 * 1 + 2 * 3 + (-1) * 5), dotProduct({{1, 2, -1}}, {{1, 3, 5}}), 1e-6);
+
+  EXPECT_TRUE(std::isnan(dotProduct({}, {})));
+  VELOX_ASSERT_THROW(
+      dotProduct({1, 3}, {}), "Both array arguments must have identical sizes");
+}
 #endif // VELOX_ENABLE_FAISS
 
 } // namespace

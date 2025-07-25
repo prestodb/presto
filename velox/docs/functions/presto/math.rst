@@ -74,6 +74,24 @@ Mathematical Functions
     Returns the squared `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array(double).
     If any input array is empty, the function returns NaN. If the input arrays have different sizes, the function throws VeloxUserError.
 
+.. function:: dot_product(array(real), array(real)) -> real
+
+    Returns the `Dot Product <https://en.wikipedia.org/wiki/Dot_product>`_ between the vectors represented as array(real).
+    If any input array is empty, the function returns NaN. If the input arrays have different sizes, the function throws VeloxUserError.
+
+        SELECT dot_product(ARRAY[1], ARRAY[2]); -- 2.0
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[NULL, 3.0]); -- NULL
+
+        SELECT dot_product(ARRAY[], ARRAY[2, 3]); -- Throws VeloxUserError
+
+        SELECT dot_product(ARRAY[], ARRAY[]); -- NaN
+
+.. function:: dot_product(array(double), array(double)) -> double
+
+    Returns the `Dot Product <https://en.wikipedia.org/wiki/Dot_product>`_ between the vectors represented as array(double).
+    If any input array is empty, the function returns NaN. If the input arrays have different sizes, the function throws VeloxUserError.
+
 .. function:: degrees(x) -> double
 
     Converts angle x in radians to degrees.

@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
       // Distance functions
       "cosine_similarity", // T224131333
       "l2_squared", // T228562088
+      "dot_product", // T228562088
       // Geometry functions don't yet have a ValuesGenerator
       "st_geometryfromtext",
       "st_geomfrombinary",
@@ -342,6 +343,7 @@ int main(int argc, char** argv) {
         "atan2", // T219988962
         "cosine_similarity", // https://github.com/facebookincubator/velox/issues/12915
         "l2_squared", // https://github.com/facebookincubator/velox/issues/12915
+        "dot_product", // https://github.com/facebookincubator/velox/issues/12915
         "subscript", // https://github.com/facebookincubator/velox/issues/12959
         "reduce", // T220595632
         "inverse_binomial_cdf", // https://github.com/facebookincubator/velox/issues/12981
