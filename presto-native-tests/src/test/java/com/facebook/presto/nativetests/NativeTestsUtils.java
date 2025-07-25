@@ -16,6 +16,11 @@ package com.facebook.presto.nativetests;
 import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Optional;
+
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
@@ -32,6 +37,7 @@ public class NativeTestsUtils
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .setPluginDirectory(sidecarEnabled ? Optional.of(getCustomFunctionsPluginDirectory().toString()) : Optional.empty())
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
@@ -57,5 +63,35 @@ public class NativeTestsUtils
         catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static Path getCustomFunctionsPluginDirectory()
+            throws Exception
+    {
+        Path workingDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
+        Path prestoRoot = workingDir;
+        // Traverse upward until finding the 'presto-native-tests' directory.
+        while (prestoRoot != null && !Files.exists(prestoRoot.resolve("presto-native-tests"))) {
+            prestoRoot = prestoRoot.getParent();
+        }
+        if (prestoRoot == null) {
+            throw new IllegalStateException("Could not locate presto root directory.");
+        }
+        Path buildPath = prestoRoot
+                .resolve("presto-native-tests")
+                .resolve("_build");
+        if(Files.exists(buildPath.resolve("debug"))) {
+            buildPath = buildPath.resolve("debug");
+        }
+        else if(Files.exists(buildPath.resolve("release"))) {
+            buildPath = buildPath.resolve("release");
+        }
+        else {
+            throw new IllegalStateException("presto-native-tests build path does not exist");
+        }
+        return buildPath
+                .resolve("presto_cpp")
+                .resolve("tests")
+                .resolve("custom_functions");
     }
 }
