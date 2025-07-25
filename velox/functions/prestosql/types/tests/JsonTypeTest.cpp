@@ -34,6 +34,8 @@ TEST_F(JsonTypeTest, basic) {
 
   ASSERT_TRUE(hasType("JSON"));
   ASSERT_EQ(*getType("JSON", {}), *JSON());
+
+  ASSERT_FALSE(JSON()->isOrderable());
 }
 
 TEST_F(JsonTypeTest, serde) {

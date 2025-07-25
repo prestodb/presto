@@ -39,6 +39,8 @@ TEST_F(QDigestTypeTest, basic) {
 
     ASSERT_TRUE(hasType("QDIGEST"));
     ASSERT_EQ(*getType("QDIGEST", {TypeParameter(parameterType)}), *type);
+
+    ASSERT_FALSE(type->isOrderable());
   };
   testType("QDIGEST(BIGINT)", BIGINT());
   testType("QDIGEST(REAL)", REAL());

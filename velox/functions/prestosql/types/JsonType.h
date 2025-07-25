@@ -50,6 +50,10 @@ class JsonType : public VarcharType {
     obj["type"] = name();
     return obj;
   }
+
+  bool isOrderable() const override {
+    return false;
+  }
 };
 
 FOLLY_ALWAYS_INLINE bool isJsonType(const TypePtr& type) {

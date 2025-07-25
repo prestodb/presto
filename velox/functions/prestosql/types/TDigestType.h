@@ -61,6 +61,10 @@ class TDigestType : public VarbinaryType {
     return obj;
   }
 
+  bool isOrderable() const override {
+    return false;
+  }
+
  private:
   explicit TDigestType(const TypePtr& dataType)
       : parameters_({TypeParameter(dataType)}) {}

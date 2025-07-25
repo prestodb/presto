@@ -36,6 +36,8 @@ TEST_F(TDigestTypeTest, basic) {
 
   ASSERT_TRUE(hasType("TDIGEST"));
   ASSERT_EQ(*getType("TDIGEST", {TypeParameter(DOUBLE())}), *TDIGEST(DOUBLE()));
+
+  ASSERT_FALSE(TDIGEST(DOUBLE())->isOrderable());
 }
 
 TEST_F(TDigestTypeTest, serde) {

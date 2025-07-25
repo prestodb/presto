@@ -75,15 +75,15 @@ class BingTileType : public BigintType {
     return name();
   }
 
-  bool isOrderable() const override {
-    return false;
-  }
-
   folly::dynamic serialize() const override {
     folly::dynamic obj = folly::dynamic::object;
     obj["name"] = "Type";
     obj["type"] = name();
     return obj;
+  }
+
+  bool isOrderable() const override {
+    return false;
   }
 
   static constexpr uint8_t kBingTileVersion = 0;

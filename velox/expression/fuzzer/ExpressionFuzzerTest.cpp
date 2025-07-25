@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
+  facebook::velox::functions::prestosql::registerInternalFunctions();
 
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
@@ -211,6 +212,8 @@ int main(int argc, char** argv) {
       exprTransformers = {
           {"array_intersect", std::make_shared<SortArrayTransformer>()},
           {"array_except", std::make_shared<SortArrayTransformer>()},
+          {"array_duplicates", std::make_shared<SortArrayTransformer>()},
+          {"map_entries", std::make_shared<SortArrayTransformer>()},
           {"map_keys", std::make_shared<SortArrayTransformer>()},
           {"map_values", std::make_shared<SortArrayTransformer>()}};
 
@@ -386,6 +389,8 @@ int main(int argc, char** argv) {
         // Skipping until the new signature is merged and released in Presto:
         // https://github.com/prestodb/presto/pull/25521
         "xxhash64(varbinary,bigint) -> varbinary",
+        "$internal$canonicalize",
+        "$internal$contains",
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(

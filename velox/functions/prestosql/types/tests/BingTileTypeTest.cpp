@@ -34,6 +34,8 @@ TEST_F(BingTileTypeTest, basic) {
 
   ASSERT_TRUE(hasType("BINGTILE"));
   ASSERT_EQ(*getType("BINGTILE", {}), *BINGTILE());
+
+  ASSERT_FALSE(BINGTILE()->isOrderable());
 }
 
 TEST_F(BingTileTypeTest, serde) {

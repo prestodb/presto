@@ -34,6 +34,8 @@ TEST_F(HyperLogLogTypeTest, basic) {
 
   ASSERT_TRUE(hasType("HYPERLOGLOG"));
   ASSERT_EQ(*getType("HYPERLOGLOG", {}), *HYPERLOGLOG());
+
+  ASSERT_FALSE(HYPERLOGLOG()->isOrderable());
 }
 
 TEST_F(HyperLogLogTypeTest, serde) {

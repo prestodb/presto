@@ -50,6 +50,10 @@ class HyperLogLogType : public VarbinaryType {
     obj["type"] = name();
     return obj;
   }
+
+  bool isOrderable() const override {
+    return false;
+  }
 };
 
 inline bool isHyperLogLogType(const TypePtr& type) {

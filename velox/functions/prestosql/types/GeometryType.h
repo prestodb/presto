@@ -51,6 +51,10 @@ class GeometryType : public VarbinaryType {
     obj["type"] = name();
     return obj;
   }
+
+  bool isOrderable() const override {
+    return false;
+  }
 };
 
 FOLLY_ALWAYS_INLINE bool isGeometryType(const TypePtr& type) {

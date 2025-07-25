@@ -35,6 +35,8 @@ TEST_F(GeometryTypeTest, basic) {
 
   ASSERT_TRUE(hasType("GEOMETRY"));
   ASSERT_EQ(*getType("GEOMETRY", {}), *GEOMETRY());
+
+  ASSERT_FALSE(GEOMETRY()->isOrderable());
 }
 
 TEST_F(GeometryTypeTest, serde) {
