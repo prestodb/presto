@@ -370,7 +370,7 @@ public class BaseJdbcClient
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
             String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
+            if (uppercase && !caseSensitiveNameMatchingEnabled) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
@@ -380,7 +380,7 @@ public class BaseJdbcClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
+                if (uppercase && !caseSensitiveNameMatchingEnabled) {
                     columnName = columnName.toUpperCase(ENGLISH);
                 }
                 columnNames.add(columnName);
@@ -447,7 +447,7 @@ public class BaseJdbcClient
             String tableName = oldTable.getTableName();
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 schemaName = schemaName.toUpperCase(ENGLISH);
                 tableName = tableName.toUpperCase(ENGLISH);
                 newSchemaName = newSchemaName.toUpperCase(ENGLISH);
@@ -495,7 +495,7 @@ public class BaseJdbcClient
             String table = handle.getTableName();
             String columnName = column.getName();
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
                 table = table.toUpperCase(ENGLISH);
                 columnName = columnName.toUpperCase(ENGLISH);
@@ -516,7 +516,7 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             String sql = format(
@@ -666,7 +666,7 @@ public class BaseJdbcClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 return schemaName.toUpperCase(ENGLISH);
             }
             return schemaName;
@@ -714,7 +714,7 @@ public class BaseJdbcClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 return tableName.toUpperCase(ENGLISH);
             }
             return tableName;
