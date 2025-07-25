@@ -686,7 +686,7 @@ public class PushdownSubfields
                         if (functionResolution.isArrayContainsFunction(callExpression.getFunctionHandle())) {
                             return extractSubfieldsFromArray((ConstantExpression) callExpression.getArguments().get(0), mapVariable);
                         }
-                        else if (functionResolution.isEqualFunction(callExpression.getFunctionHandle())) {
+                        else if (functionResolution.isEqualsFunction(callExpression.getFunctionHandle())) {
                             ConstantExpression mapKey;
                             if (callExpression.getArguments().get(0) instanceof ConstantExpression) {
                                 mapKey = (ConstantExpression) callExpression.getArguments().get(0);
@@ -1091,7 +1091,7 @@ public class PushdownSubfields
                     return callExpression.getArguments().get(0) instanceof ConstantExpression && callExpression.getArguments().get(1) instanceof VariableReferenceExpression
                             && ((VariableReferenceExpression) callExpression.getArguments().get(1)).getName().equals(lambdaDefinitionExpression.getArguments().get(0));
                 }
-                else if (functionResolution.isEqualFunction(callExpression.getFunctionHandle())) {
+                else if (functionResolution.isEqualsFunction(callExpression.getFunctionHandle())) {
                     return (callExpression.getArguments().get(0) instanceof VariableReferenceExpression
                             && ((VariableReferenceExpression) callExpression.getArguments().get(0)).getName().equals(lambdaDefinitionExpression.getArguments().get(0))
                             && callExpression.getArguments().get(1) instanceof ConstantExpression)

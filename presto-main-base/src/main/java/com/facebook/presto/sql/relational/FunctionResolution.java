@@ -275,8 +275,7 @@ public final class FunctionResolution
 
     public boolean isEqualsFunction(FunctionHandle functionHandle)
     {
-        Optional<OperatorType> operatorType = functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType();
-        return operatorType.isPresent() && operatorType.get().getOperator().equals(EQUAL.getOperator());
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType().map(EQUAL::equals).orElse(false);
     }
 
     @Override
@@ -404,11 +403,6 @@ public final class FunctionResolution
     public FunctionHandle approximateSetFunction(Type valueType)
     {
         return functionAndTypeResolver.lookupFunction("approx_set", fromTypes(valueType));
-    }
-
-    public boolean isEqualFunction(FunctionHandle functionHandle)
-    {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType().map(EQUAL::equals).orElse(false);
     }
 
     public boolean isArrayContainsFunction(FunctionHandle functionHandle)
