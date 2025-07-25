@@ -27,28 +27,31 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class MockConnectorTableHandle
+public class TestTVFConnectorTableHandle
         implements ConnectorTableHandle
 {
+    // These are example fields for a Connector's Table Handle.
+    // For other examples, see TpchTableHandle or any other implementations
+    // of ConnectorTableHandle.
     private final SchemaTableName tableName;
-    private final TupleDomain<ColumnHandle> constraint;
     private final Optional<List<ColumnHandle>> columns;
+    private final TupleDomain<ColumnHandle> constraint;
 
-    public MockConnectorTableHandle(SchemaTableName tableName)
+    public TestTVFConnectorTableHandle(SchemaTableName tableName)
     {
-        this(tableName, TupleDomain.all(), Optional.empty());
+        this(tableName, Optional.empty(), TupleDomain.all());
     }
 
     @JsonCreator
-    public MockConnectorTableHandle(
+    public TestTVFConnectorTableHandle(
             @JsonProperty SchemaTableName tableName,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("columns") Optional<List<ColumnHandle>> columns)
+            @JsonProperty("columns") Optional<List<ColumnHandle>> columns,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
         requireNonNull(columns, "columns is null");
         this.columns = columns.map(ImmutableList::copyOf);
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
@@ -58,15 +61,15 @@ public class MockConnectorTableHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
-    {
-        return constraint;
-    }
-
-    @JsonProperty
     public Optional<List<ColumnHandle>> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
     }
 
     @Override
@@ -78,7 +81,7 @@ public class MockConnectorTableHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        MockConnectorTableHandle other = (MockConnectorTableHandle) o;
+        TestTVFConnectorTableHandle other = (TestTVFConnectorTableHandle) o;
         return Objects.equals(tableName, other.tableName) &&
                 Objects.equals(constraint, other.constraint) &&
                 Objects.equals(columns, other.columns);

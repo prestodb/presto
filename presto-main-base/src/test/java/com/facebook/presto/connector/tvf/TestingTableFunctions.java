@@ -163,7 +163,6 @@ public class TestingTableFunctions
     public static class SimpleTableFunction
             extends AbstractConnectorTableFunction
     {
-        private static final String SCHEMA_NAME = "system";
         private static final String FUNCTION_NAME = "simple_table_function";
         private static final String TABLE_NAME = "simple_table";
 
@@ -201,17 +200,17 @@ public class TestingTableFunctions
         public static class SimpleTableFunctionHandle
                 implements ConnectorTableFunctionHandle
         {
-            private final MockConnectorTableHandle tableHandle;
+            private final TestTVFConnectorTableHandle tableHandle;
 
             public SimpleTableFunctionHandle(String schema, String table, String column)
             {
-                this.tableHandle = new MockConnectorTableHandle(
+                this.tableHandle = new TestTVFConnectorTableHandle(
                         new SchemaTableName(schema, table),
-                        TupleDomain.all(),
-                        Optional.of(ImmutableList.of(new MockConnectorColumnHandle(column, BOOLEAN))));
+                        Optional.of(ImmutableList.of(new TestTVFConnectorColumnHandle(column, BOOLEAN))),
+                        TupleDomain.all());
             }
 
-            public MockConnectorTableHandle getTableHandle()
+            public TestTVFConnectorTableHandle getTableHandle()
             {
                 return tableHandle;
             }
@@ -301,17 +300,17 @@ public class TestingTableFunctions
     public static class TestingTableFunctionPushdownHandle
             implements ConnectorTableFunctionHandle
     {
-        private final MockConnectorTableHandle tableHandle;
+        private final TestTVFConnectorTableHandle tableHandle;
 
         public TestingTableFunctionPushdownHandle()
         {
-            this.tableHandle = new MockConnectorTableHandle(
+            this.tableHandle = new TestTVFConnectorTableHandle(
                     new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
-                    TupleDomain.all(),
-                    Optional.of(ImmutableList.of(new MockConnectorColumnHandle(COLUMN_NAME, BOOLEAN))));
+                    Optional.of(ImmutableList.of(new TestTVFConnectorColumnHandle(COLUMN_NAME, BOOLEAN))),
+                    TupleDomain.all());
         }
 
-        public MockConnectorTableHandle getTableHandle()
+        public TestTVFConnectorTableHandle getTableHandle()
         {
             return tableHandle;
         }

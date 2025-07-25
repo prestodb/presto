@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
@@ -55,6 +56,7 @@ import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -84,6 +86,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -295,6 +298,44 @@ class RelationPlanner
                 assignments.build()));
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), newMappings.build());
+    }
+
+    @Override
+    protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, SqlPlannerContext context)
+    {
+        Analysis.TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
+
+        // TODO handle input relations:
+        // 1. extract the input relations from node.getArguments() and plan them. Apply relation coercions if requested.
+        // 2. for each input relation, prepare the TableArgumentProperties record, consisting of:
+        //  - row or set semantics (from the actualArgument)
+        //  - prune when empty property  (from the actualArgument)
+        //  - pass through columns property (from the actualArgument)
+        //  - optional Specification: ordering scheme and partitioning (from the node's argument) <- planned upon the source's RelationPlan (or combined RelationPlan from all sources)
+        // TODO add - argument name
+        // TODO add - mapping column name => Symbol // TODO mind the fields without names and duplicate field names in RelationType
+        List<RelationPlan> sources = ImmutableList.of();
+        List<TableFunctionNode.TableArgumentProperties> inputRelationsProperties = ImmutableList.of();
+
+        Scope scope = analysis.getScope(node);
+
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        for (Field field : scope.getRelationType().getAllFields()) {
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(node), field.getName().get(), field.getType());
+            outputVariablesBuilder.add(variable);
+        }
+
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        PlanNode root = new TableFunctionNode(
+                idAllocator.getNextId(),
+                functionAnalysis.getFunctionName(),
+                functionAnalysis.getArguments(),
+                outputVariablesBuilder.build(),
+                sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
+                inputRelationsProperties,
+                new TableFunctionHandle(functionAnalysis.getConnectorId(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+
+        return new RelationPlan(root, scope, outputVariables);
     }
 
     @Override

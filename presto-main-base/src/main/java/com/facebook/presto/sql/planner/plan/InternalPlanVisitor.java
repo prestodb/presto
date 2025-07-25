@@ -126,4 +126,9 @@ public abstract class InternalPlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitTableFunction(TableFunctionNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

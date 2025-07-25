@@ -23,14 +23,14 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MockConnectorColumnHandle
+public class TestTVFConnectorColumnHandle
         implements ColumnHandle
 {
     private final String name;
     private final Type type;
 
     @JsonCreator
-    public MockConnectorColumnHandle(
+    public TestTVFConnectorColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type)
     {
@@ -68,7 +68,7 @@ public class MockConnectorColumnHandle
         if ((o == null) || (getClass() != o.getClass())) {
             return false;
         }
-        MockConnectorColumnHandle other = (MockConnectorColumnHandle) o;
+        TestTVFConnectorColumnHandle other = (TestTVFConnectorColumnHandle) o;
         return Objects.equals(name, other.name) &&
                 Objects.equals(type, other.type);
     }
