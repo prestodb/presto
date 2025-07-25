@@ -14,6 +14,7 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -78,6 +79,9 @@ public class PrestoSparkSessionProperties
     public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_ENABLED = "dynamic_presto_memory_pool_tuning_enabled";
     public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_FRACTION = "dynamic_presto_memory_pool_tuning_fraction";
     public static final String ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING = "attempt_number_to_apply_dynamic_memory_pool_tuning";
+    public static final String PREFER_SORT_MERGE_JOIN = "prefer_sort_merge_join";
+    public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
+
 
     private final List<PropertyMetadata<?>> sessionProperties;
     private final ExecutionStrategyValidator executionStrategyValidator;
@@ -296,7 +300,12 @@ public class PrestoSparkSessionProperties
                         ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING,
                         "Attempt number after which dynamic memory pool tuning will be enabled",
                         prestoSparkConfig.getAttemptNumberToApplyDynamicMemoryPoolTuning(),
-                        false));
+                        false),
+                booleanProperty(
+                    PREFER_SORT_MERGE_JOIN,
+                    "Prefer sort merge join for all joins. Add a sort if input is not already sorted.",
+                    false,
+                true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

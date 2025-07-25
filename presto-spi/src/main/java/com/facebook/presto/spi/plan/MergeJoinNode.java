@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -157,5 +158,15 @@ public class MergeJoinNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMergeJoin(this, context);
+    }
+
+    /**
+     *
+     * @param joinNode
+     * @return returns true if merge join is supported for the given join node
+     */
+    public static boolean isMergeJoinEligible(JoinNode joinNode)
+    {
+        return joinNode.getType() == INNER && !joinNode.isCrossJoin();
     }
 }

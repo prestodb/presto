@@ -108,6 +108,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -129,6 +130,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -511,6 +513,25 @@ public class TestLogicalPlanner
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testSortMergeJoin()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+                Session.builder(noJoinReordering()).setSystemProperty("prefer_sort_merge_join", "true").build(),
+                anyTree(
+                        mergeJoin(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")), Optional.empty(),
+                                exchange(LOCAL, GATHER, ImmutableList.of(sort("ORDERS_OK", ASCENDING, FIRST)),
+                                        sort(
+                                                ImmutableList.of(sort("ORDERS_OK", ASCENDING, FIRST)),
+                                                any(
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
+                                exchange(LOCAL, GATHER, ImmutableList.of(sort("LINEITEM_OK", ASCENDING, FIRST)),
+                                        sort(
+                                                ImmutableList.of(sort("LINEITEM_OK", ASCENDING, FIRST)),
+                                                any(
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))))));
     }
 
     @Test
