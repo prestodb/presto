@@ -31,4 +31,10 @@ public interface FunctionHandle
     FunctionKind getKind();
 
     List<TypeSignature> getArgumentTypes();
+
+    // todo: fix this hack
+    default boolean isBuiltInPluginFunction()
+    {
+        return false;
+    }
 }
