@@ -328,6 +328,14 @@ Accessors
 
     Returns a line string representing the exterior ring of the input polygon.
 
+.. function:: ST_Buffer(geometry: Geometry, distance: double) -> output: Geometry
+
+    Returns the geometry that represents all points whose distance from the
+    specified ``geometry`` is less than or equal to the specified ``distance``.
+    If the points of the ``geometry`` are extremely close together
+    (delta < 1e-8), this might return an empty geometry. Empty inputs return
+    null.
+
 .. function:: simplify_geometry(geometry: Geometry, tolerance: double) -> output: Geometry
 
     Returns a "simplified" version of the input geometry using the

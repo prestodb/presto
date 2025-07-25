@@ -190,6 +190,7 @@ int main(int argc, char** argv) {
       "st_dimension",
       "st_exteriorring",
       "st_envelope",
+      "st_buffer",
       "geometry_invalid_reason",
       "simplify_geometry",
       "st_xmax",
