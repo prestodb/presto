@@ -21,7 +21,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 public interface ExecutingQueryResponseProvider
 {
@@ -46,6 +48,9 @@ public interface ExecutingQueryResponseProvider
      * @param compressionEnabled enable compression
      * @param nestedDataSerializationEnabled enable nested data serialization
      * @param binaryResults generate results in binary format, rather than JSON
+     * @param retryUrl optional retry URL for cross-cluster retry
+     * @param retryExpirationEpochTime optional retry expiration time
+     * @param isRetryQuery true if this query is already a retry query
      * @return the ExecutingStatement's Response, if available
      */
     Optional<ListenableFuture<Response>> waitForExecutingResponse(
@@ -60,5 +65,8 @@ public interface ExecutingQueryResponseProvider
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
             boolean binaryResults,
-            long durationUntilExpirationMs);
+            long durationUntilExpirationMs,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime,
+            boolean isRetryQuery);
 }

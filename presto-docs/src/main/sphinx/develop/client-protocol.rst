@@ -122,6 +122,9 @@ Request Header Name                    Description
 ``X-Presto-Extra-Credential``          Provides extra credentials to the connector.  The header is a name=value string that
                                        is saved in the session ``Identity`` object.  The name and value are only
                                        meaningful to the connector.
+``X-Presto-Retry-Query``               Boolean flag indicating that this query is a placeholder for potential retry.
+                                       When set to ``true``, marks the query on the backup cluster as a retry placeholder
+                                       and prevents retry chains in cross-cluster retry scenarios.
 ====================================== =========================================================================================
 
 
@@ -184,3 +187,69 @@ Data Member                Type                         Notes
 =================
 
 Class ``PrestoHeaders`` enumerates all the HTTP request and response headers allowed by the Presto client REST API.
+
+
+Cross-Cluster Query Retry
+=========================
+
+Presto supports automatic query retry on a backup cluster when a query fails on the primary cluster. This feature enables
+high availability by transparently redirecting failed queries to a backup cluster.
+
+The cross-cluster retry mechanism works as follows:
+
+Query Parameters
+----------------
+
+When a router or load balancer handles a query that should support cross-cluster retry, it includes the following 
+query parameters when redirecting the client to the primary cluster:
+
+* ``retryUrl`` - The URL-encoded endpoint of the backup cluster where the query can be retried if it fails
+* ``retryExpirationInSeconds`` - The number of seconds until the retry URL expires (must be at least 1). This value
+  should be set based on the ``Cache-Control`` headers returned by Presto query endpoints. Presto uses ``Cache-Control``
+  headers to indicate how long a query will be retained in the server's memory. The retry expiration should not exceed
+  this cache duration to ensure the placeholder query is still available when the retry occurs.
+
+Both parameters must be provided together. If only one is provided, the request will be rejected with a 400 Bad Request error.
+
+Example request to primary cluster::
+
+    POST /v1/statement?retryUrl=https%3A%2F%2Fbackup.example.com%3A8080%2Fv1%2Fstatement&retryExpirationInSeconds=300
+    
+Retry Header
+------------
+
+The ``X-Presto-Retry-Query`` header is used to indicate that a query is being created as a placeholder for potential
+retry. When set to ``true``, this header:
+
+* Indicates the query is a retry placeholder on the backup cluster
+* Prevents retry chains - a query marked with this header will not trigger another retry if it fails
+
+Retry Flow
+----------
+
+1. Router/load balancer POSTs the query to the backup cluster with ``X-Presto-Retry-Query: true`` header to create
+   a placeholder query that can be used as a retry destination
+2. Router redirects (HTTP 307) the client to the primary cluster with ``retryUrl`` and ``retryExpirationInSeconds``
+   query parameters
+3. Client follows the redirect and POSTs the query to the primary cluster
+4. Primary cluster executes the query normally
+5. If the query fails with a retriable error code (configured on the server), the Presto server modifies the
+   ``nextUri`` in the response to point to the retry URL of the backup cluster
+6. Client follows the ``nextUri`` to the backup cluster where the placeholder query executes the actual query
+7. If the retry query fails, it will not trigger another retry since it's marked with ``X-Presto-Retry-Query``
+
+Limitations
+-----------
+
+Cross-cluster retry has the following limitations:
+
+* **Query types**: Retry only works when no results have been sent back to the client. In practice, this feature 
+  works well for:
+  
+  - ``CREATE TABLE AS SELECT`` statements
+  - DDL operations (``CREATE``, ``ALTER``, ``DROP``, etc.)
+  - ``INSERT`` statements
+  - ``SELECT`` queries that fail before any results are produced
+  
+  For ``SELECT`` queries that produce results, retry will only occur if the failure happens during planning or
+  before the first batch of results is generated.
