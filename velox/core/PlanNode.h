@@ -927,6 +927,13 @@ class ParallelProjectNode : public core::AbstractProjectNode {
     return noLoadIdentities_;
   }
 
+  folly::dynamic serialize() const override;
+
+  void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
+      const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
  private:
   void addDetails(std::stringstream& stream) const override;
 
@@ -5152,6 +5159,10 @@ class PlanNodeVisitor {
 
   virtual void visit(const ProjectNode& node, PlanNodeVisitorContext& ctx)
       const = 0;
+
+  virtual void visit(
+      const ParallelProjectNode& node,
+      PlanNodeVisitorContext& ctx) const = 0;
 
   virtual void visit(const RowNumberNode& node, PlanNodeVisitorContext& ctx)
       const = 0;

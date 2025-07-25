@@ -533,6 +533,48 @@ PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
   return projectExpressions(expressions);
 }
 
+PlanBuilder& PlanBuilder::parallelProject(
+    const std::vector<std::vector<std::string>>& projectionGroups,
+    const std::vector<std::string>& noLoadColumns) {
+  VELOX_CHECK_NOT_NULL(planNode_, "ParallelProject cannot be the source node");
+
+  std::vector<std::string> names;
+
+  std::vector<std::vector<core::TypedExprPtr>> exprGroups;
+  exprGroups.reserve(projectionGroups.size());
+
+  size_t i = 0;
+
+  for (const auto& group : projectionGroups) {
+    std::vector<core::TypedExprPtr> typedExprs;
+    typedExprs.reserve(group.size());
+
+    for (const auto& expr : group) {
+      const auto typedExpr = inferTypes(parse::parseExpr(expr, options_));
+      typedExprs.push_back(typedExpr);
+
+      if (auto fieldExpr =
+              dynamic_cast<const core::FieldAccessExpr*>(typedExpr.get())) {
+        names.push_back(fieldExpr->name());
+      } else {
+        names.push_back(fmt::format("p{}", i));
+      }
+
+      ++i;
+    }
+    exprGroups.push_back(std::move(typedExprs));
+  }
+
+  planNode_ = std::make_shared<core::ParallelProjectNode>(
+      nextPlanNodeId(),
+      std::move(names),
+      std::move(exprGroups),
+      noLoadColumns,
+      planNode_);
+
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::appendColumns(
     const std::vector<std::string>& newColumns) {
   VELOX_CHECK_NOT_NULL(planNode_, "Project cannot be the source node");

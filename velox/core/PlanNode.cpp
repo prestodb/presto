@@ -1124,6 +1124,39 @@ void ParallelProjectNode::addDetails(std::stringstream& stream) const {
   stream << std::endl;
 }
 
+folly::dynamic ParallelProjectNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["names"] = ISerializable::serialize(exprNames_);
+  obj["projections"] = ISerializable::serialize(exprs_);
+  obj["noLoadIdentities"] = ISerializable::serialize(noLoadIdentities_);
+  return obj;
+}
+
+void ParallelProjectNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
+// static
+PlanNodePtr ParallelProjectNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  auto source = deserializeSingleSource(obj, context);
+
+  auto names = deserializeStrings(obj["names"]);
+  auto projections =
+      ISerializable::deserialize<std::vector<std::vector<ITypedExpr>>>(
+          obj["projections"], context);
+  auto noLoadIdentities = deserializeStrings(obj["noLoadIdentities"]);
+  return std::make_shared<ParallelProjectNode>(
+      deserializePlanNodeId(obj),
+      std::move(names),
+      std::move(projections),
+      std::move(noLoadIdentities),
+      std::move(source));
+}
+
 const std::vector<PlanNodePtr>& TableScanNode::sources() const {
   return kEmptySources;
 }
@@ -3082,6 +3115,7 @@ void PlanNode::registerSerDe() {
   registry.Register("OrderByNode", OrderByNode::create);
   registry.Register("PartitionedOutputNode", PartitionedOutputNode::create);
   registry.Register("ProjectNode", ProjectNode::create);
+  registry.Register("ParallelProjectNode", ParallelProjectNode::create);
   registry.Register("RowNumberNode", RowNumberNode::create);
   registry.Register("TableScanNode", TableScanNode::create);
   registry.Register("TableWriteNode", TableWriteNode::create);

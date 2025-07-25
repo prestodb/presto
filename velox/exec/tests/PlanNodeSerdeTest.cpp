@@ -459,6 +459,23 @@ TEST_F(PlanNodeSerdeTest, project) {
   testSerde(plan);
 }
 
+TEST_F(PlanNodeSerdeTest, parallelProjet) {
+  auto plan = PlanBuilder()
+                  .values({data_})
+                  .parallelProject({{"c0 + 1", "c0 * 2"}, {"c1 + 1", "c1 * 2"}})
+                  .planNode();
+
+  testSerde(plan);
+
+  plan = PlanBuilder()
+             .values({data_})
+             .parallelProject(
+                 {{"c0 + 1", "c0 * 2"}, {"c1 + 1", "c1 * 2"}}, {"c2", "c3"})
+             .planNode();
+
+  testSerde(plan);
+}
+
 TEST_F(PlanNodeSerdeTest, hashJoin) {
   auto probe = makeRowVector(
       {"t0", "t1", "t2", "t3"},

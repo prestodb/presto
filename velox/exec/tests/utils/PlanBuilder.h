@@ -593,6 +593,17 @@ class PlanBuilder {
   /// will produce projected columns named sum_ab, c and p2.
   PlanBuilder& project(const std::vector<std::string>& projections);
 
+  /// Add a ParallelProjectNode using groups of independent SQL expressions.
+  ///
+  /// @param projectionGroups One or more groups of expressions that depend on
+  /// disjunct sets of inputs.
+  /// @param noLoadColumn Optional columns to pass through as is without
+  /// loading. These columns must be distinct from the set of columns used in
+  /// 'projectionGroups'.
+  PlanBuilder& parallelProject(
+      const std::vector<std::vector<std::string>>& projectionGroups,
+      const std::vector<std::string>& noLoadColumns = {});
+
   /// Add a ProjectNode to keep all existing columns and append more columns
   /// using specified expressions.
   /// @param newColumns A list of one or more expressions to use for computing
@@ -604,6 +615,7 @@ class PlanBuilder {
   /// the type.
   PlanBuilder& projectExpressions(
       const std::vector<core::ExprPtr>& projections);
+
   PlanBuilder& projectExpressions(
       const std::vector<core::TypedExprPtr>& projections);
 
