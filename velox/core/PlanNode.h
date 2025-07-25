@@ -4884,38 +4884,6 @@ class TopNRowNumberNode : public PlanNode {
       int32_t limit,
       PlanNodePtr source);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  /// Note : This constructor is for backwards compatibility. Remove it after
-  /// migrating Prestissimo to use the new constructor.
-  /// @param partitionKeys Partitioning keys. May be empty.
-  /// @param sortingKeys Sorting keys. May not be empty and may not intersect
-  /// with 'partitionKeys'.
-  /// @param sortingOrders Sorting orders, one per sorting key.
-  /// @param rowNumberColumnName Optional name of the column containing row
-  /// numbers (or rank and dense_rank). If not specified, the output doesn't
-  /// include 'row number' column. This is used when computing partial results.
-  /// @param limit Per-partition limit. The number of
-  /// rows produced by this node will not exceed this value for any given
-  /// partition. Extra rows will be dropped.
-  TopNRowNumberNode(
-      PlanNodeId id,
-      std::vector<FieldAccessTypedExprPtr> partitionKeys,
-      std::vector<FieldAccessTypedExprPtr> sortingKeys,
-      std::vector<SortOrder> sortingOrders,
-      const std::optional<std::string>& rowNumberColumnName,
-      int32_t limit,
-      PlanNodePtr source)
-      : TopNRowNumberNode(
-            id,
-            RankFunction::kRowNumber,
-            partitionKeys,
-            sortingKeys,
-            sortingOrders,
-            rowNumberColumnName,
-            limit,
-            source) {}
-#endif
-
   class Builder {
    public:
     Builder() = default;
