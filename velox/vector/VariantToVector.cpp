@@ -265,31 +265,31 @@ VectorPtr variantToVector(
 
 namespace {
 
-variant nullVariant(const TypePtr& type) {
-  return variant(type->kind());
+Variant nullVariant(const TypePtr& type) {
+  return Variant(type->kind());
 }
 
 template <TypeKind kind>
-variant variantAt(VectorPtr vector, int32_t row) {
+Variant variantAt(const VectorPtr& vector, int32_t row) {
   using T = typename TypeTraits<kind>::NativeType;
 
   const T value = vector->as<SimpleVector<T>>()->valueAt(row);
 
   if (vector->type()->providesCustomComparison()) {
-    return variant::typeWithCustomComparison<kind>(value, vector->type());
+    return Variant::typeWithCustomComparison<kind>(value, vector->type());
   }
 
-  return variant(value);
+  return Variant(value);
 }
 
 template <>
-variant variantAt<TypeKind::VARBINARY>(VectorPtr vector, int32_t row) {
-  return variant::binary(vector->as<SimpleVector<StringView>>()->valueAt(row));
+Variant variantAt<TypeKind::VARBINARY>(const VectorPtr& vector, int32_t row) {
+  return Variant::binary(vector->as<SimpleVector<StringView>>()->valueAt(row));
 }
 
-variant variantAt(const VectorPtr& vector, vector_size_t row);
+Variant variantAt(const VectorPtr& vector, vector_size_t row);
 
-variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
+Variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto arrayVector = vector->wrappedVector()->as<ArrayVector>();
   auto& elements = arrayVector->elements();
 
@@ -297,16 +297,16 @@ variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto offset = arrayVector->offsetAt(wrappedRow);
   auto size = arrayVector->sizeAt(wrappedRow);
 
-  std::vector<variant> array;
+  std::vector<Variant> array;
   array.reserve(size);
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
     array.push_back(variantAt(elements, innerRow));
   }
-  return variant::array(array);
+  return Variant::array(array);
 }
 
-variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
+Variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto mapVector = vector->wrappedVector()->as<MapVector>();
   auto& mapKeys = mapVector->mapKeys();
   auto& mapValues = mapVector->mapValues();
@@ -315,28 +315,28 @@ variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto offset = mapVector->offsetAt(wrappedRow);
   auto size = mapVector->sizeAt(wrappedRow);
 
-  std::map<variant, variant> map;
+  std::map<Variant, Variant> map;
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
     auto key = variantAt(mapKeys, innerRow);
     auto value = variantAt(mapValues, innerRow);
     map.insert({key, value});
   }
-  return variant::map(map);
+  return Variant::map(map);
 }
 
-variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
+Variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto rowValues = vector->wrappedVector()->as<RowVector>();
   auto wrappedRow = vector->wrappedIndex(row);
 
-  std::vector<variant> values;
+  std::vector<Variant> values;
   for (auto& child : rowValues->children()) {
     values.push_back(variantAt(child, wrappedRow));
   }
-  return variant::row(std::move(values));
+  return Variant::row(std::move(values));
 }
 
-variant variantAt(const VectorPtr& vector, vector_size_t row) {
+Variant variantAt(const VectorPtr& vector, vector_size_t row) {
   if (vector->isNullAt(row)) {
     return nullVariant(vector->type());
   }
@@ -352,6 +352,12 @@ variant variantAt(const VectorPtr& vector, vector_size_t row) {
 
   if (typeKind == TypeKind::MAP) {
     return mapVariantAt(vector, row);
+  }
+
+  if (typeKind == TypeKind::OPAQUE) {
+    return Variant::opaque(
+        vector->as<SimpleVector<std::shared_ptr<void>>>()->valueAt(row),
+        std::dynamic_pointer_cast<const OpaqueType>(vector->type()));
   }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, typeKind, vector, row);

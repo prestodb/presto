@@ -1083,6 +1083,9 @@ TypePtr Variant::inferType() const {
       return ARRAY(std::move(elementType));
     }
     case TypeKind::OPAQUE: {
+      if (isNull()) {
+        return UNKNOWN();
+      }
       return value<TypeKind::OPAQUE>().type;
     }
     case TypeKind::UNKNOWN: {
