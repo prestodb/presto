@@ -316,6 +316,10 @@ Accessors
 
     Returns the minimum convex geometry that encloses all input geometries.
 
+.. function:: ST_CoordDim(geometry: Geometry) -> output: integer
+
+    Return the coordinate dimension of the geometry.
+
 .. function:: ST_Dimension(geometry: Geometry) -> output: tinyint
 
     Returns the inherent dimension of this geometry object, which must be less than or equal to the coordinate dimension.

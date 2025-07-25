@@ -2155,6 +2155,28 @@ TEST_F(GeometryFunctionsTest, testStConvexHull) {
       "POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))");
 }
 
+TEST_F(GeometryFunctionsTest, testStCoordDim) {
+  const auto testStCoordDimFunc = [&](const std::optional<std::string>& wkt,
+                                      const std::optional<int32_t>& expected) {
+    std::optional<int32_t> result =
+        evaluateOnce<int32_t>("ST_CoordDim(ST_GeometryFromText(c0))", wkt);
+
+    if (expected.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_EQ(result.value(), expected.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testStCoordDimFunc("POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))", 2);
+  testStCoordDimFunc("POLYGON EMPTY))", 2);
+  testStCoordDimFunc("LINESTRING (1 1, 1 2)", 2);
+  testStCoordDimFunc("POINT (1 4)", 2);
+
+  testStCoordDimFunc("LINESTRING EMPTY", 2);
+}
+
 TEST_F(GeometryFunctionsTest, testStDimension) {
   const auto testStDimensionFunc = [&](const std::optional<std::string>& wkt,
                                        const std::optional<int8_t>& expected) {

@@ -125,6 +125,11 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_ExteriorRing"}});
   registerFunction<StEnvelopeFunction, Geometry, Geometry>(
       {{prefix + "ST_Envelope"}});
+
+  velox::exec::registerVectorFunction(
+      prefix + "ST_CoordDim",
+      StCoordDimFunction::signatures(),
+      std::make_unique<StCoordDimFunction>());
 }
 
 } // namespace
