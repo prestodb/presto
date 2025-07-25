@@ -82,7 +82,7 @@ template <typename T>
 class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>
     : public AbstractInputGenerator {
  public:
-  RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>(
+  RandomInputGenerator(
       size_t seed,
       const TypePtr& type,
       double nullRatio,
@@ -98,8 +98,7 @@ class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>
         encodings_{encodings},
         randomStrVariationOptions_{randomStrVariationOptions} {}
 
-  ~RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>()
-      override = default;
+  ~RandomInputGenerator() override = default;
 
   variant generate() override {
     if (coinToss(rng_, nullRatio_)) {
@@ -126,7 +125,7 @@ template <typename T>
 class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, ArrayType>>>
     : public AbstractInputGenerator {
  public:
-  RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, ArrayType>>>(
+  RandomInputGenerator(
       size_t seed,
       const TypePtr& type,
       double nullRatio,
@@ -143,8 +142,7 @@ class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, ArrayType>>>
         containAtIndex_{containAtIndex},
         containGenerator_{std::move(containGenerator)} {}
 
-  ~RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, ArrayType>>>()
-      override = default;
+  ~RandomInputGenerator() override = default;
 
   variant generate() override {
     if (coinToss(rng_, nullRatio_)) {
@@ -180,7 +178,7 @@ template <typename T>
 class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, MapType>>>
     : public AbstractInputGenerator {
  public:
-  RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, MapType>>>(
+  RandomInputGenerator(
       size_t seed,
       const TypePtr& type,
       double nullRatio,
@@ -207,8 +205,7 @@ class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, MapType>>>
     }
   }
 
-  ~RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, MapType>>>()
-      override = default;
+  ~RandomInputGenerator() override = default;
 
   variant generate() override {
     if (coinToss(rng_, nullRatio_)) {
@@ -248,7 +245,7 @@ template <typename T>
 class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, RowType>>>
     : public AbstractInputGenerator {
  public:
-  RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, RowType>>>(
+  RandomInputGenerator(
       size_t seed,
       const TypePtr& type,
       std::vector<std::unique_ptr<AbstractInputGenerator>> fieldGenerators,
@@ -267,8 +264,7 @@ class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, RowType>>>
     }
   }
 
-  ~RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, RowType>>>()
-      override = default;
+  ~RandomInputGenerator() override = default;
 
   variant generate() override {
     if (coinToss(rng_, nullRatio_)) {

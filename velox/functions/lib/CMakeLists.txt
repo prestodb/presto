@@ -43,6 +43,7 @@ velox_add_library(
 
 velox_link_libraries(
   velox_functions_lib
+  velox_expression
   velox_functions_util
   velox_vector
   velox_type_tz

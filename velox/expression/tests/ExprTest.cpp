@@ -4078,7 +4078,7 @@ TEST_P(ParameterizedExprTest, cseOverLazyDictionary) {
           pool(),
           BIGINT(),
           5,
-          std::make_unique<SimpleVectorLoader>([=](RowSet /*rows*/) {
+          std::make_unique<SimpleVectorLoader>([=, this](RowSet /*rows*/) {
             return wrapInDictionary(
                 makeIndicesInReverse(5),
                 makeFlatVector<int64_t>({8, 9, 10, 11, 12}));

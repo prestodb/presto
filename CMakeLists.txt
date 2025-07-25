@@ -325,6 +325,24 @@ endif()
 # Required so velox code can be used in a dynamic library
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
+# For C++20 support we need GNU GCC11 (or later versions) or Clang/AppleClang 15
+# (or later versions) to get support for the used features.
+if(NOT
+   (("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND ${CMAKE_CXX_COMPILER_VERSION}
+                                                   VERSION_GREATER_EQUAL 11)
+    OR (("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+         OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+        AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)))
+  message(
+    FATAL_ERROR
+      "Unsupported compiler ${CMAKE_CXX_COMPILER_ID} with version ${CMAKE_CXX_COMPILER_VERSION} found."
+  )
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_EXTENSIONS ON) # Big Int is an extension
+
 execute_process(
   COMMAND
     bash -c
@@ -385,6 +403,11 @@ if(ENABLE_ALL_WARNINGS)
          -Wno-unused-result \
          -Wno-format-overflow \
          -Wno-strict-aliasing")
+    # Avoid compiler bug for GCC 12.2.1
+    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105329
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "12.2.1")
+      string(APPEND KNOWN_COMPILER_SPECIFIC_WARNINGS " -Wno-restrict")
+    endif()
   endif()
 
   set(KNOWN_WARNINGS
@@ -576,13 +599,6 @@ endif()
 
 # GCC needs to link a library to enable std::filesystem.
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-
-  # Ensure we have gcc at least 9+.
-  if(CMAKE_CXX_COMPILER_VERSION LESS 9.0)
-    message(
-      FATAL_ERROR "VELOX requires gcc > 9. Found ${CMAKE_CXX_COMPILER_VERSION}")
-  endif()
-
   # Find Threads library
   find_package(Threads REQUIRED)
 endif()

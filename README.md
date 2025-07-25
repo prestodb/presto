@@ -112,6 +112,32 @@ Details on the dependencies and how Velox manages some of them for you
 Velox also provides the following scripts to help developers setup and install Velox
 dependencies for a given platform.
 
+### Supported OS and compiler matrix
+
+The minimum versions of supported compilers:
+
+| OS | Compiler | Version |
+|----|----------|---------|
+| Linux | gcc | 11 |
+| Linux | clang | 15 |
+| macOS | clang | 15 |
+
+The recommended OS versions and compilers:
+
+| OS | Compiler | Version |
+|----|----------|---------|
+| CentOS 9/RHEL 9 | gcc | 12 |
+| Ubuntu 22.04 | gcc | 11 |
+| macOS | clang | 16 |
+
+Alternative combinations:
+
+| OS | Compiler | Version |
+|----|----------|---------|
+| CentOS 9/RHEL 9 | gcc | 11 |
+| Ubuntu 20.04 | gcc | 11 |
+| Ubuntu 24.04 | clang | 15 |
+
 ### Setting up dependencies
 
 The following setup scripts use the `DEPENDENCY_DIR` environment variable to set the

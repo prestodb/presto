@@ -63,6 +63,7 @@ velox_link_libraries(
   velox_exec
   velox_expression
   velox_presto_serializer
+  velox_presto_types
   velox_functions_aggregates
   velox_functions_lib
   velox_functions_util

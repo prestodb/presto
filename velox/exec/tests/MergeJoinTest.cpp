@@ -117,7 +117,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
             child->type(),
             child->size(),
             std::make_unique<MySimpleVectorLoader>(
-                batchId, counter, [=](RowSet) { return child; })));
+                batchId, counter, [=, this](RowSet) { return child; })));
       }
 
       data.push_back(makeRowVector(children));

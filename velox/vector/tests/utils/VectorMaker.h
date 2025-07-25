@@ -146,7 +146,7 @@ class VectorMaker {
         pool_,
         CppToType<T>::create(),
         size,
-        std::make_unique<SimpleVectorLoader>([=](RowSet rowSet) {
+        std::make_unique<SimpleVectorLoader>([=, this](RowSet rowSet) {
           // Populate requested rows with correct data and fill in gaps with
           // "garbage".
           SelectivityVector rows(rowSet.back() + 1, false);

@@ -334,7 +334,7 @@ class SelectiveColumnReader {
   template <typename T>
   inline void addValue(T value) {
     static_assert(
-        std::is_pod_v<T>,
+        std::is_standard_layout_v<T>,
         "General case of addValue is only for primitive types");
     VELOX_DCHECK_NOT_NULL(rawValues_);
     VELOX_DCHECK_LE((numValues_ + 1) * sizeof(T), values_->capacity());

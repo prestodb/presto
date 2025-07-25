@@ -21,5 +21,6 @@ target_link_libraries(
     velox_encode
     velox_exception
     velox_status
+    velox_common_base
     GTest::gtest
     GTest::gtest_main)

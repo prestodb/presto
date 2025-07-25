@@ -17,6 +17,7 @@ add_test(simple_lru_cache_test simple_lru_cache_test)
 target_link_libraries(
   simple_lru_cache_test
   PRIVATE
+    velox_common_base
     Folly::folly
     velox_time
     glog::glog
@@ -50,7 +51,7 @@ add_test(cached_factory_test cached_factory_test)
 target_link_libraries(
   cached_factory_test
   PRIVATE
-    velox_process
+    velox_common_base
     Folly::folly
     velox_time
     glog::glog
