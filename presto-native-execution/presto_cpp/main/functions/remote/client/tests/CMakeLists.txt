@@ -23,10 +23,10 @@ add_test(presto_functions_remote_client_test
 
 target_link_libraries(
   presto_functions_remote_client_test
-  presto_functions_remote_client
-  presto_functions_remote_server
-  presto_functions_remote
-  velox_functions_test_lib
-  GTest::gmock
-  GTest::gtest
-  GTest::gtest_main)
+  PRIVATE presto_functions_remote_client
+          presto_functions_remote_server
+          presto_functions_remote
+          velox_functions_test_lib
+          GTest::gmock
+          GTest::gtest
+          GTest::gtest_main)

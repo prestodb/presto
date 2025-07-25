@@ -13,4 +13,5 @@
 # the License.
 
 add_library(presto_functions_remote_server RemoteFunctionRestService.cpp)
-target_link_libraries(presto_functions_remote_server velox_presto_serializer)
+target_link_libraries(presto_functions_remote_server
+                      PRIVATE velox_presto_serializer)
