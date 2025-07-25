@@ -19,6 +19,10 @@ ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
+# Copy extra script called during setup.
+# from https://github.com/facebookincubator/velox/pull/14016
+COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
+ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
 RUN bash -c "mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
                  ../velox/scripts/setup-centos9.sh install_adapters && \
