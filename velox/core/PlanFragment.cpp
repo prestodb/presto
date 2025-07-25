@@ -28,11 +28,10 @@ bool PlanFragment::canSpill(const QueryConfig& queryConfig) const {
              }) != nullptr;
 }
 
-bool PlanFragment::supportsBarrier() const {
+const PlanNode* PlanFragment::firstNodeNotSupportingBarrier() const {
   return PlanNode::findFirstNode(
-             planNode.get(), [&](const core::PlanNode* node) {
-               return !node->supportsBarrier();
-             }) == nullptr;
+      planNode.get(),
+      [&](const core::PlanNode* node) { return !node->supportsBarrier(); });
 }
 
 std::string executionStrategyToString(ExecutionStrategy strategy) {

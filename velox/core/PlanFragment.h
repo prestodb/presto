@@ -62,8 +62,9 @@ struct PlanFragment {
         groupedExecutionLeafNodeIds.end();
   }
 
-  /// Returns true if all plan nodes support barrier.
-  bool supportsBarrier() const;
+  /// Returns first node that does not support barrier.
+  /// Returns nullptr if all nodes support barrier.
+  const PlanNode* firstNodeNotSupportingBarrier() const;
 
   /// Returns true if the spilling is enabled and there is at least one node in
   /// the plan, whose operator can spill. Returns false otherwise.
