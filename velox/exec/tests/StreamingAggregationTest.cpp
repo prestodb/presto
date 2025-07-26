@@ -139,21 +139,9 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
 
   void testSortedAggregationWithBarrier(
       const std::vector<VectorPtr>& keys,
-      uint32_t outputBatchSize) {
+      uint32_t outputBatchSize,
+      uint32_t expectedNumOuputBatches) {
     const auto inputVectors = addPayload(keys, 2);
-    int expectedNumOuputBatchesWithBarrier{0};
-    int numInputRows{0};
-    for (const auto& inputVector : inputVectors) {
-      numInputRows += inputVector->size();
-      if (outputBatchSize > inputVector->size()) {
-        ++expectedNumOuputBatchesWithBarrier;
-      } else {
-        expectedNumOuputBatchesWithBarrier +=
-            bits::divRoundUp(inputVector->size(), outputBatchSize);
-      }
-    }
-    const int expectedNumOuputBatches =
-        bits::divRoundUp(numInputRows, outputBatchSize);
 
     std::vector<std::shared_ptr<TempFilePath>> tempFiles;
     const int numSplits = keys.size();
@@ -201,8 +189,7 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
           velox::exec::toPlanStats(taskStats)
               .at(aggregationNodeId)
               .outputVectors,
-          barrierExecution ? expectedNumOuputBatchesWithBarrier
-                           : expectedNumOuputBatches);
+          expectedNumOuputBatches);
     }
   }
 
@@ -247,22 +234,9 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
 
   void testDistinctAggregationWithBarrier(
       const std::vector<VectorPtr>& keys,
-      uint32_t outputBatchSize) {
+      uint32_t outputBatchSize,
+      uint32_t expectedNumOuputBatches) {
     const auto inputVectors = addPayload(keys, 2);
-    int expectedNumOuputBatchesWithBarrier{0};
-    int numInputRows{0};
-    for (const auto& inputVector : inputVectors) {
-      numInputRows += inputVector->size();
-      if (outputBatchSize > inputVector->size()) {
-        ++expectedNumOuputBatchesWithBarrier;
-      } else {
-        expectedNumOuputBatchesWithBarrier +=
-            bits::divRoundUp(inputVector->size(), outputBatchSize);
-      }
-    }
-    const int expectedNumOuputBatches =
-        bits::divRoundUp(numInputRows, outputBatchSize);
-
     std::vector<std::shared_ptr<TempFilePath>> tempFiles;
     const int numSplits = keys.size();
     for (int32_t i = 0; i < numSplits; ++i) {
@@ -311,8 +285,7 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
             velox::exec::toPlanStats(taskStats)
                 .at(aggregationNodeId)
                 .outputVectors,
-            barrierExecution ? expectedNumOuputBatchesWithBarrier
-                             : expectedNumOuputBatches);
+            expectedNumOuputBatches);
       }
     }
 
@@ -346,8 +319,7 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
             velox::exec::toPlanStats(taskStats)
                 .at(aggregationNodeId)
                 .outputVectors,
-            barrierExecution ? expectedNumOuputBatchesWithBarrier
-                             : expectedNumOuputBatches);
+            expectedNumOuputBatches);
       }
     }
   }
@@ -513,19 +485,6 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
       const std::vector<RowVectorPtr>& keys,
       uint32_t outputBatchSize) {
     const auto inputVectors = addPayload(keys);
-    int expectedNumOuputBatchesWithBarrier{0};
-    int numInputRows{0};
-    for (const auto& inputVector : inputVectors) {
-      numInputRows += inputVector->size();
-      if (outputBatchSize > inputVector->size()) {
-        ++expectedNumOuputBatchesWithBarrier;
-      } else {
-        expectedNumOuputBatchesWithBarrier +=
-            bits::divRoundUp(inputVector->size(), outputBatchSize);
-      }
-    }
-    const int expectedNumOuputBatches =
-        bits::divRoundUp(numInputRows, outputBatchSize);
     std::vector<std::shared_ptr<TempFilePath>> tempFiles;
     const int numSplits = keys.size();
     for (int32_t i = 0; i < numSplits; ++i) {
@@ -578,12 +537,6 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
         const auto taskStats = task->taskStats();
         ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
         ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
-        ASSERT_EQ(
-            velox::exec::toPlanStats(taskStats)
-                .at(aggregationNodeId)
-                .outputVectors,
-            barrierExecution ? expectedNumOuputBatchesWithBarrier
-                             : expectedNumOuputBatches);
         EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
       }
     }
@@ -626,12 +579,6 @@ class StreamingAggregationTest : public HiveConnectorTestBase,
         const auto taskStats = task->taskStats();
         ASSERT_EQ(taskStats.numBarriers, barrierExecution ? numSplits : 0);
         ASSERT_EQ(taskStats.numFinishedSplits, numSplits);
-        ASSERT_EQ(
-            velox::exec::toPlanStats(taskStats)
-                .at(aggregationNodeId)
-                .outputVectors,
-            barrierExecution ? expectedNumOuputBatchesWithBarrier
-                             : expectedNumOuputBatches);
         EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
       }
     }
@@ -1071,8 +1018,8 @@ TEST_P(StreamingAggregationTest, sortedAggregationsWithBarrier) {
           78, [size](auto row) { return (3 * size + row); }),
   };
 
-  testSortedAggregationWithBarrier(keys, 1024);
-  testSortedAggregationWithBarrier(keys, 32);
+  testSortedAggregationWithBarrier(keys, 1024, 4);
+  testSortedAggregationWithBarrier(keys, 32, 4);
 }
 
 TEST_P(StreamingAggregationTest, clusteredInputWithBarrier) {
@@ -1111,28 +1058,20 @@ TEST_P(StreamingAggregationTest, clusteredInputWithBarrier) {
   struct {
     int batchSize;
     bool barrierExecution;
+    int numExpectedOutputBatches;
 
     std::string debugString() const {
       return fmt::format(
-          "batchSize={}, barrierExecution={}", batchSize, barrierExecution);
+          "batchSize={}, barrierExecution={}, numExpectedOutputBatches={}",
+          batchSize,
+          barrierExecution,
+          numExpectedOutputBatches);
     }
-  } testSettings[] = {{3, true}, {3, false}, {20, true}, {20, false}};
+  } testSettings[] = {
+      {3, true, 3}, {3, false, 3}, {20, true, 3}, {20, false, 1}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    int expectedNumOuputBatchesWithBarrier{0};
-    int numInputRows{0};
-    for (const auto& inputVector : inputVectors) {
-      numInputRows += inputVector->size();
-      if (testData.batchSize > inputVector->size()) {
-        ++expectedNumOuputBatchesWithBarrier;
-      } else {
-        expectedNumOuputBatchesWithBarrier +=
-            bits::divRoundUp(inputVector->size(), testData.batchSize);
-      }
-    }
-    const int expectedNumOuputBatches =
-        bits::divRoundUp(numInputRows, testData.batchSize);
 
     auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
                     .splits(makeHiveConnectorSplits(tempFiles))
@@ -1149,8 +1088,7 @@ TEST_P(StreamingAggregationTest, clusteredInputWithBarrier) {
         velox::exec::toPlanStats(taskStats)
             .at(streamingAggregationNodeId)
             .outputVectors,
-        testData.barrierExecution ? expectedNumOuputBatchesWithBarrier
-                                  : expectedNumOuputBatches);
+        testData.numExpectedOutputBatches);
   }
 }
 
@@ -1165,8 +1103,8 @@ TEST_P(StreamingAggregationTest, distinctAggregationsWithBarrier) {
           78, [size](auto row) { return (3 * size + row); }),
   };
 
-  testDistinctAggregationWithBarrier(keys, 1024);
-  testDistinctAggregationWithBarrier(keys, 32);
+  testDistinctAggregationWithBarrier(keys, 1024, 4);
+  testDistinctAggregationWithBarrier(keys, 32, 4);
 
   std::vector<RowVectorPtr> multiKeys = {
       makeRowVector({

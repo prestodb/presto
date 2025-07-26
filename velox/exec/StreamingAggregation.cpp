@@ -334,8 +334,7 @@ RowVectorPtr StreamingAggregation::getOutput() {
       outputFirstGroup_ = false;
     };
     if ((noMoreInput_ || isDraining()) && numGroups_ > 0) {
-      return createOutput(
-          std::min(numGroups_, static_cast<size_t>(maxOutputBatchSize_)));
+      return createOutput(numGroups_);
     }
     if (outputFirstGroup_) {
       VELOX_CHECK_GT(numGroups_, 1);
@@ -370,7 +369,6 @@ RowVectorPtr StreamingAggregation::getOutput() {
       numOutputGroups = std::min(numGroups_ - 1, numPrevGroups - 1);
       outputFirstGroup_ = (numGroups_ - numOutputGroups) > 1;
     }
-    numOutputGroups = std::min<size_t>(numOutputGroups, maxOutputBatchSize_);
     VELOX_CHECK_GT(numOutputGroups, 0);
     output = createOutput(numOutputGroups);
   }
