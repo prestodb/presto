@@ -9,7 +9,7 @@
             <include>README.txt</include>
         </directory>
     </fileSet>
-
+    
     <!-- Launcher -->
     <artifactSet to="bin">
         <artifact id="com.facebook.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
