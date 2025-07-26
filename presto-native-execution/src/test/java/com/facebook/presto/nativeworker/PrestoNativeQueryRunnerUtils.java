@@ -516,6 +516,10 @@ public class PrestoNativeQueryRunnerUtils
                         Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
                                 format("connector.name=tpch%n").getBytes());
 
+                        // Add a tpcds catalog.
+                        Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
+                                format("connector.name=tpcds%n").getBytes());
+
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")
                                 .directory(tempDirectoryPath.toFile())

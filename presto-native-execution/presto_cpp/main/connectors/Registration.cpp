@@ -22,6 +22,10 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+#include "velox/connectors/tpcds/TpcdsConnector.h"
+#endif
+
 namespace facebook::presto {
 namespace {
 
@@ -44,6 +48,13 @@ void registerConnectorFactories() {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<velox::connector::tpcds::TpcdsConnectorFactory>());
+  }
+#endif
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
@@ -74,6 +85,10 @@ void registerConnectors() {
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  registerPrestoToVeloxConnector(
+      std::make_unique<TpcdsPrestoToVeloxConnector>("tpcds"));
+#endif
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
