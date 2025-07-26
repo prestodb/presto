@@ -57,6 +57,7 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -1023,6 +1024,11 @@ public class QueryStateMachine
     public long getCreateTimeInMillis()
     {
         return queryStateTimer.getCreateTimeInMillis();
+    }
+
+    public Duration getQueuedTime()
+    {
+        return queryStateTimer.getQueuedTime();
     }
 
     public long getExecutionStartTimeInMillis()

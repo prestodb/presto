@@ -146,6 +146,12 @@ public class AccessControlCheckerExecution
     }
 
     @Override
+    public Duration getQueuedTime()
+    {
+        return stateMachine.getQueuedTime();
+    }
+
+    @Override
     public long getExecutionStartTimeInMillis()
     {
         return stateMachine.getExecutionStartTimeInMillis();

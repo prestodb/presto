@@ -157,6 +157,12 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public Duration getQueuedTime()
+    {
+        return basicQueryInfo.getQueryStats().getQueuedTime();
+    }
+
+    @Override
     public long getExecutionStartTimeInMillis()
     {
         return getEndTimeInMillis();
