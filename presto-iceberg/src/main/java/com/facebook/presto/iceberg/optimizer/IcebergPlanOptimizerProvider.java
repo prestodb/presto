@@ -15,7 +15,7 @@ package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergTableProperties;
-import com.facebook.presto.iceberg.IcebergTransactionManager;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
