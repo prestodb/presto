@@ -40,26 +40,13 @@ TEST_F(TaskInfoTest, duration) {
   ASSERT_EQ(thrift, 123);
 }
 
-TEST_F(TaskInfoTest, binaryMetadataUpdates) {
-  std::string str = slurp(getDataPath(BASE_DATA_PATH, "MetadataUpdates.json"));
-  json j = json::parse(str);
-  protocol::MetadataUpdates metadataUpdates = j;
-  std::unique_ptr<std::string> thriftMetadataUpdates = std::make_unique<std::string>();
-  thrift::toThrift(metadataUpdates, *thriftMetadataUpdates);
-
-  json thriftJson = json::parse(*thriftMetadataUpdates);
-  ASSERT_EQ(j, thriftJson);
-}
-
 TEST_F(TaskInfoTest, taskInfo) {
   std::string str = slurp(getDataPath(BASE_DATA_PATH, "TaskInfo.json"));
   json j = json::parse(str);
   protocol::TaskInfo taskInfo = j;
   thrift::TaskInfo thriftTaskInfo;
   thrift::toThrift(taskInfo, thriftTaskInfo);
-  
-  json thriftJson = json::parse(*thriftTaskInfo.metadataUpdates()->metadataUpdates());
-  ASSERT_EQ(taskInfo.metadataUpdates, thriftJson);
+
   ASSERT_EQ(thriftTaskInfo.needsPlan(), false);
   ASSERT_EQ(thriftTaskInfo.outputBuffers()->buffers()->size(), 2);
   ASSERT_EQ(thriftTaskInfo.outputBuffers()->buffers()[0].bufferId()->id(), 100);

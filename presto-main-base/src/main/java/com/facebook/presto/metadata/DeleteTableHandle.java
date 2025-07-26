@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -23,6 +26,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class DeleteTableHandle
 {
     private final ConnectorId connectorId;
@@ -30,6 +34,7 @@ public final class DeleteTableHandle
     private final ConnectorDeleteTableHandle connectorHandle;
 
     @JsonCreator
+    @ThriftConstructor
     public DeleteTableHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
@@ -41,18 +46,21 @@ public final class DeleteTableHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public ConnectorId getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public ConnectorTransactionHandle getTransactionHandle()
     {
         return transactionHandle;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public ConnectorDeleteTableHandle getConnectorHandle()
     {
         return connectorHandle;

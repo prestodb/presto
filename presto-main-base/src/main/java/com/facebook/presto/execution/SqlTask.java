@@ -27,16 +27,12 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
-import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
@@ -349,24 +345,6 @@ public class SqlTask
         return new TaskStats(new DateTime(taskStateMachine.getCreatedTimeInMillis()), new DateTime(endTimeInMillis));
     }
 
-    private MetadataUpdates getMetadataUpdateRequests(TaskHolder taskHolder)
-    {
-        ConnectorId connectorId = null;
-        ImmutableList.Builder<ConnectorMetadataUpdateHandle> connectorMetadataUpdatesBuilder = ImmutableList.builder();
-
-        if (taskHolder.getTaskExecution() != null) {
-            TaskMetadataContext taskMetadataContext = taskHolder.getTaskExecution().getTaskContext().getTaskMetadataContext();
-            if (!taskMetadataContext.getMetadataUpdaters().isEmpty()) {
-                connectorId = taskMetadataContext.getConnectorId();
-                for (ConnectorMetadataUpdater metadataUpdater : taskMetadataContext.getMetadataUpdaters()) {
-                    connectorMetadataUpdatesBuilder.addAll(metadataUpdater.getPendingMetadataUpdateRequests());
-                }
-            }
-        }
-
-        return new MetadataUpdates(connectorId, connectorMetadataUpdatesBuilder.build());
-    }
-
     private static Set<PlanNodeId> getNoMoreSplits(TaskHolder taskHolder)
     {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
@@ -384,7 +362,6 @@ public class SqlTask
     {
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
-        MetadataUpdates metadataRequests = getMetadataUpdateRequests(taskHolder);
 
         TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
@@ -395,7 +372,6 @@ public class SqlTask
                 noMoreSplits,
                 taskStats,
                 needsPlan.get(),
-                metadataRequests,
                 nodeId);
     }
 
@@ -479,11 +455,6 @@ public class SqlTask
         }
 
         return getTaskInfo();
-    }
-
-    public TaskMetadataContext getTaskMetadataContext()
-    {
-        return taskHolderReference.get().taskExecution.getTaskContext().getTaskMetadataContext();
     }
 
     public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, long maxSizeInBytes)

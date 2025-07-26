@@ -75,9 +75,9 @@ import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
-import static com.facebook.presto.hive.TestHiveMetadataUpdateHandle.TEST_TABLE_NAME;
 import static com.facebook.presto.hive.TestHivePageSink.getColumnHandles;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_DATABASE;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_BASEPATH_KEY;
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_DELTA_FILEPATHS_KEY;
 import static com.facebook.presto.hive.util.HudiRealtimeSplitConverter.HUDI_MAX_COMMIT_TIME_KEY;
@@ -385,7 +385,7 @@ public class TestHivePageSourceProvider
     }
 
     @Test(expectedExceptions = PrestoException.class,
-            expectedExceptionsMessageRegExp = "Table testdb.table has file of format org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe that does not support partial aggregation pushdown. " +
+            expectedExceptionsMessageRegExp = "Table testdb.testtbl has file of format org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe that does not support partial aggregation pushdown. " +
                     "Set session property \\[catalog\\-name\\].pushdown_partial_aggregations_into_scan=false and execute query again.")
     public void testFailsWhenNoAggregatedPageSourceAvailable()
     {
@@ -402,7 +402,7 @@ public class TestHivePageSourceProvider
 
     @Test(expectedExceptions = PrestoException.class,
             expectedExceptionsMessageRegExp = "Partial aggregation pushdown is not supported when footer stats are unreliable. " +
-                    "Table testdb.table has file file://test with unreliable footer stats. " +
+                    "Table testdb.testtbl has file file://test with unreliable footer stats. " +
                     "Set session property \\[catalog\\-name\\].pushdown_partial_aggregations_into_scan=false and execute query again.")
     public void testFailsWhenFooterStatsUnreliable()
     {
@@ -465,8 +465,8 @@ public class TestHivePageSourceProvider
     private static ConnectorTableLayoutHandle getHiveTableLayout(boolean pushdownFilterEnabled, boolean partialAggregationsPushedDown, boolean footerStatsUnreliable)
     {
         return new HiveTableLayoutHandle(
-                new SchemaTableName(TEST_DATABASE, TEST_TABLE_NAME),
-                TEST_TABLE_NAME,
+                new SchemaTableName(TEST_DATABASE, TEST_TABLE),
+                TEST_TABLE,
                 ImmutableList.of(),
                 ImmutableList.of(), // TODO fill out columns
                 ImmutableMap.of(),
@@ -718,9 +718,9 @@ public class TestHivePageSourceProvider
                 Storage storage,
                 List<HiveColumnHandle> columns,
                 Map<Integer,
-                String> prefilledValues,
+                        String> prefilledValues,
                 Map<Integer,
-                HiveCoercer> coercers,
+                        HiveCoercer> coercers,
                 Optional<BucketAdaptation> bucketAdaptation,
                 List<Integer> outputColumns,
                 TupleDomain<Subfield> domainPredicate,

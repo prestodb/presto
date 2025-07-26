@@ -155,7 +155,6 @@ import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemor
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
-import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAttemptNumberToApplyDynamicMemoryPoolTuning;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getDynamicPrestoMemoryPoolTuningFraction;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingTarget;
@@ -402,10 +401,10 @@ public class PrestoSparkTaskExecutorFactory
                 .put(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, maxRevocableMemory.toString());
 
         session = createSessionWithExtraSessionProperties(
-                 sessionRepresentation,
-                 taskDescriptor.getExtraCredentials(),
-                 extraAuthenticators.build(),
-                 extraSessionProperties.build());
+                sessionRepresentation,
+                taskDescriptor.getExtraCredentials(),
+                extraAuthenticators.build(),
+                extraSessionProperties.build());
 
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
@@ -1047,7 +1046,6 @@ public class PrestoSparkTaskExecutorFactory
                     ImmutableSet.of(),
                     taskStats,
                     false,
-                    DEFAULT_METADATA_UPDATES,
                     "");
         }
     }

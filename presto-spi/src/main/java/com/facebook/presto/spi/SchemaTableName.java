@@ -49,14 +49,14 @@ public class SchemaTableName
     }
 
     @JsonProperty("schema")
-    @ThriftField(1)
+    @ThriftField(value = 1, name = "schema")
     public String getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty("table")
-    @ThriftField(2)
+    @ThriftField(value = 2, name = "table")
     public String getTableName()
     {
         return tableName;

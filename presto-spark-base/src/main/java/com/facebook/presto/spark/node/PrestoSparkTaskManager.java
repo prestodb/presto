@@ -26,7 +26,6 @@ import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -128,12 +127,6 @@ public class PrestoSparkTaskManager
 
     @Override
     public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
     {
         throw new UnsupportedOperationException();
     }

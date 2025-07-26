@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +27,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class TableHandle
 {
     private final ConnectorId connectorId;
@@ -47,6 +51,16 @@ public final class TableHandle
         this(connectorId, connectorHandle, transaction, layout, Optional.empty());
     }
 
+    @ThriftConstructor
+    public TableHandle(
+            ConnectorId connectorId,
+            ConnectorTableHandle connectorHandle,
+            ConnectorTransactionHandle transaction,
+            ConnectorTableLayoutHandle connectorTableLayout)
+    {
+        this(connectorId, connectorHandle, transaction, Optional.of(connectorTableLayout), Optional.empty());
+    }
+
     public TableHandle(
             ConnectorId connectorId,
             ConnectorTableHandle connectorHandle,
@@ -62,18 +76,21 @@ public final class TableHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public ConnectorId getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public ConnectorTableHandle getConnectorHandle()
     {
         return connectorHandle;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public ConnectorTransactionHandle getTransaction()
     {
         return transaction;
@@ -83,6 +100,12 @@ public final class TableHandle
     public Optional<ConnectorTableLayoutHandle> getLayout()
     {
         return layout;
+    }
+
+    @ThriftField(value = 4, name = "connectorTableLayout")
+    public ConnectorTableLayoutHandle getLayoutHandle()
+    {
+        return layout.orElse(null);
     }
 
     public Optional<Supplier<TupleDomain<ColumnHandle>>> getDynamicFilter()
