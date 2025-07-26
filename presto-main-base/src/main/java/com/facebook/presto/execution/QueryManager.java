@@ -68,6 +68,12 @@ public interface QueryManager
     /**
      * @throws NoSuchElementException if query does not exist
      */
+    long getDurationUntilExpirationInMillis(QueryId queryId)
+            throws NoSuchElementException;
+
+    /**
+     * @throws NoSuchElementException if query does not exist
+     */
     Session getQuerySession(QueryId queryId);
 
     /**
