@@ -63,6 +63,7 @@ public class TestingConnectorSession
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Optional<String> schema;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+    private final long maxSerializableObjectSize;
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
@@ -125,6 +126,7 @@ public class TestingConnectorSession
                 .build();
         this.schema = requireNonNull(schema, "schema is null");
         this.sessionFunctions = sessionFunctions;
+        this.maxSerializableObjectSize = 1000;
     }
 
     @Override
@@ -246,6 +248,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public long getMaxSerializableObjectSize()
+    {
+        return maxSerializableObjectSize;
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)
@@ -258,6 +266,7 @@ public class TestingConnectorSession
                 .add("sqlFunctionProperties", sqlFunctionProperties)
                 .add("properties", propertyValues)
                 .add("clientInfo", clientInfo)
+                .add("maxSerializableObjectSize", maxSerializableObjectSize)
                 .omitNullValues()
                 .toString();
     }
