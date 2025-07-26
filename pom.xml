@@ -2602,6 +2602,12 @@
                 <version>${dep.arrow.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>10.4</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
