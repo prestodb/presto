@@ -18,10 +18,12 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
+#include "velox/parse/TypeResolver.h"
 
 DEFINE_uint32(seed, 0, "");
 DEFINE_int32(duration_sec, 30, "");
@@ -84,5 +86,7 @@ int main(int argc, char** argv) {
       facebook::velox::memory::MemoryManager::Options{});
   auto ioExecutor = folly::getGlobalIOExecutor();
   facebook::velox::exec::test::registerFactories(ioExecutor.get());
+  facebook::velox::functions::prestosql::registerAllScalarFunctions();
+  facebook::velox::parse::registerTypeResolver();
   return RUN_ALL_TESTS();
 }

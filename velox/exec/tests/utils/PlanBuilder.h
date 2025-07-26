@@ -321,7 +321,6 @@ class PlanBuilder {
     std::string tableName_{"hive_table"};
     std::string connectorId_{kHiveDefaultConnectorId};
     RowTypePtr outputType_;
-    std::vector<core::ExprPtr> subfieldFilters_;
     core::ExprPtr remainingFilter_;
     RowTypePtr dataColumns_;
     std::unordered_map<std::string, std::string> columnAliases_;

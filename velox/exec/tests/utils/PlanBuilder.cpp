@@ -18,6 +18,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/tpch/TpchConnector.h"
+#include "velox/core/FilterToExpression.h"
 #include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -77,9 +78,9 @@ PlanBuilder& PlanBuilder::tableScan(
       .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
       .outputType(outputType)
       .assignments(assignments)
+      .dataColumns(dataColumns)
       .subfieldFilters(subfieldFilters)
       .remainingFilter(remainingFilter)
-      .dataColumns(dataColumns)
       .endTableScan();
 }
 
@@ -96,9 +97,10 @@ PlanBuilder& PlanBuilder::tableScan(
       .tableName(tableName)
       .outputType(outputType)
       .columnAliases(columnAliases)
+      .dataColumns(dataColumns)
+
       .subfieldFilters(subfieldFilters)
       .remainingFilter(remainingFilter)
-      .dataColumns(dataColumns)
       .assignments(assignments)
       .endTableScan();
 }
@@ -113,9 +115,10 @@ PlanBuilder& PlanBuilder::tableScanWithPushDown(
       .filtersAsNode(filtersAsNode_ ? planNodeIdGenerator_ : nullptr)
       .outputType(outputType)
       .assignments(assignments)
+      .dataColumns(dataColumns)
+
       .subfieldFiltersMap(pushdownConfig.subfieldFiltersMap)
       .remainingFilter(remainingFilter)
-      .dataColumns(dataColumns)
       .endTableScan();
 }
 
@@ -162,12 +165,37 @@ PlanBuilder& PlanBuilder::tpchTableScan(
 
 PlanBuilder::TableScanBuilder& PlanBuilder::TableScanBuilder::subfieldFilters(
     std::vector<std::string> subfieldFilters) {
-  subfieldFilters_.clear();
-  subfieldFilters_.reserve(subfieldFilters.size());
+  VELOX_CHECK(subfieldFiltersMap_.empty());
+
+  if (subfieldFilters.empty()) {
+    return *this;
+  }
+
+  // Parse subfield filters
+  auto queryCtx = core::QueryCtx::create();
+  exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), planBuilder_.pool_);
+  const RowTypePtr& parseType = dataColumns_ ? dataColumns_ : outputType_;
 
   for (const auto& filter : subfieldFilters) {
-    subfieldFilters_.emplace_back(
-        parse::parseExpr(filter, planBuilder_.options_));
+    auto untypedExpr = parse::parseExpr(filter, planBuilder_.options_);
+
+    // Parse directly to subfieldFiltersMap_
+    auto filterExpr = core::Expressions::inferTypes(
+        untypedExpr, parseType, planBuilder_.pool_);
+    auto [subfield, subfieldFilter] =
+        exec::toSubfieldFilter(filterExpr, &evaluator);
+
+    auto it = columnAliases_.find(subfield.toString());
+    if (it != columnAliases_.end()) {
+      subfield = common::Subfield(it->second);
+    }
+    VELOX_CHECK_EQ(
+        subfieldFiltersMap_.count(subfield),
+        0,
+        "Duplicate subfield: {}",
+        subfield.toString());
+
+    subfieldFiltersMap_[std::move(subfield)] = std::move(subfieldFilter);
   }
   return *this;
 }
@@ -238,33 +266,15 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
 
   common::SubfieldFilters filters;
 
-  if (subfieldFiltersMap_.empty()) {
-    filters.reserve(subfieldFilters_.size());
-    auto queryCtx = core::QueryCtx::create();
-    exec::SimpleExpressionEvaluator evaluator(
-        queryCtx.get(), planBuilder_.pool_);
-    for (const auto& filter : subfieldFilters_) {
-      auto filterExpr =
-          core::Expressions::inferTypes(filter, parseType, planBuilder_.pool_);
-      if (filtersAsNode_) {
-        addConjunct(filterExpr, filterNodeExpr);
-      } else {
-        auto [subfield, subfieldFilter] =
-            exec::toSubfieldFilter(filterExpr, &evaluator);
+  if (filtersAsNode_) {
+    for (const auto& [subfield, filter] : subfieldFiltersMap_) {
+      auto filterExpr = core::filterToExpr(
+          subfield, filter.get(), parseType, planBuilder_.pool_);
 
-        auto it = columnAliases_.find(subfield.toString());
-        if (it != columnAliases_.end()) {
-          subfield = common::Subfield(it->second);
-        }
-        VELOX_CHECK_EQ(
-            filters.count(subfield),
-            0,
-            "Duplicate subfield: {}",
-            subfield.toString());
-
-        filters[std::move(subfield)] = std::move(subfieldFilter);
-      }
+      addConjunct(filterExpr, filterNodeExpr);
     }
+
+    subfieldFiltersMap_.clear();
   }
 
   if (filtersAsNode_) {
@@ -287,13 +297,13 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
         connectorId_,
         tableName_,
         true,
-        (subfieldFiltersMap_.empty()) ? std::move(filters)
-                                      : std::move(subfieldFiltersMap_),
+        filtersAsNode_ ? std::move(filters) : std::move(subfieldFiltersMap_),
         remainingFilterExpr,
         dataColumns_);
   }
   core::PlanNodePtr result = std::make_shared<core::TableScanNode>(
       id, outputType_, tableHandle_, assignments_);
+
   if (filtersAsNode_ && filterNodeExpr) {
     auto filterId = planNodeIdGenerator_->next();
     result =

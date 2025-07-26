@@ -909,6 +909,10 @@ class NegatedBigintRange final : public Filter {
 
   bool testingEquals(const Filter& other) const final;
 
+  const BigintRange* getNonNegated() const {
+    return nonNegated_.get();
+  }
+
  private:
   std::unique_ptr<BigintRange> nonNegated_;
 };
@@ -1246,6 +1250,10 @@ class NegatedBigintValuesUsingHashTable final : public Filter {
     return nonNegated_->values();
   }
 
+  const BigintValuesUsingHashTable* getNonNegated() const {
+    return nonNegated_.get();
+  }
+
   std::string toString() const override {
     return fmt::format(
         "NegatedBigintValuesUsingHashTable: [{}, {}] {}",
@@ -1316,6 +1324,10 @@ class NegatedBigintValuesUsingBitmask final : public Filter {
 
   int64_t max() const {
     return max_;
+  }
+
+  const BigintValuesUsingBitmask* getNonNegated() const {
+    return nonNegated_.get();
   }
 
  private:
@@ -1887,6 +1899,10 @@ class NegatedBytesRange final : public Filter {
 
   bool testingEquals(const Filter& other) const final;
 
+  const BytesRange* getNonNegated() const {
+    return nonNegated_.get();
+  }
+
  private:
   std::unique_ptr<Filter> toMultiRange() const;
 
@@ -2141,6 +2157,10 @@ class NegatedBytesValues final : public Filter {
   }
 
   bool testingEquals(const Filter& other) const final;
+
+  const BytesValues* getNonNegated() const {
+    return nonNegated_.get();
+  }
 
  private:
   std::unique_ptr<BytesValues> nonNegated_;

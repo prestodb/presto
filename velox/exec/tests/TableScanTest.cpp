@@ -353,8 +353,8 @@ TEST_F(TableScanTest, timestamp) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}))
-           .subfieldFilter("c1 is null")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 is null")
            .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0, c1 FROM tmp WHERE c1 is null");
@@ -362,8 +362,8 @@ TEST_F(TableScanTest, timestamp) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()}))
-           .subfieldFilter("c1 < '1970-01-01 01:30:00'::TIMESTAMP")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 < '1970-01-01 01:30:00'::TIMESTAMP")
            .endTableScan()
            .planNode();
   assertQuery(
@@ -382,8 +382,8 @@ TEST_F(TableScanTest, timestamp) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(ROW({"c0"}, {BIGINT()}))
-           .subfieldFilter("c1 is null")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 is null")
            .endTableScan()
            .planNode();
   assertQuery(op, {filePath}, "SELECT c0 FROM tmp WHERE c1 is null");
@@ -391,8 +391,8 @@ TEST_F(TableScanTest, timestamp) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(ROW({"c0"}, {BIGINT()}))
-           .subfieldFilter("c1 < timestamp'1970-01-01 01:30:00'")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 < timestamp'1970-01-01 01:30:00'")
            .endTableScan()
            .planNode();
   assertQuery(
@@ -1055,8 +1055,8 @@ TEST_F(TableScanTest, missingColumns) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(outputType)
-           .subfieldFilter("c1 <= 100.1")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 <= 100.1")
            .endTableScan()
            .planNode();
   assertQuery(op, filePaths, "SELECT * FROM tmp WHERE c1 <= 100.1", 0);
@@ -1065,8 +1065,8 @@ TEST_F(TableScanTest, missingColumns) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(outputType)
-           .subfieldFilter("c1 <= 2000.1")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 <= 2000.1")
            .endTableScan()
            .planNode();
 
@@ -1076,8 +1076,8 @@ TEST_F(TableScanTest, missingColumns) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(outputTypeC0)
-           .subfieldFilter("c1 <= 3000.1")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 <= 3000.1")
            .endTableScan()
            .planNode();
 
@@ -1087,8 +1087,8 @@ TEST_F(TableScanTest, missingColumns) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(ROW({}, {}))
-           .subfieldFilter("c1 <= 4000.1")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 <= 4000.1")
            .endTableScan()
            .singleAggregation({}, {"count(1)"})
            .planNode();
@@ -1116,8 +1116,8 @@ TEST_F(TableScanTest, missingColumns) {
   op = PlanBuilder(pool_.get())
            .startTableScan()
            .outputType(ROW({}, {}))
-           .subfieldFilter("c1 is null")
            .dataColumns(dataColumns)
+           .subfieldFilter("c1 is null")
            .endTableScan()
            .singleAggregation({}, {"count(1)"})
            .planNode();
