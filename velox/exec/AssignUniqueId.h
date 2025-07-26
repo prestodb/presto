@@ -48,6 +48,11 @@ class AssignUniqueId : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
+  bool startDrain() override {
+    // No need to drain for assignUniqueId operator.
+    return false;
+  }
+
   bool isFinished() override;
 
  private:

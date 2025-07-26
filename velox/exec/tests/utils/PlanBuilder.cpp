@@ -1294,7 +1294,7 @@ PlanBuilder& PlanBuilder::assignUniqueId(
     const int32_t taskUniqueId) {
   planNode_ = std::make_shared<core::AssignUniqueIdNode>(
       nextPlanNodeId(), idName, taskUniqueId, planNode_);
-  VELOX_CHECK(!planNode_->supportsBarrier());
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 

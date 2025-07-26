@@ -1345,11 +1345,12 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
   // 'result' borrows memory from cursor so the life cycle must be shorter.
   std::vector<RowVectorPtr> result;
   auto* task = cursor->task().get();
-
   while (!cursor->noMoreSplits()) {
     addSplits(cursor.get());
     while (cursor->moveNext()) {
-      result.push_back(cursor->current());
+      auto vector = cursor->current();
+      vector->loadedVector();
+      result.push_back(std::move(vector));
       testingMaybeTriggerAbort(task);
     }
   }

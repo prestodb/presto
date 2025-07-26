@@ -4262,6 +4262,10 @@ class AssignUniqueIdNode : public PlanNode {
       const int32_t taskUniqueId,
       PlanNodePtr source);
 
+  bool supportsBarrier() const override {
+    return true;
+  }
+
   class Builder {
    public:
     Builder() = default;
