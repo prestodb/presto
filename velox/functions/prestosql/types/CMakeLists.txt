@@ -15,7 +15,6 @@ velox_add_library(
   velox_presto_types
   BingTileRegistration.cpp
   BingTileType.cpp
-  GeometryRegistration.cpp
   HyperLogLogRegistration.cpp
   IPAddressRegistration.cpp
   IPPrefixRegistration.cpp
@@ -26,6 +25,9 @@ velox_add_library(
   QDigestRegistration.cpp
   TimestampWithTimeZoneRegistration.cpp
   UuidRegistration.cpp)
+if(VELOX_ENABLE_GEO)
+  velox_sources(velox_presto_types PRIVATE GeometryRegistration.cpp)
+endif()
 
 velox_link_libraries(
   velox_presto_types

@@ -226,43 +226,29 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
   // registerSfmSketchType() is not called in the constructor of CustomTypeTest,
   // so we explicitly call it here.
   registerSfmSketchType();
-  auto names = getCustomTypeNames();
-  ASSERT_EQ(
-      (std::unordered_set<std::string>{
-          "JSON",
-          "HYPERLOGLOG",
-          "TIMESTAMP WITH TIME ZONE",
-          "UUID",
-          "IPADDRESS",
-          "IPPREFIX",
-          "BINGTILE",
-          "TDIGEST",
-          "QDIGEST",
-          "GEOMETRY",
-          "SFMSKETCH",
-      }),
-      names);
+
+  auto expectedTypes = std::unordered_set<std::string>{
+      "JSON",
+      "HYPERLOGLOG",
+      "TIMESTAMP WITH TIME ZONE",
+      "UUID",
+      "IPADDRESS",
+      "IPPREFIX",
+      "BINGTILE",
+      "TDIGEST",
+      "QDIGEST",
+      "SFMSKETCH",
+  };
+#ifdef VELOX_ENABLE_GEO
+  expectedTypes.insert("GEOMETRY");
+#endif
+  ASSERT_EQ(expectedTypes, getCustomTypeNames());
 
   ASSERT_TRUE(registerCustomType(
       "fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  expectedTypes.insert("FANCY_INT");
 
-  names = getCustomTypeNames();
-  ASSERT_EQ(
-      (std::unordered_set<std::string>{
-          "JSON",
-          "HYPERLOGLOG",
-          "TIMESTAMP WITH TIME ZONE",
-          "UUID",
-          "IPADDRESS",
-          "IPPREFIX",
-          "BINGTILE",
-          "FANCY_INT",
-          "TDIGEST",
-          "QDIGEST",
-          "GEOMETRY",
-          "SFMSKETCH",
-      }),
-      names);
+  ASSERT_EQ(expectedTypes, getCustomTypeNames());
 
   ASSERT_TRUE(unregisterCustomType("fancy_int"));
 }

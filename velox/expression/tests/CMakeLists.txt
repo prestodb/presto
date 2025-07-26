@@ -48,6 +48,9 @@ add_executable(
   TryExprTest.cpp
   VariadicViewTest.cpp
   VectorReaderTest.cpp)
+if(VELOX_ENABLE_GEO)
+  target_compile_definitions(velox_expression_test PRIVATE VELOX_ENABLE_GEO)
+endif()
 
 add_test(
   NAME velox_expression_test
