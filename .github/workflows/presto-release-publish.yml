@@ -112,6 +112,14 @@ jobs:
       NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+
       - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
@@ -122,6 +130,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          df -h
           sudo apt-get update
           sudo apt-get install -y build-essential git gpg python3 python3-venv
 
@@ -194,6 +203,7 @@ jobs:
           chmod 600 ${{ env.GPG_KEY_FILE }}
           gpg --import --batch ${{ env.GPG_KEY_FILE }}
           gpg --batch --yes --pinentry-mode loopback --passphrase "${{ secrets.GPG_PASSPHRASE }}" --sign ${{ env.GPG_KEY_FILE }}
+          df -h
 
       - name: Release Maven Artifacts
         if: ${{ github.event.inputs.publish_maven == 'true' }}
@@ -284,6 +294,14 @@ jobs:
     environment: release
     timeout-minutes: 300
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -292,6 +310,7 @@ jobs:
 
       - name: Initialize Prestissimo submodules
         run: |
+          df -h
           cd presto-native-execution && make submodules
           echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
@@ -312,6 +331,7 @@ jobs:
       - name: Build Dependency Image
         working-directory: presto-native-execution
         run: |
+          df -h
           if docker pull ${{ env.DEPENDENCY_IMAGE }}; then
             echo "Using dependency image ${{ env.DEPENDENCY_IMAGE }}"
             docker tag ${{ env.DEPENDENCY_IMAGE }} presto/prestissimo-dependency:centos9
@@ -333,6 +353,7 @@ jobs:
       - name: Build Runtime Image
         working-directory: presto-native-execution
         run: |
+          df -h
           docker compose build centos-native-runtime
 
       - name: Add release tag
