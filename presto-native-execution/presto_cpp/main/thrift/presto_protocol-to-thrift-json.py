@@ -40,17 +40,52 @@ def parse_args():
     return parser.parse_args()
 
 
-def special_file(filename, special, thrift_item, key):
+def special_file(filename, thrift_item, key):
     if os.path.isfile(filename):
         (status, stdout, stderr) = util.run(
             "../../../velox/scripts/checks/license-header.py --header ../../../license.header --remove "
             + filename
         )
         thrift_item[key] = stdout
-        return True
 
-    return special
 
+def verify(thrift_item, protocol_item):
+    thrift_field_set = {t.proto_name for t in thrift_item.fields}
+    protocol_field_set = {p.field_name for p in protocol_item.fields}
+    valid_fields = thrift_field_set.intersection(protocol_field_set)
+
+    for field in thrift_item.fields:
+        if field.field_name in valid_fields:
+            field["convert"] = True
+
+    if len((thrift_field_set - protocol_field_set)) != 0:
+        eprint(
+            "Missing protocol fields: "
+            + thrift_item.class_name
+            + " "
+            + str(thrift_field_set - protocol_field_set)
+        )
+
+    if len((protocol_field_set - thrift_field_set)) != 0:
+        eprint(
+            "Missing thrift fields: "
+            + thrift_item.class_name
+            + " "
+            + str(protocol_field_set - thrift_field_set)
+        )
+
+def process_fields(thrift_item, config_item):
+    for field in thrift_item.fields:
+        if (
+            config_item is not None 
+            and "fields" in config_item
+            and field.field_name in config_item.fields
+        ):
+            field["proto_name"] = config_item.fields[
+                field.field_name
+            ].field_name
+        else:
+            field["proto_name"] = field.field_name
 
 def main():
     args = parse_args()
@@ -76,72 +111,50 @@ def main():
         if thrift_item.class_name in config.StructInProtocolCore:
             thrift_item["core"] = "true"
         
+        # For union structs
+        if "union" in thrift_item and thrift_item.class_name not in config.Special:
+            thrift_item["proto_name"] = thrift_item.class_name.removesuffix("Union")
+            if thrift_item.class_name in config.StructMap and "fields" in config.StructMap[thrift_item.class_name]:
+                config_item = config.StructMap[thrift_item.class_name].fields
+                for field in thrift_item.fields:
+                    if field.field_name in config_item:
+                        field["proto_field_type"] = config_item[field.field_name].field_type
+            continue
+
         # For structs that have a single field in IDL but defined using type aliases in cpp
         if thrift_item.class_name in config.WrapperStruct:
             thrift_item["wrapper"] = "true"
             del thrift_item["struct"]
             continue
 
-        config_item = None
+        # For connector structs
+        if thrift_item.class_name in config.ConnectorStruct:
+            thrift_item["connector"] = "true"
+            del thrift_item["struct"]
+        
         # For structs that need special implementations
         if thrift_item.class_name in config.Special:
             hfile = "./special/" + thrift_item.class_name + ".hpp.inc"
-            special = special_file(hfile, special, thrift_item, "hinc")
+            special_file(hfile, thrift_item, "hinc")
 
             cfile = "./special/" + thrift_item.class_name + ".cpp.inc"
-            special = special_file(cfile, special, thrift_item, "cinc")
+            special_file(cfile, thrift_item, "cinc")
 
-        elif thrift_item.class_name in pmap:
-            protocol_item = pmap[thrift_item.class_name]
+        elif (thrift_item.class_name in pmap) or (thrift_item.class_name in config.StructMap and config.StructMap[thrift_item.class_name].class_name in pmap):
+            protocol_item = pmap[thrift_item.class_name] if thrift_item.class_name in pmap else pmap[config.StructMap[thrift_item.class_name].class_name]
+            thrift_item["proto_name"] = protocol_item.class_name
 
-            special = False
+            config_item = None
             if "struct" in thrift_item:
                 # For structs that have different field names in cpp and IDL
                 if thrift_item.class_name in config.StructMap:
                     config_item = config.StructMap[thrift_item.class_name]
                     thrift_item["proto_name"] = config_item.class_name
-                    special = True
 
-                for field in thrift_item.fields:
-                    if (
-                        config_item is not None
-                        and field.field_name in config_item.fields
-                    ):
-                        field["proto_name"] = config_item.fields[
-                            field.field_name
-                        ].field_name
-                    else:
-                        field["proto_name"] = field.field_name
+                process_fields(thrift_item, config_item)
 
                 if "struct" in protocol_item:
-                    thrift_field_set = {t.proto_name for t in thrift_item.fields}
-                    protocol_field_set = {p.field_name for p in protocol_item.fields}
-                    valid_fields = thrift_field_set.intersection(protocol_field_set)
-
-                    for field in thrift_item.fields:
-                        if field.field_name in valid_fields:
-                            field["convert"] = True
-
-                    if len((thrift_field_set - protocol_field_set)) != 0:
-                        eprint(
-                            "Missing protocol fields: "
-                            + thrift_item.class_name
-                            + " "
-                            + str(thrift_field_set - protocol_field_set)
-                        )
-
-                    if len((protocol_field_set - thrift_field_set)) != 0:
-                        eprint(
-                            "Missing thrift fields: "
-                            + thrift_item.class_name
-                            + " "
-                            + str(protocol_field_set - thrift_field_set)
-                        )
-                elif not special:
-                    eprint(
-                        "Thrift struct missing from presto_protocol: "
-                        + thrift_item.class_name
-                    )
+                    verify(thrift_item, protocol_item)
         else:
             eprint("Thrift item missing from presto_protocol: " + thrift_item.class_name)
 
