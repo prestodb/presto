@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.MapType;
@@ -100,11 +101,13 @@ public class MaterializedResult
     private final Set<String> resetSessionProperties;
     private final Optional<UpdateInfo> updateInfo;
     private final OptionalLong updateCount;
+    private final Optional<TransactionId> startedTransactionId;
+    private final boolean clearTransactionId;
     private final List<PrestoWarning> warnings;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), Optional.empty(), false, ImmutableList.of());
     }
 
     public MaterializedResult(
@@ -114,6 +117,8 @@ public class MaterializedResult
             Set<String> resetSessionProperties,
             Optional<UpdateInfo> updateInfo,
             OptionalLong updateCount,
+            Optional<TransactionId> startedTransactionId,
+            boolean clearTransactionId,
             List<PrestoWarning> warnings)
     {
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
@@ -122,6 +127,8 @@ public class MaterializedResult
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateInfo = requireNonNull(updateInfo, "updateInfo is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
+        this.startedTransactionId = requireNonNull(startedTransactionId, "startedTransactionId is null");
+        this.clearTransactionId = clearTransactionId;
         this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
@@ -166,6 +173,16 @@ public class MaterializedResult
         return updateCount;
     }
 
+    public Optional<TransactionId> getStartedTransactionId()
+    {
+        return startedTransactionId;
+    }
+
+    public boolean isClearTransactionId()
+    {
+        return clearTransactionId;
+    }
+
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
@@ -186,13 +203,15 @@ public class MaterializedResult
                 Objects.equals(setSessionProperties, o.setSessionProperties) &&
                 Objects.equals(resetSessionProperties, o.resetSessionProperties) &&
                 Objects.equals(updateInfo, o.updateInfo) &&
-                Objects.equals(updateCount, o.updateCount);
+                Objects.equals(updateCount, o.updateCount) &&
+                Objects.equals(startedTransactionId, o.startedTransactionId) &&
+                Objects.equals(clearTransactionId, o.clearTransactionId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateInfo, updateCount);
+        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateInfo, updateCount, clearTransactionId, clearTransactionId);
     }
 
     @Override
@@ -205,6 +224,8 @@ public class MaterializedResult
                 .add("resetSessionProperties", resetSessionProperties)
                 .add("updateInfo", updateInfo.orElse(null))
                 .add("updateCount", updateCount.isPresent() ? updateCount.getAsLong() : null)
+                .add("startedTransactionId", startedTransactionId.orElse(null))
+                .add("clearTransactionId", clearTransactionId)
                 .omitNullValues()
                 .toString();
     }
@@ -361,6 +382,8 @@ public class MaterializedResult
                 resetSessionProperties,
                 updateInfo,
                 updateCount,
+                startedTransactionId,
+                clearTransactionId,
                 warnings);
     }
 

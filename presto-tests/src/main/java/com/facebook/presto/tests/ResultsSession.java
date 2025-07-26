@@ -15,11 +15,13 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public interface ResultsSession<T>
@@ -30,6 +32,16 @@ public interface ResultsSession<T>
     }
 
     default void setUpdateCount(long count)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setStartedTransactionId(Optional<TransactionId> startedTransactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setClearTransactionId(boolean clearTransactionId)
     {
         throw new UnsupportedOperationException();
     }
