@@ -32,8 +32,11 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.net.URI;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -113,6 +116,11 @@ public class LocalQueryProvider
 
     public Query getQuery(QueryId queryId, String slug)
     {
+        return getQuery(queryId, slug, Optional.empty(), OptionalLong.empty());
+    }
+
+    public Query getQuery(QueryId queryId, String slug, Optional<URI> retryUrl, OptionalLong retryExpirationEpochTime)
+    {
         Query query = queries.get(queryId);
         if (query != null) {
             if (!query.isSlugValid(slug)) {
@@ -144,7 +152,9 @@ public class LocalQueryProvider
                     responseExecutor,
                     timeoutExecutor,
                     blockEncodingSerde,
-                    retryCircuitBreaker);
+                    retryCircuitBreaker,
+                    retryUrl,
+                    retryExpirationEpochTime);
         });
         return query;
     }
