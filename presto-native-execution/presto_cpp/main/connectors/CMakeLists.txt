@@ -12,6 +12,11 @@
 add_library(presto_connectors Registration.cpp PrestoToVeloxConnector.cpp
                               SystemConnector.cpp)
 
+if(PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR)
+  target_sources(presto_connectors PRIVATE IcebergPrestoToVeloxConnector.cpp)
+  target_compile_definitions(presto_connectors PUBLIC PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR)
+endif()
+
 if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   add_subdirectory(arrow_flight)
   target_compile_definitions(presto_connectors

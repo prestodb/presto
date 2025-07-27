@@ -11,6 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifdef PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR
+#include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
+#endif
+
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
@@ -29,8 +34,12 @@ TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
       "hive-hadoop2",
 
       std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2")));
+
+#ifdef PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR
   connectorList.emplace_back(std::pair(
       "iceberg", std::make_unique<IcebergPrestoToVeloxConnector>("iceberg")));
+#endif
+
   connectorList.emplace_back(
       std::pair("tpch", std::make_unique<HivePrestoToVeloxConnector>("tpch")));
 
