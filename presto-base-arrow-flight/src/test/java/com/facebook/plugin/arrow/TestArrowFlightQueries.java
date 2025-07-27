@@ -146,6 +146,20 @@ public class TestArrowFlightQueries
     }
 
     @Test
+    public void testSystemJdbcColumns()
+    {
+        MaterializedResult actualRow = computeActual("SELECT * from system.jdbc.columns");
+        assertTrue(actualRow.getRowCount() > 0);
+    }
+
+    @Test
+    public void testSystemJdbcTables()
+    {
+        MaterializedResult actualRow = computeActual("SELECT * from system.jdbc.tables");
+        assertTrue(actualRow.getRowCount() > 0);
+    }
+
+    @Test
     public void testDescribeUnknownTable()
     {
         MaterializedResult actualRows = computeActual("DESCRIBE information_schema.enabled_roles");
