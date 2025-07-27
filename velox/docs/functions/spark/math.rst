@@ -4,7 +4,9 @@ Mathematical Functions
 
 .. spark:function:: abs(x) -> [same as x]
 
-    Returns the absolute value of ``x``.
+    Returns the absolute value of ``x``. When ``x`` is negative minimum
+    value of integral type, returns the same value as ``x`` following
+    the behavior when Spark ANSI mode is disabled.
 
 .. spark:function:: acos(x) -> double
 
