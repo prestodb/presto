@@ -169,7 +169,7 @@ public class ArrowMetadata
             tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tables = listTables(session, Optional.of(prefix.getSchemaName()));
+            tables = listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
 
         for (SchemaTableName tableName : tables) {
