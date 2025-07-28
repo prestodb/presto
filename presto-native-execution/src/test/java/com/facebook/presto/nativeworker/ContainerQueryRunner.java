@@ -36,7 +36,11 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -60,7 +64,7 @@ public class ContainerQueryRunner
     private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
     private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "1000");
     private static final String BASE_DIR = System.getProperty("user.dir");
     private static final int DEFAULT_COORDINATOR_PORT = 8080;
     private static final String TPCH_CATALOG = "tpch";
@@ -126,7 +130,7 @@ public class ContainerQueryRunner
 
         // Need some extra time for sidecar to register otherwise it throws sidecar not found error
         if (isSidecarEnabled && !isSidecarDelayed) {
-            TimeUnit.SECONDS.sleep(35);
+            TimeUnit.SECONDS.sleep(5);
         }
         else {
             TimeUnit.SECONDS.sleep(5);
@@ -177,9 +181,14 @@ public class ContainerQueryRunner
     private void initializeConnection()
     {
         String dockerHostIp = coordinator.getHost();
+        int mappedPort = coordinator.getMappedPort(coordinatorPort);
+
+        // First, wait for coordinator to become ACTIVE
+        waitForCoordinatorActive(dockerHostIp, mappedPort, 60, 5);
+
         String url = String.format("jdbc:presto://%s:%s/%s/%s?%s",
                 dockerHostIp,
-                coordinator.getMappedPort(coordinatorPort),
+                mappedPort,
                 catalog,
                 schema,
                 "timeZoneId=UTC");
@@ -190,6 +199,49 @@ public class ContainerQueryRunner
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void waitForCoordinatorActive(String host, int port, int maxRetries, int retryDelaySeconds)
+    {
+        String endpoint = String.format("http://%s:%d/v1/info/state", host, port);
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(2000);
+                connection.setReadTimeout(2000);
+
+                int responseCode = connection.getResponseCode();
+                if (responseCode == 200) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+                        String response = reader.readLine().trim().replaceAll("^\"|\"$", "");
+                        System.out.printf("Attempt %d: State = %s%n", attempt, response);
+
+                        if ("ACTIVE".equalsIgnoreCase(response)) {
+                            System.out.println("Coordinator is ACTIVE.");
+                            return;
+                        }
+                    }
+                }
+                else {
+                    System.out.printf("Attempt %d: Non-200 response: %d%n", attempt, responseCode);
+                }
+            }
+            catch (Exception e) {
+                System.out.printf("Attempt %d: Error contacting coordinator: %s%n", attempt, e.getMessage());
+            }
+
+            try {
+                Thread.sleep(retryDelaySeconds * 1000L);
+            }
+            catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for coordinator to become ACTIVE");
+            }
+        }
+
+        throw new RuntimeException("Coordinator did not become ACTIVE in time.");
     }
 
     private GenericContainer<?> createCoordinator()
