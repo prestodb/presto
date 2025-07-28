@@ -401,45 +401,6 @@ void PrestoServer::run() {
   registerPrestoPlanNodeSerDe();
   registerDynamicFunctions();
 
-  const auto numExchangeHttpClientIoThreads = std::max<size_t>(
-      systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
-      1);
-  exchangeHttpIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
-      numExchangeHttpClientIoThreads,
-      std::make_shared<folly::NamedThreadFactory>("ExchangeIO"));
-
-  PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
-                           << exchangeHttpIoExecutor_->getName() << "' has "
-                           << exchangeHttpIoExecutor_->numThreads()
-                           << " threads.";
-  for (auto evb : exchangeHttpIoExecutor_->getAllEventBases()) {
-    evb->setMaxLatency(
-        std::chrono::milliseconds(systemConfig->exchangeIoEvbViolationThresholdMs()),
-        []() { RECORD_METRIC_VALUE(kCounterExchangeIoEvbViolation, 1); },
-        /*dampen=*/false);
-  }
-
-  const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
-      systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
-      1);
-
-  exchangeHttpCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
-      numExchangeHttpClientCpuThreads,
-      std::make_shared<folly::NamedThreadFactory>("ExchangeCPU"));
-
-  PRESTO_STARTUP_LOG(INFO) << "Exchange Http CPU executor '"
-                           << exchangeHttpCpuExecutor_->getName() << "' has "
-                           << exchangeHttpCpuExecutor_->numThreads()
-                           << " threads.";
-
-  if (systemConfig->exchangeEnableConnectionPool()) {
-    PRESTO_STARTUP_LOG(INFO) << "Enable exchange Http Client connection pool.";
-    exchangeSourceConnectionPool_ =
-        std::make_unique<http::HttpClientConnectionPool>();
-  }
-
   facebook::velox::exec::ExchangeSource::registerFactory(
       [this](
           const std::string& taskId,
@@ -854,6 +815,45 @@ void PrestoServer::initializeThreadPools() {
     spillerExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
         numSpillerCpuThreads,
         std::make_shared<folly::NamedThreadFactory>("Spiller"));
+  }
+
+  const auto numExchangeHttpClientIoThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
+  exchangeHttpIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+      numExchangeHttpClientIoThreads,
+      std::make_shared<folly::NamedThreadFactory>("ExchangeIO"));
+
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
+                           << exchangeHttpIoExecutor_->getName() << "' has "
+                           << exchangeHttpIoExecutor_->numThreads()
+                           << " threads.";
+  for (auto evb : exchangeHttpIoExecutor_->getAllEventBases()) {
+    evb->setMaxLatency(
+        std::chrono::milliseconds(systemConfig->exchangeIoEvbViolationThresholdMs()),
+        []() { RECORD_METRIC_VALUE(kCounterExchangeIoEvbViolation, 1); },
+        /*dampen=*/false);
+  }
+
+  const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
+
+  exchangeHttpCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+      numExchangeHttpClientCpuThreads,
+      std::make_shared<folly::NamedThreadFactory>("ExchangeCPU"));
+
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http CPU executor '"
+                           << exchangeHttpCpuExecutor_->getName() << "' has "
+                           << exchangeHttpCpuExecutor_->numThreads()
+                           << " threads.";
+
+  if (systemConfig->exchangeEnableConnectionPool()) {
+    PRESTO_STARTUP_LOG(INFO) << "Enable exchange Http Client connection pool.";
+    exchangeSourceConnectionPool_ =
+        std::make_unique<http::HttpClientConnectionPool>();
   }
 }
 

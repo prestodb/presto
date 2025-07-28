@@ -126,6 +126,8 @@ class PrestoServer {
 
   virtual void initializeCoordinatorDiscoverer();
 
+  virtual void initializeThreadPools();
+
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
@@ -193,8 +195,6 @@ class PrestoServer {
   getHttpServerFilters() const;
 
   void initializeVeloxMemory();
-
-  void initializeThreadPools();
 
   void registerStatsCounters();
 
