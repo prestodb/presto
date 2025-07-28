@@ -114,14 +114,21 @@ public class OracleClient
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Oracle");
         }
 
-        String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
-        String oldTableName = oldTable.getTableName().toUpperCase(ENGLISH);
-        String sql = format(
-                "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, oldTable.getSchemaName(), oldTableName),
-                quoted(newTableName));
-
         try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            String schemaName = oldTable.getSchemaName();
+            String newTableName = newTable.getTableName();
+            String oldTableName = oldTable.getTableName();
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                schemaName = schemaName != null ? schemaName.toUpperCase(ENGLISH) : null;
+                newTableName = newTableName.toUpperCase(ENGLISH);
+                oldTableName = oldTableName.toUpperCase(ENGLISH);
+            }
+
+            String sql = format(
+                    "ALTER TABLE %s RENAME TO %s",
+                    quoted(catalogName, schemaName, oldTableName),
+                    quoted(newTableName));
             execute(connection, sql);
         }
         catch (SQLException e) {
