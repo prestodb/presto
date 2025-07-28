@@ -65,18 +65,19 @@ The supported architectures are `x86_64 (avx, sse)`, and `AArch64 (apple-m1+crc,
 Prestissimo can be built by a variety of compilers (and versions) but not all.
 Compilers (and versions) not mentioned are known to not work or have not been tried.
 
+#### Minimum required
+| OS | compiler |
+| -- | -------- |
+| Ubuntu 22.04 | `gcc11` |
+| macOS | `clang15` |
+| CentOS 9/RHEL 9 | `gcc11` |
+
 #### Recommended
 | OS | compiler |
 | -- | -------- |
 | CentOS 9/RHEL 9 | `gcc12` |
 | Ubuntu 22.04 | `gcc11` |
-| macOS | `clang15` |
-
-#### Older alternatives
-| OS | compiler |
-| -- | -------- |
-| Ubuntu 20.04 | `gcc9` |
-| macOS | `clang14` |
+| macOS | `clang15 (or later)` |
 
 ### Build Prestissimo
 #### Parquet and S3 Support
