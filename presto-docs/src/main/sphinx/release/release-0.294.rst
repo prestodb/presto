@@ -51,6 +51,7 @@ Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix Native Plan Checker for CTAS and Insert queries. `#25115 <https://github.com/prestodb/presto/pull/25115>`_
 * Fix native session property manager reading plugin configs from file. `#25553 <https://github.com/prestodb/presto/pull/25553>`_
+* Fix native session property manager reading plugin configs from file. `#25553 <https://github.com/prestodb/presto/pull/25553>`_
 * Fix PrestoExchangeSource 400 Bad Request by adding the "Host" header. `#25272 <https://github.com/prestodb/presto/pull/25272>`_
 * Improve memory usage in PartitionAndSerialize Operator by pre-determine the serialized byte size of a given sort key at 'rowId'. This allows PartitionAndSerialize Operator to pre-allocated the exact output buffer size needed for serialization, avoid wasted memory allocation. User should expect lower memory usage and up to 20% runtime increase when serializing a sort key. `#25393 <https://github.com/prestodb/presto/pull/25393>`_
 * Improve serialized size estimation by introducing a batched API using vectorized operations. It delivers up to 8x faster size estimation compared to the previous row-by-row implementation. Workloads with high serialization cost will benefit from adopting this range-based API. `#25569 <https://github.com/prestodb/presto/pull/25569>`_
@@ -121,6 +122,8 @@ _______________________________________
 Router Changes
 ______________
 * Add a new custom router scheduler plugin, the `Presto Plan Checker Router Scheduler Plugin <https://github.com/prestodb/presto/tree/master/presto-plan-checker-router-plugin/README.md>`_. `#25035 <https://github.com/prestodb/presto/pull/25035>`_
+* Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
+* Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
 * Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
 * Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
 
