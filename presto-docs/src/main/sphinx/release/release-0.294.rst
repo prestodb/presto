@@ -50,43 +50,41 @@ Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix Native Plan Checker for CTAS and Insert queries. `#25115 <https://github.com/prestodb/presto/pull/25115>`_
 * Fix native session property manager reading plugin configs from file. `#25553 <https://github.com/prestodb/presto/pull/25553>`_
-* Fix native session property manager reading plugin configs from file. `#25553 <https://github.com/prestodb/presto/pull/25553>`_
 * Fix PrestoExchangeSource 400 Bad Request by adding the "Host" header. `#25272 <https://github.com/prestodb/presto/pull/25272>`_
-* Improve memory usage in PartitionAndSerialize Operator by pre-determine the serialized byte size of a given sort key at 'rowId'. This allows PartitionAndSerialize Operator to pre-allocated the exact output buffer size needed for serialization, avoid wasted memory allocation. User should expect lower memory usage and up to 20% runtime increase when serializing a sort key. `#25393 <https://github.com/prestodb/presto/pull/25393>`_
+* Improve memory usage in PartitionAndSerialize Operator by pre-determining the serialized byte size of a given sort key at ``rowId``. This allows the PartitionAndSerialize Operator to pre-allocate the exact output buffer size needed for serialization and avoid wasted memory allocation. User should expect lower memory usage and up to 20% runtime increase when serializing a sort key. `#25393 <https://github.com/prestodb/presto/pull/25393>`_
 * Improve serialized size estimation by introducing a batched API using vectorized operations. It delivers up to 8x faster size estimation compared to the previous row-by-row implementation. Workloads with high serialization cost will benefit from adopting this range-based API. `#25569 <https://github.com/prestodb/presto/pull/25569>`_
-* Add BinarySortableSerializer::serializedSizeInBytes method that returns the serialized byte size of a given input row at 'rowId'. This allows us to pre-allocated the exact output buffer size needed for serialization, avoiding wasted memory space. `#25359 <https://github.com/prestodb/presto/pull/25359>`_
+* Add BinarySortableSerializer::serializedSizeInBytes method that returns the serialized byte size of a given input row at ``rowId``. This allows us to pre-allocate the exact output buffer size needed for serialization, avoiding wasted memory space. `#25359 <https://github.com/prestodb/presto/pull/25359>`_
 * Add geometry type to the list of supported types in NativeTypeManager. `#25560 <https://github.com/prestodb/presto/pull/25560>`_
 * Add sidecar in presto-native-tests module. `#25174 <https://github.com/prestodb/presto/pull/25174>`_
-* Replace `EXPLAIN (TYPE DISTRIBUTED)` with `EXPLAIN (TYPE VALIDATE)` for faster, lightweight analysis. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
+* Replace ``EXPLAIN (TYPE DISTRIBUTED)`` with ``EXPLAIN (TYPE VALIDATE)`` for faster, lightweight analysis. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
 * Update thrift IDL to expand connector specific fields. `#25474 <https://github.com/prestodb/presto/pull/25474>`_
 
 Router Changes
 ______________
-* Add a new custom router scheduler plugin, the `Presto Plan Checker Router Scheduler Plugin <https://github.com/prestodb/presto/tree/master/presto-plan-checker-router-plugin/README.md>`_. `#25035 <https://github.com/prestodb/presto/pull/25035>`_
+* Add the `Presto Plan Checker Router Scheduler Plugin <https://github.com/prestodb/presto/tree/master/presto-plan-checker-router-plugin/README.md>`_. `#25035 <https://github.com/prestodb/presto/pull/25035>`_
 * Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
 * Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
 
 Security Changes
 ________________
-* Add authorization support for `SHOW CREATE TABLE`, `SHOW CREATE VIEW`, `SHOW COLUMNS`, and `DESCRIBE` queries. `#25364 <https://github.com/prestodb/presto/pull/25364>`_
-* Upgrade commons-beanutils dependency to address 'CVE-2025-48734  <https://github.com/advisories/GHSA-wxr5-93ph-8wr9>'. `#25235 <https://github.com/prestodb/presto/pull/25235>`_
-* Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`. `#25549 <https://github.com/prestodb/presto/pull/25549>`_
+* Add authorization support for ``SHOW CREATE TABLE``, ``SHOW CREATE VIEW``, ``SHOW COLUMNS``, and ``DESCRIBE`` queries. `#25364 <https://github.com/prestodb/presto/pull/25364>`_
+* Upgrade commons-beanutils dependency to address `CVE-2025-48734 <https://github.com/advisories/GHSA-wxr5-93ph-8wr9>`_. `#25235 <https://github.com/prestodb/presto/pull/25235>`_
+* Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>_`. `#25549 <https://github.com/prestodb/presto/pull/25549>`_
 * Upgrade kafka to 3.9.1 in response to `CVE-2025-27817 <https://github.com/advisories/GHSA-vgq5-3255-v292>`_. :pr:`25312`. `#25312 <https://github.com/prestodb/presto/pull/25312>`_
 
 JDBC Driver Changes
 ___________________
 * Fix issue introduced in `#25127 <https://github.com/prestodb/presto/pull/25127>`_ by introducing `TableLocationProvider` interface to decouple table location logic from JDBC configuration. `#25582 <https://github.com/prestodb/presto/pull/25582>`_
 * Improve type mapping API to add WriteMapping functionality. `#25437 <https://github.com/prestodb/presto/pull/25437>`_
-* Improve type mapping API to add WriteMapping functionality. `#25124 <https://github.com/prestodb/presto/pull/25124>`_
 * Add mixed case support related catalog property in JDBC connector ``case-sensitive-name-matching``. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
 * Add case-sensitive support for column names. It can be enabled for JDBC based connector by setting ``case-sensitive-name-matching=true`` at the catalog level. `#24983 <https://github.com/prestodb/presto/pull/24983>`_
 
 Arrow Flight Connector Changes
 ______________________________
-* Added support for mTLS authentication in Arrow Flight client. `#25179 <https://github.com/prestodb/presto/pull/25179>`_
+* Added support for mTLS authentication in Arrow Flight client. See :ref:`connector/base-arrow-flight:Configuration`. `#25179 <https://github.com/prestodb/presto/pull/25179>`_
 
 Delta Lake Connector Changes
-_______________________
+____________________________
 * Improve mapping of ``TIMESTAMP`` column type by changing it from Presto  ``TIMESTAMP`` type to ``TIMESTAMP_WITH_TIME_ZONE``. `#24418 <https://github.com/prestodb/presto/pull/24418>`_
 * Add support for ``TIMESTAMP_NTZ`` column type as Presto ``TIMESTAMP`` type. ``legacy_timestamp`` should be set to ``false`` to match delta type specifications. When set to ``false``, ``TIMESTAMP`` will not adjust based on local timezone. `#24418 <https://github.com/prestodb/presto/pull/24418>`_
 
@@ -114,8 +112,8 @@ _______________________
 
 Redshift Connector Changes
 __________________________
-* Fix Redshift VARBYTE column handling for JDBC driver version 2.1.0.32+ by mapping jdbcType=1111 and jdbcTypeName="binary varying" to Presto's VARBINARY type. `#25488 <https://github.com/prestodb/presto/pull/25488>`_
-* Fix Redshift connector runtime failure due to missing dependency on ``com.amazonaws.util.StringUtils``. Add ``aws-java-sdk-core`` as a runtime dependency to support Redshift JDBC driver (v2.1.0.32) which relies on this class for metadata operations. `#25265 <https://github.com/prestodb/presto/pull/25265>`_
+* Fix Redshift ``VARBYTE`` column handling for JDBC driver version 2.1.0.32+ by mapping ``jdbcType=1111`` and ``jdbcTypeName="binary varying"`` to Presto's ``VARBINARY`` type. `#25488 <https://github.com/prestodb/presto/pull/25488>`_
+* Fix Redshift connector runtime failure due to a missing dependency on ``com.amazonaws.util.StringUtils``. Add ``aws-java-sdk-core`` as a runtime dependency to support Redshift JDBC driver (v2.1.0.32) which relies on this class for metadata operations. `#25265 <https://github.com/prestodb/presto/pull/25265>`_
 
 Documentation Changes
 _____________________
