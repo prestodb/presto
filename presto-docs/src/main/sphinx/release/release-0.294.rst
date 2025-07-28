@@ -69,8 +69,8 @@ Security Changes
 ________________
 * Add authorization support for ``SHOW CREATE TABLE``, ``SHOW CREATE VIEW``, ``SHOW COLUMNS``, and ``DESCRIBE`` queries. `#25364 <https://github.com/prestodb/presto/pull/25364>`_
 * Upgrade commons-beanutils dependency to address `CVE-2025-48734 <https://github.com/advisories/GHSA-wxr5-93ph-8wr9>`_. `#25235 <https://github.com/prestodb/presto/pull/25235>`_
-* Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>_`. `#25549 <https://github.com/prestodb/presto/pull/25549>`_
-* Upgrade kafka to 3.9.1 in response to `CVE-2025-27817 <https://github.com/advisories/GHSA-vgq5-3255-v292>`_. :pr:`25312`. `#25312 <https://github.com/prestodb/presto/pull/25312>`_
+* Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`_. `#25549 <https://github.com/prestodb/presto/pull/25549>`_
+* Upgrade kafka to 3.9.1 in response to `CVE-2025-27817 <https://github.com/advisories/GHSA-vgq5-3255-v292>`_. `#25312 <https://github.com/prestodb/presto/pull/25312>`_
 
 JDBC Driver Changes
 ___________________
@@ -81,7 +81,7 @@ ___________________
 
 Arrow Flight Connector Changes
 ______________________________
-* Added support for mTLS authentication in Arrow Flight client. See :ref:`connector/base-arrow-flight:Configuration`. `#25179 <https://github.com/prestodb/presto/pull/25179>`_
+* Add support for mTLS authentication in Arrow Flight client. See :ref:`connector/base-arrow-flight:Configuration`. `#25179 <https://github.com/prestodb/presto/pull/25179>`_
 
 Delta Lake Connector Changes
 ____________________________
@@ -91,10 +91,10 @@ ____________________________
 Hive Connector Changes
 ______________________
 * Fix an issue while accessing Symlink tables. `#25307 <https://github.com/prestodb/presto/pull/25307>`_
-* Fix incorrectly ignoring computed table statistics in `ANALYZE`. `#24973 <https://github.com/prestodb/presto/pull/24973>`_
+* Fix incorrectly ignoring computed table statistics in ``ANALYZE``. `#24973 <https://github.com/prestodb/presto/pull/24973>`_
 * Improve split generation and read throughput for Symlink Tables. `#25277 <https://github.com/prestodb/presto/pull/25277>`_
 * Add support for symlink files in :ref:`connector/hive:Quick Stats`. `#25250 <https://github.com/prestodb/presto/pull/25250>`_
-* Update default value of `hive.copy-on-first-write-configuration-enabled` to false (:issue:`25404`). `#25420 <https://github.com/prestodb/presto/pull/25420>`_
+* Update default value of ``hive.copy-on-first-write-configuration-enabled`` to ``false``. `#25420 <https://github.com/prestodb/presto/pull/25420>`_
 
 Iceberg Connector Changes
 _________________________
