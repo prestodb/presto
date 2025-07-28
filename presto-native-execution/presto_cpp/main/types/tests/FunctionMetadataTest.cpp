@@ -48,12 +48,15 @@ class FunctionMetadataTest : public ::testing::Test {
     EXPECT_EQ(metadataList.size(), expectedSize);
     std::string expectedStr = slurp(test::utils::getDataPath(expectedFile));
     auto expected = json::parse(expectedStr);
+    auto comparator = [](const json& a, const json& b) {
+      return (a["outputType"] < b["outputType"]);
+    };
 
     json::array_t expectedList = expected[name];
-    std::sort(expectedList.begin(), expectedList.end());
-    std::sort(metadataList.begin(), metadataList.end());
+    std::sort(expectedList.begin(), expectedList.end(), comparator);
+    std::sort(metadataList.begin(), metadataList.end(), comparator);
     for (auto i = 0; i < expectedSize; i++) {
-      EXPECT_EQ(expectedList[i], metadataList[i]);
+      EXPECT_EQ(expectedList[i], metadataList[i]) << "Position: " << i;
     }
   }
 
