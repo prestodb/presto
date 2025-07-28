@@ -19,14 +19,14 @@ _______________
 * Fix randomize null join optimizer to keep HBO information for join input. `#25466 <https://github.com/prestodb/presto/pull/25466>`_
 * Fix subfield pushdown arg index for scalar functions to support selecting whole struct column. `#25471 <https://github.com/prestodb/presto/pull/25471>`_
 * Fix: Revert the Write mapping support. `#25369 <https://github.com/prestodb/presto/pull/25369>`_
-* Fix: Revert the move of boostrap fromm presto-main to presto-bytecode. `#25260 <https://github.com/prestodb/presto/pull/25260>`_
+* Fix: Revert the move of bootstrap from presto-main to presto-bytecode. `#25260 <https://github.com/prestodb/presto/pull/25260>`_
 * Improve `MinMaxByToWindowFunction` optimizer to cover cases where aggregation is on both map/array and non map/array types. `#25435 <https://github.com/prestodb/presto/pull/25435>`_
 * Improve and optimize Docker image layers. `#25487 <https://github.com/prestodb/presto/pull/25487>`_
 * Improve efficiency of output buffer implementation to reduce memory usage in writer. `#24913 <https://github.com/prestodb/presto/pull/24913>`_
 * Improve query resource usage by enabling subfield pushdown for :func:`map_filter` when selected keys are constants. `#25451 <https://github.com/prestodb/presto/pull/25451>`_
 * Improve query resource usage by enabling subfield pushdown for :func:`map_subset` when the input array is a constant array. `#25394 <https://github.com/prestodb/presto/pull/25394>`_
 * Improve MergePartialAggregationsWithFilter to work for queries where all aggregations have mask. `#25171 <https://github.com/prestodb/presto/pull/25171>`_
-* Improve remove map cast rule to cover map_subset function. `#25395 <https://github.com/prestodb/presto/pull/25395>`_
+* Improve remove map cast rule to cover :func:`map_subset`. `#25395 <https://github.com/prestodb/presto/pull/25395>`_
 * Improve memory usage in writer by freeing unused buffers. `#23724 <https://github.com/prestodb/presto/pull/23724>`_
 * Improve semi join performance for large filtering tables. `#25236 <https://github.com/prestodb/presto/pull/25236>`_
 * Improve ``check_access_control_on_utilized_columns_only`` session property by setting the default value to ``true``. `#25469 <https://github.com/prestodb/presto/pull/25469>`_
@@ -36,7 +36,6 @@ _______________
 * Add ``broadcast_semi_join_for_delete`` session property to disable the ReplicateSemiJoinInDelete optimizer. `#25256 <https://github.com/prestodb/presto/pull/25256>`_
 * Add ``history_based_optimizer_estimate_size_using_variables`` session property to have HBO estimate plan node output size using individual variables. `#25400 <https://github.com/prestodb/presto/pull/25400>`_
 * Add an optimizer to add distinct aggregation on build side of semi join. `#25238 <https://github.com/prestodb/presto/pull/25238>`_
-* Add case-sensitive support for column names. It can be enabled for JDBC based connector by setting ``case-sensitive-name-matching=true`` at the catalog level. `#24983 <https://github.com/prestodb/presto/pull/24983>`_
 * Add changes to populate data source metadata to support combined lineage tracking. `#25127 <https://github.com/prestodb/presto/pull/25127>`_
 * Add mixed case support for schema and table names. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
 * Add property ``native_query_memory_reclaimer_priority``  which controls which queries are killed first when a worker is running low on memory. Higher value means lower priority to be consistent with velox memory reclaimer's convention. `#25325 <https://github.com/prestodb/presto/pull/25325>`_
@@ -61,6 +60,12 @@ ______________________________________
 * Replace `EXPLAIN (TYPE DISTRIBUTED)` with `EXPLAIN (TYPE VALIDATE)` for faster, lightweight analysis. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
 * Update thrift IDL to expand connector specific fields. `#25474 <https://github.com/prestodb/presto/pull/25474>`_
 
+Router Changes
+______________
+* Add a new custom router scheduler plugin, the `Presto Plan Checker Router Scheduler Plugin <https://github.com/prestodb/presto/tree/master/presto-plan-checker-router-plugin/README.md>`_. `#25035 <https://github.com/prestodb/presto/pull/25035>`_
+* Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
+* Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
+
 Security Changes
 ________________
 * Add authorization support for `SHOW CREATE TABLE`, `SHOW CREATE VIEW`, `SHOW COLUMNS`, and `DESCRIBE` queries. `#25364 <https://github.com/prestodb/presto/pull/25364>`_
@@ -70,14 +75,20 @@ ________________
 
 JDBC Driver Changes
 ___________________
+* Fix issue introduced in `#25127 <https://github.com/prestodb/presto/pull/25127>`_ by introducing `TableLocationProvider` interface to decouple table location logic from JDBC configuration. `#25582 <https://github.com/prestodb/presto/pull/25582>`_
 * Improve type mapping API to add WriteMapping functionality. `#25437 <https://github.com/prestodb/presto/pull/25437>`_
 * Improve type mapping API to add WriteMapping functionality. `#25124 <https://github.com/prestodb/presto/pull/25124>`_
 * Add mixed case support related catalog property in JDBC connector ``case-sensitive-name-matching``. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
+* Add case-sensitive support for column names. It can be enabled for JDBC based connector by setting ``case-sensitive-name-matching=true`` at the catalog level. `#24983 <https://github.com/prestodb/presto/pull/24983>`_
 
-Delta Connector Changes
+Arrow Flight Connector Changes
+______________________________
+* Added support for mTLS authentication in Arrow Flight client. `#25179 <https://github.com/prestodb/presto/pull/25179>`_
+
+Delta Lake Connector Changes
 _______________________
 * Improve mapping of ``TIMESTAMP`` column type by changing it from Presto  ``TIMESTAMP`` type to ``TIMESTAMP_WITH_TIME_ZONE``. `#24418 <https://github.com/prestodb/presto/pull/24418>`_
-* Add support for ``TIMESTAMP_NTZ`` column type as Presto ``TIMESTAMP`` type. ``legacy_timestamp`` should be set to ``false`` to match delta type specifications. With it set, ``TIMESTAMP`` will not adjust based on local timezone. `#24418 <https://github.com/prestodb/presto/pull/24418>`_
+* Add support for ``TIMESTAMP_NTZ`` column type as Presto ``TIMESTAMP`` type. ``legacy_timestamp`` should be set to ``false`` to match delta type specifications. When set to ``false``, ``TIMESTAMP`` will not adjust based on local timezone. `#24418 <https://github.com/prestodb/presto/pull/24418>`_
 
 Hive Connector Changes
 ______________________
@@ -90,18 +101,14 @@ ______________________
 Iceberg Connector Changes
 _________________________
 * Fix error querying ``$data_sequence_number`` metadata column for table with equality deletes. `#25293 <https://github.com/prestodb/presto/pull/25293>`_
-* Fix the remove_orphan_files procedure after deletion operations. `#25220 <https://github.com/prestodb/presto/pull/25220>`_
-* Add ``iceberg.delete-as-join-rewrite-max-delete-columns`` configuration property and ``delete_as_join_rewrite_max_delete_columns`` session property to control when equality delete as join optimization is applied. The optimization is now only applied when the number of equality delete columns is less than or equal to this threshold (default: 400). Setting this to 0 disables the optimization. See :doc:`/connector/iceberg` for details. `#25462 <https://github.com/prestodb/presto/pull/25462>`_
+* Fix the :ref:`connector/iceberg:Remove Orphan Files` procedure after deletion operations. `#25220 <https://github.com/prestodb/presto/pull/25220>`_
+* Add ``iceberg.delete-as-join-rewrite-max-delete-columns`` configuration property and ``delete_as_join_rewrite_max_delete_columns`` session property to control when equality delete as join optimization is applied. The optimization is now only applied when the number of equality delete columns is less than or equal to this threshold (default: 400). Set to 0 to disable the optimization. See :doc:`/connector/iceberg`. `#25462 <https://github.com/prestodb/presto/pull/25462>`_
 * Add support for ``$delete_file_path`` metadata column. `#25280 <https://github.com/prestodb/presto/pull/25280>`_
 * Add support for ``$deleted`` metadata column. `#25280 <https://github.com/prestodb/presto/pull/25280>`_
 * Add support of ``rename view`` for Iceberg connector when configured with ``REST`` and ``NESSIE``. `#25202 <https://github.com/prestodb/presto/pull/25202>`_
 * Deprecate ``iceberg.delete-as-join-rewrite-enabled`` configuration property and ``delete_as_join_rewrite_enabled`` session property. Use ``iceberg.delete-as-join-rewrite-max-delete-columns`` instead. `#25462 <https://github.com/prestodb/presto/pull/25462>`_
 
-JDBC Connector Changes
-______________________
-* Fixes issue introduced in #25127 by introducing `TableLocationProvider` interface to decouple table location logic from JDBC configuration. `#25582 <https://github.com/prestodb/presto/pull/25582>`_
-
-Mysql Connector Changes
+MySQL Connector Changes
 _______________________
 * Add support for mixed-case in MySQL. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
 
@@ -113,19 +120,8 @@ __________________________
 Documentation Changes
 _____________________
 * Add :ref:`connector/hive:Avro Configuration Properties` to Hive Connector documentation. `#25311 <https://github.com/prestodb/presto/pull/25311>`_
-* Add doc for hive.copy-on-first-write-configuration-enabled in  presto-docs/src/main/sphinx/connector/hive.rst. `#25443 <https://github.com/prestodb/presto/pull/25443>`_
+* Add documentation for ``hive.copy-on-first-write-configuration-enabled`` configuration property to :ref:`connector/hive:Hive Configuration Properties`. `#25443 <https://github.com/prestodb/presto/pull/25443>`_
 
-Arrow Flight Connector Template Changes
-_______________________________________
-* Added support for mTLS authentication in Arrow Flight client. `#25179 <https://github.com/prestodb/presto/pull/25179>`_
-
-Router Changes
-______________
-* Add a new custom router scheduler plugin, the `Presto Plan Checker Router Scheduler Plugin <https://github.com/prestodb/presto/tree/master/presto-plan-checker-router-plugin/README.md>`_. `#25035 <https://github.com/prestodb/presto/pull/25035>`_
-* Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
-* Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
-* Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
-* Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
 
 **Credits**
 ===========
