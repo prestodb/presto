@@ -28,7 +28,6 @@ import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -44,14 +43,12 @@ import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
-import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -105,8 +102,6 @@ public class ConnectorManager
     private final IndexManager indexManager;
     private final PartitioningProviderManager partitioningProviderManager;
     private final ConnectorPlanOptimizerManager connectorPlanOptimizerManager;
-    private final ConnectorMetadataUpdaterManager connectorMetadataUpdaterManager;
-    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
@@ -142,8 +137,6 @@ public class ConnectorManager
             IndexManager indexManager,
             PartitioningProviderManager partitioningProviderManager,
             ConnectorPlanOptimizerManager connectorPlanOptimizerManager,
-            ConnectorMetadataUpdaterManager connectorMetadataUpdaterManager,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
@@ -168,8 +161,6 @@ public class ConnectorManager
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.connectorPlanOptimizerManager = requireNonNull(connectorPlanOptimizerManager, "connectorPlanOptimizerManager is null");
-        this.connectorMetadataUpdaterManager = requireNonNull(connectorMetadataUpdaterManager, "connectorMetadataUpdaterManager is null");
-        this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorMetadataUpdateHandleSerdeManager is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -313,14 +304,6 @@ public class ConnectorManager
                     .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
         }
 
-        connector.getMetadataUpdaterProvider()
-                .ifPresent(metadataUpdaterProvider -> connectorMetadataUpdaterManager.addMetadataUpdaterProvider(connectorId, metadataUpdaterProvider));
-
-        connector.getConnectorTypeSerdeProvider()
-                        .ifPresent(
-                                connectorTypeSerdeProvider ->
-                                connectorTypeSerdeManager.addConnectorTypeSerdeProvider(connectorId, connectorTypeSerdeProvider));
-
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
 
         connector.getAccessControl()
@@ -360,7 +343,6 @@ public class ConnectorManager
         metadataManager.getAnalyzePropertyManager().removeProperties(connectorId);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
         connectorPlanOptimizerManager.removePlanOptimizerProvider(connectorId);
-        connectorMetadataUpdaterManager.removeMetadataUpdaterProvider(connectorId);
 
         MaterializedConnector materializedConnector = connectors.remove(connectorId);
         if (materializedConnector != null) {
@@ -410,8 +392,6 @@ public class ConnectorManager
         private final Optional<ConnectorIndexProvider> indexProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
         private final Optional<ConnectorPlanOptimizerProvider> planOptimizerProvider;
-        private final Optional<ConnectorMetadataUpdaterProvider> metadataUpdaterProvider;
-        private final Optional<ConnectorTypeSerdeProvider> connectorTypeSerdeProvider;
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
@@ -492,24 +472,6 @@ public class ConnectorManager
             }
             this.planOptimizerProvider = Optional.ofNullable(planOptimizerProvider);
 
-            ConnectorMetadataUpdaterProvider metadataUpdaterProvider = null;
-            try {
-                metadataUpdaterProvider = connector.getConnectorMetadataUpdaterProvider();
-                requireNonNull(metadataUpdaterProvider, format("Connector %s returned null metadata updater provider", connectorId));
-            }
-            catch (UnsupportedOperationException ignored) {
-            }
-            this.metadataUpdaterProvider = Optional.ofNullable(metadataUpdaterProvider);
-
-            ConnectorTypeSerdeProvider connectorTypeSerdeProvider = null;
-            try {
-                connectorTypeSerdeProvider = connector.getConnectorTypeSerdeProvider();
-                requireNonNull(connectorTypeSerdeProvider, format("Connector %s returned null connector type serde provider", connectorId));
-            }
-            catch (UnsupportedOperationException ignored) {
-            }
-            this.connectorTypeSerdeProvider = Optional.ofNullable(connectorTypeSerdeProvider);
-
             ConnectorAccessControl accessControl = null;
             try {
                 accessControl = connector.getAccessControl();
@@ -587,16 +549,6 @@ public class ConnectorManager
         public Optional<ConnectorPlanOptimizerProvider> getPlanOptimizerProvider()
         {
             return planOptimizerProvider;
-        }
-
-        public Optional<ConnectorMetadataUpdaterProvider> getMetadataUpdaterProvider()
-        {
-            return metadataUpdaterProvider;
-        }
-
-        public Optional<ConnectorTypeSerdeProvider> getConnectorTypeSerdeProvider()
-        {
-            return connectorTypeSerdeProvider;
         }
 
         public Optional<ConnectorAccessControl> getAccessControl()

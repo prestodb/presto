@@ -329,31 +329,6 @@ void fromThrift(
 }
 
 void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper) {
-  toThrift(
-      metadataUpdates, *thriftMetadataUpdatesWrapper.metadataUpdates_ref());
-}
-void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    std::string& thriftMetadataUpdates) {
-  json jsonMetadataUpdates = metadataUpdates;
-  std::string str = jsonMetadataUpdates.dump();
-  toThrift(str, thriftMetadataUpdates);
-}
-void fromThrift(
-    const MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates) {
-  fromThrift(
-      *thriftMetadataUpdatesWrapper.metadataUpdates_ref(), metadataUpdates);
-}
-void fromThrift(
-    const std::string& thriftMetadataUpdates,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates) {
-  json j = json::parse(thriftMetadataUpdates);
-  metadataUpdates = j;
-}
-void toThrift(
     const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
     TableWriteInfoWrapper& thriftTableWriteInfoWrapper) {
   toThrift(tableWriteInfo, *thriftTableWriteInfoWrapper.tableWriteInfo_ref());
@@ -1506,7 +1481,6 @@ void toThrift(
   toThrift(proto.noMoreSplits, *thrift.noMoreSplits_ref());
   toThrift(proto.stats, *thrift.stats_ref());
   toThrift(proto.needsPlan, *thrift.needsPlan_ref());
-  toThrift(proto.metadataUpdates, *thrift.metadataUpdates_ref());
   toThrift(proto.nodeId, *thrift.nodeId_ref());
 }
 void fromThrift(
@@ -1519,7 +1493,6 @@ void fromThrift(
   fromThrift(*thrift.noMoreSplits_ref(), proto.noMoreSplits);
   fromThrift(*thrift.stats_ref(), proto.stats);
   fromThrift(*thrift.needsPlan_ref(), proto.needsPlan);
-  fromThrift(*thrift.metadataUpdates_ref(), proto.metadataUpdates);
   fromThrift(*thrift.nodeId_ref(), proto.nodeId);
 }
 

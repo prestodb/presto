@@ -19,7 +19,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -128,8 +127,6 @@ public class TaskContext
 
     private final MemoryTrackingContext taskMemoryContext;
 
-    private final TaskMetadataContext taskMetadataContext;
-
     private final Optional<PlanNode> taskPlan;
 
     // Only contains metrics exposed in this task. Doesn't contain the metrics exposed in the operators.
@@ -199,7 +196,6 @@ public class TaskContext
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
-        this.taskMetadataContext = new TaskMetadataContext();
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -285,11 +281,6 @@ public class TaskContext
     public TaskState getState()
     {
         return taskStateMachine.getState();
-    }
-
-    public TaskMetadataContext getTaskMetadataContext()
-    {
-        return taskMetadataContext;
     }
 
     public DataSize getMemoryReservation()

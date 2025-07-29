@@ -1235,7 +1235,6 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
   prestoTask->info.stats.createTimeInMillis = velox::getCurrentTimeMs();
   prestoTask->info.needsPlan = true;
-  prestoTask->info.metadataUpdates.connectorId = "unused";
 
   struct UuidSplit {
     int64_t lo;

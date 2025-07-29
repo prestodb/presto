@@ -11,189 +11,184 @@
 # limitations under the License.
 
 EnumMap:
-    AggregationNode:
-        Step: AggregationNodeStep
+  AggregationNode:
+    Step: AggregationNodeStep
 
-    ExchangeNode:
-        Type: ExchangeNodeType
-        Scope: ExchangeNodeScope
+  ExchangeNode:
+    Type: ExchangeNodeType
+    Scope: ExchangeNodeScope
 
-    LimitNode:
-        Step: LimitNodeStep
+  LimitNode:
+    Step: LimitNodeStep
 
-    SelectedRole:
-        Type: SelectedRoleType
+  SelectedRole:
+    Type: SelectedRoleType
 
-    SampleNode:
-        Type: SampleNodeType
+  SampleNode:
+    Type: SampleNodeType
 
 ExtraFields:
-    RowExpression:
-      std::shared_ptr<SourceLocation>: sourceLocation
+  RowExpression:
+    std::shared_ptr<SourceLocation>: sourceLocation
 
-    Aggregation:
-        FunctionHandle:      functionHandle
-        List<RowExpression>: arguments
+  Aggregation:
+    FunctionHandle: functionHandle
+    List<RowExpression>: arguments
 
-    PlanNode:
-        PlanNodeId:          id
+  PlanNode:
+    PlanNodeId: id
 
-    RemoteTransactionHandle:
-        Optional<String>:    dummy
+  RemoteTransactionHandle:
+    Optional<String>: dummy
 
 AddToOutput:
-    - NodeState
+  - NodeState
 
 AbstractClasses:
-    ColumnHandle:
-      super: JsonEncodedSubclass
-      comparable: true
-      subclasses:
-        - { name: HiveColumnHandle,         key: hive }
-        - { name: IcebergColumnHandle,      key: hive-iceberg }
-        - { name: TpchColumnHandle,         key: tpch }
-        - { name: SystemColumnHandle,       key: $system@system }
-        - { name: ArrowColumnHandle,        key: arrow-flight }
+  ColumnHandle:
+    super: JsonEncodedSubclass
+    comparable: true
+    subclasses:
+      - { name: HiveColumnHandle,         key: hive }
+      - { name: IcebergColumnHandle,      key: hive-iceberg }
+      - { name: TpchColumnHandle,         key: tpch }
+      - { name: SystemColumnHandle,       key: $system@system }
+      - { name: ArrowColumnHandle,        key: arrow-flight }
 
-    ConnectorPartitioningHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: SystemPartitioningHandle, key: $remote }
-        - { name: HivePartitioningHandle,   key: hive}
-        - { name: TpchPartitioningHandle,   key: tpch}
+  ConnectorPartitioningHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: SystemPartitioningHandle, key: $remote }
+      - { name: HivePartitioningHandle,   key: hive }
+      - { name: TpchPartitioningHandle,   key: tpch }
 
-    ConnectorTableHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveTableHandle,          key: hive }
-        - { name: IcebergTableHandle,       key: hive-iceberg }
-        - { name: TpchTableHandle,          key: tpch }
-        - { name: SystemTableHandle,        key: $system@system }
-        - { name: ArrowTableHandle,         key: arrow-flight }
+  ConnectorTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveTableHandle,          key: hive }
+      - { name: IcebergTableHandle,       key: hive-iceberg }
+      - { name: TpchTableHandle,          key: tpch }
+      - { name: SystemTableHandle,        key: $system@system }
+      - { name: ArrowTableHandle,         key: arrow-flight }
 
-    ConnectorOutputTableHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveOutputTableHandle,          key: hive }
-        - { name: IcebergOutputTableHandle,       key: hive-iceberg }
+  ConnectorOutputTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveOutputTableHandle,          key: hive }
+      - { name: IcebergOutputTableHandle,       key: hive-iceberg }
 
-    ConnectorInsertTableHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveInsertTableHandle,          key: hive }
-        - { name: IcebergInsertTableHandle,       key: hive-iceberg }
+  ConnectorInsertTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveInsertTableHandle,          key: hive }
+      - { name: IcebergInsertTableHandle,       key: hive-iceberg }
 
-    ConnectorDeleteTableHandle:
-      super: JsonEncodedSubclass
-      subclasses:
+  ConnectorDeleteTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
 
-    ConnectorTransactionHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveTransactionHandle,    key: hive }
-        - { name: RemoteTransactionHandle,  key: $remote }
-        - { name: SystemTransactionHandle,  key: $system@system }
+  ConnectorTransactionHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveTransactionHandle,    key: hive }
+      - { name: RemoteTransactionHandle,  key: $remote }
+      - { name: SystemTransactionHandle,  key: $system@system }
 
-    ConnectorIndexHandle:
-      super: JsonEncodedSubclass
-      subclasses:
+  ConnectorIndexHandle:
+    super: JsonEncodedSubclass
+    subclasses:
 
-    ConnectorTableLayoutHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveTableLayoutHandle,    key: hive }
-        - { name: IcebergTableLayoutHandle, key: hive-iceberg }
-        - { name: TpchTableLayoutHandle,    key: tpch }
-        - { name: SystemTableLayoutHandle,  key: $system@system }
-        - { name: ArrowTableLayoutHandle,   key: arrow-flight }
+  ConnectorTableLayoutHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveTableLayoutHandle,    key: hive }
+      - { name: IcebergTableLayoutHandle, key: hive-iceberg }
+      - { name: TpchTableLayoutHandle,    key: tpch }
+      - { name: SystemTableLayoutHandle,  key: $system@system }
+      - { name: ArrowTableLayoutHandle,   key: arrow-flight }
 
-    ConnectorMetadataUpdateHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveMetadataUpdateHandle, key: hive}
+  ConnectorSplit:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: HiveSplit,            key: hive }
+      - { name: IcebergSplit,         key: hive-iceberg }
+      - { name: TpchSplit,            key: tpch }
+      - { name: RemoteSplit,          key: $remote }
+      - { name: EmptySplit,           key: $empty }
+      - { name: SystemSplit,          key: $system@system }
+      - { name: ArrowSplit,           key: arrow-flight }
 
-    ConnectorSplit:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: HiveSplit,            key: hive }
-        - { name: IcebergSplit,         key: hive-iceberg }
-        - { name: TpchSplit,            key: tpch }
-        - { name: RemoteSplit,          key: $remote }
-        - { name: EmptySplit,           key: $empty }
-        - { name: SystemSplit,          key: $system@system }
-        - { name: ArrowSplit,           key: arrow-flight }
+  ConnectorHistogram:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: UniformDistributionHistogram, key: uniform-distribution }
 
-    ConnectorHistogram:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: UniformDistributionHistogram, key: uniform-distribution}
+  ExecutionWriterTarget:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: CreateHandle,            key: CreateHandle }
+      - { name: InsertHandle,            key: InsertHandle }
+      - { name: DeleteHandle,            key: DeleteHandle }
 
-    ExecutionWriterTarget:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: CreateHandle,            key: CreateHandle }
-        - { name: InsertHandle,            key: InsertHandle }
-        - { name: DeleteHandle,            key: DeleteHandle }
+  InputDistribution:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: BaseInputDistribution,   key: BaseInputDistribution }
 
-    InputDistribution:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: BaseInputDistribution,   key: BaseInputDistribution }
+  PlanNode:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: AggregationNode,          key: .AggregationNode }
+      - { name: GroupIdNode,              key: com.facebook.presto.sql.planner.plan.GroupIdNode }
+      - { name: DeleteNode,               key: .DeleteNode }
+      - { name: DistinctLimitNode,        key: .DistinctLimitNode }
+      - { name: EnforceSingleRowNode,     key: com.facebook.presto.sql.planner.plan.EnforceSingleRowNode }
+      - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
+      - { name: FilterNode,               key: .FilterNode }
+      - { name: JoinNode,                 key: .JoinNode }
+      - { name: LimitNode,                key: .LimitNode }
+      - { name: MarkDistinctNode,         key: .MarkDistinctNode }
+      - { name: SortNode,                 key: .SortNode }
+      - { name: OutputNode,               key: .OutputNode }
+      - { name: ProjectNode,              key: .ProjectNode }
+      - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
+      - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
+      - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
+      - { name: SemiJoinNode,             key: .SemiJoinNode }
+      - { name: TableScanNode,            key: .TableScanNode }
+      - { name: TableWriterNode,          key: .TableWriterNode }
+      - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
+      - { name: TopNNode,                 key: .TopNNode }
+      - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
+      - { name: UnnestNode,               key: .UnnestNode }
+      - { name: ValuesNode,               key: .ValuesNode }
+      - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
+      - { name: MergeJoinNode,            key: .MergeJoinNode }
+      - { name: WindowNode,               key: .WindowNode }
 
-    PlanNode:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: AggregationNode,          key: .AggregationNode }
-        - { name: GroupIdNode,              key: com.facebook.presto.sql.planner.plan.GroupIdNode }
-        - { name: DeleteNode,               key: .DeleteNode }
-        - { name: DistinctLimitNode,        key: .DistinctLimitNode }
-        - { name: EnforceSingleRowNode,     key: com.facebook.presto.sql.planner.plan.EnforceSingleRowNode }
-        - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
-        - { name: FilterNode,               key: .FilterNode }
-        - { name: JoinNode,                 key: .JoinNode }
-        - { name: LimitNode,                key: .LimitNode }
-        - { name: MarkDistinctNode,         key: .MarkDistinctNode }
-        - { name: SortNode,                 key: .SortNode }
-        - { name: OutputNode,               key: .OutputNode }
-        - { name: ProjectNode,              key: .ProjectNode }
-        - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
-        - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
-        - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
-        - { name: SemiJoinNode,             key: .SemiJoinNode }
-        - { name: TableScanNode,            key: .TableScanNode }
-        - { name: TableWriterNode,          key: .TableWriterNode }
-        - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
-        - { name: TopNNode,                 key: .TopNNode }
-        - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
-        - { name: UnnestNode,               key: .UnnestNode }
-        - { name: ValuesNode,               key: .ValuesNode }
-        - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
-        - { name: MergeJoinNode,            key: .MergeJoinNode }
-        - { name: WindowNode,               key: .WindowNode }
+  RowExpression:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: CallExpression,             key: call }
+      - { name: ConstantExpression,         key: constant }
+      - { name: SpecialFormExpression,      key: special }
+      - { name: LambdaDefinitionExpression, key: lambda }
+      - { name: VariableReferenceExpression,key: variable }
 
-    RowExpression:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: CallExpression,             key: call }
-        - { name: ConstantExpression,         key: constant }
-        - { name: SpecialFormExpression,      key: special }
-        - { name: LambdaDefinitionExpression, key: lambda }
-        - { name: VariableReferenceExpression,key: variable }
+  ValueSet:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: EquatableValueSet,          key: equatable }
+      - { name: SortedRangeSet,             key: sortable }
+      - { name: AllOrNoneValueSet,          key: allOrNone }
 
-    ValueSet:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: EquatableValueSet,          key: equatable }
-        - { name: SortedRangeSet,             key: sortable }
-        - { name: AllOrNoneValueSet,          key: allOrNone }
-
-    FunctionHandle:
-      super: JsonEncodedSubclass
-      subclasses:
-        - { name: BuiltInFunctionHandle,      key: $static }
-        - { name: SqlFunctionHandle,          key: json_file }
-        - { name: SqlFunctionHandle,          key: native }
-        - { name: SqlFunctionHandle,          key: sql_function_handle }
+  FunctionHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: BuiltInFunctionHandle,      key: $static }
+      - { name: SqlFunctionHandle,          key: json_file }
+      - { name: SqlFunctionHandle,          key: native }
+      - { name: SqlFunctionHandle,          key: sql_function_handle }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
@@ -362,13 +357,10 @@ JavaClasses:
   - presto-common/src/main/java/com/facebook/presto/common/predicate/ValueSet.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/VariableReferenceExpression.java
   - presto-main/src/main/java/com/facebook/presto/cost/VariableStatsEstimate.java
-  - presto-main/src/main/java/com/facebook/presto/metadata/MetadataUpdates.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java
-  - presto-hive/src/main/java/com/facebook/presto/hive/HiveMetadataUpdateHandle.java
-  - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorMetadataUpdateHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitioningHandle.java
   - presto-main/src/main/java/com/facebook/presto/split/EmptySplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/LambdaDefinitionExpression.java

@@ -22,14 +22,12 @@ import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -73,8 +71,6 @@ public class HiveConnector
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
-    private final ConnectorMetadataUpdaterProvider metadataUpdaterProvider;
-    private final ConnectorTypeSerdeProvider connectorTypeSerdeProvider;
 
     private final HiveTransactionManager transactionManager;
 
@@ -94,8 +90,6 @@ public class HiveConnector
             List<PropertyMetadata<?>> analyzeProperties,
             ConnectorAccessControl accessControl,
             ConnectorPlanOptimizerProvider planOptimizerProvider,
-            ConnectorMetadataUpdaterProvider metadataUpdaterProvider,
-            ConnectorTypeSerdeProvider connectorTypeSerdeProvider,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -114,8 +108,6 @@ public class HiveConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
-        this.metadataUpdaterProvider = requireNonNull(metadataUpdaterProvider, "metadataUpdaterProvider is null");
-        this.connectorTypeSerdeProvider = requireNonNull(connectorTypeSerdeProvider, "connectorTypeSerdeProvider is null");
     }
 
     @Override
@@ -154,18 +146,6 @@ public class HiveConnector
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
         return planOptimizerProvider;
-    }
-
-    @Override
-    public ConnectorMetadataUpdaterProvider getConnectorMetadataUpdaterProvider()
-    {
-        return metadataUpdaterProvider;
-    }
-
-    @Override
-    public ConnectorTypeSerdeProvider getConnectorTypeSerdeProvider()
-    {
-        return connectorTypeSerdeProvider;
     }
 
     @Override

@@ -24,7 +24,6 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
@@ -214,16 +213,6 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
-    }
-
-    @POST
-    @Path("{taskId}/metadataresults")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    public Response updateMetadataResults(@PathParam("taskId") TaskId taskId, MetadataUpdates metadataUpdates, @Context UriInfo uriInfo)
-    {
-        requireNonNull(metadataUpdates, "metadataUpdates is null");
-        taskManager.updateMetadataResults(taskId, metadataUpdates);
-        return Response.ok().build();
     }
 
     @DELETE
