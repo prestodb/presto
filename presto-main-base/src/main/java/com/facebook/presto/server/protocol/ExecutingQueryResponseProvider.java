@@ -22,7 +22,9 @@ import io.airlift.units.Duration;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 public interface ExecutingQueryResponseProvider
 {
@@ -60,5 +62,7 @@ public interface ExecutingQueryResponseProvider
             DataSize targetResultSize,
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
-            boolean binaryResults);
+            boolean binaryResults,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime);
 }

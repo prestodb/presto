@@ -425,6 +425,189 @@ public class TestServer
         assertEquals(response.getHeader(CONTENT_TYPE), APPLICATION_JSON, "Content Type");
     }
 
+    @Test
+    public void testQueryWithRetryUrl()
+    {
+        String retryUrl = "https://backup-cluster.example.com/v1/statement";
+        String encodedRetryUrl = urlEncode(retryUrl);
+        int expirationSeconds = 3600;
+
+        // start query with retry URL
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .addParameter("retryUrl", encodedRetryUrl)
+                .addParameter("retryExpirationInSeconds", String.valueOf(expirationSeconds))
+                .build();
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator("SELECT 123", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertNotNull(queryResults);
+        assertNotNull(queryResults.getId());
+
+        // Verify query executes normally with retry parameters
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+        assertNull(queryResults.getError());
+    }
+
+    @Test
+    public void testQueryWithRetryFlag()
+    {
+        // submit a retry query (marked with retry flag)
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .addParameter("retry", "true")
+                .build();
+
+        String retryQuery = "-- retry query 20240115_120000_00000_xxxxx; attempt: 1\nSELECT 456";
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(retryQuery, UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertNotNull(queryResults);
+        assertNotNull(queryResults.getId());
+
+        // Verify the usual endpoint fails
+        try {
+            client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+        catch (UnexpectedResponseException e) {
+            // Expected failure, retry query should not be fetched from the usual endpoint
+            assertEquals(e.getStatusCode(), 409, "Expected 409 Conflict for retry query");
+        }
+
+        request = prepareGet()
+                .setUri(HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                        .replacePath(format("/v1/statement/queued/retry/%s", queryResults.getId()))
+                        .build())
+                .build();
+        // Fetch the retry query results from the special retry endpoint
+        queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+
+        assertNull(queryResults.getError());
+    }
+
+    @Test
+    public void testQueryWithInvalidRetryParameters()
+    {
+        // Test with missing expiration when retry URL is provided
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .addParameter("retryUrl", urlEncode("https://backup.example.com/v1/statement"))
+                .build();
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator("SELECT 1", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        JsonResponse<QueryResults> response = client.execute(request, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertEquals(response.getStatusCode(), 400);
+    }
+
+    @Test
+    public void testQueryWithInvalidRetryUrl()
+    {
+        // Test with HTTP URL (should be HTTPS only)
+        String invalidRetryUrl = "http://insecure-cluster.example.com/v1/statement";
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .addParameter("retryUrl", urlEncode(invalidRetryUrl))
+                .addParameter("retryExpirationInSeconds", "3600")
+                .build();
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator("SELECT 1", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        JsonResponse<QueryResults> response = client.execute(request, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertEquals(response.getStatusCode(), 400);
+    }
+
+    @Test
+    public void testQueryWithExpiredRetryTime()
+    {
+        String retryUrl = "https://backup-cluster.example.com/v1/statement";
+        // Use 0 seconds expiration (immediately expired)
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .addParameter("retryUrl", urlEncode(retryUrl))
+                .addParameter("retryExpirationInSeconds", "0")
+                .build();
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator("SELECT 1", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .build();
+
+        JsonResponse<QueryResults> response = client.execute(request, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertEquals(response.getStatusCode(), 400);
+    }
+
+    @Test
+    public void testQueryWithRetryUrlAndSessionProperties()
+    {
+        String retryUrl = "https://backup-cluster.example.com/v1/statement/queued/retry";
+        URI uri = HttpUriBuilder.uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/statement")
+                .addParameter("retryUrl", urlEncode(retryUrl))
+                .addParameter("retryExpirationInSeconds", "3600")
+                .build();
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator("SELECT 789", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+                .setHeader(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=BROADCAST")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertNotNull(queryResults);
+        assertNotNull(queryResults.getId());
+
+        // Verify query executes with both retry parameters and session properties
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+        assertNull(queryResults.getError());
+    }
+
     public URI uriFor(String path)
     {
         return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
