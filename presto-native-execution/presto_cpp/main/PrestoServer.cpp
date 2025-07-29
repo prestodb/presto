@@ -41,6 +41,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
+#include "presto_cpp/main/types/ExpressionOptimizer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
@@ -1717,6 +1718,21 @@ void PrestoServer::registerSidecarEndpoints() {
             });
       });
   httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        const json::array_t inputRowExpressions =
+            json::parse(util::extractMessageBody(body));
+        expression::optimizeExpressions(
+            message->getHeaders(),
+            inputRowExpressions,
+            downstream,
+            driverExecutor_.get(),
+            pool_.get());
+      });
+
+  httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](
           proxygen::HTTPMessage* message,
@@ -1833,4 +1849,5 @@ void PrestoServer::registerTraceNodeFactories() {
         return nullptr;
       });
 }
+
 } // namespace facebook::presto
