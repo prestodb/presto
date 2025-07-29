@@ -380,6 +380,20 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testMapSubset()
+    {
+        assertQuery("select m[1], m[3] from (select map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[1,3,10]) m)", "select 'a', 'c'");
+        assertQuery("select m['p'], m['r'] from (select map_subset(map(array['p', 'q', 'r', 's'], array['a', 'b', 'c', 'd']), array['p', 'r', 'z']) m)", "select 'a', 'c'");
+        assertQuery("select m[true], m[false] from (select map_subset(map(array[false, true], array['a', 'z']), array[true, false]) m)", "select 'z', 'a'");
+        assertQuery("select m[DATE '2015-01-01'], m[DATE '2015-01-13'] from (select map_subset(" +
+                "map(array[DATE '2015-01-01', DATE '2015-02-13', DATE '2015-01-13', DATE '2015-05-15'], array['a', 'b', 'c', 'd']), " +
+                "array[DATE '2015-01-01', DATE '2015-01-13', DATE '2015-06-15']) m)", "select 'a', 'c'");
+        assertQuery("select m[TIMESTAMP '2021-01-02 09:04:05.321'] from (select map_subset(" +
+                "map(array[TIMESTAMP '2021-01-02 09:04:05.321', TIMESTAMP '2022-12-22 10:07:08.456'], array['a', 'b']), " +
+                "array[TIMESTAMP '2021-01-02 09:04:05.321', TIMESTAMP '2022-12-22 10:07:09.246']) m)", "select 'a'");
+    }
+
+    @Test
     public void testInformationSchemaTables()
     {
         assertQuery("select lower(table_name) from information_schema.tables "

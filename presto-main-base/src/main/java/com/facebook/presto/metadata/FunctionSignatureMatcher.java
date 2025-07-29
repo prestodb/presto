@@ -71,7 +71,7 @@ public final class FunctionSignatureMatcher
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        match = matchFunctionExact(genericCandidates, parameterTypes);
+        match = matchFunctionGeneric(genericCandidates, parameterTypes);
         if (match.isPresent()) {
             return match;
         }
@@ -89,6 +89,28 @@ public final class FunctionSignatureMatcher
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
+    }
+
+    private Optional<Signature> matchFunctionGeneric(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    {
+        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, actualParameters, false);
+        if (applicableFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (applicableFunctions.size() == 1) {
+            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+        }
+
+        List<Signature> deduplicatedSignatures = applicableFunctions.stream()
+                .map(applicableFunction -> applicableFunction.boundSignature)
+                .distinct()
+                .collect(toImmutableList());
+        if (deduplicatedSignatures.size() == 1) {
+            return Optional.of(getOnlyElement(deduplicatedSignatures));
+        }
+
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(applicableFunctions));
     }
 
     private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
@@ -112,6 +134,11 @@ public final class FunctionSignatureMatcher
             return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
         }
 
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(applicableFunctions));
+    }
+
+    private String getErrorMessage(List<ApplicableFunction> applicableFunctions)
+    {
         StringBuilder errorMessageBuilder = new StringBuilder();
         errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
         errorMessageBuilder.append("Candidates are:\n");
@@ -120,7 +147,8 @@ public final class FunctionSignatureMatcher
             errorMessageBuilder.append(function.getBoundSignature().toString());
             errorMessageBuilder.append("\n");
         }
-        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
+
+        return errorMessageBuilder.toString();
     }
 
     private List<ApplicableFunction> identifyApplicableFunctions(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
