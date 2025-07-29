@@ -211,6 +211,12 @@ Accessors
    Returns an array of points in a geometry. Empty or null inputs
    return null.
 
+.. function:: ST_NumPoints(geometry: Geometry) -> points: integer
+
+   Returns the number of points in a geometry. This is an extension
+   to the SQL/MM ``ST_NumPoints`` function which only applies to
+   point and linestring.
+
 .. function:: ST_EnvelopeAsPts(geometry: Geometry) -> points: array(geometry)
 
    Returns an array of two points: the lower left and upper right corners

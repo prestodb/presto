@@ -1358,4 +1358,56 @@ struct StEnvelopeAsPtsFunction {
   geos::geom::GeometryFactory::Ptr factory_;
 };
 
+template <typename T>
+struct StNumPointsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<int32_t>& result,
+      const arg_type<Geometry>& geometry) {
+    auto geosGeometry = geospatial::GeometryDeserializer::deserialize(geometry);
+
+    result = pointCount(*geosGeometry);
+  }
+
+ private:
+  int32_t pointCount(const geos::geom::Geometry& geometry) {
+    if (geometry.isEmpty()) {
+      return 0;
+    }
+    if (geometry.getGeometryTypeId() ==
+        geos::geom::GeometryTypeId::GEOS_POINT) {
+      return 1;
+    }
+    if (geometry.getGeometryTypeId() ==
+        geos::geom::GeometryTypeId::GEOS_LINESTRING) {
+      return static_cast<int32_t>(geometry.getNumPoints());
+    }
+    if (geospatial::isMultiType(geometry)) {
+      auto numGeometries = geometry.getNumGeometries();
+      auto multiTypePointCount = 0;
+      for (int i = 0; i < numGeometries; i++) {
+        auto entry = geometry.getGeometryN(i);
+        multiTypePointCount += pointCount(*entry);
+      }
+      return multiTypePointCount;
+    }
+    if (geometry.getGeometryTypeId() ==
+        geos::geom::GeometryTypeId::GEOS_POLYGON) {
+      auto polygon = static_cast<const geos::geom::Polygon*>(&geometry);
+      // Subtract 1 to remove closing point, since we don't count the closing
+      // point in Java.
+      auto polygonPointCount = polygon->getExteriorRing()->getNumPoints() - 1;
+      for (int i = 0; i < polygon->getNumInteriorRing(); i++) {
+        auto interiorRing = polygon->getInteriorRingN(i);
+        polygonPointCount += interiorRing->getNumPoints() - 1;
+      }
+      return static_cast<int32_t>(polygonPointCount);
+    }
+    VELOX_FAIL(fmt::format(
+        "Unexpected failure in ST_NumPoints: geometry type {}",
+        geometry.getGeometryType()));
+  }
+};
+
 } // namespace facebook::velox::functions

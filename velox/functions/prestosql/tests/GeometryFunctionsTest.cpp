@@ -2475,3 +2475,40 @@ TEST_F(GeometryFunctionsTest, testStEnvelopeAsPts) {
   testStEnvelopeAsPtsNullAndEmptyFunc("GEOMETRYCOLLECTION EMPTY");
   testStEnvelopeAsPtsNullAndEmptyFunc(std::nullopt);
 }
+
+TEST_F(GeometryFunctionsTest, testStNumPoints) {
+  const auto testStNumPointsFunc = [&](const std::optional<std::string>& wkt,
+                                       const std::optional<int32_t>& expected) {
+    std::optional<int32_t> result =
+        evaluateOnce<int32_t>("ST_NumPoints(ST_GeometryFromText(c0))", wkt);
+
+    if (expected.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_EQ(result.value(), expected.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testStNumPointsFunc("POINT EMPTY", 0);
+  testStNumPointsFunc("MULTIPOINT EMPTY", 0);
+  testStNumPointsFunc("LINESTRING EMPTY", 0);
+  testStNumPointsFunc("MULTILINESTRING EMPTY", 0);
+  testStNumPointsFunc("POLYGON EMPTY", 0);
+  testStNumPointsFunc("MULTIPOLYGON EMPTY", 0);
+  testStNumPointsFunc("GEOMETRYCOLLECTION EMPTY", 0);
+
+  testStNumPointsFunc("POINT (1 2)", 1);
+  testStNumPointsFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 4);
+  testStNumPointsFunc("LINESTRING (8 4, 5 7)", 2);
+  testStNumPointsFunc("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 4);
+  testStNumPointsFunc("POLYGON ((0 0, 8 0, 0 8, 0 0))", 3);
+  testStNumPointsFunc(
+      "POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))", 6);
+  testStNumPointsFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
+      8);
+  testStNumPointsFunc(
+      "GEOMETRYCOLLECTION (POINT (1 1), GEOMETRYCOLLECTION (LINESTRING (0 0, 1 1), GEOMETRYCOLLECTION (POLYGON ((2 2, 2 3, 3 3, 3 2, 2 2)))))",
+      7);
+}
