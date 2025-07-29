@@ -144,11 +144,6 @@ struct PlanSummaryOptions {
   /// summary.
   size_t maxLength = 50;
 
-  /// To provide a simplified, skeleton view of the query plan by removing
-  /// additional details from node summaries. If true, the output contains just
-  /// one line per plan node.
-  bool nodeHeaderOnly = false;
-
   /// Options that apply specifically to AGGREGATION nodes.
   struct AggregateOptions {
     /// For a given AGGREGATION node, maximum number of aggregate expressions
@@ -254,6 +249,12 @@ class PlanNode : public ISerializable {
     return stream.str();
   }
 
+  std::string toSkeletonString() const {
+    std::stringstream stream;
+    toSkeletonString(stream, 0);
+    return stream.str();
+  }
+
   /// The name of the plan node, used in toString.
   virtual std::string_view name() const = 0;
 
@@ -296,6 +297,7 @@ class PlanNode : public ISerializable {
           const std::string& indentation,
           std::stringstream& stream)>& addContext) const;
 
+  // The default implementation calls 'addDetails' and truncates the result.
   virtual void addSummaryDetails(
       const std::string& indentation,
       const PlanSummaryOptions& options,
@@ -305,6 +307,12 @@ class PlanNode : public ISerializable {
       const PlanSummaryOptions& options,
       std::stringstream& stream,
       size_t indentationSize) const;
+
+  // Even shorter summary of the plan. Hides all Project nodes. Shows only
+  // number of output columns, but no names or types. Doesn't show any details
+  // of the nodes, except for table scan.
+  void toSkeletonString(std::stringstream& stream, size_t indentationSize)
+      const;
 
   const PlanNodeId id_;
 };
@@ -1045,6 +1053,11 @@ class TableScanNode : public PlanNode {
 
  private:
   void addDetails(std::stringstream& stream) const override;
+
+  void addSummaryDetails(
+      const std::string& indentation,
+      const PlanSummaryOptions& options,
+      std::stringstream& stream) const override;
 
   const RowTypePtr outputType_;
   const connector::ConnectorTableHandlePtr tableHandle_;

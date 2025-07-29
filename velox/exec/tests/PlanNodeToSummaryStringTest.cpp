@@ -20,6 +20,7 @@
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using facebook::velox::exec::test::PlanBuilder;
@@ -38,6 +39,13 @@ class PlanNodeToSummaryStringTest : public testing::Test,
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+  }
+
+  static std::vector<std::string> toLines(const std::string& planText) {
+    std::vector<std::string> lines;
+    folly::split("\n", planText, lines);
+
+    return lines;
   }
 };
 
@@ -97,13 +105,13 @@ TEST_F(PlanNodeToSummaryStringTest, basic) {
           .maxChildTypes = 2,
       }));
 
-  ASSERT_EQ(
-      "-- Project[2]: 7 fields: p0 BIGINT, p1 BIGINT, p2 BIGINT, p3 BIGINT, p4 BIGINT, ...\n"
-      "  -- Filter[1]: 3 fields: a INTEGER, b ARRAY, c MAP\n"
-      "    -- TableScan[0]: 3 fields: a INTEGER, b ARRAY, c MAP\n",
-      plan->toSummaryString({
-          .nodeHeaderOnly = true,
-      }));
+  ASSERT_THAT(
+      toLines(plan->toSkeletonString()),
+      testing::ElementsAre(
+          testing::Eq("-- Filter[1]: 3 fields"),
+          testing::Eq("  -- TableScan[0]: 3 fields"),
+          testing::Eq("        table: hive_table"),
+          testing::Eq("")));
 }
 
 TEST_F(PlanNodeToSummaryStringTest, expressions) {
@@ -157,23 +165,17 @@ TEST_F(PlanNodeToSummaryStringTest, expressions) {
       plan->toSummaryString(
           {.project = {.maxProjections = 3, .maxDereferences = 2}}));
 
-  ASSERT_EQ(
-      "-- Project[1]: 7 fields: a INTEGER, p1 ARRAY, c MAP, p3 BIGINT, y BIGINT, ...\n"
-      "  -- TableScan[0]: 4 fields: a INTEGER, b ARRAY, c MAP, d ROW(3)\n",
-      plan->toSummaryString({
-          .nodeHeaderOnly = true,
-      }));
+  ASSERT_THAT(
+      toLines(plan->toSkeletonString()),
+      testing::ElementsAre(
+          testing::Eq("-- TableScan[0]: 4 fields"),
+          testing::Eq("      table: hive_table"),
+          testing::Eq("")));
 }
 
 TEST_F(PlanNodeToSummaryStringTest, aggregation) {
   aggregate::prestosql::registerAllAggregateFunctions();
-  auto rowType =
-      ROW({"a", "b", "c"},
-          {
-              INTEGER(),
-              INTEGER(),
-              INTEGER(),
-          });
+  auto rowType = ROW({"a", "b", "c"}, {INTEGER(), INTEGER(), INTEGER()});
 
   auto plan = PlanBuilder()
                   .tableScan(rowType)
@@ -205,13 +207,13 @@ TEST_F(PlanNodeToSummaryStringTest, aggregation) {
       "        table: hive_table\n",
       plan->toSummaryString({.aggregate = {.maxAggregations = 3}}));
 
-  ASSERT_EQ(
-      "-- Aggregation[1]: 6 fields: a INTEGER, a0 BIGINT, a1 DOUBLE, a2 BIGINT, a3"
-      " INTEGER, ...\n"
-      "  -- TableScan[0]: 3 fields: a INTEGER, b INTEGER, c INTEGER\n",
-      plan->toSummaryString({
-          .nodeHeaderOnly = true,
-      }));
+  ASSERT_THAT(
+      toLines(plan->toSkeletonString()),
+      testing::ElementsAre(
+          testing::Eq("-- Aggregation[1]: 6 fields"),
+          testing::Eq("  -- TableScan[0]: 3 fields"),
+          testing::Eq("        table: hive_table"),
+          testing::Eq("")));
 }
 
 } // namespace

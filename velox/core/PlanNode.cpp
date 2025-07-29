@@ -1079,30 +1079,30 @@ std::vector<std::string> allNames(
 
 // Flattens out projection exprs and adds dummy  exprs for noLoadIdentities.
 // Used to fill in ProjectNode members for use in the summary functions.
-std::vector<core::TypedExprPtr> flattenExprs(
-    const std::vector<std::vector<core::TypedExprPtr>>& exprs,
+std::vector<TypedExprPtr> flattenExprs(
+    const std::vector<std::vector<TypedExprPtr>>& exprs,
     const std::vector<std::string>& moreNames,
-    const core::PlanNodePtr& input) {
-  std::vector<core::TypedExprPtr> result;
+    const PlanNodePtr& input) {
+  std::vector<TypedExprPtr> result;
   for (auto& group : exprs) {
     result.insert(result.end(), group.begin(), group.end());
   }
   auto sourceType = input->outputType();
   for (auto& name : moreNames) {
     auto idx = sourceType->getChildIdx(name);
-    result.push_back(std::make_shared<core::FieldAccessTypedExpr>(
-        sourceType->childAt(idx), name));
+    result.push_back(
+        std::make_shared<FieldAccessTypedExpr>(sourceType->childAt(idx), name));
   }
   return result;
 }
 } // namespace
 
 ParallelProjectNode::ParallelProjectNode(
-    const core::PlanNodeId& id,
+    const PlanNodeId& id,
     std::vector<std::string> names,
-    std::vector<std::vector<core::TypedExprPtr>> exprs,
+    std::vector<std::vector<TypedExprPtr>> exprs,
     std::vector<std::string> noLoadIdentities,
-    core::PlanNodePtr input)
+    PlanNodePtr input)
     : AbstractProjectNode(
           id,
           allNames(names, noLoadIdentities),
@@ -1169,6 +1169,13 @@ void TableScanNode::accept(
 
 void TableScanNode::addDetails(std::stringstream& stream) const {
   stream << tableHandle_->toString();
+}
+
+void TableScanNode::addSummaryDetails(
+    const std::string& indentation,
+    const PlanSummaryOptions& /* options */,
+    std::stringstream& stream) const {
+  stream << indentation << tableHandle_->toString() << std::endl;
 }
 
 folly::dynamic TableScanNode::serialize() const {
@@ -1400,8 +1407,7 @@ AbstractJoinNode::AbstractJoinNode(
   }
 
   auto numOutputColumns = outputType_->size();
-  if (core::isLeftSemiProjectJoin(joinType) ||
-      core::isRightSemiProjectJoin(joinType)) {
+  if (isLeftSemiProjectJoin() || isRightSemiProjectJoin()) {
     // Last output column must be a boolean 'match'.
     --numOutputColumns;
     VELOX_CHECK_EQ(outputType_->childAt(numOutputColumns), BOOLEAN());
@@ -1415,14 +1421,12 @@ AbstractJoinNode::AbstractJoinNode(
 
   // Output of right semi join cannot include columns from the left side.
   bool outputMayIncludeLeftColumns =
-      !(core::isRightSemiFilterJoin(joinType) ||
-        core::isRightSemiProjectJoin(joinType));
+      !(isRightSemiFilterJoin() || isRightSemiProjectJoin());
 
   // Output of left semi and anti joins cannot include columns from the right
   // side.
   bool outputMayIncludeRightColumns =
-      !(core::isLeftSemiFilterJoin(joinType) ||
-        core::isLeftSemiProjectJoin(joinType) || core::isAntiJoin(joinType));
+      !(isLeftSemiFilterJoin() || isLeftSemiProjectJoin() || isAntiJoin());
 
   for (auto i = 0; i < numOutputColumns; ++i) {
     auto name = outputType_->nameOf(i);
@@ -1565,15 +1569,15 @@ folly::dynamic MergeJoinNode::serialize() const {
 }
 
 // static
-bool MergeJoinNode::isSupported(core::JoinType joinType) {
+bool MergeJoinNode::isSupported(JoinType joinType) {
   switch (joinType) {
-    case core::JoinType::kInner:
-    case core::JoinType::kLeft:
-    case core::JoinType::kRight:
-    case core::JoinType::kLeftSemiFilter:
-    case core::JoinType::kRightSemiFilter:
-    case core::JoinType::kAnti:
-    case core::JoinType::kFull:
+    case JoinType::kInner:
+    case JoinType::kLeft:
+    case JoinType::kRight:
+    case JoinType::kLeftSemiFilter:
+    case JoinType::kRightSemiFilter:
+    case JoinType::kAnti:
+    case JoinType::kFull:
       return true;
 
     default:
@@ -1676,20 +1680,20 @@ void IndexLookupJoinNode::accept(
 }
 
 // static
-bool IndexLookupJoinNode::isSupported(core::JoinType joinType) {
+bool IndexLookupJoinNode::isSupported(JoinType joinType) {
   switch (joinType) {
-    case core::JoinType::kInner:
+    case JoinType::kInner:
       [[fallthrough]];
-    case core::JoinType::kLeft:
+    case JoinType::kLeft:
       return true;
     default:
       return false;
   }
 }
 
-bool isIndexLookupJoin(const core::PlanNode* planNode) {
+bool isIndexLookupJoin(const PlanNode* planNode) {
   const auto* indexLookupJoin =
-      dynamic_cast<const core::IndexLookupJoinNode*>(planNode);
+      dynamic_cast<const IndexLookupJoinNode*>(planNode);
   return indexLookupJoin != nullptr;
 }
 
@@ -1718,7 +1722,7 @@ NestedLoopJoinNode::NestedLoopJoinNode(
   auto leftType = sources_[0]->outputType();
   auto rightType = sources_[1]->outputType();
   auto numOutputColumms = outputType_->size();
-  if (core::isLeftSemiProjectJoin(joinType)) {
+  if (isLeftSemiProjectJoin(joinType)) {
     --numOutputColumms;
     VELOX_CHECK_EQ(outputType_->childAt(numOutputColumms), BOOLEAN());
     const auto& name = outputType_->nameOf(numOutputColumms);
@@ -1756,18 +1760,18 @@ NestedLoopJoinNode::NestedLoopJoinNode(
           id,
           kDefaultJoinType,
           kDefaultJoinCondition,
-          left,
-          right,
-          outputType) {}
+          std::move(left),
+          std::move(right),
+          std::move(outputType)) {}
 
 // static
-bool NestedLoopJoinNode::isSupported(core::JoinType joinType) {
+bool NestedLoopJoinNode::isSupported(JoinType joinType) {
   switch (joinType) {
-    case core::JoinType::kInner:
-    case core::JoinType::kLeft:
-    case core::JoinType::kRight:
-    case core::JoinType::kFull:
-    case core::JoinType::kLeftSemiProject:
+    case JoinType::kInner:
+    case JoinType::kLeft:
+    case JoinType::kRight:
+    case JoinType::kFull:
+    case JoinType::kLeftSemiProject:
       return true;
 
     default:
@@ -3052,9 +3056,7 @@ void PlanNode::toSummaryString(
 
   stream << indentation << "-- " << name() << "[" << id()
          << "]: " << summarizeOutputType(outputType(), options) << std::endl;
-  if (!options.nodeHeaderOnly) {
-    addSummaryDetails(indentation + "      ", options, stream);
-  }
+  addSummaryDetails(indentation + std::string(6, ' '), options, stream);
   for (auto& source : sources()) {
     source->toSummaryString(options, stream, indentationSize + 2);
   }
@@ -3070,10 +3072,35 @@ void PlanNode::addSummaryDetails(
   stream << indentation << truncate(out.str(), options.maxLength) << std::endl;
 }
 
+void PlanNode::toSkeletonString(
+    std::stringstream& stream,
+    size_t indentationSize) const {
+  // Skip Project nodes.
+  if (const auto* project = dynamic_cast<const ProjectNode*>(this)) {
+    project->sources().at(0)->toSkeletonString(stream, indentationSize);
+    return;
+  }
+
+  const std::string indentation(indentationSize, ' ');
+
+  stream << indentation << "-- " << name() << "[" << id()
+         << "]: " << outputType()->size() << " fields" << std::endl;
+
+  // Include table scan details.
+  if (const auto* scan = dynamic_cast<const TableScanNode*>(this)) {
+    stream << indentation << std::string(6, ' ')
+           << scan->tableHandle()->toString() << std::endl;
+  }
+
+  for (const auto& source : sources()) {
+    source->toSkeletonString(stream, indentationSize + 2);
+  }
+}
+
 namespace {
 void collectLeafPlanNodeIds(
-    const core::PlanNode& planNode,
-    std::unordered_set<core::PlanNodeId>& leafIds) {
+    const PlanNode& planNode,
+    std::unordered_set<PlanNodeId>& leafIds) {
   if (planNode.sources().empty()) {
     leafIds.insert(planNode.id());
     return;
@@ -3087,8 +3114,8 @@ void collectLeafPlanNodeIds(
 }
 } // namespace
 
-std::unordered_set<core::PlanNodeId> PlanNode::leafPlanNodeIds() const {
-  std::unordered_set<core::PlanNodeId> leafIds;
+std::unordered_set<PlanNodeId> PlanNode::leafPlanNodeIds() const {
+  std::unordered_set<PlanNodeId> leafIds;
   collectLeafPlanNodeIds(*this, leafIds);
   return leafIds;
 }
@@ -3249,8 +3276,8 @@ void InIndexLookupCondition::validate() const {
   VELOX_CHECK_NOT_NULL(key);
   VELOX_CHECK_NOT_NULL(list);
   VELOX_CHECK(
-      std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(list) ||
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(list),
+      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(list) ||
+          std::dynamic_pointer_cast<const ConstantTypedExpr>(list),
       "Invalid condition list {}",
       list->toString());
   const auto listType =
@@ -3313,14 +3340,14 @@ void BetweenIndexLookupCondition::validate() const {
   VELOX_CHECK_NOT_NULL(lower);
   VELOX_CHECK_NOT_NULL(upper);
   VELOX_CHECK(
-      std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(lower) ||
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(lower),
+      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(lower) ||
+          std::dynamic_pointer_cast<const ConstantTypedExpr>(lower),
       "Invalid lower between condition {}",
       lower->toString());
 
   VELOX_CHECK(
-      std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(upper) ||
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(upper),
+      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(upper) ||
+          std::dynamic_pointer_cast<const ConstantTypedExpr>(upper),
       "Invalid upper between condition {}",
       upper->toString());
 
