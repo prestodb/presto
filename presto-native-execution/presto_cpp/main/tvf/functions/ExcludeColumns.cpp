@@ -112,7 +112,7 @@ class ExcludeColumns : public TableFunction {
         requiredColsList.push_back(i);
       }
     }
-    requiredColumns.insert({"t1", requiredColsList});
+    requiredColumns.insert({TABLE_ARGUMENT_NAME, requiredColsList});
     auto analysis = std::make_unique<ExcludeColumnsAnalysis>();
     analysis->tableFunctionHandle_ = std::make_shared<ExcludeColumnsHandle>();
     analysis->returnType_ =

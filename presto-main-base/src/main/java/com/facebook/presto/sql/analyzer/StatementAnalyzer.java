@@ -1371,7 +1371,7 @@ class StatementAnalyzer
                 }
                 properColumnsDescriptor = null;
             }
-            else if (returnTypeSpecification == GENERIC_TABLE) {
+            else if (returnTypeSpecification.equals(GENERIC_TABLE)) {
                 // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                 // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
                 // We don't enforce this requirement.

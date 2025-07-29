@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.tvf;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 
 import static java.util.Objects.requireNonNull;
@@ -20,14 +21,21 @@ import static java.util.Objects.requireNonNull;
 public class TVFProviderContext
 {
     private final NodeManager nodeManager;
+    private final TypeManager typeManager;
 
-    public TVFProviderContext(NodeManager nodeManager)
+    public TVFProviderContext(NodeManager nodeManager, TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public NodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
     }
 }

@@ -44,7 +44,7 @@ public class NativeTVFProviderFactory
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new NativeTVFProviderModule(catalogName, context.getNodeManager()),
+                    new NativeTVFProviderModule(catalogName, context.getNodeManager(), context.getTypeManager()),
                     new NativeWorkerCommunicationModule());
 
             Injector injector = app

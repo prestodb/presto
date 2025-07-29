@@ -283,6 +283,21 @@ protocol::Descriptor buildDescriptor(const Descriptor& descriptor) {
   return protocol::Descriptor{fields};
 }
 
+protocol::NativeDescriptor buildNativeDescriptor(const Descriptor& descriptor) {
+  // types could be empty, pre-process that case
+  auto names = descriptor.names();
+  auto types = descriptor.types();
+  std::vector<protocol::NativeField> fields;
+  for (int i = 0; i < names.size(); i++) {
+    std::shared_ptr<std::string> type = (i < types.size())
+        ? std::make_shared<std::string>(types.at(i)->toString())
+        : nullptr;
+    fields.emplace_back(protocol::NativeField{
+        std::make_shared<std::string>(names.at(i)), type});
+  }
+  return protocol::NativeDescriptor{fields};
+}
+
 std::vector<std::shared_ptr<protocol::ArgumentSpecification>>
 buildArgumentSpecsList(TableArgumentSpecList argumentsSpec) {
   std::vector<std::shared_ptr<protocol::ArgumentSpecification>>
@@ -291,14 +306,13 @@ buildArgumentSpecsList(TableArgumentSpecList argumentsSpec) {
     if (auto scalarArgumentSpec =
             std::dynamic_pointer_cast<ScalarArgumentSpecification>(
                 argumentSpec)) {
-      auto nativeScalarArgumentSpecification =
-          std::make_shared<protocol::NativeScalarArgumentSpecification>();
-      nativeScalarArgumentSpecification->name = scalarArgumentSpec->name();
-      nativeScalarArgumentSpecification->required =
-          scalarArgumentSpec->required();
-      nativeScalarArgumentSpecification->type =
+      auto scalarArgumentSpecification =
+          std::make_shared<protocol::ScalarArgumentSpecification>();
+      scalarArgumentSpecification->name = scalarArgumentSpec->name();
+      scalarArgumentSpecification->required = scalarArgumentSpec->required();
+      scalarArgumentSpecification->type =
           scalarArgumentSpec->rowType()->toString();
-      argumentsSpecsList.emplace_back(nativeScalarArgumentSpecification);
+      argumentsSpecsList.emplace_back(scalarArgumentSpecification);
     } else if (
         auto tableArgumentSpec =
             std::dynamic_pointer_cast<TableArgumentSpecification>(
@@ -336,6 +350,7 @@ std::shared_ptr<protocol::ReturnTypeSpecification> buildReturnTypeSpecification(
     std::shared_ptr<protocol::GenericTableReturnTypeSpecification>
         genericTableReturnTypeSpecification =
             std::make_shared<protocol::GenericTableReturnTypeSpecification>();
+    genericTableReturnTypeSpecification->dummy = "";
     return genericTableReturnTypeSpecification;
   } else {
     std::shared_ptr<protocol::DescribedTableReturnTypeSpecification>
@@ -426,11 +441,42 @@ json getTableValuedFunctionsMetadata() {
   return j;
 }
 
-json getTableFunctionAnalysis(
+protocol::Map<protocol::String, protocol::List<protocol::Integer>>
+getRequiredColumns(const tvf::TableFunctionAnalysis* tableFunctionAnalysis) {
+  protocol::Map<protocol::String, protocol::List<protocol::Integer>>
+      requiredColumns;
+  for (auto& [k, v] : tableFunctionAnalysis->requiredColumns()) {
+    std::vector<int32_t> values;
+    for (int i : v) {
+      values.emplace_back(i);
+    }
+    requiredColumns.insert({k, values});
+  }
+  return requiredColumns;
+}
+
+protocol::NativeTableFunctionHandle buildNativeTableFunctionHandle(
+    const TableFunctionHandlePtr tableFunctionHandle) {
+  protocol::NativeTableFunctionHandle handle;
+  handle.functionName = tableFunctionHandle->name();
+  handle.serializedTableFunctionHandle =
+      folly::toJson(tableFunctionHandle->serialize());
+  return handle;
+}
+
+protocol::NativeTableFunctionAnalysis getNativeTableFunctionAnalysis(
     std::string functionName,
     std::unordered_map<std::string, std::shared_ptr<tvf::Argument>> args) {
   auto tableFunctionAnalysis = tvf::TableFunction::analyze(functionName, args);
-  return json("response");
+  protocol::NativeTableFunctionAnalysis nativeTableFunctionAnalysis;
+  nativeTableFunctionAnalysis.requiredColumns =
+      getRequiredColumns(tableFunctionAnalysis.get());
+  nativeTableFunctionAnalysis.returnedType =
+      std::make_shared<protocol::NativeDescriptor>(
+          buildNativeDescriptor(*tableFunctionAnalysis->returnType()));
+  nativeTableFunctionAnalysis.handle = buildNativeTableFunctionHandle(
+      tableFunctionAnalysis->tableFunctionHandle());
+  return nativeTableFunctionAnalysis;
 }
 
 json getAnalyzedTableValueFunction(std::string connectorTableMetadataJson) {
@@ -476,6 +522,7 @@ json getAnalyzedTableValueFunction(std::string connectorTableMetadataJson) {
     }
     args[entry.first] = functionArg;
   }
-  return getTableFunctionAnalysis(connectorTableMetadata.name, args);
+  return json(
+      getNativeTableFunctionAnalysis(connectorTableMetadata.name, args));
 }
 } // namespace facebook::presto

@@ -101,6 +101,12 @@ public final class TableFunctionAnalysis
             return this;
         }
 
+        public Builder requiredColumns(Map<String, List<Integer>> columns)
+        {
+            this.requiredColumns.putAll(columns);
+            return this;
+        }
+
         public TableFunctionAnalysis build()
         {
             return new TableFunctionAnalysis(Optional.ofNullable(returnedType), requiredColumns, handle);

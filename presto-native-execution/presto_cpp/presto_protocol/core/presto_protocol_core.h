@@ -1790,15 +1790,36 @@ void to_json(json& j, const MetadataUpdates& p);
 void from_json(const json& j, MetadataUpdates& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct NativeScalarArgumentSpecification : public ArgumentSpecification {
-  String name = {};
-  Type type = {};
-  bool required = {};
-
-  NativeScalarArgumentSpecification() noexcept;
+struct NativeField {
+  std::shared_ptr<String> name = {};
+  std::shared_ptr<TypeSignature> typeSignature = {};
 };
-void to_json(json& j, const NativeScalarArgumentSpecification& p);
-void from_json(const json& j, NativeScalarArgumentSpecification& p);
+void to_json(json& j, const NativeField& p);
+void from_json(const json& j, NativeField& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NativeDescriptor {
+  List<NativeField> fields = {};
+};
+void to_json(json& j, const NativeDescriptor& p);
+void from_json(const json& j, NativeDescriptor& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NativeTableFunctionHandle {
+  String serializedTableFunctionHandle = {};
+  String functionName = {};
+};
+void to_json(json& j, const NativeTableFunctionHandle& p);
+void from_json(const json& j, NativeTableFunctionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NativeTableFunctionAnalysis {
+  std::shared_ptr<NativeDescriptor> returnedType = {};
+  Map<String, List<Integer>> requiredColumns = {};
+  NativeTableFunctionHandle handle = {};
+};
+void to_json(json& j, const NativeTableFunctionAnalysis& p);
+void from_json(const json& j, NativeTableFunctionAnalysis& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct NodeVersion {
@@ -2175,6 +2196,17 @@ struct ScalarArgument : public Argument {
 };
 void to_json(json& j, const ScalarArgument& p);
 void from_json(const json& j, ScalarArgument& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ScalarArgumentSpecification : public ArgumentSpecification {
+  String name = {};
+  Type type = {};
+  bool required = {};
+
+  ScalarArgumentSpecification() noexcept;
+};
+void to_json(json& j, const ScalarArgumentSpecification& p);
+void from_json(const json& j, ScalarArgumentSpecification& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 enum class DistributionType { PARTITIONED, REPLICATED };

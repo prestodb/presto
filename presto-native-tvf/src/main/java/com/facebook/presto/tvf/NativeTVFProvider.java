@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -49,6 +50,7 @@ public class NativeTVFProvider
         implements TVFProvider
 {
     private final NodeManager nodeManager;
+    private final TypeManager typeManager;
     private final HttpClient httpClient;
     private final String catalogName;
     private static final String TABLE_FUNCTIONS_ENDPOINT = "/v1/functions/tvf";
@@ -60,10 +62,12 @@ public class NativeTVFProvider
     public NativeTVFProvider(
             @ServingCatalog String catalogName,
             NodeManager nodeManager,
-            @ForWorkerInfo HttpClient httpClient)
+            @ForWorkerInfo HttpClient httpClient,
+            TypeManager typeManager)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.memoizedTableFunctionsSupplier = Suppliers.memoizeWithExpiration(this::loadConnectorTableFunctions,
                 100000, TimeUnit.MILLISECONDS);
@@ -116,6 +120,7 @@ public class NativeTVFProvider
         return new NativeConnectorTableFunction(
                 httpClient,
                 nodeManager,
+                typeManager,
                 connectorTableFunction.getSchema(),
                 connectorTableFunction.getName(),
                 connectorTableFunction.getArguments(),

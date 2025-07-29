@@ -16,6 +16,7 @@ package com.facebook.presto.tvf;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -45,23 +46,25 @@ public class NativeConnectorTableFunction
 {
     private final HttpClient httpClient;
     private final NodeManager nodeManager;
+    private final TypeManager typeManager;
     private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
     private static final JsonCodec<ConnectorTableMetadata1> connectorTableMetadataJsonCodec = JsonCodec.jsonCodec(ConnectorTableMetadata1.class);
-    private static final JsonCodec<TableFunctionAnalysis> tableFunctionAnalysisJsonCodec =
-            JsonCodec.jsonCodec(TableFunctionAnalysis.class);
+    private static final JsonCodec<NativeTableFunctionAnalysis> tableFunctionAnalysisJsonCodec =
+            JsonCodec.jsonCodec(NativeTableFunctionAnalysis.class);
 
     public NativeConnectorTableFunction(
             @ForWorkerInfo HttpClient httpClient,
             NodeManager nodeManager,
+            TypeManager typeManager,
             String schema,
             String name,
             List<ArgumentSpecification> arguments,
             ReturnTypeSpecification returnTypeSpecification)
-
     {
         super(schema, name, arguments, returnTypeSpecification);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -70,7 +73,7 @@ public class NativeConnectorTableFunction
         try {
             return httpClient.execute(
                     getWorkerRequest(arguments),
-                    createJsonResponseHandler(tableFunctionAnalysisJsonCodec));
+                    createJsonResponseHandler(tableFunctionAnalysisJsonCodec)).toTableFunctionAnalysis(typeManager);
         }
         catch (Exception e) {
             throw new PrestoException(TABLE_FUNCTION_ANALYSIS_FAILED, "Failed to analyze function.", e);

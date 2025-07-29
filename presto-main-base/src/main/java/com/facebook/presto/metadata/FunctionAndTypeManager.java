@@ -364,7 +364,7 @@ public class FunctionAndTypeManager
         requireNonNull(tvfProviderName, "tvfProviderName is null");
         TVFProviderFactory factory = tvfProviderFactories.get(tvfProviderName);
         checkState(factory != null, "No factory for tvf provider %s", tvfProviderName);
-        TVFProvider tvfProvider = factory.createTVFProvider(tvfProviderName, ImmutableMap.of(), new TVFProviderContext(nodeManager));
+        TVFProvider tvfProvider = factory.createTVFProvider(tvfProviderName, ImmutableMap.of(), new TVFProviderContext(nodeManager, this));
 
         if (tvfProviders.putIfAbsent(new ConnectorId(tvfProviderName), tvfProvider) != null) {
             throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
