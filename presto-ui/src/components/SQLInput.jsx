@@ -92,14 +92,11 @@ class SyntaxError extends antlr4.error.ErrorListener {
 }
 
 // Dropdown for Catalog and Schema
-function SQLDropDown({ text, values, onSelect }) {
-    const items = values || [];
-    const [data, setData] = React.useState({ items: items, current: undefined });
+function SQLDropDown({ text, values = [], onSelect, selected }) {
 
     function selectItem(item) {
-        if (item !== data.current) {
+        if (item !== selected) {
             onSelect(item);
-            setData({ ...data, current: item });
         }
     }
 
@@ -107,25 +104,25 @@ function SQLDropDown({ text, values, onSelect }) {
         <div className="btn-group">
             <button type="button" className="btn btn-secondary dropdown-toggle bg-white text-dark"
                 data-bs-toggle="dropdown" aria-haspopup="true"
-                aria-expanded="false">{text}</button>
+                aria-expanded="false">{selected ?? text}</button>
             <ul className="dropdown-menu bg-white">
-                {items.map((item, idx) => (
-                    <li key={idx}><a href="#" className={clsx('dropdown-item text-dark', data.current === item && 'selected')} onClick={() => selectItem(item)}>{item}</a></li>
+                {values.map((item, idx) => (
+                    <li key={idx}><a href="#" className={clsx('dropdown-item text-dark', selected === item && 'selected')} onClick={() => selectItem(item)}>{item}</a></li>
                 ))}
             </ul>
         </div>
     );
 }
 
-function sqlCleaning(sqlInfo, errorHandler) {
+function sqlCleaning(sql, errorHandler) {
     const lastSemicolon = /(\s*;\s*)$/m;
     const limitRE = /limit\s+(\d+|all)$/im;
     const fetchFirstRE = /fetch\s+first\s+(\d+)\s+rows\s+only$/im;
     const syntaxError = new SyntaxError();
 
     try {
-        sqlInfo.sql = sqlInfo.sql.replace(lastSemicolon, '').trim();
-        const parser = new SqlBaseParser(new antlr4.CommonTokenStream(new SqlBaseLexer(new UpperCaseCharStream(sqlInfo.sql))));
+        let cleanSql = sql.replace(lastSemicolon, '').trim();
+        const parser = new SqlBaseParser(new antlr4.CommonTokenStream(new SqlBaseLexer(new UpperCaseCharStream(cleanSql))));
         const selectDetector = new SelectListener();
         parser.addErrorListener(syntaxError);
         antlr4.tree.ParseTreeWalker.DEFAULT.walk(selectDetector, parser.statement());
@@ -136,56 +133,57 @@ function sqlCleaning(sqlInfo, errorHandler) {
         }
         if (selectDetector.isSelect) {
             if (typeof (selectDetector.limit) === 'string' || selectDetector.limit > 100) {
-                sqlInfo.sql = sqlInfo.sql.replace(limitRE, 'limit 100');
+                cleanSql= cleanSql.replace(limitRE, 'limit 100');
             } else if (selectDetector.fetchFirstNRows > 100) {
-                sqlInfo.sql = sqlInfo.sql.replace(fetchFirstRE, 'fetch first 100 rows only');
+                cleanSql = cleanSql.replace(fetchFirstRE, 'fetch first 100 rows only');
             } else if (selectDetector.limit === -1 && selectDetector.fetchFirstNRows === -1) {
-                sqlInfo.sql += ' limit 100';
+                cleanSql += ' limit 100';
             }
         }
+        return cleanSql
     } catch (err) {
         if (errorHandler) {
             errorHandler(err);
         }
         return false;
     }
-    return true;
 }
 
 // SQL Input, including sql text, catalog(optional), and schema(optional)
 export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler }) {
-    const sqlInfo = React.useRef({ sql: undefined, catalog: undefined, schema: undefined });
-    const [data, setData] = React.useState({ catalogs: [], schemas: [] });
-    const [code, setCode] = React.useState(initialSQL);
-
+    const [sql, setSql] = React.useState(initialSQL);
+    const [catalog, setCatalog] = React.useState(undefined);
+    const [schema, setSchema] = React.useState(undefined);
+    const [catalogs, setCatalogs] = React.useState([]);
+    const [schemas, setSchemas] = React.useState([]);
+    
     const checkValue = () => {
-        if (code.length > 0) {
-            sqlInfo.current.sql = code;
-            if (sqlCleaning(sqlInfo.current, errorHandler)) {
-                setCode(sqlInfo.current.sql);
-                handleSQL(sqlInfo.current);
+        if (sql.length > 0) {
+            let cleanSql = sqlCleaning(sql, errorHandler);
+            if (cleanSql) {
+                setSql(cleanSql);
+                handleSQL(cleanSql, catalog, schema);
             }
         }
     };
 
-    async function setCatalog(catalog) {
-        sqlInfo.current.catalog = catalog;
+    async function catalogSelected(catalog) {
+        setCatalog(catalog);
         // also reset schema
-        setData({ ...data, schemas: [] });
+        setSchema(undefined);
+        setSchemas([]);
         // fetch schemas from the catalog
         const client = createClient();
         try {
-            const schemas = await client.getSchemas(catalog);
-            setData({ ...data, schemas });
+            const fetchedSchemas = await client.getSchemas(catalog);
+            setSchemas(fetchedSchemas)
         } catch (e) {
             // use this to report the issue
             console.error(e);
         }
     }
-
-    function setSchema(schema) {
-        sqlInfo.current.schema = schema;
-        setData({ ...data });
+    const schemaSelected = (schema) => {
+        setSchema(schema);
     }
 
     React.useEffect(() => {
@@ -193,8 +191,8 @@ export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler })
         async function getCatalogs() {
             const client = createClient();
             try {
-                const catalogs = await client.getCatalogs();
-                setData({ ...data, catalogs });
+                const fetchedCatalogs = await client.getCatalogs();
+                setCatalogs(fetchedCatalogs)
             } catch (e) {
                 // use this to report the issue
                 console.error(e);
@@ -208,9 +206,9 @@ export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler })
             <div className="row">
                 <div className="col-12">
                     <div className='input-group' role='group'>
-                        <SQLDropDown text='Catalog' values={data.catalogs} onSelect={setCatalog} />
+                        <SQLDropDown text='Catalog' values={catalogs} onSelect={catalogSelected} selected={catalog}/>
                         &nbsp;
-                        <SQLDropDown text='Schema' values={data.schemas} onSelect={setSchema} />
+                        <SQLDropDown text='Schema' values={schemas} onSelect={schemaSelected} selected={schema}/>
                         &nbsp;
                         <div className="btn-group">
                             <button className={clsx('btn', 'btn-success', !enabled && 'disabled')} type="button" onClick={checkValue}>Run</button>
@@ -221,9 +219,9 @@ export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler })
             <div className="row">
                 <div className="col-12">
                     <Editor
-                        value={code}
-                        onValueChange={code => setCode(code)}
-                        highlight={code => highlight(code, languages.sql)}
+                        value={sql}
+                        onValueChange={setSql}
+                        highlight={val => highlight(val, languages.sql)}
                         padding={10}
                         style={{
                             fontFamily: '"Fira code", "Fira Mono", monospace',

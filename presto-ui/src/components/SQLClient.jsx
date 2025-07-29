@@ -35,14 +35,14 @@ export default function SQLClientView() {
     const sessions: SessionValues = React.useRef({});
     const views = [{name: 'SQL', label: 'SQL'}, {name: 'Session', label: 'Session Properties'}];
 
-    const executeSQL = (sqlInfo) => {
+    const executeSQL = (sql, catalog, schema) => {
         const client = createClient(
-            sqlInfo.catalog,
-            sqlInfo.schema,
+            catalog,
+            schema,
             Object.keys(sessions.current).map(key => `${key}=${sessions.current[key]}`).join(', ')
         );
         setValues({ ...values, running: true, results: undefined });
-        client.query(sqlInfo.sql).then((prestoQuery: PrestoQuery) => {
+        client.query(sql).then((prestoQuery: PrestoQuery) => {
             setValues({ ...values, running: false, results: prestoQuery });
         })
         .catch((e) => {
