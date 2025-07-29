@@ -28,6 +28,7 @@
 #include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
+#include "velox/expression/ExprOptimizer.h"
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -216,6 +217,11 @@ class PrestoServer {
 
   protocol::NodeStatus fetchNodeStatus();
 
+  void optimizeExpressions(
+      const proxygen::HTTPHeaders& httpHeaders,
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
+
   void populateMemAndCPUInfo();
 
   // Periodically yield tasks if there are tasks queued.
@@ -314,6 +320,7 @@ class PrestoServer {
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
   std::string prestoBuiltinFunctionPrefix_;
+  velox::expression::MakeFailExpr makeFailExpr_;
 };
 
 } // namespace facebook::presto

@@ -25,6 +25,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
@@ -43,6 +44,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
+#include "presto_cpp/main/types/VeloxToPrestoExpr.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -63,6 +65,7 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -97,6 +100,10 @@ constexpr char const* kTaskUriFormat =
 constexpr char const* kConnectorName = "connector.name";
 constexpr char const* kLinuxSharedLibExt = ".so";
 constexpr char const* kMacOSSharedLibExt = ".dylib";
+constexpr char const* kEvaluated = "EVALUATED";
+constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
+constexpr char const* kOptimizerLevelHeader =
+    "X-Presto-Expression-Optimizer-Level";
 
 protocol::NodeState convertNodeState(presto::NodeState nodeState) {
   switch (nodeState) {
@@ -1714,6 +1721,29 @@ void PrestoServer::registerSidecarEndpoints() {
             });
       });
   httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        makeFailExpr_ = [](const std::string& error,
+                           const TypePtr& type) -> core::TypedExprPtr {
+          return std::make_shared<core::CastTypedExpr>(
+              type,
+              std::vector<core::TypedExprPtr>{
+                  std::make_shared<core::CallTypedExpr>(
+                      UNKNOWN(),
+                      std::vector<core::TypedExprPtr>{
+                          std::make_shared<core::ConstantTypedExpr>(
+                              VARCHAR(), error)},
+                      fmt::format(
+                          "{}fail",
+                          SystemConfig::instance()
+                              ->prestoDefaultNamespacePrefix()))},
+              false);
+        };
+        optimizeExpressions(message->getHeaders(), body, downstream);
+      });
+  httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](
           proxygen::HTTPMessage* message,
@@ -1805,4 +1835,73 @@ void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
 
   http::sendOkResponse(downstream, json(nodeStats));
 }
+
+void PrestoServer::optimizeExpressions(
+    const proxygen::HTTPHeaders& httpHeaders,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  json result;
+  try {
+    const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
+    const auto& optimizerLevel =
+        httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
+    std::unordered_map<std::string, std::string> config(
+        {{core::QueryConfig::kSessionTimezone, timezone},
+         {core::QueryConfig::kAdjustTimestampToTimezone, "true"}});
+    auto queryConfig = core::QueryConfig{std::move(config)};
+    auto queryCtx =
+        core::QueryCtx::create(driverExecutor_.get(), std::move(queryConfig));
+    TypeParser typeParser;
+    VeloxExprConverter veloxExprConverter(nativeWorkerPool_.get(), &typeParser);
+    expression::VeloxToPrestoExprConverter veloxToPrestoExprConverter(
+        nativeWorkerPool_.get());
+
+    json::array_t inputRowExpressions =
+        json::parse(util::extractMessageBody(body));
+    const auto numExpr = inputRowExpressions.size();
+    json resJson;
+    result = json::array();
+    for (auto i = 0; i < numExpr; i++) {
+      std::shared_ptr<protocol::RowExpression> inputRowExpr =
+          inputRowExpressions[i];
+      VLOG(1) << "Input RowExpression: " << inputRowExpressions[i].dump();
+      auto expr = veloxExprConverter.toVeloxExpr(inputRowExpr);
+      VLOG(1) << "Converted TypedExpr: " << expr->toString();
+      auto optimized = velox::expression::optimize(
+          expr, queryCtx.get(), nativeWorkerPool_.get(), makeFailExpr_);
+      VLOG(1) << "Optimized TypedExpr: " << optimized->toString();
+
+      if (optimizerLevel == kEvaluated) {
+        try {
+          auto evalResult = exec::tryEvaluateConstantExpression(
+              optimized, nativeWorkerPool_.get(), queryCtx, false);
+          optimized = std::make_shared<core::ConstantTypedExpr>(evalResult);
+        } catch (const VeloxException& e) {
+          result = VeloxToPrestoExceptionTranslator::translate(e);
+          LOG(ERROR) << "VeloxException during expression optimization: "
+                     << e.what();
+          http::sendErrorResponse(downstream, result);
+        }
+      }
+
+      auto resultExpression =
+          veloxToPrestoExprConverter.getRowExpression(optimized);
+      if (resultExpression == nullptr) {
+        // Log Velox to Presto expression conversion error and suppress it to
+        // return the unoptimized RowExpression.
+        resultExpression = inputRowExpressions[i];
+      }
+      protocol::to_json(resJson, resultExpression);
+      VLOG(1) << "Optimized RowExpression: " << resJson.dump();
+      result.push_back(resultExpression);
+    }
+
+    http::sendOkResponse(downstream, result);
+  } catch (const VeloxException& e) {
+    result = VeloxToPrestoExceptionTranslator::translate(e);
+    LOG(ERROR) << "VeloxException during expression optimization: " << e.what();
+    http::sendErrorResponse(downstream, result);
+  }
+}
+
 } // namespace facebook::presto
