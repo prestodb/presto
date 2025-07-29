@@ -94,8 +94,16 @@ struct PrimitiveWriter {
 };
 
 template <typename V>
-bool constexpr provide_std_interface = SimpleTypeTrait<V>::isPrimitiveType &&
-    !std::is_same_v<Varchar, V> && !std::is_same_v<Varbinary, V>;
+bool constexpr has_string_value =
+    std::is_same_v<V, Varchar> || std::is_same_v<V, Varbinary>;
+
+template <typename T, bool providesCustomComparison>
+bool constexpr has_string_value<CustomType<T, providesCustomComparison>> =
+    has_string_value<typename T::type>;
+
+template <typename V>
+bool constexpr provide_std_interface =
+    SimpleTypeTrait<V>::isPrimitiveType && !has_string_value<V>;
 
 // bool is an exception, it requires commit but also provides std::interface.
 template <typename V>
@@ -109,8 +117,7 @@ class ArrayWriter {
   using child_writer_t = VectorWriter<V, void>;
   using element_t = typename child_writer_t::exec_out_t;
 
-  static constexpr bool hasStringValue =
-      std::is_same_v<V, Varchar> || std::is_same_v<V, Varbinary>;
+  static constexpr bool hasStringValue = has_string_value<V>;
 
  public:
   // Note: size is with respect to the current size of this array being written.

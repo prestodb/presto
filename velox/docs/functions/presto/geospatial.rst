@@ -206,6 +206,11 @@ Accessors
    If the given index is less than 1 or greater than the total number of elements
    in the collection, returns NULL.
 
+.. function:: ST_Points(geometry: Geometry) -> points: array(geometry)
+
+   Returns an array of points in a geometry. Empty or null inputs
+   return null.
+
 .. function:: geometry_invalid_reason(geometry: Geometry) -> reason: varchar
 
     If ``geometry`` is not valid or not simple, return a description of the

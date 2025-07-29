@@ -1272,4 +1272,56 @@ struct StBufferFunction {
   }
 };
 
+template <typename T>
+struct StPointsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Geometry>>& result,
+      const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    if (geosGeometry->isEmpty()) {
+      return false;
+    }
+
+    auto numPoints = geosGeometry->getNumPoints();
+    result.reserve(static_cast<vector_size_t>(numPoints));
+
+    writePoints(geosGeometry.get(), result);
+    return true;
+  }
+
+ private:
+  void writePoints(
+      const geos::geom::Geometry* geosGeometry,
+      out_type<Array<Geometry>>& result) {
+    auto geometryType = geosGeometry->getGeometryTypeId();
+
+    if (geometryType == geos::geom::GeometryTypeId::GEOS_POINT) {
+      geospatial::GeometrySerializer::serialize(
+          *geosGeometry, result.add_item());
+    } else if (
+        geometryType == geos::geom::GeometryTypeId::GEOS_GEOMETRYCOLLECTION) {
+      auto geometryCollection =
+          static_cast<const geos::geom::GeometryCollection*>(geosGeometry);
+      for (int i = 0; i < geometryCollection->getNumGeometries(); i++) {
+        auto entry = geometryCollection->getGeometryN(i);
+        writePoints(entry, result);
+      }
+    } else {
+      auto geometryFactory = geosGeometry->getFactory();
+      auto vertices = geosGeometry->getCoordinates();
+      auto vertexCount = vertices->getSize();
+      for (auto i = 0; i < vertexCount; i++) {
+        const geos::geom::Coordinate& coordinate = vertices->getAt(i);
+        auto point = std::unique_ptr<geos::geom::Point>(
+            geometryFactory->createPoint(coordinate));
+        geospatial::GeometrySerializer::serialize(*point, result.add_item());
+      }
+    }
+  }
+};
+
 } // namespace facebook::velox::functions

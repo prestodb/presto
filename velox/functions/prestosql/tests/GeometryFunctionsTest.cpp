@@ -97,6 +97,11 @@ class GeometryFunctionsTest : public FunctionBaseTest {
       EXPECT_FALSE(actual.has_value());
     }
   }
+  facebook::velox::RowVectorPtr makeSingleStringInputRow(
+      std::optional<std::string> input) {
+    auto vec = makeNullableFlatVector<std::string>({input});
+    return makeRowVector({vec});
+  }
 };
 
 TEST_F(GeometryFunctionsTest, errorStGeometryFromTextAndParsing) {
@@ -2316,4 +2321,99 @@ TEST_F(GeometryFunctionsTest, testStEnvelope) {
   testStEnvelopeFunc(
       "GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))",
       "POLYGON ((3 1, 3 4, 5 4, 5 1, 3 1))");
+}
+
+TEST_F(GeometryFunctionsTest, testStPoints) {
+  const auto testStPointsFunc = [&](const std::optional<std::string>& wkt,
+                                    const std::optional<std::vector<
+                                        std::optional<std::string>>>&
+                                        expectedPoints) {
+    auto input = makeSingleStringInputRow(wkt);
+
+    facebook::velox::VectorPtr output = evaluate(
+        "transform(ST_Points(ST_GeometryFromText(c0)), x -> substr(ST_AsText(x), 7))",
+        input);
+
+    auto arrayVector =
+        std::dynamic_pointer_cast<facebook::velox::ArrayVector>(output);
+
+    ASSERT_TRUE(arrayVector != nullptr);
+
+    auto expected = makeNullableArrayVector<std::string>({{expectedPoints}});
+    facebook::velox::test::assertEqualVectors(expected, output);
+  };
+
+  testStPointsFunc("LINESTRING (0 0, 0 0)", {{"(0 0)", "(0 0)"}});
+  testStPointsFunc("LINESTRING (8 4, 3 9, 8 4)", {{"(8 4)", "(3 9)", "(8 4)"}});
+  testStPointsFunc("LINESTRING (8 4, 3 9, 5 6)", {{"(8 4)", "(3 9)", "(5 6)"}});
+  testStPointsFunc(
+      "LINESTRING (8 4, 3 9, 5 6, 3 9, 8 4)",
+      {{"(8 4)", "(3 9)", "(5 6)", "(3 9)", "(8 4)"}});
+
+  testStPointsFunc(
+      "POLYGON ((8 4, 3 9, 5 6, 8 4))", {{"(8 4)", "(5 6)", "(3 9)", "(8 4)"}});
+  testStPointsFunc(
+      "POLYGON ((8 4, 3 9, 5 6, 7 2, 8 4))",
+      {{"(8 4)", "(7 2)", "(5 6)", "(3 9)", "(8 4)"}});
+
+  testStPointsFunc("POINT (0 0)", {{"(0 0)"}});
+  testStPointsFunc("POINT (0 1)", {{"(0 1)"}});
+
+  testStPointsFunc("MULTIPOINT (0 0)", {{"(0 0)"}});
+  testStPointsFunc("MULTIPOINT (0 0, 1 2)", {{"(0 0)", "(1 2)"}});
+
+  testStPointsFunc(
+      "MULTILINESTRING ((0 0, 1 1), (2 3, 3 2))",
+      {{"(0 0)", "(1 1)", "(2 3)", "(3 2)"}});
+  testStPointsFunc(
+      "MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))",
+      {{"(0 0)", "(1 1)", "(1 2)", "(2 3)", "(3 2)", "(5 4)"}});
+  testStPointsFunc(
+      "MULTILINESTRING ((0 0, 1 1, 1 2), (1 2, 3 2, 5 4))",
+      {{"(0 0)", "(1 1)", "(1 2)", "(1 2)", "(3 2)", "(5 4)"}});
+
+  testStPointsFunc(
+      "MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))",
+      {{
+          "(0 0)",
+          "(0 4)",
+          "(4 4)",
+          "(4 0)",
+          "(0 0)",
+          "(1 1)",
+          "(2 1)",
+          "(2 2)",
+          "(1 2)",
+          "(1 1)",
+          "(-1 -1)",
+          "(-1 -2)",
+          "(-2 -2)",
+          "(-2 -1)",
+          "(-1 -1)",
+      }});
+
+  testStPointsFunc(
+      "GEOMETRYCOLLECTION(POINT(0 1),LINESTRING(0 3,3 4),POLYGON((2 0,2 3,0 2,2 0)),POLYGON((3 0,3 3,6 3,6 0,3 0),(5 1,4 2,5 2,5 1)),MULTIPOLYGON(((0 5,0 8,4 8,4 5,0 5),(1 6,3 6,2 7,1 6)),((5 4,5 8,6 7,5 4))))",
+      {{"(0 1)", "(0 3)", "(3 4)", "(2 0)", "(0 2)", "(2 3)", "(2 0)", "(3 0)",
+        "(3 3)", "(6 3)", "(6 0)", "(3 0)", "(5 1)", "(5 2)", "(4 2)", "(5 1)",
+        "(0 5)", "(0 8)", "(4 8)", "(4 5)", "(0 5)", "(1 6)", "(3 6)", "(2 7)",
+        "(1 6)", "(5 4)", "(5 8)", "(6 7)", "(5 4)"}});
+
+  const auto testStPointsNullAndEmptyFunc =
+      [&](const std::optional<std::string>& wkt) {
+        std::optional<bool> result = evaluateOnce<bool>(
+            "ST_Points(ST_GeometryFromText(c0)) IS NULL", wkt);
+
+        ASSERT_TRUE(result.has_value());
+        ASSERT_TRUE(result.value());
+      };
+
+  testStPointsNullAndEmptyFunc("POINT EMPTY");
+  testStPointsNullAndEmptyFunc("LINESTRING EMPTY");
+  testStPointsNullAndEmptyFunc("POLYGON EMPTY");
+  testStPointsNullAndEmptyFunc("MULTIPOINT EMPTY");
+  testStPointsNullAndEmptyFunc("MULTILINESTRING EMPTY");
+  testStPointsNullAndEmptyFunc("MULTIPOLYGON EMPTY");
+  testStPointsNullAndEmptyFunc("GEOMETRYCOLLECTION EMPTY");
+  testStPointsNullAndEmptyFunc(std::nullopt);
 }

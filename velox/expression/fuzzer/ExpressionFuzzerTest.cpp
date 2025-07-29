@@ -212,6 +212,7 @@ std::unordered_set<std::string> skipFunctions = {
     "st_symdifference",
     "st_union",
     "st_point",
+    "st_points",
     "st_x",
     "st_y",
     "st_isvalid",

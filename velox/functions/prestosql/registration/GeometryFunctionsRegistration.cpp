@@ -132,6 +132,8 @@ void registerAccessors(const std::string& prefix) {
       prefix + "ST_CoordDim",
       StCoordDimFunction::signatures(),
       std::make_unique<StCoordDimFunction>());
+  registerFunction<StPointsFunction, Array<Geometry>, Geometry>(
+      {{prefix + "ST_Points"}});
 }
 
 } // namespace
