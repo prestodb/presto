@@ -65,7 +65,7 @@ void updateFromSystemConfigs(
   for (const auto& configNameEntry : sessionSystemConfigMapping) {
     const auto& sessionName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;
-    if (queryConfigs.count(sessionName) == 0) {
+    if (!queryConfigs.contains(sessionName)) {
       const auto propertyOpt = systemConfig->optionalProperty(systemConfigName);
       if (propertyOpt.hasValue()) {
         queryConfigs[sessionName] = propertyOpt.value();
