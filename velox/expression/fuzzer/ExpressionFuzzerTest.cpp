@@ -231,6 +231,7 @@ std::unordered_set<std::string> skipFunctions = {
     "ST_EnvelopeAsPts",
     "st_buffer",
     "geometry_invalid_reason",
+    "geometry_nearest_points",
     "simplify_geometry",
     "st_xmax",
     "st_xmin",

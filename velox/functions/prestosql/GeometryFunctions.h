@@ -22,6 +22,7 @@
 #include <geos/io/WKBWriter.h>
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
+#include <geos/operation/distance/DistanceOp.h>
 #include <geos/simplify/TopologyPreservingSimplifier.h>
 #include <geos/util/AssertionFailedException.h>
 #include <geos/util/UnsupportedOperationException.h>
@@ -1408,6 +1409,51 @@ struct StNumPointsFunction {
         "Unexpected failure in ST_NumPoints: geometry type {}",
         geometry.getGeometryType()));
   }
+};
+
+template <typename T>
+struct GeometryNearestPointsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  GeometryNearestPointsFunction() {
+    factory_ = geos::geom::GeometryFactory::create();
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Geometry>>& result,
+      const arg_type<Geometry>& leftGeometry,
+      const arg_type<Geometry>& rightGeometry) {
+    auto left = geospatial::GeometryDeserializer::deserialize(leftGeometry);
+    auto right = geospatial::GeometryDeserializer::deserialize(rightGeometry);
+
+    if (left->isEmpty() || right->isEmpty()) {
+      return false;
+    }
+
+    GEOS_RETHROW(
+        {
+          std::unique_ptr<geos::geom::CoordinateSequence> nearestCoordinates =
+              geos::operation::distance::DistanceOp::nearestPoints(
+                  left.get(), right.get());
+
+          auto pointA =
+              std::unique_ptr<geos::geom::Point>(factory_->createPoint(
+                  geos::geom::Coordinate(nearestCoordinates->getAt(0))));
+          auto pointB =
+              std::unique_ptr<geos::geom::Point>(factory_->createPoint(
+                  geos::geom::Coordinate(nearestCoordinates->getAt(1))));
+
+          result.reserve(2);
+          geospatial::GeometrySerializer::serialize(*pointA, result.add_item());
+          geospatial::GeometrySerializer::serialize(*pointB, result.add_item());
+        },
+        "Failed to compute nearest points between geometries");
+
+    return true;
+  }
+
+ private:
+  geos::geom::GeometryFactory::Ptr factory_;
 };
 
 } // namespace facebook::velox::functions

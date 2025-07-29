@@ -217,6 +217,15 @@ Accessors
    to the SQL/MM ``ST_NumPoints`` function which only applies to
    point and linestring.
 
+.. function:: geometry_nearest_points(geometry1: Geometry, geometry2: Geometry) -> points: array(geometry)
+
+   Returns the points on each geometry nearest the other. If either geometry
+   is empty, return null. Otherwise, return an array of two Points that have
+   the minimum distance of any two points on the geometries. The first Point
+   will be from the first Geometry argument, the second from the second Geometry
+   argument. If there are multiple pairs with the minimum distance, one pair
+   is chosen arbitrarily.
+
 .. function:: ST_EnvelopeAsPts(geometry: Geometry) -> points: array(geometry)
 
    Returns an array of two points: the lower left and upper right corners

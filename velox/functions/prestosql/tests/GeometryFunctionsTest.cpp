@@ -2512,3 +2512,85 @@ TEST_F(GeometryFunctionsTest, testStNumPoints) {
       "GEOMETRYCOLLECTION (POINT (1 1), GEOMETRYCOLLECTION (LINESTRING (0 0, 1 1), GEOMETRYCOLLECTION (POLYGON ((2 2, 2 3, 3 3, 3 2, 2 2)))))",
       7);
 }
+
+TEST_F(GeometryFunctionsTest, testGeometryNearestPoints) {
+  const auto testGeometryNearestPointsFunc = [&](const std::optional<
+                                                     std::string>& wkt1,
+                                                 const std::optional<
+                                                     std::string>& wkt2,
+                                                 const std::optional<
+                                                     std::vector<std::optional<
+                                                         std::string>>>&
+                                                     expectedPoints) {
+    auto inputVec1 = makeNullableFlatVector<std::string>({wkt1});
+    auto inputVec2 = makeNullableFlatVector<std::string>({wkt2});
+    auto input = makeRowVector({inputVec1, inputVec2});
+
+    facebook::velox::VectorPtr output = evaluate(
+        "transform(geometry_nearest_points(ST_GeometryFromText(c0), ST_GeometryFromText(c1)), x -> substr(ST_AsText(x), 7))",
+        input);
+
+    auto arrayVector =
+        std::dynamic_pointer_cast<facebook::velox::ArrayVector>(output);
+
+    ASSERT_TRUE(arrayVector != nullptr);
+
+    std::vector<std::vector<std::optional<std::string>>> vec = {
+        expectedPoints.value()};
+    auto expected = makeNullableArrayVector<std::string>(vec);
+    facebook::velox::test::assertEqualVectors(expected, output);
+  };
+
+  testGeometryNearestPointsFunc(
+      "POINT (50 100)", "POINT (150 150)", {{"(50 100)", "(150 150)"}});
+  testGeometryNearestPointsFunc(
+      "MULTIPOINT (50 100, 50 200)",
+      "POINT (50 100)",
+      {{"(50 100)", "(50 100)"}});
+  testGeometryNearestPointsFunc(
+      "LINESTRING (50 100, 50 200)",
+      "LINESTRING (10 10, 20 20)",
+      {{"(50 100)", "(20 20)"}});
+  testGeometryNearestPointsFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))",
+      "LINESTRING (10 20, 20 50)",
+      {{"(4 4)", "(10 20)"}});
+  testGeometryNearestPointsFunc(
+      "POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))",
+      "POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))",
+      {{"(3 3)", "(4 4)"}});
+  testGeometryNearestPointsFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))",
+      "POLYGON ((10 100, 30 10, 30 100, 10 100))",
+      {{"(3 3)", "(30 10)"}});
+  testGeometryNearestPointsFunc(
+      "GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (0 20, 20 0))",
+      "POLYGON ((5 5, 5 6, 6 6, 6 5, 5 5))",
+      {{"(10 10)", "(6 6)"}});
+
+  const auto noNearestPointsFunc = [&](const std::optional<std::string>& wkt1,
+                                       const std::optional<std::string>& wkt2) {
+    std::optional<bool> result = evaluateOnce<bool>(
+        "geometry_nearest_points(ST_GeometryFromText(c0), ST_GeometryFromText(c1)) IS NULL",
+        wkt1,
+        wkt2);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result.value());
+  };
+
+  noNearestPointsFunc("POINT EMPTY", "POINT (150 150)");
+  noNearestPointsFunc("POINT (50 100)", "POINT EMPTY");
+  noNearestPointsFunc("POINT EMPTY", "POINT EMPTY");
+  noNearestPointsFunc("MULTIPOINT EMPTY", "POINT (50 100)");
+  noNearestPointsFunc("LINESTRING (50 100, 50 200)", "LINESTRING EMPTY");
+  noNearestPointsFunc("MULTILINESTRING EMPTY", "LINESTRING (10 20, 20 50)");
+  noNearestPointsFunc("POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))", "POLYGON EMPTY");
+  noNearestPointsFunc(
+      "MULTIPOLYGON EMPTY", "POLYGON ((10 100, 30 10, 30 100, 10 100))");
+
+  noNearestPointsFunc(
+      std::nullopt, "POLYGON ((10 100, 30 10, 30 100, 10 100))");
+  noNearestPointsFunc("LINESTRING (50 100, 50 200)", std::nullopt);
+  noNearestPointsFunc(std::nullopt, std::nullopt);
+}
