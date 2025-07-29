@@ -18,6 +18,7 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/LazyVector.h"
 
 namespace facebook::velox::exec {
 

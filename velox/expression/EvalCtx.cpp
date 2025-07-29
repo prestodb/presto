@@ -18,6 +18,7 @@
 #include <exception>
 #include "velox/common/testutil/TestValue.h"
 #include "velox/expression/PeeledEncoding.h"
+#include "velox/vector/LazyVector.h"
 
 using facebook::velox::common::testutil::TestValue;
 

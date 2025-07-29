@@ -16,6 +16,7 @@
 #include "velox/vector/VectorPrinter.h"
 #include <sstream>
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox {
 

@@ -15,8 +15,8 @@
  */
 
 #include "velox/expression/PeeledEncoding.h"
-
 #include "velox/expression/EvalCtx.h"
+#include "velox/vector/LazyVector.h"
 
 namespace facebook::velox::exec {
 

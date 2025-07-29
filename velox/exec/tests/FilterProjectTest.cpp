@@ -17,17 +17,12 @@
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/parse/Expressions.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::exec;
-using namespace facebook::velox::exec::test;
+namespace facebook::velox::exec {
+namespace {
 
-using facebook::velox::test::BatchMaker;
-
-class FilterProjectTest : public HiveConnectorTestBase {
+class FilterProjectTest : public test::HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
@@ -37,7 +32,7 @@ class FilterProjectTest : public HiveConnectorTestBase {
       const std::vector<RowVectorPtr>& vectors,
       const std::string& filter = "c1 % 10  > 0") {
     core::PlanNodePtr filterNode;
-    auto plan = PlanBuilder()
+    auto plan = test::PlanBuilder()
                     .values(vectors)
                     .filter(filter)
                     .capturePlanNode(filterNode)
@@ -49,7 +44,7 @@ class FilterProjectTest : public HiveConnectorTestBase {
 
   void assertProject(const std::vector<RowVectorPtr>& vectors) {
     core::PlanNodePtr projectNode;
-    auto plan = PlanBuilder()
+    auto plan = test::PlanBuilder()
                     .values(vectors)
                     .project({"c0", "c1", "c0 + c1"})
                     .capturePlanNode(projectNode)
@@ -64,49 +59,50 @@ class FilterProjectTest : public HiveConnectorTestBase {
     auto projectNodeId = plan->id();
     auto it = planStats.find(projectNodeId);
     ASSERT_TRUE(it != planStats.end());
-    ASSERT_TRUE(it->second.peakMemoryBytes > 0);
+    ASSERT_GT(it->second.peakMemoryBytes, 0);
   }
 
-  std::shared_ptr<const RowType> rowType_{
-      ROW({"c0", "c1", "c2", "c3"},
-          {BIGINT(), INTEGER(), SMALLINT(), DOUBLE()})};
+  RowVectorPtr makeTestVector(vector_size_t size = 100) const {
+    auto rowType = ROW(
+        {"c0", "c1", "c2", "c3"}, {BIGINT(), INTEGER(), SMALLINT(), DOUBLE()});
+
+    return std::dynamic_pointer_cast<RowVector>(
+        velox::test::BatchMaker::createBatch(rowType, size, *pool_));
+  }
+
+  std::vector<RowVectorPtr> makeTestVectors() const {
+    std::vector<RowVectorPtr> vectors;
+    vectors.reserve(10);
+    for (int32_t i = 0; i < 10; ++i) {
+      vectors.push_back(makeTestVector());
+    }
+    return vectors;
+  }
 };
 
 TEST_F(FilterProjectTest, filter) {
-  std::vector<RowVectorPtr> vectors;
-  for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
-    vectors.push_back(vector);
-  }
+  auto vectors = makeTestVectors();
   createDuckDbTable(vectors);
-
   assertFilter(vectors);
 }
 
 TEST_F(FilterProjectTest, filterOverDictionary) {
   std::vector<RowVectorPtr> vectors;
   for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
+    auto vector = makeTestVector();
 
-    auto indices =
-        AlignedBuffer::allocate<int32_t>(2 * vector->size(), pool_.get());
-    auto indicesPtr = indices->asMutable<int32_t>();
-    for (int32_t j = 0; j < vector->size() / 2; j++) {
-      indicesPtr[2 * j] = j;
-      indicesPtr[2 * j + 1] = j;
+    auto indices = allocateIndices(2 * vector->size(), pool_.get());
+    auto rawIndices = indices->asMutable<int32_t>();
+    for (int32_t j = 0; j < vector->size(); j += 2) {
+      rawIndices[j] = j / 2;
+      rawIndices[j + 1] = j / 2;
     }
-    std::vector<VectorPtr> newChildren = vector->children();
-    newChildren[1] = BaseVector::wrapInDictionary(
-        BufferPtr(nullptr), indices, vector->size(), vector->childAt(1));
-    vectors.push_back(std::make_shared<RowVector>(
-        pool_.get(),
-        rowType_,
-        BufferPtr(nullptr),
-        vector->size(),
-        newChildren,
-        0 /*nullCount*/));
+
+    auto newChildren = vector->children();
+    newChildren[1] =
+        wrapInDictionary(indices, vector->size(), vector->childAt(1));
+
+    vectors.push_back(makeRowVector(newChildren));
   }
   createDuckDbTable(vectors);
 
@@ -116,19 +112,13 @@ TEST_F(FilterProjectTest, filterOverDictionary) {
 TEST_F(FilterProjectTest, filterOverConstant) {
   std::vector<RowVectorPtr> vectors;
   for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
+    auto vector = makeTestVector();
 
     std::vector<VectorPtr> newChildren = vector->children();
     newChildren[1] =
         BaseVector::wrapInConstant(vector->size(), 7, vector->childAt(1));
-    vectors.push_back(std::make_shared<RowVector>(
-        pool_.get(),
-        rowType_,
-        BufferPtr(nullptr),
-        vector->size(),
-        newChildren,
-        0 /*nullCount*/));
+
+    vectors.push_back(makeRowVector(newChildren));
   }
   createDuckDbTable(vectors);
 
@@ -136,40 +126,27 @@ TEST_F(FilterProjectTest, filterOverConstant) {
 }
 
 TEST_F(FilterProjectTest, project) {
-  std::vector<RowVectorPtr> vectors;
-  for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
-    vectors.push_back(vector);
-  }
+  auto vectors = makeTestVectors();
   createDuckDbTable(vectors);
-
   assertProject(vectors);
 }
 
 TEST_F(FilterProjectTest, projectOverDictionary) {
   std::vector<RowVectorPtr> vectors;
   for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
+    auto vector = makeTestVector();
 
-    auto indices =
-        AlignedBuffer::allocate<int32_t>(2 * vector->size(), pool_.get());
-    auto indicesPtr = indices->asMutable<int32_t>();
-    for (int32_t j = 0; j < vector->size() / 2; j++) {
-      indicesPtr[2 * j] = j;
-      indicesPtr[2 * j + 1] = j;
+    auto indices = allocateIndices(2 * vector->size(), pool_.get());
+    auto rawIndices = indices->asMutable<int32_t>();
+    for (int32_t j = 0; j < vector->size(); j += 2) {
+      rawIndices[j] = j / 2;
+      rawIndices[j + 1] = j / 2;
     }
+
     std::vector<VectorPtr> newChildren = vector->children();
-    newChildren[1] = BaseVector::wrapInDictionary(
-        BufferPtr(nullptr), indices, vector->size(), vector->childAt(1));
-    vectors.push_back(std::make_shared<RowVector>(
-        pool_.get(),
-        rowType_,
-        BufferPtr(nullptr),
-        vector->size(),
-        newChildren,
-        0 /*nullCount*/));
+    newChildren[1] =
+        wrapInDictionary(indices, vector->size(), vector->childAt(1));
+    vectors.push_back(makeRowVector(newChildren));
   }
   createDuckDbTable(vectors);
 
@@ -179,19 +156,12 @@ TEST_F(FilterProjectTest, projectOverDictionary) {
 TEST_F(FilterProjectTest, projectOverConstant) {
   std::vector<RowVectorPtr> vectors;
   for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
+    auto vector = makeTestVector();
 
     std::vector<VectorPtr> newChildren = vector->children();
     newChildren[1] =
         BaseVector::wrapInConstant(vector->size(), 7, vector->childAt(1));
-    vectors.push_back(std::make_shared<RowVector>(
-        pool_.get(),
-        rowType_,
-        BufferPtr(nullptr),
-        vector->size(),
-        newChildren,
-        0 /*nullCount*/));
+    vectors.push_back(makeRowVector(newChildren));
   }
   createDuckDbTable(vectors);
 
@@ -218,7 +188,7 @@ TEST_F(FilterProjectTest, projectOverLazy) {
 
   createDuckDbTable({vectors});
 
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values({lazyVectors})
                   .project({"c0 > 0 AND c1 > 0.0", "c1 + 5.2"})
                   .planNode();
@@ -226,15 +196,10 @@ TEST_F(FilterProjectTest, projectOverLazy) {
 }
 
 TEST_F(FilterProjectTest, filterProject) {
-  std::vector<RowVectorPtr> vectors;
-  for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
-    vectors.push_back(vector);
-  }
+  auto vectors = makeTestVectors();
   createDuckDbTable(vectors);
 
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values(vectors)
                   .filter("c1 % 10  > 0")
                   .project({"c0", "c1", "c0 + c1"})
@@ -244,22 +209,17 @@ TEST_F(FilterProjectTest, filterProject) {
 }
 
 TEST_F(FilterProjectTest, dereference) {
-  std::vector<RowVectorPtr> vectors;
-  for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
-    vectors.push_back(vector);
-  }
+  auto vectors = makeTestVectors();
   createDuckDbTable(vectors);
 
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values(vectors)
                   .project({"row_constructor(c1, c2) AS c1_c2"})
                   .project({"c1_c2.c1", "c1_c2.c2"})
                   .planNode();
   assertQuery(plan, "SELECT c1, c2 FROM tmp");
 
-  plan = PlanBuilder()
+  plan = test::PlanBuilder()
              .values(vectors)
              .project({"row_constructor(c1, c2) AS c1_c2"})
              .filter("c1_c2.c1 % 10 = 5")
@@ -291,15 +251,10 @@ TEST_F(FilterProjectTest, allFailedOrPassed) {
 
 // Tests fusing of consecutive filters and projects.
 TEST_F(FilterProjectTest, filterProjectFused) {
-  std::vector<RowVectorPtr> vectors;
-  for (int32_t i = 0; i < 10; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, 100, *pool_));
-    vectors.push_back(vector);
-  }
+  auto vectors = makeTestVectors();
   createDuckDbTable(vectors);
 
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values(vectors)
                   .filter("c0 % 10 < 9")
                   .project({"c0", "c1", "c0 % 100 + c1 % 50 AS e1"})
@@ -332,7 +287,7 @@ TEST_F(FilterProjectTest, projectAndIdentityOverLazy) {
 
   createDuckDbTable({vectors});
 
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values({lazyVectors})
                   .project({"c0 < 10 AND c1 < 10", "c1"})
                   .planNode();
@@ -350,7 +305,7 @@ TEST_F(FilterProjectTest, nestedFieldReferenceSharedChild) {
       }),
   });
   auto plan =
-      PlanBuilder()
+      test::PlanBuilder()
           .values({vector})
           .project({"coalesce((c0).c0.c0, 0) + coalesce((c0).c1.c0, 0)"})
           .planNode();
@@ -358,22 +313,21 @@ TEST_F(FilterProjectTest, nestedFieldReferenceSharedChild) {
   for (int i = 0; i < 10; ++i) {
     expected->set(i, (i % 2 == 0 ? 0 : i) + (i % 3 == 0 ? 0 : i));
   }
-  AssertQueryBuilder(plan).assertResults(makeRowVector({expected}));
+  test::AssertQueryBuilder(plan).assertResults(makeRowVector({expected}));
 }
 
 TEST_F(FilterProjectTest, numSilentThrow) {
-  auto row = makeRowVector(
-      {makeFlatVector<int32_t>(100, [&](auto row) { return row; })});
+  auto row = makeRowVector({makeFlatVector<int32_t>(100, folly::identity)});
 
   core::PlanNodeId filterId;
   // Change the plan when /0 error is fixed not to throw.
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values({row})
                   .filter("try (c0 / 0) = 1")
                   .capturePlanNodeId(filterId)
                   .planNode();
 
-  auto task = AssertQueryBuilder(plan).assertEmptyResults();
+  auto task = test::AssertQueryBuilder(plan).assertEmptyResults();
   auto planStats = toPlanStats(task->taskStats());
   ASSERT_EQ(100, planStats.at(filterId).customStats.at("numSilentThrow").sum);
 }
@@ -388,7 +342,7 @@ TEST_F(FilterProjectTest, statsSplitter) {
   // row.
   core::PlanNodeId filterId;
   core::PlanNodeId projectId;
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values(split(data, 5))
                   .filter("if (c0 < 25, false, c0 % 3 = 0)")
                   .capturePlanNodeId(filterId)
@@ -397,7 +351,7 @@ TEST_F(FilterProjectTest, statsSplitter) {
                   .planNode();
 
   std::shared_ptr<Task> task;
-  AssertQueryBuilder(plan).runWithoutResults(task);
+  test::AssertQueryBuilder(plan).runWithoutResults(task);
 
   auto planStats = toPlanStats(task->taskStats());
 
@@ -423,24 +377,18 @@ TEST_F(FilterProjectTest, statsSplitter) {
 
 TEST_F(FilterProjectTest, barrier) {
   std::vector<RowVectorPtr> vectors;
-  std::vector<std::shared_ptr<TempFilePath>> tempFiles;
+  std::vector<std::shared_ptr<test::TempFilePath>> tempFiles;
   const int numSplits{5};
-  const int numRowsPerSplit{100};
-  for (int32_t i = 0; i < 5; ++i) {
-    auto vector = std::dynamic_pointer_cast<RowVector>(
-        BatchMaker::createBatch(rowType_, numRowsPerSplit, *pool_));
-    vectors.push_back(vector);
-    tempFiles.push_back(TempFilePath::create());
+  for (int32_t i = 0; i < numSplits; ++i) {
+    vectors.push_back(makeTestVector());
+    tempFiles.push_back(test::TempFilePath::create());
   }
   writeToFiles(toFilePaths(tempFiles), vectors);
   createDuckDbTable(vectors);
 
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId projectPlanNodeId;
-  auto plan = PlanBuilder(planNodeIdGenerator)
-                  .startTableScan()
-                  .outputType(rowType_)
-                  .endTableScan()
+  auto plan = test::PlanBuilder()
+                  .tableScan(vectors.front()->rowType())
                   .filter("c1 % 10  > 0")
                   .project({"c0", "c1", "c0 + c1"})
                   .capturePlanNodeId(projectPlanNodeId)
@@ -459,17 +407,16 @@ TEST_F(FilterProjectTest, barrier) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.toString());
     auto task =
-        AssertQueryBuilder(plan, duckDbQueryRunner_)
-            .config(core::QueryConfig::kSparkPartitionId, "0")
+        test::AssertQueryBuilder(plan, duckDbQueryRunner_)
             .config(
                 core::QueryConfig::kMaxSplitPreloadPerDriver,
                 std::to_string(tempFiles.size()))
-            .splits(makeHiveConnectorSplits(tempFiles))
-            .serialExecution(true)
-            .barrierExecution(testData.barrierExecution)
             .config(
                 core::QueryConfig::kPreferredOutputBatchRows,
                 std::to_string(testData.numOutputRows))
+            .splits(makeHiveConnectorSplits(tempFiles))
+            .serialExecution(true)
+            .barrierExecution(testData.barrierExecution)
             .assertResults("SELECT c0, c1, c0 + c1 FROM tmp WHERE c1 % 10 > 0");
     const auto taskStats = task->taskStats();
     ASSERT_EQ(taskStats.numBarriers, testData.barrierExecution ? numSplits : 0);
@@ -482,3 +429,6 @@ TEST_F(FilterProjectTest, barrier) {
         numSplits);
   }
 }
+
+} // namespace
+} // namespace facebook::velox::exec

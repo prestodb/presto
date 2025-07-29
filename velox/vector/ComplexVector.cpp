@@ -21,6 +21,8 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
+#include "velox/vector/LazyVector.h"
 #include "velox/vector/SimpleVector.h"
 
 namespace facebook::velox {

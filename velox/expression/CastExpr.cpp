@@ -29,6 +29,7 @@
 #include "velox/type/tz/TimeZoneMap.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"
+#include "velox/vector/LazyVector.h"
 #include "velox/vector/SelectivityVector.h"
 
 namespace facebook::velox::exec {

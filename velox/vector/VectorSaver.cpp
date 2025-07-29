@@ -17,6 +17,7 @@
 #include <fstream>
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/LazyVector.h"
 
 namespace facebook::velox {
 

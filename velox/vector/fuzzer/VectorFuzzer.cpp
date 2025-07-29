@@ -27,6 +27,7 @@
 #include "velox/type/Timestamp.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/LazyVector.h"
 #include "velox/vector/NullsBuilder.h"
 #include "velox/vector/VectorTypeUtils.h"
 #include "velox/vector/fuzzer/ConstrainedVectorGenerator.h"

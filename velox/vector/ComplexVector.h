@@ -22,7 +22,6 @@
 
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
-#include "velox/vector/LazyVector.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox {
@@ -96,6 +95,11 @@ class RowVector : public BaseVector {
   }
 
   std::unique_ptr<SimpleVector<uint64_t>> hashAll() const override;
+
+  /// Convenience getter. Shortcut for asRowType(type()).
+  RowTypePtr rowType() const {
+    return asRowType(type());
+  }
 
   /// Return the number of child vectors.
   /// This will exactly match the number of fields.

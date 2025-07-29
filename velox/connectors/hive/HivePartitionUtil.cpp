@@ -15,6 +15,7 @@
  */
 
 #include "velox/connectors/hive/HivePartitionUtil.h"
+#include "velox/vector/SimpleVector.h"
 
 namespace facebook::velox::connector::hive {
 

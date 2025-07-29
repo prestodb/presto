@@ -19,6 +19,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/vector/SimpleVector.h"
 
 namespace facebook::velox::exec::test {
 

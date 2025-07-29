@@ -31,6 +31,7 @@
 #include "velox/expression/PeeledEncoding.h"
 #include "velox/expression/ScopedVarSetter.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/vector/LazyVector.h"
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/VectorSaver.h"
 

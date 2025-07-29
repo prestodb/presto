@@ -18,6 +18,7 @@
 
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/DecodedVector.h"
+#include "velox/vector/LazyVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 
 namespace facebook::velox {
