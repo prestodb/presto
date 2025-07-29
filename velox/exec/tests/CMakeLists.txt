@@ -67,6 +67,7 @@ add_executable(
   OrderByTest.cpp
   OperatorTraceTest.cpp
   OutputBufferManagerTest.cpp
+  ParallelProjectTest.cpp
   PartitionedOutputTest.cpp
   PlanNodeSerdeTest.cpp
   PlanNodeToStringTest.cpp
