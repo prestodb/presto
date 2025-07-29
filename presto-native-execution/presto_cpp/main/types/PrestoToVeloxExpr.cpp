@@ -39,59 +39,9 @@ std::string toJsonString(const T& value) {
 }
 
 std::string mapScalarFunction(const std::string& name) {
-  static const std::string prestoDefaultNamespacePrefix =
-      SystemConfig::instance()->prestoDefaultNamespacePrefix();
-  static const std::unordered_map<std::string, std::string> kFunctionNames = {
-      // Operator overrides: com.facebook.presto.common.function.OperatorType
-      {"presto.default.$operator$add",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "plus")},
-      {"presto.default.$operator$between",
-       util::addDefaultNamespacePrefix(
-           prestoDefaultNamespacePrefix, "between")},
-      {"presto.default.$operator$divide",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "divide")},
-      {"presto.default.$operator$equal",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "eq")},
-      {"presto.default.$operator$greater_than",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "gt")},
-      {"presto.default.$operator$greater_than_or_equal",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "gte")},
-      {"presto.default.$operator$is_distinct_from",
-       util::addDefaultNamespacePrefix(
-           prestoDefaultNamespacePrefix, "distinct_from")},
-      {"presto.default.$operator$less_than",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "lt")},
-      {"presto.default.$operator$less_than_or_equal",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "lte")},
-      {"presto.default.$operator$modulus",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "mod")},
-      {"presto.default.$operator$multiply",
-       util::addDefaultNamespacePrefix(
-           prestoDefaultNamespacePrefix, "multiply")},
-      {"presto.default.$operator$negation",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "negate")},
-      {"presto.default.$operator$not_equal",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "neq")},
-      {"presto.default.$operator$subtract",
-       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "minus")},
-      {"presto.default.$operator$subscript",
-       util::addDefaultNamespacePrefix(
-           prestoDefaultNamespacePrefix, "subscript")},
-      {"presto.default.$operator$xx_hash_64",
-       util::addDefaultNamespacePrefix(
-           prestoDefaultNamespacePrefix, "xxhash64_internal")},
-      {"presto.default.combine_hash",
-       util::addDefaultNamespacePrefix(
-           prestoDefaultNamespacePrefix, "combine_hash_internal")},
-      // Special form function overrides.
-      {"presto.default.in", "in"},
-  };
-
   std::string lowerCaseName = boost::to_lower_copy(name);
-
-  auto it = kFunctionNames.find(lowerCaseName);
-  if (it != kFunctionNames.end()) {
-    return it->second;
+  if (prestoOperatorMap().find(lowerCaseName) != prestoOperatorMap().end()) {
+    return prestoOperatorMap().at(lowerCaseName);
   }
 
   return lowerCaseName;
@@ -390,6 +340,67 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
       velox::BaseVector::wrapInConstant(1, 0, arrayVector));
 }
 } // namespace
+
+const std::unordered_map<std::string, std::string> prestoOperatorMap() {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::unordered_map<std::string, std::string> kPrestoOperatorMap =
+      {
+          // Operator overrides:
+          // com.facebook.presto.common.function.OperatorType
+          {"presto.default.$operator$add",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "plus")},
+          {"presto.default.$operator$between",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "between")},
+          {"presto.default.$operator$divide",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "divide")},
+          {"presto.default.$operator$equal",
+           util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "eq")},
+          {"presto.default.$operator$greater_than",
+           util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "gt")},
+          {"presto.default.$operator$greater_than_or_equal",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "gte")},
+          {"presto.default.$operator$is_distinct_from",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "distinct_from")},
+          {"presto.default.$operator$less_than",
+           util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "lt")},
+          {"presto.default.$operator$less_than_or_equal",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "lte")},
+          {"presto.default.$operator$modulus",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "mod")},
+          {"presto.default.$operator$multiply",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "multiply")},
+          {"presto.default.$operator$negation",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "negate")},
+          {"presto.default.$operator$not_equal",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "neq")},
+          {"presto.default.$operator$subtract",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "minus")},
+          {"presto.default.$operator$subscript",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "subscript")},
+          {"presto.default.$operator$xx_hash_64",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "xxhash64_internal")},
+          {"presto.default.combine_hash",
+           util::addDefaultNamespacePrefix(
+               prestoDefaultNamespacePrefix, "combine_hash_internal")},
+          // Special form function overrides.
+          {"presto.default.in", "in"},
+      };
+  return kPrestoOperatorMap;
+}
 
 std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
     const protocol::CallExpression& pexpr) const {
