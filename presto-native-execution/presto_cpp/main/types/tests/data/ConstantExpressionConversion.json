@@ -1,0 +1,52 @@
+[
+  {
+    "@type": "constant",
+    "type": "boolean",
+    "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAE="
+  },
+  {
+    "@type": "constant",
+    "type": "tinyint",
+    "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAw="
+  },
+  {
+    "@type": "constant",
+    "type": "smallint",
+    "valueBlock": "CwAAAFNIT1JUX0FSUkFZAQAAAAB7AA=="
+  },
+  {
+    "@type": "constant",
+    "type": "integer",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAA0gQAAA=="
+  },
+  {
+    "@type": "constant",
+    "type": "bigint",
+    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAADkwAAAAAAAA"
+  },
+  {
+    "@type": "constant",
+    "type": "bigint",
+    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAP////////9/"
+  },
+  {
+    "@type": "constant",
+    "type": "real",
+    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAeen2Qg=="
+  },
+  {
+    "@type": "constant",
+    "type": "double",
+    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAK36XG1FSpNA"
+  },
+  {
+    "@type": "constant",
+    "type": "double",
+    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAAAAAAAAAPh/"
+  },
+  {
+    "@type": "constant",
+    "type": "varchar",
+    "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAQAAAAABAAAAGFiY2Q="
+  }
+]

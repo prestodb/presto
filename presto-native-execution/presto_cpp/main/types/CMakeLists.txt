@@ -36,6 +36,11 @@ target_link_libraries(presto_function_metadata velox_function_registry)
 add_library(presto_velox_plan_conversion OBJECT VeloxPlanConversion.cpp)
 target_link_libraries(presto_velox_plan_conversion velox_type)
 
+add_library(velox_to_presto_expr VeloxToPrestoExpr.cpp)
+
+target_link_libraries(velox_to_presto_expr presto_exception
+                      presto_type_converter presto_types presto_protocol)
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
