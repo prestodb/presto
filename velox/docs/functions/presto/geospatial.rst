@@ -211,6 +211,12 @@ Accessors
    Returns an array of points in a geometry. Empty or null inputs
    return null.
 
+.. function:: ST_EnvelopeAsPts(geometry: Geometry) -> points: array(geometry)
+
+   Returns an array of two points: the lower left and upper right corners
+   of the bounding rectangular polygon of a geometry. Empty or null inputs
+   return null.
+
 .. function:: geometry_invalid_reason(geometry: Geometry) -> reason: varchar
 
     If ``geometry`` is not valid or not simple, return a description of the

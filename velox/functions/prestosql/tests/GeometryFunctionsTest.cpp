@@ -2417,3 +2417,61 @@ TEST_F(GeometryFunctionsTest, testStPoints) {
   testStPointsNullAndEmptyFunc("GEOMETRYCOLLECTION EMPTY");
   testStPointsNullAndEmptyFunc(std::nullopt);
 }
+
+TEST_F(GeometryFunctionsTest, testStEnvelopeAsPts) {
+  const auto testStEnvelopeAsPtsFunc = [&](const std::optional<std::string>&
+                                               wkt,
+                                           const std::optional<std::vector<
+                                               std::optional<std::string>>>&
+                                               expectedPoints) {
+    auto input = makeSingleStringInputRow(wkt);
+
+    facebook::velox::VectorPtr output = evaluate(
+        "transform(ST_EnvelopeAsPts(ST_GeometryFromText(c0)), x -> substr(ST_AsText(x), 7))",
+        input);
+
+    auto arrayVector =
+        std::dynamic_pointer_cast<facebook::velox::ArrayVector>(output);
+
+    ASSERT_TRUE(arrayVector != nullptr);
+
+    std::vector<std::vector<std::optional<std::string>>> vec = {
+        expectedPoints.value()};
+    auto expected = makeNullableArrayVector<std::string>(vec);
+    facebook::velox::test::assertEqualVectors(expected, output);
+  };
+
+  testStEnvelopeAsPtsFunc(
+      "MULTIPOINT (1 2, 2 4, 3 6, 4 8)", {{"(1 2)", "(4 8)"}});
+  testStEnvelopeAsPtsFunc("LINESTRING (1 1, 2 2, 1 3)", {{"(1 1)", "(2 3)"}});
+  testStEnvelopeAsPtsFunc("LINESTRING (8 4, 5 7)", {{"(5 4)", "(8 7)"}});
+  testStEnvelopeAsPtsFunc(
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", {{"(1 1)", "(5 4)"}});
+  testStEnvelopeAsPtsFunc(
+      "POLYGON ((1 1, 4 1, 1 4, 1 1))", {{"(1 1)", "(4 4)"}});
+  testStEnvelopeAsPtsFunc(
+      "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))",
+      {{"(0 0)", "(3 3)"}});
+  testStEnvelopeAsPtsFunc(
+      "GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))",
+      {{"(3 1)", "(5 4)"}});
+  testStEnvelopeAsPtsFunc("POINT (1 2)", {{"(1 2)", "(1 2)"}});
+
+  const auto testStEnvelopeAsPtsNullAndEmptyFunc =
+      [&](const std::optional<std::string>& wkt) {
+        std::optional<bool> result = evaluateOnce<bool>(
+            "ST_EnvelopeAsPts(ST_GeometryFromText(c0)) IS NULL", wkt);
+
+        ASSERT_TRUE(result.has_value());
+        ASSERT_TRUE(result.value());
+      };
+
+  testStEnvelopeAsPtsNullAndEmptyFunc("POINT EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc("LINESTRING EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc("POLYGON EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc("MULTIPOINT EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc("MULTILINESTRING EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc("MULTIPOLYGON EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc("GEOMETRYCOLLECTION EMPTY");
+  testStEnvelopeAsPtsNullAndEmptyFunc(std::nullopt);
+}

@@ -1324,4 +1324,38 @@ struct StPointsFunction {
   }
 };
 
+template <typename T>
+struct StEnvelopeAsPtsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  StEnvelopeAsPtsFunction() {
+    factory_ = geos::geom::GeometryFactory::create();
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Geometry>>& result,
+      const arg_type<Geometry>& geometry) {
+    auto envelope =
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
+
+    if (envelope->isNull()) {
+      return false;
+    }
+
+    auto lowerLeft = std::unique_ptr<geos::geom::Point>(factory_->createPoint(
+        geos::geom::Coordinate(envelope->getMinX(), envelope->getMinY())));
+
+    auto upperRight = std::unique_ptr<geos::geom::Point>(factory_->createPoint(
+        geos::geom::Coordinate(envelope->getMaxX(), envelope->getMaxY())));
+
+    geospatial::GeometrySerializer::serialize(*lowerLeft, result.add_item());
+    geospatial::GeometrySerializer::serialize(*upperRight, result.add_item());
+
+    return true;
+  }
+
+ private:
+  geos::geom::GeometryFactory::Ptr factory_;
+};
+
 } // namespace facebook::velox::functions

@@ -228,6 +228,7 @@ std::unordered_set<std::string> skipFunctions = {
     "st_dimension",
     "st_exteriorring",
     "st_envelope",
+    "ST_EnvelopeAsPts",
     "st_buffer",
     "geometry_invalid_reason",
     "simplify_geometry",
