@@ -39,7 +39,7 @@ These Presto coordinator configuration properties are described here, in
 alphabetical order.
 
 ``driver.max-split-preload``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``integer``
 * **Default value:** ``2``
 
