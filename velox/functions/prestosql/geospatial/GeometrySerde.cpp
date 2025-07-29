@@ -25,7 +25,7 @@
 using facebook::velox::common::InputByteStream;
 
 namespace facebook::velox::functions::geospatial {
-std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::deserialize(
+std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::readGeometry(
     velox::common::InputByteStream& stream,
     size_t size) {
   auto geometryType = static_cast<GeometrySerializationType>(
@@ -148,6 +148,7 @@ std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::readPolyline(
   skipEsriType(input);
   skipEnvelope(input);
   size_t partCount = input.read<int32_t>();
+  size_t pointCount = input.read<int32_t>();
 
   if (partCount == 0) {
     if (multiType) {
@@ -156,9 +157,7 @@ std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::readPolyline(
     return getGeometryFactory()->createLineString();
   }
 
-  size_t pointCount = input.read<int32_t>();
   std::vector<size_t> startIndexes(partCount);
-
   for (size_t i = 0; i < partCount; ++i) {
     startIndexes[i] = input.read<int32_t>();
   }
@@ -197,6 +196,7 @@ std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::readPolygon(
   skipEnvelope(input);
 
   size_t partCount = input.read<int32_t>();
+  size_t pointCount = input.read<int32_t>();
   if (partCount == 0) {
     if (multiType) {
       return getGeometryFactory()->createMultiPolygon();
@@ -204,7 +204,6 @@ std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::readPolygon(
     return getGeometryFactory()->createPolygon();
   }
 
-  size_t pointCount = input.read<int32_t>();
   std::vector<size_t> startIndexes(partCount);
   for (size_t i = 0; i < partCount; i++) {
     startIndexes[i] = input.read<int32_t>();
@@ -285,7 +284,7 @@ GeometryDeserializer::readGeometryCollection(
   while (size - offset > 0) {
     // Skip the length field
     input.read<int32_t>();
-    geometries.push_back(deserialize(input, size));
+    geometries.push_back(readGeometry(input, size));
     offset = input.offset();
   }
   std::vector<const geos::geom::Geometry*> rawGeometries;
