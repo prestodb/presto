@@ -108,7 +108,6 @@ PlanBuilder& PlanBuilder::tableScan(
 PlanBuilder& PlanBuilder::tableScanWithPushDown(
     const RowTypePtr& outputType,
     const PushdownConfig& pushdownConfig,
-    const std::string& remainingFilter,
     const RowTypePtr& dataColumns,
     const connector::ColumnHandleMap& assignments) {
   return TableScanBuilder(*this)
@@ -116,9 +115,8 @@ PlanBuilder& PlanBuilder::tableScanWithPushDown(
       .outputType(outputType)
       .assignments(assignments)
       .dataColumns(dataColumns)
-
       .subfieldFiltersMap(pushdownConfig.subfieldFiltersMap)
-      .remainingFilter(remainingFilter)
+      .remainingFilter(pushdownConfig.remainingFilter)
       .endTableScan();
 }
 

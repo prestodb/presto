@@ -664,7 +664,6 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeScanTask(
                         .tableScanWithPushDown(
                             tableSchema,
                             /*pushdownConfig=*/pushdownConfig,
-                            /*remainingFilter=*/"",
                             tableSchema,
                             {})
                         .planNode();
