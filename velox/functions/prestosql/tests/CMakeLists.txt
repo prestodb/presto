@@ -88,6 +88,7 @@ add_executable(
   MapZipWithTest.cpp
   MultimapFromEntriesTest.cpp
   NotTest.cpp
+  ParsePrestoDataSizeTest.cpp
   ProbabilityTest.cpp
   RandTest.cpp
   ReduceTest.cpp

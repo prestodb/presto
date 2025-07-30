@@ -109,5 +109,18 @@ TEST_F(ReverseSignatureBinderTest, unsupported) {
   testBindingFailure(signature, DECIMAL(13, 6));
 }
 
+TEST_F(ReverseSignatureBinderTest, integerConstraint) {
+  auto signature = exec::FunctionSignatureBuilder()
+                       .integerVariable("r_precision", "38")
+                       .integerVariable("r_scale", "0")
+                       .returnType("decimal(r_precision, r_scale)")
+                       .argumentType("varchar")
+                       .build();
+
+  // The precision and scale are fixed to the constraints.
+  testBindingSuccess(signature, DECIMAL(38, 0), {});
+  testBindingFailure(signature, DECIMAL(13, 6));
+}
+
 } // namespace
 } // namespace facebook::velox

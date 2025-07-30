@@ -49,7 +49,7 @@ class SignatureBinderBase {
     return signature_.variables();
   }
 
-  /// The funcion signature we are trying to bind.
+  /// The function signature we are trying to bind.
   const exec::FunctionSignature& signature_;
 
   /// Record concrete types that are bound to type variables.

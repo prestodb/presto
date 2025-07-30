@@ -414,6 +414,7 @@ jobs:
                 --seed ${random_seed} \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
+                --velox_fuzzer_enable_decimal_type \
                 --lazy_vector_generation_ratio 0.2 \
                 --common_dictionary_wraps_generation_ratio=0.3 \
                 --velox_fuzzer_enable_column_reuse \
@@ -542,6 +543,7 @@ jobs:
                 --duration_sec 3600 \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
+                --velox_fuzzer_enable_decimal_type \
                 --velox_fuzzer_enable_column_reuse \
                 --velox_fuzzer_enable_expression_reuse \
                 --max_expression_trees_per_step 2 \
@@ -633,6 +635,7 @@ jobs:
           ./spark_expression_fuzzer_test \
                 --seed ${random_seed} \
                 --duration_sec $DURATION \
+                --velox_fuzzer_enable_decimal_type \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
                 --log_dir=/tmp/spark_bias_fuzzer_repro/logs \
@@ -678,6 +681,7 @@ jobs:
                 --max_expression_trees_per_step 2 \
                 --retry_with_try \
                 --enable_dereference \
+                --velox_fuzzer_enable_decimal_type \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -1155,6 +1159,7 @@ jobs:
                 --duration_sec $DURATION \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
+                --velox_fuzzer_enable_decimal_type \
                 --velox_fuzzer_enable_column_reuse \
                 --velox_fuzzer_enable_expression_reuse \
                 --max_expression_trees_per_step 2 \

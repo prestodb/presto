@@ -281,6 +281,19 @@ TEST(SignatureBinderTest, decimals) {
       assertCannotResolve(signature, {DECIMAL(11, 8), DECIMAL(18, 4)});
     }
   }
+
+  // The precision and scale are fixed to the constraints.
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .integerVariable("a_precision", "38")
+                         .integerVariable("a_scale", "0")
+                         .returnType("varchar")
+                         .argumentType("decimal(a_precision, a_scale)")
+                         .build();
+
+    testSignatureBinder(signature, {DECIMAL(38, 0)}, VARCHAR());
+    assertCannotResolve(signature, {DECIMAL(18, 6)});
+  }
 }
 
 TEST(SignatureBinderTest, computation) {
