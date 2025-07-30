@@ -480,7 +480,6 @@ public class PrestoSparkQueryExecutionFactory
                 stats,
                 Optional.ofNullable(queryInfo.getFailureInfo()).map(PrestoSparkQueryExecutionFactory::toQueryError),
                 warningCollector.getWarnings(),
-                planAndMore.flatMap(PlanAndMore::getUpdateInfo),
                 updateCount);
     }
 
