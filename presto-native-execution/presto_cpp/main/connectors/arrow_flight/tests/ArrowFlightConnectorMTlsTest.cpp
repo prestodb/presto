@@ -39,11 +39,11 @@ class ArrowFlightConnectorMtlsTestBase : public ArrowFlightConnectorTestBase {
   void setFlightServerOptions(
       flight::FlightServerOptions* serverOptions) override {
     flight::CertKeyPair tlsCertificate{
-        .pem_cert = readFile("./data/mtls_certs/server.crt"),
-        .pem_key = readFile("./data/mtls_certs/server.key")};
+        .pem_cert = readFile("./data/certs/server.crt"),
+        .pem_key = readFile("./data/certs/server.key")};
     serverOptions->tls_certificates.push_back(tlsCertificate);
     serverOptions->verify_client = true;
-    serverOptions->root_certificates = readFile("./data/mtls_certs/ca.crt");
+    serverOptions->root_certificates = readFile("./data/certs/ca.crt");
   }
 
   void executeSuccessfulQuery() {
@@ -96,9 +96,9 @@ class ArrowFlightConnectorMtlsTest : public ArrowFlightConnectorMtlsTestBase {
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
                     {ArrowFlightConfig::kServerSslCertificate,
-                         "./data/mtls_certs/ca.crt"},
-                    {ArrowFlightConfig::kClientSslCertificate, "./data/mtls_certs/client.crt"},
-                    {ArrowFlightConfig::kClientSslKey, "./data/mtls_certs/client.key"}})) {}
+                         "./data/certs/ca.crt"},
+                    {ArrowFlightConfig::kClientSslCertificate, "./data/certs/client.crt"},
+                    {ArrowFlightConfig::kClientSslKey, "./data/certs/client.key"}})) {}
 };
 
 TEST_F(ArrowFlightConnectorMtlsTest, successfulMtlsConnection) {
@@ -113,7 +113,7 @@ class ArrowFlightMtlsNoClientCertTest : public ArrowFlightConnectorMtlsTestBase 
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
-                    {ArrowFlightConfig::kServerSslCertificate, "./data/mtls_certs/ca.crt"}})) {}
+                    {ArrowFlightConfig::kServerSslCertificate, "./data/certs/ca.crt"}})) {}
 };
 
 TEST_F(ArrowFlightMtlsNoClientCertTest, mtlsFailsWithoutClientCert) {

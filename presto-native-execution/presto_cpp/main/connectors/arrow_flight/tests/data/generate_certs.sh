@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Set directory for mTLS certificates and keys.
-CERT_DIR="./mtls_certs"
+# Set directory for certificates and keys.
+CERT_DIR="./certs"
 mkdir -p $CERT_DIR
 
 # Dummy values for the certificates.
