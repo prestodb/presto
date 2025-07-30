@@ -51,4 +51,21 @@ public abstract class Node
 
     @Override
     public abstract String toString();
+
+    /**
+     * Compare with another node by considering internal state excluding any Node returned by getChildren()
+     */
+    public boolean shallowEquals(Node other)
+    {
+        throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
+    }
+
+    static boolean sameClass(Node left, Node right)
+    {
+        if (left == right) {
+            return true;
+        }
+
+        return left.getClass() == right.getClass();
+    }
 }
