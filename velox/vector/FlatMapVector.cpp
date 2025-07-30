@@ -294,33 +294,78 @@ std::vector<vector_size_t> FlatMapVector::sortedKeyIndices(
   return indices;
 }
 
-// This function's logic is largely based on MapVector::compare().
-std::optional<int32_t> FlatMapVector::compare(
-    const BaseVector* other,
+std::optional<int32_t> FlatMapVector::compareToMap(
+    const MapVector* otherMap,
     vector_size_t index,
-    vector_size_t otherIndex,
+    vector_size_t wrappedOtherIndex,
     CompareFlags flags) const {
-  VELOX_CHECK(
-      flags.nullAsValue() || flags.equalsOnly, "Map is not orderable type");
-
-  // If maps are null.
-  bool isNull = isNullAt(index);
-  bool otherNull = other->isNullAt(otherIndex);
-  if (isNull || otherNull) {
-    return BaseVector::compareNulls(isNull, otherNull, flags);
+  if (keyType()->kind() != otherMap->mapKeys()->typeKind() ||
+      valueType()->kind() != otherMap->mapValues()->typeKind()) {
+    VELOX_FAIL(
+        "Compare of maps of different key/value types: {} and {}",
+        BaseVector::toString(),
+        otherMap->BaseVector::toString());
   }
 
-  // Validate we have compatible map types for comparison.
-  auto otherValue = other->wrappedVector();
-  auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
-  VELOX_CHECK_EQ(
-      VectorEncoding::Simple::FLAT_MAP,
-      otherValue->encoding(),
-      "Compare of FLAT_MAP and non-FLAT_MAP: {} and {}",
-      BaseVector::toString(),
-      otherValue->BaseVector::toString());
-  auto otherFlatMap = otherValue->as<FlatMapVector>();
+  // We first get sorted key indices for both maps.
+  auto leftIndices = sortedKeyIndices(index);
+  auto rightIndices = otherMap->sortedKeyIndices(wrappedOtherIndex);
 
+  // If equalsOnly and maps have different sizes, we can bail fast.
+  if (flags.equalsOnly && leftIndices.size() != rightIndices.size()) {
+    int result = leftIndices.size() - rightIndices.size();
+    return flags.ascending ? result : result * -1;
+  }
+
+  // Compare each key value pair, using the sorted key order.
+  auto compareSize = std::min(leftIndices.size(), rightIndices.size());
+  bool resultIsIndeterminate = false;
+
+  for (auto i = 0; i < compareSize; ++i) {
+    // First compare the keys.
+    auto result = distinctKeys_->compare(
+        otherMap->mapKeys().get(), leftIndices[i], rightIndices[i], flags);
+
+    // Key mismatch; comparison can stop.
+    if (result == kIndeterminate) {
+      VELOX_DCHECK(
+          flags.equalsOnly,
+          "Compare should have thrown when null is encountered in child.");
+      resultIsIndeterminate = true;
+    } else if (result.value() != 0) {
+      return result;
+    }
+    // If keys are same, compare values.
+    else {
+      auto valueResult = mapValues_[leftIndices[i]]->compare(
+          otherMap->mapValues().get(), index, rightIndices[i], flags);
+
+      // If value mismatch, comparison can also stop.
+      if (valueResult == kIndeterminate) {
+        VELOX_DCHECK(
+            flags.equalsOnly,
+            "Compare should have thrown when null is encountered in child.");
+        resultIsIndeterminate = true;
+      } else if (valueResult.value() != 0) {
+        return valueResult;
+      }
+    }
+  }
+
+  if (resultIsIndeterminate) {
+    return kIndeterminate;
+  }
+
+  // If one map was smaller than the other.
+  int result = leftIndices.size() - rightIndices.size();
+  return flags.ascending ? result : result * -1;
+}
+
+std::optional<int32_t> FlatMapVector::compareToFlatMap(
+    const FlatMapVector* otherFlatMap,
+    vector_size_t index,
+    vector_size_t wrappedOtherIndex,
+    CompareFlags flags) const {
   if (keyType()->kind() != otherFlatMap->keyType()->kind() ||
       valueType()->kind() != otherFlatMap->valueType()->kind()) {
     VELOX_FAIL(
@@ -387,6 +432,40 @@ std::optional<int32_t> FlatMapVector::compare(
   // If one map was smaller than the other.
   int result = leftIndices.size() - rightIndices.size();
   return flags.ascending ? result : result * -1;
+}
+
+// This function's logic is largely based on MapVector::compare().
+std::optional<int32_t> FlatMapVector::compare(
+    const BaseVector* other,
+    vector_size_t index,
+    vector_size_t otherIndex,
+    CompareFlags flags) const {
+  VELOX_CHECK(
+      flags.nullAsValue() || flags.equalsOnly, "Map is not orderable type");
+
+  // If maps are null.
+  bool isNull = isNullAt(index);
+  bool otherNull = other->isNullAt(otherIndex);
+  if (isNull || otherNull) {
+    return BaseVector::compareNulls(isNull, otherNull, flags);
+  }
+
+  // Validate we have compatible map types for comparison.
+  auto otherValue = other->wrappedVector();
+  auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
+
+  if (otherValue->encoding() == VectorEncoding::Simple::FLAT_MAP) {
+    return compareToFlatMap(
+        otherValue->as<FlatMapVector>(), index, wrappedOtherIndex, flags);
+  } else if (otherValue->encoding() == VectorEncoding::Simple::MAP) {
+    return compareToMap(
+        otherValue->as<MapVector>(), index, wrappedOtherIndex, flags);
+  } else {
+    VELOX_FAIL(
+        "Compare of FLAT_MAP and non-MAP: {} and {}",
+        BaseVector::toString(),
+        otherValue->BaseVector::toString());
+  }
 }
 
 void FlatMapVector::copyInMapRanges(

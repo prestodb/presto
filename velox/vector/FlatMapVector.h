@@ -369,6 +369,24 @@ class FlatMapVector : public BaseVector {
       const uint64_t* sourceInMaps,
       const folly::Range<const BaseVector::CopyRange*>& ranges);
 
+  /// Compares a map in this Vector with a map in a MapVector.
+  std::optional<int32_t> compareToMap(
+      const MapVector* other,
+      vector_size_t index,
+      // The other MapVector may have been encoded, pass the wrappedIndex from
+      // the other Vector here.
+      vector_size_t wrappedOtherIndex,
+      CompareFlags flags) const;
+
+  /// Compares a map in this Vector with a map in another FlatMapVector.
+  std::optional<int32_t> compareToFlatMap(
+      const FlatMapVector* other,
+      vector_size_t index,
+      // The other FlatMapVector may have been encoded, pass the wrappedIndex
+      // from the other Vector here.
+      vector_size_t wrappedOtherIndex,
+      CompareFlags flags) const;
+
   // Vector containing the distinct map keys.
   VectorPtr distinctKeys_;
 

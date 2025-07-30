@@ -171,6 +171,13 @@ struct CompareFlags {
     }
   }
 
+  /// Returns a copy of the flags with the ascending flag flipped.
+  static CompareFlags reverseDirection(const CompareFlags& flags) {
+    CompareFlags result = flags;
+    result.ascending = !result.ascending;
+    return result;
+  }
+
   std::string toString() const {
     return fmt::format(
         "[NullFirst[{}] Ascending[{}] EqualsOnly[{}] NullHandleMode[{}]]",

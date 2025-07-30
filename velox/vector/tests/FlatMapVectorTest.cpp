@@ -452,35 +452,86 @@ TEST_F(FlatMapVectorTest, compare) {
       {{{3, 0}, {1, 0}, {2, 1}}}, // 6
   });
 
+  enum class Result {
+    kEq,
+    kNe,
+    kLt,
+    kGt,
+  };
+
+  const auto testCompare =
+      [&](int32_t left, int32_t right, CompareFlags flags, Result expected) {
+        auto mapVector = vector->toMapVector();
+        auto flatMapFlatMapResult =
+            vector->compare(vector.get(), left, right, flags);
+        auto flatMapMapResult =
+            vector->compare(mapVector.get(), left, right, flags);
+        auto mapFlatMapResult =
+            mapVector->compare(vector.get(), left, right, flags);
+
+        switch (expected) {
+          case Result::kEq:
+            EXPECT_EQ(flatMapFlatMapResult, 0);
+            EXPECT_EQ(flatMapMapResult, 0);
+            EXPECT_EQ(mapFlatMapResult, 0);
+            break;
+          case Result::kNe:
+            EXPECT_NE(flatMapFlatMapResult, 0);
+            EXPECT_NE(flatMapMapResult, 0);
+            EXPECT_NE(mapFlatMapResult, 0);
+            break;
+          case Result::kLt:
+            EXPECT_LT(flatMapFlatMapResult, 0);
+            EXPECT_LT(flatMapMapResult, 0);
+            EXPECT_LT(mapFlatMapResult, 0);
+            break;
+          case Result::kGt:
+            EXPECT_GT(flatMapFlatMapResult, 0);
+            EXPECT_GT(flatMapMapResult, 0);
+            EXPECT_GT(mapFlatMapResult, 0);
+            break;
+        }
+      };
+
   // Null map equals to null.
-  EXPECT_EQ(vector->compare(vector.get(), 0, 0, {}), 0);
+  testCompare(0, 0, {}, Result::kEq);
 
   // Maps of different sizes.
-  EXPECT_NE(vector->compare(vector.get(), 1, 2, {.equalsOnly = true}), 0);
+  testCompare(1, 2, {.equalsOnly = true}, Result::kNe);
 
-  EXPECT_LT(vector->compare(vector.get(), 2, 3, {.equalsOnly = true}), 0);
-  EXPECT_GT(vector->compare(vector.get(), 3, 2, {.equalsOnly = true}), 0);
+  testCompare(2, 3, {.equalsOnly = true}, Result::kLt);
+  testCompare(3, 2, {.equalsOnly = true}, Result::kGt);
 
-  EXPECT_LT(vector->compare(vector.get(), 2, 3, {}), 0);
-  EXPECT_GT(vector->compare(vector.get(), 3, 2, {}), 0);
+  testCompare(2, 3, {}, Result::kLt);
+  testCompare(3, 2, {}, Result::kGt);
 
-  EXPECT_LT(vector->compare(vector.get(), 2, 4, {}), 0);
-  EXPECT_GT(vector->compare(vector.get(), 4, 2, {}), 0);
+  testCompare(2, 4, {}, Result::kLt);
+  testCompare(4, 2, {}, Result::kGt);
 
-  EXPECT_EQ(vector->compare(vector.get(), 4, 5, {}), 0);
-  EXPECT_EQ(vector->compare(vector.get(), 5, 4, {}), 0);
+  testCompare(4, 5, {}, Result::kEq);
+  testCompare(5, 4, {}, Result::kEq);
 
-  EXPECT_LT(vector->compare(vector.get(), 5, 6, {}), 0);
-  EXPECT_GT(vector->compare(vector.get(), 6, 5, {}), 0);
+  testCompare(5, 6, {}, Result::kLt);
+  testCompare(6, 5, {}, Result::kGt);
 
   // Descending.
-  EXPECT_GT(vector->compare(vector.get(), 5, 6, {.ascending = false}), 0);
-  EXPECT_LT(vector->compare(vector.get(), 6, 5, {.ascending = false}), 0);
+  testCompare(5, 6, {.ascending = false}, Result::kGt);
+  testCompare(6, 5, {.ascending = false}, Result::kLt);
 
   // Cannot compare maps with nulls as indeterminate.
   VELOX_ASSERT_THROW(
       vector->compare(
           vector.get(),
+          6,
+          5,
+          {.nullHandlingMode =
+               CompareFlags::NullHandlingMode::kNullAsIndeterminate}),
+      "Map is not orderable type");
+
+  // Cannot compare maps with nulls as indeterminate.
+  VELOX_ASSERT_THROW(
+      vector->compare(
+          vector->toMapVector().get(),
           6,
           5,
           {.nullHandlingMode =
