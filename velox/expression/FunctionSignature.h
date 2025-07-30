@@ -139,6 +139,23 @@ class FunctionSignature {
     return argumentTypes_;
   }
 
+  const TypeSignature& argumentTypeAt(size_t index) const {
+    return argumentTypes_.at(index);
+  }
+
+  bool isLambdaArgumentAt(size_t index) const {
+    return argumentTypes().at(index).baseName() == "function";
+  }
+
+  bool hasLambdaArgument() const {
+    for (auto i = 0; i < argumentTypes_.size(); ++i) {
+      if (isLambdaArgumentAt(i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   const std::vector<bool>& constantArguments() const {
     return constantArguments_;
   }

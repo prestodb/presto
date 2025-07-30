@@ -101,17 +101,36 @@ class SignatureBinder : private SignatureBinderBase {
   /// coercion is required for that argument.
   bool tryBindWithCoercions(std::vector<Coercion>& coercions);
 
-  /// Returns concrete return type or null if couldn't fully resolve.
+  /// Returns concrete return type or nullptr if couldn't fully resolve.
   TypePtr tryResolveReturnType() {
     return tryResolveType(signature_.returnType());
   }
 
+  // Try resolve type for the specified signature. Return nullptr if cannot
+  // resolve.
   TypePtr tryResolveType(const exec::TypeSignature& typeSignature) {
     return tryResolveType(
         typeSignature,
         variables(),
         typeVariablesBindings_,
         integerVariablesBindings_);
+  }
+
+  // Try resolve types for all specified signatures. Return empty list if some
+  // signatures cannot be resolved.
+  std::vector<TypePtr> tryResolveTypes(
+      const folly::Range<const TypeSignature*>& typeSignatures) {
+    std::vector<TypePtr> types;
+    for (const auto& signature : typeSignatures) {
+      auto type = tryResolveType(signature);
+      if (type == nullptr) {
+        return {};
+      }
+
+      types.push_back(type);
+    }
+
+    return types;
   }
 
   // Given a pre-computed binding for type variables resolve typeSignature if
