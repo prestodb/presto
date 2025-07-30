@@ -61,6 +61,8 @@ jobs:
           key: dependencies-benchmark-${{ hashFiles('velox/scripts/setup-ubuntu.sh') }}
 
       - name: Install apt dependencies
+        env:
+          UV_TOOL_BIN_DIR: /usr/local/bin
         run: |
           source velox/scripts/setup-ubuntu.sh
           install_apt_deps

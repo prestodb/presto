@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+.git*
+docs/
+static/
+website/
+
 _build/
 
 # Python binary dirs

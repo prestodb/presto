@@ -32,7 +32,9 @@ USE_CLANG="${USE_CLANG:-false}"
 
 MACHINE=$(uname -m)
 
-WGET_OPTIONS=${WGET_OPTIONS:-""}
+# Read WGET_OPTIONS into an array which can be expanded to nothing
+# using a normal variable expands into an empty string causing wget to exit 1
+read -r -a WGET_OPTS <<<"${WGET_OPTIONS:-}"
 
 mkdir -p "${DEPENDENCY_DIR}"
 
@@ -172,7 +174,7 @@ function install_arrow {
     # Can be removed after an upgrade to Arrow 20.0.0
     if [ -z "$VELOX_ARROW_CMAKE_PATCH" ]; then
       # We need to set a different path when building the Dockerfile.
-      ABSOLUTE_SCRIPTDIR=$(realpath $SCRIPT_DIR)
+      ABSOLUTE_SCRIPTDIR=$(realpath "$SCRIPT_DIR")
       VELOX_ARROW_CMAKE_PATCH="$ABSOLUTE_SCRIPTDIR/../CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch"
     fi
 
@@ -284,9 +286,10 @@ function install_minio {
     echo "Unsupported Minio platform"
   fi
 
-  wget "${WGET_OPTIONS}" https://dl.min.io/server/minio/release/"${MINIO_OS}"-${MINIO_ARCH}/archive/minio.RELEASE."${MINIO_VERSION}" -O "${MINIO_BINARY_NAME}"
+  wget "${WGET_OPTS[@]}" https://dl.min.io/server/minio/release/"${MINIO_OS}"-${MINIO_ARCH}/archive/minio.RELEASE."${MINIO_VERSION}" -O "${MINIO_BINARY_NAME}"
   chmod +x ./"${MINIO_BINARY_NAME}"
-  ${SUDO} mv ./"${MINIO_BINARY_NAME}" /usr/local/bin/
+  mkdir -p "$INSTALL_PREFIX"/bin/
+  ${SUDO} mv ./"${MINIO_BINARY_NAME}" "$INSTALL_PREFIX"/bin/
 }
 
 function install_gcs-sdk-cpp {
@@ -385,6 +388,28 @@ function install_azure-storage-sdk-cpp {
 function install_hdfs_deps {
   # Dependencies for Hadoop testing
   wget_and_untar https://archive.apache.org/dist/hadoop/common/hadoop-"${HADOOP_VERSION}"/hadoop-"${HADOOP_VERSION}".tar.gz hadoop
-  cp -a "${DEPENDENCY_DIR}"/hadoop /usr/local/
-  wget "${WGET_OPTIONS}" -P /usr/local/hadoop/share/hadoop/common/lib/ https://repo1.maven.org/maven2/junit/junit/4.11/junit-4.11.jar
+  cp -a "${DEPENDENCY_DIR}"/hadoop "$INSTALL_PREFIX"
+  wget "${WGET_OPTS[@]}" -P "$INSTALL_PREFIX"/hadoop/share/hadoop/common/lib/ https://repo1.maven.org/maven2/junit/junit/4.11/junit-4.11.jar
+}
+
+function install_uv {
+  if command -v uv >/dev/null 2>&1; then
+    echo "uv is already installed."
+  else
+    echo "Installing uv..."
+
+    export UV_TOOL_BIN_DIR="${UV_TOOL_BIN_DIR:-$INSTALL_PREFIX/bin}"
+    export UV_INSTALL_DIR=${UV_INSTALL_DIR:-"$UV_TOOL_BIN_DIR"}
+
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv tool update-shell
+  fi
+}
+
+function uv_install {
+  uv tool install "$@" || {
+    ret=$?
+    # exit code 2 means the binary already exists, so we can ignore that
+    [ "$ret" -eq 2 ] || exit "$ret"
+  }
 }

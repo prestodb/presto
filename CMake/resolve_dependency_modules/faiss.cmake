@@ -61,5 +61,4 @@ set(FAISS_ENABLE_PYTHON OFF)
 set(FAISS_ENABLE_GPU_TESTS OFF)
 # Make FAISS available
 FetchContent_MakeAvailable(faiss)
-add_library(FAISS::faiss ALIAS faiss)
 endblock()

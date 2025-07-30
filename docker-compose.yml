@@ -11,77 +11,63 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-version: '3.5'
 
+# The docker-compose file is used only for running the services:
+# `docker compose run adapters-cpp`
+#
+# If you want to build any of the images you will need to use docker bake:
+# `docker bake adapters-amd64`
+#
+# The target names are defined in docker-bake.hcl, you can use the names
+# from `docker-compose.yml`, like `adapters-cpp` but those will not make use
+# of layer caching and will tag images with the wrong tag for the multi-arch images.
+# Do this for local use only!
+#
+# When testing changes you want to push as a PR use docker bake.
 services:
-  ubuntu-cpp:
-    # Usage:
-    #   docker-compose pull ubuntu-cpp or docker-compose build ubuntu-cpp
-    #   docker-compose run --rm ubuntu-cpp
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm ubuntu-cpp
-    #   to set the number of threads used during compilation
-    image: ghcr.io/facebookincubator/velox-dev:ubuntu-22.04
+  # This is not an actual target and just used to inherit the env and volume
+  # defaults
+  base-block:
     build:
       context: .
-      dockerfile: scripts/docker/ubuntu-22.04-cpp.dockerfile
     environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      VELOX_DEPENDENCY_SOURCE: BUNDLED # Build dependencies from source
+      NUM_THREADS: ${NUM_THREADS:-8} # default value for NUM_THREADS
       CCACHE_DIR: /velox/.ccache
-    volumes:
-      - .:/velox:delegated
-    command: scripts/docker/docker-command.sh
-
-  adapters-cpp:
-    # Usage:
-    #   docker-compose pull adapters-cpp or docker-compose build adapters-cpp
-    #   or
-    #   docker-compose run --rm adapters-cpp
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm adapters-cpp
-    #   to set the number of threads used during compilation
-    # scripts/docker/adapters.dockerfile uses SHELL which is not supported for OCI image format.
-    # podman users must specify "--podman-build-args='--format docker'" argument.
-    image: ghcr.io/facebookincubator/velox-dev:adapters
-    build:
-      context: .
-      dockerfile: scripts/docker/adapters.dockerfile
-      args:
-        image: ghcr.io/facebookincubator/velox-dev:centos9
-    environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: /velox/.ccache
-      EXTRA_CMAKE_FLAGS: >
-        -DVELOX_ENABLE_PARQUET=ON
-        -DVELOX_ENABLE_S3=ON
     volumes:
       - .:/velox:delegated
     working_dir: /velox
     command: /velox/scripts/docker/docker-command.sh
 
-  adapters-cuda:
-    # Usage:
-    #   docker-compose pull adapters-cuda or docker-compose build adapters-cuda
-    #   or
-    #   docker-compose run --rm adapters-cuda
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm adapters-cuda
-    #   to set the number of threads used during compilation
-    # scripts/docker/adapters.dockerfile uses SHELL which is not supported for OCI image format.
-    # podman users must specify "--podman-build-args='--format docker'" argument.
-    image: ghcr.io/facebookincubator/velox-dev:adapters
+  ubuntu-cpp:
+    extends: base-block
+    image: ghcr.io/facebookincubator/velox-dev:ubuntu-22.04
     build:
-      context: .
-      dockerfile: scripts/docker/adapters.dockerfile
-      args:
-        image: ghcr.io/facebookincubator/velox-dev:centos9
+      dockerfile: scripts/docker/ubuntu-22.04-cpp.dockerfile
     environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: /velox/.ccache
+      VELOX_DEPENDENCY_SOURCE: BUNDLED # Build dependencies from source
+
+  centos-cpp:
+    extends: base-block
+    image: ghcr.io/facebookincubator/velox-dev:centos9
+    build:
+      dockerfile: scripts/docker/centos-multi.dockerfile
+      target: centos9
+      args:
+        image: quay.io/centos/centos:stream9
+        VELOX_BUILD_SHARED: "ON"
+
+  adapters-cpp:
+    extends: centos-cpp
+    image: ghcr.io/facebookincubator/velox-dev:adapters
+    environment:
       EXTRA_CMAKE_FLAGS: >
         -DVELOX_ENABLE_PARQUET=ON
         -DVELOX_ENABLE_S3=ON
+    build:
+      target: adapters
+
+  adapters-cuda:
+    extends: adapters-cpp
     privileged: true
     deploy:
       resources:
@@ -90,70 +76,19 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    volumes:
-      - .:/velox:delegated
-    working_dir: /velox
-    command: /velox/scripts/docker/docker-command.sh
-
-  centos-cpp:
-    # Usage:
-    #   docker-compose pull centos-cpp or docker-compose build centos-cpp
-    #   docker-compose run --rm centos-cpp
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm centos-cpp
-    #   to set the number of threads used during compilation
-    image: ghcr.io/facebookincubator/velox-dev:centos9
-    build:
-      context: .
-      dockerfile: scripts/docker/centos.dockerfile
-      args:
-        image: quay.io/centos/centos:stream9
-    environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: /velox/.ccache
-    volumes:
-      - .:/velox:delegated
-    working_dir: /velox
-    command: /velox/scripts/docker/docker-command.sh
 
   presto-java:
-    # Usage:
-    #   docker-compose pull presto-java or docker-compose build presto-java
-    #   docker-compose run --rm presto-java
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm presto-java
-    #   to set the number of threads used during compilation
+    extends: base-block
     image: ghcr.io/facebookincubator/velox-dev:presto-java
     build:
       args:
         - PRESTO_VERSION=0.293
-      context: .
-      dockerfile: scripts/docker/prestojava-container.dockerfile
-    environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: /velox/.ccache
-    volumes:
-      - .:/velox:delegated
-    working_dir: /velox
-    command: /velox/scripts/docker/docker-command.sh
+      dockerfile: scripts/docker/java.dockerfile
 
   spark-server:
-    # Usage:
-    #   docker-compose pull spark-server or docker-compose build spark-server
-    #   docker-compose run --rm spark-server
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm spark-server
-    #   to set the number of threads used during compilation
+    extends: base-block
     image: ghcr.io/facebookincubator/velox-dev:spark-server
     build:
       args:
         - SPARK_VERSION=3.5.1
-      context: .
-      dockerfile: scripts/docker/spark-container.dockerfile
-    environment:
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: /velox/.ccache
-    volumes:
-      - .:/velox:delegated
-    working_dir: /velox
-    command: /velox/scripts/docker/docker-command.sh
+      dockerfile: scripts/docker/java.dockerfile

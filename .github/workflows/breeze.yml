@@ -59,6 +59,9 @@ jobs:
           path: velox
           persist-credentials: false
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba # v6.3.1
+
       - name: Install Dependencies
         run: |
           source scripts/setup-ubuntu.sh && install_apt_deps
@@ -96,6 +99,9 @@ jobs:
         with:
           path: velox
           persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba # v6.3.1
 
       - name: Install Dependencies
         run: |

@@ -25,11 +25,13 @@ CURL_OPTIONS=${CURL_OPTIONS:-""}
 CMAKE_OPTIONS=${CMAKE_OPTIONS:-""}
 
 function run_and_time {
-  time "$@" || (
+  time "$@"
+  if [ $? -ne 0 ]; then
     echo "Failed to run $* ."
     exit 1
-  )
-  { echo "+ Finished running $*"; } 2>/dev/null
+  else
+    echo "+ Finished running $*" 2>/dev/null
+  fi
 }
 
 function prompt {

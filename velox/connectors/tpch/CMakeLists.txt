@@ -14,9 +14,15 @@
 
 velox_add_library(velox_tpch_connector OBJECT TpchConnector.cpp)
 
-velox_link_libraries(velox_tpch_connector velox_connector velox_tpch_gen
-                     velox_core velox_exec velox_expression velox_vector
-                     fmt::fmt)
+velox_link_libraries(
+  velox_tpch_connector
+  velox_connector
+  velox_tpch_gen
+  velox_core
+  velox_exec
+  velox_expression
+  velox_vector
+  fmt::fmt)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

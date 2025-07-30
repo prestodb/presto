@@ -84,13 +84,8 @@ function install_build_prerequisites {
     libtool \
     wget
 
-  if [ ! -f "${PYTHON_VENV}"/pyvenv.cfg ]; then
-    echo "Creating Python Virtual Environment at ${PYTHON_VENV}"
-    python3 -m venv "${PYTHON_VENV}"
-  fi
-  source "${PYTHON_VENV}"/bin/activate
-  # Install to /usr/local to make it available to all users.
-  ${SUDO} pip3 install cmake==3.28.3
+  install_uv
+  uv_install cmake==3.28.3
 
   install_gcc11_if_needed
 
@@ -98,14 +93,6 @@ function install_build_prerequisites {
     install_clang15
   fi
 
-}
-
-# Install packages required to fix format
-function install_format_prerequisites {
-  pip3 install regex
-  ${SUDO} apt install -y \
-    clang-format \
-    cmake-format
 }
 
 # Install packages required for build.
@@ -260,7 +247,6 @@ function install_velox_deps {
 
 function install_apt_deps {
   install_build_prerequisites
-  install_format_prerequisites
   install_velox_deps_from_apt
 }
 

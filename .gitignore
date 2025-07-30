@@ -324,5 +324,6 @@ src/amalgamation/
 velox/docs/sphinx/source/README_generated_*
 velox/docs/bindings/python/_generate/*
 scripts/bm-report/report.html
+scripts/bm-report/result
 dist/
 wheelhouse/

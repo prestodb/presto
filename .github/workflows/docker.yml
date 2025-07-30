@@ -14,6 +14,7 @@
 name: Build & Push Docker Images
 
 on:
+  workflow_dispatch: {}
   pull_request:
     paths:
       - scripts/docker/*.dockerfile
@@ -34,27 +35,137 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  BASE_NAME: ghcr.io/facebookincubator
+
 jobs:
-  linux:
-    name: Build and Push ${{ matrix.name }}
+  multi-arch-base:
+    name: Build ${{ matrix.target }} Image on ${{ matrix.os.platform }}
+    runs-on: ${{ matrix.os.runner }}
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - {runner: ubuntu-24.04-arm, platform: arm64}
+          - {runner: ubuntu-24.04, platform: amd64}
+        target: [ci, pyvelox, ubuntu]
+
+    steps:
+      - name: Free Disk Space
+        run: |
+          # 15G
+          sudo rm -rf /usr/local/lib/android || :
+          # 5.3GB
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bake Images
+        id: bake
+        uses: docker/bake-action@37816e747588cb137173af99ab33873600c46ea8 # v6.8.0
+        env:
+          DOCKER_UPLOAD_CACHE: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
+        with:
+          targets: ${{ matrix.target }}-${{ matrix.os.platform }}
+          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
+          # loads the image into the local image store, this allows us to export it in the next step
+          load: ${{  github.event_name == 'pull_request' && matrix.target == 'ci' && matrix.os.platform == 'amd64' }}
+
+      - name: Export Base Image
+        # The dependent images are just build for amd64 and can pull from the
+        # registry when not running in a PR
+        if: ${{ github.event_name == 'pull_request' && matrix.target == 'ci' && matrix.os.platform == 'amd64' }}
+        run: |
+          # Update tag to what the dependent images expect
+          docker tag "$BASE_NAME/velox-dev:centos9-amd64" "$BASE_NAME/velox-dev:centos9"
+          docker save -o centos9.tar "$BASE_NAME/velox-dev:centos9"
+
+      - name: Upload Base Image
+        if: ${{ github.event_name == 'pull_request' && matrix.target == 'ci' && matrix.os.platform == 'amd64' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          path: centos9.tar
+          name: centos9-amd64
+          retention-days: 1
+
+      - name: Export digests
+        env:
+          METADATA: ${{ steps.bake.outputs.metadata }}
+          DIGEST_DIR: ${{ runner.temp }}/digests
+        run: |
+          mkdir -p "$DIGEST_DIR"
+          cd "$DIGEST_DIR" || exit 1
+          # Add the target for any images that shouldn't be build as multi-platform
+          # into the skip list
+          echo "$METADATA" | jq -r 'def skip: ["ubuntu"];
+            . | to_entries[] | .key | split("-")[0] |
+            if . as $name | skip | index($name) != null then empty else . end' | \
+            while read -r image_name; do
+              touch "$image_name"
+            done
+          ls -la
+
+      - name: Upload digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digests-${{ matrix.target }}-${{ matrix.os.platform }}
+          path: ${{ runner.temp }}/digests/*
+          retention-days: 1
+
+  merge:
+    if: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
+    needs: multi-arch-base
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          ls -laR
+
+          for file in *; do
+            image_name="$BASE_NAME/velox-dev:$file"
+
+            docker buildx imagetools create -t "$image_name" "${image_name}-amd64" "${image_name}-arm64"
+          done
+
+  dependent-images:
+    # In PRs the merge job will be skipped but we want to run this job anyway
+    if: ${{ success() || (needs.multi-arch-base.result == 'success' && needs.merge.result == 'skipped') }}
+    needs: [multi-arch-base, merge]
+    name: Build and Push ${{ matrix.target }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: Centos 9
-            file: scripts/docker/centos.dockerfile
-            tags: ghcr.io/facebookincubator/velox-dev:centos9
-          - name: Pyvelox
-            file: scripts/docker/pyvelox.dockerfile
-            tags: ghcr.io/facebookincubator/velox-dev:pyvelox
-          - name: Dev
-            file: scripts/docker/ubuntu-22.04-cpp.dockerfile
-            args: ''
-            tags: ghcr.io/facebookincubator/velox-dev:ubuntu-22.04
-
+        target: [java]
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -69,54 +180,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: Build and Push
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+      - name: Download Base Image
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          file: ${{ matrix.file }}
-          build-args: ${{ matrix.args }}
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: ${{ matrix.tags }}
+          pattern: centos9-amd64
+          path: /tmp
 
-  linux-needs:
-    name: Build and Push ${{ matrix.name }}
-    needs: linux
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Adapters
-            file: scripts/docker/adapters.dockerfile
-            tags: ghcr.io/facebookincubator/velox-dev:adapters
-          - name: Presto Java
-            file: scripts/docker/prestojava-container.dockerfile
-            args: PRESTO_VERSION=0.293
-            tags: ghcr.io/facebookincubator/velox-dev:presto-java
-          - name: Spark server
-            file: scripts/docker/spark-container.dockerfile
-            args: SPARK_VERSION=3.5.1
-            tags: ghcr.io/facebookincubator/velox-dev:spark-server
-
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Load Base Image
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          docker load -i /tmp/centos9-amd64/centos9.tar
+          docker images
+          rm /tmp/centos9-amd64/centos9.tar
 
       - name: Build and Push
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/bake-action@37816e747588cb137173af99ab33873600c46ea8 # v6.8.0
         with:
-          file: ${{ matrix.file }}
-          build-args: ${{ matrix.args }}
+          targets: ${{ matrix.target }}
           push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
-          tags: ${{ matrix.tags }}

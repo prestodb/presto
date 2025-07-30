@@ -102,6 +102,7 @@ jobs:
       MAX_LINK_JOBS: ${{ inputs.maxLinkJobs || 4 }}
       SKBUILD_BUILD_DIR: _build/debug
       PYVELOX_LEGACY_ONLY: 'ON'
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
 
     defaults:
       run:
@@ -177,8 +178,10 @@ jobs:
         if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
         working-directory: velox_main
         run: |
+          # TODO convert to uv with script defined deps after 14046 is merged
           source .venv/bin/activate
-          python3 -m pip install deepdiff
+          PIP=$(command -v uv > /dev/null 2>&1 && echo "uv pip" || echo "python3 -m pip")
+          $PIP install deepdiff
           python3 scripts/ci/signature.py export --spark /tmp/signatures/spark_signatures_main.json
           python3 scripts/ci/signature.py export --presto /tmp/signatures/presto_signatures_main.json
           python3 scripts/ci/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_main.json
@@ -237,7 +240,8 @@ jobs:
         id: sig-check
         run: |
           source .venv/bin/activate
-          python3 -m pip install deepdiff
+          PIP=$(command -v uv > /dev/null 2>&1 && echo "uv pip" || echo "python3 -m pip")
+          $PIP install deepdiff
           python3 scripts/ci/signature.py gh_bias_check presto spark
           python3 scripts/ci/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_contender.json
           python3 scripts/ci/signature.py bias_aggregates  /tmp/signatures/presto_aggregate_signatures_main.json \

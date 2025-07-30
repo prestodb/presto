@@ -54,8 +54,7 @@ jobs:
 
       - name: Install Dependencies
         env:
-          # Remove after image is rebuild for 14016
-          VELOX_ARROW_CMAKE_PATCH: "${{ github.workspace }}/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch"
+          VELOX_BUILD_SHARED: "ON"
         run: |
           if git diff --name-only HEAD^1 HEAD | grep -q "scripts/setup-"; then
             # Overwrite old setup scripts with changed versions
@@ -67,9 +66,7 @@ jobs:
             # install basic deps
             bash /setup-centos9.sh
 
-            source /setup-centos9.sh
-            install_adapters
-            install_cuda $CUDA_VERSION
+            bash /setup-centos-adapters.sh
 
             cd /
             rm -rf /tmp/build # cleanup to avoid issues with disk space
@@ -121,12 +118,16 @@ jobs:
           key: ccache-linux-adapters-${{ inputs.use-clang && 'clang' || 'gcc' }}
 
       - name: Run Tests
-        # Some of the adapters dependencies are in the 'adapters' conda env
-        shell: mamba run --no-capture-output -n adapters /usr/bin/bash -e {0}
         env:
           LIBHDFS3_CONF: ${{ github.workspace }}/scripts/ci/hdfs-client.xml
         working-directory: _build/release
         run: |
+          # Can be removed after images are rebuild
+          if [ -f "/opt/miniforge/etc/profile.d/conda.sh" ]; then
+            source "/opt/miniforge/etc/profile.d/conda.sh"
+            conda activate adapters
+          fi
+
           export CLASSPATH=`/usr/local/hadoop/bin/hdfs classpath --glob`
           ctest -j 8 --label-exclude cuda_driver --output-on-failure --no-tests=error
 
