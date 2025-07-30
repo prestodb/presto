@@ -201,7 +201,7 @@ public class TestGroupInnerJoinsByConnectorRuleSet
                 .matches(
                         project(
                                 filter(
-                                "a1 = b1 and a1 = c1 and true",
+                                        "a1 = b1 and a1 = c1 and true",
                                         join(
                                                 JoinTableScanMatcher.tableScan(CATALOG_SUPPORTING_JOIN_PUSHDOWN, tableHandle1, "a1", "a2", "c1", "c2"),
                                                 JoinTableScanMatcher.tableScan(LOCAL, tableHandle2, "b1", "b2")))));
@@ -277,7 +277,7 @@ public class TestGroupInnerJoinsByConnectorRuleSet
                 .matches(
                         project(
                                 filter(
-                        "a1 = a2 and a1 > b1 and true",
+                                        "a1 = a2 and a1 > b1 and true",
                                         JoinTableScanMatcher.tableScan(CATALOG_SUPPORTING_JOIN_PUSHDOWN, tableHandle, "a1", "a2", "b1"))));
     }
 
@@ -339,11 +339,11 @@ public class TestGroupInnerJoinsByConnectorRuleSet
                                         tableScan(CATALOG_SUPPORTING_JOIN_PUSHDOWN, "b1", "b2"),
                                         tableScan(OTHER_CATALOG_SUPPORTING_JOIN_PUSHDOWN, "c1", "c2"),
                                         new EquiJoinClause(newBigintVariable("b1"), newBigintVariable("c1"))),
-                                        new EquiJoinClause(newBigintVariable("c1"), newBigintVariable("d1"))))
+                                new EquiJoinClause(newBigintVariable("c1"), newBigintVariable("d1"))))
                 .matches(
                         project(
                                 filter(
-                        "((a1 = b1 and a1 = d1) and (b1 = c1 and c1 = d1)) and true",
+                                        "((a1 = b1 and a1 = d1) and (b1 = c1 and c1 = d1)) and true",
                                         join(
                                                 JoinTableScanMatcher.tableScan(CATALOG_SUPPORTING_JOIN_PUSHDOWN, tableHandle1, "a1", "b1"),
                                                 JoinTableScanMatcher.tableScan(OTHER_CATALOG_SUPPORTING_JOIN_PUSHDOWN, tableHandle2, "c1", "d1")))));
@@ -352,9 +352,7 @@ public class TestGroupInnerJoinsByConnectorRuleSet
     private RuleAssert assertGroupInnerJoinsByConnectorRuleSet()
     {
         // For testing, we do not wish to push down pulled up predicates
-        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata(),
-                (plan, session, types, variableAllocator, idAllocator, warningCollector) ->
-                        PlanOptimizerResult.optimizerResult(plan, false)),
+        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata(), (plan, session, types, variableAllocator, idAllocator, warningCollector) -> PlanOptimizerResult.optimizerResult(plan, false)),
                 ImmutableList.of(CATALOG_SUPPORTING_JOIN_PUSHDOWN, OTHER_CATALOG_SUPPORTING_JOIN_PUSHDOWN));
     }
 
@@ -473,8 +471,8 @@ public class TestGroupInnerJoinsByConnectorRuleSet
             ConnectorTableHandle connectorHandle = otherTable.getConnectorHandle();
 
             if (connectorId.equals(otherTable.getConnectorId()) && Objects.equals(otherTable.getConnectorId(), this.tableHandle.getConnectorId()) &&
-                            Objects.equals(otherTable.getConnectorHandle(), this.tableHandle.getConnectorHandle()) &&
-                            Objects.equals(otherTable.getLayout().isPresent(), this.tableHandle.getLayout().isPresent())) {
+                    Objects.equals(otherTable.getConnectorHandle(), this.tableHandle.getConnectorHandle()) &&
+                    Objects.equals(otherTable.getLayout().isPresent(), this.tableHandle.getLayout().isPresent())) {
                 return MatchResult.match(SymbolAliases.builder().putAll(Arrays.stream(columns).collect(toMap(identity(), SymbolReference::new))).build());
             }
 

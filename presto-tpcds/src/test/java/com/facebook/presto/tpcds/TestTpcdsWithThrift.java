@@ -13,26 +13,19 @@
  */
 package com.facebook.presto.tpcds;
 
-import com.facebook.drift.annotations.ThriftEnum;
-import com.facebook.drift.annotations.ThriftEnumValue;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 
-@ThriftEnum
-public enum TpcdsTransactionHandle
-        implements ConnectorTransactionHandle
+public class TestTpcdsWithThrift
+        extends AbstractTestTpcds
 {
-    INSTANCE(1);
-
-    private final int value;
-
-    TpcdsTransactionHandle(int value)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this.value = value;
-    }
-
-    @ThriftEnumValue
-    public int getValue()
-    {
-        return value;
+        return TpcdsQueryRunner.createQueryRunner(ImmutableMap.<String, String>builder()
+                .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
+                .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
+                .build());
     }
 }
