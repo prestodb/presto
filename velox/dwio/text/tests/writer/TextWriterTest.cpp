@@ -1485,6 +1485,270 @@ TEST_F(
   }
 }
 
+TEST_F(TextWriterTest, simpleEscapeCharTest) {
+  auto schema = ROW({"col_string", "col_array"}, {VARCHAR(), ARRAY(VARCHAR())});
+
+  // Create test data with strings containing comma delimiter characters
+  // Field delimiter: ',', Collection delimiter: '|', Escape char: '\'
+  auto data = makeRowVector(
+      {"col_string", "col_array"},
+      {makeFlatVector<StringView>(
+           {"engineer,manager", "developer,senior", "analyst,junior"},
+           VARCHAR()),
+       // Array column with strings containing comma delimiters
+       makeArrayVector<StringView>(
+           {{"role,title", "position,level"}, // Array with comma delimiters
+            {"job,description", "work,type"},
+            {"career,path", "skill,set"}})});
+
+  WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_escape_writer.txt";
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+
+  auto sink = std::make_unique<dwio::common::LocalFileSink>(
+      filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
+  // Configure SerDeOptions with comma as field delimiter and escaping enabled
+  auto serDeOptions = dwio::common::SerDeOptions(
+      ',', // field delimiter (comma)
+      '|', // collection delimiter
+      '#', // map key delimiter
+      '\\', // escape character
+      true // isEscaped = true
+  );
+
+  auto writer = std::make_unique<TextWriter>(
+      schema,
+      std::move(sink),
+      std::make_shared<text::WriterOptions>(writerOptions),
+      serDeOptions);
+
+  writer->write(data);
+  writer->close();
+
+  const auto fs = filesystems::getFileSystem(tempPath, nullptr);
+  const auto& file = fs->openFileForRead(filePath.string());
+  auto fileSize = file->size();
+
+  BufferPtr charBuf = AlignedBuffer::allocate<char>(fileSize, pool());
+  auto rawCharBuf = charBuf->asMutable<char>();
+  std::vector<std::vector<std::string>> result =
+      parseTextFile(tempPath, filename, rawCharBuf);
+  EXPECT_EQ(result.size(), 3);
+
+  // Verify that commas in strings are properly escaped with backslashes
+  // Temporary parse because parseTextFile is not handling escape characters
+  EXPECT_EQ(result[0][0], "engineer\\,manager,role\\,title|position\\,level");
+  EXPECT_EQ(result[1][0], "developer\\,senior,job\\,description|work\\,type");
+  EXPECT_EQ(result[2][0], "analyst\\,junior,career\\,path|skill\\,set");
+}
+
+TEST_F(TextWriterTest, verifySimpleEscapeCharTestWithTextReader) {
+  auto schema = ROW({"col_string", "col_array"}, {VARCHAR(), ARRAY(VARCHAR())});
+
+  // Create test data with strings containing comma delimiter characters
+  // Field delimiter: ',', Collection delimiter: '|', Escape char: '\'
+  auto data = makeRowVector(
+      {"col_string", "col_array"},
+      {makeFlatVector<StringView>(
+           {"engineer,manager", "developer,senior", "analyst,junior"},
+           VARCHAR()),
+       // Array column with strings containing comma delimiters
+       makeArrayVector<StringView>(
+           {{"role,title", "position,level"}, // Array with comma delimiters
+            {"job,description", "work,type"},
+            {"career,path", "skill,set"}})});
+
+  WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_escape_writer.txt";
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+
+  auto sink = std::make_unique<dwio::common::LocalFileSink>(
+      filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
+  // Configure SerDeOptions with comma as field delimiter and escaping enabled
+  auto serDeOptions = dwio::common::SerDeOptions(
+      ',', // field delimiter (comma)
+      '|', // collection delimiter
+      '#', // map key delimiter
+      '\\', // escape character
+      true // isEscaped = true
+  );
+
+  auto writer = std::make_unique<TextWriter>(
+      schema,
+      std::move(sink),
+      std::make_shared<text::WriterOptions>(writerOptions),
+      serDeOptions);
+
+  writer->write(data);
+  writer->close();
+
+  // Set up reader
+  auto readerFactory =
+      dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+  auto readFile = std::make_shared<LocalReadFile>(filePath.string());
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(schema);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = readerFactory->createReader(std::move(input), readerOptions);
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*schema, rowReaderOptions);
+
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *schema);
+
+  VectorPtr result;
+
+  ASSERT_EQ(rowReader->next(5, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(result->equalValueAt(data.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
+TEST_F(TextWriterTest, customEscapeCharTest) {
+  auto schema = ROW({"col_string", "col_array"}, {VARCHAR(), ARRAY(VARCHAR())});
+
+  // Create test data with strings containing comma delimiter characters
+  // Field delimiter: ',', Collection delimiter: '|', Escape char: '\'
+  auto data = makeRowVector(
+      {"col_string", "col_array"},
+      {makeFlatVector<StringView>(
+           {"engineer,manager", "developer,senior", "analyst,junior"},
+           VARCHAR()),
+       // Array column with strings containing comma delimiters
+       makeArrayVector<StringView>(
+           {{"role,title", "position,level"}, // Array with comma delimiters
+            {"job,description", "work,type"},
+            {"career,path", "skill,set"}})});
+
+  WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_escape_writer.txt";
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+
+  auto sink = std::make_unique<dwio::common::LocalFileSink>(
+      filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
+  // Configure SerDeOptions with comma as field delimiter and escaping enabled
+  const auto serDeOptions = dwio::common::SerDeOptions(
+      ',', // field delimiter (comma)
+      '|', // collection delimiter
+      '#', // map key delimiter
+      '@', // escape character
+      true // isEscaped = true
+  );
+
+  auto writer = std::make_unique<TextWriter>(
+      schema,
+      std::move(sink),
+      std::make_shared<text::WriterOptions>(writerOptions),
+      serDeOptions);
+
+  writer->write(data);
+  writer->close();
+
+  const auto fs = filesystems::getFileSystem(tempPath, nullptr);
+  const auto& file = fs->openFileForRead(filePath.string());
+  auto fileSize = file->size();
+
+  BufferPtr charBuf = AlignedBuffer::allocate<char>(fileSize, pool());
+  auto rawCharBuf = charBuf->asMutable<char>();
+  std::vector<std::vector<std::string>> result =
+      parseTextFile(tempPath, filename, rawCharBuf);
+
+  EXPECT_EQ(result.size(), 3);
+
+  // Verify that commas in strings are properly escaped with @ character
+  EXPECT_EQ(result[0][0], "engineer@,manager,role@,title|position@,level");
+  EXPECT_EQ(result[1][0], "developer@,senior,job@,description|work@,type");
+  EXPECT_EQ(result[2][0], "analyst@,junior,career@,path|skill@,set");
+}
+
+TEST_F(TextWriterTest, verifyCustomEscapeCharTestWithTextReader) {
+  auto schema = ROW({"col_string", "col_array"}, {VARCHAR(), ARRAY(VARCHAR())});
+
+  // Create test data with strings containing comma delimiter characters
+  // Field delimiter: ',', Collection delimiter: '|', Escape char: '\'
+  auto data = makeRowVector(
+      {"col_string", "col_array"},
+      {makeFlatVector<StringView>(
+           {"engineer,manager", "developer,senior", "analyst,junior"},
+           VARCHAR()),
+       // Array column with strings containing comma delimiters
+       makeArrayVector<StringView>(
+           {{"role,title", "position,level"}, // Array with comma delimiters
+            {"job,description", "work,type"},
+            {"career,path", "skill,set"}})});
+
+  WriterOptions writerOptions;
+  writerOptions.memoryPool = rootPool_.get();
+
+  const auto tempPath = tempPath_->getPath();
+  const auto filename = "test_escape_writer.txt";
+  auto filePath = fs::path(fmt::format("{}/{}", tempPath, filename));
+
+  auto sink = std::make_unique<dwio::common::LocalFileSink>(
+      filePath, dwio::common::FileSink::Options{.pool = leafPool_.get()});
+
+  // Configure SerDeOptions with comma as field delimiter and escaping enabled
+  const auto serDeOptions = dwio::common::SerDeOptions(
+      ',', // field delimiter (comma)
+      '|', // collection delimiter
+      '#', // map key delimiter
+      '@', // escape character
+      true // isEscaped = true
+  );
+
+  auto writer = std::make_unique<TextWriter>(
+      schema,
+      std::move(sink),
+      std::make_shared<text::WriterOptions>(writerOptions),
+      serDeOptions);
+
+  writer->write(data);
+  writer->close();
+
+  // Set up reader
+  auto readerFactory =
+      dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+  auto readFile = std::make_shared<LocalReadFile>(filePath.string());
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(schema);
+  readerOptions.setSerDeOptions(serDeOptions);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = readerFactory->createReader(std::move(input), readerOptions);
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*schema, rowReaderOptions);
+
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *schema);
+
+  VectorPtr result;
+
+  ASSERT_EQ(rowReader->next(3, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(result->equalValueAt(data.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
 TEST_F(TextWriterTest, headerTest) {
   auto schema = ROW({"name", "age", "city"}, {VARCHAR(), INTEGER(), VARCHAR()});
 
