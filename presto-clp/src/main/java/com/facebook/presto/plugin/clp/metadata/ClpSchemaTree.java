@@ -101,11 +101,11 @@ public class ClpSchemaTree
             String name = entry.getKey();
             ClpNode child = entry.getValue();
             if (child.isLeaf()) {
-                columns.add(new ClpColumnHandle(name, child.originalName, child.type, true));
+                columns.add(new ClpColumnHandle(name, child.originalName, child.type));
             }
             else {
                 Type rowType = buildRowType(child);
-                columns.add(new ClpColumnHandle(name, child.originalName, rowType, true));
+                columns.add(new ClpColumnHandle(name, child.originalName, rowType));
             }
         }
         return columns.build();

@@ -82,10 +82,9 @@ public class TestClpQueryBase
                     RowType.field("Region", RowType.from(ImmutableList.of(
                             RowType.field("Id", BIGINT),
                             RowType.field("Name", VARCHAR)))),
-                    RowType.field("Name", VARCHAR))),
-            true);
-    protected static final ClpColumnHandle fare = new ClpColumnHandle("fare", DOUBLE, true);
-    protected static final ClpColumnHandle isHoliday = new ClpColumnHandle("isHoliday", BOOLEAN, true);
+                    RowType.field("Name", VARCHAR))));
+    protected static final ClpColumnHandle fare = new ClpColumnHandle("fare", DOUBLE);
+    protected static final ClpColumnHandle isHoliday = new ClpColumnHandle("isHoliday", BOOLEAN);
     protected static final Map<VariableReferenceExpression, ColumnHandle> variableToColumnHandleMap =
             Stream.of(city, fare, isHoliday)
                     .collect(toMap(

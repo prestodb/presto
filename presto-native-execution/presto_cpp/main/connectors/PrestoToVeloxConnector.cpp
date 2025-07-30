@@ -1577,8 +1577,7 @@ ClpPrestoToVeloxConnector::toVeloxColumnHandle(
   return std::make_unique<connector::clp::ClpColumnHandle>(
       clpColumn->columnName,
       clpColumn->originalColumnName,
-      typeParser.parse(clpColumn->columnType),
-      clpColumn->nullable);
+      typeParser.parse(clpColumn->columnType));
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>

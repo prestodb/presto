@@ -20,7 +20,6 @@ struct ClpColumnHandle : public ColumnHandle {
   String columnName = {};
   String originalColumnName = {};
   Type columnType = {};
-  boolean nullable = {};
 
   ClpColumnHandle() noexcept;
 

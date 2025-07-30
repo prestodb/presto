@@ -3,3 +3,4 @@ presto_protocol_hive.json
 presto_protocol_iceberg.json
 presto_protocol_tpch.json
 presto_protocol_arrow_flight.json
+presto_protocol_clp.json

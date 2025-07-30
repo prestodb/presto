@@ -29,24 +29,21 @@ public class ClpColumnHandle
     private final String columnName;
     private final String originalColumnName;
     private final Type columnType;
-    private final boolean nullable;
 
     @JsonCreator
     public ClpColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("originalColumnName") String originalColumnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("columnType") Type columnType)
     {
         this.columnName = columnName;
         this.originalColumnName = originalColumnName;
         this.columnType = columnType;
-        this.nullable = nullable;
     }
 
-    public ClpColumnHandle(String columnName, Type columnType, boolean nullable)
+    public ClpColumnHandle(String columnName, Type columnType)
     {
-        this(columnName, columnName, columnType, nullable);
+        this(columnName, columnName, columnType);
     }
 
     @JsonProperty
@@ -67,25 +64,15 @@ public class ClpColumnHandle
         return columnType;
     }
 
-    @JsonProperty
-    public boolean isNullable()
-    {
-        return nullable;
-    }
-
     public ColumnMetadata getColumnMetadata()
     {
-        return ColumnMetadata.builder()
-                .setName(columnName)
-                .setType(columnType)
-                .setNullable(nullable)
-                .build();
+        return ColumnMetadata.builder().setName(columnName).setType(columnType).build();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, originalColumnName, columnType, nullable);
+        return Objects.hash(columnName, originalColumnName, columnType);
     }
 
     @Override
@@ -100,8 +87,7 @@ public class ClpColumnHandle
         ClpColumnHandle other = (ClpColumnHandle) obj;
         return Objects.equals(this.columnName, other.columnName) &&
                 Objects.equals(this.originalColumnName, other.originalColumnName) &&
-                Objects.equals(this.columnType, other.columnType) &&
-                Objects.equals(this.nullable, other.nullable);
+                Objects.equals(this.columnType, other.columnType);
     }
 
     @Override
@@ -111,7 +97,6 @@ public class ClpColumnHandle
                 .add("columnName", columnName)
                 .add("originalColumnName", originalColumnName)
                 .add("columnType", columnType)
-                .add("nullable", nullable)
                 .toString();
     }
 }

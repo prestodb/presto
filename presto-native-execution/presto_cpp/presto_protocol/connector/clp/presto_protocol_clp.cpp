@@ -52,7 +52,6 @@ void to_json(json& j, const ClpColumnHandle& p) {
       "originalColumnName");
   to_json_key(
       j, "columnType", p.columnType, "ClpColumnHandle", "Type", "columnType");
-  to_json_key(j, "nullable", p.nullable, "ClpColumnHandle", "bool", "nullable");
 }
 
 void from_json(const json& j, ClpColumnHandle& p) {
@@ -68,8 +67,6 @@ void from_json(const json& j, ClpColumnHandle& p) {
       "originalColumnName");
   from_json_key(
       j, "columnType", p.columnType, "ClpColumnHandle", "Type", "columnType");
-  from_json_key(
-      j, "nullable", p.nullable, "ClpColumnHandle", "bool", "nullable");
 }
 } // namespace facebook::presto::protocol::clp
 namespace facebook::presto::protocol::clp {
