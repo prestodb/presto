@@ -381,6 +381,12 @@ public class TestQueryManager
         }
 
         @Override
+        public Duration getQueuedTime()
+        {
+            return info.getQueryStats().getQueuedTime();
+        }
+
+        @Override
         public Duration getTotalCpuTime()
         {
             return info.getQueryStats().getTotalCpuTime();

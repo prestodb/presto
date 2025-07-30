@@ -115,6 +115,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_BROADCAST_MEMORY = "query_max_broadcast_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
+    public static final String QUERY_MAX_QUEUED_TIME = "query_max_queued_time";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
@@ -566,6 +567,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_QUEUED_TIME,
+                        "Maximum Queued time of a query",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getQueryMaxQueuedTime(),
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
@@ -2186,6 +2196,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_RUN_TIME, Duration.class);
+    }
+
+    public static Duration getQueryMaxQueuedTime(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_QUEUED_TIME, Duration.class);
     }
 
     public static Duration getQueryMaxExecutionTime(Session session)
