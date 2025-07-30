@@ -341,6 +341,12 @@ public class SqlQueryExecution
         return stateMachine.getCreateTimeInMillis();
     }
 
+    @Override
+    public Duration getQueuedTime()
+    {
+        return stateMachine.getQueuedTime();
+    }
+
     /**
      * For a query that has started executing, returns the timestamp when this query started executing
      * Otherwise returns a {@link Optional#empty()}

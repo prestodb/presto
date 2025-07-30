@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryClientTimeout;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxQueuedTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
 import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
@@ -211,15 +212,17 @@ public class QueryTracker<T extends TrackedQuery>
     }
 
     /**
-     * Enforce query max runtime/execution time limits
+     * Enforce query max runtime/queued/execution time limits
      */
-    private void enforceTimeLimits()
+    @VisibleForTesting
+    void enforceTimeLimits()
     {
         for (T query : queries.values()) {
             if (query.isDone()) {
                 continue;
             }
             Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
+            Duration queryMaxQueuedTime = getQueryMaxQueuedTime(query.getSession());
             QueryLimit<Duration> queryMaxExecutionTime = getMinimum(
                     createDurationLimit(getQueryMaxExecutionTime(query.getSession()), QUERY),
                     query.getResourceGroupQueryLimits()
@@ -227,6 +230,10 @@ public class QueryTracker<T extends TrackedQuery>
                             .map(rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP)).orElse(null));
             long executionStartTime = query.getExecutionStartTimeInMillis();
             long createTimeInMillis = query.getCreateTimeInMillis();
+            long queuedTimeInMillis = query.getQueuedTime().toMillis();
+            if (queuedTimeInMillis > queryMaxQueuedTime.toMillis()) {
+                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum queued time limit of " + queryMaxQueuedTime));
+            }
             if (executionStartTime > 0 && (executionStartTime + queryMaxExecutionTime.getLimit().toMillis()) < currentTimeMillis()) {
                 query.fail(
                         new PrestoException(EXCEEDED_TIME_LIMIT,
@@ -398,6 +405,8 @@ public class QueryTracker<T extends TrackedQuery>
         Session getSession();
 
         long getCreateTimeInMillis();
+
+        Duration getQueuedTime();
 
         long getExecutionStartTimeInMillis();
 
