@@ -67,8 +67,8 @@ Property Name                               Description
 
    If a client certificate (``arrow-flight.client-ssl-certificate``) is also provided,
    the Flight client will be configured to perform mutual authentication.
-   However, a true mutual TLS (mTLS) connection is only established if the Flight server
-   is explicitly configured to **require and verify** client certificates.
+   Note that the Flight server must also be properly configured to **require and verify** client certificates to
+   enable mutual TLS (mTLS).
 
    Otherwise, the connection will default to standard one-way TLS.
 
