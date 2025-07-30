@@ -196,7 +196,7 @@ function install_arrow {
     -DCMAKE_BUILD_TYPE=Release \
     -DARROW_BUILD_STATIC=ON \
     -DBOOST_ROOT="$INSTALL_PREFIX" \
-    "$EXTRA_ARROW_OPTIONS"
+    $EXTRA_ARROW_OPTIONS
 }
 
 function install_thrift {
