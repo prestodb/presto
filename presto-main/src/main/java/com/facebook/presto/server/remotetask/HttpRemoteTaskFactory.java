@@ -24,7 +24,6 @@ import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
@@ -42,7 +41,6 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.InternalCommunicationConfig;
@@ -86,12 +84,10 @@ public class HttpRemoteTaskFactory
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Codec<TaskInfo> taskInfoResponseCodec;
     private final Codec<PlanFragment> planFragmentCodec;
-    private final Codec<MetadataUpdates> metadataUpdatesCodec;
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoRefreshMaxWait;
     private final HandleResolver handleResolver;
-    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     private final Duration taskInfoUpdateInterval;
     private final ExecutorService coreExecutor;
@@ -130,14 +126,11 @@ public class HttpRemoteTaskFactory
             ThriftCodec<TaskUpdateRequest> taskUpdateRequestThriftCodec,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
             SmileCodec<PlanFragment> planFragmentSmileCodec,
-            JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
-            SmileCodec<MetadataUpdates> metadataUpdatesSmileCodec,
             RemoteTaskStats stats,
             InternalCommunicationConfig communicationConfig,
             MetadataManager metadataManager,
             QueryManager queryManager,
-            HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager)
+            HandleResolver handleResolver)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -146,7 +139,6 @@ public class HttpRemoteTaskFactory
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         this.handleResolver = handleResolver;
-        this.connectorTypeSerdeManager = connectorTypeSerdeManager;
 
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
@@ -203,12 +195,6 @@ public class HttpRemoteTaskFactory
         }
 
         this.taskInfoJsonCodec = taskInfoJsonCodec;
-        if (binaryTransportEnabled) {
-            this.metadataUpdatesCodec = metadataUpdatesSmileCodec;
-        }
-        else {
-            this.metadataUpdatesCodec = metadataUpdatesJsonCodec;
-        }
         this.planFragmentCodec = planFragmentJsonCodec;
 
         this.metadataManager = metadataManager;
@@ -289,7 +275,6 @@ public class HttpRemoteTaskFactory
                     taskUpdateRequestCodec,
                     taskInfoResponseCodec,
                     planFragmentCodec,
-                    metadataUpdatesCodec,
                     nodeStatsTracker,
                     stats,
                     binaryTransportEnabled,
@@ -305,7 +290,6 @@ public class HttpRemoteTaskFactory
                     taskUpdateRequestSize,
                     taskUpdateSizeTrackingEnabled,
                     handleResolver,
-                    connectorTypeSerdeManager,
                     schedulerStatsTracker,
                     (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next());
         }
@@ -334,7 +318,6 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestCodec,
                 taskInfoResponseCodec,
                 planFragmentCodec,
-                metadataUpdatesCodec,
                 nodeStatsTracker,
                 stats,
                 binaryTransportEnabled,
@@ -350,7 +333,6 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestSize,
                 taskUpdateSizeTrackingEnabled,
                 handleResolver,
-                connectorTypeSerdeManager,
                 schedulerStatsTracker);
     }
 }

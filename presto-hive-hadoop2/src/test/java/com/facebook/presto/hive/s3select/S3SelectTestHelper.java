@@ -30,7 +30,6 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveEncryptionInformationProvider;
-import com.facebook.presto.hive.HiveFileRenamer;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveLocationService;
 import com.facebook.presto.hive.HiveMetadataFactory;
@@ -178,7 +177,6 @@ public class S3SelectTestHelper
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableSet.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer(),
                 columnConverterProvider,
                 new QuickStatsProvider(metastoreClient, hdfsEnvironment, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(config));

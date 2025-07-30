@@ -21,10 +21,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
-import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -214,7 +212,6 @@ public class TestTableWriterOperator
                 .build();
         TaskContext taskContext = createTaskContext(executor, scheduledExecutor, session);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        TaskMetadataContext taskMetadataContext = taskContext.getTaskMetadataContext();
         FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
         JavaAggregationFunctionImplementation longMaxFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
                 functionAndTypeManager.lookupFunction("max", fromTypes(BIGINT)));
@@ -228,7 +225,6 @@ public class TestTableWriterOperator
                         true),
                 outputTypes,
                 session,
-                taskMetadataContext,
                 driverContext);
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
@@ -309,8 +305,7 @@ public class TestTableWriterOperator
     {
         TaskContext taskContext = createTaskContext(executor, scheduledExecutor, session);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        TaskMetadataContext taskMetadataContext = taskContext.getTaskMetadataContext();
-        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, taskMetadataContext, driverContext);
+        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, driverContext);
     }
 
     private Operator createTableWriterOperator(
@@ -318,7 +313,6 @@ public class TestTableWriterOperator
             OperatorFactory statisticsAggregation,
             List<Type> outputTypes,
             Session session,
-            TaskMetadataContext taskMetadataContext,
             DriverContext driverContext)
     {
         List<String> notNullColumnNames = new ArrayList<>(1);
@@ -327,8 +321,6 @@ public class TestTableWriterOperator
                 0,
                 new PlanNodeId("test"),
                 pageSinkManager,
-                new ConnectorMetadataUpdaterManager(),
-                taskMetadataContext,
                 new CreateHandle(new OutputTableHandle(
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},

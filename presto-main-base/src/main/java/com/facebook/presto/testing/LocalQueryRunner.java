@@ -27,7 +27,6 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.AnalyzePropertiesSystemTable;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.ColumnPropertiesSystemTable;
@@ -98,7 +97,6 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
-import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -122,7 +120,6 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
 import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -332,8 +329,6 @@ public class LocalQueryRunner
     private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ConnectorPlanOptimizerManager planOptimizerManager;
-    private final ConnectorMetadataUpdaterManager distributedMetadataManager;
-    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -431,8 +426,6 @@ public class LocalQueryRunner
         this.partitioningProviderManager = new PartitioningProviderManager();
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
-        this.distributedMetadataManager = new ConnectorMetadataUpdaterManager();
-        this.connectorTypeSerdeManager = new ConnectorTypeSerdeManager(new ConnectorMetadataUpdateHandleJsonSerde());
 
         this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
@@ -499,8 +492,6 @@ public class LocalQueryRunner
                 indexManager,
                 partitioningProviderManager,
                 planOptimizerManager,
-                distributedMetadataManager,
-                connectorTypeSerdeManager,
                 pageSinkManager,
                 new HandleResolver(),
                 nodeManager,
@@ -990,7 +981,6 @@ public class LocalQueryRunner
                 partitioningProviderManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                distributedMetadataManager,
                 expressionCompiler,
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,

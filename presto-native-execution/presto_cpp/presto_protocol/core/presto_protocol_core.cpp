@@ -6945,65 +6945,6 @@ void from_json(const json& j, MergeJoinNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p) {
-  if (p == nullptr) {
-    return;
-  }
-  String type = p->_type;
-  getConnectorProtocol(type).to_json(j, p);
-}
-
-void from_json(
-    const json& j,
-    std::shared_ptr<ConnectorMetadataUpdateHandle>& p) {
-  String type;
-  try {
-    type = p->getSubclassKey(j);
-  } catch (json::parse_error& e) {
-    throw ParseError(std::string(e.what()) + " ConnectorMetadataUpdateHandle");
-  }
-  getConnectorProtocol(type).from_json(j, p);
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const MetadataUpdates& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "MetadataUpdates",
-      "ConnectorId",
-      "connectorId");
-  to_json_key(
-      j,
-      "metadataUpdates",
-      p.metadataUpdates,
-      "MetadataUpdates",
-      "List<std::shared_ptr<ConnectorMetadataUpdateHandle>>",
-      "metadataUpdates");
-}
-
-void from_json(const json& j, MetadataUpdates& p) {
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "MetadataUpdates",
-      "ConnectorId",
-      "connectorId");
-  from_json_key(
-      j,
-      "metadataUpdates",
-      p.metadataUpdates,
-      "MetadataUpdates",
-      "List<std::shared_ptr<ConnectorMetadataUpdateHandle>>",
-      "metadataUpdates");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
 void to_json(json& j, const NodeVersion& p) {
   j = json::object();
   to_json_key(j, "version", p.version, "NodeVersion", "String", "version");
@@ -11046,13 +10987,6 @@ void to_json(json& j, const TaskInfo& p) {
       "noMoreSplits");
   to_json_key(j, "stats", p.stats, "TaskInfo", "TaskStats", "stats");
   to_json_key(j, "needsPlan", p.needsPlan, "TaskInfo", "bool", "needsPlan");
-  to_json_key(
-      j,
-      "metadataUpdates",
-      p.metadataUpdates,
-      "TaskInfo",
-      "MetadataUpdates",
-      "metadataUpdates");
   to_json_key(j, "nodeId", p.nodeId, "TaskInfo", "String", "nodeId");
 }
 
@@ -11083,13 +11017,6 @@ void from_json(const json& j, TaskInfo& p) {
       "noMoreSplits");
   from_json_key(j, "stats", p.stats, "TaskInfo", "TaskStats", "stats");
   from_json_key(j, "needsPlan", p.needsPlan, "TaskInfo", "bool", "needsPlan");
-  from_json_key(
-      j,
-      "metadataUpdates",
-      p.metadataUpdates,
-      "TaskInfo",
-      "MetadataUpdates",
-      "metadataUpdates");
   from_json_key(j, "nodeId", p.nodeId, "TaskInfo", "String", "nodeId");
 }
 } // namespace facebook::presto::protocol

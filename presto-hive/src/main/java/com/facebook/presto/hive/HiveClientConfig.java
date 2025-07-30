@@ -169,8 +169,6 @@ public class HiveClientConfig
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
     private boolean parquetDereferencePushdownEnabled;
 
-    private int maxMetadataUpdaterThreads = 100;
-
     private boolean isPartialAggregationPushdownEnabled;
     private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
 
@@ -683,6 +681,7 @@ public class HiveClientConfig
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
+
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
@@ -1370,19 +1369,6 @@ public class HiveClientConfig
     public boolean isParquetDereferencePushdownEnabled()
     {
         return this.parquetDereferencePushdownEnabled;
-    }
-
-    @Min(1)
-    public int getMaxMetadataUpdaterThreads()
-    {
-        return maxMetadataUpdaterThreads;
-    }
-
-    @Config("hive.max-metadata-updater-threads")
-    public HiveClientConfig setMaxMetadataUpdaterThreads(int maxMetadataUpdaterThreads)
-    {
-        this.maxMetadataUpdaterThreads = maxMetadataUpdaterThreads;
-        return this;
     }
 
     @Config("hive.partial_aggregation_pushdown_enabled")
