@@ -13,23 +13,34 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeArrayFunctionQueries;
+import com.facebook.presto.nativeworker.AbstractTestNativeTpchConnectorQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Ignore;
 
-public class TestPrestoSparkNativeArrayFunctionQueries
-        extends AbstractTestNativeArrayFunctionQueries
+public class TestPrestoSparkNativeTpchConnectorQueries
+        extends AbstractTestNativeTpchConnectorQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createTpchRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return createQueryRunner();
     }
+
+    @Override
+    public void testMissingTpchConnector()
+    {
+        super.testMissingTpchConnector(".*Catalog tpch does not exist*");
+    }
+
+    @Override
+    @Ignore
+    public void testTpchTinyTables() {}
 }

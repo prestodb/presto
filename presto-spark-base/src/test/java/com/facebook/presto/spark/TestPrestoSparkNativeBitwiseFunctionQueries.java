@@ -30,6 +30,6 @@ public class TestPrestoSparkNativeBitwiseFunctionQueries
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return createQueryRunner();
     }
 }

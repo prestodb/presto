@@ -85,7 +85,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
         if (System.getProperty("NATIVE_PORT") == null) {
-            builder.put("native-execution-executable-path", getNativeQueryRunnerParameters().serverBinary.toString());
+            builder.put("native-execution-executable-path", PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters().serverBinary.toString());
         }
 
         try {

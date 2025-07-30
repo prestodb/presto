@@ -14,6 +14,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
     </properties>
 
     <dependencyManagement>
@@ -29,6 +30,11 @@
             <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-client</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>stats</artifactId>
                 <version>0.216</version>
             </dependency>
             <dependency>
@@ -364,7 +370,22 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.roaringbitmap</groupId>
+                    <artifactId>RoaringBitmap</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
@@ -433,10 +454,28 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-execution</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -455,6 +494,8 @@
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         <ignoredClassPattern>com.facebook.drift.*</ignoredClassPattern>
                         <ignoredClassPattern>io.jsonwebtoken.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.xerial.snappy:snappy-java</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>

@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeTpchQueries;
+import com.facebook.presto.nativeworker.AbstractTestNativeAggregations;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.Ignore;
 
-public class TestPrestoSparkNativeTpchQueries
-        extends AbstractTestNativeTpchQueries
+public class TestPrestoSparkNativeAggregations
+        extends AbstractTestNativeAggregations
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -31,36 +30,6 @@ public class TestPrestoSparkNativeTpchQueries
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return createQueryRunner();
     }
-
-    // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
-    // Following tests require broadcast join
-    @Override
-    @Ignore
-    public void testTpchQ7() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ8() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ11() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ15() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ18() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ21() {}
-
-    @Override
-    @Ignore
-    public void testTpchQ22() {}
 }

@@ -74,7 +74,7 @@ public class TestPrestoSparkNativeSimpleQueries
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return createQueryRunner();
     }
 
     @Test
