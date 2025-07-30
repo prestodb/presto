@@ -57,7 +57,6 @@
                             <customCodecs>
                                 <codec>com.facebook.presto.server.thrift.SplitCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TableWriteInfoCodec</codec>
-                                <codec>com.facebook.presto.server.thrift.MetadataUpdatesCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec</codec>

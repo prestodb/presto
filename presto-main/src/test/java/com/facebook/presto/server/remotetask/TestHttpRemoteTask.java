@@ -33,7 +33,6 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -54,12 +53,9 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
-import com.facebook.presto.server.thrift.MetadataUpdatesCodec;
 import com.facebook.presto.server.thrift.SplitCodec;
 import com.facebook.presto.server.thrift.TableWriteInfoCodec;
 import com.facebook.presto.spi.ConnectorId;
@@ -369,12 +365,10 @@ public class TestHttpRemoteTask
                         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
                         smileCodecBinder(binder).bindSmileCodec(PlanFragment.class);
-                        smileCodecBinder(binder).bindSmileCodec(MetadataUpdates.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
-                        jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
                         jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(Split.class);
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
@@ -382,7 +376,6 @@ public class TestHttpRemoteTask
                         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskUpdateRequest.class);
-                        thriftCodecBinder(binder).bindCustomThriftCodec(MetadataUpdatesCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(SplitCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(TableWriteInfoCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(LocaleToLanguageTagCodec.class);
@@ -405,9 +398,7 @@ public class TestHttpRemoteTask
                             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
                             ThriftCodec<TaskUpdateRequest> taskUpdateRequestThriftCodec,
                             JsonCodec<PlanFragment> planFragmentJsonCodec,
-                            SmileCodec<PlanFragment> planFragmentSmileCodec,
-                            JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
-                            SmileCodec<MetadataUpdates> metadataUpdatesSmileCodec)
+                            SmileCodec<PlanFragment> planFragmentSmileCodec)
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper, thriftMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
@@ -428,14 +419,11 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestThriftCodec,
                                 planFragmentJsonCodec,
                                 planFragmentSmileCodec,
-                                metadataUpdatesJsonCodec,
-                                metadataUpdatesSmileCodec,
                                 new RemoteTaskStats(),
                                 internalCommunicationConfig,
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
-                                new HandleResolver(),
-                                new ConnectorTypeSerdeManager(new ConnectorMetadataUpdateHandleJsonSerde()));
+                                new HandleResolver());
                     }
                 });
         Injector injector = app
@@ -621,7 +609,6 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
                     initialTaskInfo.isNeedsPlan(),
-                    initialTaskInfo.getMetadataUpdates(),
                     initialTaskInfo.getNodeId());
         }
 

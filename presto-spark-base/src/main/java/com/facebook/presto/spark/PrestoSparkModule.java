@@ -33,7 +33,6 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
@@ -68,7 +67,6 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
-import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -99,8 +97,6 @@ import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
-import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
-import com.facebook.presto.server.ForJsonMetadataUpdateHandle;
 import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -137,8 +133,6 @@ import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
 import com.facebook.presto.spark.planner.PrestoSparkStatsCalculatorModule;
 import com.facebook.presto.spark.planner.optimizers.AdaptivePlanOptimizers;
-import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
-import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -431,18 +425,6 @@ public class PrestoSparkModule
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
-
-        // connector distributed metadata manager
-        binder.bind(ConnectorMetadataUpdaterManager.class).in(Scopes.SINGLETON);
-
-        // connector metadata update handle serde manager
-        binder.bind(ConnectorTypeSerdeManager.class).in(Scopes.SINGLETON);
-
-        // connector metadata update handle json serde
-        binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>() {})
-                .annotatedWith(ForJsonMetadataUpdateHandle.class)
-                .to(ConnectorMetadataUpdateHandleJsonSerde.class)
-                .in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);

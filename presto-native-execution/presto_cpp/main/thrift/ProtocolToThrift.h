@@ -115,18 +115,6 @@ void fromThrift(
     facebook::presto::protocol::BufferType& proto);
 
 void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper);
-void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    std::string& thriftMetadataUpdates);
-void fromThrift(
-    const MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
-void fromThrift(
-    const std::string& thriftMetadataUpdates,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
-void toThrift(
     const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
     TableWriteInfoWrapper& thriftTableWriteInfoWrapper);
 void toThrift(

@@ -344,13 +344,6 @@ struct ConnectorInsertTableHandle : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p);
 } // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct ConnectorMetadataUpdateHandle : public JsonEncodedSubclass {};
-void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p);
-void from_json(
-    const json& j,
-    std::shared_ptr<ConnectorMetadataUpdateHandle>& p);
-} // namespace facebook::presto::protocol
 
 namespace facebook::presto::protocol {
 struct SourceLocation {
@@ -1716,14 +1709,6 @@ void to_json(json& j, const MergeJoinNode& p);
 void from_json(const json& j, MergeJoinNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct MetadataUpdates {
-  ConnectorId connectorId = {};
-  List<std::shared_ptr<ConnectorMetadataUpdateHandle>> metadataUpdates = {};
-};
-void to_json(json& j, const MetadataUpdates& p);
-void from_json(const json& j, MetadataUpdates& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
 struct NodeVersion {
   String version = {};
 };
@@ -2390,7 +2375,6 @@ struct TaskInfo {
   List<PlanNodeId> noMoreSplits = {};
   TaskStats stats = {};
   bool needsPlan = {};
-  MetadataUpdates metadataUpdates = {};
   String nodeId = {};
 };
 void to_json(json& j, const TaskInfo& p);

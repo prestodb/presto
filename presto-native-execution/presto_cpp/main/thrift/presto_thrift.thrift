@@ -80,9 +80,7 @@ enum BufferType {
   DISCARDING = 3,
   SPOOLING = 4,
 }
-struct MetadataUpdatesWrapper {
-  1: string metadataUpdates;
-}
+
 struct TableWriteInfoWrapper {
   1: string tableWriteInfo;
 }
@@ -552,8 +550,7 @@ struct TaskInfo {
   5: set<PlanNodeId> noMoreSplits;
   6: TaskStats stats;
   7: bool needsPlan;
-  8: MetadataUpdatesWrapper metadataUpdates;
-  9: string nodeId;
+  8: string nodeId;
 }
 struct OperatorStats {
   1: i32 stageId;

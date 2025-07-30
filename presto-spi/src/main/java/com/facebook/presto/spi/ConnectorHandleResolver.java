@@ -55,9 +55,4 @@ public interface ConnectorHandleResolver
     {
         throw new UnsupportedOperationException();
     }
-
-    default Class<? extends ConnectorMetadataUpdateHandle> getMetadataUpdateHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
 }
