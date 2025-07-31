@@ -58,8 +58,15 @@ public class TableArgumentSpecification
     public static final class Builder
     {
         private String name;
+        // A table argument with row semantics is processed on a row-by-row basis.
+        // Partitioning or ordering is not applicable.
         private boolean rowSemantics;
+        // The prune when empty property indicates that if the given table argument is empty, the function returns empty result.
+        // This property is used to optimize queries involving table functions.
+        // The keep when empty property indicates that the function should be executed even if the table argument is empty.
         private boolean pruneWhenEmpty;
+        // If a table argument has pass-through columns, all of its columns are passed on output.
+        // For a table argument without this property, only the partitioning columns are passed on output.
         private boolean passThroughColumns;
 
         private Builder() {}

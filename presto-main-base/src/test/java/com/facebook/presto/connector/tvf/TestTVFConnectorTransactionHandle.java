@@ -15,7 +15,7 @@ package com.facebook.presto.connector.tvf;
 
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
-public enum MockConnectorTransactionHandle
+public enum TestTVFConnectorTransactionHandle
         implements ConnectorTransactionHandle
 {
     INSTANCE

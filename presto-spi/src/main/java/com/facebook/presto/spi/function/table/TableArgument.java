@@ -83,15 +83,27 @@ public class TableArgument
             return this;
         }
 
+        public Builder partitionBy(String partitionBy)
+        {
+            this.partitionBy.add(partitionBy);
+            return this;
+        }
+
         public Builder partitionBy(List<String> partitionBy)
         {
-            this.partitionBy = partitionBy;
+            this.partitionBy.addAll(partitionBy);
+            return this;
+        }
+
+        public Builder orderBy(String orderBy)
+        {
+            this.orderBy.add(orderBy);
             return this;
         }
 
         public Builder orderBy(List<String> orderBy)
         {
-            this.orderBy = orderBy;
+            this.orderBy.addAll(orderBy);
             return this;
         }
 

@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableList;
 
 import static java.util.Objects.requireNonNull;
 
-public class MockConnectorPlugin
+public class TestTVFConnectorPlugin
         implements Plugin
 {
     private final ConnectorFactory connectorFactory;
 
-    public MockConnectorPlugin(ConnectorFactory connectorFactory)
+    public TestTVFConnectorPlugin(ConnectorFactory connectorFactory)
     {
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
     }

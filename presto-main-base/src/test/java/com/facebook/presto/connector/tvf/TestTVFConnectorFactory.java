@@ -74,22 +74,22 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public class MockConnectorFactory
+public class TestTVFConnectorFactory
         implements ConnectorFactory
 {
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
-    private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles;
+    private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles;
     private final Supplier<TableStatistics> getTableStatistics;
     private final ApplyTableFunction applyTableFunction;
     private final Set<ConnectorTableFunction> tableFunctions;
 
-    private MockConnectorFactory(
+    private TestTVFConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-            BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles,
+            BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles,
             Supplier<TableStatistics> getTableStatistics,
             ApplyTableFunction applyTableFunction,
             Set<ConnectorTableFunction> tableFunctions)
@@ -106,19 +106,19 @@ public class MockConnectorFactory
     @Override
     public String getName()
     {
-        return "mock";
+        return "testTVF";
     }
 
     @Override
     public ConnectorHandleResolver getHandleResolver()
     {
-        return new MockHandleResolver();
+        return new TestTVFHandleResolver();
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions);
+        return new TestTVFConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions);
     }
 
     public static Builder builder()
@@ -140,7 +140,7 @@ public class MockConnectorFactory
         Optional<TableFunctionApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableFunctionHandle handle);
     }
 
-    public static class MockConnector
+    public static class TestTVFConnector
             implements Connector
     {
         private static final String DELETE_ROW_ID = "delete_row_id";
@@ -151,17 +151,17 @@ public class MockConnectorFactory
         private final Function<ConnectorSession, List<String>> listSchemaNames;
         private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
         private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
-        private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles;
+        private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles;
         private final Supplier<TableStatistics> getTableStatistics;
         private final ApplyTableFunction applyTableFunction;
         private final Set<ConnectorTableFunction> tableFunctions;
 
-        public MockConnector(
+        public TestTVFConnector(
                 ConnectorContext context,
                 Function<ConnectorSession, List<String>> listSchemaNames,
                 BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
                 BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-                BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles,
+                BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles,
                 Supplier<TableStatistics> getTableStatistics,
                 ApplyTableFunction applyTableFunction,
                 Set<ConnectorTableFunction> tableFunctions)
@@ -179,19 +179,19 @@ public class MockConnectorFactory
         @Override
         public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
         {
-            return MockConnectorTransactionHandle.INSTANCE;
+            return TestTVFConnectorTransactionHandle.INSTANCE;
         }
 
         @Override
         public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
         {
-            return new MockConnectorMetadata();
+            return new TestTVFConnectorMetadata();
         }
 
-        public enum MockConnectorSplit
+        public enum TestTVFConnectorSplit
                 implements ConnectorSplit
         {
-            MOCK_CONNECTOR_SPLIT;
+            TEST_TVF_CONNECTOR_SPLIT;
 
             @Override
             public NodeSelectionStrategy getNodeSelectionStrategy()
@@ -220,7 +220,7 @@ public class MockConnectorFactory
                 @Override
                 public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
                 {
-                    return new FixedSplitSource(Collections.singleton(MockConnectorSplit.MOCK_CONNECTOR_SPLIT));
+                    return new FixedSplitSource(Collections.singleton(TestTVFConnectorSplit.TEST_TVF_CONNECTOR_SPLIT));
                 }
             };
         }
@@ -234,7 +234,7 @@ public class MockConnectorFactory
         @Override
         public ConnectorPageSourceProvider getPageSourceProvider()
         {
-            return new MockConnectorPageSourceProvider();
+            return new TestTVFConnectorPageSourceProvider();
         }
 
         @Override
@@ -243,7 +243,7 @@ public class MockConnectorFactory
             return tableFunctions;
         }
 
-        private class MockConnectorMetadata
+        private class TestTVFConnectorMetadata
                 implements ConnectorMetadata
         {
             @Override
@@ -261,7 +261,7 @@ public class MockConnectorFactory
             @Override
             public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
-                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+                TestTVFConnectorTableHandle table = (TestTVFConnectorTableHandle) tableHandle;
                 return new ConnectorTableMetadata(
                         table.getTableName(),
                         defaultGetColumns().apply(table.getTableName()),
@@ -287,9 +287,9 @@ public class MockConnectorFactory
             @Override
             public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
             {
-                if (columnHandle instanceof MockConnectorColumnHandle) {
-                    MockConnectorColumnHandle mockColumnHandle = (MockConnectorColumnHandle) columnHandle;
-                    return ColumnMetadata.builder().setName(mockColumnHandle.getName()).setType(mockColumnHandle.getType()).build();
+                if (columnHandle instanceof TestTVFConnectorColumnHandle) {
+                    TestTVFConnectorColumnHandle testTVFColumnHandle = (TestTVFConnectorColumnHandle) columnHandle;
+                    return ColumnMetadata.builder().setName(testTVFColumnHandle.getName()).setType(testTVFColumnHandle.getType()).build();
                 }
                 else {
                     TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
@@ -315,10 +315,10 @@ public class MockConnectorFactory
                     Optional<Set<ColumnHandle>> desiredColumns)
             {
                 // TODO: Currently not supporting constraints
-                MockTableLayoutHandle mock = new MockTableLayoutHandle((MockConnectorTableHandle) table, TupleDomain.none());
-                return new ConnectorTableLayoutResult(new ConnectorTableLayout(mock,
+                TestTVFTableLayoutHandle tvfLayout = new TestTVFTableLayoutHandle((TestTVFConnectorTableHandle) table, TupleDomain.none());
+                return new ConnectorTableLayoutResult(new ConnectorTableLayout(tvfLayout,
                         Optional.empty(),
-                        mock.getPredicate(),
+                        tvfLayout.getPredicate(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -329,8 +329,8 @@ public class MockConnectorFactory
             @Override
             public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
             {
-                MockTableLayoutHandle mock = (MockTableLayoutHandle) handle;
-                return new ConnectorTableLayout(handle);
+                TestTVFTableLayoutHandle tvfTableLayout = (TestTVFTableLayoutHandle) handle;
+                return new ConnectorTableLayout(tvfTableLayout);
             }
 
             @Override
@@ -352,42 +352,22 @@ public class MockConnectorFactory
             }
         }
 
-        private class MockConnectorPageSourceProvider
+        private class TestTVFConnectorPageSourceProvider
                 implements ConnectorPageSourceProvider
         {
             @Override
-            //public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, SplitContext splitContext)
             public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns, SplitContext splitContext, RuntimeStats runtimeStats)
             {
-                MockConnectorTableHandle handle = ((MockTableLayoutHandle) layout).getTable();
+                TestTVFConnectorTableHandle handle = ((TestTVFTableLayoutHandle) layout).getTable();
                 SchemaTableName tableName = handle.getTableName();
-                List<MockConnectorColumnHandle> projection = columns.stream()
-                        .map(MockConnectorColumnHandle.class::cast)
+                List<TestTVFConnectorColumnHandle> projection = columns.stream()
+                        .map(TestTVFConnectorColumnHandle.class::cast)
                         .collect(toImmutableList());
                 List<Type> types = columns.stream()
-                        .map(MockConnectorColumnHandle.class::cast)
-                        .map(MockConnectorColumnHandle::getType)
+                        .map(TestTVFConnectorColumnHandle.class::cast)
+                        .map(TestTVFConnectorColumnHandle::getType)
                         .collect(toImmutableList());
-                Map<String, Integer> columnIndexes = getColumnIndexes(tableName);
-                /*
-                List<List<?>> records = data.apply(tableName).stream()
-                        .map(record -> {
-                            ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
-                            for (MockConnectorColumnHandle column : projection) {
-                                String columnName = column.getName();
-                                if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID) || columnName.equals(MERGE_ROW_ID)) {
-                                    projectedRow.add(0);
-                                    continue;
-                                }
-                                Integer index = columnIndexes.get(columnName);
-                                requireNonNull(index, "index is null");
-                                projectedRow.add(record.get(index));
-                            }
-                            return projectedRow.build();
-                        })
-                        .collect(toImmutableList());*/
-
-                return new MockConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, ImmutableList.of())));
+                return new TestTVFConnectorPageSource(new RecordPageSource(new InMemoryRecordSet(types, ImmutableList.of())));
             }
 
             private Map<String, Integer> getColumnIndexes(SchemaTableName tableName)
@@ -407,11 +387,11 @@ public class MockConnectorFactory
         private Function<ConnectorSession, List<String>> listSchemaNames = (session) -> ImmutableList.of();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaName) -> ImmutableList.of();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = (session, schemaTablePrefix) -> ImmutableMap.of();
-        private BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles = (session, tableHandle) -> {
-            MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+        private BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles = (session, tableHandle) -> {
+            TestTVFConnectorTableHandle table = (TestTVFConnectorTableHandle) tableHandle;
             return defaultGetColumns().apply(table.getTableName()).stream()
                     .collect(toImmutableMap(ColumnMetadata::getName, column ->
-                            new MockConnectorColumnHandle(column.getName(), column.getType())));
+                            new TestTVFConnectorColumnHandle(column.getName(), column.getType())));
         };
         private Supplier<TableStatistics> getTableStatistics = TableStatistics::empty;
         private ApplyTableFunction applyTableFunction = (session, handle) -> Optional.empty();
@@ -435,7 +415,7 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withGetColumnHandles(BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles)
+        public Builder withGetColumnHandles(BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles)
         {
             this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
             return this;
@@ -459,9 +439,9 @@ public class MockConnectorFactory
             return this;
         }
 
-        public MockConnectorFactory build()
+        public TestTVFConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions);
+            return new TestTVFConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions);
         }
 
         private static <T> T notSupported()

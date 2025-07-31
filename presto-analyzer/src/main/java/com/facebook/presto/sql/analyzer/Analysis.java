@@ -1344,6 +1344,11 @@ public class Analysis
         }
     }
 
+    /**
+     * Encapsulates the result of analyzing a table function invocation.
+     * Includes the connector ID, function name, argument bindings, and the
+     * connector-specific table function handle needed for planning and execution.
+     */
     public static class TableFunctionInvocationAnalysis
     {
         private final ConnectorId connectorId;

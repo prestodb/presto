@@ -24,21 +24,21 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
-public class MockTableLayoutHandle
+public class TestTVFTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
-    private final MockConnectorTableHandle table;
+    private final TestTVFConnectorTableHandle table;
     private final TupleDomain<ColumnHandle> predicate;
 
     @JsonCreator
-    public MockTableLayoutHandle(@JsonProperty("table") MockConnectorTableHandle table, @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
+    public TestTVFTableLayoutHandle(@JsonProperty("table") TestTVFConnectorTableHandle table, @JsonProperty("predicate") TupleDomain<ColumnHandle> predicate)
     {
         this.table = table;
         this.predicate = predicate;
     }
 
     @JsonProperty
-    public MockConnectorTableHandle getTable()
+    public TestTVFConnectorTableHandle getTable()
     {
         return table;
     }

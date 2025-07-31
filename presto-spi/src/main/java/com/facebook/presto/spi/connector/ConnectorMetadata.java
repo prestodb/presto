@@ -915,6 +915,10 @@ public interface ConnectorMetadata
      * <p>
      * Connectors can indicate whether they don't support table function invocation pushdown or that the action had no
      * effect by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * It must be free of side effects and must not rely on mutable internal state to produce a result.
+     * For example, the outcome should not depend on counters, flags, or other connector member variables
+     * that change across invocations.
+     * The result may depend on session properties.
      * <p>
      * If the method returns a result, the returned table handle will be used in place of the table function invocation.
      */

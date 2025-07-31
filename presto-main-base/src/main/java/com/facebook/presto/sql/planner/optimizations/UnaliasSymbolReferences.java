@@ -480,13 +480,6 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
         {
-            // TODO rewrite sources, and tableArgumentProperties when we add support for input tables
-            /*
-            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
-            SymbolMapper mapper = symbolMapper(mapping);
-
-            List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());*/
-
             return new TableFunctionNode(
                     node.getSourceLocation(),
                     node.getId(),

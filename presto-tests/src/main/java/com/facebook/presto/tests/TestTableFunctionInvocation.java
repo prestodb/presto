@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.connector.tvf.MockConnectorColumnHandle;
-import com.facebook.presto.connector.tvf.MockConnectorFactory;
-import com.facebook.presto.connector.tvf.MockConnectorPlugin;
+import com.facebook.presto.connector.tvf.TestTVFConnectorColumnHandle;
+import com.facebook.presto.connector.tvf.TestTVFConnectorFactory;
+import com.facebook.presto.connector.tvf.TestTVFConnectorPlugin;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction;
 import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -57,12 +57,12 @@ public class TestTableFunctionInvocation
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
 
-        BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles = (session, tableHandle) -> IntStream.range(0, 100)
+        BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles = (session, tableHandle) -> IntStream.range(0, 100)
                 .boxed()
                 .map(i -> "column_" + i)
-                .collect(toImmutableMap(column -> column, column -> new MockConnectorColumnHandle(column, createUnboundedVarcharType()) {}));
+                .collect(toImmutableMap(column -> column, column -> new TestTVFConnectorColumnHandle(column, createUnboundedVarcharType()) {}));
 
-        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+        queryRunner.installPlugin(new TestTVFConnectorPlugin(TestTVFConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof SimpleTableFunctionHandle) {
@@ -72,23 +72,23 @@ public class TestTableFunctionInvocation
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());
                 }).withGetColumnHandles(getColumnHandles)
                 .build()));
-        queryRunner.createCatalog(TESTING_CATALOG, "mock");
+        queryRunner.createCatalog(TESTING_CATALOG, "testTVF");
     }
 
     @Test
     public void testPrimitiveDefaultArgument()
     {
-        assertQuery("SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column', ignored => 1))", "SELECT true WHERE false");
+        assertQuery("SELECT boolean_column FROM TABLE(test.simple_table_function(column => 'boolean_column', ignored => 1))", "SELECT true WHERE false");
 
         // skip the `ignored` argument.
-        assertQuery("SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column'))",
+        assertQuery("SELECT boolean_column FROM TABLE(test.simple_table_function(column => 'boolean_column'))",
                 "SELECT true WHERE false");
     }
 
     @Test
     public void testNoArgumentsPassed()
     {
-        assertQuery("SELECT col FROM TABLE(system.simple_table_function())",
+        assertQuery("SELECT col FROM TABLE(test.simple_table_function())",
                   "SELECT true WHERE false");
     }
 }

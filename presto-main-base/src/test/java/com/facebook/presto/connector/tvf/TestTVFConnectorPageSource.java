@@ -21,12 +21,12 @@ import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 
-public class MockConnectorPageSource
+public class TestTVFConnectorPageSource
         implements ConnectorPageSource
 {
     private final ConnectorPageSource delegate;
 
-    public MockConnectorPageSource(ConnectorPageSource delegate)
+    public TestTVFConnectorPageSource(ConnectorPageSource delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

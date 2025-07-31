@@ -20,6 +20,10 @@ import static java.util.Objects.requireNonNull;
  * The return type declaration refers to the proper columns of the table function.
  * These are the columns produced by the table function as opposed to the columns
  * of input relations passed through by the table function.
+ *
+ * The return type can be fixed and known at declaration time (DescribedTable),
+ * dynamically determined at analysis time (GenericTable), or simply passed through
+ * from input tables without adding new columns (OnlyPassThrough).
  */
 public abstract class ReturnTypeSpecification
 {

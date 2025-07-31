@@ -23,6 +23,19 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This abstract class serves as the base for connector-defined table functions.
+ * Each function is uniquely identified by the metadata provided in this class
+ * along with the connector it belongs to.
+ *
+ * Metadata includes:
+ *  schema - Schema name of the table function.
+ *  name - Name of the table function.
+ *  arguments - Input arguments to the table function.
+ *  returnTypeSpecification - Type of table returned. Generic, Passthrough, or Described table.
+ *
+ *  Subclasses must implement the analyze method. See TableFunctionAnalysis for more details.
+ */
 public abstract class AbstractConnectorTableFunction
         implements ConnectorTableFunction
 {

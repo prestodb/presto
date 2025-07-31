@@ -37,7 +37,7 @@ public interface ConnectorTableFunction
      * As part of function-specific validation, the Table Function's author might want to:
      * - check if the descriptors which reference input tables contain a correct number of column references
      * - check if the referenced input columns have appropriate types to fit the function's logic // TODO return request for coercions to the Analyzer in the TableFunctionAnalysis object
-     * - if there is a descriptor which describes the function's output, check if it matches the shape of the actual function's output
+     * - if there is a descriptor which describes the function's input, check if it matches the shape of the actual function's input
      * - for table arguments, check the number and types of ordering columns
      * <p>
      * The actual argument values, and the pre-processing results can be stored in an ConnectorTableFunctionHandle

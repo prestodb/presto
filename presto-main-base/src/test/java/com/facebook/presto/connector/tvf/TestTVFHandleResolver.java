@@ -22,37 +22,37 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.tpch.TpchPartitioningHandle;
 
-public class MockHandleResolver
+public class TestTVFHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
-        return MockConnectorTableHandle.class;
+        return TestTVFConnectorTableHandle.class;
     }
 
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return MockConnectorColumnHandle.class;
+        return TestTVFConnectorColumnHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorSplit> getSplitClass()
     {
-        return MockConnectorFactory.MockConnector.MockConnectorSplit.class;
+        return TestTVFConnectorFactory.TestTVFConnector.TestTVFConnectorSplit.class;
     }
 
     @Override
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
-        return MockTableLayoutHandle.class;
+        return TestTVFTableLayoutHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
-        return MockConnectorTransactionHandle.class;
+        return TestTVFConnectorTransactionHandle.class;
     }
 
     @Override

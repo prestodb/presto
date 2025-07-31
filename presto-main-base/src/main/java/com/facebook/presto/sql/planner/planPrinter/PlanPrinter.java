@@ -1323,25 +1323,14 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "TableFunction",
-                    "name");
+                    node.getName());
 
             checkArgument(
                     node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty(),
                     "Table or descriptor arguments are not yet supported in PlanPrinter");
 
-            // TODO: Add details here for plan printer
-            // node.getArguments().entrySet().stream()
-            //        .forEach(entry -> nodeOutput.appendDetails(entry.getKey() + " => " + formatArgument((ScalarArgument) entry.getValue())));
-
             return processChildren(node, context);
         }
-
-        /*
-        private String formatArgument(ScalarArgument argument)
-        {
-            return format("ScalarArgument{type=%s, value=%s}", argument.getType(), valuePrinter.castToVarchar(argument.getType(), argument.getValue()));
-        }
-         */
 
         @Override
         public Void visitPlan(PlanNode node, Void context)
