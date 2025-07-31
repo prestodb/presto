@@ -50,7 +50,7 @@ public class TestArrowFlightNativeQueries
 {
     private static final Logger log = Logger.get(TestArrowFlightNativeQueries.class);
     private final int serverPort;
-    private final AuthMode authMode;
+    private final boolean mTLSenabled;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
@@ -59,8 +59,7 @@ public class TestArrowFlightNativeQueries
             throws IOException
     {
         this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-        this.authMode = AuthMode.valueOf(
-                System.getProperty("flight.auth.mode", "TLS").toUpperCase());
+        this.mTLSenabled = Boolean.parseBoolean(System.getProperty("flight.mtls.enabled", "false"));
     }
 
     @BeforeClass
@@ -76,7 +75,7 @@ public class TestArrowFlightNativeQueries
         File serverKey = new File("src/test/resources/mtls/server.key");
         serverBuilder.useTls(serverCert, serverKey);
 
-        if (authMode == AuthMode.MTLS) {
+        if (mTLSenabled) {
             log.info("Configuring Flight server for mTLS");
             File caCert = new File("src/test/resources/mtls/ca.crt");
             serverBuilder.useMTlsClientVerification(caCert);
@@ -113,10 +112,10 @@ public class TestArrowFlightNativeQueries
 
         return ArrowFlightQueryRunner.createQueryRunner(
                 serverPort,
-                authMode,
+                mTLSenabled,
                 getNativeWorkerSystemProperties(),
                 coordinatorProperties,
-                getExternalWorkerLauncher(prestoServerPath.toString(), serverPort, authMode));
+                getExternalWorkerLauncher(prestoServerPath.toString(), serverPort, mTLSenabled));
     }
 
     @Override
@@ -353,7 +352,7 @@ public class TestArrowFlightNativeQueries
                 .build();
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, AuthMode authMode)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, boolean mTLSenabled)
     {
         return Optional.of((workerIndex, discoveryUri) -> {
             try {
@@ -389,7 +388,7 @@ public class TestArrowFlightNativeQueries
                                 "arrow-flight.server-ssl-certificate=%s\n",
                         ARROW_FLIGHT_CONNECTOR, flightServerPort, caCertPath));
 
-                if (authMode == AuthMode.MTLS) {
+                if (mTLSenabled) {
                     String clientCertPath = Paths.get("src/test/resources/mtls/client.crt").toAbsolutePath().toString();
                     String clientKeyPath = Paths.get("src/test/resources/mtls/client.key").toAbsolutePath().toString();
                     catalogBuilder.append(format("arrow-flight.client-ssl-certificate=%s\n", clientCertPath));

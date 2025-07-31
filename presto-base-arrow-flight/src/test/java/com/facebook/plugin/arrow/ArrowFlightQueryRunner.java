@@ -56,7 +56,7 @@ public class ArrowFlightQueryRunner
 
     public static DistributedQueryRunner createQueryRunner(int flightServerPort) throws Exception
     {
-        return createQueryRunner(flightServerPort, AuthMode.TLS, ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+        return createQueryRunner(flightServerPort, false, ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -66,22 +66,22 @@ public class ArrowFlightQueryRunner
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
-        return createQueryRunner(flightServerPort, AuthMode.TLS, extraProperties, coordinatorProperties, externalWorkerLauncher);
+        return createQueryRunner(flightServerPort, false, extraProperties, coordinatorProperties, externalWorkerLauncher);
     }
 
     public static DistributedQueryRunner createQueryRunner(
             int flightServerPort,
-            AuthMode authMode,
+            boolean mTLSenabled,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
-        return createQueryRunner(authMode, extraProperties, ImmutableMap.of("arrow-flight.server.port", String.valueOf(flightServerPort)), coordinatorProperties, externalWorkerLauncher);
+        return createQueryRunner(mTLSenabled, extraProperties, ImmutableMap.of("arrow-flight.server.port", String.valueOf(flightServerPort)), coordinatorProperties, externalWorkerLauncher);
     }
 
     private static DistributedQueryRunner createQueryRunner(
-            AuthMode authMode,
+            boolean mTLSenabled,
             Map<String, String> extraProperties,
             Map<String, String> catalogProperties,
             Map<String, String> coordinatorProperties,
@@ -112,7 +112,7 @@ public class ArrowFlightQueryRunner
                     .put("arrow-flight.server-ssl-enabled", "true")
                     .put("arrow-flight.server-ssl-certificate", "src/test/resources/mtls/ca.crt");
 
-            if (authMode == AuthMode.MTLS) {
+            if (mTLSenabled) {
                 log.info("Configuring Arrow Flight connector client for mTLS");
                 properties.put("arrow-flight.client-ssl-certificate", "src/test/resources/mtls/client.crt");
                 properties.put("arrow-flight.client-ssl-key", "src/test/resources/mtls/client.key");
@@ -145,11 +145,9 @@ public class ArrowFlightQueryRunner
     {
         Logging.initialize();
 
-        AuthMode authMode = AuthMode.valueOf(
-                System.getProperty("flight.auth.mode", "TLS").toUpperCase());
+        boolean mTLSenabled = Boolean.parseBoolean(System.getProperty("flight.mtls.enabled", "false"));
 
         Logger log = Logger.get(ArrowFlightQueryRunner.class);
-        log.info("Starting standalone Arrow Flight server in %s mode", authMode);
 
         RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
         Location serverLocation = Location.forGrpcTls("localhost", 9443);
@@ -159,7 +157,7 @@ public class ArrowFlightQueryRunner
         File serverKey = new File("src/test/resources/mtls/server.key");
         serverBuilder.useTls(serverCert, serverKey);
 
-        if (authMode == AuthMode.MTLS) {
+        if (mTLSenabled) {
             File caCert = new File("src/test/resources/mtls/ca.crt");
             serverBuilder.useMTlsClientVerification(caCert);
         }
@@ -171,7 +169,7 @@ public class ArrowFlightQueryRunner
 
         DistributedQueryRunner queryRunner = createQueryRunner(
                 server.getPort(),
-                authMode,
+                mTLSenabled,
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 Optional.empty());
