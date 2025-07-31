@@ -195,6 +195,7 @@
                         <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
                         <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                         <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
+                        <ignoredClassPattern>io.airlift.compress.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
