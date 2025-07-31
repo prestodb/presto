@@ -118,7 +118,7 @@ public class TestHudiIntegration
         assertQuery(format(sqlTemplate, "stock_ticks_morn_ro"), sqlResultReadOptimized);
         assertQuery(format(sqlTemplate, "stock_ticks_morn_rt"), sqlResult);
         assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_ro"), sqlResultEmpty);
-        //assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_rt"), sqlResult);
+        assertQuery(format(sqlTemplate, "stock_ticks_morn_only_log_rt"), sqlResult);
     }
 
     @Test
