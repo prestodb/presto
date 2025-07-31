@@ -17,8 +17,8 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -37,6 +37,7 @@ import static java.util.Objects.requireNonNull;
  * Presto on Spark stores query results in a separate file.
  */
 @Immutable
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PrestoSparkQueryStatusInfo
 {
     private final String id;
@@ -44,7 +45,6 @@ public class PrestoSparkQueryStatusInfo
     private final StatementStats stats;
     private final Optional<QueryError> error;
     private final List<PrestoWarning> warnings;
-    private final Optional<UpdateInfo> updateInfo;
     private final OptionalLong updateCount;
 
     @JsonCreator
@@ -54,7 +54,6 @@ public class PrestoSparkQueryStatusInfo
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") Optional<QueryError> error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
-            @JsonProperty("updateType") Optional<UpdateInfo> updateInfo,
             @JsonProperty("updateCount") OptionalLong updateCount)
     {
         this.id = requireNonNull(id, "id is null");
@@ -62,7 +61,6 @@ public class PrestoSparkQueryStatusInfo
         this.stats = requireNonNull(stats, "stats is null");
         this.error = requireNonNull(error, "error is null");
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
-        this.updateInfo = requireNonNull(updateInfo, "updateType is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
     }
 
@@ -94,12 +92,6 @@ public class PrestoSparkQueryStatusInfo
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
-    }
-
-    @JsonProperty
-    public Optional<UpdateInfo> getUpdateInfo()
-    {
-        return updateInfo;
     }
 
     @JsonProperty
