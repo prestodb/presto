@@ -50,7 +50,7 @@ public class TestArrowFlightNativeQueries
 {
     private static final Logger log = Logger.get(TestArrowFlightNativeQueries.class);
     private final int serverPort;
-    private final boolean mTLSenabled;
+    protected boolean mTLSenabled;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
@@ -59,7 +59,7 @@ public class TestArrowFlightNativeQueries
             throws IOException
     {
         this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-        this.mTLSenabled = Boolean.parseBoolean(System.getProperty("flight.mtls.enabled", "false"));
+        this.mTLSenabled = false;
     }
 
     @BeforeClass
