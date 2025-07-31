@@ -551,7 +551,7 @@ class EvalCtx {
   void ensureErrorsVectorSize(EvalErrorsPtr& errors, vector_size_t size) const;
 
   // Updates 'errorPtr' to clear null at 'index' to indicate an error has
-  // occured without specifying error details.
+  // occurred without specifying error details.
   void addError(vector_size_t index, EvalErrorsPtr& errorsPtr) const;
 
   // Copy error from 'from' at index 'fromIndex' to 'to' at index 'toIndex'.

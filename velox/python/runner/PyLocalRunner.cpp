@@ -93,7 +93,7 @@ py::iterator PyLocalRunner::execute(int32_t maxDrivers) {
       cache::AsyncDataCache::getInstance(),
       rootPool_);
 
-  // Intialize task cursor and task.
+  // Initialize task cursor and task.
   cursor_ = exec::TaskCursor::create({
       .planNode = planNode_,
       .maxDrivers = maxDrivers,

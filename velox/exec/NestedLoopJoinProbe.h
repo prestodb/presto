@@ -124,7 +124,7 @@ class NestedLoopJoinProbe : public Operator {
   // true), or if the output is full (returns false). If it returns false, a
   // valid vector with more than zero records will be available at `output_`; if
   // it returns true, either nullptr or zero records may be placed at `output_`.
-  // Also if it returns true, it's the caller's responsiblity to deicide when to
+  // Also if it returns true, it's the caller's responsiblity to decide when to
   // set `output_` size.
   //
   // Also updates `buildMatched_` if the build records that received a match, so

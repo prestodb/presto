@@ -133,7 +133,7 @@ PYBIND11_MODULE(runner, m) {
 
   // When the module gets unloaded, first ensure all tasks created by this
   // module have finished, then unregister all connectors that have been
-  // registered by this module. We need to explicity unregister them to prevent
+  // registered by this module. We need to explicitly unregister them to prevent
   // the connectors and their nested structures from being destructed after
   // other global and static resources are destructed.
   m.add_object("_cleanup", py::capsule([]() {
