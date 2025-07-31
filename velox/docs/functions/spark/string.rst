@@ -25,6 +25,25 @@ String Functions
 
         SELECT bit_length('123'); -- 24
 
+.. spark:function:: char_type_write_side_check(string, limit) -> varchar
+
+    Ensures that input ``string`` fits within the specified length ``limit`` in characters by padding or trimming spaces as needed.
+    If the length of ``string`` is less than ``limit``, it is padded with trailing spaces (ASCII 32) to reach ``limit``.
+    If the length of ``string`` is greater than ``limit``, trailing spaces are trimmed to fit within ``limit``.
+    Throws exception when ``string`` still exceeds ``limit`` after trimming trailing spaces or when ``limit`` is not greater than 0.
+    Note: This function is not directly callable in Spark SQL, but internally used for length check when writing char type columns. ::
+
+        -- Function call examples (this function is not directly callable in Spark SQL).
+        char_type_write_side_check("abc", 3) -- "abc"
+        char_type_write_side_check("ab", 3) -- "ab "
+        char_type_write_side_check("a", 3) -- "a  "
+        char_type_write_side_check("abc  ", 3) -- "abc"
+        char_type_write_side_check("abcd", 3) -- VeloxUserError: "Exceeds allowed length limitation: '3'"
+        char_type_write_side_check("世界", 2) -- "世界"
+        char_type_write_side_check("世", 3) -- "世  "
+        char_type_write_side_check("世界人", 2) -- VeloxUserError: "Exceeds allowed length limitation: '2'"
+        char_type_write_side_check("abc", 0) -- VeloxUserError: "The length limit must be greater than 0."
+
 .. spark:function:: chr(n) -> varchar
 
     Returns the Unicode code point ``n`` as a single character string.

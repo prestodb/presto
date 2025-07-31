@@ -30,6 +30,7 @@ add_executable(
   AtLeastNNonNullsTest.cpp
   Base64Test.cpp
   BitwiseTest.cpp
+  CharTypeWriteSideCheckTest.cpp
   ComparisonsTest.cpp
   ConcatWsTest.cpp
   DateTimeFunctionsTest.cpp

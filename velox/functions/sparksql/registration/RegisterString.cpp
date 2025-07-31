@@ -19,6 +19,7 @@
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/prestosql/URLFunctions.h"
 #include "velox/functions/sparksql/Base64Function.h"
+#include "velox/functions/sparksql/CharTypeWriteSideCheck.h"
 #include "velox/functions/sparksql/ConcatWs.h"
 #include "velox/functions/sparksql/InitcapFunction.h"
 #include "velox/functions/sparksql/LuhnCheckFunction.h"
@@ -166,6 +167,9 @@ void registerStringFunctions(const std::string& prefix) {
       Varchar,
       Varchar,
       int32_t>({prefix + "varchar_type_write_side_check"});
+
+  registerFunction<CharTypeWriteSideCheckFunction, Varchar, Varchar, int32_t>(
+      {prefix + "char_type_write_side_check"});
 
   registerFunction<Base64Function, Varchar, Varbinary>({prefix + "base64"});
   registerFunction<UnBase64Function, Varbinary, Varchar>({prefix + "unbase64"});
