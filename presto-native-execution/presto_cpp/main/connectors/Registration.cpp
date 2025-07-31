@@ -19,6 +19,10 @@
 #include "presto_cpp/main/connectors/arrow_flight/ArrowPrestoToVeloxConnector.h"
 #endif
 
+#ifdef PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR
+#include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
+#endif
+
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 
@@ -47,11 +51,13 @@ void registerConnectorFactories() {
 
   // Register Velox connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
+#ifdef PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR
   if (!velox::connector::hasConnectorFactory(kIcebergConnectorName)) {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::hive::HiveConnectorFactory>(
             kIcebergConnectorName));
   }
+#endif
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
   if (!velox::connector::hasConnectorFactory(
@@ -70,8 +76,12 @@ void registerConnectors() {
       velox::connector::hive::HiveConnectorFactory::kHiveConnectorName));
   registerPrestoToVeloxConnector(
       std::make_unique<HivePrestoToVeloxConnector>(kHiveHadoop2ConnectorName));
+
+#ifdef PRESTO_ENABLE_NATIVE_ICEBERG_CONNECTOR
   registerPrestoToVeloxConnector(
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
+#endif
+
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
 
