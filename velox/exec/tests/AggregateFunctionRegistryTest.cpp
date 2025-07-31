@@ -15,7 +15,10 @@
  */
 
 #include "velox/exec/AggregateFunctionRegistry.h"
+
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateUtil.h"
@@ -26,7 +29,7 @@
 namespace facebook::velox::exec::test {
 
 class AggregateFunctionRegistryTest : public testing::Test {
- public:
+ protected:
   AggregateFunctionRegistryTest() {
     registerAggregateFunc("aggregate_func");
     registerAggregateFunc("Aggregate_Func_Alias");
@@ -41,6 +44,11 @@ class AggregateFunctionRegistryTest : public testing::Test {
         resolveAggregateFunction(name, argTypes);
     EXPECT_EQ(*finalType, *expectedFinalType);
     EXPECT_EQ(*intermediateType, *expectedIntermediateType);
+  }
+
+  void clearRegistry() {
+    aggregateFunctions().withWLock(
+        [](auto& aggregationFunctionMap) { aggregationFunctionMap.clear(); });
   }
 };
 
@@ -194,6 +202,18 @@ TEST_F(AggregateFunctionRegistryTest, multipleNames) {
       {BIGINT(), DOUBLE()},
       ARRAY(BIGINT()),
       ARRAY(BIGINT()));
+}
+
+TEST_F(AggregateFunctionRegistryTest, getAggregateFunctionNames) {
+  clearRegistry();
+  registerAggregateFunc("aggregate_func");
+  registerAggregateFunc("Aggregate_Func_Alias");
+
+  auto functions = getAggregateFunctionNames();
+  EXPECT_EQ(functions.size(), 2);
+  EXPECT_THAT(
+      functions,
+      testing::UnorderedElementsAre("aggregate_func", "aggregate_func_alias"));
 }
 
 } // namespace facebook::velox::exec::test

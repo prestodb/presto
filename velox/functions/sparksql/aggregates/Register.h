@@ -16,14 +16,10 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 namespace facebook::velox::functions::aggregate::sparksql {
 void registerAggregateFunctions(
     const std::string& prefix,
     bool withCompanionFunctions = true,
     bool overwrite = true);
-
-/// Returns all the registered aggregation function names.
-std::vector<std::string> listAggregateFunctionNames();
 } // namespace facebook::velox::functions::aggregate::sparksql

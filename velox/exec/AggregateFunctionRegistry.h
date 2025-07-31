@@ -31,4 +31,7 @@ std::pair<TypePtr, TypePtr> resolveAggregateFunction(
     const std::string& name,
     const std::vector<TypePtr>& argTypes);
 
+/// Returns all the registered aggregation function names.
+std::vector<std::string> getAggregateFunctionNames();
+
 } // namespace facebook::velox::exec

@@ -45,4 +45,16 @@ std::pair<TypePtr, TypePtr> resolveAggregateFunction(
   }
 }
 
+std::vector<std::string> getAggregateFunctionNames() {
+  std::vector<std::string> names;
+  exec::aggregateFunctions().withRLock([&](const auto& map) {
+    names.reserve(map.size());
+    for (const auto& function : map) {
+      names.push_back(function.first);
+    }
+  });
+
+  return names;
+}
+
 } // namespace facebook::velox::exec
