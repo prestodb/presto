@@ -1575,7 +1575,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
             batch_num_values,
             batch_num_spaced_values,
             bits_buffer_->data(),
-            /*offset=*/0,
+            /*valid_bits_offset=*/0,
             /*num_levels=*/batch_size,
             null_count);
       } else {

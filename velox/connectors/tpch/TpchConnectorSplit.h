@@ -32,7 +32,7 @@ struct TpchConnectorSplit : public connector::ConnectorSplit {
       bool cacheable,
       size_t totalParts,
       size_t partNumber)
-      : ConnectorSplit(connectorId, /*splitWeight=*/0, cacheable),
+      : ConnectorSplit(connectorId, /*_splitWeight=*/0, cacheable),
         totalParts(totalParts),
         partNumber(partNumber) {
     VELOX_CHECK_GE(totalParts, 1, "totalParts must be >= 1");

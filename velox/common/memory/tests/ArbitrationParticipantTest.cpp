@@ -753,7 +753,7 @@ TEST_F(ArbitrationParticipantTest, getGrowTargets) {
     auto participant =
         ArbitrationParticipant::create(10, task->pool(), &config);
     auto scopedParticipant = participant->lock().value();
-    scopedParticipant->shrink(/*reclaimFromAll=*/true);
+    scopedParticipant->shrink(/*reclaimAll=*/true);
     ASSERT_EQ(scopedParticipant->capacity(), 0);
     void* buffer = task->allocate(testData.capacity);
     SCOPE_EXIT {
@@ -860,7 +860,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableFreeCapacityAndShrink) {
         ASSERT_EQ(scopedParticipant->pool()->peakBytes(), testData.peakBytes);
       }
 
-      scopedParticipant->shrink(/*reclaimFromAll=*/true);
+      scopedParticipant->shrink(/*reclaimAll=*/true);
       scopedParticipant->grow(testData.capacity, 0);
       ASSERT_EQ(scopedParticipant->capacity(), testData.capacity);
 
@@ -1020,7 +1020,7 @@ TEST_F(ArbitrationParticipantTest, reclaimableUsedCapacityAndReclaim) {
       ASSERT_EQ(scopedParticipant->pool()->peakBytes(), testData.peakBytes);
     }
 
-    scopedParticipant->shrink(/*reclaimFromAll=*/true);
+    scopedParticipant->shrink(/*reclaimAll=*/true);
     scopedParticipant->grow(testData.capacity, 0);
     ASSERT_EQ(scopedParticipant->capacity(), testData.capacity);
 

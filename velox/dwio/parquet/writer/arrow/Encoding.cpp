@@ -1738,7 +1738,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     num_values_ = num_values;
     if (len == 0) {
       // Initialize dummy decoder to avoid crashes later on
-      idx_decoder_ = RleDecoder(data, len, /*bit_width=*/1);
+      idx_decoder_ = RleDecoder(data, len, /*bitWidth=*/1);
       return;
     }
     uint8_t bit_width = *data;

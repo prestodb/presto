@@ -124,13 +124,13 @@ TEST_F(FuzzerConnectorTest, reproducible) {
   auto plan1 = PlanBuilder()
                    .startTableScan()
                    .outputType(type)
-                   .tableHandle(makeFuzzerTableHandle(/*fuzerSeed=*/1234))
+                   .tableHandle(makeFuzzerTableHandle(/*fuzzerSeed=*/1234))
                    .endTableScan()
                    .planNode();
   auto plan2 = PlanBuilder()
                    .startTableScan()
                    .outputType(type)
-                   .tableHandle(makeFuzzerTableHandle(/*fuzerSeed=*/1234))
+                   .tableHandle(makeFuzzerTableHandle(/*fuzzerSeed=*/1234))
                    .endTableScan()
                    .planNode();
 

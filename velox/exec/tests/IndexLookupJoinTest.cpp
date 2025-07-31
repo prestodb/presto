@@ -1181,7 +1181,7 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         GetParam().hasNullKeys,
         {},
         {{"t2", "t3"}},
-        /*eqaulityMatchPct=*/80,
+        /*equalMatchPct=*/80,
         /*inColumns=*/std::nullopt,
         testData.betweenMatchPct);
     std::vector<std::shared_ptr<TempFilePath>> probeFiles =
@@ -1505,7 +1505,7 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         GetParam().hasNullKeys,
         {{"t4"}},
         {},
-        /*eqaulityMatchPct=*/80,
+        /*equalMatchPct=*/80,
         testData.inMatchPct);
     std::vector<std::shared_ptr<TempFilePath>> probeFiles =
         createProbeFiles(probeVectors);
@@ -1765,7 +1765,7 @@ TEST_P(IndexLookupJoinTest, prefixKeysbetweenJoinCondition) {
         GetParam().hasNullKeys,
         {},
         {{"t1", "t2"}},
-        /*eqaulityMatchPct=*/80,
+        /*equalMatchPct=*/80,
         /*inColumns=*/std::nullopt,
         testData.betweenMatchPct);
     std::vector<std::shared_ptr<TempFilePath>> probeFiles =
@@ -1889,7 +1889,7 @@ TEST_P(IndexLookupJoinTest, prefixInJoinCondition) {
         GetParam().hasNullKeys,
         {{"t4"}},
         {},
-        /*eqaulityMatchPct=*/80,
+        /*equalMatchPct=*/80,
         testData.inMatchPct);
     std::vector<std::shared_ptr<TempFilePath>> probeFiles =
         createProbeFiles(probeVectors);

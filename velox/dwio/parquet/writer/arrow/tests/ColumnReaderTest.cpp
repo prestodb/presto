@@ -506,7 +506,7 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
   std::shared_ptr<DataPageV1> data_page = MakeDataPage<BooleanType>(
       &descr,
       values,
-      /*num_values=*/2,
+      /*num_vals=*/2,
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -600,7 +600,7 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissingWithDictionary) {
   std::shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
       &descr,
       {},
-      /*num_values=*/2,
+      /*num_vals=*/2,
       Encoding::RLE_DICTIONARY,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -915,7 +915,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequired) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(def_levels.size()),
+      /*num_vals=*/static_cast<int>(def_levels.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -985,7 +985,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadOptional) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(def_levels.size()),
+      /*num_vals=*/static_cast<int>(def_levels.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1113,7 +1113,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequiredRepeated) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(def_levels.size()),
+      /*num_vals=*/static_cast<int>(def_levels.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1191,7 +1191,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(def_levels.size()),
+      /*num_vals=*/static_cast<int>(def_levels.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1320,7 +1320,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRequiredTopLevel) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(values.size()),
+      /*num_vals=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1371,7 +1371,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipOptional) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(values.size()),
+      /*num_vals=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1485,7 +1485,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeated) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(values.size()),
+      /*num_vals=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1590,7 +1590,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeatedConsumeBufferFirst) {
   std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
       descr_,
       values,
-      /*num_values=*/static_cast<int>(values.size()),
+      /*num_vals=*/static_cast<int>(values.size()),
       Encoding::PLAIN,
       /*indices=*/{},
       /*indices_size=*/0,
@@ -1647,7 +1647,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadPartialRecord) {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
         descr_,
         /*values=*/{10, 20, 20, 20},
-        /*num_values=*/4,
+        /*num_vals=*/4,
         Encoding::PLAIN,
         /*indices=*/{},
         /*indices_size=*/0,
@@ -1663,7 +1663,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadPartialRecord) {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
         descr_,
         /*values=*/{20, 20},
-        /*num_values=*/2,
+        /*num_vals=*/2,
         Encoding::PLAIN,
         /*indices=*/{},
         /*indices_size=*/0,
@@ -1679,7 +1679,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadPartialRecord) {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
         descr_,
         /*values=*/{20, 30},
-        /*num_values=*/2,
+        /*num_vals=*/2,
         Encoding::PLAIN,
         /*indices=*/{},
         /*indices_size=*/0,
@@ -1751,7 +1751,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
         descr_,
         /*values=*/{10, 20, 20, 20},
-        /*num_values=*/4,
+        /*num_vals=*/4,
         Encoding::PLAIN,
         /*indices=*/{},
         /*indices_size=*/0,
@@ -1767,7 +1767,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
         descr_,
         /*values=*/{20, 20},
-        /*num_values=*/2,
+        /*num_vals=*/2,
         Encoding::PLAIN,
         /*indices=*/{},
         /*indices_size=*/0,
@@ -1783,7 +1783,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
     std::shared_ptr<DataPageV1> page = MakeDataPage<Int32Type>(
         descr_,
         /*values=*/{20, 30},
-        /*num_values=*/2,
+        /*num_vals=*/2,
         Encoding::PLAIN,
         /*indices=*/{},
         /*indices_size=*/0,

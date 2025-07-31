@@ -980,7 +980,7 @@ TEST_F(E2EWriterTest, OversizeRows) {
       config,
       /*flushPolicyFactory=*/nullptr,
       /*layoutPlannerFactory=*/nullptr,
-      /*memoryBudget=*/std::numeric_limits<int64_t>::max(),
+      /*writerMemoryCap=*/std::numeric_limits<int64_t>::max(),
       false);
 }
 
@@ -1012,7 +1012,7 @@ TEST_F(E2EWriterTest, OversizeBatches) {
       config,
       /*flushPolicyFactory=*/nullptr,
       /*layoutPlannerFactory=*/nullptr,
-      /*memoryBudget=*/std::numeric_limits<int64_t>::max(),
+      /*writerMemoryCap=*/std::numeric_limits<int64_t>::max(),
       false);
 
   // Test splitting multiple huge batches.
@@ -1028,7 +1028,7 @@ TEST_F(E2EWriterTest, OversizeBatches) {
       config,
       /*flushPolicyFactory=*/nullptr,
       /*layoutPlannerFactory=*/nullptr,
-      /*memoryBudget=*/std::numeric_limits<int64_t>::max(),
+      /*writerMemoryCap=*/std::numeric_limits<int64_t>::max(),
       false);
 }
 
@@ -1088,7 +1088,7 @@ TEST_F(E2EWriterTest, OverflowLengthIncrements) {
       config,
       /*flushPolicyFactory=*/nullptr,
       /*layoutPlannerFactory=*/nullptr,
-      /*memoryBudget=*/std::numeric_limits<int64_t>::max(),
+      /*writerMemoryCap=*/std::numeric_limits<int64_t>::max(),
       false);
 }
 

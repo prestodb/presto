@@ -242,7 +242,7 @@ uint64_t SpillWriter::write(
           kDefaultUseLosslessTimestamp,
           compressionKind_,
           0.8,
-          /*nullsFirst=*/true};
+          /*_nullsFirst=*/true};
       batch_ = std::make_unique<VectorStreamGroup>(pool_, serde_);
       batch_->createStreamTree(
           std::static_pointer_cast<const RowType>(rows->type()),
@@ -327,7 +327,7 @@ SpillReadFile::SpillReadFile(
           kDefaultUseLosslessTimestamp,
           compressionKind_,
           0.8,
-          /*nullsFirst=*/true},
+          /*_nullsFirst=*/true},
       pool_(pool),
       serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
       stats_(stats) {
