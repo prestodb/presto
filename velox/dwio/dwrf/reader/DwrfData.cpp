@@ -101,6 +101,7 @@ void DwrfData::ensureRowGroupIndex() {
 
 dwio::common::PositionProvider DwrfData::seekToRowGroup(int64_t index) {
   ensureRowGroupIndex();
+  VELOX_CHECK_LT(index, index_->entry_size(), "RowGroup index is corrupted");
 
   positionsHolder_ = toPositionsInner(index_->entry(index));
   dwio::common::PositionProvider positionProvider(positionsHolder_);
