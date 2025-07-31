@@ -797,7 +797,7 @@ Counts, Sums, and Averages
     Calculates the average (arithmetic mean) of all the input values in col and then adds a
     normally distributed random double value with 0 mean and standard deviation of noise_scale.
 
-    If provided, random_seed is used to seed the random number generator.
+    If provided, ``random_seed`` is used to seed the random number generator.
     Otherwise, noise is drawn from a secure random.
 
 .. function:: noisy_avg_gaussian(col, noise_scale, lower, upper[, random_seed]) -> double
@@ -806,7 +806,7 @@ Counts, Sums, and Averages
     normally distributed random double value with 0 mean and standard deviation of ``noise_scale``.
     Each value is clipped to the range of [``lower``, ``upper``] before averaging.
 
-    If provided, random_seed is used to seed the random number generator.
+    If provided, ``random_seed`` is used to seed the random number generator.
     Otherwise, noise is drawn from a secure random.
 
 .. function:: noisy_approx_set_sfm(col, epsilon[, buckets[, precision]]) -> SfmSketch
@@ -839,8 +839,8 @@ Counts, Sums, and Averages
 
     Returns an SFM sketch with no items in it. This is analogous to the ``empty_approx_set()`` function,
     which returns an empty (deterministic) ``HyperLogLog`` sketch.
-    * ``epsilon`` (double) is a positive number that controls the level of noise in the sketch, as described in [Hehir2023]_.
-      Smaller values of epsilon correspond to noisier sketches.
+
+    * ``epsilon`` (double) is a positive number that controls the level of noise in the sketch, as described in [Hehir2023]_. Smaller values of epsilon correspond to noisier sketches.
     * ``buckets`` (int) defaults to 4096.
     * ``precision`` (int) defaults to 24.
 
@@ -875,7 +875,7 @@ Counts, Sums, and Averages
 .. function:: merge(SfmSketch) -> SfmSketch
 
     An aggregator function that returns a merged ``SfmSketch`` of the set union of
-    individual ``SfmSketch`` objects, similar to ``merge(HyperLogLog)``. ::
+    individual ``SfmSketch`` objects, similar to ``merge(HyperLogLog)``.
 
     ::
 
