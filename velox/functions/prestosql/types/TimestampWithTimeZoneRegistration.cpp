@@ -275,7 +275,7 @@ class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
   TimestampWithTimeZoneCastOperator() = default;
 };
 
-class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
+class TimestampWithTimeZoneTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -298,6 +298,6 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
 void registerTimestampWithTimeZoneType() {
   registerCustomType(
       "timestamp with time zone",
-      std::make_unique<const TimestampWithTimeZoneTypeFactories>());
+      std::make_unique<const TimestampWithTimeZoneTypeFactory>());
 }
 } // namespace facebook::velox

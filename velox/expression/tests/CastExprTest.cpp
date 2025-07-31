@@ -2866,7 +2866,7 @@ class BigintTypeWithCustomComparisonCastOperator : public exec::CastOperator {
   BigintTypeWithCustomComparisonCastOperator() = default;
 };
 
-class BigintTypeWithCustomComparisonTypeFactories : public CustomTypeFactories {
+class BigintTypeWithCustomComparisonTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -2898,8 +2898,7 @@ TEST_F(CastExprTest, skipUnnecessaryChildrenOfComplexTypes) {
   VELOX_CHECK(
       registerCustomType(
           BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->name(),
-          std::make_unique<
-              const BigintTypeWithCustomComparisonTypeFactories>()),
+          std::make_unique<const BigintTypeWithCustomComparisonTypeFactory>()),
       "Failed to register custom type 'bigint type with custom comparison'");
 
   const auto valuesThatThrowOnCast = makeFlatVector<int64_t>(

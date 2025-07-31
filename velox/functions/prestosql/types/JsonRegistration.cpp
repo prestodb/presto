@@ -23,9 +23,9 @@
 
 namespace facebook::velox {
 namespace {
-class JsonTypeFactories : public CustomTypeFactories {
+class JsonTypeFactory : public CustomTypeFactory {
  public:
-  JsonTypeFactories() = default;
+  JsonTypeFactory() = default;
 
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -63,6 +63,6 @@ class JsonTypeFactories : public CustomTypeFactories {
 } // namespace
 
 void registerJsonType() {
-  registerCustomType("json", std::make_unique<const JsonTypeFactories>());
+  registerCustomType("json", std::make_unique<const JsonTypeFactory>());
 }
 } // namespace facebook::velox

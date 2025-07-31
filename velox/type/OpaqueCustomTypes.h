@@ -87,7 +87,7 @@ class OpaqueCustomTypeRegister {
   }
 
  private:
-  class TypeFactory : public CustomTypeFactories {
+  class TypeFactory : public CustomTypeFactory {
    public:
     TypeFactory() = default;
 

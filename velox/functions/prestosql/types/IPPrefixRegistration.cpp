@@ -183,7 +183,7 @@ class IPPrefixCastOperator : public exec::CastOperator {
   }
 };
 
-class IPPrefixTypeFactories : public CustomTypeFactories {
+class IPPrefixTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -208,7 +208,6 @@ class IPPrefixTypeFactories : public CustomTypeFactories {
 } // namespace
 
 void registerIPPrefixType() {
-  registerCustomType(
-      "ipprefix", std::make_unique<const IPPrefixTypeFactories>());
+  registerCustomType("ipprefix", std::make_unique<const IPPrefixTypeFactory>());
 }
 } // namespace facebook::velox

@@ -21,7 +21,7 @@
 
 namespace facebook::velox {
 namespace {
-class SfmSketchTypeFactories : public CustomTypeFactories {
+class SfmSketchTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -43,6 +43,6 @@ class SfmSketchTypeFactories : public CustomTypeFactories {
 } // namespace
 void registerSfmSketchType() {
   registerCustomType(
-      "sfmsketch", std::make_unique<const SfmSketchTypeFactories>());
+      "sfmsketch", std::make_unique<const SfmSketchTypeFactory>());
 }
 } // namespace facebook::velox

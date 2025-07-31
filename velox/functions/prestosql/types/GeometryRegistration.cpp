@@ -22,7 +22,7 @@
 namespace facebook::velox {
 
 namespace {
-class GeometryTypeFactories : public CustomTypeFactories {
+class GeometryTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -42,8 +42,7 @@ class GeometryTypeFactories : public CustomTypeFactories {
 
 void registerGeometryType() {
   // Register the geometry type with the type registry.
-  registerCustomType(
-      "geometry", std::make_unique<const GeometryTypeFactories>());
+  registerCustomType("geometry", std::make_unique<const GeometryTypeFactory>());
 }
 
 } // namespace facebook::velox

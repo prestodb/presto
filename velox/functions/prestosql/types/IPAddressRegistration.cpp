@@ -256,9 +256,9 @@ class IPAddressCastOperator : public exec::CastOperator {
   }
 };
 
-class IPAddressTypeFactories : public CustomTypeFactories {
+class IPAddressTypeFactory : public CustomTypeFactory {
  public:
-  IPAddressTypeFactories() = default;
+  IPAddressTypeFactory() = default;
 
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -283,6 +283,6 @@ class IPAddressTypeFactories : public CustomTypeFactories {
 
 void registerIPAddressType() {
   registerCustomType(
-      "ipaddress", std::make_unique<const IPAddressTypeFactories>());
+      "ipaddress", std::make_unique<const IPAddressTypeFactory>());
 }
 } // namespace facebook::velox

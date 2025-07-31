@@ -22,7 +22,7 @@
 
 namespace facebook::velox {
 namespace {
-class HyperLogLogTypeFactories : public CustomTypeFactories {
+class HyperLogLogTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -43,6 +43,6 @@ class HyperLogLogTypeFactories : public CustomTypeFactories {
 } // namespace
 void registerHyperLogLogType() {
   registerCustomType(
-      "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
+      "hyperloglog", std::make_unique<const HyperLogLogTypeFactory>());
 }
 } // namespace facebook::velox

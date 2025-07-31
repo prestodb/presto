@@ -118,7 +118,7 @@ class BingTileCastOperator : public exec::CastOperator {
   BingTileCastOperator() = default;
 };
 
-class BingTileTypeFactories : public CustomTypeFactories {
+class BingTileTypeFactory : public CustomTypeFactory {
  public:
   velox::TypePtr getType(
       const std::vector<velox::TypeParameter>& parameters) const override {
@@ -140,8 +140,7 @@ class BingTileTypeFactories : public CustomTypeFactories {
 } // namespace
 
 void registerBingTileType() {
-  registerCustomType(
-      "bingtile", std::make_unique<const BingTileTypeFactories>());
+  registerCustomType("bingtile", std::make_unique<const BingTileTypeFactory>());
 }
 
 } // namespace facebook::velox

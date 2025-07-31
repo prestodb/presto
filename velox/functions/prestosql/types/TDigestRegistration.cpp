@@ -21,7 +21,7 @@
 
 namespace facebook::velox {
 namespace {
-class TDigestTypeFactories : public CustomTypeFactories {
+class TDigestTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK_EQ(parameters.size(), 1);
@@ -44,6 +44,6 @@ class TDigestTypeFactories : public CustomTypeFactories {
 } // namespace
 
 void registerTDigestType() {
-  registerCustomType("tdigest", std::make_unique<const TDigestTypeFactories>());
+  registerCustomType("tdigest", std::make_unique<const TDigestTypeFactory>());
 }
 } // namespace facebook::velox

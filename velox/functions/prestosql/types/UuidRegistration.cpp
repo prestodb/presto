@@ -180,9 +180,9 @@ class UuidCastOperator : public exec::CastOperator {
   }
 };
 
-class UuidTypeFactories : public CustomTypeFactories {
+class UuidTypeFactory : public CustomTypeFactory {
  public:
-  UuidTypeFactories() = default;
+  UuidTypeFactory() = default;
 
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -201,6 +201,6 @@ class UuidTypeFactories : public CustomTypeFactories {
 } // namespace
 
 void registerUuidType() {
-  registerCustomType("uuid", std::make_unique<const UuidTypeFactories>());
+  registerCustomType("uuid", std::make_unique<const UuidTypeFactory>());
 }
 } // namespace facebook::velox

@@ -54,7 +54,7 @@ class FancyIntType : public OpaqueType {
   }
 };
 
-class FancyIntTypeFactories : public CustomTypeFactories {
+class FancyIntTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -145,7 +145,7 @@ struct FancyPlusFunction {
   }
 };
 
-class AlwaysFailingTypeFactories : public CustomTypeFactories {
+class AlwaysFailingTypeFactory : public CustomTypeFactory {
  public:
   TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
     VELOX_CHECK(parameters.empty());
@@ -168,11 +168,11 @@ class AlwaysFailingTypeFactories : public CustomTypeFactories {
 /// simple function that takes and returns this type. Verify function signatures
 /// and evaluate some expressions.
 TEST_F(CustomTypeTest, customType) {
-  ASSERT_TRUE(registerCustomType(
-      "fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  ASSERT_TRUE(
+      registerCustomType("fancy_int", std::make_unique<FancyIntTypeFactory>()));
 
-  ASSERT_FALSE(registerCustomType(
-      "fancy_int", std::make_unique<AlwaysFailingTypeFactories>()));
+  ASSERT_FALSE(
+      registerCustomType("fancy_int", std::make_unique<FancyIntTypeFactory>()));
 
   registerFunction<FancyPlusFunction, TheFancyInt, TheFancyInt, TheFancyInt>(
       {"fancy_plus"});
@@ -244,8 +244,8 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
 #endif
   ASSERT_EQ(expectedTypes, getCustomTypeNames());
 
-  ASSERT_TRUE(registerCustomType(
-      "fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  ASSERT_TRUE(
+      registerCustomType("fancy_int", std::make_unique<FancyIntTypeFactory>()));
   expectedTypes.insert("FANCY_INT");
 
   ASSERT_EQ(expectedTypes, getCustomTypeNames());
@@ -254,8 +254,8 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
 }
 
 TEST_F(CustomTypeTest, nullConstant) {
-  ASSERT_TRUE(registerCustomType(
-      "fancy_int", std::make_unique<FancyIntTypeFactories>()));
+  ASSERT_TRUE(
+      registerCustomType("fancy_int", std::make_unique<FancyIntTypeFactory>()));
   auto checkNullConstant = [&](const TypePtr& type,
                                const std::string& expectedTypeString) {
     auto null = BaseVector::createNullConstant(type, 10, pool());
