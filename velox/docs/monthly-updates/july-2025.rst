@@ -1,0 +1,83 @@
+****************
+July 2025 Update
+****************
+
+This update was generated with the assistance of AI. While we strive for accuracy, please note
+that AI-generated content may not always be error-free. We encourage you to verify any information
+that is important to you.
+
+Core Library
+============
+
+* Switch to C++20 standard. :pr:`10866`
+* Add ParallelProject node and operator from Verax. :pr:`14220`
+* Add barriered execution support to AssignUniqueId. :pr:`14224`
+* Add support for left join semantics to Unnest. :pr:`14095`
+* Add support for converting OPAQUE vectors to variant. :pr:`14235`
+* Add basic support for coercions to help with function type resolution. :pr:`14113`
+* Optimize streaming aggregation by removing max output batch size limit, reducing peak memory 4x. :pr:`14238`
+* Fix deadlock when dropping non-existent child memory pools. :pr:`14202`
+* Fix Variant::hash and BaseVector::hashValueAt for arrays and maps. :pr:`14019`
+* Fix ConstantTypedExpr equals/hash/toString methods for various data types. :pr:`14055`
+* Fix AssignUniqueId needsInput logic. :pr:`14127`
+
+Presto Functions
+================
+
+* Add :func:`dot_product` function for embedding similarity calculations.
+* Add seeded version of :func:`xxhash64` function.
+* Add SFM sketch functions: :func:`merge`, :func:`noisy_approx_set_sfm_from_index_and_zeros`, :func:`noisy_approx_distinct_sfm` and :func:`noisy_approx_set_sfm` aggregate functions.
+* Add :func:`quantile_at_value` and :func:`scale_qdigest` functions.
+* Add :func:`geometry_nearest_points`, :func:`ST_NumPoints`, :func:`ST_EnvelopeAsPts`, :func:`ST_Points` functions.
+* Add :func:`ST_Buffer`, :func:`ST_CoordDim`, :func:`ST_Envelope`, :func:`ST_ExteriorRing` functions.
+* Add :func:`ST_ConvexHull`, :func:`ST_Dimension`, :func:`ST_NumInteriorRing`, :func:`ST_NumGeometries` functions.
+* Add :func:`ST_GeometryN`, :func:`ST_InteriorRingN`, :func:`ST_StartPoint`, :func:`ST_EndPoint` functions.
+* Add :func:`ST_PointN`, :func:`ST_Length`, :func:`ST_IsClosed`, :func:`ST_Empty`, :func:`ST_IsRing` functions.
+* Add :func:`ST_Polygon` function.
+* Fix Geometry serialization/deserialization errors for GeometryCollections with empty geometries. :pr:`14243`
+* Optimize :func:`flatten` as a VectorFunction to enable zero copy. :pr:`14215`
+
+Spark Functions
+===============
+
+* Add :spark:func:`base64` and :spark:func:`initcap` functions.
+* Add support for decimal type in :spark:func:`from_json` function.
+* Add :spark:func:`abs` function to handle ANSI mode differences from Presto.
+* Fix :spark:func:`corr` aggregate function to return NaN instead of NULL when variance is zero. :pr:`13956`
+* Fix :spark:func:`covar_samp` aggregate function to return NaN instead of Inf when c2 is infinite. :pr:`13990`
+* Fix :spark:func:`get_json_object` function to normalize JSON paths properly. :pr:`13854`
+
+Connectors
+==========
+
+* Add metadata support and filter pushdown to TpchConnector. :pr:`14099`
+* Add HDFS filesystem operations: remove, rmdir, rename, mkdir. :pr:`13948`
+* Add S3 filesystem operations: exists and list. :pr:`13893`
+* Add TokenProvider support to ConnectorQueryCtx for authentication. :pr:`13919`
+* Add support for timestamp as Hive partition ID. :pr:`13494`
+* Add text format write support for complex types: ROW, MAP, and ARRAY. :pr:`14064`
+* Add escape character support for text parsing. :pr:`14130`
+* Add backward compatibility support for TIMESTAMP in TextReader. :pr:`14063`
+* Fix HiveDataSink to materialize input before writes to prevent lazy vector errors. :pr:`14085`
+
+Performance and Correctness
+===========================
+
+* Make BingTile and other custom types non-orderable to match Presto behavior. :pr:`14100`
+* Fix Cast to JSON output size estimation for invalid Unicode input. :pr:`14062`
+* Fix constant input size validation in streaming aggregation. :pr:`13933`
+* Fix hash aggregation row container cleanup crash on abort. :pr:`13979`
+
+Credits
+=======
+
+Amit Dutta, Bikramjeet Vig, Bowen Wu, Chengcheng Jin, Christian Zentgraf,
+Elodie Li, Eric Jia, Heidi Han, Henry Edwin Dikeman, Hongze Zhang, Jacob
+Khaliqi, Jacob Wujciak-Jens, James Gill, Jialiang Tan, Jimmy Lu, Joe Abraham,
+Ke Jia, Ke Wang, Kevin Wilfong, Konstantinos Karatsenidis, Krishna Pai, Libin
+Bai, Manikanta Loya, Masha Basmanova, Natasha Sehgal, Oliver Xu, Orri Erling,
+Patrick Sullivan, Pedro Eugenio Rocha Pedreira, Peter Enescu, Pramod Satya,
+Raaghav Ravishankar, Rajeev Dharmendra Singh, Rui Mo, Sutou Kouhei, Tony Liu,
+Vincent Crabtree, Xiao Du, Xiaoxuan Meng, Yi Cheng Lee, Yuxuan Chen, Zhen Li,
+Zhiying Liang, aditi-pandit, lingbin, nimesh.k, wecharyu, wraymo, zhli1142015,
+zml1206
