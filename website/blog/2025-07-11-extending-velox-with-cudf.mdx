@@ -1,0 +1,34 @@
+---
+slug: extending-velox-with-cudf
+title: "Extending Velox - GPU Acceleration with cuDF"
+authors: [GregoryKimball]
+tags: [tech-blog]
+---
+
+## TL;DR
+
+This post describes the design principles and software components for extending Velox with hardware acceleration libraries like NVIDIA's [cuDF](https://github.com/rapidsai/cudf). Velox provides a flexible execution model for hardware accelerators, and cuDF's data structures and algorithms align well with core components in Velox. 
+
+## How Velox and cuDF Fit Together
+
+Extensibility is a key feature in Velox. The cuDF library integrates with Velox using the [DriverAdapter](https://github.com/facebookincubator/velox/blob/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/exec/ToCudf.cpp#L293) interface to rewrite query plans for GPU execution. The rewriting process allows for operator replacement, operator fusion and operator addition, giving cuDF a lot of freedom when preparing a query plan with GPU operators. Once Velox converts a query plan into executable pipelines, the cuDF DriverAdapter rewrites the plan to use GPU operators:
+
+<figure>
+ <img src="/img/2025-07-11-cudf-driveradapter.png" height= "100%" width="100%"/>
+</figure>
+
+Generally the cuDF DriverAdapter replaces operators one-to-one. An exception happens when a GPU operator is not yet implemented in cuDF, in which case a [CudfConversion](https://github.com/facebookincubator/velox/blob/main/velox/experimental/cudf/exec/CudfConversion.h) operator must be added to transfer from GPU to CPU, fallback to CPU execution, and then transfer back to GPU. For end-to-end GPU execution where cuDF replaces all of the Velox CPU operators, cuDF relies on Velox's [pipeline-based execution model](https://facebookincubator.github.io/velox/develop/task.html) to separate stages of execution, partition the work across drivers, and schedule concurrent work on the GPU.
+
+Velox and cuDF benefit from a shared data format, using columnar layout and [Arrow-compatible buffers](https://engineering.fb.com/2024/02/20/developer-tools/velox-apache-arrow-15-composable-data-management/). The [CudfVector](https://github.com/facebookincubator/velox/tree/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/vector) type in the experimental cuDF backend inherits from Velox's [RowVector](https://facebookincubator.github.io/velox/develop/vectors.html#rowvector) type, and manages a `std::unique_ptr` to a `cudf::table` ([link](https://docs.rapids.ai/api/libcudf/stable/classcudf_1_1table)) which owns the GPU-resident data. CudfVector also maintains an `rmm::cuda_stream_view` ([link](https://docs.rapids.ai/api/rmm/stable/librmm_docs/cuda_streams/)) to ensure that asynchronously launched GPU operations are [stream-ordered](https://developer.nvidia.com/blog/using-cuda-stream-ordered-memory-allocator-part-1/). Even when the data resides in GPU memory, CudfVector allows the operator interfaces to follow Velox's standard execution model of producing and consuming RowVector objects.
+
+The first set of GPU operators in the experimental cuDF backend include [TableScan](https://github.com/facebookincubator/velox/tree/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/connectors), [HashJoin](https://github.com/facebookincubator/velox/blob/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/exec/CudfHashJoin.h), [HashAggregation](https://github.com/facebookincubator/velox/blob/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/exec/CudfHashAggregation.h), [FilterProject](https://github.com/facebookincubator/velox/blob/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/exec/CudfFilterProject.h), [OrderBy](https://github.com/facebookincubator/velox/blob/2a9c9043264a60c9a1b01324f8371c64bd095af9/velox/experimental/cudf/exec/CudfOrderBy.h) and more. cuDF's C++ API covers many features beyond this initial set, including broad support for list and struct types, high-performance string operations, and configurable null handling. These features are critical for running workloads in Velox with correct semantics for Presto and Spark users. Future work will integrate cuDF support for more Velox operators.
+
+## GPU execution: fewer drivers and larger batches
+
+Compared to the typical settings for CPU execution, GPU execution with cuDF benefits from a lower driver count and larger batch size. Whereas Velox CPU performs best with ~1K rows per batch and driver count equal to the number of physical CPU cores, we have found Velox's cuDF backend to perform best with ~1 GiB batch size and 2-8 drivers for a single GPU. cuDF GPU operators launch one or more device-wide kernels and a single driver may not fully utilize GPU compute. Additional drivers improve throughput by queuing up more GPU work and avoiding stalling during host-to-device copies. Adding more drivers increases memory pressure linearly, and query processing throughput saturates once GPU compute is fully utilized. Please check out our talk, “[Accelerating Velox with RAPIDS cuDF](https://www.youtube.com/watch?v=l1JEo-mTNlw)” from VeloxCon 2025 to learn more. 
+
+## Call to Action
+
+The [experimental cuDF backend in Velox](https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf) is under active development. It is implemented entirely in C++ and does not require CUDA programming knowledge. There are dozens more APIs in cuDF that can be integrated as Velox operators, and many design areas to explore such as spilling, remote storage connectors, and expression handling.
+
+If you're interested in bringing GPU acceleration to the Velox ecosystem, please join us in the #velox-oss-community channel on the Velox Slack workspace. Your contributions will help push the limits of performance in Presto, Spark and other tools powered by Velox.
