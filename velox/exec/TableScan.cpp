@@ -231,10 +231,10 @@ RowVectorPtr TableScan::getOutput() {
                1.0 * data->size() / readBatchSize,
                1.0 / kMaxSelectiveBatchSizeMultiplier});
           if (ioTimeUs > 0) {
-            RECORD_HISTOGRAM_METRIC_VALUE(
+            RECORD_METRIC_VALUE(
                 velox::kMetricTableScanBatchProcessTimeMs, ioTimeUs / 1'000);
           }
-          RECORD_HISTOGRAM_METRIC_VALUE(
+          RECORD_METRIC_VALUE(
               velox::kMetricTableScanBatchBytes, data->estimateFlatSize());
           return data;
         } else {
