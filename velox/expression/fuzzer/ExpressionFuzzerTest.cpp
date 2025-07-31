@@ -222,6 +222,8 @@ std::unordered_set<std::string> skipFunctions = {
     "st_geometryn",
     "st_interiorringn",
     "st_numinteriorring",
+    "st_numpoints",
+    "st_envelopeaspts",
     "st_numgeometries",
     "st_convexhull",
     "st_coorddim",
