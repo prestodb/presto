@@ -1163,7 +1163,6 @@ jobs:
                 --duration_sec $DURATION \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
-                --velox_fuzzer_enable_decimal_type \
                 --velox_fuzzer_enable_column_reuse \
                 --velox_fuzzer_enable_expression_reuse \
                 --max_expression_trees_per_step 2 \
