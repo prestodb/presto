@@ -951,4 +951,39 @@ struct MillisToTimestampFunction {
   }
 };
 
+template <typename T>
+struct TimestampDiffFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* unitString,
+      const arg_type<Timestamp>* /*timestamp1*/,
+      const arg_type<Timestamp>* /*timestamp2*/) {
+    VELOX_USER_CHECK_NOT_NULL(unitString);
+    unit_ = fromDateTimeUnitString(
+        *unitString, /*throwIfInvalid=*/true, /*allowMicro=*/true);
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<Varchar>& /*unitString*/,
+      const arg_type<Timestamp>& timestamp1,
+      const arg_type<Timestamp>& timestamp2) {
+    const auto unit = unit_.value();
+    result = diffTimestamp(
+        unit,
+        timestamp1,
+        timestamp2,
+        sessionTimeZone_,
+        /*respectLastDay=*/false);
+  }
+
+ private:
+  const tz::TimeZone* sessionTimeZone_ = nullptr;
+  std::optional<DateTimeUnit> unit_ = std::nullopt;
+};
+
 } // namespace facebook::velox::functions::sparksql

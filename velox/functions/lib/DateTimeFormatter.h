@@ -131,6 +131,10 @@ enum class DateTimeUnit {
   kYear
 };
 
+FOLLY_ALWAYS_INLINE bool isTimeUnit(const DateTimeUnit unit) {
+  return unit < DateTimeUnit::kDay;
+}
+
 struct FormatPattern {
   DateTimeFormatSpecifier specifier;
 

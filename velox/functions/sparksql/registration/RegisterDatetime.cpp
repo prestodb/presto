@@ -95,6 +95,12 @@ void registerDatetimeFunctions(const std::string& prefix) {
   registerFunction<DateTruncFunction, Timestamp, Varchar, Timestamp>(
       {prefix + "date_trunc"});
   registerFunction<TruncFunction, Date, Date, Varchar>({prefix + "trunc"});
+  registerFunction<
+      TimestampDiffFunction,
+      int64_t,
+      Varchar,
+      Timestamp,
+      Timestamp>({prefix + "timestampdiff"});
 }
 
 } // namespace facebook::velox::functions::sparksql
