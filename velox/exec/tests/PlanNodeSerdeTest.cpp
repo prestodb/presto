@@ -678,7 +678,7 @@ TEST_F(PlanNodeSerdeTest, topNRank) {
   topNRankSerdeTest("rank");
 }
 
-TEST_F(PlanNodeSerdeTest, topNDemseRank) {
+TEST_F(PlanNodeSerdeTest, topNDenseRank) {
   topNRankSerdeTest("dense_rank");
 }
 
