@@ -43,44 +43,46 @@ namespace {
   return std::make_shared<rmm::mr::cuda_memory_resource>();
 }
 
-[[nodiscard]] auto makePoolMr() {
+[[nodiscard]] auto makePoolMr(int percent) {
   return rmm::mr::make_owning_wrapper<rmm::mr::pool_memory_resource>(
-      makeCudaMr(), rmm::percent_of_free_device_memory(50));
+      makeCudaMr(), rmm::percent_of_free_device_memory(percent));
 }
 
-[[nodiscard]] auto makeAsyncMr() {
-  return std::make_shared<rmm::mr::cuda_async_memory_resource>();
+[[nodiscard]] auto makeAsyncMr(int percent) {
+  return std::make_shared<rmm::mr::cuda_async_memory_resource>(
+      rmm::percent_of_free_device_memory(percent));
 }
 
 [[nodiscard]] auto makeManagedMr() {
   return std::make_shared<rmm::mr::managed_memory_resource>();
 }
 
-[[nodiscard]] auto makeArenaMr() {
+[[nodiscard]] auto makeArenaMr(int percent) {
   return rmm::mr::make_owning_wrapper<rmm::mr::arena_memory_resource>(
-      makeCudaMr());
+      makeCudaMr(), rmm::percent_of_free_device_memory(percent));
 }
 
-[[nodiscard]] auto makeManagedPoolMr() {
+[[nodiscard]] auto makeManagedPoolMr(int percent) {
   return rmm::mr::make_owning_wrapper<rmm::mr::pool_memory_resource>(
-      makeManagedMr(), rmm::percent_of_free_device_memory(50));
+      makeManagedMr(), rmm::percent_of_free_device_memory(percent));
 }
 } // namespace
 
 std::shared_ptr<rmm::mr::device_memory_resource> createMemoryResource(
-    std::string_view mode) {
+    std::string_view mode,
+    int percent) {
   if (mode == "cuda")
     return makeCudaMr();
   if (mode == "pool")
-    return makePoolMr();
+    return makePoolMr(percent);
   if (mode == "async")
-    return makeAsyncMr();
+    return makeAsyncMr(percent);
   if (mode == "arena")
-    return makeArenaMr();
+    return makeArenaMr(percent);
   if (mode == "managed")
     return makeManagedMr();
   if (mode == "managed_pool")
-    return makeManagedPoolMr();
+    return makeManagedPoolMr(percent);
   VELOX_FAIL(
       "Unknown memory resource mode: " + std::string(mode) +
       "\nExpecting: cuda, pool, async, arena, managed, or managed_pool");

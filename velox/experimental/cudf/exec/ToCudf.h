@@ -65,12 +65,16 @@ class CudfOptions {
   const bool cudfEnabled;
   const std::string cudfMemoryResource;
   const bool cudfTableScan;
+  // The initial percent of GPU memory to allocate for memory resource for one
+  // thread.
+  int memoryPercent;
 
  private:
   CudfOptions()
       : cudfEnabled(FLAGS_velox_cudf_enabled),
         cudfMemoryResource(FLAGS_velox_cudf_memory_resource),
         cudfTableScan(FLAGS_velox_cudf_table_scan),
+        memoryPercent(50),
         prefix_("") {}
   CudfOptions(const CudfOptions&) = delete;
   CudfOptions& operator=(const CudfOptions&) = delete;

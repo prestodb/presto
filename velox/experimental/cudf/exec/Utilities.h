@@ -30,9 +30,13 @@ namespace facebook::velox::cudf_velox {
 
 /**
  * @brief Creates a memory resource based on the given mode.
+ *
+ * @param mode rmm::mr::pool_memory_resource mode.
+ * @param percent The initial percent of GPU memory to allocate for memory
+ * resource.
  */
 [[nodiscard]] std::shared_ptr<rmm::mr::device_memory_resource>
-createMemoryResource(std::string_view mode);
+createMemoryResource(std::string_view mode, int percent);
 
 /**
  * @brief Returns the global CUDA stream pool used by cudf.
