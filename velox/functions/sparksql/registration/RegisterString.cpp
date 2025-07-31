@@ -64,10 +64,6 @@ void registerStringFunctions(const std::string& prefix) {
       {prefix + "replace"});
   registerFunction<FindInSetFunction, int32_t, Varchar, Varchar>(
       {prefix + "find_in_set"});
-  registerFunction<UrlEncodeFunction, Varchar, Varchar>(
-      {prefix + "url_encode"});
-  registerFunction<UrlDecodeFunction, Varchar, Varchar>(
-      {prefix + "url_decode"});
   registerFunction<sparksql::ChrFunction, Varchar, int64_t>({prefix + "chr"});
   registerFunction<AsciiFunction, int32_t, Varchar>({prefix + "ascii"});
   registerFunction<sparksql::LPadFunction, Varchar, Varchar, int32_t, Varchar>(
