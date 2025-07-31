@@ -43,6 +43,30 @@
 #endif
 
 namespace facebook::velox::functions {
+namespace detail {
+
+// Helper function to check if a character is cased. Compatible with the
+// 'isCased' implementation in 'ConditionalSpecialCasting.java' of JDK, which is
+// used by 'toLowerCase' function in Spark SQL.
+FOLLY_ALWAYS_INLINE bool isCased(utf8proc_int32_t ch) {
+  auto type = utf8proc_category(ch);
+  // Lowercase letter, uppercase letter or titlecase letter.
+  if (type == UTF8PROC_CATEGORY_LL || type == UTF8PROC_CATEGORY_LU ||
+      type == UTF8PROC_CATEGORY_LT) {
+    return true;
+  }
+  // Modifier letters and special cases.
+  if ((ch >= 0x02B0 && ch <= 0x02B8) || (ch >= 0x02C0 && ch <= 0x02C1) ||
+      (ch >= 0x02E0 && ch <= 0x02E4) || ch == 0x0345 || ch == 0x037A ||
+      (ch >= 0x1D2C && ch <= 0x1D61) || (ch >= 0x2160 && ch <= 0x217F) ||
+      (ch >= 0x24B6 && ch <= 0x24E9)) {
+    return true;
+  }
+  return false;
+}
+
+} // namespace detail
+
 namespace stringCore {
 
 /// Check if a given string is ascii
@@ -172,8 +196,13 @@ FOLLY_ALWAYS_INLINE size_t upperUnicode(
 /// Perform lower for utf8 string input, output should be pre-allocated and
 /// large enough for the results outputLength refers to the number of bytes
 /// available in the output buffer, and inputLength is the number of bytes in
-/// the input string
-template <bool forSpark>
+/// the input string.
+/// @tparam turkishCasing If true, Spark's specific behavior on Turkish casing
+/// is considered. For 'İ' Spark's lower case is 'i̇' and Presto's is 'i'.
+/// @tparam greekFinalSigma If true, Greek final sigma rule is applied. For the
+/// uppercase letter Σ, if it appears at the end of a word, it becomes ς. In all
+/// other positions, it becomes σ. If false, it is always converted to σ.
+template <bool turkishCasing, bool greekFinalSigma>
 FOLLY_ALWAYS_INLINE size_t lowerUnicode(
     char* output,
     size_t outputLength,
@@ -197,13 +226,36 @@ FOLLY_ALWAYS_INLINE size_t lowerUnicode(
 
     inputIdx += size;
 
-    if constexpr (forSpark) {
+    if constexpr (turkishCasing) {
       // Handle Turkish-specific case for İ (U+0130).
       if (UNLIKELY(nextCodePoint == 0x0130)) {
         // Map to i̇ (U+0069 U+0307).
         output[outputIdx++] = 0x69;
         output[outputIdx++] = 0xCC;
         output[outputIdx++] = 0x87;
+        continue;
+      }
+    }
+
+    if constexpr (greekFinalSigma) {
+      // Handle Greek final sigma for Σ (U+03A3).
+      if (nextCodePoint == 0x03A3) {
+        // Look ahead to see if this is the end of a word.
+        bool isFinal = true;
+        if (inputIdx < inputLength) {
+          int lookaheadSize;
+          utf8proc_int32_t lookaheadCodePoint = utf8proc_codepoint(
+              &input[inputIdx], input + inputLength, lookaheadSize);
+          if (lookaheadCodePoint != -1 && detail::isCased(lookaheadCodePoint)) {
+            // If the next code point is cased, not the final.
+            isFinal = false;
+          }
+        }
+        // Convert to ς or σ.
+        utf8proc_int32_t lowerSigma = isFinal ? 0x03C2 : 0x03C3;
+        auto newSize = utf8proc_encode_char(
+            lowerSigma, reinterpret_cast<unsigned char*>(&output[outputIdx]));
+        outputIdx += newSize;
         continue;
       }
     }

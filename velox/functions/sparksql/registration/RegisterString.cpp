@@ -150,10 +150,14 @@ void registerStringFunctions(const std::string& prefix) {
       std::make_unique<ConcatWsCallToSpecialForm>());
   registerFunction<LuhnCheckFunction, bool, Varchar>({prefix + "luhn_check"});
 
-  using SparkUpperFunction =
-      UpperLowerTemplateFunction</*isLower=*/false, /*forSpark=*/true>;
-  using SparkLowerFunction =
-      UpperLowerTemplateFunction</*isLower=*/true, /*forSpark=*/true>;
+  using SparkUpperFunction = UpperLowerTemplateFunction<
+      /*isLower=*/false,
+      /*turkishCasing=*/true,
+      /*greekFinalSigma=*/true>;
+  using SparkLowerFunction = UpperLowerTemplateFunction<
+      /*isLower=*/true,
+      /*turkishCasing=*/true,
+      /*greekFinalSigma=*/true>;
   exec::registerVectorFunction(
       prefix + "upper",
       SparkUpperFunction::signatures(),

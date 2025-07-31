@@ -33,13 +33,21 @@ struct InitCapFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<Varchar>& input) {
-    stringImpl::initcap<true, false>(result, input);
+    stringImpl::initcap<
+        /*strictSpace=*/true,
+        /*isAscii=*/false,
+        /*turkishCasing=*/true,
+        /*greekFinalSigma=*/true>(result, input);
   }
 
   FOLLY_ALWAYS_INLINE void callAscii(
       out_type<Varchar>& result,
       const arg_type<Varchar>& input) {
-    stringImpl::initcap<true, true>(result, input);
+    stringImpl::initcap<
+        /*strictSpace=*/true,
+        /*isAscii=*/true,
+        /*turkishCasing=*/true,
+        /*greekFinalSigma=*/true>(result, input);
   }
 };
 

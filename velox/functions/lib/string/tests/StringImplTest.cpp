@@ -68,6 +68,8 @@ class StringImplTest : public testing::Test {
         {"\u1E87", "\u1E86"},
         {"\u1E8B", "\u1E8A"},
         {"\u1E8F", "\u1E8E"},
+        {"πας", "ΠΑΣ"},
+        {"παςa", "ΠΑΣA"},
     };
   }
 
@@ -109,7 +111,10 @@ class StringImplTest : public testing::Test {
         {"\u1E6A", "\u1E6B"},
         {"\u1E86", "\u1E87"},
         {"\u1E8A", "\u1E8B"},
-        {"\u1E8E", "\u1E8F"}};
+        {"\u1E8E", "\u1E8F"},
+        {"ΠΑΣ", "πασ"},
+        {"ΠΑΣA", "πασa"},
+    };
   }
 
   static std::vector<std::pair<std::string, std::string>>
@@ -991,7 +996,11 @@ TEST_F(StringImplTest, isAscii) {
 TEST_F(StringImplTest, initcapUnicodePresto) {
   for (const auto& [input, expected] : getInitcapUnicodePrestoTestData()) {
     std::string output;
-    initcap<false, false>(output, input);
+    initcap<
+        /*strictSpace=*/false,
+        /*isAscii=*/false,
+        /*turkishCasing=*/false,
+        /*greekFinalSigma=*/false>(output, input);
     ASSERT_EQ(output, expected);
   }
 }
@@ -999,14 +1008,22 @@ TEST_F(StringImplTest, initcapUnicodePresto) {
 TEST_F(StringImplTest, initcapAsciiPresto) {
   for (const auto& [input, expected] : getInitcapAsciiPrestoTestData()) {
     std::string output;
-    initcap<false, true>(output, input);
+    initcap<
+        /*strictSpace=*/false,
+        /*isAscii=*/true,
+        /*turkishCasing=*/false,
+        /*greekFinalSigma=*/false>(output, input);
     ASSERT_EQ(output, expected);
   }
 }
 TEST_F(StringImplTest, initcapUnicodeSpark) {
   for (const auto& [input, expected] : getInitcapUnicodeSparkTestData()) {
     std::string output;
-    initcap<true, false>(output, input);
+    initcap<
+        /*strictSpace=*/true,
+        /*isAscii=*/false,
+        /*turkishCasing=*/true,
+        /*greekFinalSigma=*/true>(output, input);
     ASSERT_EQ(output, expected);
   }
 }
@@ -1014,7 +1031,11 @@ TEST_F(StringImplTest, initcapUnicodeSpark) {
 TEST_F(StringImplTest, initcapAsciiSpark) {
   for (const auto& [input, expected] : getInitcapAsciiSparkTestData()) {
     std::string output;
-    initcap<true, true>(output, input);
+    initcap<
+        /*strictSpace=*/true,
+        /*isAscii=*/true,
+        /*turkishCasing=*/true,
+        /*greekFinalSigma=*/true>(output, input);
     ASSERT_EQ(output, expected);
   }
 }

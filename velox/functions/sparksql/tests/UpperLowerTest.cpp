@@ -70,6 +70,21 @@ TEST_F(UpperLowerTest, lowerUnicode) {
   EXPECT_EQ("\u1E8F", lower("\u1E8E"));
 }
 
+TEST_F(UpperLowerTest, lowerGreek) {
+  EXPECT_EQ("πας", lower("ΠΑΣ"));
+  EXPECT_EQ("πας ", lower("ΠΑΣ "));
+  EXPECT_EQ("πασα", lower("ΠΑΣΑ"));
+  EXPECT_EQ("πας.", lower("ΠΑΣ."));
+  EXPECT_EQ("πας   a", lower("ΠΑΣ   A"));
+  EXPECT_EQ("πας`", lower("ΠΑΣ`"));
+  EXPECT_EQ("παςא", lower("ΠΑΣא"));
+  EXPECT_EQ("παςあ", lower("ΠΑΣあ"));
+  EXPECT_EQ("πασʰ", lower("ΠΑΣʰ"));
+  EXPECT_EQ("πασǆ", lower("ΠΑΣǅ"));
+  EXPECT_EQ("πασσ", lower("ΠΑΣσ"));
+  EXPECT_EQ("πασд", lower("ΠΑΣД"));
+}
+
 TEST_F(UpperLowerTest, upperAscii) {
   EXPECT_EQ("ABCDEFG", upper("abcdefg"));
   EXPECT_EQ("ABCDEFG", upper("ABCDEFG"));
@@ -108,6 +123,15 @@ TEST_F(UpperLowerTest, upperUnicode) {
   EXPECT_EQ("\u1E86", upper("\u1E87"));
   EXPECT_EQ("\u1E8A", upper("\u1E8B"));
   EXPECT_EQ("\u1E8E", upper("\u1E8F"));
+}
+
+TEST_F(UpperLowerTest, upperGreek) {
+  EXPECT_EQ("ΠΑΣ", upper("πασ"));
+  EXPECT_EQ("ΠΑΣ ", upper("πασ "));
+  EXPECT_EQ("ΠΑΣA", upper("πασa"));
+  EXPECT_EQ("ΠΑΣ", upper("πας"));
+  EXPECT_EQ("ΠΑΣ ", upper("πας "));
+  EXPECT_EQ("ΠΑΣA", upper("παςa"));
 }
 
 } // namespace

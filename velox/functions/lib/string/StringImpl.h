@@ -38,7 +38,7 @@ using namespace stringCore;
 /// Perform upper for a UTF8 string
 template <
     bool ascii,
-    bool forSpark = false,
+    bool turkishCasing = false,
     typename TOutString,
     typename TInString>
 FOLLY_ALWAYS_INLINE bool upper(TOutString& output, const TInString& input) {
@@ -57,7 +57,8 @@ FOLLY_ALWAYS_INLINE bool upper(TOutString& output, const TInString& input) {
 /// Perform lower for a UTF8 string
 template <
     bool ascii,
-    bool forSpark = false,
+    bool turkishCasing = false,
+    bool greekFinalSigma = false,
     typename TOutString,
     typename TInString>
 FOLLY_ALWAYS_INLINE bool lower(TOutString& output, const TInString& input) {
@@ -66,7 +67,7 @@ FOLLY_ALWAYS_INLINE bool lower(TOutString& output, const TInString& input) {
     lowerAscii(output.data(), input.data(), input.size());
   } else {
     output.resize(input.size() * 4);
-    auto size = lowerUnicode<forSpark>(
+    auto size = lowerUnicode<turkishCasing, greekFinalSigma>(
         output.data(), output.size(), input.data(), input.size());
     output.resize(size);
   }
@@ -733,7 +734,12 @@ FOLLY_ALWAYS_INLINE void initcapAsciiImpl(
   }
 }
 
-template <bool strictSpace, typename TOutString, typename TInString>
+template <
+    bool strictSpace,
+    bool turkishCasing,
+    bool greekFinalSigma,
+    typename TOutString,
+    typename TInString>
 FOLLY_ALWAYS_INLINE bool initcapUtf8Impl(
     TOutString& output,
     const TInString& input) {
@@ -770,7 +776,7 @@ FOLLY_ALWAYS_INLINE bool initcapUtf8Impl(
       outputBytes += upperSize;
       isStartOfWord = false;
     } else {
-      auto lowerSize = lowerUnicode<strictSpace>(
+      auto lowerSize = lowerUnicode<turkishCasing, greekFinalSigma>(
           outputBytes,
           static_cast<size_t>(outputStart + output.size() - outputBytes),
           inputBytes,
@@ -786,9 +792,18 @@ FOLLY_ALWAYS_INLINE bool initcapUtf8Impl(
 
 } // namespace detail
 
+/// Converts the first character of each word to uppercase and all other
+/// characters in the word to lowercase. Words are separated by whitespace.
+/// @tparam strictSpace If true, only ASCII space is considered as word
+/// separators. If false, other ASCII or Unicode whitespace characters are also
+/// considered as word separators.
+/// @tparam turkishCasing If true, handles special Turkish case during
+/// the unicode lower-casing.
 template <
     bool strictSpace,
     bool isAscii,
+    bool turkishCasing,
+    bool greekFinalSigma,
     typename TOutString,
     typename TInString>
 FOLLY_ALWAYS_INLINE bool initcap(TOutString& output, const TInString& input) {
@@ -796,7 +811,8 @@ FOLLY_ALWAYS_INLINE bool initcap(TOutString& output, const TInString& input) {
     detail::initcapAsciiImpl<strictSpace>(output, input);
     return true;
   } else {
-    return detail::initcapUtf8Impl<strictSpace>(output, input);
+    return detail::initcapUtf8Impl<strictSpace, turkishCasing, greekFinalSigma>(
+        output, input);
   }
 }
 
