@@ -85,6 +85,23 @@ To enable mTLS, the following properties must be configured:
 
 These properties must be used alongside the existing SSL configurations for the server, such as `arrow-flight.server-ssl-certificate` and `arrow-flight.server-ssl-enabled=true`. Make sure the server is configured to trust the client certificates (typically via a shared CA).
 
+Below is an example code snippet to configure the Arrow Flight server with mTLS:
+
+.. code-block:: java
+
+   File certChainFile = new File("src/test/resources/mtls/server.crt");
+   File privateKeyFile = new File("src/test/resources/mtls/server.key");
+   File caCertFile = new File("src/test/resources/mtls/ca.crt");
+
+   allocator = new RootAllocator(Long.MAX_VALUE);
+
+   Location location = Location.forGrpcTls("localhost", serverPort);
+   server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
+           .useTls(certChainFile, privateKeyFile)
+           .useMTlsClientVerification(caCertFile)
+           .build();
+
+   server.start();
 
 Querying Arrow-Flight
 ---------------------
