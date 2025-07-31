@@ -44,6 +44,8 @@ import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
+import org.apache.hudi.storage.StorageConfiguration;
 
 import javax.inject.Inject;
 
@@ -105,7 +107,7 @@ public class HudiSplitManager
         HudiTableHandle table = layout.getTable();
 
         // Retrieve and prune partitions
-        HoodieTimer timer = new HoodieTimer().startTimer();
+        HoodieTimer timer = HoodieTimer.start();
         List<String> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaTableName(), layout.getTupleDomain());
         log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
         if (partitions.isEmpty()) {
@@ -115,10 +117,10 @@ public class HudiSplitManager
         // Load Hudi metadata
         ExtendedFileSystem fs = getFileSystem(session, table);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(isHudiMetadataTableEnabled(session)).build();
-        Configuration conf = fs.getConf();
+        StorageConfiguration<Configuration> conf = HadoopFSUtils.getStorageConfWithCopy(fs.getConf());
         HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder().setConf(conf).setBasePath(table.getPath()).build();
         HoodieTimeline timeline = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants();
-        String timestamp = timeline.lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
+        String timestamp = timeline.lastInstant().map(HoodieInstant::requestedTime).orElse(null);
         if (timestamp == null) {
             // no completed instant for current table
             return new FixedSplitSource(ImmutableList.of());
