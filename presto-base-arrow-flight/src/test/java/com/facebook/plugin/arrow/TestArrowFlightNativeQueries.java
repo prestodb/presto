@@ -67,6 +67,7 @@ public class TestArrowFlightNativeQueries
     public void setup()
             throws Exception
     {
+        arrowFlightQueryRunner = getDistributedQueryRunner();
         allocator = new RootAllocator(Long.MAX_VALUE);
         Location location = Location.forGrpcTls("localhost", serverPort);
         FlightServer.Builder serverBuilder = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator));
@@ -87,36 +88,21 @@ public class TestArrowFlightNativeQueries
         server = serverBuilder.build();
         server.start();
         log.info("Server listening on port %s", server.getPort());
-
-        this.arrowFlightQueryRunner = (DistributedQueryRunner) createQueryRunner();
     }
 
     @AfterClass(alwaysRun = true)
     public void close()
             throws InterruptedException
     {
-        if (arrowFlightQueryRunner != null) {
-            arrowFlightQueryRunner.close();
-            arrowFlightQueryRunner = null;
-        }
-        if (server != null) {
-            server.close();
-            server = null;
-        }
-        if (allocator != null) {
-            allocator.close();
-            allocator = null;
-        }
+        arrowFlightQueryRunner.close();
+        server.close();
+        allocator.close();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        if (this.arrowFlightQueryRunner != null) {
-            return this.arrowFlightQueryRunner;
-        }
-
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
                         .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
