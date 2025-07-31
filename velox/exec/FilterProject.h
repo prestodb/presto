@@ -83,11 +83,6 @@ class FilterProject : public Operator {
   OperatorStats stats(bool clear) override;
 
  private:
-  // Tests if 'numProcessedRows_' equals to the length of input_ and clears
-  // outstanding references to input_ if done. Returns true if getOutput
-  // should return nullptr.
-  bool allInputProcessed();
-
   // Evaluate filter on all rows. Return number of rows that passed the filter.
   // Populate filterEvalCtx_.selectedBits and selectedIndices with the indices
   // of the passing rows if only some rows pass the filter. If all or no rows
@@ -114,8 +109,6 @@ class FilterProject : public Operator {
   int32_t numExprs_;
 
   FilterEvalCtx filterEvalCtx_;
-
-  vector_size_t numProcessedInputRows_{0};
 
   // Indices for fields/input columns that are both an identity projection and
   // are referenced by either a filter or project expression. This is used to

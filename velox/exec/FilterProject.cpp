@@ -147,28 +147,19 @@ void FilterProject::initialize() {
 
 void FilterProject::addInput(RowVectorPtr input) {
   input_ = std::move(input);
-  numProcessedInputRows_ = 0;
-}
-
-bool FilterProject::allInputProcessed() {
-  if (!input_) {
-    return true;
-  }
-  if (numProcessedInputRows_ == input_->size()) {
-    input_ = nullptr;
-    return true;
-  }
-  return false;
 }
 
 bool FilterProject::isFinished() {
-  return noMoreInput_ && allInputProcessed();
+  return noMoreInput_ && !input_;
 }
 
 RowVectorPtr FilterProject::getOutput() {
-  if (allInputProcessed()) {
+  if (!input_) {
     return nullptr;
   }
+  SCOPE_EXIT {
+    input_.reset();
+  };
 
   vector_size_t size = input_->size();
   LocalSelectivityVector localRows(*operatorCtx_->execCtx(), size);
@@ -184,7 +175,6 @@ RowVectorPtr FilterProject::getOutput() {
   }
 
   if (!hasFilter_) {
-    numProcessedInputRows_ = size;
     VELOX_CHECK(!isIdentityProjection_);
     auto results = project(*rows, evalCtx);
     return fillOutput(size, nullptr, results);
@@ -192,7 +182,6 @@ RowVectorPtr FilterProject::getOutput() {
 
   // evaluate filter
   auto numOut = filter(evalCtx, *rows);
-  numProcessedInputRows_ = size;
   if (numOut == 0) { // no rows passed the filer
     input_ = nullptr;
     return nullptr;
