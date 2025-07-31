@@ -20,6 +20,7 @@ import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -281,6 +282,8 @@ public final class TableWriterNode
 
         public abstract SchemaTableName getSchemaTableName();
 
+        public abstract Optional<List<OutputColumnMetadata>> getOutputColumns();
+
         @Override
         public abstract String toString();
     }
@@ -291,12 +294,14 @@ public final class TableWriterNode
         private final ConnectorId connectorId;
         private final ConnectorTableMetadata tableMetadata;
         private final Optional<NewTableLayout> layout;
+        private final Optional<List<OutputColumnMetadata>> columns;
 
-        public CreateName(ConnectorId connectorId, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateName(ConnectorId connectorId, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout, Optional<List<OutputColumnMetadata>> columns)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
             this.layout = requireNonNull(layout, "layout is null");
+            this.columns = requireNonNull(columns, "columns is null");
         }
 
         @Override
@@ -327,6 +332,12 @@ public final class TableWriterNode
         {
             return connectorId + "." + tableMetadata.getTable();
         }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return columns;
+        }
     }
 
     public static class InsertReference
@@ -334,11 +345,13 @@ public final class TableWriterNode
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
+        private final Optional<List<OutputColumnMetadata>> columns;
 
-        public InsertReference(TableHandle handle, SchemaTableName schemaTableName)
+        public InsertReference(TableHandle handle, SchemaTableName schemaTableName, Optional<List<OutputColumnMetadata>> columns)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.columns = requireNonNull(columns, "columns is null");
         }
 
         public TableHandle getHandle()
@@ -356,6 +369,12 @@ public final class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return columns;
         }
 
         @Override
@@ -396,6 +415,12 @@ public final class TableWriterNode
             return schemaTableName;
         }
 
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return Optional.empty();
+        }
+
         public String toString()
         {
             return handle.toString();
@@ -429,6 +454,12 @@ public final class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return Optional.empty();
         }
 
         @Override
@@ -472,6 +503,12 @@ public final class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return Optional.empty();
         }
 
         public List<String> getUpdatedColumns()

@@ -50,6 +50,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
@@ -600,11 +601,12 @@ public class QueryMonitor
                     .map(TableFinishInfo.class::cast)
                     .findFirst();
 
-            Optional<List<Column>> outputColumns = queryInfo.getOutput().get().getColumns()
+            Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
                     .map(columns -> columns.stream()
-                            .map(column -> new Column(
-                                    column.getName(),
-                                    column.getType()))
+                            .map(column -> new OutputColumnMetadata(
+                                    column.getColumnName(),
+                                    column.getColumnType(),
+                                    column.getSourceColumns()))
                             .collect(toImmutableList()));
 
             output = Optional.of(
@@ -615,7 +617,7 @@ public class QueryMonitor
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
                             queryInfo.getOutput().get().getSerializedCommitOutput(),
-                            outputColumns));
+                            outputColumnsMetadata));
         }
 
         return new QueryIOMetadata(inputs.build(), output);
