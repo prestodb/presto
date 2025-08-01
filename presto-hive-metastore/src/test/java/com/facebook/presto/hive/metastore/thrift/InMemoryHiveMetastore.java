@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
@@ -282,6 +283,12 @@ public class InMemoryHiveMetastore
         relations.remove(oldName);
 
         return EMPTY_RESULT;
+    }
+
+    @Override
+    public synchronized MetastoreOperationResult alterTableWithEnvironmentContext(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, EnvironmentContext environmentContext)
+    {
+        return alterTable(metastoreContext, databaseName, tableName, newTable);
     }
 
     @Override

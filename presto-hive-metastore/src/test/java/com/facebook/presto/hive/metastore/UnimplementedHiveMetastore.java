@@ -129,6 +129,12 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Function<PartitionStatistics, PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
         throw new UnsupportedOperationException();

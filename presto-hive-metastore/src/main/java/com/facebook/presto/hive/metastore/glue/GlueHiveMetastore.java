@@ -590,6 +590,31 @@ public class GlueHiveMetastore
         }
     }
 
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Function<PartitionStatistics, PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        PartitionStatistics currentStatistics = getTableStatistics(metastoreContext, databaseName, tableName);
+        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
+        }
+        try {
+            TableInput newTableInput = GlueInputConverter.convertTable(newTable);
+            newTableInput.setParameters(updateStatisticsParameters(newTableInput.getParameters(), updatedStatistics.getBasicStatistics()));
+            stats.getUpdateTable().record(() -> glueClient.updateTable(new UpdateTableRequest()
+                    .withCatalogId(catalogId)
+                    .withDatabaseName(databaseName)
+                    .withTableInput(newTableInput)));
+
+            return EMPTY_RESULT;
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (AmazonServiceException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
     @Override
     public MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
