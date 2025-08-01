@@ -1,0 +1,84 @@
+**************
+May 2025 Update
+**************
+
+This update was generated with the assistance of AI. While we strive for accuracy, please note
+that AI-generated content may not always be error-free. We encourage you to verify any information
+that is important to you.
+
+Core Library
+============
+
+* Add task barrier. :pr:`13087`
+* Add task barrier support for streaming aggregation, unnest and index join. :pr:`13273`, :pr:`13293`, :pr:`13244`
+* Add support for memory pool priority. :pr:`13386`
+* Support buffering in local exchange operator. :pr:`13234`
+* Add PageSpill for OutputBuffer spill. :pr:`13305`
+* Add lazy start with spill for LocalMerge. :pr:`13337`
+* Add support for leftSemiProject join in nested loop join. :pr:`12172`
+* Fix crash when aggregate push down applied on updated column with sparse row set. :pr:`13503`
+* Fix the timing order of CpuWallTimer. :pr:`13313`
+* Fix overflow in NegatedBigintValuesUsingHashTable::testInt64Range. :pr:`13523`
+
+Presto Functions
+================
+
+* Add :func:`simplify_geometry`, :func:`geometry_invalid_reason`, :func:`ST_IsValid`, :func:`ST_IsSimple`, :func:`ST_Point`, :func:`ST_X`, :func:`ST_Y`, :func:`ST_area` functions.
+* Add :func:`bing_tile_at`, :func:`bing_tiles_around` functions.
+* Add :func:`qdigest_agg`, :func:`cosine_similarity` functions.
+* Add :func:`noisy_count_if_gaussian` function.
+* Add :func:`quantile_at_value`, :func:`trimmed_mean` functions.
+* Add geometry functions for WKT/WKB conversion.
+* Add :func:`xxhash64_internal` with extended type support.
+* Fix undefined behavior in qdigest when total weight exceeds int64_t max. :pr:`13336`
+* Fix handing of empty arrays in :func:`array_min`, :func:`array_max_by` functions. :pr:`13272`
+* Fix overflow check in timestamp addition. :pr:`13444`
+* Fix overflow in :func:`from_unixtime`. :pr:`13262`
+
+Spark Functions
+===============
+
+* Add :spark:func:`sqrt`, :spark:func:`luhn_check` functions.
+* Add CAST(bool as timestamp) support.
+* Add support for legacy behavior in covariance functions. :pr:`12994`
+* Fix casting complex types to only cast recursively if child type changes. :pr:`13245`
+* Fix unescape json elements in :spark:func:`array_join`. :pr:`13222`
+* Fix the duplicate map key handling for :spark:func:`map` function. :pr:`13183`
+
+Connectors
+==========
+
+* Support bucket write with non-partitioned table. :pr:`13283`
+* Support delta update on bucket column. :pr:`13404`
+* Support Null Column Projection in Batch Reader Adapter. :pr:`13430`
+* Add ColumnReaderOptions for better reader configuration. :pr:`12840`
+* Add support for float-to-double schema evolution. :pr:`13317`
+* Fix selective flatmap column reader read offset when all rows filtered out. :pr:`13350`
+* Fix access after buffer boundary causing crash in selective reader. :pr:`13344`
+* Fix crash if table column type does not match file column type. :pr:`12350`
+* Fix incorrect filter result during schema evolution when range is outside of old type. :pr:`13459`
+
+Performance and Correctness
+===========================
+
+* Optimize selective ARRAY and MAP reader. :pr:`13240`
+* Avoid decompressing data when estimating row size. :pr:`13365`
+* Clear hash table as soon as probe finish. :pr:`13254`
+* Allow empty file in table scan. :pr:`13241`
+
+Credits
+=======
+
+aditi-pandit, ajeyabsf, Ali LeClerc, alileclerc, Amit Dutta, Anders Dellien,
+Andrii Rosa, arnavb, Artem Selishchev, Bikramjeet Vig, Chandrashekhar Kumar Singh,
+Chengcheng Jin, Christian Zentgraf, Deepak Majeti, Devavret Makkar, duanmeng,
+Eric Jia, Haiping Xue, Heidi Han, Jacob Khaliqi, Jacob Wujciak-Jens, James Gill,
+Jialiang Tan, Jimmy Lu, Ke Jia, Ke Wang, Kent Yao, Kevin Wilfong, Kien Nguyen,
+Kk Pulla, Kostas Xirogiannopoulos, Krishna Pai, lingbin, Lukas Krenz,
+MacVincent Agha-Oko, Mario Ruiz, Mingyu Zhang, Natasha Sehgal, Nathan Phan,
+NEUpanning, Oliver Xu, Patrick Sullivan, Pedro Eugenio Rocha Pedreira,
+Peter Enescu, Pradeep Vaka, Qian Sun, Rui Mo, Serge Druzkin, Shakyan Kushwaha,
+Soumya Duriseti, Surbhi Vijayvargeeya, Tanay Bhartia, Wei He, Xiao Du,
+Xiaoxuan Meng, Yabin Ma, Yenda Li, Yi Cheng Lee, Zhenyuan Zhao, Zhiguo Wu,
+Zhiying Liang
+
