@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
@@ -39,7 +40,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -60,7 +60,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
 {
     private SqlInvokedScalarFromAnnotationsParser() {}
 
-    public static List<SqlInvokedFunction> parseFunctionDefinition(Class<?> clazz)
+    public static List<SqlInvokedFunction> parseFunctionDefinition(Class<?> clazz, CatalogSchemaName defaultNamespace)
     {
         checkArgument(clazz.isAnnotationPresent(SqlInvokedScalarFunction.class), "Class is not annotated with SqlInvokedScalarFunction: %s", clazz.getName());
 
@@ -68,15 +68,15 @@ public final class SqlInvokedScalarFromAnnotationsParser
         Optional<String> description = Optional.ofNullable(clazz.getAnnotation(Description.class)).map(Description::value);
 
         return findScalarsInFunctionDefinitionClass(clazz).stream()
-                .map(method -> createSqlInvokedFunctions(method, Optional.of(header), description))
+                .map(method -> createSqlInvokedFunctions(method, Optional.of(header), description, defaultNamespace))
                 .flatMap(List::stream)
                 .collect(toImmutableList());
     }
 
-    public static List<SqlInvokedFunction> parseFunctionDefinitions(Class<?> clazz)
+    public static List<SqlInvokedFunction> parseFunctionDefinitions(Class<?> clazz, CatalogSchemaName defaultNamespace)
     {
         return findScalarsInFunctionSetClass(clazz).stream()
-                .map(method -> createSqlInvokedFunctions(method, Optional.empty(), Optional.empty()))
+                .map(method -> createSqlInvokedFunctions(method, Optional.empty(), Optional.empty(), defaultNamespace))
                 .flatMap(List::stream)
                 .collect(toImmutableList());
     }
@@ -121,7 +121,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
         return ImmutableList.copyOf(methods);
     }
 
-    private static List<SqlInvokedFunction> createSqlInvokedFunctions(Method method, Optional<SqlInvokedScalarFunction> header, Optional<String> description)
+    private static List<SqlInvokedFunction> createSqlInvokedFunctions(Method method, Optional<SqlInvokedScalarFunction> header, Optional<String> description, CatalogSchemaName defaultNamespace)
     {
         SqlInvokedScalarFunction functionHeader = header.orElseGet(() -> method.getAnnotation(SqlInvokedScalarFunction.class));
         String functionDescription = description.orElseGet(() -> method.isAnnotationPresent(Description.class) ? method.getAnnotation(Description.class).value() : "");
@@ -167,7 +167,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
-                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(defaultNamespace, name),
                         parameters,
                         typeVariableConstraints,
                         emptyList(),
