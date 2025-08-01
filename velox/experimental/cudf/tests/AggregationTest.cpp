@@ -573,4 +573,125 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
           .customStats.count("flushRowCount"));
 }
 
+class EmptyInputAggregationTest : public AggregationTest {
+ protected:
+  void SetUp() override {
+    AggregationTest::SetUp();
+
+    // Common test data setup
+    data_ = makeRowVector({
+        makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+        makeFlatVector<int64_t>({10, 20, 30, 40, 50}),
+        makeFlatVector<std::string>({"a", "b", "c", "d", "e"}),
+    });
+
+    createDuckDbTable({data_});
+    filter_ = "c0 > 10"; // This filter eliminates all rows
+  }
+
+  void TearDown() override {
+    // Need to clear data before plan destruction to keep memory pools happy
+    data_.reset();
+    plan_.reset();
+    filter_.clear();
+    AggregationTest::TearDown();
+  }
+
+  RowVectorPtr data_;
+  core::PlanNodePtr plan_;
+  std::string filter_;
+};
+
+TEST_F(EmptyInputAggregationTest, groupedSingleAggregation) {
+  // Test case where CUDF aggregation operator receives no input rows for
+  // grouped aggregation
+  plan_ = PlanBuilder()
+              .values({data_})
+              .filter(filter_)
+              .singleAggregation(
+                  {"c2"}, {"sum(c0)", "count(c1)", "max(c1)", "avg(c1)"})
+              .planNode();
+
+  // should return empty result for grouped aggregation
+  assertQuery(
+      plan_,
+      "SELECT c2, sum(c0), count(c1), max(c1), avg(c1) FROM tmp WHERE c0 > 10 GROUP BY c2");
+}
+
+TEST_F(EmptyInputAggregationTest, globalSingleAggregation) {
+  // Test case where CUDF aggregation operator receives no input rows for global
+  // aggregation
+  plan_ =
+      PlanBuilder()
+          .values({data_})
+          .filter(filter_)
+          .singleAggregation({}, {"sum(c0)", "count(c1)", "max(c1)", "avg(c1)"})
+          .planNode();
+
+  // global aggregation should return one row with null/zero values
+  assertQuery(
+      plan_,
+      "SELECT sum(c0), count(c1), max(c1), avg(c1) FROM tmp WHERE c0 > 10");
+}
+
+TEST_F(EmptyInputAggregationTest, distinctSingleAggregation) {
+  // Test case where CUDF aggregation operator receives no input rows for
+  // distinct aggregation
+  plan_ = PlanBuilder()
+              .values({data_})
+              .filter(filter_)
+              .singleAggregation({"c2"}, {})
+              .planNode();
+
+  // should return empty result for distinct aggregation
+  assertQuery(plan_, "SELECT DISTINCT c2 FROM tmp WHERE c0 > 10");
+}
+
+TEST_F(EmptyInputAggregationTest, distinctPartialFinalAggregation) {
+  // Test case where CUDF aggregation operator receives no input rows for
+  // distinct partial-final aggregation
+  plan_ = PlanBuilder()
+              .values({data_})
+              .filter(filter_)
+              .partialAggregation({"c2"}, {})
+              .finalAggregation()
+              .planNode();
+
+  // should return empty result for distinct aggregation
+  assertQuery(plan_, "SELECT DISTINCT c2 FROM tmp WHERE c0 > 10");
+}
+
+TEST_F(EmptyInputAggregationTest, groupedPartialFinalAggregation) {
+  // Test case where CUDF aggregation operator receives no input rows for
+  // partial-final aggregation
+  plan_ = PlanBuilder()
+              .values({data_})
+              .filter(filter_)
+              .partialAggregation({"c2"}, {"sum(c0)", "count(c1)", "max(c1)"})
+              .finalAggregation()
+              .planNode();
+  // TODO (dm): "avg(c1)"
+
+  // should return empty result for partial-final aggregation
+  assertQuery(
+      plan_,
+      "SELECT c2, sum(c0), count(c1), max(c1) FROM tmp WHERE c0 > 10 GROUP BY c2");
+}
+
+TEST_F(EmptyInputAggregationTest, globalPartialFinalAggregation) {
+  // Test case where CUDF aggregation operator receives no input rows for global
+  // partial-final aggregation
+  plan_ = PlanBuilder()
+              .values({data_})
+              .filter(filter_)
+              .partialAggregation({}, {"sum(c0)", "count(c1)", "max(c1)"})
+              .finalAggregation()
+              .planNode();
+  // TODO (dm): "avg(c1)"
+
+  // global partial-final aggregation should return 1 row with null/zero values
+  assertQuery(
+      plan_, "SELECT sum(c0), count(c1), max(c1) FROM tmp WHERE c0 > 10");
+}
+
 } // namespace facebook::velox::exec::test

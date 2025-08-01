@@ -141,6 +141,8 @@ class CudfHashAggregation : public exec::Operator, public NvtxHelper {
 
   std::vector<cudf_velox::CudfVectorPtr> inputs_;
 
+  TypePtr inputType_;
+
   // This is for partial aggregation to keep reducing the amount of memory it
   // has to hold on to.
   void computeIntermediateGroupbyPartial(CudfVectorPtr tbl);

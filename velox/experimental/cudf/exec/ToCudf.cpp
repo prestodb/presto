@@ -256,6 +256,9 @@ bool CompileState::compile() {
       replaceOp.push_back(
           std::make_unique<CudfLocalPartition>(id, ctx, planNode));
       replaceOp.back()->initialize();
+    } else if (
+        auto localExchangeOp = dynamic_cast<exec::LocalExchange*>(oper)) {
+      keepOperator = 1;
     }
 
     if (producesGpuOutput(oper) and
