@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -28,27 +33,131 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Writable;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
+import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage
 {
+    public static void throwUnsupportedOperation()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Test
+    public void testMainTableFlatMapMemoryFootPrint()
+            throws Exception
+    {
+        MethodHandle methodHandle = methodHandle(TestOrcReaderMemoryUsage.class, "throwUnsupportedOperation");
+        //list of selected input columns
+        Map<Integer, Type> inputColumns = ImmutableMap.of(
+                6, new MapType(INTEGER, REAL, methodHandle, methodHandle),
+                7, new MapType(INTEGER, new ArrayType(BIGINT), methodHandle, methodHandle),
+                11, new MapType(INTEGER, new MapType(BIGINT, REAL, methodHandle, methodHandle), methodHandle, methodHandle));
+        // schema of side table
+        List<Type> allTypes = ImmutableList.of(
+                BIGINT,
+                BIGINT,
+                BIGINT,
+                DOUBLE,
+                DOUBLE,
+                DOUBLE,
+                new MapType(INTEGER, REAL, methodHandle, methodHandle), // float_features
+                new MapType(INTEGER, new ArrayType(BIGINT), methodHandle, methodHandle), // id_list_features
+                TINYINT,
+                new MapType(INTEGER, BIGINT, methodHandle, methodHandle), // join_keys
+                new MapType(INTEGER, DOUBLE, methodHandle, methodHandle), // multi_labels
+                new MapType(INTEGER, new MapType(BIGINT, REAL, methodHandle, methodHandle), methodHandle, methodHandle), // id_score_list_features
+                VARCHAR,
+                BIGINT,
+                new MapType(INTEGER, new ArrayType(TINYINT), methodHandle, methodHandle), // native_bytes_array_features
+                new MapType(INTEGER, new ArrayType(new ArrayType(BIGINT)), methodHandle, methodHandle)); // event_based_features;
+
+        // list of output columns
+        List<Integer> outputColumns = ImmutableList.of(6, 7, 11);
+        testFlatMapMemoryFootPrint("/Users/hrastogi/.main_table_29", inputColumns, allTypes, outputColumns);
+    }
+
+    @Test
+    public void testSideTableFlatMapMemoryFootPrint()
+            throws Exception
+    {
+        MethodHandle methodHandle = methodHandle(TestOrcReaderMemoryUsage.class, "throwUnsupportedOperation");
+        //list of selected input columns
+        Map<Integer, Type> inputColumns = ImmutableMap.of(
+                1, new MapType(INTEGER, REAL, methodHandle, methodHandle),
+                2, new MapType(INTEGER, new ArrayType(BIGINT), methodHandle, methodHandle),
+                3, new MapType(INTEGER, new MapType(BIGINT, REAL, methodHandle, methodHandle), methodHandle, methodHandle));
+        // schema of side table
+        List<Type> allTypes = ImmutableList.of(
+                new MapType(VARCHAR, BIGINT, methodHandle, methodHandle),
+                new MapType(INTEGER, REAL, methodHandle, methodHandle),
+                new MapType(INTEGER, new ArrayType(BIGINT), methodHandle, methodHandle),
+                new MapType(INTEGER, new MapType(BIGINT, REAL, methodHandle, methodHandle), methodHandle, methodHandle),
+                new MapType(VARCHAR, VARCHAR, methodHandle, methodHandle));
+        // list of output columns
+        List<Integer> outputColumns = ImmutableList.of(1, 2, 3);
+        testFlatMapMemoryFootPrint("/Users/hrastogi/.side_table_bugger", inputColumns, allTypes, outputColumns);
+    }
+
+    public void testFlatMapMemoryFootPrint(String filePath, Map<Integer, Type> inputColumns, List<Type> allTypes, List<Integer> outputColumns) throws Exception
+    {
+        OrcSelectiveRecordReader reader;
+        File localFile = new File(filePath);
+        reader = createCustomOrcSelectiveRecordReader(
+                localFile,
+                DWRF.getOrcEncoding(),
+                OrcPredicate.TRUE,
+                allTypes,
+                MAX_BATCH_SIZE,
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                inputColumns,
+                outputColumns,
+                true,
+                new TestingHiveOrcAggregatedMemoryContext(),
+                false);
+        long retainedMemoryInSize = 0;
+        Page nextPage;
+        while ((nextPage = reader.getNextPage()) != null) {
+            for (int i = 0; i < nextPage.getChannelCount(); i++) {
+                nextPage.getLoadedPage();
+            }
+            retainedMemoryInSize = Math.max(reader.getRetainedSizeInBytes(), retainedMemoryInSize);
+        }
+        // print the output map column
+        System.out.println("Max retainedMemoryInSize is " + retainedMemoryInSize);
+    }
+
     @Test
     public void testVarcharTypeWithoutNulls()
             throws Exception
