@@ -56,6 +56,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -68,7 +69,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -91,6 +94,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
@@ -102,6 +106,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -1059,6 +1064,57 @@ public class TestPrestoDriver
     }
 
     @Test
+    public void testDriverPropertyInfoEmpty()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:presto:");
+
+        Properties properties = new Properties();
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestPrestoDriver::driverPropertyInfoToString)
+                .contains("{name=user, required=true}")
+                .contains("{name=password, required=false}")
+                .contains("{name=accessToken, required=false}")
+                .contains("{name=SSL, required=false, choices=[true, false]}");
+
+        assertThat(infos).extracting(x -> x.name)
+                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+    }
+
+    @Test
+    public void testDriverPropertyInfoSslEnabled()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:presto:");
+
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        properties.setProperty("SSL", "true");
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestPrestoDriver::driverPropertyInfoToString)
+                .contains("{name=user, value=test, required=true}")
+                .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
+                //.contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}") // Presto does not have SSLVerification
+                .contains("{name=SSLTrustStorePath, required=false}");
+    }
+
+    private static String driverPropertyInfoToString(DriverPropertyInfo info)
+    {
+        return toStringHelper("")
+                .add("name", info.name)
+                .add("value", info.value)
+                .add("description", info.description)
+                .add("required", info.required)
+                .add("choices", info.choices)
+                .omitNullValues()
+                .toString();
+    }
+
+    @Test
     public void testExecuteWithQuery()
             throws Exception
     {
@@ -1414,6 +1470,38 @@ public class TestPrestoDriver
         try (Connection ignored = DriverManager.getConnection(format("jdbc:presto://%s", server.getAddress()))) {
             fail("expected exception");
         }
+    }
+
+    @Test
+    public void testPropertyAllowed()
+            throws Exception
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosPrincipal", "test")
+                        .build())))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosRemoteServiceName", "example.com")
+                        .put("KerberosPrincipal", "test")
+                        .put("SSL", "true")
+                        .build())))
+                .isNotNull();
+
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSLVerification", "NONE")
+                        .build())))
+                .isInstanceOf(SQLException.class)
+                // SSLVerification does not exist in Presto, once it is added, the error message
+                // should be changed to "Connection property 'SSLVerification' is not allowed"
+                .hasMessage("Unrecognized connection property 'SSLVerification'");
     }
 
     @Test
@@ -1787,5 +1875,17 @@ public class TestPrestoDriver
         }
         catch (Exception ignored) {
         }
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        map.forEach(properties::setProperty);
+        return properties;
+    }
+
+    private String jdbcUrl()
+    {
+        return format("jdbc:presto://%s", server.getAddress());
     }
 }
