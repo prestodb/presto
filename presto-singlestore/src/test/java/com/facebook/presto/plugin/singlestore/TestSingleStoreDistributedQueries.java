@@ -68,13 +68,13 @@ public class TestSingleStoreDistributedQueries
         MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(85)", "", "")//utf8
+                .row("orderstatus", "varchar(1)", "", "")//utf8
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(85)", "", "")
-                .row("clerk", "varchar(85)", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
                 .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(85)", "", "")
+                .row("comment", "varchar(79)", "", "")
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
