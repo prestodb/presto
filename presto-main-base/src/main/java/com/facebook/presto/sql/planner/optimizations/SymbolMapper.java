@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.plan.TableFinishNode;
@@ -51,6 +52,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
@@ -260,6 +262,23 @@ public class SymbolMapper
                 node.getStatisticsAggregation().map(this::map),
                 node.getTaskCountIfScaledWriter(),
                 node.getIsTemporaryTableWriter());
+    }
+
+    public SemiJoinNode map(SemiJoinNode node, PlanNode newSource, PlanNodeId newNodeId)
+    {
+        return new SemiJoinNode(
+                newSource.getSourceLocation(),
+                newNodeId,
+                Optional.empty(),
+                newSource,
+                node.getFilteringSource(),
+                map(node.getSourceJoinVariable()),
+                map(node.getFilteringSourceJoinVariable()),
+                map(node.getSemiJoinOutput()),
+                node.getSourceHashVariable().map(this::map),
+                node.getFilteringSourceHashVariable().map(this::map),
+                node.getDistributionType(),
+                node.getDynamicFilters());
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
