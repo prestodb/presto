@@ -269,7 +269,9 @@ public class DruidQueryGeneratorContext
         }
 
         String expressions = selections.entrySet().stream()
-                .map(s -> s.getValue().getEscapedDefinition())
+                .map(s -> s.getValue().getOrigin() == Origin.TABLE_COLUMN || hiddenColumnSet.contains(s.getKey())
+                        ? s.getValue().getEscapedDefinition()
+                        : s.getValue().getEscapedDefinition() + " AS " + escapeSqlIdentifier(s.getKey().getName()))
                 .collect(Collectors.joining(", "));
         if (expressions.isEmpty()) {
             throw new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Empty Druid query");
