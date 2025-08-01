@@ -60,6 +60,26 @@ public class IntArrayBlockBuilder
         updateDataSize();
     }
 
+    public void writePositions(int startOffset, int endOffset, boolean[] valueIsNull, int[] values)
+    {
+        int length = endOffset - startOffset;
+        while (this.values.length <= positionCount + length) {
+            growCapacity();
+        }
+
+        if (valueIsNull != null) {
+            System.arraycopy(valueIsNull, startOffset, this.valueIsNull, positionCount, length);
+        }
+        if (values != null) {
+            System.arraycopy(values, startOffset, this.values, positionCount, length);
+        }
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * (Byte.BYTES + Integer.BYTES));
+        }
+
+        positionCount += length;
+    }
+
     @Override
     public BlockBuilder writeInt(int value)
     {
