@@ -1,0 +1,74 @@
+****************
+June 2025 Update
+****************
+
+This update was generated with the assistance of AI. While we strive for accuracy, please note
+that AI-generated content may not always be error-free. We encourage you to verify any information
+that is important to you.
+
+Core Library
+============
+
+* Add null key support for index join. :pr:`13891`
+* Add Async SpillMerger in LocalMerge. :pr:`13634`
+* Share filter among drivers for improved efficiency. :pr:`13784`
+* Make global arbitration consider query priority. :pr:`13827`
+* Fix anti and semi join result mismatch with filter and multiple matches. :pr:`13123`
+* Fix the server crash caused by remote exchange error. :pr:`13905`
+* Fix resource release for memoizing constant folding expression. :pr:`13755`
+* Fix Expr::isDeterministic for lambda functions. :pr:`13647`
+* Enable constant folding for lambda functions. :pr:`13642`
+
+Presto Functions
+================
+
+* Add :func:`noisy_avg_gaussian`, :func:`noisy_sum_gaussian`, :func:`noisy_count_gaussian`, :func:`noisy_count_if_gaussian` functions.
+* Add :func:`tdigest_agg`, :func:`value_at_quatile`, :func:`values_at_quantiles`, :func:`quantile_at_value` functions.
+* Add :func:`inverse_chi_squared_cdf`, :func:`inverse_f_cdf` functions.
+* Add :func:`l2_squared` function.
+* Add :func:`ST_Distance`, :func:`ST_GeometryType`, :func:`St_Centroid`, :func:`St_Boundary`, :func:`ST_XMin`, :func:`ST_XMax`, :func:`ST_YMin`, :func:`ST_YMax` functions.
+* Add serialization and deserialization of Geometry type to/from WKT and WKB. :pr:`12771`
+* Fix :func:`values_at_quantiles` function to throw error on null input. :pr:`13810`
+* Optimize :func:`array_remove` to avoid unnecessary string copies.
+
+Spark Functions
+===============
+
+* Add :spark:func:`unbase64`, :spark:func:`trunc`, :spark:func:`varchar_type_write_side_check`, :spark:func:`cbrt` functions.
+* Fix try_cast and cast function error case handling. :pr:`12993`
+* Fix :spark:func:`lower` function on unicode character. :pr:`13158`
+* Fix handling of extreme floating-point values in :spark:func:`from_json`. :pr:`13378`
+
+Connectors
+==========
+
+* Add support for exist and list functions in HdfsFileSystem. :pr:`13813`
+* Add GCS filesystem operations: rmdir, mkdir, and rename. :pr:`13533`, :pr:`13532`, :pr:`13490`
+* Flatten complex-type vectors when writing to Parquet. :pr:`13338`
+* Fix multi range filter in timestamp reader for Parquet. :pr:`12926`
+* Fix NPE when reading complex type data from Parquet v2. :pr:`13512`
+
+Performance and Correctness
+===========================
+
+* Optimize getStringView performance. :pr:`13870`
+* Optimize streaming aggregation performance. :pr:`13812`
+* Reduce HashTable load factor from 0.875 to 0.7 for better performance. :pr:`13694`
+* Improve fillNewMemory tight loop performance. :pr:`13883`
+* Increase readBatchSize when the last batch is empty in TableScan. :pr:`13626`
+
+Credits
+=======
+
+aditi-pandit, Anders Dellien, Andrii Rosa, Artem Selishchev, Bikramjeet Vig,
+Bowen Wu, Chandrashekhar Kumar Singh, Chengcheng Jin, Christian Zentgraf,
+David Reveman, Deepak Majeti, Devavret Makkar, Dharan Aditya, duanmeng,
+Eric Jia, Huameng (Michael) Jiang, iiFeung, Jacob Khaliqi, Jacob Wujciak-Jens,
+Jialiang Tan, Jim Meyering, Jimmy Lu, Jin Chengcheng, Joe Giardino, joey.ljy,
+Ke Jia, Ke Wang, Kent Yao, Kevin Wilfong, Konstantinos Karatsenidis,
+Kostas Xirogiannopoulos, Krishna Pai, lingbin, Luis Garcés-Erice, Mario Ruiz,
+Masha Basmanova, Natasha Sehgal, Oliver Xu, Orri Erling, Patrick Sullivan,
+Paul Meng, Peter Enescu, Ping Liu, Richard Barnes, Rui Mo, Shakyan Kushwaha,
+Wei He, wraymo, xhs7700, Xiao Du, xiaodou, Xiaoxuan Meng, Xin Zhang, Yabin Ma,
+Yi Cheng Lee, yingsu00, Yoav Helfman, yumwang@ebay.com, Zhichen Xu,
+zhli1142015, zml1206, Zoltan Arnold Nagy
