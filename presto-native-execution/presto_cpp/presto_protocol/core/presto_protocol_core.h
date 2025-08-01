@@ -1366,6 +1366,7 @@ struct IndexJoinNode : public PlanNode {
   std::shared_ptr<std::shared_ptr<RowExpression>> filter = {};
   std::shared_ptr<VariableReferenceExpression> probeHashVariable = {};
   std::shared_ptr<VariableReferenceExpression> indexHashVariable = {};
+  List<VariableReferenceExpression> lookupVariables = {};
 
   IndexJoinNode() noexcept;
 };
@@ -1996,6 +1997,18 @@ struct RemoteTransactionHandle : public ConnectorTransactionHandle {
 };
 void to_json(json& j, const RemoteTransactionHandle& p);
 void from_json(const json& j, RemoteTransactionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct RestFunctionHandle : public FunctionHandle {
+  SqlFunctionId functionId = {};
+  String version = {};
+  Signature signature = {};
+  std::shared_ptr<URI> executionEndpoint = {};
+
+  RestFunctionHandle() noexcept;
+};
+void to_json(json& j, const RestFunctionHandle& p);
+void from_json(const json& j, RestFunctionHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct RowNumberNode : public PlanNode {
