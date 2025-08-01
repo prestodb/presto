@@ -809,7 +809,7 @@ void OpaqueType::registerSerializationTypeErased(
 }
 
 ArrayTypePtr ARRAY(TypePtr elementType) {
-  return std::make_shared<ArrayType>(std::move(elementType));
+  return TypeFactory<TypeKind::ARRAY>::create(std::move(elementType));
 }
 
 RowTypePtr ROW(std::vector<std::string> names, std::vector<TypePtr> types) {
@@ -835,13 +835,14 @@ RowTypePtr ROW(std::vector<TypePtr>&& types) {
 }
 
 MapTypePtr MAP(TypePtr keyType, TypePtr valType) {
-  return std::make_shared<MapType>(std::move(keyType), std::move(valType));
+  return TypeFactory<TypeKind::MAP>::create(
+      std::move(keyType), std::move(valType));
 }
 
 std::shared_ptr<const FunctionType> FUNCTION(
     std::vector<TypePtr>&& argumentTypes,
     TypePtr returnType) {
-  return std::make_shared<FunctionType>(
+  return std::make_shared<const FunctionType>(
       std::move(argumentTypes), std::move(returnType));
 }
 
@@ -885,9 +886,9 @@ TypePtr createType(TypeKind kind, std::vector<TypePtr>&& children) {
         children.size(),
         1,
         "FUNCTION type should have at least one child type");
-    std::vector<TypePtr> argTypes(
-        children.begin(), children.begin() + children.size() - 1);
-    return std::make_shared<FunctionType>(std::move(argTypes), children.back());
+    auto returnType = std::move(children.back());
+    children.pop_back();
+    return FUNCTION(std::move(children), std::move(returnType));
   }
 
   if (kind == TypeKind::UNKNOWN) {
