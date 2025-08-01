@@ -21,7 +21,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.google.sheets.TestGoogleSheets.DRIVE_PERMISSION_ROLE;
+import static com.facebook.presto.google.sheets.TestGoogleSheets.DRIVE_PERMISSION_TYPE;
 import static com.facebook.presto.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
+import static com.facebook.presto.google.sheets.TestGoogleSheets.SHEET_RANGE;
+import static com.facebook.presto.google.sheets.TestGoogleSheets.SHEET_VALUE_INPUT_OPTION;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertNotNull;
 
@@ -40,7 +44,13 @@ public class TestSheetsPlugin
     {
         Plugin plugin = new SheetsPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        ImmutableMap.Builder<String, String> propertiesMap = new ImmutableMap.Builder<String, String>().put("credentials-path", getTestCredentialsPath()).put("metadata-sheet-id", TEST_METADATA_SHEET_ID);
+        ImmutableMap.Builder<String, String> propertiesMap = new ImmutableMap.Builder<String, String>()
+                .put("credentials-path", getTestCredentialsPath())
+                .put("metadata-sheet-id", TEST_METADATA_SHEET_ID)
+                .put("sheets-range", SHEET_RANGE)
+                .put("sheets-value-input-option", SHEET_VALUE_INPUT_OPTION)
+                .put("drive-permission-type", DRIVE_PERMISSION_TYPE)
+                .put("drive-permission-role", DRIVE_PERMISSION_ROLE);
         Connector connector = factory.create(GOOGLE_SHEETS, propertiesMap.build(), new TestingConnectorContext());
         assertNotNull(connector);
         connector.shutdown();
