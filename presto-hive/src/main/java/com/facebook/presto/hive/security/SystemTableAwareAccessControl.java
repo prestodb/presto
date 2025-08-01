@@ -289,6 +289,18 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
+    public void checkCanDropBranch(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate.checkCanDropBranch(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public void checkCanDropTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate.checkCanDropTag(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
     public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate.checkCanDropConstraint(transactionHandle, identity, context, tableName);
