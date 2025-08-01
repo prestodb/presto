@@ -20,7 +20,6 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -31,7 +30,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionProcessReuseEnabled;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionExecutablePath;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionProgramArguments;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeExecutionProcessReuseEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -44,8 +45,6 @@ public class NativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
-    private final String executablePath;
-    private final String programArguments;
 
     private static NativeExecutionProcess process;
 
@@ -55,16 +54,13 @@ public class NativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty,
-            FeaturesConfig featuresConfig)
+            WorkerProperty<?, ?, ?, ?> workerProperty)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
-        this.executablePath = featuresConfig.getNativeExecutionExecutablePath();
-        this.programArguments = featuresConfig.getNativeExecutionProgramArguments();
     }
 
     public synchronized NativeExecutionProcess getNativeExecutionProcess(Session session)
@@ -79,8 +75,8 @@ public class NativeExecutionProcessFactory
     {
         try {
             return new NativeExecutionProcess(
-                    executablePath,
-                    programArguments,
+                    getNativeExecutionExecutablePath(session),
+                    getNativeExecutionProgramArguments(session),
                     session,
                     httpClient,
                     coreExecutor,
@@ -102,15 +98,5 @@ public class NativeExecutionProcessFactory
         if (process != null) {
             process.close();
         }
-    }
-
-    protected String getExecutablePath()
-    {
-        return executablePath;
-    }
-
-    protected String getProgramArguments()
-    {
-        return programArguments;
     }
 }

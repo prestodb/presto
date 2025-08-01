@@ -241,7 +241,6 @@ public class FeaturesConfig
     private boolean disableIPAddressForNative;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
-    private boolean nativeExecutionProcessReuseEnabled = true;
     private boolean nativeEnforceJoinBuildInputPartition = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
@@ -2346,19 +2345,6 @@ public class FeaturesConfig
     public String getNativeExecutionProgramArguments()
     {
         return this.nativeExecutionProgramArguments;
-    }
-
-    @Config("native-execution-process-reuse-enabled")
-    @ConfigDescription("Enable reuse the native process within the same JVM")
-    public FeaturesConfig setNativeExecutionProcessReuseEnabled(boolean nativeExecutionProcessReuseEnabled)
-    {
-        this.nativeExecutionProcessReuseEnabled = nativeExecutionProcessReuseEnabled;
-        return this;
-    }
-
-    public boolean isNativeExecutionProcessReuseEnabled()
-    {
-        return this.nativeExecutionProcessReuseEnabled;
     }
 
     @Config("native-enforce-join-build-input-partition")
