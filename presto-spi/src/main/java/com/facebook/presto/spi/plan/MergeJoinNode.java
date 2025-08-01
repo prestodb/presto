@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -80,6 +81,15 @@ public class MergeJoinNode
         this.filter = requireNonNull(filter, "filter is null");
         this.leftHashVariable = requireNonNull(leftHashVariable, "leftHashVariable is null");
         this.rightHashVariable = requireNonNull(rightHashVariable, "rightHashVariable is null");
+    }
+
+    /**
+     * @param joinNode
+     * @return returns true if merge join is supported for the given join node.
+     */
+    public static boolean isMergeJoinEligible(JoinNode joinNode)
+    {
+        return joinNode.getType() == INNER && !joinNode.isCrossJoin();
     }
 
     @JsonProperty

@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 
 public class GroupReference
         extends InternalPlanNode
@@ -52,7 +53,7 @@ public class GroupReference
     @Override
     public List<PlanNode> getSources()
     {
-        throw new UnsupportedOperationException();
+        return emptyList();
     }
 
     @Override
