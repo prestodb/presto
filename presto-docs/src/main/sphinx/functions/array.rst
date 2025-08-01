@@ -245,6 +245,18 @@ Array Functions
         SELECT arrays_overlap(ARRAY [1, null], ARRAY[2]) -- null
         SELECT arrays_overlap(ARRAY[ROW(1, null)], ARRAY[1, 2]) -- "ROW comparison not supported for fields with null elements"
 
+.. function:: arrays_overlap_count(x, y) -> bigint
+
+    Returns the amount of overlapping elements between array ``x`` and ``y``, without duplicates.
+    Returns null if either of the arguments is null.
+    This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
+
+        SELECT arrays_overlap_count(ARRAY [1, 2], ARRAY [3, 4]) -- 0
+        SELECT arrays_overlap_count(ARRAY [1, 2, 3, 4], ARRAY [1, 2]) -- 2
+        SELECT arrays_overlap_count(ARRAY ['abc', 'def', 'ghi'], ARRAY ['abc', 'def']) -- 2
+        SELECT arrays_overlap_count(ARRAY [null, 1, 2, null], ARRAY [null, 1]) -- 2
+        SELECT arrays_overlap_count(null, ARRAY[null]) -- null
+
 .. function:: array_union(x, y) -> array
 
     Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
