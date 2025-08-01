@@ -370,6 +370,41 @@ class CudfFilterProjectTest : public OperatorTestBase {
         "SELECT c0 IN (1, 2, 3) OR c1 IN (1.5, 2.5) OR c2 IN ('test1', 'test2') AS result FROM tmp");
   }
 
+  void testStringLiteralExpansion(const std::vector<RowVectorPtr>& input) {
+    // Test VARCHAR literal as standalone expression (needs special handling)
+    auto plan = PlanBuilder()
+                    .values(input)
+                    .project({"'literal_value' AS result"})
+                    .planNode();
+
+    runTest(plan, "SELECT 'literal_value' AS result FROM tmp");
+  }
+
+  void testStringLiteralInComparison(const std::vector<RowVectorPtr>& input) {
+    // Test VARCHAR literal within comparison (should work normally)
+    auto plan = PlanBuilder()
+                    .values(input)
+                    .project({"c2 = 'test_value' AS result"})
+                    .planNode();
+
+    runTest(plan, "SELECT c2 = 'test_value' AS result FROM tmp");
+  }
+
+  void testMixedLiteralProjection(const std::vector<RowVectorPtr>& input) {
+    // Test mixing standalone literals with expressions containing literals
+    auto plan = PlanBuilder()
+                    .values(input)
+                    .project(
+                        {"'standalone_string' AS str_literal",
+                         "42 AS int_literal",
+                         "c2 = 'comparison_string' AS bool_result"})
+                    .planNode();
+
+    runTest(
+        plan,
+        "SELECT 'standalone_string' AS str_literal, 42 AS int_literal, c2 = 'comparison_string' AS bool_result FROM tmp");
+  }
+
   void runTest(core::PlanNodePtr planNode, const std::string& duckDbSql) {
     SCOPED_TRACE("run without spilling");
     assertQuery(planNode, duckDbSql);
@@ -773,6 +808,30 @@ TEST_F(CudfFilterProjectTest, filterWithEmptyResult) {
 
   // Run the test - should return empty result
   assertQuery(plan, "SELECT c0, c1, c2 FROM tmp WHERE c0 < 0 AND c0 > 1000");
+}
+
+TEST_F(CudfFilterProjectTest, stringLiteralExpansion) {
+  vector_size_t batchSize = 1000;
+  auto vectors = makeVectors(rowType_, 2, batchSize);
+  createDuckDbTable(vectors);
+
+  testStringLiteralExpansion(vectors);
+}
+
+TEST_F(CudfFilterProjectTest, stringLiteralInComparison) {
+  vector_size_t batchSize = 1000;
+  auto vectors = makeVectors(rowType_, 2, batchSize);
+  createDuckDbTable(vectors);
+
+  testStringLiteralInComparison(vectors);
+}
+
+TEST_F(CudfFilterProjectTest, mixedLiteralProjection) {
+  vector_size_t batchSize = 1000;
+  auto vectors = makeVectors(rowType_, 2, batchSize);
+  createDuckDbTable(vectors);
+
+  testMixedLiteralProjection(vectors);
 }
 
 TEST_F(CudfFilterProjectTest, dereference) {

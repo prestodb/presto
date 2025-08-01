@@ -24,6 +24,7 @@
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 
+#include <cudf/column/column_factories.hpp>
 #include <cudf/datetime.hpp>
 #include <cudf/strings/attributes.hpp>
 #include <cudf/strings/contains.hpp>
@@ -278,6 +279,9 @@ struct AstContext {
   const std::vector<RowTypePtr> inputRowSchema;
   const std::vector<std::reference_wrapper<std::vector<PrecomputeInstruction>>>
       precomputeInstructions;
+  const std::shared_ptr<velox::exec::Expr>
+      rootExpr; // Track the root expression
+
   cudf::ast::expression const& pushExprToTree(
       const std::shared_ptr<velox::exec::Expr>& expr);
   cudf::ast::expression const& addPrecomputeInstruction(
@@ -297,7 +301,8 @@ cudf::ast::expression const& createAstTree(
     std::vector<std::unique_ptr<cudf::scalar>>& scalars,
     const RowTypePtr& inputRowSchema,
     std::vector<PrecomputeInstruction>& precomputeInstructions) {
-  AstContext context{tree, scalars, {inputRowSchema}, {precomputeInstructions}};
+  AstContext context{
+      tree, scalars, {inputRowSchema}, {precomputeInstructions}, expr};
   return context.pushExprToTree(expr);
 }
 
@@ -313,7 +318,8 @@ cudf::ast::expression const& createAstTree(
       tree,
       scalars,
       {leftRowSchema, rightRowSchema},
-      {leftPrecomputeInstructions, rightPrecomputeInstructions}};
+      {leftPrecomputeInstructions, rightPrecomputeInstructions},
+      expr};
   return context.pushExprToTree(expr);
 }
 
@@ -404,7 +410,24 @@ cudf::ast::expression const& AstContext::pushExprToTree(
     VELOX_CHECK_NOT_NULL(c, "literal expression should be ConstantExpr");
     auto value = c->value();
     VELOX_CHECK(value->isConstantEncoding());
-    // convert to cudf scalar
+
+    // Special case: VARCHAR literals cannot be handled by cudf::compute_column
+    // as the final output due to variable-width output limitation.
+    // However, if this is part of a larger expression tree (e.g., string
+    // comparison), then cudf can handle it fine since the final output won't be
+    // VARCHAR. We only need special handling when this literal will be the
+    // final output.
+    if (expr->type()->kind() == TypeKind::VARCHAR && expr == rootExpr) {
+      // convert to cudf scalar and store it
+      createLiteral(value, scalars);
+      // The scalar index is scalars.size() - 1 since we just added it
+      std::string fillExpr = "fill " + std::to_string(scalars.size() - 1);
+      // For literals, we use the first column just to get the size, but create
+      // a new column The new column will be appended after the original input
+      // columns
+      return addPrecomputeInstruction(inputRowSchema[0]->nameOf(0), fillExpr);
+    }
+
     return tree.push(createLiteral(value, scalars));
   } else if (binaryOps.find(name) != binaryOps.end()) {
     if (len > 2 and (name == "and" or name == "or")) {
@@ -639,6 +662,15 @@ void addPrecomputedColumns(
           *static_cast<cudf::string_scalar*>(scalars[scalarIndex].get()),
           cudf::string_scalar(
               "", true, stream, cudf::get_current_device_resource_ref()),
+          stream,
+          cudf::get_current_device_resource_ref());
+      input_table_columns.emplace_back(std::move(newColumn));
+    } else if (ins_name.rfind("fill", 0) == 0) {
+      auto scalarIndex =
+          std::stoi(ins_name.substr(5)); // "fill " is 5 characters
+      auto newColumn = cudf::make_column_from_scalar(
+          *static_cast<cudf::string_scalar*>(scalars[scalarIndex].get()),
+          input_table_columns[dependent_column_index]->size(),
           stream,
           cudf::get_current_device_resource_ref());
       input_table_columns.emplace_back(std::move(newColumn));
