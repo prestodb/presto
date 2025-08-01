@@ -14,6 +14,7 @@
 package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 
@@ -67,6 +68,7 @@ public final class TpchQueryRunnerBuilder
         DistributedQueryRunner queryRunner = super.build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
             return queryRunner;
         }
         catch (Exception e) {
