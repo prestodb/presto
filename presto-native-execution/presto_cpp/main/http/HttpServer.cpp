@@ -125,6 +125,7 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
   sslCfg.clientVerification =
       folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
   sslCfg.setCertificate(certPath_, keyPath_, "");
+  sslCfg.setNextProtocols({"h2", "http/1.1"});
   sslCfg.sslCiphers = supportedCiphers_;
 
   ipConfig.sslConfigs.push_back(sslCfg);
