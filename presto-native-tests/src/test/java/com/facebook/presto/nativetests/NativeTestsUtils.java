@@ -15,6 +15,9 @@ package com.facebook.presto.nativetests;
 
 import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
@@ -27,12 +30,25 @@ public class NativeTestsUtils
     public static QueryRunner createNativeQueryRunner(String storageFormat, boolean charNToVarcharImplicitCast, boolean sidecarEnabled)
             throws Exception
     {
+        return createNativeQueryRunner(storageFormat, charNToVarcharImplicitCast, sidecarEnabled, ImmutableMap.of());
+    }
+
+    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean sidecarEnabled, Map<String, String> coordinatorProperties)
+            throws Exception
+    {
+        return createNativeQueryRunner(storageFormat, false, sidecarEnabled, coordinatorProperties);
+    }
+
+    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean charNToVarcharImplicitCast, boolean sidecarEnabled, Map<String, String> coordinatorProperties)
+            throws Exception
+    {
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
                 .setImplicitCastCharNToVarchar(charNToVarcharImplicitCast)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .setExtraCoordinatorProperties(coordinatorProperties)
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
