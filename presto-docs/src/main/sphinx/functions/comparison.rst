@@ -66,6 +66,10 @@ Using ``NULL`` with ``IS NULL`` evaluates to true::
 But any other constant does not::
 
     SELECT 3.0 IS NULL; -- false
+    
+Note that ``nan()`` is different to ``NULL``, and counts as ``NOT NULL``::
+
+    SELECT nan() IS NULL; -- false
 
 IS DISTINCT FROM and IS NOT DISTINCT FROM
 -----------------------------------------
