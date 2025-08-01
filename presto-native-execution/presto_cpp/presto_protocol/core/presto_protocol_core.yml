@@ -194,6 +194,7 @@ AbstractClasses:
       - { name: SqlFunctionHandle,          key: native }
       - { name: SqlFunctionHandle,          key: json_file }
       - { name: SqlFunctionHandle,          key: sql_function_handle }
+      - { name: RestFunctionHandle,         key: rest }
 
 
 JavaClasses:
@@ -211,6 +212,7 @@ JavaClasses:
   - presto-main-base/src/main/java/com/facebook/presto/execution/buffer/BufferState.java
   - presto-main-base/src/main/java/com/facebook/presto/metadata/BuiltInFunctionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/RestFunctionHandle.java
   - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
   - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/CallExpression.java
