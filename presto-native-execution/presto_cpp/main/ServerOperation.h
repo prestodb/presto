@@ -56,6 +56,8 @@ struct ServerOperation {
     kAnnouncer,
     /// Applicable to kServer. Write in-memory cache data to SSD.
     kWriteSSD,
+    /// Applicable to kServer. Get/update verbose log level in glog.
+    kGlog,
   };
 
   static const folly::F14FastMap<std::string, Target> kTargetLookup;
