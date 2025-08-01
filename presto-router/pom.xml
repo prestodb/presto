@@ -179,7 +179,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
+            <groupId>com.github.ShahimSharafudeen.resolver</groupId>
             <artifactId>resolver</artifactId>
         </dependency>
 
