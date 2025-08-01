@@ -310,7 +310,7 @@ class SessionProperties {
       "native_streaming_aggregation_min_output_batch_rows";
 
   /// Maximum wait time for exchange long poll requests in seconds.
-  static constexpr const char* kRequestDataSizesMaxWaitSec = 
+  static constexpr const char* kRequestDataSizesMaxWaitSec =
       "native_request_data_sizes_max_wait_sec";
 
   /// Priority of memory pool reclaimer when deciding on memory pool to abort.

@@ -1,4 +1,15 @@
 #!/bin/bash
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # Set directory for certificates and keys.
 CERT_DIR="./tls_certs"
@@ -16,20 +27,20 @@ SERVER_CN="server.mydomain.com"
 # Step 1: Generate CA private key and self-signed certificate.
 openssl genpkey -algorithm RSA -out $CERT_DIR/ca.key
 openssl req -key $CERT_DIR/ca.key -new -x509 -out $CERT_DIR/ca.crt -days 365000 \
-    -subj "/C=$COUNTRY/ST=$STATE/L=$LOCALITY/O=$ORGANIZATION/OU=$ORG_UNIT/CN=$COMMON_NAME"
+  -subj "/C=$COUNTRY/ST=$STATE/L=$LOCALITY/O=$ORGANIZATION/OU=$ORG_UNIT/CN=$COMMON_NAME"
 
 # Step 2: Generate server private key.
 openssl genpkey -algorithm RSA -out $CERT_DIR/server.key
 
 # Step 3: Generate server certificate signing request (CSR).
 openssl req -new -key $CERT_DIR/server.key -out $CERT_DIR/server.csr \
-    -subj "/C=$COUNTRY/ST=$STATE/L=$LOCALITY/O=$ORGANIZATION/OU=$ORG_UNIT/CN=$SERVER_CN" \
-    -addext "subjectAltName=DNS:$COMMON_NAME,DNS:localhost" \
+  -subj "/C=$COUNTRY/ST=$STATE/L=$LOCALITY/O=$ORGANIZATION/OU=$ORG_UNIT/CN=$SERVER_CN" \
+  -addext "subjectAltName=DNS:$COMMON_NAME,DNS:localhost"
 
 # Step 4: Sign server CSR with the CA certificate to generate the server certificate.
 openssl x509 -req -in $CERT_DIR/server.csr -CA $CERT_DIR/ca.crt -CAkey $CERT_DIR/ca.key \
-    -CAcreateserial -out $CERT_DIR/server.crt -days 365000 \
-    -extfile <(printf "subjectAltName=DNS:$COMMON_NAME,DNS:localhost")
+  -CAcreateserial -out $CERT_DIR/server.crt -days 365000 \
+  -extfile <(printf "subjectAltName=DNS:$COMMON_NAME,DNS:localhost")
 
 # Step 5: Output the generated files.
 echo "Certificate Authority (CA) certificate: $CERT_DIR/ca.crt"

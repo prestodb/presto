@@ -21,8 +21,7 @@ WGET_OPTIONS=${WGET_OPTIONS:-""}
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-centos9.sh" ]
-then
+if [ -f "${SCRIPT_DIR}/setup-centos9.sh" ]; then
   source "${SCRIPT_DIR}/setup-centos9.sh"
 else
   source "${SCRIPT_DIR}/../velox/scripts/setup-centos9.sh"
@@ -39,11 +38,11 @@ function install_presto_deps_from_package_managers {
 
 function install_gperf {
   wget ${WGET_OPTIONS} https://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz &&
-  tar -xzf gperf-3.1.tar.gz &&
-  cd gperf-3.1 &&
-  ./configure --prefix=/usr/local/gperf/3_1 &&
-  make "-j${NPROC}" &&
-  make install
+    tar -xzf gperf-3.1.tar.gz &&
+    cd gperf-3.1 &&
+    ./configure --prefix=/usr/local/gperf/3_1 &&
+    make "-j${NPROC}" &&
+    make install
   if [ -f /usr/local/bin/gperf ]; then
     echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
   else

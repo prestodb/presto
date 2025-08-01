@@ -89,10 +89,11 @@ TEST_F(ArrowFlightConnectorTest, dataSource) {
   core::PlanNodePtr plan;
 
   // direct test
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"id", "value"}, {velox::BIGINT(), velox::INTEGER()}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW({"id", "value"}, {velox::BIGINT(), velox::INTEGER()}))
+          .planNode();
 
   AssertQueryBuilder(plan)
       .splits(makeSplits({"sample-data"}))
@@ -118,8 +119,9 @@ TEST_F(ArrowFlightConnectorTest, dataSource) {
 
   // invalid columnHandle test
   plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"ducks", "value"}, {velox::BIGINT(), velox::INTEGER()}))
+             .flightTableScan(
+                 velox::ROW(
+                     {"ducks", "value"}, {velox::BIGINT(), velox::INTEGER()}))
              .planNode();
 
   VELOX_ASSERT_THROW(
@@ -156,9 +158,10 @@ TEST_F(ArrowFlightConnectorTest, multipleBatches) {
 
   core::PlanNodePtr plan;
   plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"int_col", "varchar_col", "double_col"},
-                 {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()}))
+             .flightTableScan(
+                 velox::ROW(
+                     {"int_col", "varchar_col", "double_col"},
+                     {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()}))
              .planNode();
 
   auto intVec = makeFlatVector(intData);
@@ -204,9 +207,10 @@ TEST_F(ArrowFlightConnectorTest, multipleSplits) {
 
   core::PlanNodePtr plan;
   plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"int_col", "varchar_col", "double_col"},
-                 {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()}))
+             .flightTableScan(
+                 velox::ROW(
+                     {"int_col", "varchar_col", "double_col"},
+                     {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()}))
              .planNode();
 
   std::vector<int32_t> intDataAll(intData);
@@ -259,10 +263,11 @@ TEST_F(ArrowFlightConnectorTestDefaultServer, dataSource) {
   core::PlanNodePtr plan;
 
   // direct test
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"id", "value"}, {velox::BIGINT(), velox::INTEGER()}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW({"id", "value"}, {velox::BIGINT(), velox::INTEGER()}))
+          .planNode();
 
   AssertQueryBuilder(plan)
       .splits(makeSplits({"sample-data"}))

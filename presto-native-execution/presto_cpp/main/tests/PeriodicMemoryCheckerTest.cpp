@@ -81,22 +81,27 @@ TEST_F(PeriodicMemoryCheckerTest, basic) {
   // Default config
   ASSERT_NO_THROW(TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{}));
 
-  ASSERT_NO_THROW(TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-      1'000, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
+  ASSERT_NO_THROW(TestPeriodicMemoryChecker(
+      PeriodicMemoryChecker::Config{
+          1'000, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
   VELOX_ASSERT_THROW(
-      TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-          1'000, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
+      TestPeriodicMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
       "(0 vs. 0)");
   VELOX_ASSERT_THROW(
-      TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-          1'000, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
+      TestPeriodicMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
       "heapDumpLogDir cannot be empty when heap dump is enabled.");
   VELOX_ASSERT_THROW(
-      TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-          1'000, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
+      TestPeriodicMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
       "heapDumpFilePrefix cannot be empty when heap dump is enabled.");
-  TestPeriodicMemoryChecker memChecker(PeriodicMemoryChecker::Config{
-      1'000, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
+  TestPeriodicMemoryChecker memChecker(
+      PeriodicMemoryChecker::Config{
+          1'000, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
   ASSERT_NO_THROW(memChecker.start());
   VELOX_ASSERT_THROW(memChecker.start(), "start() called more than once");
   ASSERT_NO_THROW(memChecker.stop());

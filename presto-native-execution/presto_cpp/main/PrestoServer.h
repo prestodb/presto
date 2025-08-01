@@ -120,9 +120,9 @@ class PrestoServer {
 
   /// Hook for derived PrestoServer implementations to add/stop additional
   /// periodic tasks.
-  virtual void addAdditionalPeriodicTasks(){};
+  virtual void addAdditionalPeriodicTasks() {};
 
-  virtual void stopAdditionalPeriodicTasks(){};
+  virtual void stopAdditionalPeriodicTasks() {};
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -133,7 +133,7 @@ class PrestoServer {
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
   virtual std::shared_ptr<facebook::velox::exec::SplitListenerFactory>
-    getSplitListenerFactory();
+  getSplitListenerFactory();
 
   virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
