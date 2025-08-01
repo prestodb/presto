@@ -49,7 +49,7 @@ public class BigQueryConnectorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(BigQueryStorageClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);
         binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
         binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
