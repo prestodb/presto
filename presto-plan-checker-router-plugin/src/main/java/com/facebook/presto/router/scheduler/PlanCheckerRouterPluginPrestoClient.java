@@ -18,10 +18,12 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryError;
+import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableMap;
 import jakarta.inject.Inject;
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -32,13 +34,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_RETRY_QUERY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.facebook.presto.router.scheduler.HttpRequestSessionContext.getResourceEstimates;
 import static com.facebook.presto.router.scheduler.HttpRequestSessionContext.getSerializedSessionFunctions;
 import static com.google.common.base.Verify.verify;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class PlanCheckerRouterPluginPrestoClient
@@ -55,6 +62,7 @@ public class PlanCheckerRouterPluginPrestoClient
     private final URI nativeRouterURI;
     private final Duration clientRequestTimeout;
     private final boolean javaClusterFallbackEnabled;
+    private final boolean javaClusterQueryRetryEnabled;
 
     @Inject
     public PlanCheckerRouterPluginPrestoClient(PlanCheckerRouterPluginConfig planCheckerRouterPluginConfig)
@@ -68,12 +76,13 @@ public class PlanCheckerRouterPluginPrestoClient
                 requireNonNull(planCheckerRouterPluginConfig.getNativeRouterURI(), "nativeRouterURI is null");
         this.clientRequestTimeout = planCheckerRouterPluginConfig.getClientRequestTimeout();
         this.javaClusterFallbackEnabled = planCheckerRouterPluginConfig.isJavaClusterFallbackEnabled();
+        this.javaClusterQueryRetryEnabled = planCheckerRouterPluginConfig.isJavaClusterQueryRetryEnabled();
     }
 
     public Optional<URI> getCompatibleClusterURI(Map<String, List<String>> headers, String statement, Principal principal)
     {
         String newSql = ANALYZE_CALL + statement;
-        ClientSession clientSession = parseHeadersToClientSession(headers, principal);
+        ClientSession clientSession = parseHeadersToClientSession(headers, principal, getPlanCheckerClusterDestination());
         boolean isNativeCompatible = true;
         // submit initial query
         try (StatementClient client = newStatementClient(httpClient, clientSession, newSql)) {
@@ -118,11 +127,100 @@ public class PlanCheckerRouterPluginPrestoClient
         if (isNativeCompatible) {
             log.debug("Native compatible, routing to native-clusters router: [%s]", nativeRouterURI);
             nativeClusterRedirectRequests.update(1L);
+            if (javaClusterQueryRetryEnabled) {
+                return buildNativeRedirectURI(headers, principal, statement);
+            }
             return Optional.of(nativeRouterURI);
         }
         log.debug("Native incompatible, routing to java-clusters router: [%s]", javaRouterURI);
         javaClusterRedirectRequests.update(1L);
         return Optional.of(javaRouterURI);
+    }
+
+    private Optional<URI> buildNativeRedirectURI(Map<String, List<String>> headers, Principal principal, String statement)
+    {
+        ClientSession javaSession = parseHeadersToClientSession(prepareHeadersForJavaCluster(headers), principal, javaRouterURI);
+        try (StatementClient client = newStatementClient(httpClient, javaSession, statement)) {
+            Optional<URI> redirectUri = getRedirectUriFromPostQuery(client);
+            return Optional.of(redirectUri.orElse(nativeRouterURI));
+        }
+        catch (Exception e) {
+            log.error("Error submitting query for redirect URI: {%s}", e.getMessage(), e);
+            return Optional.of(nativeRouterURI);
+        }
+    }
+
+    public Optional<URI> getRedirectUriFromPostQuery(StatementClient client)
+    {
+        QueryStatusInfo statusInfo = client.currentStatusInfo();
+        if (statusInfo == null || statusInfo.getNextUri() == null) {
+            return Optional.empty();
+        }
+
+        URI retryUri = statusInfo.getNextUri();
+        Map<String, List<String>> headers = client.getResponseHeaders();
+        OptionalLong maxAgeSeconds = extractMaxAgeInSeconds(headers);
+
+        if (!maxAgeSeconds.isPresent()) {
+            log.warn("Missing retryExpirationInSeconds, skipping retry URI creation.");
+            return Optional.empty();
+        }
+
+        String retryUriBase = retryUri.getScheme() + "://" + retryUri.getAuthority();
+        String queryId = statusInfo.getId();
+        String retryUrl = retryUriBase + "/v1/statement/queued/retry/" + queryId;
+
+        if (retryUrl == null || retryUrl.isEmpty()) {
+            log.warn("Missing retryUrl, skipping retry URI creation.");
+            return Optional.empty();
+        }
+
+        HttpUrl.Builder redirectBuilder = HttpUrl.get(nativeRouterURI)
+                .newBuilder()
+                .addQueryParameter("retryUrl", retryUrl);
+
+        maxAgeSeconds.ifPresent(expiration ->
+                redirectBuilder.addQueryParameter("retryExpirationInSeconds", Long.toString(expiration)));
+
+        URI redirect = redirectBuilder.build().uri();
+        log.info("Redirecting to combined native URI: {%s}", redirect);
+
+        return Optional.of(redirect);
+    }
+
+    private static OptionalLong extractMaxAgeInSeconds(Map<String, List<String>> headers)
+    {
+        if (headers == null) {
+            return OptionalLong.empty();
+        }
+
+        List<String> cacheControlList = headers.get("Cache-Control");
+        if (cacheControlList == null) {
+            return OptionalLong.empty();
+        }
+
+        Pattern maxAgePattern = Pattern.compile("max-age=(\\d+)");
+        for (String headerValue : cacheControlList) {
+            Matcher matcher = maxAgePattern.matcher(headerValue);
+            if (matcher.find()) {
+                return OptionalLong.of(Long.parseLong(matcher.group(1)));
+            }
+        }
+        return OptionalLong.empty();
+    }
+
+    private static Map<String, List<String>> prepareHeadersForJavaCluster(Map<String, List<String>> headers)
+    {
+        ImmutableMap.Builder<String, List<String>> builder = ImmutableMap.builder();
+
+        headers.forEach((key, value) -> {
+            if (!key.equalsIgnoreCase("Host")) {
+                builder.put(key, value);
+            }
+        });
+        builder.put(PRESTO_RETRY_QUERY, singletonList("true"));
+
+        return builder.build();
     }
 
     @Managed
@@ -146,8 +244,14 @@ public class PlanCheckerRouterPluginPrestoClient
         return fallBackToJavaClusterRedirectRequests;
     }
 
-    private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal)
+    private ClientSession parseHeadersToClientSession(Map<String, List<String>> headers, Principal principal, URI destinationOverride)
     {
+        ImmutableMap<String, String> customHeaders = headers.entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase(PRESTO_RETRY_QUERY))
+                .collect(ImmutableMap.toImmutableMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().get(0)));
+
         HttpRequestSessionContext sessionContext =
                 new HttpRequestSessionContext(
                         headers,
@@ -155,7 +259,7 @@ public class PlanCheckerRouterPluginPrestoClient
                         principal);
 
         return new ClientSession(
-                getPlanCheckerClusterDestination(),
+                destinationOverride,
                 sessionContext.getIdentity().getUser(),
                 sessionContext.getSource(),
                 Optional.empty(),
@@ -174,7 +278,7 @@ public class PlanCheckerRouterPluginPrestoClient
                 clientRequestTimeout,
                 true,
                 getSerializedSessionFunctions(sessionContext),
-                ImmutableMap.of(), // todo: do we need custom headers?
+                customHeaders,
                 true);
     }
 
