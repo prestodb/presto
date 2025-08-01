@@ -17,13 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.MergeHandle;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -33,14 +38,19 @@ import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -54,7 +64,10 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.tree.Cast;
@@ -64,24 +77,39 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.IntervalLiteral;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeInsert;
+import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.Update;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.VerifyException;
@@ -104,8 +132,12 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.isSkipRedundantSort;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
+import static com.facebook.presto.spi.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
@@ -113,12 +145,15 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.isNumericType;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.PlanBuilder.newPlanBuilder;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.analyzeCallExpressionTypes;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
@@ -393,6 +428,414 @@ class QueryPlanner
                 rowId,
                 updatedColumnValuesBuilder.build(),
                 outputs);
+    }
+
+    /**
+     * Plan a MERGE statement. The MERGE statement is processed by creating a RIGHT JOIN between the target table and the source.
+     * Example of converting a MERGE statement into a SELECT statement with a RIGHT JOIN:
+     * Merge statement:
+     *    MERGE INTO <target_table> t USING <source_table> s
+     *    ON (t.<column> = s.<column>)
+     *    WHEN MATCHED THEN
+     *        UPDATE SET <column1> = s.<column1> + t.<column1>,
+     *                              <column2> = s.<column2>
+     *    WHEN NOT MATCHED THEN
+     *         INSERT (column1, column2, column3)
+     *         VALUES (s.column1, s.column2, s.column3);
+     *
+     * SELECT statement with a RIGHT JOIN created to process the previous MERGE statement:
+     *    SELECT
+     *        CASE
+     *            WHEN present THEN
+     *                -- Update column values:                  present=true,     operation UPDATE=3,   case_number=0
+     *                row(t.column1, s.column1 + t.column1, s.column2, true, 3, 0)
+     *            WHEN (present IS NULL) THEN
+     *                -- Insert column values:                     present=false;    operation INSERT=1,     case_number=1
+     *                row(s.column1, s.column2, s.column3, false, 1, 1)
+     *            ELSE
+     *                -- Null values for no case matched:  present=false,    operation=-1,                 case_number=-1
+     *                row(null, null, null, false, -1, -1)
+     *            END
+     *    FROM
+     *        (SELECT *, true AS present FROM <target_table>) t
+     *        RIGHT JOIN <source_table> s
+     *        ON s.<column> = t.<column>;
+     *
+     * @param mergeStmt the MERGE statement to plan into a MergeWriterNode.
+     * @return a MergeWriterNode that represents the plan for the MERGE statement.
+     */
+    public MergeWriterNode plan(Merge mergeStmt)
+    {
+        //                                 MergeWriterNode
+        //                                             |
+        //                              MergeProcessorNode
+        //                                             |
+        //                       FilterDuplicateMatchingRows
+        //                                             |
+        //                                MarkDistinctNode
+        //                                             |
+        //                                  RightEquiJoin
+        //                                     /             \
+        //       ProjectPresentColumn          \
+        //                      |                               \
+        //           AssignUniqueID                   \
+        //                      |                                 \
+        //              TableScan                  TableScan
+        //                      |                                 |
+        //             (target table)             (source table)
+        Analysis.MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
+
+        // Make the plan for the merge target table scan
+        RelationPlan targetTableRelationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
+                .process(mergeStmt.getTarget(), sqlPlannerContext);
+
+        // Assign a unique id to every target table row
+        VariableReferenceExpression uniqueIdSymbol = variableAllocator.newVariable("unique_id", BIGINT);
+        AssignUniqueId assignUniqueRowIdToTargetTable = new AssignUniqueId(getSourceLocation(mergeStmt), idAllocator.getNextId(), targetTableRelationPlan.getRoot(), uniqueIdSymbol);
+        RelationPlan relationPlanWithUniqueRowIds = new RelationPlan(
+                assignUniqueRowIdToTargetTable,
+                mergeAnalysis.getTargetTableScope(),
+                targetTableRelationPlan.getFieldMappings());
+
+        // Project the "present" column
+        Assignments.Builder projections = Assignments.builder();
+        relationPlanWithUniqueRowIds.getRoot().getOutputVariables().forEach(variable ->
+                // TODO #20578: Is it necessary to create a new instance of VariableReferenceExpression? Maybe using 'projections.put(variable, variable)' would be enough.
+//                projections.put(variable, new VariableReferenceExpression(variable.getSourceLocation(), variable.getName(), variable.getType()))
+                  projections.put(variable, variable));
+
+        VariableReferenceExpression presentColumn = variableAllocator.newVariable("present", BOOLEAN);
+        projections.put(presentColumn, rowExpression(TRUE_LITERAL, sqlPlannerContext));
+
+        ProjectNode projectNodeWithUniqueRowIdsAndPresentColumn =
+                new ProjectNode(idAllocator.getNextId(), relationPlanWithUniqueRowIds.getRoot(), projections.build());
+        RelationPlan planWithWithUniqueRowIdsAndPresentColumn = new RelationPlan(
+                projectNodeWithUniqueRowIdsAndPresentColumn,
+                mergeAnalysis.getTargetTableScope(),
+                relationPlanWithUniqueRowIds.getFieldMappings());
+
+        RelationPlan sourceRelationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
+                .process(mergeStmt.getSource(), sqlPlannerContext);
+
+        RelationPlan joinRelationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
+                .planJoin(
+                        coerceIfNecessary(analysis, mergeStmt.getPredicate(), mergeStmt.getPredicate()),
+                        Join.Type.RIGHT, mergeAnalysis.getJoinScope(),
+                        planWithWithUniqueRowIdsAndPresentColumn, sourceRelationPlan,
+                        mergeStmt, sqlPlannerContext);
+
+        PlanBuilder subPlan = newPlanBuilder(joinRelationPlan, analysis, lambdaDeclarationToVariableMap);
+
+        // Build the SearchedCaseExpression that creates the project merge_row
+
+        ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+        for (int caseNumber = 0; caseNumber < mergeStmt.getMergeCases().size(); caseNumber++) {
+            MergeCase mergeCase = mergeStmt.getMergeCases().get(caseNumber);
+
+            // TODO #20578: Trino uses the following code because they support adding extra conditions to cases.
+            //                           In Presto, we'll only support one condition "MERGE INTO ON(<condition>)".
+//            Optional<Expression> casePredicate = Optional.empty();
+//            if (mergeCase.getExpression().isPresent()) {
+//                Expression original = mergeCase.getExpression().get();
+//                Expression predicate = coerceIfNecessary(analysis, original, original);
+//                casePredicate = Optional.of(predicate);
+//                subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(mergeStmt));
+//            }
+
+            ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+            List<List<ColumnHandle>> mergeCaseColumnsHandles = mergeAnalysis.getMergeCaseColumnHandles();
+            List<ColumnHandle> mergeCaseSetColumns = mergeCaseColumnsHandles.get(caseNumber);
+            for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
+                int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
+                if (index >= 0) {
+                    Expression original = mergeCase.getSetExpressions().get(index);
+                    Expression setExpression = coerceIfNecessary(analysis, original, original);
+                    subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, mergeStmt, sqlPlannerContext);
+                    rowBuilder.add(subPlan.rewrite(setExpression));
+                }
+                else {
+                    Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
+                    rowBuilder.add(createSymbolReference(planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldNumber)));
+                }
+            }
+
+            // Build the match condition for the MERGE case
+
+            // TODO #20578: The call to "createSymbolReference(presentColumn)" method is repeated fourth times. Check if is possible to do it only once.
+
+            // Add a boolean column which is true if a target table row was matched
+            rowBuilder.add(new IsNotNullPredicate(createSymbolReference(presentColumn)));
+
+            // Add the operation number
+            rowBuilder.add(new GenericLiteral("TINYINT", String.valueOf(getMergeCaseOperationNumber(mergeCase))));
+
+            // Add the mergeStmt case number, needed by MarkDistinct
+            rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(caseNumber)));
+
+//            Optional<Expression> rewritten = casePredicate.map(subPlan::rewrite);  // TODO #20578: Trino uses the following code because they support adding extra conditions to cases.
+                                                                                                                                   //                           In Presto, we'll only support one condition "MERGE INTO ON(<condition>)".
+            Expression condition = createSymbolReference(presentColumn);
+            if (mergeCase instanceof MergeInsert) {
+                condition = new IsNullPredicate(createSymbolReference(presentColumn));
+            }
+
+// TODO #20578: Trino uses the following code because they support adding extra conditions to cases.
+//                           In Presto, we'll only support one condition "MERGE INTO ON(<condition>)".
+//            if (rewritten.isPresent()) {
+//                condition = ExpressionUtils.and(condition, rewritten.get());
+//            }
+
+            whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
+        }
+
+// TODO #20578: Presto doesn't need this because we don't allow extra conditions in the MERGE.
+//        // Build the "else" clause for the SearchedCaseExpression
+//        ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+//        mergeAnalysis.getDataColumnSchemas().forEach(columnSchema ->
+//                rowBuilder.add(new Cast(new NullLiteral(), columnSchema.getType().getDisplayName())));
+//        rowBuilder.add(new IsNotNullPredicate(createSymbolReference(presentColumn)));
+//        // The operation number
+//        rowBuilder.add(new GenericLiteral("TINYINT", "-1"));
+//        // The case number
+//        rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
+//        SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
+
+        SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.empty());
+        RowType rowType = createMergeRowType(mergeAnalysis.getDataColumnSchemas());
+
+        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        VariableReferenceExpression rowIdVariable = planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
+        VariableReferenceExpression mergeRowSymbol = variableAllocator.newVariable("merge_row", rowType);
+        VariableReferenceExpression caseNumberSymbol = variableAllocator.newVariable("case_number", INTEGER);
+
+        // Project the partition symbols, the merge_row, the rowId, and the unique_id symbol
+        Assignments.Builder projectionAssignmentsBuilder = Assignments.builder();
+        for (ColumnHandle column : mergeAnalysis.getRedistributionColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(column), "Could not find fieldIndex for redistribution column");
+            VariableReferenceExpression symbol = planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldIndex);
+            projectionAssignmentsBuilder.put(symbol, symbol);
+            // TODO #20578: Is the previous line correct or we should use the following line?
+//            projectionAssignmentsBuilder.put(symbol, new VariableReferenceExpression(symbol.getSourceLocation(), symbol.getName(), symbol.getType()));
+        }
+        // TODO #20578: Original Trino code.
+//        projectionAssignmentsBuilder.put(uniqueIdSymbol, uniqueIdSymbol.toSymbolReference());
+//        projectionAssignmentsBuilder.put(rowIdSymbol, rowIdSymbol.toSymbolReference());
+        projectionAssignmentsBuilder.put(uniqueIdSymbol, uniqueIdSymbol);
+        projectionAssignmentsBuilder.put(rowIdVariable, rowIdVariable);
+        projectionAssignmentsBuilder.put(mergeRowSymbol, rowExpression(caseExpression, sqlPlannerContext));
+
+        ProjectNode subPlanProject = new ProjectNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                projectionAssignmentsBuilder.build());
+
+        // Now add a column for the case_number, gotten from the merge_row
+        SubscriptExpression caseNumberExpression = new SubscriptExpression(
+                createSymbolReference(mergeRowSymbol), new LongLiteral(Long.toString(rowType.getFields().size())));
+
+        ProjectNode project = new ProjectNode(
+                subPlanProject.getSourceLocation(),
+                idAllocator.getNextId(),
+                subPlanProject,
+                Assignments.builder()
+                        .putAll(subPlanProject.getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
+                        .put(caseNumberSymbol, rowExpression(caseNumberExpression, sqlPlannerContext))
+                        .build(),
+                LOCAL); // TODO #20578: Is LOCAL the correct value?
+
+        // Mark distinct combinations of the unique_id value and the case_number
+        VariableReferenceExpression isDistinctSymbol = variableAllocator.newVariable("is_distinct", BOOLEAN);
+        MarkDistinctNode markDistinctNode = new MarkDistinctNode(
+                getSourceLocation(mergeStmt), idAllocator.getNextId(), project, isDistinctSymbol,
+                ImmutableList.of(uniqueIdSymbol, caseNumberSymbol), Optional.empty());
+
+        // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
+        Expression filter = new IfExpression(
+                LogicalBinaryExpression.and(
+                        new NotExpression(createSymbolReference(isDistinctSymbol)),
+                        new IsNotNullPredicate(createSymbolReference(uniqueIdSymbol))),
+                new Cast(
+                        new FunctionCall(
+                                QualifiedName.of("presto", "default", "fail"),
+                                ImmutableList.of(new Cast(new StringLiteral(
+                                        "MERGE INTO operation failed for target table '" + targetTable.getName() + "'. " +
+                                        "One or more rows in the target table matched multiple source rows. " +
+                                        "The MERGE INTO command requires each target row to match at most one source row. " +
+                                        "Please review the ON condition to ensure it produces a one-to-one or one-to-none match."),
+                                VARCHAR.getTypeSignature().toString()))),
+                        BOOLEAN.getTypeSignature().toString()),
+                TRUE_LITERAL);
+
+        FilterNode filterNode = new FilterNode(getSourceLocation(mergeStmt), idAllocator.getNextId(), markDistinctNode, rowExpression(filter, sqlPlannerContext));
+
+        Table targetTable = mergeStmt.getTargetTable();
+        TableHandle targetTableHandle = analysis.getTableHandle(targetTable);
+
+        Optional<MergeHandle> mergeHandle = Optional.of(metadata.beginMerge(session, targetTableHandle));
+
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle);
+
+        RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, targetTableHandle);
+
+        // TODO #20578: Delete the following two lines if finally they are not necessary.
+//        ColumnHandle rowIdHandle = metadata.getMergeRowIdColumnHandle(session, targetTableHandle);
+//        Type rowIdType = metadata.getColumnMetadata(session, targetTableHandle, rowIdHandle).getType();
+
+        Type rowIdType = analysis.getType(analysis.getRowIdField(targetTable));
+        List<Type> dataColumnTypes = tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+
+        TableWriterNode.MergeParadigmAndTypes mergeParadigmAndTypes = new TableWriterNode.MergeParadigmAndTypes(paradigm, dataColumnTypes, rowIdType);
+        TableWriterNode.MergeTarget mergeTarget = new TableWriterNode.MergeTarget(targetTableHandle, mergeHandle /*Optional.empty()*/, tableMetadata.getTable(), mergeParadigmAndTypes);
+
+        ImmutableList.Builder<VariableReferenceExpression> columnSymbolsBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
+            columnSymbolsBuilder.add(planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldIndex));
+        }
+        List<VariableReferenceExpression> columnSymbols = columnSymbolsBuilder.build();
+        ImmutableList.Builder<VariableReferenceExpression> redistributionSymbolsBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : mergeAnalysis.getRedistributionColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
+            redistributionSymbolsBuilder.add(planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldIndex));
+        }
+
+        VariableReferenceExpression operationSymbol = variableAllocator.newVariable("operation", TINYINT);
+        VariableReferenceExpression insertFromUpdateSymbol = variableAllocator.newVariable("insert_from_update", TINYINT);
+
+        List<VariableReferenceExpression> projectedSymbols = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(columnSymbols)
+                .add(operationSymbol)
+                .add(rowIdVariable)
+                .add(insertFromUpdateSymbol)
+                .build();
+
+        MergeProcessorNode mergeProcessorNode = new MergeProcessorNode(
+                getSourceLocation(mergeStmt),
+                idAllocator.getNextId(),
+                filterNode,
+                mergeTarget,
+                rowIdVariable,
+                mergeRowSymbol,
+                columnSymbols,
+                redistributionSymbolsBuilder.build(),
+                projectedSymbols);
+
+        Optional<PartitioningScheme> partitioningScheme = createMergePartitioningScheme(
+                mergeAnalysis.getInsertLayout(),
+                columnSymbols,
+                mergeAnalysis.getInsertPartitioningArgumentIndexes(),
+                mergeAnalysis.getUpdateLayout(),
+                rowIdVariable,
+                operationSymbol);
+
+        List<VariableReferenceExpression> outputs = ImmutableList.of(
+                variableAllocator.newVariable("partialrows", BIGINT),
+                variableAllocator.newVariable("fragment", VARBINARY));
+
+        return new MergeWriterNode(
+                getSourceLocation(mergeStmt),
+                idAllocator.getNextId(),
+                mergeProcessorNode,
+                mergeTarget,
+                projectedSymbols,
+                partitioningScheme,
+                outputs);
+    }
+
+    private static int getMergeCaseOperationNumber(MergeCase mergeCase)
+    {
+        if (mergeCase instanceof MergeInsert) {
+            return INSERT_OPERATION_NUMBER;
+        }
+        if (mergeCase instanceof MergeUpdate) {
+            return UPDATE_OPERATION_NUMBER;
+        }
+        // TODO: Currently, Presto doesn't support DELETE in MERGE command.
+//        if (mergeCase instanceof MergeDelete) {
+//            return DELETE_OPERATION_NUMBER;
+//        }
+        throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
+    }
+
+    private static RowType createMergeRowType(List<ColumnMetadata> allColumnsSchema)
+    {
+        // create the RowType that holds all column values
+        List<RowType.Field> fields = new ArrayList<>();
+        for (ColumnMetadata schema : allColumnsSchema) {
+            // TODO #20578: This was the original line but it is giving me problems when validating data types:
+            //            fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
+            // SQL Error [65536]: Query failed (#20250423_090416_00009_ay9hk): type of variable 'merge_row' is
+            // expected to be           row(intsample integer,floatsample decimal(2,1),doublesample decimal(5,2),boolean,tinyint,integer),
+            // but the actual type is row(          integer,            decimal(2,1),             decimal(5,2),boolean,tinyint,integer)
+
+            // TODO #20578:  So, I changed it to the following line which is working fine:
+            fields.add(new RowType.Field(Optional.empty(), schema.getType()));
+        }
+        fields.add(new RowType.Field(Optional.empty(), BOOLEAN)); // present
+        fields.add(new RowType.Field(Optional.empty(), TINYINT)); // operation_number
+        fields.add(new RowType.Field(Optional.empty(), INTEGER)); // case_number
+        return RowType.from(fields);
+    }
+
+    public static Optional<PartitioningScheme> createMergePartitioningScheme(
+            Optional<NewTableLayout> insertLayout,
+            List<VariableReferenceExpression> symbols,
+            List<Integer> insertPartitioningArgumentIndexes,
+            Optional<PartitioningHandle> updateLayout,
+            VariableReferenceExpression rowIdSymbol,
+            VariableReferenceExpression operationSymbol)
+    {
+        if (!insertLayout.isPresent() && !updateLayout.isPresent()) {
+            return Optional.empty();
+        }
+
+        Optional<PartitioningScheme> insertPartitioning = insertLayout.map(layout -> {
+            List<VariableReferenceExpression> arguments = insertPartitioningArgumentIndexes.stream()
+                    .map(symbols::get)
+                    .collect(toImmutableList());
+
+            return layout.getPartitioning()
+                    .map(handle -> new PartitioningScheme(Partitioning.create(handle, arguments), symbols))
+                    // empty connector partitioning handle means evenly partitioning on partitioning columns
+                    .orElseGet(() -> new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, arguments), symbols));
+        });
+
+        Optional<PartitioningScheme> updatePartitioning = updateLayout.map(handle ->
+                new PartitioningScheme(Partitioning.create(handle, ImmutableList.of(rowIdSymbol)), ImmutableList.of(rowIdSymbol)));
+
+        PartitioningHandle partitioningHandle = new PartitioningHandle(
+                Optional.empty(),
+                Optional.empty(),
+                new MergePartitioningHandle(insertPartitioning, updatePartitioning));
+
+        List<VariableReferenceExpression> combinedSymbols = new ArrayList<>();
+        combinedSymbols.add(operationSymbol);
+        insertPartitioning.ifPresent(scheme -> combinedSymbols.addAll(partitioningSymbols(scheme)));
+        updatePartitioning.ifPresent(scheme -> combinedSymbols.addAll(partitioningSymbols(scheme)));
+
+        return Optional.of(new PartitioningScheme(Partitioning.create(partitioningHandle, combinedSymbols), combinedSymbols));
+    }
+
+    private static List<VariableReferenceExpression> partitioningSymbols(PartitioningScheme scheme)
+    {
+        return new ArrayList<>(scheme.getPartitioning().getVariableReferences());
+    }
+
+    public static Expression coerceIfNecessary(Analysis analysis, Expression original, Expression rewritten)
+    {
+        Type coercion = analysis.getCoercion(original);
+        if (coercion == null) {
+            return rewritten;
+        }
+
+        return new Cast(
+                rewritten,
+                coercion.getDisplayName(),
+                false,
+                analysis.isTypeOnlyCoercion(original));
     }
 
     private Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)
