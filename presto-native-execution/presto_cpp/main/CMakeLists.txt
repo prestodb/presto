@@ -64,6 +64,7 @@ target_link_libraries(
   velox_dwio_orc_reader
   velox_dwio_parquet_reader
   velox_dwio_parquet_writer
+  velox_dwio_text_writer
   velox_dynamic_library_loader
   velox_encode
   velox_exec

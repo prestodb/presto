@@ -58,6 +58,7 @@
 #include "velox/dwio/orc/reader/OrcReader.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
+#include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -1397,6 +1398,7 @@ void PrestoServer::registerFileReadersAndWriters() {
   velox::orc::registerOrcReaderFactory();
   velox::parquet::registerParquetReaderFactory();
   velox::parquet::registerParquetWriterFactory();
+  velox::text::registerTextWriterFactory();
 }
 
 void PrestoServer::unregisterFileReadersAndWriters() {
@@ -1404,6 +1406,7 @@ void PrestoServer::unregisterFileReadersAndWriters() {
   velox::dwrf::unregisterDwrfWriterFactory();
   velox::parquet::unregisterParquetReaderFactory();
   velox::parquet::unregisterParquetWriterFactory();
+  velox::text::unregisterTextWriterFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
