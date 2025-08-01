@@ -30,10 +30,7 @@ class ConstantExpr : public SpecialForm {
             false /* trackCpuUsage */),
         needToSetIsAscii_{value->type()->isVarchar()} {
     VELOX_CHECK_EQ(value->encoding(), VectorEncoding::Simple::CONSTANT);
-    // sharedConstantValue_ may be modified so we should take our own copy to
-    // prevent sharing across threads.
-    sharedConstantValue_ =
-        BaseVector::wrapInConstant(1, 0, std::move(value), true);
+    sharedConstantValue_ = std::move(value);
   }
 
   void evalSpecialForm(

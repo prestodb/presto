@@ -199,11 +199,8 @@ VectorPtr BaseVector::wrapInSequence(
 }
 
 template <TypeKind kind>
-static VectorPtr addConstant(
-    vector_size_t size,
-    vector_size_t index,
-    VectorPtr vector,
-    bool copyBase) {
+static VectorPtr
+addConstant(vector_size_t size, vector_size_t index, VectorPtr vector) {
   using T = typename KindToFlatVector<kind>::WrapperType;
 
   auto* pool = vector->pool();
@@ -242,13 +239,6 @@ static VectorPtr addConstant(
     }
   }
 
-  if (copyBase) {
-    VectorPtr copy = BaseVector::create(vector->type(), 1, pool);
-    copy->copy(vector.get(), 0, index, 1);
-    return std::make_shared<ConstantVector<T>>(
-        pool, size, 0, std::move(copy), SimpleVectorStats<T>{});
-  }
-
   return std::make_shared<ConstantVector<T>>(
       pool, size, index, std::move(vector), SimpleVectorStats<T>{});
 }
@@ -257,11 +247,10 @@ static VectorPtr addConstant(
 VectorPtr BaseVector::wrapInConstant(
     vector_size_t length,
     vector_size_t index,
-    VectorPtr vector,
-    bool copyBase) {
+    VectorPtr vector) {
   const auto kind = vector->typeKind();
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      addConstant, kind, length, index, std::move(vector), copyBase);
+      addConstant, kind, length, index, std::move(vector));
 }
 
 std::optional<bool> BaseVector::equalValueAt(
