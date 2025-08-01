@@ -71,7 +71,7 @@ public final class FunctionSignatureMatcher
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        match = matchFunctionExact(genericCandidates, parameterTypes);
+        match = matchFunctionGeneric(genericCandidates, parameterTypes);
         if (match.isPresent()) {
             return match;
         }
@@ -88,15 +88,20 @@ public final class FunctionSignatureMatcher
 
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
-        return matchFunction(candidates, actualParameters, false);
+        return matchFunction(candidates, actualParameters, false, false);
+    }
+
+    private Optional<Signature> matchFunctionGeneric(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    {
+        return matchFunction(candidates, actualParameters, false, true);
     }
 
     private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
-        return matchFunction(candidates, actualParameters, true);
+        return matchFunction(candidates, actualParameters, true, false);
     }
 
-    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed, boolean useGenericCandidates)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -110,6 +115,13 @@ public final class FunctionSignatureMatcher
 
         if (applicableFunctions.size() == 1) {
             return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+        }
+        // Account for possible duplicate function signatures in Presto C++. Scalar functions in Velox can define
+        // function signatures with generic types that leverage a generic function implementation, and with exact
+        // types that leverage a fast path with a more efficient function implementation (eg: map_subset). Allow
+        // duplicate function signatures when matching with generic candidates to account for this.
+        if (applicableFunctions.size() > 1 && useGenericCandidates) {
+            return Optional.of(applicableFunctions.get(0).getBoundSignature());
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();

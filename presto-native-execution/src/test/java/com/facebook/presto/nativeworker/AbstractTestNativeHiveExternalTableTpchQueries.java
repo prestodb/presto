@@ -109,7 +109,7 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
         createSchemaIfNotExist(javaQueryRunner, TPCH_SCHEMA);
         Session session = Session.builder(super.getSession()).setCatalog(HIVE).setSchema(TPCH_SCHEMA).build();
         createOrders(session, javaQueryRunner, true);
-        createLineitemStandard(session, javaQueryRunner);
+        createLineitemStandard(session, javaQueryRunner, true);
         createNationWithFormat(session, javaQueryRunner, "PARQUET");
         createCustomer(session, javaQueryRunner);
         createPart(session, javaQueryRunner);

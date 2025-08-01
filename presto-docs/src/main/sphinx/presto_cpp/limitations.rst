@@ -47,4 +47,12 @@ reduce_agg
 In C++ based Presto, ``reduce_agg`` is not permitted to return ``null`` in either the 
 ``inputFunction`` or the ``combineFunction``. In Presto (Java), this is permitted 
 but undefined behavior. For more information about ``reduce_agg`` in Presto, 
-see `reduce_agg <../functions/aggregate.html#reduce_agg>`_. 
+see `reduce_agg <../functions/aggregate.html#reduce_agg>`_.
+
+approx_set
+----------
+
+Cardinality estimation with ``approx_set`` has a maximum standard error of ``e``
+(default value of ``0.01625``). ``approx_set`` returns different values in Presto C++
+and Presto (Java). For more information about ``approx_set`` in Presto, see
+`approx_set <../functions/aggregate.html#approx_set>`_.

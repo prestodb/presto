@@ -87,11 +87,11 @@ public class CrossJoinWithArrayContainsToInnerJoin
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
-    public static RowExpression getCandidateArrayContainsExpression(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> leftInput, List<VariableReferenceExpression> rightInput)
+    public static RowExpression getCandidateArrayContainsExpression(FunctionResolution functionResolution, RowExpression filterPredicate, List<VariableReferenceExpression> leftInput, List<VariableReferenceExpression> rightInput, Session session)
     {
         List<RowExpression> andConjuncts = extractConjuncts(filterPredicate);
         for (RowExpression conjunct : andConjuncts) {
-            if (isSupportedArrayContainsFilter(functionResolution, conjunct, leftInput, rightInput)) {
+            if (isSupportedArrayContainsFilter(functionResolution, conjunct, leftInput, rightInput, session)) {
                 return conjunct;
             }
         }
@@ -122,7 +122,7 @@ public class CrossJoinWithArrayContainsToInnerJoin
         RowExpression filterExpression = node.getPredicate();
         FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
 
-        RowExpression arrayContainsExpression = getCandidateArrayContainsExpression(functionResolution, filterExpression, leftInput, rightInput);
+        RowExpression arrayContainsExpression = getCandidateArrayContainsExpression(functionResolution, filterExpression, leftInput, rightInput, context.getSession());
         if (arrayContainsExpression == null) {
             return Result.empty();
         }
