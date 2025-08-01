@@ -536,7 +536,7 @@ public class FunctionAndTypeManager
         if (functionName.getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE)) {
             if (sessionFunctions.isPresent()) {
                 Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
-                Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
+                Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true, nativeExecution);
                 if (match.isPresent()) {
                     return SessionFunctionUtils.getFunctionHandle(sessionFunctions.get(), match.get());
                 }
@@ -711,7 +711,7 @@ public class FunctionAndTypeManager
         }
 
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
-        Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, false);
+        Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, false, nativeExecution);
         if (!match.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
         }
@@ -788,7 +788,7 @@ public class FunctionAndTypeManager
 
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
-        Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
+        Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true, nativeExecution);
         if (match.isPresent()) {
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
