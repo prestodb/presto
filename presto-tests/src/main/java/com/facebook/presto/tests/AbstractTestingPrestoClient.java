@@ -115,6 +115,8 @@ public abstract class AbstractTestingPrestoClient<T>
                     resultsSession.setUpdateCount(results.getUpdateCount());
                 }
 
+                resultsSession.setStartedTransactionId(results.getStartedTransactionId());
+                resultsSession.setClearTransactionId(results.isClearTransactionId());
                 resultsSession.setWarnings(results.getWarnings());
 
                 T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());

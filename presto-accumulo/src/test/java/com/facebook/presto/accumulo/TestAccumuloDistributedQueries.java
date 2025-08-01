@@ -122,6 +122,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // This connector do not support rollback for insert actions
+    }
+
+    @Override
     public void testInsert()
     {
         @Language("SQL") String query = "SELECT cast(uuid() AS varchar) AS uuid, orderdate, orderkey FROM orders";
