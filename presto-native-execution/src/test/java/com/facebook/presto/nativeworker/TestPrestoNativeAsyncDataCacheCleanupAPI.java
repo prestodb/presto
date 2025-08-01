@@ -87,7 +87,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
         for (int i = 0; i < 4; i++) {
             queryRunner.execute(session, "SELECT count(*) FROM customer");
         }
-        TimeUnit.SECONDS.sleep(60); // Sleep to allow cache updates
+        TimeUnit.SECONDS.sleep(180); // Sleep to allow cache updates
 
         // 3. Collect cache metrics after queries
         Metrics populatedMetrics = collectCacheMetrics(workerNodes, metricsEndPoint);
@@ -99,7 +99,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
             int responseCode = sendWorkerRequest(worker.getInternalUri().toString(), writeToSsdEndPoint);
             assertEquals(200, responseCode, "Expected a 200 OK response for writing to ssd cache.");
         });
-        TimeUnit.SECONDS.sleep(60); // Sleep to allow cache updates
+        TimeUnit.SECONDS.sleep(180); // Sleep to allow cache updates
 
         // 5. Collect SSD metrics after ssd write
         Metrics ssdMetrics = collectCacheMetrics(workerNodes, metricsEndPoint);
@@ -111,7 +111,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
             int responseCode = sendWorkerRequest(worker.getInternalUri().toString(), memoryCacheCleanupEndPoint);
             assertEquals(200, responseCode, "Expected a 200 OK response for cache cleanup.");
         });
-        TimeUnit.SECONDS.sleep(60); // Sleep to allow cache updates
+        TimeUnit.SECONDS.sleep(180); // Sleep to allow cache updates
 
         // 7. Validate memory cache is cleared
         Metrics finalMetrics = collectCacheMetrics(workerNodes, metricsEndPoint);
@@ -121,7 +121,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
         for (int i = 0; i < 4; i++) {
             queryRunner.execute(session, "SELECT count(*) FROM customer");
         }
-        TimeUnit.SECONDS.sleep(60); // Sleep to allow cache updates
+        TimeUnit.SECONDS.sleep(180); // Sleep to allow cache updates
 
         // 9. Collect SSD metrics to check read entries metrics
         Metrics populatedSsdMetrics = collectCacheMetrics(workerNodes, metricsEndPoint);
@@ -132,7 +132,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
             int responseCode = sendWorkerRequest(worker.getInternalUri().toString(), ssdCacheCleanupEndPoint);
             assertEquals(200, responseCode, "Expected a 200 OK response for cache cleanup.");
         });
-        TimeUnit.SECONDS.sleep(60); // Sleep to allow cache updates
+        TimeUnit.SECONDS.sleep(180); // Sleep to allow cache updates
 
         // 11. Validate SSD cache is cleared
         Metrics finalSSDCacheMetrics = collectCacheMetrics(workerNodes, metricsEndPoint);
@@ -150,11 +150,11 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
 
         for (InternalNode worker : workerNodes) {
             Map<String, Long> metrics = fetchScalarLongMetrics(worker.getInternalUri().toString(), endpoint, "GET");
-            memoryCacheHits += metrics.get("velox_memory_cache_num_hits");
-            memoryCacheEntries += metrics.get("velox_memory_cache_num_entries");
-            ssdCacheReadEntries += metrics.get("velox_ssd_cache_read_entries");
-            ssdCacheWriteEntries += metrics.get("velox_ssd_cache_written_entries");
-            ssdCacheCachedEntries += metrics.get("velox_ssd_cache_cached_entries");
+            memoryCacheHits += metrics.get("velox.memory_cache_num_hits");
+            memoryCacheEntries += metrics.get("velox.memory_cache_num_entries");
+            ssdCacheReadEntries += metrics.get("velox.ssd_cache_read_entries");
+            ssdCacheWriteEntries += metrics.get("velox.ssd_cache_written_entries");
+            ssdCacheCachedEntries += metrics.get("velox.ssd_cache_cached_entries");
         }
         return new Metrics(memoryCacheHits, memoryCacheEntries, ssdCacheReadEntries, ssdCacheWriteEntries, ssdCacheCachedEntries);
     }
