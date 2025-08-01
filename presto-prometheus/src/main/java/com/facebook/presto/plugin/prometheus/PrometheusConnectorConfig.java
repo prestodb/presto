@@ -40,7 +40,7 @@ public class PrometheusConnectorConfig
     private boolean tlsEnabled;
     private String trustStorePath;
     private String truststorePassword;
-    private boolean verifyHostName;
+    private boolean verifyHostName = true;
 
     @NotNull
     public URI getPrometheusURI()
