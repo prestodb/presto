@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.spnego.KerberosConfig;
+import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.facebook.presto.server.security.InternalAuthenticationFilter;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -50,6 +51,16 @@ public class InternalCommunicationModule
             }
             if (internalCommunicationConfig.getExcludeCipherSuites().isPresent()) {
                 config.setHttpsExcludedCipherSuites(internalCommunicationConfig.getExcludeCipherSuites().get());
+            }
+        });
+
+        configBinder(binder).bindConfigGlobalDefaults(ReactorNettyHttpClientConfig.class, config -> {
+            config.setHttpsEnabled(internalCommunicationConfig.isHttpsRequired());
+            config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
+            config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+            config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());
+            if (internalCommunicationConfig.getIncludedCipherSuites().isPresent()) {
+                config.setCipherSuites(internalCommunicationConfig.getIncludedCipherSuites().get());
             }
         });
 

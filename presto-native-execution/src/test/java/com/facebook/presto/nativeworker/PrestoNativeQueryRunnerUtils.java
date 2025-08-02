@@ -70,7 +70,8 @@ import static org.testng.Assert.assertTrue;
 
 public class PrestoNativeQueryRunnerUtils
 {
-    public enum QueryRunnerType {
+    public enum QueryRunnerType
+    {
         JAVA,
         NATIVE
     }
@@ -178,6 +179,13 @@ public class PrestoNativeQueryRunnerUtils
         {
             this.extraProperties
                     .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift));
+            return this;
+        }
+
+        public HiveQueryRunnerBuilder setUseReactorNettyHttpClient(boolean useReactorNettyHttpClient)
+        {
+            this.extraProperties
+                    .put("reactor.netty-http-client-enabled", String.valueOf(useReactorNettyHttpClient));
             return this;
         }
 
