@@ -75,8 +75,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -85,6 +84,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -94,7 +94,6 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistri
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;

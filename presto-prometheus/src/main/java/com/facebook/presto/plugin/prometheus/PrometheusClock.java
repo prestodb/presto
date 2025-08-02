@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.time.Clock;
 import java.time.Instant;

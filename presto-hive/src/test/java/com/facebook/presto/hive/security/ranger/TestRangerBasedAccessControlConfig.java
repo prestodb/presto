@@ -15,9 +15,9 @@ package com.facebook.presto.hive.security.ranger;
 
 import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -87,7 +87,7 @@ public class TestRangerBasedAccessControlConfig
                 RANGER_REST_USER_GROUPS_AUTH_USERNAME, "admin",
                 RANGER_REST_USER_GROUPS_AUTH_PASSWORD, "admin")))
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("Invalid configuration property hive.ranger.rest-endpoint: may not be null");
+                .hasMessageContaining("Invalid configuration property hive.ranger.rest-endpoint: must not be null");
 
         assertThatThrownBy(() -> newInstance(ImmutableMap.of(
                 RANGER_POLICY_REFRESH_PERIOD, "120s",
@@ -95,7 +95,7 @@ public class TestRangerBasedAccessControlConfig
                 RANGER_REST_USER_GROUPS_AUTH_USERNAME, "admin",
                 RANGER_REST_USER_GROUPS_AUTH_PASSWORD, "admin")))
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("Invalid configuration property hive.ranger.policy.hive-servicename: may not be null");
+                .hasMessageContaining("Invalid configuration property hive.ranger.policy.hive-servicename: must not be null");
     }
 
     private static RangerBasedAccessControlConfig newInstance(Map<String, String> properties)

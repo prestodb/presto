@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.HadoopDirectoryLister;
 import com.facebook.presto.hive.HdfsContext;
@@ -41,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;

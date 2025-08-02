@@ -14,9 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableSet;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Set;

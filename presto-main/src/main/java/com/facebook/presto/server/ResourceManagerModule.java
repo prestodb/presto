@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -38,10 +40,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;

@@ -14,8 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.Type;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import static java.util.Objects.requireNonNull;
 
