@@ -58,6 +58,7 @@
 #include "velox/dwio/orc/reader/OrcReader.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
+#include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -276,7 +277,7 @@ void PrestoServer::run() {
 
   registerFileSinks();
   registerFileSystems();
-  registerFileReadersAndWriters();
+  registerFileReadersAndWriters(systemConfig->textWriterEnabled());
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
@@ -642,7 +643,7 @@ void PrestoServer::run() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
 
-  unregisterFileReadersAndWriters();
+  unregisterFileReadersAndWriters(systemConfig->textWriterEnabled());
   unregisterFileSystems();
   unregisterConnectors();
   unregisterVeloxCudf();
@@ -1391,19 +1392,25 @@ void PrestoServer::registerMemoryArbitrators() {
   velox::memory::SharedArbitrator::registerFactory();
 }
 
-void PrestoServer::registerFileReadersAndWriters() {
+void PrestoServer::registerFileReadersAndWriters(bool textWriterEnabled) {
   velox::dwrf::registerDwrfReaderFactory();
   velox::dwrf::registerDwrfWriterFactory();
   velox::orc::registerOrcReaderFactory();
   velox::parquet::registerParquetReaderFactory();
   velox::parquet::registerParquetWriterFactory();
+  if (textWriterEnabled) {
+    velox::text::registerTextWriterFactory();
+  }
 }
 
-void PrestoServer::unregisterFileReadersAndWriters() {
+void PrestoServer::unregisterFileReadersAndWriters(bool textWriterEnabled) {
   velox::dwrf::unregisterDwrfReaderFactory();
   velox::dwrf::unregisterDwrfWriterFactory();
   velox::parquet::unregisterParquetReaderFactory();
   velox::parquet::unregisterParquetWriterFactory();
+  if (textWriterEnabled) {
+    velox::text::unregisterTextWriterFactory();
+  }
 }
 
 void PrestoServer::registerStatsCounters() {

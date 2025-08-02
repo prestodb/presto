@@ -142,9 +142,9 @@ class PrestoServer {
   /// connectors.
   virtual void registerFileSinks();
 
-  virtual void registerFileReadersAndWriters();
+  virtual void registerFileReadersAndWriters(bool textWriterEnabled);
 
-  virtual void unregisterFileReadersAndWriters();
+  virtual void unregisterFileReadersAndWriters(bool textWriterEnabled);
 
   /// Invoked by presto shutdown procedure to unregister connectors.
   virtual void unregisterConnectors();
