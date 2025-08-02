@@ -23,7 +23,7 @@ public class TestPrestoSparkNativeBitwiseFunctionQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createNativeHiveRunner();
     }
 
     @Override

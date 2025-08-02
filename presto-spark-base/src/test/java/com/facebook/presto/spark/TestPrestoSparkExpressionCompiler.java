@@ -22,6 +22,6 @@ public class TestPrestoSparkExpressionCompiler
     @Override
     protected QueryRunner getQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createNativeHiveRunner();
     }
 }

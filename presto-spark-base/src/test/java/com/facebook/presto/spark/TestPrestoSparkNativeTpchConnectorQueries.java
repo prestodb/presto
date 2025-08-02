@@ -24,7 +24,7 @@ public class TestPrestoSparkNativeTpchConnectorQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createTpchRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createNativeTpchRunner();
     }
 
     @Override

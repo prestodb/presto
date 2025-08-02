@@ -32,11 +32,11 @@
                 <artifactId>http-client</artifactId>
                 <version>0.216</version>
             </dependency>
-            <dependency>
-                <groupId>com.facebook.airlift</groupId>
-                <artifactId>stats</artifactId>
-                <version>0.216</version>
-            </dependency>
+<!--            <dependency>-->
+<!--                <groupId>com.facebook.airlift</groupId>-->
+<!--                <artifactId>stats</artifactId>-->
+<!--                <version>0.216</version>-->
+<!--            </dependency>-->
             <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-server</artifactId>
@@ -141,11 +141,6 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-client</artifactId>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -367,22 +362,6 @@
                 <exclusion>
                     <groupId>com.facebook.airlift.drift</groupId>
                     <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-hive</artifactId>
-            <scope>test</scope>
-            <type>test-jar</type>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.xerial.snappy</groupId>
-                    <artifactId>snappy-java</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.roaringbitmap</groupId>
-                    <artifactId>RoaringBitmap</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
