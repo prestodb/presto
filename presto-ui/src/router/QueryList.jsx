@@ -299,10 +299,7 @@ export const QueryList = (props) => {
 
     const resetTimer = () => {
         clearTimeout(timeoutId.current);
-        // stop refreshing when query finishes or fails
-        if (state.query === null || !state.ended) {
-            timeoutId.current = setTimeout(refreshLoop, 1000);
-        }
+        timeoutId.current = setTimeout(refreshLoop, 1000);
     };
 
     const refreshLoop = () => {
@@ -310,52 +307,54 @@ export const QueryList = (props) => {
         clearTimeout(searchTimeoutId.current);
 
         $.get('/v1/query', function (queryList) {
-            const queryMap = queryList.reduce(function (map, query) {
-                map[query.queryId] = query;
-                return map;
-            }, {});
+            setState(prevState => {
+                const queryMap = queryList.reduce(function (map, query) {
+                    map[query.queryId] = query;
+                    return map;
+                }, {});
 
-            let updatedQueries = [];
-            state.displayedQueries.forEach(function (oldQuery) {
-                if (oldQuery.queryId in queryMap) {
-                    updatedQueries.push(queryMap[oldQuery.queryId]);
-                    queryMap[oldQuery.queryId] = false;
+                let updatedQueries = [];
+                prevState.displayedQueries.forEach(function (oldQuery) {
+                    if (oldQuery.queryId in queryMap) {
+                        updatedQueries.push(queryMap[oldQuery.queryId]);
+                        queryMap[oldQuery.queryId] = false;
+                    }
+                });
+
+                let newQueries = [];
+                for (const queryId in queryMap) {
+                    if (queryMap[queryId]) {
+                        newQueries.push(queryMap[queryId]);
+                    }
                 }
-            });
+                newQueries = filterQueries(newQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
 
-            let newQueries = [];
-            for (const queryId in queryMap) {
-                if (queryMap[queryId]) {
-                    newQueries.push(queryMap[queryId]);
+                const lastRefresh = Date.now();
+                let lastReorder = prevState.lastReorder;
+
+                if (prevState.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= prevState.reorderInterval)) {
+                    updatedQueries = filterQueries(updatedQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+                    updatedQueries = updatedQueries.concat(newQueries);
+                    sortAndLimitQueries(updatedQueries, prevState.currentSortType, prevState.currentSortOrder, 0);
+                    lastReorder = Date.now();
                 }
-            }
-            newQueries = filterQueries(newQueries, state.stateFilters, state.errorTypeFilters, state.searchString);
+                else {
+                    sortAndLimitQueries(newQueries, prevState.currentSortType, prevState.currentSortOrder, 0);
+                    updatedQueries = updatedQueries.concat(newQueries);
+                }
 
-            const lastRefresh = Date.now();
-            let lastReorder = state.lastReorder;
+                if (prevState.maxQueries !== 0 && (updatedQueries.length > prevState.maxQueries)) {
+                    updatedQueries.splice(prevState.maxQueries, (updatedQueries.length - prevState.maxQueries));
+                }
 
-            if (state.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= state.reorderInterval)) {
-                updatedQueries = filterQueries(updatedQueries, state.stateFilters, state.errorTypeFilters, state.searchString);
-                updatedQueries = updatedQueries.concat(newQueries);
-                sortAndLimitQueries(updatedQueries, state.currentSortType, state.currentSortOrder, 0);
-                lastReorder = Date.now();
-            }
-            else {
-                sortAndLimitQueries(newQueries, state.currentSortType, state.currentSortOrder, 0);
-                updatedQueries = updatedQueries.concat(newQueries);
-            }
-
-            if (state.maxQueries !== 0 && (updatedQueries.length > state.maxQueries)) {
-                updatedQueries.splice(state.maxQueries, (updatedQueries.length - state.maxQueries));
-            }
-
-            setState({
-                ...state,
-                allQueries: queryList,
-                displayedQueries: updatedQueries,
-                lastRefresh: lastRefresh,
-                lastReorder: lastReorder,
-                initialized: true
+                return {
+                    ...prevState,
+                    allQueries: queryList,
+                    displayedQueries: updatedQueries,
+                    lastRefresh: lastRefresh,
+                    lastReorder: lastReorder,
+                    initialized: true
+                };
             });
             resetTimer();
         })
@@ -392,12 +391,14 @@ export const QueryList = (props) => {
     const executeSearch = () => {
         clearTimeout(searchTimeoutId.current);
 
-        const newDisplayedQueries = filterQueries(state.allQueries, state.stateFilters, state.errorTypeFilters, state.searchString);
-        sortAndLimitQueries(newDisplayedQueries, state.currentSortType, state.currentSortOrder, state.maxQueries);
+        setState(prevState => {
+            const newDisplayedQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+            sortAndLimitQueries(newDisplayedQueries, prevState.currentSortType, prevState.currentSortOrder, prevState.maxQueries);
 
-        setState({
-            ...state,
-            displayedQueries: newDisplayedQueries
+            return {
+                ...prevState,
+                displayedQueries: newDisplayedQueries
+            };
         });
     };
 
@@ -409,13 +410,15 @@ export const QueryList = (props) => {
     };
 
     const handleMaxQueriesClick = (newMaxQueries) => {
-        const filteredQueries = filterQueries(state.allQueries, state.stateFilters, state.errorTypeFilters, state.searchString);
-        sortAndLimitQueries(filteredQueries, state.currentSortType, state.currentSortOrder, newMaxQueries);
+        setState(prevState => {
+            const filteredQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+            sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder, newMaxQueries);
 
-        setState({
-            ...state,
-            maxQueries: newMaxQueries,
-            displayedQueries: filteredQueries
+            return {
+                ...prevState,
+                maxQueries: newMaxQueries,
+                displayedQueries: filteredQueries
+            };
         });
     };
 
@@ -426,12 +429,15 @@ export const QueryList = (props) => {
     };
 
     const handleReorderClick = (interval) => {
-        if (state.reorderInterval !== interval) {
-            setState({
-                ...state,
-                reorderInterval: interval,
-            });
-        }
+        setState(prevState => {
+            if (prevState.reorderInterval !== interval) {
+                return {
+                    ...prevState,
+                    reorderInterval: interval,
+                };
+            }
+            return prevState;
+        });
     };
 
     const renderSortListItem = (sortType, sortText) => {
@@ -456,21 +462,23 @@ export const QueryList = (props) => {
     };
 
     const handleSortClick = (sortType) => {
-        const newSortType = sortType;
-        let newSortOrder = SORT_ORDER.DESCENDING;
+        setState(prevState => {
+            const newSortType = sortType;
+            let newSortOrder = SORT_ORDER.DESCENDING;
 
-        if (state.currentSortType === sortType && state.currentSortOrder === SORT_ORDER.DESCENDING) {
-            newSortOrder = SORT_ORDER.ASCENDING;
-        }
+            if (prevState.currentSortType === sortType && prevState.currentSortOrder === SORT_ORDER.DESCENDING) {
+                newSortOrder = SORT_ORDER.ASCENDING;
+            }
 
-        const newDisplayedQueries = filterQueries(state.allQueries, state.stateFilters, state.errorTypeFilters, state.searchString);
-        sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, state.maxQueries);
+            const newDisplayedQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+            sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, prevState.maxQueries);
 
-        setState({
-            ...state,
-            displayedQueries: newDisplayedQueries,
-            currentSortType: newSortType,
-            currentSortOrder: newSortOrder
+            return {
+                ...prevState,
+                displayedQueries: newDisplayedQueries,
+                currentSortType: newSortType,
+                currentSortOrder: newSortOrder
+            };
         });
     };
 
@@ -490,21 +498,23 @@ export const QueryList = (props) => {
     };
 
     const handleStateFilterClick = (filter) => {
-        const newFilters = state.stateFilters.slice();
-        if (state.stateFilters.indexOf(filter) > -1) {
-            newFilters.splice(newFilters.indexOf(filter), 1);
-        }
-        else {
-            newFilters.push(filter);
-        }
+        setState(prevState => {
+            const newFilters = prevState.stateFilters.slice();
+            if (prevState.stateFilters.indexOf(filter) > -1) {
+                newFilters.splice(newFilters.indexOf(filter), 1);
+            }
+            else {
+                newFilters.push(filter);
+            }
 
-        const filteredQueries = filterQueries(state.allQueries, newFilters, state.errorTypeFilters, state.searchString);
-        sortAndLimitQueries(filteredQueries, state.currentSortType, state.currentSortOrder);
+            const filteredQueries = filterQueries(prevState.allQueries, newFilters, prevState.errorTypeFilters, prevState.searchString);
+            sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder);
 
-        setState({
-            ...state,
-            stateFilters: newFilters,
-            displayedQueries: filteredQueries
+            return {
+                ...prevState,
+                stateFilters: newFilters,
+                displayedQueries: filteredQueries
+            };
         });
     };
 
@@ -523,21 +533,23 @@ export const QueryList = (props) => {
     };
 
     const handleErrorTypeFilterClick = (errorType) => {
-        const newFilters = state.errorTypeFilters.slice();
-        if (state.errorTypeFilters.indexOf(errorType) > -1) {
-            newFilters.splice(newFilters.indexOf(errorType), 1);
-        }
-        else {
-            newFilters.push(errorType);
-        }
+        setState(prevState => {
+            const newFilters = prevState.errorTypeFilters.slice();
+            if (prevState.errorTypeFilters.indexOf(errorType) > -1) {
+                newFilters.splice(newFilters.indexOf(errorType), 1);
+            }
+            else {
+                newFilters.push(errorType);
+            }
 
-        const filteredQueries = filterQueries(state.allQueries, state.stateFilters, newFilters, state.searchString);
-        sortAndLimitQueries(filteredQueries, state.currentSortType, state.currentSortOrder);
+            const filteredQueries = filterQueries(prevState.allQueries, prevState.stateFilters, newFilters, prevState.searchString);
+            sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder);
 
-        setState({
-            ...state,
-            errorTypeFilters: newFilters,
-            displayedQueries: filteredQueries
+            return {
+                ...prevState,
+                errorTypeFilters: newFilters,
+                displayedQueries: filteredQueries
+            };
         });
     };
 
