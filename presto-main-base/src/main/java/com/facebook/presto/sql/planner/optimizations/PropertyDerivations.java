@@ -53,6 +53,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -763,6 +764,14 @@ public class PropertyDerivations
 
         @Override
         public ActualProperties visitValues(ValuesNode node, List<ActualProperties> context)
+        {
+            return ActualProperties.builder()
+                    .global(singleStreamPartition())
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitGroupReference(GroupReference node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
                     .global(singleStreamPartition())

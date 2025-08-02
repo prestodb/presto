@@ -43,6 +43,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -274,6 +275,12 @@ public final class StreamPropertyDerivations
         public StreamProperties visitValues(ValuesNode node, List<StreamProperties> context)
         {
             // values always produces a single stream
+            return StreamProperties.singleStream();
+        }
+
+        @Override
+        public StreamProperties visitGroupReference(GroupReference node, List<StreamProperties> context)
+        {
             return StreamProperties.singleStream();
         }
 
