@@ -20,6 +20,8 @@
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
 #include <velox/type/fbhive/HiveTypeParser.h>
+
+#include "presto_cpp/main/common/Configs.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
@@ -910,6 +912,8 @@ dwio::common::FileFormat toFileFormat(
     case protocol::hive::HiveStorageFormat::ALPHA:
       // This has been renamed in Velox from ALPHA to NIMBLE.
       return dwio::common::FileFormat::NIMBLE;
+    case protocol::hive::HiveStorageFormat::TEXTFILE:
+      return dwio::common::FileFormat::TEXT;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",
