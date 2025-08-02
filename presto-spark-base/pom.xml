@@ -12,6 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <dep.pos.spark.version>2</dep.pos.spark.version>
     </properties>
 
     <dependencies>
@@ -19,7 +20,18 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
-            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark${dep.pos.spark.version}</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-common</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -378,6 +390,111 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>sapphire</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <properties>
+                <dep.pos.spark.version>3</dep.pos.spark.version>
+            </properties>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto.spark</groupId>
+                    <artifactId>spark-core</artifactId>
+                    <version>3.4.1-1-20250715.082553-3</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>jsr305</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.weakref</groupId>
+                    <artifactId>jmxutils</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>javax.validation</groupId>
+                    <artifactId>validation-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                    <version>2.13.8</version>
+                    <scope>provided</scope>
+                </dependency>
+
+            </dependencies>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <configuration>
+                            <ignoredDependencies>
+                                <ignoredDependency>org.glassfish.hk2.external:jakarta.inject</ignoredDependency>
+                                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                                <ignoredDependency>jakarta.annotation:jakarta.annotation-api</ignoredDependency>
+                                <ignoredDependency>jakarta.validation:jakarta.validation-api</ignoredDependency>
+                            </ignoredDependencies>
+                        </configuration>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testExcludes>
+                                <exclude>**/TestPrestoSparkExecutionExceptionFactory.java</exclude>
+                            </testExcludes>
+                        </configuration>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/TestPrestoSparkExecutionExceptionFactory.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+
         </profile>
     </profiles>
 </project>

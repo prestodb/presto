@@ -91,6 +91,8 @@
         <dep.guice.version>5.1.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
+        <dep.pos.spark.version>2</dep.pos.spark.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -07:00, offset Jan 2018: -06:00)
@@ -216,6 +218,8 @@
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
         <module>presto-plan-checker-router-plugin</module>
+        <module>presto-spark-classloader-spark${dep.pos.spark.version}</module>
+        <module>presto-spark-classloader-common</module>
     </modules>
 
     <dependencyManagement>
@@ -892,6 +896,18 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark-classloader-interface</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-classloader-spark${dep.pos.spark.version}</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-classloader-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -3061,6 +3077,92 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>sapphire</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <properties>
+                <dep.pos.spark.version>3</dep.pos.spark.version>
+            </properties>
+
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto.spark</groupId>
+                        <artifactId>spark-core</artifactId>
+                        <version>3.4.1-1-20250715.082553-3</version>
+                        <scope>provided</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-enforcer-plugin</artifactId>
+                            <version>3.3.0</version>
+                            <dependencies>
+                                <dependency>
+                                    <groupId>org.codehaus.mojo</groupId>
+                                    <artifactId>extra-enforcer-rules</artifactId>
+                                    <version>1.6.2</version>
+                                </dependency>
+                            </dependencies>
+                            <configuration>
+                                <skip>true</skip>
+                                <rules>
+                                    <requireUpperBoundDeps>
+                                        <excludes combine.children="append">
+                                            <!-- TODO: fix this in Airlift resolver -->
+                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                            <exclude>com.google.guava:guava</exclude>
+                                            <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+                                            <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                            <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                        </excludes>
+                                    </requireUpperBoundDeps>
+                                    <enforceBytecodeVersion>
+                                        <excludes>
+                                            <exclude>com.facebook.presto.spark:spark-core:jar:3.4.1-1-SNAPSHOT</exclude>
+                                        </excludes>
+                                    </enforceBytecodeVersion>
+                                </rules>
+                            </configuration>
+                        </plugin>
+
+                        <plugin>
+                            <groupId>org.basepom.maven</groupId>
+                            <artifactId>duplicate-finder-maven-plugin</artifactId>
+                            <configuration>
+                                <skip>true</skip>
+                                <ignoredClassPatterns combine.children="append">
+                                    <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
+                                    <!-- Duplicate class is being brought in by commons-io & log4j-api -->
+                                    <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                                    <!-- Duplicate class is being brought in by several netty dependencies-->
+                                    <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
+                                    <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
+                                    <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
+                                </ignoredClassPatterns>
+                                <ignoredResourcePatterns combine.children="append">
+                                    <ignoredResourcePattern>git.properties</ignoredResourcePattern>
+                                </ignoredResourcePatterns>
+                            </configuration>
+                        </plugin>
+
+                    </plugins>
+                </pluginManagement>
+            </build>
+
         </profile>
     </profiles>
 </project>
