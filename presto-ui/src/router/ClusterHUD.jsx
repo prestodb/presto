@@ -59,55 +59,53 @@ export const ClusterHUD = () => {
 
     const resetTimer = () => {
         clearTimeout(timeoutId.current);
-        // stop refreshing when query finishes or fails
-        if (state.query === null || !state.ended) {
-            timeoutId.current = setTimeout(refreshLoop, 1000);
-        }
+        timeoutId.current = setTimeout(refreshLoop, 1000);
     };
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
         $.get('/v1/cluster', function (clusterState) {
+            setState(prevState => {
+                let newRowInputRate = [];
+                let newByteInputRate = [];
+                let newPerWorkerCpuTimeRate = [];
+                if (prevState.lastRefresh !== null) {
+                    const rowsInputSinceRefresh = clusterState.totalInputRows - prevState.lastInputRows;
+                    const bytesInputSinceRefresh = clusterState.totalInputBytes - prevState.lastInputBytes;
+                    const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - prevState.lastCpuTime;
+                    const secsSinceRefresh = (Date.now() - prevState.lastRefresh) / 1000.0;
 
-            let newRowInputRate = [];
-            let newByteInputRate = [];
-            let newPerWorkerCpuTimeRate = [];
-            if (state.lastRefresh !== null) {
-                const rowsInputSinceRefresh = clusterState.totalInputRows - state.lastInputRows;
-                const bytesInputSinceRefresh = clusterState.totalInputBytes - state.lastInputBytes;
-                const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - state.lastCpuTime;
-                const secsSinceRefresh = (Date.now() - state.lastRefresh) / 1000.0;
+                    newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, prevState.rowInputRate);
+                    newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, prevState.byteInputRate);
+                    newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, prevState.perWorkerCpuTimeRate);
+                }
 
-                newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, state.rowInputRate);
-                newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, state.byteInputRate);
-                newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, state.perWorkerCpuTimeRate);
-            }
+                return {
+                    ...prevState,
+                    // instantaneous stats
+                    runningQueries: addToHistory(clusterState.runningQueries, prevState.runningQueries),
+                    queuedQueries: addToHistory(clusterState.queuedQueries, prevState.queuedQueries),
+                    blockedQueries: addToHistory(clusterState.blockedQueries, prevState.blockedQueries),
+                    activeWorkers: addToHistory(clusterState.activeWorkers, prevState.activeWorkers),
+                    clusterCount: addToHistory(clusterState.clusterCount, prevState.clusterCount),
 
-            setState({
-                ...state,
-                // instantaneous stats
-                runningQueries: addToHistory(clusterState.runningQueries, state.runningQueries),
-                queuedQueries: addToHistory(clusterState.queuedQueries, state.queuedQueries),
-                blockedQueries: addToHistory(clusterState.blockedQueries, state.blockedQueries),
-                activeWorkers: addToHistory(clusterState.activeWorkers, state.activeWorkers),
-                clusterCount: addToHistory(clusterState.clusterCount, state.clusterCount),
+                    // moving averages
+                    runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, prevState.runningDrivers),
+                    reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, prevState.reservedMemory),
 
-                // moving averages
-                runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, state.runningDrivers),
-                reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, state.reservedMemory),
+                    // moving averages for diffs
+                    rowInputRate: newRowInputRate,
+                    byteInputRate: newByteInputRate,
+                    perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
 
-                // moving averages for diffs
-                rowInputRate: newRowInputRate,
-                byteInputRate: newByteInputRate,
-                perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
+                    lastInputRows: clusterState.totalInputRows,
+                    lastInputBytes: clusterState.totalInputBytes,
+                    lastCpuTime: clusterState.totalCpuTimeSecs,
 
-                lastInputRows: clusterState.totalInputRows,
-                lastInputBytes: clusterState.totalInputBytes,
-                lastCpuTime: clusterState.totalCpuTimeSecs,
+                    initialized: true,
 
-                initialized: true,
-
-                lastRefresh: Date.now()
+                    lastRefresh: Date.now()
+                };
             });
             resetTimer();
         })
@@ -149,7 +147,18 @@ export const ClusterHUD = () => {
         }
 
         $('[data-bs-toggle="tooltip"]').tooltip();
-    });
+    }, [
+        state.runningQueries, 
+        state.blockedQueries, 
+        state.queuedQueries, 
+        state.activeWorkers, 
+        state.clusterCount, 
+        state.runningDrivers, 
+        state.reservedMemory, 
+        state.rowInputRate, 
+        state.byteInputRate, 
+        state.perWorkerCpuTimeRate
+    ]);
 
     return (
         <div className="row">
