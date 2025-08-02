@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -260,6 +261,9 @@ public class PushdownSubfields
             node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .forEach(context.get().variables::add);
+            node.getFilter()
+                    .ifPresent(expression -> expression.accept(subfieldExtractor, context.get()));
+            context.get().variables.addAll(node.getLookupVariables());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -406,6 +410,61 @@ public class PushdownSubfields
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint(), node.getCteMaterializationInfo());
+        }
+
+        @Override
+        public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Context> context)
+        {
+            if (context.get().subfields.isEmpty()) {
+                return node;
+            }
+
+            ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> newAssignments = ImmutableMap.builder();
+
+            for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
+                if (context.get().variables.contains(variable)) {
+                    newAssignments.put(entry);
+                    continue;
+                }
+
+                List<Subfield> subfields = context.get().findSubfields(variable.getName());
+
+                verify(!subfields.isEmpty(), "Missing variable: " + variable);
+
+                String columnName = getColumnName(session, metadata, node.getTableHandle(), entry.getValue());
+
+                List<Subfield> subfieldsWithoutNoSubfield = subfields.stream().filter(subfield -> !containsNoSubfieldPathElement(subfield)).collect(toList());
+                List<Subfield> subfieldsWithNoSubfield = subfields.stream().filter(subfield -> containsNoSubfieldPathElement(subfield)).collect(toList());
+
+                // Prune subfields: if one subfield is a prefix of another subfield, keep the shortest one.
+                // Example: {a.b.c, a.b} -> {a.b}
+                List<Subfield> columnSubfields = subfieldsWithoutNoSubfield.stream()
+                        .filter(subfield -> !prefixExists(subfield, subfieldsWithoutNoSubfield))
+                        .map(Subfield::getPath)
+                        .map(path -> new Subfield(columnName, path))
+                        .collect(toList());
+
+                columnSubfields.addAll(subfieldsWithNoSubfield.stream()
+                        .filter(subfield -> !isPrefixOf(dropNoSubfield(subfield), subfieldsWithoutNoSubfield))
+                        .map(Subfield::getPath)
+                        .map(path -> new Subfield(columnName, path))
+                        .collect(toList()));
+
+                planChanged = true;
+                newAssignments.put(variable, entry.getValue().withRequiredSubfields(ImmutableList.copyOf(columnSubfields)));
+            }
+
+            return new IndexSourceNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    node.getIndexHandle(),
+                    node.getTableHandle(),
+                    node.getLookupVariables(),
+                    node.getOutputVariables(),
+                    newAssignments.build(),
+                    node.getCurrentConstraint());
         }
 
         @Override
