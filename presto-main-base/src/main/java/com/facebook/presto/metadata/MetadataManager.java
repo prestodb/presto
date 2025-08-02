@@ -304,6 +304,12 @@ public class MetadataManager
     }
 
     @Override
+    public void registerBuiltInPluginFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        functionAndTypeManager.registerBuiltInPluginFunctions(catalogName, functionInfos);
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, catalogName);
