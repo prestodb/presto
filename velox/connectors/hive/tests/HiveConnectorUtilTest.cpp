@@ -336,18 +336,6 @@ TEST_F(HiveConnectorUtilTest, cacheRetention) {
   }
 }
 
-TEST_F(HiveConnectorUtilTest, configureRowReaderOptions) {
-  auto split =
-      std::make_shared<hive::HiveConnectorSplit>("", "", FileFormat::UNKNOWN);
-  auto rowType = ROW({{"float_features", MAP(INTEGER(), REAL())}});
-  auto spec = std::make_shared<common::ScanSpec>("<root>");
-  spec->addAllChildFields(*rowType);
-  auto* float_features = spec->childByName("float_features");
-  float_features->childByName(common::ScanSpec::kMapKeysFieldName)
-      ->setFilter(common::createBigintValues({1, 3}, false));
-  float_features->setFlatMapFeatureSelection({"1", "3"});
-}
-
 TEST_F(HiveConnectorUtilTest, configureSstRowReaderOptions) {
   dwio::common::RowReaderOptions rowReaderOpts;
   auto hiveSplit =
