@@ -346,16 +346,13 @@ public class TaskStats
         this.totalAllocationInBytes = totalAllocationInBytes;
 
         this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
+        this.rawInputPositions = (rawInputPositions >= 0) ? rawInputPositions : Long.MAX_VALUE;
 
         this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
-        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
-        this.processedInputPositions = processedInputPositions;
+        this.processedInputPositions = (processedInputPositions >= 0) ? processedInputPositions : Long.MAX_VALUE;
 
         this.outputDataSizeInBytes = outputDataSizeInBytes;
-        checkArgument(outputPositions >= 0, "outputPositions is negative");
-        this.outputPositions = outputPositions;
+        this.outputPositions = (outputPositions >= 0) ? outputPositions : Long.MAX_VALUE;
 
         this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
 
