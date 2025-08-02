@@ -46,6 +46,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -64,9 +65,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
-import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -81,12 +83,13 @@ public class MetadataQueryOptimizer
     private final Set<QualifiedObjectName> allowedFunctions;
     private final Map<QualifiedObjectName, QualifiedObjectName> aggregationScalarMapping;
     private final Metadata metadata;
+    private final ExpressionOptimizerManager expressionOptimizerManager;
 
-    public MetadataQueryOptimizer(Metadata metadata)
+    public MetadataQueryOptimizer(Metadata metadata, ExpressionOptimizerManager expressionOptimizerManager)
     {
-        requireNonNull(metadata, "metadata is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
 
-        this.metadata = metadata;
         CatalogSchemaName defaultNamespace = metadata.getFunctionAndTypeManager().getDefaultNamespace();
         this.allowedFunctions = ImmutableSet.of(
                 QualifiedObjectName.valueOf(defaultNamespace, "max"),
@@ -104,7 +107,7 @@ public class MetadataQueryOptimizer
         if (!SystemSessionProperties.isOptimizeMetadataQueries(session) && !SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
-        Optimizer optimizer = new Optimizer(session, metadata, idAllocator);
+        Optimizer optimizer = new Optimizer(session, metadata, idAllocator, expressionOptimizerManager);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(optimizer, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());
     }
@@ -130,8 +133,9 @@ public class MetadataQueryOptimizer
         private final int metastoreCallNumThreshold;
         private boolean planChanged;
         private final MetadataQueryOptimizer metadataQueryOptimizer;
+        private final ExpressionOptimizerManager expressionOptimizerManager;
 
-        private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
+        private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, ExpressionOptimizerManager expressionOptimizerManager)
         {
             this.session = session;
             this.metadata = metadata;
@@ -139,7 +143,8 @@ public class MetadataQueryOptimizer
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.ignoreMetadataStats = SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session);
             this.metastoreCallNumThreshold = SystemSessionProperties.getOptimizeMetadataQueriesCallThreshold(session);
-            this.metadataQueryOptimizer = new MetadataQueryOptimizer(metadata);
+            this.metadataQueryOptimizer = new MetadataQueryOptimizer(metadata, expressionOptimizerManager);
+            this.expressionOptimizerManager = expressionOptimizerManager;
         }
 
         public boolean isPlanChanged()
@@ -374,15 +379,17 @@ public class MetadataQueryOptimizer
                 List<RowExpression> reducedArguments = new ArrayList<>();
                 // We fold for every 100 values because GREATEST/LEAST has argument count limit
                 for (List<RowExpression> partitionedArguments : Lists.partition(arguments, 100)) {
-                    Object reducedValue = evaluateConstantRowExpression(
+                    RowExpression expression = expressionOptimizerManager.getExpressionOptimizer(connectorSession).optimize(
                             call(
                                     metadata.getFunctionAndTypeManager(),
                                     scalarFunctionName,
                                     returnType,
                                     partitionedArguments),
-                            metadata.getFunctionAndTypeManager(),
-                            connectorSession);
-                    reducedArguments.add(constant(reducedValue, returnType));
+                            EVALUATED,
+                            connectorSession,
+                            i -> i);
+                    verify(expression instanceof ConstantExpression, "Expected constant expression");
+                    reducedArguments.add(expression);
                 }
                 arguments = reducedArguments;
             }
