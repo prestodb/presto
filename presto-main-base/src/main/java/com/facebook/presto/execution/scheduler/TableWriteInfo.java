@@ -14,6 +14,9 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -38,6 +41,7 @@ import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TableWriteInfo
 {
     private final Optional<ExecutionWriterTarget> writerTarget;
@@ -51,6 +55,12 @@ public class TableWriteInfo
         this.writerTarget = requireNonNull(writerTarget, "writerTarget is null");
         this.analyzeTableHandle = requireNonNull(analyzeTableHandle, "analyzeTableHandle is null");
         checkArgument(!analyzeTableHandle.isPresent() || !writerTarget.isPresent(), "analyzeTableHandle is present, so no other fields should be present");
+    }
+
+    @ThriftConstructor
+    public TableWriteInfo(ExecutionWriterTargetUnion writerTargetUnion, Optional<AnalyzeTableHandle> analyzeTableHandle)
+    {
+        this(Optional.ofNullable(writerTargetUnion).map(ExecutionWriterTargetUnion::toExecutionWriterTarget), analyzeTableHandle == null ? Optional.empty() : analyzeTableHandle);
     }
 
     public static TableWriteInfo createTableWriteInfo(StreamingSubPlan plan, Metadata metadata, Session session)
@@ -159,7 +169,14 @@ public class TableWriteInfo
         return writerTarget;
     }
 
+    @ThriftField(value = 1, name = "writerTargetUnion")
+    public ExecutionWriterTargetUnion getWriterTargetUnion()
+    {
+        return writerTarget.map(ExecutionWriterTargetUnion::fromExecutionWriterTarget).orElse(null);
+    }
+
     @JsonProperty
+    @ThriftField(2)
     public Optional<AnalyzeTableHandle> getAnalyzeTableHandle()
     {
         return analyzeTableHandle;
