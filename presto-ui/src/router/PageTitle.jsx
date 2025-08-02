@@ -31,13 +31,13 @@ export const PageTitle = (props) => {
         fetch("/v1/info")
             .then(response => response.json())
             .then(info => {
-                setState({
-                    ...state,
+                setState(prevState => ({
+                    ...prevState,
                     info: info,
                     noConnection: false,
                     lastSuccess: Date.now(),
                     modalShown: false,
-                });
+                }));
                 //$FlowFixMe$ Bootstrap 3 plugin
                 $('#no-connection-modal').hide();
                 resetTimer();
