@@ -763,6 +763,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
       "local-exchange.max-partition-buffer-size"};
 
+  // Add to temporarily help with gradual rollout for text writer
+  // TODO: remove once text writer is fully rolled out
+  static constexpr std::string_view kEnableTextWriter{
+    "text-writer-enabled"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1047,6 +1052,8 @@ class SystemConfig : public ConfigBase {
   int32_t httpSrvIoEvbViolationThresholdMs() const;
 
   uint64_t maxLocalExchangePartitionBufferSize() const;
+
+  bool textWriterEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
