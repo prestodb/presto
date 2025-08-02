@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
@@ -62,13 +63,13 @@ public class FunctionListBuilder
 
     public FunctionListBuilder sqlInvokedScalar(Class<?> clazz)
     {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
+        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz, JAVA_BUILTIN_NAMESPACE));
         return this;
     }
 
     public FunctionListBuilder sqlInvokedScalars(Class<?> clazz)
     {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
+        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, JAVA_BUILTIN_NAMESPACE));
         return this;
     }
 
