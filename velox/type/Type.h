@@ -1486,7 +1486,7 @@ struct TypeFactory {
 template <>
 struct TypeFactory<TypeKind::UNKNOWN> {
   FOLLY_NOINLINE static std::shared_ptr<const UnknownType> create() {
-    static constexpr UnknownType kInstance;
+    static const UnknownType kInstance;
     return {std::shared_ptr<const UnknownType>{}, &kInstance};
   }
 };
