@@ -64,8 +64,7 @@ const stripQueryTextWhitespace = (queryText) => {
     return truncateString(formattedQueryText, 300);
 }
 
-export const QueryListItem = (props) => {
-    const query = props.query;
+export const QueryListItem = ({ query }) => {
     const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
 
     const splitDetails = (
@@ -139,7 +138,7 @@ export const QueryListItem = (props) => {
                         <div className="col-12">
                             <span data-bs-toggle="tooltip" data-placement="right" title="User">
                                 <span className="glyphicon glyphicon-user" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-        <span>{truncateString(user, 35)}</span>
+                                <span>{truncateString(user, 35)}</span>
                             </span>
                         </div>
                     </div>
@@ -183,18 +182,13 @@ export const QueryListItem = (props) => {
     );
 };
 
-const DisplayedQueriesList = (props) => {
-    const queryNodes = props.queries.map(function (query) {
-        return (
-            <QueryListItem key={query.queryId} query={query}/>
-        );
-    });
-    return (
-        <div>
-            {queryNodes}
-        </div>
-    );
-};
+const DisplayedQueriesList = ({ queries }) => (
+    <>
+        {queries.map((query) => (
+            <QueryListItem key={query.queryId} query={query} />
+        ))}
+    </>
+);
 
 const FILTER_TYPE = {
     RUNNING: function (query) {
@@ -225,7 +219,7 @@ const SORT_ORDER = {
     DESCENDING: function (value) {return -value}
 };
 
-export const QueryList = (props) => {
+export const QueryList = () => {
     const [state, setState] = useState({
         allQueries: [],
         displayedQueries: [],
