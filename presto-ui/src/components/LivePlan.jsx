@@ -13,7 +13,7 @@
  */
 //@flow
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
@@ -47,74 +47,75 @@ type QueryInfo = {
     outputStage: OutputStage
 }
 
-export class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
-        const stages: Map<string, StageNodeInfo> = new Map();
-        StageStatistics.flattenStage(queryInfo.outputStage, stages);
-        return stages;
-    }
-
-    static flattenStage(stageInfo: OutputStage, result: any) {
-        stageInfo.subStages.forEach(function (stage) {
-            StageStatistics.flattenStage(stage, result);
-        });
-
-        const nodes = new Map<any, any>();
-        StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes);
-
-        result.set(stageInfo.plan.id, {
-            stageId: stageInfo.stageId,
-            id: stageInfo.plan.id,
-            root: stageInfo.plan.root.id,
-            distribution: stageInfo.plan.distribution,
-            stageStats: stageInfo.latestAttemptExecutionInfo.stats,
-            state: stageInfo.latestAttemptExecutionInfo.state,
-            nodes: nodes
-        });
-    }
-
-    static flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
-        result.set(node.id, {
-            id: node.id,
-            name: node['name'],
-            identifier: node['identifier'],
-            details: node['details'],
-            sources: node.children.map(node => node.id),
-            remoteSources: node.remoteSources,
-        });
-
-        node.children.forEach(function (child) {
-            StageStatistics.flattenNode(stages, rootNodeInfo, child, result);
-        });
-    }
-
-    render(): any {
-        const stage = this.props.stage;
-        const stats = this.props.stage.stageStats;
-        return (
-            <div>
-                <div>
-                    <h3 className="margin-top: 0">Stage {stage.id}</h3>
-                    {stage.state}
-                    <hr/>
-                    CPU: {stats.totalCpuTime}<br />
-                    Buffered: {stats.bufferedDataSize}<br />
-                    {stats.fullyBlocked ?
-                        <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
-                        <div>Blocked: {stats.totalBlockedTime} </div>
-                    }
-                    Memory: {stats.userMemoryReservation}
-                    <br/>
-                    Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
-                    <br/>
-                    Lifespans: {stats.completedLifespans + " / " + stats.totalLifespans}
-                    <hr/>
-                    Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
-                </div>
-            </div>
-        );
-    }
+function getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
+    const stages: Map<string, StageNodeInfo> = new Map();
+    flattenStage(queryInfo.outputStage, stages);
+    return stages;
 }
+
+function flattenStage(stageInfo: OutputStage, result: any) {
+    stageInfo.subStages.forEach(function (stage) {
+        flattenStage(stage, result);
+    });
+
+    const nodes = new Map<any, any>();
+    flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes);
+
+    result.set(stageInfo.plan.id, {
+        stageId: stageInfo.stageId,
+        id: stageInfo.plan.id,
+        root: stageInfo.plan.root.id,
+        distribution: stageInfo.plan.distribution,
+        stageStats: stageInfo.latestAttemptExecutionInfo.stats,
+        state: stageInfo.latestAttemptExecutionInfo.state,
+        nodes: nodes
+    });
+}
+
+function flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
+    result.set(node.id, {
+        id: node.id,
+        name: node['name'],
+        identifier: node['identifier'],
+        details: node['details'],
+        sources: node.children.map(node => node.id),
+        remoteSources: node.remoteSources,
+    });
+
+    node.children.forEach(function (child) {
+        flattenNode(stages, rootNodeInfo, child, result);
+    });
+}
+
+export const StageStatistics = (props: StageStatisticsProps) => {
+    const stage = props.stage;
+    const stats = props.stage.stageStats;
+    return (
+        <div>
+            <div>
+                <h3 className="margin-top: 0">Stage {stage.id}</h3>
+                {stage.state}
+                <hr/>
+                CPU: {stats.totalCpuTime}<br />
+                Buffered: {stats.bufferedDataSize}<br />
+                {stats.fullyBlocked ?
+                    <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
+                    <div>Blocked: {stats.totalBlockedTime} </div>
+                }
+                Memory: {stats.userMemoryReservation}
+                <br/>
+                Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
+                <br/>
+                Lifespans: {stats.completedLifespans + " / " + stats.totalLifespans}
+                <hr/>
+                Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
+            </div>
+        </div>
+    );
+};
+
+// Add getStages as a static property to maintain the same API
+StageStatistics.getStages = getStages;
 
 type PlanNodeProps = {
     id: string,
@@ -126,23 +127,17 @@ type PlanNodeProps = {
 }
 type PlanNodeState = {}
 
-export class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
-    constructor(props: PlanNodeProps) {
-        super(props);
-    }
-
-    render(): any {
-        return (
-            <div style={{color: "#000"}} data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-container="body" data-bs-html="true"
-                 title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
-                <strong>{this.props.name}</strong>
-                <div>
-                    {truncateString(this.props.identifier, 35)}
-                </div>
+export const PlanNode = (props: PlanNodeProps) => {
+    return (
+        <div style={{color: "#000"}} data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-container="body" data-bs-html="true"
+             title={"<h4>" + props.name + "</h4>" + props.identifier}>
+            <strong>{props.name}</strong>
+            <div>
+                {truncateString(props.identifier, 35)}
             </div>
-        );
-    }
-}
+        </div>
+    );
+};
 
 type LivePlanProps = {
     queryId: string,
@@ -160,61 +155,53 @@ type LivePlanState = {
     render: any,
 }
 
-export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
-    timeoutId: TimeoutID;
+function handleStageClick(stageCssId: any) {
+   window.open("stage.html?" + stageCssId.target.__data__, '_blank');
+}
 
-    constructor(props: LivePlanProps) {
-        super(props);
-        this.state = {
-            initialized: false,
-            ended: false,
+export const LivePlan = (props: LivePlanProps) => {
+    const [state, setState] = useState({
+        initialized: false,
+        ended: false,
+        query: null,
+        graph: initializeGraph(),
+        svg: null,
+        render: new dagreD3.render(),
+    });
 
-            query: null,
+    const timeoutId = useRef<number | null>(null);
 
-            graph: initializeGraph(),
-            svg: null,
-            render: new dagreD3.render(),
-        };
-    }
-
-    resetTimer() {
-        clearTimeout(this.timeoutId);
+    const resetTimer = () => {
+        clearTimeout(timeoutId.current);
         // stop refreshing when query finishes or fails
-        if (this.state.query === null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
+        if (state.query === null || !state.ended) {
+            timeoutId.current = setTimeout(refreshLoop, 1000);
         }
-    }
+    };
 
-    refreshLoop: () => void = () => {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        fetch('/v1/query/' + this.props.queryId)
+    const refreshLoop = () => {
+        clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
+        fetch('/v1/query/' + props.queryId)
             .then(response => response.json())
             .then(query => {
-                this.setState({
+                setState(prevState => ({
+                    ...prevState,
                     query: query,
-
                     initialized: true,
                     ended: query.finalQueryInfo,
-                });
-                this.resetTimer();
+                }));
+                resetTimer();
             })
             .catch(() => {
-                this.setState({
+                setState(prevState => ({
+                    ...prevState,
                     initialized: true,
-                });
-                this.resetTimer();
+                }));
+                resetTimer();
             });
-    }
+    };
 
-    static handleStageClick(stageCssId: any) {
-       window.open("stage.html?" + stageCssId.target.__data__, '_blank');
-    }
-
-    componentDidMount() {
-        this.refreshLoop();
-    }
-
-    updateD3Stage(stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) {
+    const updateD3Stage = (stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) => {
         const clusterId = stage.stageId;
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
@@ -258,38 +245,39 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                 });
             }
         });
-    }
+    };
 
-    updateD3Graph() {
-        if (!this.state.svg) {
-            this.setState({
+    const updateD3Graph = () => {
+        if (!state.svg) {
+            setState(prevState => ({
+                ...prevState,
                 svg: initializeSvg("#plan-canvas"),
-            });
+            }));
             return;
         }
 
-        if (!this.state.query) {
+        if (!state.query) {
             return;
         }
 
-        const graph = this.state.graph;
-        const stages = StageStatistics.getStages(this.state.query);
+        const graph = state.graph;
+        const stages = getStages(state.query);
         stages.forEach(stage => {
-            this.updateD3Stage(stage, graph, stages);
+            updateD3Stage(stage, graph, stages);
         });
 
         const inner = d3.select("#plan-canvas g");
-        this.state.render(inner, graph);
+        state.render(inner, graph);
 
-        const svg = this.state.svg;
-        svg.selectAll("g.cluster").on("click", LivePlan.handleStageClick);
+        const svg = state.svg;
+        svg.selectAll("g.cluster").on("click", handleStageClick);
 
         const width = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("width").replace(/px/, "")) - 50;
         const height = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("height").replace(/px/, "")) - 50;
 
         const graphHeight = graph.graph().height + 100;
         const graphWidth = graph.graph().width + 100;
-        if (this.state.ended) {
+        if (state.ended) {
             // Zoom doesn't deal well with DOM changes
             const initialScale = Math.min(width / graphWidth, height / graphHeight);
             const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom",(event) => {
@@ -305,60 +293,66 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             svg.attr('height', graphHeight);
             svg.attr('width', graphWidth);
         }
-    }
+    };
 
-    componentDidUpdate(prevProps: LivePlanProps, prevState: LivePlanState) {
-        if (this.state.query !== prevState.query) {
-            this.updateD3Graph();
-        }
+    // componentDidMount equivalent
+    useEffect(() => {
+        refreshLoop();
+        
+        return () => {
+            clearTimeout(timeoutId.current);
+        };
+    }, []);
+
+    // componentDidUpdate equivalent
+    useEffect(() => {
+        updateD3Graph();
         //$FlowFixMe
         $('[data-bs-toggle="tooltip"]')?.tooltip?.()
-    }
+    }, [state.query, state.svg]);
 
-    render(): any {
-        const query = this.state.query;
+    const query = state.query;
 
-        if (query === null || this.state.initialized === false) {
-            let label: any = (<div className="loader">Loading...</div>);
-            if (this.state.initialized) {
-                label = "Query not found";
-            }
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>{label}</h4></div>
-                </div>
-            );
+    if (query === null || state.initialized === false) {
+        let label: any = (<div className="loader">Loading...</div>);
+        if (state.initialized) {
+            label = "Query not found";
         }
-
-        let loadingMessage = null;
-        if (query && !query.outputStage) {
-            loadingMessage = (
-                <div className="row error-message">
-                    <div className="col-12">
-                        <h4>Live plan graph will appear automatically when query starts running.</h4>
-                        <div className="loader">Loading...</div>
-                    </div>
-                </div>
-            )
-        }
-
         return (
-            <div>
-                {!this.props.isEmbedded && <QueryHeader query={query}/>}
-                <div className="row">
-                    <div className="col-12">
-                        {loadingMessage}
-                        <div id="live-plan" className="graph-container">
-                            <div className="float-end">
-                                {this.state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
-                            </div>
-                            <svg id="plan-canvas"/>
-                        </div>
-                    </div>
-                </div>
+            <div className="row error-message">
+                <div className="col-12"><h4>{label}</h4></div>
             </div>
         );
     }
-}
+
+    let loadingMessage = null;
+    if (query && !query.outputStage) {
+        loadingMessage = (
+            <div className="row error-message">
+                <div className="col-12">
+                    <h4>Live plan graph will appear automatically when query starts running.</h4>
+                    <div className="loader">Loading...</div>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div>
+            {!props.isEmbedded && <QueryHeader query={query}/>}
+            <div className="row">
+                <div className="col-12">
+                    {loadingMessage}
+                    <div id="live-plan" className="graph-container">
+                        <div className="float-end">
+                            {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
+                        </div>
+                        <svg id="plan-canvas"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default LivePlan;
