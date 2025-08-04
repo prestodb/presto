@@ -54,7 +54,8 @@ public class TestPasswordAuthentication
                 .put("users", loadResource("users"))
                 .put("users_roles", loadResource("users_roles"))
                 .put("roles.yml", loadResource("roles.yml"))
-                .build());
+                .build(),
+                ImmutableMap.of());
 
         HostAndPort address = elasticsearch.getAddress();
         client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();

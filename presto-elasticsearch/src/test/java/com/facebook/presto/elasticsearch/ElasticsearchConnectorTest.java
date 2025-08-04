@@ -156,7 +156,9 @@ public class ElasticsearchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of());
+        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of(), ImmutableMap.of(
+                "xpack.security.enabled", "false"));
+
         HostAndPort address = elasticsearch.getAddress();
         client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
 
