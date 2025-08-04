@@ -69,7 +69,7 @@ class SimpleAggregate : public AggregateGenerator {
   virtual void makeDeduppedUpdate(
       CompileState& state,
       const AggregateProbe& probe,
-      const AggregateUpdate& update) const {
+      const AggregateUpdate& update) const override {
     if (probe.keys.empty()) {
       VELOX_NYI();
     } else {

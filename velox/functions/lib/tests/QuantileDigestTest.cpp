@@ -73,7 +73,7 @@ class QuantileDigestTest : public QuantileDigestTestBase {
   void testHugeWeight() {
     constexpr int N = 10;
     constexpr double kAccuracy = 0.99;
-    constexpr T kMaxValue = std::numeric_limits<T>::max();
+    constexpr double kMaxValue = std::numeric_limits<double>::max();
     QuantileDigest<T> digest{StlAllocator<T>(allocator()), kAccuracy};
     for (auto i = 0; i < N; ++i) {
       digest.add(T(i), kMaxValue);

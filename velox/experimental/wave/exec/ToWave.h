@@ -279,7 +279,7 @@ struct Filter : public KernelStep {
     return true;
   }
 
-  int32_t sharedMemorySize() const {
+  int32_t sharedMemorySize() const override {
     return sizeof(WaveShared) + (kBlockSize / 32) * sizeof(int32_t);
   }
 
@@ -405,7 +405,7 @@ struct AggregateUpdate : public KernelStep {
     return StepKind::kAggregateUpdate;
   }
 
-  bool isSink() const {
+  bool isSink() const override {
     return true;
   }
 
@@ -456,7 +456,7 @@ struct AggregateProbe : public KernelStep {
     return !updates.empty() && allUpdatesInlined;
   }
 
-  int32_t sharedMemorySize() const {
+  int32_t sharedMemorySize() const override {
     // If no grouping, we have one word plus one byte of shared memory
     // per warp and a pad of 4 to align at 8. This is after the
     // regular WaveShared struct.
@@ -646,7 +646,7 @@ struct JoinExpand : public KernelStep {
     return true;
   }
 
-  int32_t sharedMemorySize() const {
+  int32_t sharedMemorySize() const override {
     return sizeof(WaveShared) + sizeof(JoinShared);
   }
 
