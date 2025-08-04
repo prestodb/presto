@@ -41,9 +41,7 @@ class SortArrayTransformer : public ExprTransformer {
           type, facebook::velox::variant::null(type->kind()));
     } else {
       return std::make_shared<facebook::velox::core::CallTypedExpr>(
-          type,
-          std::vector<TypedExprPtr>{std::move(expr)},
-          "$internal$canonicalize");
+          type, std::vector<TypedExprPtr>{std::move(expr)}, "array_sort");
     }
   }
 
