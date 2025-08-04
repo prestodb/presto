@@ -60,7 +60,7 @@ services:
     extends: centos-cpp
     image: ghcr.io/facebookincubator/velox-dev:adapters
     environment:
-      EXTRA_CMAKE_FLAGS: >
+      EXTRA_CMAKE_FLAGS: >-
         -DVELOX_ENABLE_PARQUET=ON
         -DVELOX_ENABLE_S3=ON
     build:

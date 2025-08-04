@@ -65,6 +65,7 @@ add_executable(
 target_link_libraries(
   spark_expression_fuzzer_test
   velox_expression_fuzzer
+  velox_constrained_input_generators
   velox_fuzzer_util
   velox_hive_connector
   velox_functions_spark
