@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

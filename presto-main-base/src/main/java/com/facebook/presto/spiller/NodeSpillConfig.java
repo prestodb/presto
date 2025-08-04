@@ -14,10 +14,9 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.CompressionCodec;
-import io.airlift.units.DataSize;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class NodeSpillConfig
 {

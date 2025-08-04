@@ -1,25 +1,35 @@
 services:
   spark-master:
-    image: spydernaz/spark-master:2.4.3
+    image: spark:3.5.5-java17
     environment:
       - "TZ=America/Bahia_Banderas"
       - "SPARK_LOCAL_IP=spark-master"
+      - "SPARK_NO_DAEMONIZE=true"
+    depends_on:
+      - hadoop-master
+    command: /opt/spark/sbin/start-master.sh
     volumes:
       - ./work:/spark/work
   spark-worker:
-    image: spydernaz/spark-worker:2.4.3
+    image: spark:3.5.5-java17
     depends_on:
       - spark-master
+    command: /opt/spark/sbin/start-worker.sh spark://spark-master:7077
     environment:
       - "TZ=America/Bahia_Banderas"
-      - SPARK_MASTER=spark://spark-master:7077
-      - SPARK_DRIVER_MEMORY=512m
+      - SPARK_DRIVER_MEMORY=1G
       - SPARK_WORKER_CORES=4
       - SPARK_WORKER_MEMORY=1G
+      # We need to clean up app work directories aggressively because CI
+      # machines do not have much disk space. To prevent running out of space,
+      # We add the below options to tell the worker to quickly clean up
+      # completed app work directories
+      - "SPARK_WORKER_OPTS=-Dspark.worker.cleanup.enabled=true -Dspark.worker.cleanup.interval=5 -Dspark.worker.cleanup.appDataTtl=10"
+      - SPARK_NO_DAEMONIZE=true
     volumes:
       - ./work:/spark/work
   spark-submit:
-    image: spydernaz/spark-submit:2.4.3
+    image: spark:3.5.5-java17
     environment:
       - "TZ=America/Bahia_Banderas"
   hadoop-master:

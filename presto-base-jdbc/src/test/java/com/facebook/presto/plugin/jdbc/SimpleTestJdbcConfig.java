@@ -14,8 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * Simple JDBC configuration that doesn't extend BaseJdbcConfig.
