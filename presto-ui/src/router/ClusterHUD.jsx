@@ -146,7 +146,7 @@ export const ClusterHUD = () => {
             }));
         }
 
-        $('[data-bs-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
     }, [
         state.runningQueries, 
         state.blockedQueries, 
