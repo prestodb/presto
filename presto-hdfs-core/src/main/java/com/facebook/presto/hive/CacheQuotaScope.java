@@ -13,7 +13,28 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum CacheQuotaScope
 {
-    GLOBAL, SCHEMA, TABLE, PARTITION
+    GLOBAL(0),
+    SCHEMA(1),
+    TABLE(2),
+    PARTITION(3),
+    /**/;
+
+    private final int value;
+
+    CacheQuotaScope(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }

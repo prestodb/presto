@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -24,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.tpcds.thrift.TpcdsCodecProvider;
 
 import java.util.Map;
 
@@ -102,6 +105,12 @@ public class TpcdsConnectorFactory
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
                 return new TpcdsNodePartitioningProvider(nodeManager, splitsPerNode);
+            }
+
+            @Override
+            public ConnectorCodecProvider getConnectorCodecProvider()
+            {
+                return new TpcdsCodecProvider(new ThriftCodecManager());
             }
         };
     }

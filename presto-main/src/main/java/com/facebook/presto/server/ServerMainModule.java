@@ -41,6 +41,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.FilterStatsCalculator;
@@ -98,7 +99,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyProviderConfig;
-import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
@@ -141,8 +141,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
-import com.facebook.presto.server.thrift.SplitCodec;
-import com.facebook.presto.server.thrift.TableWriteInfoCodec;
+import com.facebook.presto.server.thrift.HandleThriftModule;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
@@ -426,10 +425,13 @@ public class ServerMainModule
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
 
         install(new DefaultThriftCodecsModule());
+        // handle resolve for thrift
+        binder.install(new HandleThriftModule());
+
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(SplitCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(TableWriteInfoCodec.class);
+
+        binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
@@ -563,7 +565,6 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
         jsonCodecBinder(binder).bindJsonCodec(SqlInvokedFunction.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskSource.class);
-        jsonCodecBinder(binder).bindJsonCodec(Split.class);
         jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);

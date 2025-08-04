@@ -13,24 +13,30 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TpcdsTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final TpcdsTableHandle table;
 
     @JsonCreator
+    @ThriftConstructor
     public TpcdsTableLayoutHandle(@JsonProperty("table") TpcdsTableHandle table)
     {
         this.table = requireNonNull(table, "table is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public TpcdsTableHandle getTable()
     {
         return table;
