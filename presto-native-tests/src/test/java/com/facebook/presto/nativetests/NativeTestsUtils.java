@@ -80,10 +80,10 @@ public class NativeTestsUtils
         Path buildPath = prestoRoot
                 .resolve("presto-native-tests")
                 .resolve("_build");
-        if(Files.exists(buildPath.resolve("debug"))) {
+        if (Files.exists(buildPath.resolve("debug"))) {
             buildPath = buildPath.resolve("debug");
         }
-        else if(Files.exists(buildPath.resolve("release"))) {
+        else if (Files.exists(buildPath.resolve("release"))) {
             buildPath = buildPath.resolve("release");
         }
         else {
