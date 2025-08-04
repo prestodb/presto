@@ -19,7 +19,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +36,8 @@ public class TestCustomFunctions
     private boolean sidecarEnabled;
 
     @BeforeSuite
-    public void buildNativeLibrary() throws IOException, InterruptedException {
+    public void buildNativeLibrary() throws IOException, InterruptedException
+    {
         Path prestoRoot = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         while (prestoRoot != null && !Files.exists(prestoRoot.resolve("presto-native-tests"))) {
             prestoRoot = prestoRoot.getParent();
