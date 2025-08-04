@@ -198,7 +198,6 @@ class PrestoServer {
 
   void registerStatsCounters();
 
- protected:
   void updateAnnouncerDetails();
 
   void addServerPeriodicTasks();
@@ -242,24 +241,31 @@ class PrestoServer {
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 
   // Executor for exchange data over http.
-  std::shared_ptr<folly::IOThreadPoolExecutor> exchangeHttpIoExecutor_;
+  std::unique_ptr<folly::IOThreadPoolExecutor> exchangeHttpIoExecutor_;
 
   // Executor for exchange request processing.
-  std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> exchangeHttpCpuExecutor_;
 
   // Executor for HTTP request dispatching
   std::shared_ptr<folly::IOThreadPoolExecutor> httpSrvIoExecutor_;
 
   // Executor for HTTP request processing after dispatching
-  std::shared_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
 
-  // Executor for query engine driver executions.
-  std::shared_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;
+  // Executor for query engine driver executions. The underlying thread pool 
+  // executor is a folly::CPUThreadPoolExecutor. The executor is stored as 
+  // abstract type to provide flexibility of thread pool monitoring. The 
+  // underlying folly::CPUThreadPoolExecutor can be obtained through 
+  // 'driverCpuExecutor()' method.
+  std::unique_ptr<folly::Executor> driverExecutor_;
+  // Raw pointer pointing to the underlying folly::CPUThreadPoolExecutor of 
+  // 'driverExecutor_'.
+  folly::CPUThreadPoolExecutor* driverCpuExecutor_;
 
   // Executor for spilling.
-  std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
 
-  std::shared_ptr<VeloxPlanValidator> planValidator_;
+  std::unique_ptr<VeloxPlanValidator> planValidator_;
 
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
