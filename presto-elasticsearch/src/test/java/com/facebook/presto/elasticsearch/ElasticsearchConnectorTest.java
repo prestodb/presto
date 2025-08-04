@@ -40,7 +40,7 @@ import static java.lang.String.format;
 public class ElasticsearchConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:9.1.0";
     private ElasticsearchServer elasticsearch;
     private Rest5Client client;
     private ElasticSearchClientUtils elasticSearchClientUtils;

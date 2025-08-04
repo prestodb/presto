@@ -115,7 +115,7 @@ public final class ElasticsearchQueryRunner
             throws Exception
     {
         // To start Elasticsearch:
-        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:9.1.0
 
         Logging.initialize();
 

@@ -38,7 +38,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestPasswordAuthentication
 {
-    private final String elasticsearchImage = "docker.elastic.co/elasticsearch/elasticsearch:9.0.1";
+    private final String elasticsearchImage = "docker.elastic.co/elasticsearch/elasticsearch:9.1.0";
     private static final String USER = "elastic_user";
     private static final String PASSWORD = "123456";
 
