@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <folly/base64.h>
 
 #include "DataSketches/theta_sketch.hpp"
 #include "DataSketches/theta_union.hpp"
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/functions/ThetaSketchFunctions.h"
 #include "presto_cpp/main/functions/aggregates/ThetaSketchAggregate.h"
 #include "velox/common/hyperloglog/HllUtils.h"
@@ -36,11 +34,8 @@ class ThetaSketchAggregationTest : public AggregationTestBase {
   static const std::vector<std::string> kVegetables;
 
   void SetUp() override {
+    folly::SingletonVault::singleton()->registrationComplete();
     AggregationTestBase::SetUp();
-    //
-    auto systemConfig = presto::SystemConfig::instance();
-    auto prestoBuiltinFunctionPrefix =
-        systemConfig->prestoDefaultNamespacePrefix();
     presto::functions::aggregate::registerThetaSketchAggregate("");
     presto::functions::registerThetaSketchFunctions("");
   }
@@ -63,11 +58,11 @@ class ThetaSketchAggregationTest : public AggregationTestBase {
       if (!flatVector->isNullAt(i))
         updateSketch.update(flatVector->valueAt(i));
     }
-    theta_union theta_union = theta_union::builder().build();
-    theta_union.update(updateSketch);
+    theta_union thetaUnion = theta_union::builder().build();
+    thetaUnion.update(updateSketch);
 
     std::stringstream s(std::ios::in | std::ios::out | std::ios::binary);
-    theta_union.get_result().serialize(s);
+    thetaUnion.get_result().serialize(s);
     return s.str();
   }
 
@@ -76,13 +71,13 @@ class ThetaSketchAggregationTest : public AggregationTestBase {
       const VectorPtr& keys,
       const VectorPtr& values) {
     VELOX_CHECK_EQ(keys->size(), values->size());
-    typedef struct theta_unionStruct {
-      theta_union theta_union = theta_union::builder().build();
+    typedef struct thetaUnionStruct {
+      theta_union thetaUnion = theta_union::builder().build();
       update_theta_sketch updateSketch = update_theta_sketch::builder().build();
       bool hasNull = false;
     } theta_unionStruct;
 
-    std::unordered_map<int32_t, theta_unionStruct> groupedTheta;
+    std::unordered_map<int32_t, thetaUnionStruct> groupedTheta;
     FlatVector<int32_t>* keysVector = keys->asFlatVector<int32_t>();
     FlatVector<T>* valuesVector = values->asFlatVector<T>();
 
@@ -99,10 +94,10 @@ class ThetaSketchAggregationTest : public AggregationTestBase {
     std::unordered_map<int32_t, std::string> results;
 
     for (auto& iter : groupedTheta) {
-      groupedTheta[iter.first].theta_union.update(
+      groupedTheta[iter.first].thetaUnion.update(
           groupedTheta[iter.first].updateSketch);
       std::stringstream s(std::ios::in | std::ios::out | std::ios::binary);
-      groupedTheta[iter.first].theta_union.get_result().serialize(s);
+      groupedTheta[iter.first].thetaUnion.get_result().serialize(s);
       results[iter.first] = s.str();
     }
 
@@ -312,8 +307,8 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaEstimate_ManyValueSketch) {
   for (auto i = 0; i < input->size(); ++i) {
     updateSketch.update(input->valueAt(i));
   }
-  theta_union theta_union = theta_union::builder().build();
-  theta_union.update(updateSketch);
+  theta_union thetaUnion = theta_union::builder().build();
+  thetaUnion.update(updateSketch);
   auto op = PlanBuilder()
                 .values({makeRowVector({input})})
                 .singleAggregation({}, {"sketch_theta(c0)"})
@@ -322,8 +317,7 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaEstimate_ManyValueSketch) {
 
   auto result = readSingleValue(op);
   ASSERT_EQ(
-      result.value<TypeKind::DOUBLE>(),
-      theta_union.get_result().get_estimate());
+      result.value<TypeKind::DOUBLE>(), thetaUnion.get_result().get_estimate());
 }
 
 void assertSummaryMatches(
@@ -352,9 +346,9 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary_EmptySketch) {
   auto result = readSingleValue(op);
 
   update_theta_sketch updateSketch = update_theta_sketch::builder().build();
-  theta_union theta_union = theta_union::builder().build();
-  theta_union.update(updateSketch);
-  assertSummaryMatches(theta_union.get_result(), result);
+  theta_union thetaUnion = theta_union::builder().build();
+  thetaUnion.update(updateSketch);
+  assertSummaryMatches(thetaUnion.get_result(), result);
 }
 
 TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary_SingleValueSketch) {
@@ -369,9 +363,9 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary_SingleValueSketch) {
 
   update_theta_sketch updateSketch = update_theta_sketch::builder().build();
   updateSketch.update(1);
-  theta_union theta_union = theta_union::builder().build();
-  theta_union.update(updateSketch);
-  assertSummaryMatches(theta_union.get_result(), result);
+  theta_union thetaUnion = theta_union::builder().build();
+  thetaUnion.update(updateSketch);
+  assertSummaryMatches(thetaUnion.get_result(), result);
 }
 
 TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary_ManyValueSketch) {
@@ -380,8 +374,8 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary_ManyValueSketch) {
   for (auto i = 0; i < input->size(); ++i) {
     updateSketch.update(input->valueAt(i));
   }
-  theta_union theta_union = theta_union::builder().build();
-  theta_union.update(updateSketch);
+  theta_union thetaUnion = theta_union::builder().build();
+  thetaUnion.update(updateSketch);
   auto op = PlanBuilder()
                 .values({makeRowVector({input})})
                 .singleAggregation({}, {"sketch_theta(c0)"})
@@ -389,7 +383,7 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary_ManyValueSketch) {
                 .planNode();
 
   auto result = readSingleValue(op);
-  assertSummaryMatches(theta_union.get_result(), result);
+  assertSummaryMatches(thetaUnion.get_result(), result);
 }
 } // namespace
 } // namespace facebook::presto::functions::aggregate::test

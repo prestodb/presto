@@ -61,7 +61,7 @@ class ThetaSketchAggregate {
   }
 
   struct AccumulatorType {
-    theta_union theta_union = theta_union::builder().build();
+    theta_union thetaUnion = theta_union::builder().build();
     update_theta_sketch updateSketch = update_theta_sketch::builder().build();
 
     AccumulatorType() = delete;
@@ -88,17 +88,17 @@ class ThetaSketchAggregate {
         exec::optional_arg_type<Varbinary> other) {
       if (!other.has_value())
         return true;
-      theta_union.update(updateSketch);
+      thetaUnion.update(updateSketch);
       auto compactSketch =
           wrapped_compact_theta_sketch::wrap(other->data(), other->size());
-      theta_union.update(compactSketch);
+      thetaUnion.update(compactSketch);
       updateSketch.reset();
       return true;
     }
 
     bool writeFinalResult(bool nonNullGroup, exec::out_type<Varbinary>& out) {
-      theta_union.update(updateSketch);
-      auto compactSketch = theta_union.get_result();
+      thetaUnion.update(updateSketch);
+      auto compactSketch = thetaUnion.get_result();
       out.resize(compactSketch.get_serialized_size_bytes());
       auto serializedBytes = compactSketch.serialize();
       std::memcpy(out.data(), serializedBytes.data(), out.size());
@@ -109,8 +109,8 @@ class ThetaSketchAggregate {
     bool writeIntermediateResult(
         bool nonNullGroup,
         exec::out_type<Varbinary>& out) {
-      theta_union.update(updateSketch);
-      auto compactSketch = theta_union.get_result();
+      thetaUnion.update(updateSketch);
+      auto compactSketch = thetaUnion.get_result();
       out.resize(compactSketch.get_serialized_size_bytes());
       auto serializedBytes = compactSketch.serialize();
       std::memcpy(out.data(), serializedBytes.data(), out.size());
