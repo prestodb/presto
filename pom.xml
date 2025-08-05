@@ -104,6 +104,8 @@
         <air.test.jvmsize>4g</air.test.jvmsize>
         <grpc.version>1.70.0</grpc.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <aws.sdk.version>2.32.9</aws.sdk.version>
+        <dep.commons.codec.version>1.17.1</dep.commons.codec.version>
     </properties>
 
     <modules>
@@ -220,6 +222,20 @@
 
     <dependencyManagement>
         <dependencies>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>${dep.commons.codec.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>commons-beanutils</groupId>
@@ -1972,12 +1988,6 @@
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
                 <version>4.4.16</version>
-            </dependency>
-
-            <dependency>
-                <groupId>commons-codec</groupId>
-                <artifactId>commons-codec</artifactId>
-                <version>1.17.0</version>
             </dependency>
 
             <dependency>
