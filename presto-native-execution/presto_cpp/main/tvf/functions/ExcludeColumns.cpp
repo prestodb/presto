@@ -65,8 +65,7 @@ class ExcludeColumns : public TableFunction {
       : TableFunction(pool, nullptr) {}
 
   static std::unique_ptr<ExcludeColumnsAnalysis> analyze(
-      const std::unordered_map<std::string, std::shared_ptr<Argument>>& args,
-      const core::QueryConfig& /*queryConfig*/) {
+      const std::unordered_map<std::string, std::shared_ptr<Argument>>& args) {
     VELOX_CHECK_GT(
         args.count(DESCRIPTOR_ARGUMENT_NAME), 0, "COLUMNS arg not found");
     VELOX_CHECK_GT(args.count(TABLE_ARGUMENT_NAME), 0, "INPUT arg not found");
@@ -113,7 +112,7 @@ class ExcludeColumns : public TableFunction {
         requiredColsList.push_back(i);
       }
     }
-    requiredColumns.insert({"t1", requiredColsList});
+    requiredColumns.insert({TABLE_ARGUMENT_NAME, requiredColsList});
     auto analysis = std::make_unique<ExcludeColumnsAnalysis>();
     analysis->tableFunctionHandle_ = std::make_shared<ExcludeColumnsHandle>();
     analysis->returnType_ =
@@ -143,8 +142,8 @@ void registerExcludeColumns(const std::string& name) {
   TableArgumentSpecList argSpecs;
   argSpecs.insert(
       std::make_shared<TableArgumentSpecification>(TABLE_ARGUMENT_NAME, true));
-  argSpecs.insert(
-      std::make_shared<ArgumentSpecification>(DESCRIPTOR_ARGUMENT_NAME, true));
+  argSpecs.insert(std::make_shared<DescriptorArgumentSpecification>(
+      DESCRIPTOR_ARGUMENT_NAME, Descriptor({"columns"}), true));
   registerTableFunction(
       name,
       argSpecs,

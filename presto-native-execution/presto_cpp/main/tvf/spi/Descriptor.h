@@ -64,5 +64,22 @@ class Descriptor : public Argument {
   std::vector<velox::core::FieldAccessTypedExprPtr> fields_;
 };
 
+class DescriptorArgumentSpecification : public ArgumentSpecification {
+ public:
+  DescriptorArgumentSpecification(
+      std::string name,
+      Descriptor descriptor_,
+      bool required)
+      : ArgumentSpecification(name, required),
+        descriptor_(std::move(descriptor_)){};
+
+  const Descriptor descriptor() const {
+    return descriptor_;
+  }
+
+ private:
+  const Descriptor descriptor_;
+};
+
 using DescriptorPtr = std::shared_ptr<const Descriptor>;
 } // namespace facebook::presto::tvf

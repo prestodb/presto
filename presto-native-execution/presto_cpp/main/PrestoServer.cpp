@@ -84,6 +84,7 @@
 #include <pthread.h>
 #include <sched.h>
 #endif
+#include <iostream>
 
 using namespace facebook;
 
@@ -382,6 +383,23 @@ void PrestoServer::run() {
                 proxygen::HTTP_HEADER_CONTENT_TYPE,
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
+      });
+  httpServer_->registerGet(
+      "/v1/functions/tvf",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(downstream, getTableValuedFunctionsMetadata());
+      });
+  httpServer_->registerPost(
+      "/v1/tvf/analyze",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(
+            downstream,
+            getAnalyzedTableValueFunction(util::extractMessageBody(body)));
       });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
@@ -1317,12 +1335,6 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
-  if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerAllScalarFunctions(
-        "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "json.test_schema.");
-  }
 
   // #ifdef PRESTO_ENABLE_TABLE_FUNCTIONS
   velox::exec::Operator::registerOperator(

@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function.table;
 
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 
 import static java.util.Objects.requireNonNull;
 

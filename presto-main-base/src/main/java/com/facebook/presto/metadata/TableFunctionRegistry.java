@@ -21,8 +21,9 @@ import com.facebook.presto.spi.function.CatalogSchemaFunctionName;
 import com.facebook.presto.spi.function.SchemaFunctionName;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
-import com.facebook.presto.spi.function.table.ReturnTypeSpecification.DescribedTable;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -37,11 +38,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -73,6 +76,11 @@ public class TableFunctionRegistry
     public void removeTableFunctions(ConnectorId catalogName)
     {
         tableFunctions.remove(catalogName);
+    }
+
+    public boolean areTableFunctionsLoaded(ConnectorId catalogName)
+    {
+        return tableFunctions.containsKey(catalogName);
     }
 
     public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
@@ -110,22 +118,19 @@ public class TableFunctionRegistry
      * Resolve table function with given qualified name.
      * Table functions are resolved case-insensitive for consistency with existing scalar function resolution.
      */
-    public TableFunctionMetadata resolve(Session session, QualifiedName qualifiedName)
+    public TableFunctionMetadata resolve(ConnectorId connectorId, CatalogSchemaFunctionName name)
     {
-        for (CatalogSchemaFunctionName name : toPath(session, qualifiedName)) {
-            ConnectorId connectorId = new ConnectorId(name.getCatalogName());
-            Map<SchemaFunctionName, TableFunctionMetadata> catalogFunctions = tableFunctions.get(connectorId);
-            if (catalogFunctions != null) {
-                String lowercasedSchemaName = name.getSchemaFunctionName().getSchemaName().toLowerCase(ENGLISH);
-                String lowercasedFunctionName = name.getSchemaFunctionName().getFunctionName().toLowerCase(ENGLISH);
-                TableFunctionMetadata function = catalogFunctions.get(new SchemaFunctionName(lowercasedSchemaName, lowercasedFunctionName));
-                if (function != null) {
-                    return function;
-                }
+        Map<SchemaFunctionName, TableFunctionMetadata> catalogFunctions = tableFunctions.get(connectorId);
+        if (catalogFunctions != null) {
+            String lowercasedSchemaName = name.getSchemaFunctionName().getSchemaName().toLowerCase(ENGLISH);
+            String lowercasedFunctionName = name.getSchemaFunctionName().getFunctionName().toLowerCase(ENGLISH);
+            TableFunctionMetadata function = catalogFunctions.get(new SchemaFunctionName(lowercasedSchemaName, lowercasedFunctionName));
+            if (function != null) {
+                return function;
             }
         }
 
-        return null;
+        throw new PrestoException(GENERIC_USER_ERROR, format("Table functions for catalog %s could not be resolved.", connectorId.getCatalogName()));
     }
 
     private static void validateTableFunction(ConnectorTableFunction tableFunction)
@@ -155,8 +160,8 @@ public class TableFunctionRegistry
         // Such a table argument is implicitly 'prune when empty'. The TableArgumentSpecification.Builder enforces the 'prune when empty' property
         // for a table argument with row semantics.
 
-        if (tableFunction.getReturnTypeSpecification() instanceof DescribedTable) {
-            DescribedTable describedTable = (DescribedTable) tableFunction.getReturnTypeSpecification();
+        if (tableFunction.getReturnTypeSpecification() instanceof DescribedTableReturnTypeSpecification) {
+            DescribedTableReturnTypeSpecification describedTable = (DescribedTableReturnTypeSpecification) tableFunction.getReturnTypeSpecification();
             checkArgument(describedTable.getDescriptor().isTyped(), "field types missing in returned type specification");
         }
     }

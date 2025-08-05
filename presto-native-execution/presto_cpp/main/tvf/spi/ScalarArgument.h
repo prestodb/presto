@@ -47,6 +47,10 @@ class ScalarArgumentSpecification : public ArgumentSpecification {
       bool required)
       : ArgumentSpecification(name, required), type_(std::move(type)){};
 
+  const velox::TypePtr rowType() const {
+    return type_;
+  }
+
  private:
   const velox::TypePtr type_;
 };
