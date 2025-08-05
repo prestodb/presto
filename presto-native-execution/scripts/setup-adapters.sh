@@ -51,17 +51,24 @@ function install_arrow_flight {
   install_arrow
 }
 
+function install_datasketches {
+  github_checkout apache/datasketches-cpp 5.2.0 --depth 1
+  cmake_install -DBUILD_TESTS=OFF
+}
+
 cd "${DEPENDENCY_DIR}" || exit
 
 install_jwt=0
 install_prometheus_cpp=0
 install_arrow_flight=0
+install_datasketches=0
 
 if [ "$#" -eq 0 ]; then
   # Install all adapters by default
   install_jwt=1
   install_prometheus_cpp=1
   install_arrow_flight=1
+  install_datasketches=1
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -76,6 +83,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   arrow_flight)
     install_arrow_flight=1
+    shift
+    ;;
+  datasketches)
+    install_datasketches=1;
     shift
     ;;
   *)
@@ -96,6 +107,10 @@ fi
 
 if [ $install_arrow_flight -eq 1 ]; then
   install_arrow_flight
+fi
+
+if [ $install_datasketches -eq 1 ]; then
+  install_datasketches
 fi
 
 _ret=$?
