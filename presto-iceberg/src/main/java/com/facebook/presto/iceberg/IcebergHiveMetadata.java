@@ -475,9 +475,8 @@ public class IcebergHiveMetadata
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+            tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
         }
-        MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = getHiveTable(session, schemaTableName);
             if (table.isPresent() && isPrestoView(table.get())) {
