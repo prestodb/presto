@@ -90,6 +90,25 @@ class QuantileDigest {
   // min/max range.
   std::optional<double> quantileAtValue(T value) const;
 
+  struct CdfEntry {
+    T upperBound;
+    double cumulativeProbability;
+  };
+
+  /// Returns the cumulative distribution function as a vector of entries
+  /// mapping upper bounds to cumulative probabilities for values within
+  /// the specified range [rangeStart, rangeEnd]. The CDF provides
+  /// a lower bound estimate for the proportion of items <= x with error
+  /// bounded by the digest's maxError parameter. This is a
+  /// right-continous step function, i.e., values in between entries
+  /// have the same estimated cumulative probability as the
+  /// previous entry.
+  const std::vector<
+      CdfEntry,
+      typename std::allocator_traits<Allocator>::template rebind_alloc<
+          CdfEntry>>
+  getDistributionFunction(double rangeStart, double rangeEnd) const;
+
  private:
   using U = std::conditional_t<sizeof(T) == sizeof(int64_t), int64_t, int32_t>;
 
@@ -1296,6 +1315,60 @@ std::optional<double> QuantileDigest<T, Allocator>::quantileAtValue(
       lefts_,
       rights_);
   return bucketCount / weightedCount_;
+}
+
+template <typename T, typename Allocator>
+const std::vector<
+    typename QuantileDigest<T, Allocator>::CdfEntry,
+    typename QuantileDigest<T, Allocator>::template RebindAlloc<
+        typename QuantileDigest<T, Allocator>::CdfEntry>>
+QuantileDigest<T, Allocator>::getDistributionFunction(
+    double rangeStart,
+    double rangeEnd) const {
+  std::vector<CdfEntry, RebindAlloc<CdfEntry>> cdf(
+      RebindAlloc<CdfEntry>(counts_.get_allocator()));
+
+  if (weightedCount_ == 0 || root_ == -1) {
+    return cdf;
+  }
+
+  VELOX_USER_CHECK_LE(
+      rangeStart,
+      rangeEnd,
+      "rangeStart must be less than or equal to rangeEnd");
+
+  // Always start with (rangeStart, 0) as the starting point.
+  cdf.push_back({static_cast<T>(rangeStart), 0.0});
+
+  // Build CDF during post-order traversal.
+  double cumulativeProbability = 0.0;
+  postOrderTraverse(
+      root_,
+      [this, &cdf, &cumulativeProbability, rangeStart, rangeEnd](int32_t node) {
+        if (counts_[node] > 0) {
+          T nodeUpper = postprocessByType(this->upperBound(node));
+          cumulativeProbability += counts_[node] / weightedCount_;
+          // Only include values within the specified range.
+          if (nodeUpper >= rangeEnd) {
+            return false;
+          } else if (nodeUpper >= rangeStart) {
+            // Take the largest probability for the same upperBound.
+            if (nodeUpper == cdf.back().upperBound) {
+              cdf.back().cumulativeProbability = cumulativeProbability;
+            } else {
+              cdf.push_back({nodeUpper, cumulativeProbability});
+            }
+          }
+        }
+        return true;
+      },
+      lefts_,
+      rights_);
+
+  // Always end with (rangeEnd, 1) as the endpoint.
+  cdf.push_back({static_cast<T>(rangeEnd), 1.0});
+
+  return cdf;
 }
 
 } // namespace qdigest

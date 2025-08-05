@@ -887,4 +887,69 @@ TEST_F(QuantileDigestTest, quantileAtValue) {
   testQuantileAtValue<float>();
 }
 
+template <typename T>
+void testGetDistributionFunction() {
+  std::allocator<T> allocator;
+  // Add values within the range.
+  QuantileDigest<T, std::allocator<T>> digest1(allocator, 0.01);
+  for (T i = 1; i <= 10; i++) {
+    digest1.add(i, 1);
+  }
+  auto cdf1 = digest1.getDistributionFunction(0.0, 100.0);
+  std::vector<T> expectedCdfUpperBound = {
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100};
+  std::vector<double> expectedCdfCumulativeProbability = {
+      0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1};
+  for (auto i = 0; i < cdf1.size(); i++) {
+    SCOPED_TRACE(fmt::format("non-clip round: {}", i));
+    EXPECT_NEAR(
+        cdf1[i].cumulativeProbability,
+        expectedCdfCumulativeProbability[i],
+        1e-5);
+    EXPECT_EQ(cdf1[i].upperBound, expectedCdfUpperBound[i]);
+  }
+
+  // clip the range start.
+  QuantileDigest<T, std::allocator<T>> digest2(allocator, 0.01);
+  for (T i = 1; i <= 10; i++) {
+    digest2.add(i, 1);
+  }
+  auto cdf2 = digest2.getDistributionFunction(5.0, 100.0);
+  std::vector<T> expectedCdfUpperBound2 = {5, 6, 7, 8, 9, 10, 100};
+  std::vector<double> expectedCdfCumulativeProbability2 = {
+      0.5, 0.6, 0.7, 0.8, 0.9, 1, 1};
+  for (auto i = 0; i < cdf2.size(); i++) {
+    SCOPED_TRACE(fmt::format("clip lower round: {}", i));
+    EXPECT_NEAR(
+        cdf2[i].cumulativeProbability,
+        expectedCdfCumulativeProbability2[i],
+        1e-5);
+    EXPECT_EQ(cdf2[i].upperBound, expectedCdfUpperBound2[i]);
+  }
+
+  // clip the range end.
+  QuantileDigest<T, std::allocator<T>> digest3(allocator, 0.01);
+  for (T i = 1; i <= 10; i++) {
+    digest3.add(i, 1);
+  }
+  auto cdf3 = digest3.getDistributionFunction(0.0, 5.0);
+  std::vector<T> expectedCdfUpperBound3 = {0, 1, 2, 3, 4, 5};
+  std::vector<double> expectedCdfCumulativeProbability3 = {
+      0, 0.1, 0.2, 0.3, 0.4, 1.0};
+  for (auto i = 0; i < cdf3.size(); i++) {
+    SCOPED_TRACE(fmt::format("clip upper round: {}", i));
+    EXPECT_NEAR(
+        cdf3[i].cumulativeProbability,
+        expectedCdfCumulativeProbability3[i],
+        1e-5);
+    EXPECT_EQ(cdf3[i].upperBound, expectedCdfUpperBound3[i]);
+  }
+}
+
+TEST_F(QuantileDigestTest, getDistributionFunction) {
+  testGetDistributionFunction<int64_t>();
+  testGetDistributionFunction<double>();
+  testGetDistributionFunction<float>();
+}
+
 } // namespace facebook::velox::functions
