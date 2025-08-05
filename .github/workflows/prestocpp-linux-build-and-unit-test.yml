@@ -117,7 +117,7 @@ jobs:
           # Ensure transitive dependency libboost-iostreams is found.
           ldconfig /usr/local/lib
           cd presto-native-execution/_build/release
-          ctest -j 4 -VV --output-on-failure --exclude-regex velox.*
+          ctest -j 4 -VV --output-on-failure --exclude-regex ^velox.*
 
       - name: Upload artifacts
         if: |
