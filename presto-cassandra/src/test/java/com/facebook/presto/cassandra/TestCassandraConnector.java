@@ -69,6 +69,7 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -130,7 +131,7 @@ public class TestCassandraConnector
         assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
 
         database = keyspace;
-        table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
+        table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ROOT));
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
@@ -150,7 +151,7 @@ public class TestCassandraConnector
     public void testGetDatabaseNames()
     {
         List<String> databases = metadata.listSchemaNames(SESSION);
-        assertTrue(databases.contains(database.toLowerCase(ENGLISH)));
+        assertTrue(databases.contains(database.toLowerCase(ROOT)));
     }
 
     @Test
