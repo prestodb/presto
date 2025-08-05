@@ -771,7 +771,6 @@ TEST(TypeTest, cpp2Type) {
   EXPECT_EQ(*CppToType<int8_t>::create(), *TINYINT());
   EXPECT_EQ(*CppToType<velox::StringView>::create(), *VARCHAR());
   EXPECT_EQ(*CppToType<std::string>::create(), *VARCHAR());
-  EXPECT_EQ(*CppToType<folly::ByteRange>::create(), *VARBINARY());
   EXPECT_EQ(*CppToType<float>::create(), *REAL());
   EXPECT_EQ(*CppToType<double>::create(), *DOUBLE());
   EXPECT_EQ(*CppToType<bool>::create(), *BOOLEAN());

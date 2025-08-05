@@ -67,6 +67,8 @@ template <>
 struct CppToType<folly::StringPiece> : public CppToTypeBase<TypeKind::VARCHAR> {
 };
 
+// VARBINARY also uses StringView as the native type but its CppToType template
+// is omitted to avoid conflict with VARCHAR.
 template <>
 struct CppToType<velox::StringView> : public CppToTypeBase<TypeKind::VARCHAR> {
 };
@@ -79,10 +81,6 @@ struct CppToType<std::string> : public CppToTypeBase<TypeKind::VARCHAR> {};
 
 template <>
 struct CppToType<const char*> : public CppToTypeBase<TypeKind::VARCHAR> {};
-
-template <>
-struct CppToType<folly::ByteRange> : public CppToTypeBase<TypeKind::VARBINARY> {
-};
 
 template <>
 struct CppToType<float> : public CppToTypeBase<TypeKind::REAL> {};
