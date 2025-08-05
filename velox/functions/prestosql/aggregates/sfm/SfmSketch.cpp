@@ -219,12 +219,13 @@ int64_t SfmSketch::cardinality() const {
     return 0;
   }
 
-  VELOX_CHECK_LE(
-      guess, static_cast<double>(std::numeric_limits<int64_t>::max()));
   // Clamp negative values to 0 before rounding to avoid undefined behavior
   // when casting negative values to unsigned types.
-  double clampedGuess = std::max(0.0, guess);
-  return static_cast<int64_t>(std::round(clampedGuess));
+  const double clampedGuess = std::max(0.0, guess);
+  const double roundedGuess = std::round(clampedGuess);
+  VELOX_CHECK_LT(
+      roundedGuess, static_cast<double>(std::numeric_limits<int64_t>::max()));
+  return static_cast<int64_t>(roundedGuess);
 }
 
 // Java-compatible format: FORMAT_TAG + numIndexBits + precision +
