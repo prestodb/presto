@@ -235,7 +235,8 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseIndexJoinNode) {
         "form": "AND",
         "returnType": "boolean"
       },
-      "type": "INNER"
+      "type": "INNER",
+      "lookupVariables": []
     }
   )";
 
