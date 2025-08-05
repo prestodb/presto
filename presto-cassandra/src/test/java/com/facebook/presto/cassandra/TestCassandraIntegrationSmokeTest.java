@@ -21,6 +21,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -97,7 +98,7 @@ public class TestCassandraIntegrationSmokeTest
         this.server = server;
         this.session = server.getSession();
         createTestTables(session, server.getMetadata(), KEYSPACE, DATE_TIME_LOCAL);
-        return createCassandraQueryRunner(server);
+        return createCassandraQueryRunner(server, ImmutableMap.of());
     }
 
     @Test
@@ -351,7 +352,7 @@ public class TestCassandraIntegrationSmokeTest
             // There is no way to figure out what the exactly keyspace we want to retrieve tables from
             assertQueryFailsEventually(
                     "SHOW TABLES FROM cassandra.keyspace_3",
-                    "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                    "More than one keyspace has been found for the schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
                     new Duration(1, MINUTES));
         }
         finally {

@@ -15,7 +15,6 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ProtocolVersion;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -53,14 +52,13 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraMetadata
@@ -71,6 +69,7 @@ public class CassandraMetadata
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
     private final ProtocolVersion protocolVersion;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
 
@@ -88,13 +87,14 @@ public class CassandraMetadata
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
+        this.caseSensitiveNameMatchingEnabled = requireNonNull(config, "config is null").isCaseSensitiveNameMatchingEnabled();
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return cassandraSession.getCaseSensitiveSchemaNames().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
+                .map(name -> normalizeIdentifier(session, name))
                 .collect(toImmutableList());
     }
 
@@ -139,7 +139,8 @@ public class CassandraMetadata
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                    String normalizedTableName = normalizeIdentifier(session, tableName);
+                    tableNames.add(new SchemaTableName(schemaName, normalizedTableName));
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -165,7 +166,9 @@ public class CassandraMetadata
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            String columnName = cqlNameToSqlName(columnHandle.getName());
+            String normalizedColumnName = normalizeIdentifier(session, columnName);
+            columnHandles.put(normalizedColumnName, columnHandle);
         }
         return columnHandles.build();
     }
@@ -248,7 +251,7 @@ public class CassandraMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        createTable(tableMetadata);
+        createTable(session, tableMetadata);
     }
 
     @Override
@@ -277,10 +280,10 @@ public class CassandraMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        return createTable(tableMetadata);
+        return createTable(session, tableMetadata);
     }
 
-    private CassandraOutputTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    private CassandraOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -300,12 +303,13 @@ public class CassandraMetadata
         List<Type> types = columnTypes.build();
         StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
         for (int i = 0; i < columns.size(); i++) {
-            String name = columns.get(i);
+            String columnName = columns.get(i);
+            String finalColumnName = validColumnName(normalizeIdentifier(session, columnName));
             Type type = types.get(i);
             queryBuilder.append(", ")
-                    .append(name)
+                    .append(finalColumnName)
                     .append(" ")
-                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ENGLISH));
+                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ROOT));
         }
         queryBuilder.append(") ");
 
@@ -339,13 +343,13 @@ public class CassandraMetadata
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
-        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
+        List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
 
         return new CassandraInsertTableHandle(
                 connectorId,
-                validSchemaName(table.getSchemaName()),
-                validTableName(table.getTableName()),
+                table.getSchemaName(),
+                table.getTableName(),
                 columnNames,
                 columnTypes);
     }
@@ -354,5 +358,11 @@ public class CassandraMetadata
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }
