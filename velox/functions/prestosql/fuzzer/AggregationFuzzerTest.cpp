@@ -41,6 +41,7 @@
 #include "velox/functions/prestosql/fuzzer/NoisyCountResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/NoisySumInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/NoisySumResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/NumericHistogramInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/TDigestAggregateInputGenerator.h"
@@ -98,6 +99,7 @@ getCustomInputGenerators() {
        std::make_shared<NoisyCountIfInputGenerator>()},
       {"noisy_count_gaussian", std::make_shared<NoisyCountInputGenerator>()},
       {"noisy_sum_gaussian", std::make_shared<NoisySumInputGenerator>()},
+      {"numeric_histogram", std::make_shared<NumericHistogramInputGenerator>()},
   };
 }
 

@@ -27,6 +27,7 @@
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/AverageResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/NumericHistogramInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/QDigestAggResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/TDigestAggregateInputGenerator.h"
@@ -82,7 +83,9 @@ getCustomInputGenerators() {
       {"lead", std::make_shared<WindowOffsetInputGenerator>(1)},
       {"lag", std::make_shared<WindowOffsetInputGenerator>(1)},
       {"nth_value", std::make_shared<WindowOffsetInputGenerator>(1)},
-      {"ntile", std::make_shared<WindowOffsetInputGenerator>(0)}};
+      {"ntile", std::make_shared<WindowOffsetInputGenerator>(0)},
+      {"numeric_histogram", std::make_shared<NumericHistogramInputGenerator>()},
+  };
 }
 
 } // namespace
