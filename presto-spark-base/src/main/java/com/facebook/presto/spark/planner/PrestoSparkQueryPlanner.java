@@ -36,6 +36,7 @@ import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
@@ -45,6 +46,12 @@ import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.RuleStats;
+import com.facebook.presto.sql.planner.iterative.rule.ConvertHashJoinToSortMergeJoin;
+import com.facebook.presto.sql.planner.optimizations.MergeJoinForSortedInputOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,6 +67,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
@@ -94,7 +102,8 @@ public class PrestoSparkQueryPlanner
             CostCalculator costCalculator,
             AccessControl accessControl,
             PlanChecker planChecker,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+            FeaturesConfig featuresConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.optimizers = requireNonNull(optimizers, "optimizers is null");
@@ -132,6 +141,17 @@ public class PrestoSparkQueryPlanner
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
                 () -> logicalPlanner.plan(analysis));
+
+        // add custom plan optimizers for presto-on-spark
+        // At this point we can make only minimal optimizations
+        // as all the exchanges have been decided
+        // ex: Convert hashJoin to merge join
+        ImmutableList.Builder<PlanOptimizer> optimizersBuilder = ImmutableList.builder();
+        optimizersBuilder.addAll(optimizers.getPlanningTimeOptimizers());
+
+        optimizersBuilder.add(new IterativeOptimizer(
+                metadata, new RuleStatsRecorder(), statsCalculator, costCalculator,
+                ImmutableSet.of(new ConvertHashJoinToSortMergeJoin(metadata, session))));
 
         Optimizer optimizer = new Optimizer(
                 session,
