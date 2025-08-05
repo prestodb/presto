@@ -49,6 +49,7 @@ jobs:
           - ":presto-tests -P ci-only-resource-manager" 
           - ":presto-accumulo"
           - ":presto-cassandra -P test-cassandra-integration-smoke-test"
+          - ":presto-cassandra"
           - ":presto-hive"
           - ":presto-hive -P test-hive-materialized-queries"
           - ":presto-hive -P test-hive-materialized-aggregations"
