@@ -38,6 +38,7 @@ add_executable(
   MapAggTest.cpp
   MapUnionAggregationTest.cpp
   MapUnionSumTest.cpp
+  NumericHistogramTest.cpp
   MaxSizeForStatsTest.cpp
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
