@@ -293,10 +293,11 @@ bool MmapAllocator::allocateContiguousImpl(
     const std::string errorMsg = fmt::format(
         "Exceeded memory allocator limit when allocating {} new pages for "
         "total allocation of {} pages, the memory allocator capacity is"
-        " {} pages",
+        " {} pages, the allocated pages is {}",
         newPages,
         numPages,
-        capacity_);
+        capacity_,
+        numAllocated_);
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
     setAllocatorFailureMessage(errorMsg);
     rollbackAllocation(0);
@@ -395,10 +396,11 @@ bool MmapAllocator::growContiguousWithoutRetry(
     const std::string errorMsg = fmt::format(
         "Exceeded memory allocator limit when allocating {} new pages for "
         "total allocation of {} pages, the memory allocator capacity is"
-        " {} pages",
+        " {} pages, the allocated pages is {}",
         increment,
         allocation.numPages(),
-        capacity_);
+        capacity_,
+        numAllocated_);
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
     setAllocatorFailureMessage(errorMsg);
     numAllocated_ -= increment;

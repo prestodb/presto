@@ -784,7 +784,7 @@ TEST_P(MemoryPoolTest, memoryCapExceptions) {
                     "1, frees 0, reserves 0, releases 0, collisions 0])> "
                     "Exceeded memory allocator limit when allocating 32769 "
                     "new pages for total allocation of 32769 pages, the memory"
-                    " allocator capacity is 32768 pages",
+                    " allocator capacity is 32768 pages, the allocated pages is 32769",
                     isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"),
                 ex.message());
           }

@@ -58,9 +58,10 @@ bool MallocAllocator::allocateNonContiguousWithoutRetry(
       !incrementUsage(totalBytes)) {
     const auto errorMsg = fmt::format(
         "Exceeded memory allocator limit when allocating {} new pages"
-        ", the memory allocator capacity is {}",
+        ", the memory allocator capacity is {}, the allocated bytes is {}",
         sizeMix.totalPages,
-        succinctBytes(capacity_));
+        succinctBytes(capacity_),
+        succinctBytes(allocatedBytes_));
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000) << errorMsg;
     setAllocatorFailureMessage(errorMsg);
     return false;
