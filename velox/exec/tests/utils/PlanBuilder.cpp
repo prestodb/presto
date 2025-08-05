@@ -262,8 +262,6 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
 
   core::TypedExprPtr filterNodeExpr;
 
-  common::SubfieldFilters filters;
-
   if (filtersAsNode_) {
     for (const auto& [subfield, filter] : subfieldFiltersMap_) {
       auto filterExpr = core::filterToExpr(
@@ -273,10 +271,6 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
     }
 
     subfieldFiltersMap_.clear();
-  }
-
-  if (filtersAsNode_) {
-    VELOX_CHECK(filters.empty());
   }
 
   core::TypedExprPtr remainingFilterExpr;
@@ -295,7 +289,7 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
         connectorId_,
         tableName_,
         true,
-        filtersAsNode_ ? std::move(filters) : std::move(subfieldFiltersMap_),
+        std::move(subfieldFiltersMap_),
         remainingFilterExpr,
         dataColumns_);
   }

@@ -526,8 +526,8 @@ class PlanBuilder {
       bool parallelizable = false,
       size_t repeatTimes = 1);
 
-  PlanBuilder& filtersAsNode(bool _filtersAsNode) {
-    filtersAsNode_ = _filtersAsNode;
+  PlanBuilder& filtersAsNode(bool filtersAsNode) {
+    filtersAsNode_ = filtersAsNode;
     return *this;
   }
 
