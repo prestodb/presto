@@ -28,7 +28,11 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlSignature;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.SupportedSignatures;
+import com.facebook.presto.spi.function.TypeConstraint;
+import com.facebook.presto.spi.function.TypeConstraints;
+import com.facebook.presto.spi.function.TypeParameterBinding;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -296,13 +300,33 @@ public class TestRowExpressionTranslator
             return "NOT_2 " + sql;
         }
 
+//        @SupportedSignatures({
+//                @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.INTEGER),
+//                @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT),
+//                @SqlSignature(argumentType = "decimal(38, 0)", returnType = "decimal(38, 0)"),
+//                @SqlSignature(argumentTypes = {StandardTypes.BIGINT, StandardTypes.INTEGER}, returnType = StandardTypes.BIGINT)})
         @ScalarOperator(OperatorType.ADD)
-        @SupportedSignatures({
-                @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.INTEGER),
-                @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT),
-                @SqlSignature(argumentType = "decimal(38, 0)", returnType = "decimal(38, 0)"),
-                @SqlSignature(argumentTypes = {StandardTypes.BIGINT, StandardTypes.INTEGER}, returnType = StandardTypes.BIGINT)})
-        public static String plus(String left, String right)
+        @TypeConstraints(constraints = {
+                @TypeConstraint(bindings = {
+                        @TypeParameterBinding(parameter = "T", type = StandardTypes.INTEGER),
+                        @TypeParameterBinding(parameter = "U", type = StandardTypes.INTEGER)
+                }),
+                @TypeConstraint(bindings = {
+                        @TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT),
+                        @TypeParameterBinding(parameter = "U", type = StandardTypes.INTEGER)
+                }),
+                @TypeConstraint(bindings = {
+                        @TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT),
+                        @TypeParameterBinding(parameter = "U", type = StandardTypes.BIGINT)
+                }),
+                @TypeConstraint(bindings = {
+                        @TypeParameterBinding(parameter = "T", type = "decimal(38, 0)"),
+                        @TypeParameterBinding(parameter = "U", type = "decimal(38, 0)")
+                })})
+        @SqlType("T")
+        public static String plus(
+                @SqlType("T") String left,
+                @SqlType("U") String right)
         {
             return left + " -|- " + right;
         }
