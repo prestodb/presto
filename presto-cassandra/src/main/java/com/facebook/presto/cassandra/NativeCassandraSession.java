@@ -118,14 +118,16 @@ public class NativeCassandraSession
     private final Cluster cluster;
     private final Supplier<Session> session;
     private final Duration noHostAvailableRetryTimeout;
+    private static boolean caseSensitiveNameMatchingEnabled;
 
-    public NativeCassandraSession(String connectorId, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout)
+    public NativeCassandraSession(String connectorId, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout, boolean caseSensitiveNameMatchingEnabled)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.cluster = requireNonNull(cluster, "cluster is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
         this.session = memoize(cluster::connect);
+        this.caseSensitiveNameMatchingEnabled = requireNonNull(caseSensitiveNameMatchingEnabled, "caseSensitiveNameMatchingEnabled is null");
     }
 
     @Override
@@ -320,7 +322,7 @@ public class NativeCassandraSession
         List<AbstractTableMetadata> tables = Stream.concat(
                 keyspace.getTables().stream(),
                 keyspace.getMaterializedViews().stream())
-                .filter(table -> table.getName().equalsIgnoreCase(caseInsensitiveTableName))
+                .filter(table -> caseSensitiveNameMatchingEnabled ? table.getName().equals(caseInsensitiveTableName) : table.getName().equalsIgnoreCase(caseInsensitiveTableName))
                 .collect(toImmutableList());
         if (tables.size() == 0) {
             throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseInsensitiveTableName));
@@ -348,14 +350,14 @@ public class NativeCassandraSession
     {
         Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
         for (ColumnMetadata column : columns) {
-            String lowercaseName = column.getName().toLowerCase(ENGLISH);
-            if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
+            String columnNameKey = caseSensitiveNameMatchingEnabled ? column.getName() : column.getName().toLowerCase(ENGLISH);
+            if (lowercaseNameToColumnMap.containsKey(columnNameKey)) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
+                                columnNameKey, lowercaseNameToColumnMap.get(columnNameKey).getName(), column.getName()));
             }
-            lowercaseNameToColumnMap.put(lowercaseName, column);
+            lowercaseNameToColumnMap.put(columnNameKey, column);
         }
     }
 
