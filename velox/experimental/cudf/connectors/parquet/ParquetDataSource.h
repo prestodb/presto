@@ -66,10 +66,7 @@ class ParquetDataSource : public DataSource, public NvtxHelper {
     return completedBytes_;
   }
 
-  std::unordered_map<std::string, RuntimeCounter> runtimeStats() override {
-    // TODO: Which stats do we want to expose here?
-    return {};
-  }
+  std::unordered_map<std::string, RuntimeCounter> runtimeStats() override;
 
  private:
   // Create a cudf::io::chunked_parquet_reader with the given split.
@@ -133,6 +130,16 @@ class ParquetDataSource : public DataSource, public NvtxHelper {
   std::unique_ptr<exec::ExprSet> subfieldFilterExprSet_;
 
   dwio::common::RuntimeStatistics runtimeStats_;
+  std::atomic<uint64_t> totalRemainingFilterTime_{0};
+
+  // Create callback data for total scan timing calculation
+  struct TotalScanTimeCallbackData {
+    uint64_t startTimeUs;
+    std::shared_ptr<io::IoStatistics> ioStats;
+  };
+
+  // Host callback function to calculate total scan time
+  static void totalScanTimeCalculator(void* userData);
 };
 
 } // namespace facebook::velox::cudf_velox::connector::parquet

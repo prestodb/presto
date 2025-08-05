@@ -23,6 +23,7 @@
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 #include "velox/experimental/cudf/vector/CudfVector.h"
 
+#include "velox/common/time/Timer.h"
 #include "velox/expression/FieldReference.h"
 
 #include <cudf/io/parquet.hpp>
@@ -31,6 +32,8 @@
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
 #include <cudf/transform.hpp>
+
+#include <cuda_runtime.h>
 
 #include <filesystem>
 #include <memory>
@@ -144,9 +147,13 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
     return nullptr;
   }
 
+  // Record start time before reading chunk
+  auto startTimeUs = getCurrentTimeMicro();
+
+  std::unique_ptr<cudf::table> cudfTable;
   // Read a table chunk
   auto [table, metadata] = splitReader_->read_chunk();
-  auto cudfTable = std::move(table);
+  cudfTable = std::move(table);
   // Fill in the column names if reading the first chunk.
   if (columnNames_.empty()) {
     for (const auto& schema : metadata.schema_info) {
@@ -154,8 +161,19 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
     }
   }
 
+  TotalScanTimeCallbackData* callbackData =
+      new TotalScanTimeCallbackData{startTimeUs, ioStats_};
+
+  // Launch host callback to calculate timing when scan completes
+  cudaLaunchHostFunc(
+      stream_.value(),
+      &ParquetDataSource::totalScanTimeCalculator,
+      callbackData);
+
+  uint64_t filterTimeUs{0};
   // Apply remaining filter if present
   if (remainingFilterExprSet_) {
+    MicrosecondTimer filterTimer(&filterTimeUs);
     auto cudfTableColumns = cudfTable->release();
     const auto originalNumColumns = cudfTableColumns.size();
     // Filter may need addtional computed columns which are added to
@@ -178,6 +196,8 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
         stream_,
         cudf::get_current_device_resource_ref());
   }
+  totalRemainingFilterTime_.fetch_add(
+      filterTimeUs * 1000, std::memory_order_relaxed);
 
   // Output RowVectorPtr
   const auto nRows = cudfTable->num_rows();
@@ -210,6 +230,23 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
   // TODO: Update `completedBytes_` here instead of in `addSplit()`
 
   return output;
+}
+
+void ParquetDataSource::totalScanTimeCalculator(void* userData) {
+  TotalScanTimeCallbackData* data =
+      static_cast<TotalScanTimeCallbackData*>(userData);
+
+  // Record end time in callback
+  auto endTimeUs = getCurrentTimeMicro();
+
+  // Calculate elapsed time in microseconds and convert to nanoseconds
+  auto elapsedUs = endTimeUs - data->startTimeUs;
+  auto elapsedNs = elapsedUs * 1000; // Convert microseconds to nanoseconds
+
+  // Update totalScanTime
+  data->ioStats->incTotalScanTime(elapsedNs);
+
+  delete data;
 }
 
 void ParquetDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
@@ -310,6 +347,20 @@ void ParquetDataSource::resetSplit() {
   split_.reset();
   splitReader_.reset();
   columnNames_.clear();
+}
+
+std::unordered_map<std::string, RuntimeCounter>
+ParquetDataSource::runtimeStats() {
+  auto res = runtimeStats_.toMap();
+  res.insert({
+      {"totalScanTime",
+       RuntimeCounter(ioStats_->totalScanTime(), RuntimeCounter::Unit::kNanos)},
+      {"totalRemainingFilterTime",
+       RuntimeCounter(
+           totalRemainingFilterTime_.load(std::memory_order_relaxed),
+           RuntimeCounter::Unit::kNanos)},
+  });
+  return res;
 }
 
 } // namespace facebook::velox::cudf_velox::connector::parquet
