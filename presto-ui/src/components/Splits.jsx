@@ -18,7 +18,7 @@ import { getFirstParameter } from "../utils";
 import { QueryHeader } from "./QueryHeader";
 
 
-export default function Split(): void {
+export default function Split() {
 
     const containerRef = useRef(null);
     const timelineRef = useRef(null);

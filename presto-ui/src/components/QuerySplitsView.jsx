@@ -16,7 +16,7 @@ import { clsx } from 'clsx';
 import { Timeline, DataSet } from "vis-timeline/standalone";
 import { useRef, useEffect } from 'react';
 
-export default function SplitView({ data, show }): void {
+export default function SplitView({ data, show }) {
 
     const containerRef = useRef(null);
     const timelineRef = useRef(null);
