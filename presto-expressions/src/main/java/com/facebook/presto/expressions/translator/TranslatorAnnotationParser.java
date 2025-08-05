@@ -201,13 +201,10 @@ class TranslatorAnnotationParser
         checkArgument(typeConstraints != null, format("Method [%s] is missing @TypeConstraints annotation", method));
 
         TypeConstraint[] typeConstraintArray = typeConstraints.constraints();
-        TypeSignature returnType = parseTypeSignature(method.getAnnotation(SqlType.class).value());
         List<String> parameterTypes = getParameterTypes(method);
 
-//        ImmutableList.Builder<com.facebook.presto.spi.function.TypeParameter> typeParameters = ImmutableList.builder();
-//        typeParameters.addAll(Arrays.asList(method.getAnnotationsByType(TypeParameter.class)));
-
         ImmutableList.Builder<FunctionMetadata> signaturesMetadataBuilder = new ImmutableList.Builder<>();
+        String returnType = method.getAnnotation(SqlType.class).value();
 
         for (TypeConstraint constraint : typeConstraintArray) {
             FunctionMetadata derivedMetadata;
@@ -219,11 +216,12 @@ class TranslatorAnnotationParser
                 TypeSignature updatedType = parseTypeSignature(bindingsMap.getOrDefault(type, type));
                 constraintParameterTypeSignatures.add(updatedType);
             });
+            TypeSignature updatedReturnType = parseTypeSignature(bindingsMap.getOrDefault(returnType, returnType));
             if (header.getOperatorType().isPresent()) {
                 derivedMetadata = new FunctionMetadata(
                         header.getOperatorType().get(),
                         constraintParameterTypeSignatures.build(),
-                        returnType,
+                        updatedReturnType,
                         SCALAR,
                         JAVA,
                         header.isDeterministic(),
@@ -233,7 +231,7 @@ class TranslatorAnnotationParser
                 derivedMetadata = new FunctionMetadata(
                         header.getName(),
                         constraintParameterTypeSignatures.build(),
-                        returnType,
+                        updatedReturnType,
                         SCALAR,
                         JAVA,
                         header.isDeterministic(),
