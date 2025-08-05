@@ -20,6 +20,8 @@
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunction_types.h"
 
 namespace facebook::presto::functions {
+
+class RestRemoteClient;
 struct VeloxRemoteFunctionMetadata
     : public velox::exec::VectorFunctionMetadata {
   /// URL of the HTTP/REST server for remote function.
@@ -33,7 +35,8 @@ struct VeloxRemoteFunctionMetadata
 void registerVeloxRemoteFunction(
     const std::string& name,
     const std::vector<velox::exec::FunctionSignaturePtr>& signatures,
-    const VeloxRemoteFunctionMetadata& metadata = {},
+    const VeloxRemoteFunctionMetadata& metadata,
+    std::shared_ptr<RestRemoteClient> remoteClient,
     bool overwrite = true);
 
 } // namespace facebook::presto::functions

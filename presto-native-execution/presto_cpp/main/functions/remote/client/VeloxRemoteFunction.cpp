@@ -35,10 +35,12 @@ class VeloxRemoteFunction : public velox::exec::VectorFunction {
   VeloxRemoteFunction(
       const std::string& functionName,
       const std::vector<exec::VectorFunctionArg>& inputArgs,
-      const VeloxRemoteFunctionMetadata& metadata)
+      const VeloxRemoteFunctionMetadata& metadata,
+      std::shared_ptr<RestRemoteClient> remoteClient)
       : functionName_(functionName),
         metadata_(metadata),
-        serde_(velox::functions::getSerde(metadata_.serdeFormat)) {
+        serde_(velox::functions::getSerde(metadata_.serdeFormat)),
+        remoteClient_(std::move(remoteClient)) {
     std::vector<TypePtr> types;
     types.reserve(inputArgs.size());
     serializedInputTypes_.reserve(inputArgs.size());
@@ -48,7 +50,6 @@ class VeloxRemoteFunction : public velox::exec::VectorFunction {
       serializedInputTypes_.emplace_back(serializeType(arg.type));
     }
     remoteInputType_ = ROW(std::move(types));
-    remoteClient_ = std::make_unique<RestRemoteClient>(metadata_.location);
   }
 
  private:
@@ -96,15 +97,16 @@ class VeloxRemoteFunction : public velox::exec::VectorFunction {
   RowTypePtr remoteInputType_;
   std::vector<std::string> serializedInputTypes_;
 
-  std::unique_ptr<RestRemoteClient> remoteClient_;
+  std::shared_ptr<RestRemoteClient> remoteClient_;
 };
 
 std::shared_ptr<exec::VectorFunction> createRemoteFunction(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& /*config*/,
-    const VeloxRemoteFunctionMetadata& metadata) {
-  return std::make_unique<VeloxRemoteFunction>(name, inputArgs, metadata);
+    const VeloxRemoteFunctionMetadata& metadata,
+    std::shared_ptr<RestRemoteClient> remoteClient) {
+  return std::make_unique<VeloxRemoteFunction>(name, inputArgs, metadata, remoteClient);
 }
 
 } // namespace
@@ -113,6 +115,7 @@ void registerVeloxRemoteFunction(
     const std::string& name,
     const std::vector<exec::FunctionSignaturePtr>& signatures,
     const VeloxRemoteFunctionMetadata& metadata,
+    std::shared_ptr<RestRemoteClient> remoteClient,
     bool overwrite) {
   registerStatefulVectorFunction(
       name,
@@ -122,7 +125,8 @@ void registerVeloxRemoteFunction(
           std::placeholders::_1,
           std::placeholders::_2,
           std::placeholders::_3,
-          metadata),
+          metadata,
+          remoteClient),
       static_cast<exec::VectorFunctionMetadata>(metadata),
       overwrite);
 }

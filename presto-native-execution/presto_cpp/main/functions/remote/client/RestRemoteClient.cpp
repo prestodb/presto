@@ -65,7 +65,7 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
     velox::functions::remote::PageFormat serdeFormat,
     std::unique_ptr<folly::IOBuf> requestPayload) const {
   try {
-    folly::Uri uri(url_);
+    folly::Uri uri(fullUrl);
     const std::string contentType = getContentType(serdeFormat);
     auto message = std::make_unique<proxygen::HTTPMessage>();
     message->setMethod(proxygen::HTTPMethod::POST);

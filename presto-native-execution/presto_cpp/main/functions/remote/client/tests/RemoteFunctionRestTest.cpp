@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/functions/remote/client/VeloxRemoteFunction.h"
+#include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 #include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestService.h"
 #include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteDoubleDivHandler.h"
 #include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteFibonacciHandler.h"
@@ -48,6 +49,10 @@ class RemoteFunctionRestTest
     auto wrongServicePort = exec::test::getFreePort();
     wrongLocation_ = fmt::format(kHostAddress_, wrongServicePort);
 
+    // Create shared RestRemoteClient instances
+    remoteClient_ = std::make_shared<RestRemoteClient>(location_);
+    wrongRemoteClient_ = std::make_shared<RestRemoteClient>(wrongLocation_);
+
     initializeServer(servicePort);
     registerRemoteFunctions();
   }
@@ -65,7 +70,8 @@ class RemoteFunctionRestTest
       const std::string& functionName,
       const std::string& returnTypeName,
       const std::vector<std::string>& argTypeNames,
-      const std::string& baseLocation) const {
+      const std::string& baseLocation,
+      std::shared_ptr<RestRemoteClient> client) const {
     auto signatureBuilder =
         exec::FunctionSignatureBuilder().returnType(returnTypeName);
     for (const auto& arg : argTypeNames) {
@@ -93,22 +99,22 @@ class RemoteFunctionRestTest
     VeloxRemoteFunctionMetadata metadata;
     metadata.serdeFormat = GetParam();
     metadata.location = baseLocation + "/" + functionName;
-    registerVeloxRemoteFunction(functionName, {finalSignature}, metadata);
+    registerVeloxRemoteFunction(functionName, {finalSignature}, metadata, client);
   }
 
   void registerRemoteFunctions() const {
     registerRemoteFunctionHelper<RemoteFibonacciHandler>(
-        "remote_fibonacci", "bigint", {"bigint"}, location_);
+        "remote_fibonacci", "bigint", {"bigint"}, location_, remoteClient_);
     registerRemoteFunctionHelper<RemoteStrLenHandler>(
-        "remote_strlen", "integer", {"varchar"}, location_);
+        "remote_strlen", "integer", {"varchar"}, location_, remoteClient_);
     registerRemoteFunctionHelper<RemoteRemoveCharHandler>(
-        "remote_remove_char", "varchar", {"varchar", "varchar"}, location_);
+        "remote_remove_char", "varchar", {"varchar", "varchar"}, location_, remoteClient_);
     registerRemoteFunctionHelper<RemoteInverseCdfHandler>(
-        "remote_inverse_cdf", "double", {"double", "double"}, location_);
+        "remote_inverse_cdf", "double", {"double", "double"}, location_, remoteClient_);
     registerRemoteFunctionHelper<RemoteDoubleDivHandler>(
-        "remote_divide", "double", {"double", "double"}, location_);
+        "remote_divide", "double", {"double", "double"}, location_, remoteClient_);
     registerRemoteFunctionHelper<RemoteDoubleDivHandler>(
-        "remote_wrong_port", "double", {"double", "double"}, wrongLocation_);
+        "remote_wrong_port", "double", {"double", "double"}, wrongLocation_, wrongRemoteClient_);
 
     // Register a fake function handler whose logic is intentionally not
     // implemented in the server. This simulates a failure scenario for testing
@@ -120,7 +126,7 @@ class RemoteFunctionRestTest
     VeloxRemoteFunctionMetadata metadata;
     metadata.serdeFormat = GetParam();
     metadata.location = location_ + "/remote_round";
-    registerVeloxRemoteFunction("remote_round", roundSignatures, metadata);
+    registerVeloxRemoteFunction("remote_round", roundSignatures, metadata, remoteClient_);
   }
 
   void initializeServer(uint16_t servicePort) {
@@ -168,6 +174,8 @@ class RemoteFunctionRestTest
 
   std::string location_;
   std::string wrongLocation_;
+  std::shared_ptr<RestRemoteClient> remoteClient_;
+  std::shared_ptr<RestRemoteClient> wrongRemoteClient_;
 };
 
 TEST_P(RemoteFunctionRestTest, connectionError) {

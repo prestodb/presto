@@ -12,6 +12,9 @@
  * limitations under the License.
  */
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
+#endif
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include <boost/algorithm/string/case_conv.hpp>
 #include <unordered_map>
@@ -233,6 +236,7 @@ void registerRestRemoteFunction(
     const protocol::RestFunctionHandle& restFunctionHandle,
     const std::string& remoteFunctionServerRestURL) {
   static std::unordered_map<std::string, std::string> registeredFunctionHandles;
+  static std::unordered_map<std::string, std::shared_ptr<functions::RestRemoteClient>> remoteClients;
 
   const std::string functionName =
       getFunctionName(restFunctionHandle.functionId);
@@ -247,6 +251,14 @@ void registerRestRemoteFunction(
       it->second == serializedFunctionHandle) {
     return;
   }
+
+  // Get or create shared RestRemoteClient for this server URL
+  auto clientIt = remoteClients.find(remoteFunctionServerRestURL);
+  if (clientIt == remoteClients.end()) {
+    remoteClients[remoteFunctionServerRestURL] = 
+        std::make_shared<functions::RestRemoteClient>(remoteFunctionServerRestURL);
+  }
+  auto remoteClient = remoteClients[remoteFunctionServerRestURL];
 
   functions::VeloxRemoteFunctionMetadata metadata;
 
@@ -268,7 +280,8 @@ void registerRestRemoteFunction(
   functions::registerVeloxRemoteFunction(
       getFunctionName(restFunctionHandle.functionId),
       veloxSignatures,
-      metadata);
+      metadata,
+      remoteClient);
 
   registeredFunctionHandles[functionName] = serializedFunctionHandle;
 }
