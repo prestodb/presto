@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -382,7 +383,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("long_column", 1L)
                 .put("keyword_column", "cool")
                 .put("text_column", "some text")
-                .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
+                .put("binary_column", Base64.getEncoder().encodeToString(new byte[] {(byte) 0xCA, (byte) 0xFE}))
                 .put("timestamp_column", 0)
                 .put("ipv4_column", "192.0.2.4")
                 .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
@@ -404,7 +405,8 @@ public class TestElasticsearchIntegrationSmokeTest
                 "FROM types");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
+                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text",
+                        Base64.getEncoder().encodeToString(new byte[] {(byte) 0xCA, (byte) 0xFE}),
                         LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
