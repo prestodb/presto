@@ -18,6 +18,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
@@ -855,4 +856,140 @@ TEST_F(CudfFilterProjectTest, dereference) {
              .planNode();
   assertQuery(plan, "SELECT c1, c2 FROM tmp WHERE c1 % 10 = 5");
 }
+
+TEST_F(CudfFilterProjectTest, cardinality) {
+  auto input = makeArrayVector<int64_t>({{1, 2, 3}, {1, 2}, {}});
+  auto data = makeRowVector({input});
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .project({"cardinality(c0) AS result"})
+                  .planNode();
+  auto expected = makeRowVector({makeFlatVector<int64_t>({3, 2, 0})});
+  AssertQueryBuilder(plan).assertResults({expected});
+}
+
+TEST_F(CudfFilterProjectTest, split) {
+  auto input = makeFlatVector<std::string>(
+      {"hello world", "hello world2", "hello hello"});
+  auto data = makeRowVector({input});
+  createDuckDbTable({data});
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .project({"split(c0, 'hello', 2) AS result"})
+                  .planNode();
+  auto splitResults = AssertQueryBuilder(plan).copyResults(pool());
+
+  auto calculatedSplitResults = makeRowVector({
+      makeArrayVector<std::string>({
+          {"", " world"},
+          {"", " world2"},
+          {"", " hello"},
+      }),
+  });
+  facebook::velox::test::assertEqualVectors(
+      splitResults, calculatedSplitResults);
+}
+
+TEST_F(CudfFilterProjectTest, cardinalityAndSplitOneByOne) {
+  auto input = makeFlatVector<std::string>(
+      {"hello world", "hello world2", "hello hello", "does not contain it"});
+  auto data = makeRowVector({input});
+  auto splitPlan = PlanBuilder()
+                       .values({data})
+                       .project({"split(c0, 'hello', 2) AS c0"})
+                       .planNode();
+  auto splitResults = AssertQueryBuilder(splitPlan).copyResults(pool());
+
+  auto calculatedSplitResults = makeRowVector({
+      makeArrayVector<std::string>({
+          {"", " world"},
+          {"", " world2"},
+          {"", " hello"},
+          {"does not contain it"},
+      }),
+  });
+  facebook::velox::test::assertEqualVectors(
+      splitResults, calculatedSplitResults);
+  auto cardinalityPlan = PlanBuilder()
+                             .values({splitResults})
+                             .project({"cardinality(c0) AS result"})
+                             .planNode();
+  auto expected = makeRowVector({makeFlatVector<int64_t>({2, 2, 2, 1})});
+  AssertQueryBuilder(cardinalityPlan).assertResults({expected});
+}
+
+// TODO: Requires a fix for the expression evaluator to handle function nesting.
+TEST_F(CudfFilterProjectTest, DISABLED_cardinalityAndSplitFused) {
+  auto input = makeFlatVector<std::string>(
+      {"hello world", "hello world2", "hello hello", "does not contain it"});
+  auto data = makeRowVector({input});
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .project({"cardinality(split(c0, 'hello', 2)) AS c0"})
+                  .planNode();
+  auto expected = makeRowVector({makeFlatVector<int64_t>({2, 2, 2, 1})});
+  AssertQueryBuilder(plan).assertResults({expected});
+}
+
+TEST_F(CudfFilterProjectTest, negativeSubstr) {
+  auto input =
+      makeFlatVector<std::string>({"hellobutlonghello", "secondstring"});
+  auto data = makeRowVector({input});
+  auto negativeSubstrPlan =
+      PlanBuilder().values({data}).project({"substr(c0, -2) AS c0"}).planNode();
+  auto negativeSubstrResults =
+      AssertQueryBuilder(negativeSubstrPlan).copyResults(pool());
+
+  auto calculatedNegativeSubstrResults = makeRowVector({
+      makeFlatVector<std::string>({
+          "lo",
+          "ng",
+      }),
+  });
+  facebook::velox::test::assertEqualVectors(
+      negativeSubstrResults, calculatedNegativeSubstrResults);
+}
+
+TEST_F(CudfFilterProjectTest, negativeSubstrWithLength) {
+  auto input =
+      makeFlatVector<std::string>({"hellobutlonghello", "secondstring"});
+  auto data = makeRowVector({input});
+  auto negativeSubstrWithLengthPlan = PlanBuilder()
+                                          .values({data})
+                                          .project({"substr(c0, -6, 3) AS c0"})
+                                          .planNode();
+  auto negativeSubstrWithLengthResults =
+      AssertQueryBuilder(negativeSubstrWithLengthPlan).copyResults(pool());
+
+  auto calculatedNegativeSubstrWithLengthResults = makeRowVector({
+      makeFlatVector<std::string>({
+          "ghe",
+          "str",
+      }),
+  });
+  facebook::velox::test::assertEqualVectors(
+      negativeSubstrWithLengthResults,
+      calculatedNegativeSubstrWithLengthResults);
+}
+
+TEST_F(CudfFilterProjectTest, substrWithLength) {
+  auto input =
+      makeFlatVector<std::string>({"hellobutlonghello", "secondstring"});
+  auto data = makeRowVector({input});
+  auto SubstrPlan = PlanBuilder()
+                        .values({data})
+                        .project({"substr(c0, 1, 3) AS c0"})
+                        .planNode();
+  auto SubstrResults = AssertQueryBuilder(SubstrPlan).copyResults(pool());
+
+  auto calculatedSubstrResults = makeRowVector({
+      makeFlatVector<std::string>({
+          "hel",
+          "sec",
+      }),
+  });
+  facebook::velox::test::assertEqualVectors(
+      SubstrResults, calculatedSubstrResults);
+}
+
 } // namespace

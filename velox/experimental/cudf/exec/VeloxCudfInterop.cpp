@@ -74,7 +74,8 @@ cudf::type_id veloxToCudfTypeId(const TypePtr& type) {
     // https://github.com/facebookincubator/velox/commit/73d2f935b55f084d30557c7be94b9768efb8e56f
     // case TypeKind::SHORT_DECIMAL: return cudf::type_id::DECIMAL64;
     // case TypeKind::LONG_DECIMAL: return cudf::type_id::DECIMAL128;
-    // case TypeKind::ARRAY: return cudf::type_id::EMPTY;
+    case TypeKind::ARRAY:
+      return cudf::type_id::LIST;
     // case TypeKind::MAP: return cudf::type_id::EMPTY;
     case TypeKind::ROW:
       return cudf::type_id::STRUCT;
@@ -83,7 +84,7 @@ cudf::type_id veloxToCudfTypeId(const TypePtr& type) {
     // case TypeKind::OPAQUE: return cudf::type_id::EMPTY;
     // case TypeKind::INVALID: return cudf::type_id::EMPTY;
     default:
-      CUDF_FAIL("Unsupported Velox type");
+      CUDF_FAIL("Unsupported Velox type: " + mapTypeKindToName(type->kind()));
       return cudf::type_id::EMPTY;
   }
 }
