@@ -39,21 +39,11 @@ public class TestNativeExecutionSystemConfig
     {
         // Test defaults
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
-                .setCodegenEnabled(false)
-                .setSpillEnabled(true)
-                .setAggregationSpillEnabled(true)
-                .setJoinSpillEnabled(true)
-                .setOrderBySpillEnabled(true)
-                .setMaxSpillBytes(500L << 30));
+                .setCodegenEnabled(false));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
-                .setCodegenEnabled(true)
-                .setSpillEnabled(false)
-                .setAggregationSpillEnabled(false)
-                .setJoinSpillEnabled(false)
-                .setOrderBySpillEnabled(false)
-                .setMaxSpillBytes(1L);
+                .setCodegenEnabled(true);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
@@ -98,7 +88,12 @@ public class TestNativeExecutionSystemConfig
                 .setShuffleName("local")
                 .setRegisterTestFunctions(false)
                 .setEnableHttpServerAccessLog(true)
-                .setCoreOnAllocationFailureEnabled(false));
+                .setCoreOnAllocationFailureEnabled(false)
+                .setSpillEnabled(true)
+                .setAggregationSpillEnabled(true)
+                .setJoinSpillEnabled(true)
+                .setOrderBySpillEnabled(true)
+                .setMaxSpillBytes(600L << 30));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionSystemConfig expected = new NativeExecutionSystemConfig()
@@ -137,7 +132,12 @@ public class TestNativeExecutionSystemConfig
                 .setShuffleName("custom")
                 .setRegisterTestFunctions(true)
                 .setEnableHttpServerAccessLog(false)
-                .setCoreOnAllocationFailureEnabled(true);
+                .setCoreOnAllocationFailureEnabled(true)
+                .setSpillEnabled(false)
+                .setAggregationSpillEnabled(false)
+                .setJoinSpillEnabled(false)
+                .setOrderBySpillEnabled(false)
+                .setMaxSpillBytes(1L);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
