@@ -13,25 +13,46 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static java.lang.Boolean.parseBoolean;
 
-public class NativeTestsUtils
+/**
+ * Test that Presto works with {@link com.facebook.presto.sql.planner.iterative.IterativeOptimizer} disabled.
+ */
+public class TestNonIterativeDistributedQueries
+        extends AbstractTestQueriesNative
 {
-    private NativeTestsUtils() {}
+    private String storageFormat;
+    private boolean sidecarEnabled;
 
-    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean sidecarEnabled)
+    @BeforeClass
+    @Override
+    public void init()
             throws Exception
     {
+        storageFormat = System.getProperty("storageFormat", "PARQUET");
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init(sidecarEnabled);
+        super.init();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner() throws Exception
+    {
+        /// Presto uses a rule-based iterative optimizer which is enabled by default and can be controlled with config
+        /// 'experimental.iterative-optimizer-enabled'. Tests Presto C++ worker by disabling the iterative optimizer,
+        /// resulting in possibly different query plans.
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .setExtraProperties(ImmutableMap.of("experimental.iterative-optimizer-enabled", "false"))
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
@@ -39,23 +60,9 @@ public class NativeTestsUtils
         return queryRunner;
     }
 
-    public static void createTables(String storageFormat)
+    @Override
+    protected void createTables()
     {
-        try {
-            QueryRunner javaQueryRunner = javaHiveQueryRunnerBuilder()
-                    .setStorageFormat(storageFormat)
-                    .setAddStorageFormatToPath(true)
-                    .build();
-            if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTablesStandard(javaQueryRunner, true);
-            }
-            else {
-                NativeQueryRunnerUtils.createAllTablesStandard(javaQueryRunner, false);
-            }
-            javaQueryRunner.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        NativeTestsUtils.createTables(storageFormat);
     }
 }
