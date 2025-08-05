@@ -28,6 +28,8 @@ class Limit : public Operator {
 
   void addInput(RowVectorPtr input) override;
 
+  bool startDrain() override;
+
   RowVectorPtr getOutput() override;
 
   BlockingReason isBlocked(ContinueFuture* /*future*/) override {

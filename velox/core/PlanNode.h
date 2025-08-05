@@ -3963,6 +3963,10 @@ class LimitNode : public PlanNode {
     std::optional<PlanNodePtr> source_;
   };
 
+  bool supportsBarrier() const override {
+    return true;
+  }
+
   const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }

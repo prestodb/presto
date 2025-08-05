@@ -37,6 +37,10 @@ Limit::Limit(
   }
 }
 
+bool Limit::startDrain() {
+  return false;
+}
+
 bool Limit::needsInput() const {
   return !finished_ && input_ == nullptr;
 }
@@ -47,15 +51,19 @@ void Limit::addInput(RowVectorPtr input) {
 }
 
 RowVectorPtr Limit::getOutput() {
-  if (input_ == nullptr || (remainingOffset_ == 0 && remainingLimit_ == 0)) {
+  VELOX_DCHECK(!isDraining());
+
+  if ((input_ == nullptr) || (remainingOffset_ == 0 && remainingLimit_ == 0)) {
     return nullptr;
   }
 
+  SCOPE_EXIT {
+    input_ = nullptr;
+  };
   const auto inputSize = input_->size();
 
   if (remainingOffset_ >= inputSize) {
     remainingOffset_ -= inputSize;
-    input_ = nullptr;
     return nullptr;
   }
 
@@ -71,7 +79,6 @@ RowVectorPtr Limit::getOutput() {
     auto output = fillOutput(outputSize, indices);
     remainingOffset_ = 0;
     remainingLimit_ -= outputSize;
-    input_ = nullptr;
     if (remainingLimit_ == 0) {
       finished_ = true;
     }
@@ -85,7 +92,6 @@ RowVectorPtr Limit::getOutput() {
   if (remainingLimit_ >= inputSize) {
     remainingLimit_ -= inputSize;
     auto output = input_;
-    input_.reset();
     return output;
   }
 
@@ -95,7 +101,6 @@ RowVectorPtr Limit::getOutput() {
       input_->nulls(),
       remainingLimit_,
       input_->children());
-  input_.reset();
   remainingLimit_ = 0;
   return output;
 }

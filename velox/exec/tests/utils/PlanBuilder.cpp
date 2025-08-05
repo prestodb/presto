@@ -1271,7 +1271,7 @@ PlanBuilder& PlanBuilder::topN(
 PlanBuilder& PlanBuilder::limit(int64_t offset, int64_t count, bool isPartial) {
   planNode_ = std::make_shared<core::LimitNode>(
       nextPlanNodeId(), offset, count, isPartial, planNode_);
-  VELOX_CHECK(!planNode_->supportsBarrier());
+  VELOX_CHECK(planNode_->supportsBarrier());
   return *this;
 }
 
