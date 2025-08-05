@@ -76,6 +76,7 @@ public class CassandraClientConfig
     private String truststorePassword;
     private File keystorePath;
     private String keystorePassword;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     @Size(min = 1)
@@ -474,6 +475,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    public CassandraClientConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

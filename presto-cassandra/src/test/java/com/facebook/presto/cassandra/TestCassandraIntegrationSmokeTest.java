@@ -20,6 +20,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -97,7 +98,7 @@ public class TestCassandraIntegrationSmokeTest
         this.server = server;
         this.session = server.getSession();
         createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
-        return createCassandraQueryRunner(server);
+        return createCassandraQueryRunner(server, ImmutableMap.of());
     }
 
     @Test

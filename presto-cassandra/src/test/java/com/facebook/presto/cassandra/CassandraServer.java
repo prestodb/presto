@@ -81,7 +81,7 @@ public class CassandraServer
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cluster,
-                new Duration(1, MINUTES));
+                new Duration(1, MINUTES), false);
 
         try {
             checkConnectivity(session);
