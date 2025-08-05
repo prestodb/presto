@@ -85,7 +85,6 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
@@ -909,9 +908,12 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
         Transaction transaction = icebergTable.newTransaction();
         transaction.updateSchema().renameColumn(columnHandle.getName(), target).commit();
-        if (icebergTable.spec().fields().stream().map(PartitionField::sourceId).anyMatch(sourceId -> sourceId == columnHandle.getId())) {
-            transaction.updateSpec().renameField(columnHandle.getName(), target).commit();
-        }
+        icebergTable.spec().fields().stream()
+                .filter(field -> field.sourceId() == columnHandle.getId())
+                .forEach(field -> {
+                    String transform = field.transform().toString();
+                    transaction.updateSpec().renameField(field.name(), getPartitionColumnName(target, transform)).commit();
+                });
         transaction.commitTransaction();
     }
 

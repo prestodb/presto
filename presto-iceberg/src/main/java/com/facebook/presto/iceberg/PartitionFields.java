@@ -212,7 +212,17 @@ public final class PartitionFields
             return columnName + "_bucket";
         }
 
+        matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return columnName + "_bucket";
+        }
+
         matcher = COLUMN_TRUNCATE_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return columnName + "_trunc";
+        }
+
+        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
             return columnName + "_trunc";
         }
