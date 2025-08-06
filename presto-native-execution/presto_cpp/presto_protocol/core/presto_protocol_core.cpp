@@ -2276,6 +2276,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<DeleteHandle>(p);
     return;
   }
+  if (type == "UpdateHandle") {
+    j = *std::static_pointer_cast<UpdateHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type ExecutionWriterTarget ");
 }
@@ -2310,6 +2314,12 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
   }
   if (type == "DeleteHandle") {
     std::shared_ptr<DeleteHandle> k = std::make_shared<DeleteHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "UpdateHandle") {
+    std::shared_ptr<UpdateHandle> k = std::make_shared<UpdateHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -11321,9 +11331,13 @@ void from_json(const json& j, UnnestNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+UpdateHandle::UpdateHandle() noexcept {
+  _type = "UpdateHandle";
+}
 
 void to_json(json& j, const UpdateHandle& p) {
   j = json::object();
+  j["@type"] = "UpdateHandle";
   to_json_key(j, "handle", p.handle, "UpdateHandle", "TableHandle", "handle");
   to_json_key(
       j,
@@ -11335,6 +11349,7 @@ void to_json(json& j, const UpdateHandle& p) {
 }
 
 void from_json(const json& j, UpdateHandle& p) {
+  p._type = j["@type"];
   from_json_key(j, "handle", p.handle, "UpdateHandle", "TableHandle", "handle");
   from_json_key(
       j,

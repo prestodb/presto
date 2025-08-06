@@ -131,7 +131,7 @@ AbstractClasses:
       - { name: InsertHandle,  key: RefreshMaterializedViewHandle }
       - { name: InsertHandle,  key: InsertHandle }
       - { name: DeleteHandle,  key: DeleteHandle }
-
+      - { name: UpdateHandle,  key: UpdateHandle }
 
   InputDistribution:
     super: JsonEncodedSubclass

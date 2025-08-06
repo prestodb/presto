@@ -12,10 +12,18 @@
  * limitations under the License.
  */
 
-void toThrift(const std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>& proto, ConnectorTransactionHandleWrapper& thrift) {
+void toThrift(const std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>& proto, ConnectorTransactionHandle& thrift) {
 }
-void fromThrift(const ConnectorTransactionHandleWrapper& thrift, std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>& proto) {
+void fromThrift(const ConnectorTransactionHandle& thrift, std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>& proto) {
   if (thrift.connectorId().has_value() && thrift.customSerializedValue().has_value()) {
+    if (thrift.connectorId() == "$remote") {
+      auto protoRemoteTransactionHandle = std::make_shared<facebook::presto::protocol::RemoteTransactionHandle>();
+      auto thriftRemoteTransactionHandle = std::make_shared<RemoteTransactionHandle>();
+      thriftRead(thrift.customSerializedValue().value(), thriftRemoteTransactionHandle);
+      facebook::presto::thrift::fromThrift(thriftRemoteTransactionHandle, protoRemoteTransactionHandle);
+      proto = protoRemoteTransactionHandle;
+      return;
+    }
     facebook::presto::protocol::getConnectorProtocol(thrift.connectorId().value())
       .deserialize(thrift.customSerializedValue().value(), proto);
   } else if (thrift.jsonValue().has_value()) {
