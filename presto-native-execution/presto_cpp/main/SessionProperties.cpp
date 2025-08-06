@@ -301,13 +301,12 @@ SessionProperties::SessionProperties() {
       c.queryTraceDir());
 
   addSessionProperty(
-      kQueryTraceNodeIds,
-      "A comma-separated list of plan node ids whose input data will be traced."
-      " Empty string if only want to trace the query metadata.",
+      kQueryTraceNodeId,
+      "The plan node id whose input data will be traced.",
       VARCHAR(),
       false,
-      QueryConfig::kQueryTraceNodeIds,
-      c.queryTraceNodeIds());
+      QueryConfig::kQueryTraceNodeId,
+      c.queryTraceNodeId());
 
   addSessionProperty(
       kQueryTraceMaxBytes,

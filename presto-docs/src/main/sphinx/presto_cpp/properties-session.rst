@@ -345,7 +345,7 @@ underlying file system.
 * **Default value:** ``false``
 
 Enable query tracing. After enabled, trace data will be generated with query execution, and
-can be used by TraceReplayer. It needs to be used together with native_query_trace_node_ids,
+can be used by TraceReplayer. It needs to be used together with native_query_trace_node_id,
 native_query_trace_max_bytes, native_query_trace_fragment_id, and native_query_trace_shard_id
 to match the task to be traced.
 
@@ -358,14 +358,13 @@ to match the task to be traced.
 
 The location to store the trace files.
 
-``native_query_trace_node_ids``
+``native_query_trace_node_id``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``varchar``
 * **Default value:** ``""``
 
-A comma-separated list of plan node ids whose input data will be traced.
-Empty string if only want to trace the query metadata.
+The plan node id whose input data will be traced.
 
 ``native_query_trace_max_bytes``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
