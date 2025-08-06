@@ -108,6 +108,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
 
   ~HiveConnectorSplit() = default;
 
+  uint64_t size() const override;
+
   std::string toString() const override;
 
   std::string getFileName() const;

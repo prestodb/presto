@@ -75,6 +75,10 @@ struct ConnectorSplit : public ISerializable {
     return nullptr;
   }
 
+  virtual uint64_t size() const {
+    return 0;
+  }
+
   virtual ~ConnectorSplit() {}
 
   virtual std::string toString() const {

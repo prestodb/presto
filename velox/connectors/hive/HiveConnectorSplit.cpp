@@ -30,6 +30,10 @@ std::string HiveConnectorSplit::toString() const {
   return fmt::format("Hive: {} {} - {}", filePath, start, length);
 }
 
+uint64_t HiveConnectorSplit::size() const {
+  return length;
+}
+
 std::string HiveConnectorSplit::getFileName() const {
   const auto i = filePath.rfind('/');
   return i == std::string::npos ? filePath : filePath.substr(i + 1);

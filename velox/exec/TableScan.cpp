@@ -320,6 +320,9 @@ bool TableScan::getSplit() {
   if (FOLLY_UNLIKELY(splitTracer_ != nullptr)) {
     splitTracer_->write(split);
   }
+
+  stats_.wlock()->addRuntimeStat(
+      "connectorSplitSize", RuntimeCounter(split.connectorSplit->size()));
   const auto& connectorSplit = split.connectorSplit;
   currentSplitWeight_ = connectorSplit->splitWeight;
   needNewSplit_ = false;
