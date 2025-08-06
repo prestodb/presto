@@ -69,27 +69,28 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message) {};
+      : std::runtime_error(message){};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message) {};
+  explicit TypeError(const std::string& message) : Exception(message){};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message) {};
+  explicit OutOfRange(const std::string& message) : Exception(message){};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message) {};
+  explicit ParseError(const std::string& message) : Exception(message){};
 };
 
 using String = std::string;
 using Integer = int;
 using Long = int64_t;
 using boolean = bool;
+using Double = double;
 
 template <typename T>
 using List = std::vector<T>;
@@ -1710,6 +1711,19 @@ void to_json(json& j, const MergeJoinNode& p);
 void from_json(const json& j, MergeJoinNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
+extern void to_json(json& j, const NodeState& e);
+extern void from_json(const json& j, NodeState& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NodeStats {
+  NodeState nodeState = {};
+  Map<String, Double> metrics = {};
+};
+void to_json(json& j, const NodeStats& p);
+void from_json(const json& j, NodeStats& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct NodeVersion {
   String version = {};
 };
@@ -2473,9 +2487,4 @@ struct WindowNode : public PlanNode {
 };
 void to_json(json& j, const WindowNode& p);
 void from_json(const json& j, WindowNode& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
-extern void to_json(json& j, const NodeState& e);
-extern void from_json(const json& j, NodeState& e);
 } // namespace facebook::presto::protocol
