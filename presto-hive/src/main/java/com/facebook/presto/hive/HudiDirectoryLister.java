@@ -40,10 +40,15 @@ import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.Option;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
+import org.apache.hudi.storage.StorageConfiguration;
+import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
@@ -51,6 +56,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getHudiTablesUseMer
 import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataEnabled;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DEFAULT_PORT;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.convertToHadoopFileStatus;
 
 public class HudiDirectoryLister
         implements DirectoryLister
@@ -77,8 +83,10 @@ public class HudiDirectoryLister
         if (actualConfig instanceof CopyOnFirstWriteConfiguration) {
             actualConfig = ((CopyOnFirstWriteConfiguration) actualConfig).getConfig();
         }
+
+        StorageConfiguration<Configuration> storageConfiguration = HadoopFSUtils.getStorageConf(actualConfig);
         this.metaClient = HoodieTableMetaClient.builder()
-                .setConf(actualConfig)
+                .setConf(storageConfiguration)
                 .setBasePath(table.getStorage().getLocation())
                 .build();
         this.latestInstant = metaClient.getActiveTimeline()
@@ -86,12 +94,12 @@ public class HudiDirectoryLister
                 .filterCompletedInstants()
                 .filter(instant -> MERGE_ON_READ.equals(metaClient.getTableType()) && instant.getAction().equals(HoodieTimeline.COMPACTION_ACTION))
                 .lastInstant()
-                .map(HoodieInstant::getTimestamp).orElseGet(() -> metaClient.getActiveTimeline()
+                .map(HoodieInstant::requestedTime).orElseGet(() -> metaClient.getActiveTimeline()
                         .getCommitsTimeline()
                         .filterCompletedInstants()
                         .lastInstant()
-                        .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found")));
-        HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
+                        .map(HoodieInstant::requestedTime).orElseThrow(() -> new RuntimeException("No active instant found")));
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(storageConfiguration);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
                 .build();
@@ -142,9 +150,9 @@ public class HudiDirectoryLister
                 String latestInstant,
                 boolean shouldUseMergedView)
         {
-            String partition = FSUtils.getRelativePartitionPath(new Path(tablePath), directory);
+            String partition = FSUtils.getRelativePartitionPath(new StoragePath(tablePath), new StoragePath(directory.toUri().toString()));
             if (fileStatuses.isPresent()) {
-                fileSystemView.addFilesToView(fileStatuses.get());
+                fileSystemView.addFilesToView(Arrays.stream(fileStatuses.get()).map(HadoopFSUtils::convertToStoragePathInfo).collect(Collectors.toList()));
                 this.hoodieBaseFileIterator = fileSystemView.fetchLatestBaseFiles(partition).iterator();
             }
             else {
@@ -170,7 +178,7 @@ public class HudiDirectoryLister
         public HiveFileInfo next()
                 throws IOException
         {
-            FileStatus fileStatus = hoodieBaseFileIterator.next().getFileStatus();
+            FileStatus fileStatus = convertToHadoopFileStatus(hoodieBaseFileIterator.next().getPathInfo());
             String[] name = {"localhost:" + DFS_DATANODE_DEFAULT_PORT};
             String[] host = {"localhost"};
             LocatedFileStatus hoodieFileStatus = new LocatedFileStatus(fileStatus,

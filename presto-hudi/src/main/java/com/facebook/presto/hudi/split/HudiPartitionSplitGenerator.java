@@ -34,6 +34,7 @@ import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.storage.StoragePath;
 
 import java.util.List;
 import java.util.Optional;
@@ -93,7 +94,7 @@ public class HudiPartitionSplitGenerator
     @Override
     public void run()
     {
-        HoodieTimer timer = new HoodieTimer().startTimer();
+        HoodieTimer timer = HoodieTimer.start();
         while (!concurrentPartitionQueue.isEmpty()) {
             String partitionName = concurrentPartitionQueue.poll();
             if (partitionName != null) {
@@ -107,7 +108,7 @@ public class HudiPartitionSplitGenerator
     {
         HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
-        String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
+        String relativePartitionPath = FSUtils.getRelativePartitionPath(new StoragePath(tablePath.toUri()), new StoragePath(partitionPath.toUri()));
         Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
                 fsView.getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, latestInstant) :
                 fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false);
@@ -131,7 +132,7 @@ public class HudiPartitionSplitGenerator
         List<HudiFile> logFiles = slice.getLogFiles()
                 .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
                 .collect(toImmutableList());
-        long logFilesSize = logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L;
+        long logFilesSize = logFiles.isEmpty() ? 0L : logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum);
         long sizeInBytes = baseFile != null ? baseFile.getLength() + logFilesSize : logFilesSize;
 
         return Optional.of(new HudiSplit(
