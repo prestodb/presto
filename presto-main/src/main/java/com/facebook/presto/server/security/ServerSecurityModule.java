@@ -26,7 +26,7 @@ import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.facebook.presto.server.security.oauth2.OAuth2AuthenticationSupportModule;
 import com.facebook.presto.server.security.oauth2.OAuth2Authenticator;
 import com.facebook.presto.server.security.oauth2.OAuth2Config;
-import com.facebook.presto.server.security.oauth2.Oauth2WebUiAuthenticationManager;
+import com.facebook.presto.server.security.oauth2.OAuth2WebUiAuthenticationManager;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -78,7 +78,7 @@ public class ServerSecurityModule
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
             }
             else if (authType == OAUTH2) {
-                newOptionalBinder(binder, WebUiAuthenticationManager.class).setBinding().to(Oauth2WebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+                newOptionalBinder(binder, WebUiAuthenticationManager.class).setBinding().to(OAuth2WebUiAuthenticationManager.class).in(Scopes.SINGLETON);
                 install(new OAuth2AuthenticationSupportModule());
                 binder.bind(OAuth2Authenticator.class).in(Scopes.SINGLETON);
                 configBinder(binder).bindConfig(OAuth2Config.class);
