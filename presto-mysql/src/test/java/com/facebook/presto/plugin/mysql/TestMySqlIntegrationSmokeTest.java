@@ -216,6 +216,24 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testMysqlDecimal()
+    {
+        assertUpdate("CREATE TABLE test_decimal (d DECIMAL(10, 2))");
+
+        assertUpdate("INSERT INTO test_decimal VALUES (123.45)", 1);
+        assertUpdate("INSERT INTO test_decimal VALUES (67890.12)", 1);
+        assertUpdate("INSERT INTO test_decimal VALUES (0.99)", 1);
+
+        assertQuery(
+                "SELECT d FROM test_decimal WHERE d<200.00 AND d>0.00",
+                "VALUES " +
+                        "CAST('123.45' AS DECIMAL), " +
+                        "CAST('0.99' AS DECIMAL)");
+
+        assertUpdate("DROP TABLE test_decimal");
+    }
+
+    @Test
     public void testCharTrailingSpace()
             throws Exception
     {
