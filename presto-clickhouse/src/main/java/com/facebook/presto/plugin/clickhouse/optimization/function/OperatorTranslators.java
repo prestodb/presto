@@ -17,8 +17,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlSignature;
-import com.facebook.presto.spi.function.SupportedSignatures;
+import com.facebook.presto.spi.function.SqlType;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -34,36 +33,36 @@ public class OperatorTranslators
     }
 
     @ScalarOperator(ADD)
-    @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
-    public static ClickHouseExpression add(ClickHouseExpression left, ClickHouseExpression right)
+    @SqlType(StandardTypes.BIGINT)
+    public static ClickHouseExpression add(@SqlType(StandardTypes.BIGINT) ClickHouseExpression left, @SqlType(StandardTypes.BIGINT) ClickHouseExpression right)
     {
         return new ClickHouseExpression(infixOperation("+", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(SUBTRACT)
-    @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
-    public static ClickHouseExpression subtract(ClickHouseExpression left, ClickHouseExpression right)
+    @SqlType(StandardTypes.BIGINT)
+    public static ClickHouseExpression subtract(@SqlType(StandardTypes.BIGINT) ClickHouseExpression left, @SqlType(StandardTypes.BIGINT) ClickHouseExpression right)
     {
         return new ClickHouseExpression(infixOperation("-", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(EQUAL)
-    @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
-    public static ClickHouseExpression equal(ClickHouseExpression left, ClickHouseExpression right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static ClickHouseExpression equal(@SqlType(StandardTypes.BIGINT) ClickHouseExpression left, @SqlType(StandardTypes.BIGINT) ClickHouseExpression right)
     {
         return new ClickHouseExpression(infixOperation("=", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
-    public static ClickHouseExpression notEqual(ClickHouseExpression left, ClickHouseExpression right)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static ClickHouseExpression notEqual(@SqlType(StandardTypes.BIGINT) ClickHouseExpression left, @SqlType(StandardTypes.BIGINT) ClickHouseExpression right)
     {
         return new ClickHouseExpression(infixOperation("<>", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarFunction("not")
-    @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.BOOLEAN))
-    public static ClickHouseExpression not(ClickHouseExpression expression)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static ClickHouseExpression not(@SqlType(StandardTypes.BOOLEAN) ClickHouseExpression expression)
     {
         return new ClickHouseExpression(String.format("(NOT(%s))", expression.getExpression()), expression.getBoundConstantValues());
     }
