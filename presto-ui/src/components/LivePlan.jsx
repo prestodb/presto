@@ -161,35 +161,34 @@ export const LivePlan = (props: LivePlanProps) => {
     const svgRef = useRef(null);
     const renderRef = useRef(new dagreD3.render());
 
-    const resetTimer = () => {
-        clearTimeout(timeoutId.current);
-        // stop refreshing when query finishes or fails
-        if (state.query === null || !state.ended) {
-            timeoutId.current = setTimeout(refreshLoop, 1000);
-        }
-    };
-
     const refreshLoop = () => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
         fetch('/v1/query/' + props.queryId)
             .then(response => response.json())
             .then(query => {
-                setState(prevState => ({
-                    ...prevState,
-                    query: query,
-                    initialized: true,
-                    ended: query.finalQueryInfo,
-                }));
-                resetTimer();
+                setState(prevState => {
+                    const ended = query.finalQueryInfo;
+                    if (ended) {
+                        clearTimeout(timeoutId.current);
+                    } else {
+                        timeoutId.current = setTimeout(refreshLoop, 1000);
+                    }
+                    return {
+                        ...prevState,
+                        query: query,
+                        initialized: true,
+                        ended,
+                    };
+                })
             })
             .catch(() => {
                 setState(prevState => ({
                     ...prevState,
                     initialized: true,
                 }));
-                resetTimer();
+                timeoutId.current = setTimeout(refreshLoop, 1000);
             });
-    };
+    }
     
     const handleStageClick = (stageCssId: any) => {
         window.open("stage.html?" + stageCssId.target.__data__, '_blank');
