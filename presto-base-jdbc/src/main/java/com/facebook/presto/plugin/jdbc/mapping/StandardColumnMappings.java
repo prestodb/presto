@@ -416,6 +416,9 @@ public final class StandardColumnMappings
         else if (type.equals(BIGINT)) {
             return Optional.of(bigintWriteMapping());
         }
+        else if (type instanceof DecimalType) {
+            return Optional.of(decimalWriteMapping((DecimalType) type));
+        }
         else if (type.equals(REAL)) {
             return Optional.of(realWriteMapping());
         }
