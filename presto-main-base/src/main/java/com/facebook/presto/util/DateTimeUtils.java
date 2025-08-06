@@ -84,7 +84,6 @@ public final class DateTimeUtils
     private static final DateTimeFormatter TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
-
     private static final java.time.format.DateTimeFormatter TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER;
 
     static {
@@ -159,8 +158,7 @@ public final class DateTimeUtils
                 .appendLiteral(":")
                 .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
                 .optionalStart()
-                .appendLiteral(".")
-                .appendValue(ChronoField.MICRO_OF_SECOND, 1, 9, SignStyle.NORMAL)
+                .appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true)
                 .optionalEnd()
                 .optionalStart()
                 .appendLiteral(" ")

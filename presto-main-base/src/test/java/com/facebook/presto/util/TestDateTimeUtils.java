@@ -19,10 +19,10 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestDateTimeUtils
 {
-    @Test(expectedExceptions = {Exception.class})
+    @Test(expectedExceptions = {ArithmeticException.class})
     public void testLongOverflowHigh()
     {
-        DateTimeUtils.parseTimestampWithoutTimeZone("292278994-08-17 11:46:00.000");
+        DateTimeUtils.parseTimestampWithoutTimezoneJavaTime("292278994-08-17 11:46:00.000");
     }
 
     @Test
@@ -64,12 +64,12 @@ public class TestDateTimeUtils
         expectedMillis = DateTimeUtils.parseTimestampWithoutTimeZone("1996-01-02");
         assertEquals(actualMillis, expectedMillis);
 
-        actualMillis = DateTimeUtils.parseTimestampWithoutTimezoneJavaTime("2001-1-22 03:04:05.321 +07:09");
-        expectedMillis = DateTimeUtils.parseTimestampWithoutTimeZone("2001-1-22 03:04:05.321 +07:09");
-        assertEquals(actualMillis, expectedMillis);
-
         actualMillis = DateTimeUtils.parseTimestampWithoutTimezoneJavaTime("2001-1-22 03:04:05.321");
         expectedMillis = DateTimeUtils.parseTimestampWithoutTimeZone("2001-1-22 03:04:05.321");
+        assertEquals(actualMillis, expectedMillis);
+
+        actualMillis = DateTimeUtils.parseTimestampWithoutTimezoneJavaTime("2001-1-22 03:04:05.321 +07:09");
+        expectedMillis = DateTimeUtils.parseTimestampWithoutTimeZone("2001-1-22 03:04:05.321 +07:09");
         assertEquals(actualMillis, expectedMillis);
 
         actualMillis = DateTimeUtils.parseTimestampWithoutTimezoneJavaTime("0001-08-17 11:46:00.000999999");
