@@ -20,8 +20,6 @@
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
 #include <velox/type/fbhive/HiveTypeParser.h>
-
-#include "presto_cpp/main/common/Configs.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
