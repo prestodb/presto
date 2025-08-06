@@ -18,6 +18,7 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -113,6 +114,7 @@ public final class InternalResourceGroupManager<C>
     private final QueryManagerConfig queryManagerConfig;
     private final InternalNodeManager nodeManager;
     private AtomicBoolean isConfigurationManagerLoaded;
+    private final ClusterResourceChecker clusterResourceChecker;
 
     @Inject
     public InternalResourceGroupManager(
@@ -122,7 +124,8 @@ public final class InternalResourceGroupManager<C>
             MBeanExporter exporter,
             ResourceGroupService resourceGroupService,
             ServerConfig serverConfig,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            ClusterResourceChecker clusterResourceChecker)
     {
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -138,6 +141,7 @@ public final class InternalResourceGroupManager<C>
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
         this.isConfigurationManagerLoaded = new AtomicBoolean(false);
+        this.clusterResourceChecker = clusterResourceChecker;
     }
 
     @Override
@@ -397,7 +401,7 @@ public final class InternalResourceGroupManager<C>
             else {
                 RootInternalResourceGroup root;
                 if (!isResourceManagerEnabled) {
-                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager);
+                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager, clusterResourceChecker);
                 }
                 else {
                     root = new RootInternalResourceGroup(
@@ -410,7 +414,8 @@ public final class InternalResourceGroupManager<C>
                                     resourceGroupRuntimeInfosSnapshot::get,
                                     lastUpdatedResourceGroupRuntimeInfo::get,
                                     concurrencyThreshold),
-                            nodeManager);
+                            nodeManager,
+                            clusterResourceChecker);
                 }
                 group = root;
                 rootGroups.add(root);

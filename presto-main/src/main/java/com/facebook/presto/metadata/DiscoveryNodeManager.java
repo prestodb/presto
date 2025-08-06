@@ -246,7 +246,7 @@ public final class DiscoveryNodeManager
             switch (protocol) {
                 case HTTP:
                     nodeStatsMap.putIfAbsent(node.getNodeIdentifier(),
-                            new HttpRemoteNodeStats(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/nodestate").build()));
+                            new HttpRemoteNodeStats(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/nodestats").build()));
                     break;
                 case THRIFT:
                     if (node.getThriftPort().isPresent()) {
@@ -278,6 +278,15 @@ public final class DiscoveryNodeManager
     public void refreshNodes()
     {
         refreshNodesInternal();
+    }
+
+    @Override
+    public Map<String, Double> getNodeLoadMetrics(String nodeId)
+    {
+        Optional<NodeStats> remoteNodeStats = nodeStatsMap.containsKey(nodeId)
+                ? nodeStatsMap.get(nodeId).getNodeStats()
+                : Optional.empty();
+        return remoteNodeStats.map(NodeStats::getMetrics).orElse(ImmutableMap.of());
     }
 
     private synchronized void refreshNodesInternal()

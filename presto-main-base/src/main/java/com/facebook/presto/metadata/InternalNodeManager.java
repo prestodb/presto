@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -46,4 +47,6 @@ public interface InternalNodeManager
     void addNodeChangeListener(Consumer<AllNodes> listener);
 
     void removeNodeChangeListener(Consumer<AllNodes> listener);
+
+    Map<String, Double> getNodeLoadMetrics(String nodeIdentifier);
 }
