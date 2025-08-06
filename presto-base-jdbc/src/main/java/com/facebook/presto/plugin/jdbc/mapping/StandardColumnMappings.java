@@ -428,6 +428,9 @@ public final class StandardColumnMappings
         else if (type instanceof CharType || type instanceof VarcharType) {
             return Optional.of(charWriteMapping());
         }
+        else if (type instanceof DecimalType) {
+            return Optional.of(decimalWriteMapping((DecimalType) type));
+        }
         else if (type.equals(DateType.DATE)) {
             return Optional.of(dateWriteMapping());
         }
