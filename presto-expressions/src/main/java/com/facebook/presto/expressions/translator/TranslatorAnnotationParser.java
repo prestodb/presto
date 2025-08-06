@@ -35,12 +35,14 @@ import java.lang.invoke.MethodHandles;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
@@ -148,34 +150,52 @@ class TranslatorAnnotationParser
     private static List<FunctionMetadata> methodToFunctionMetadata(ScalarTranslationHeader header, Method method)
     {
         requireNonNull(header, "header is null");
-        TypeSignature returnType = parseTypeSignature(method.getAnnotation(SqlType.class).value());
 
-        FunctionMetadata derivedMetadata;
+        // return type
+        SqlType annotatedReturnType = method.getAnnotation(SqlType.class);
+        checkArgument(annotatedReturnType != null, format("Method [%s] is missing @SqlType annotation", method));
+        TypeSignature returnType = parseTypeSignature(annotatedReturnType.value(), ImmutableSet.of());
+
+        // argument type
+        ImmutableList.Builder<TypeSignature> argumentTypes = new ImmutableList.Builder<>();
+        for (Parameter parameter : method.getParameters()) {
+            Annotation[] annotations = parameter.getAnnotations();
+
+            SqlType type = Stream.of(annotations)
+                    .filter(SqlType.class::isInstance)
+                    .map(SqlType.class::cast)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
+            TypeSignature typeSignature = parseTypeSignature(type.value(), ImmutableSet.of());
+            argumentTypes.add(typeSignature);
+        }
+
         if (header.getOperatorType().isPresent()) {
-            derivedMetadata = new FunctionMetadata(
-                    header.getOperatorType().get(),
-                    constraintParameterTypeSignatures.build(),
-                    updatedReturnType,
-                    SCALAR,
-                    JAVA,
-                    header.isDeterministic(),
-                    header.isCalledOnNullInput());
+            return ImmutableList.of(
+                    new FunctionMetadata(
+                            header.getOperatorType().get(),
+                            argumentTypes.build(),
+                            returnType,
+                            SCALAR,
+                            JAVA,
+                            header.isDeterministic(),
+                            header.isCalledOnNullInput()));
         }
-        else {
-            derivedMetadata = new FunctionMetadata(
-                    header.getName(),
-                    constraintParameterTypeSignatures.build(),
-                    updatedReturnType,
-                    SCALAR,
-                    JAVA,
-                    header.isDeterministic(),
-                    header.isCalledOnNullInput());
-        }
+        return ImmutableList.of(
+                new FunctionMetadata(
+                        header.getName(),
+                        argumentTypes.build(),
+                        returnType,
+                        SCALAR,
+                        JAVA,
+                        header.isDeterministic(),
+                        header.isCalledOnNullInput()));
     }
 
     private static List<FunctionMetadata> methodToFunctionMetadataWithConstraints(ScalarTranslationHeader header, Method method)
     {
         requireNonNull(header, "header is null");
+
         TypeConstraints typeConstraints = method.getAnnotation(TypeConstraints.class);
         checkArgument(typeConstraints != null, format("Method [%s] is missing @TypeConstraints annotation", method));
 
