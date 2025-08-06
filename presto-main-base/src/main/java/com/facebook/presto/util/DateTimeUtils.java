@@ -297,7 +297,12 @@ public final class DateTimeUtils
     @Deprecated
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
-        return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+        try {
+            return java.time.LocalDateTime.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atZone(ZoneId.of(timeZoneKey.getId())).toInstant().toEpochMilli();
+        }
+        catch (ArithmeticException e) {
+            throw new ArithmeticException("timestamp could not be converted to epoch milliseconds due to numeric overflow");
+        }
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
