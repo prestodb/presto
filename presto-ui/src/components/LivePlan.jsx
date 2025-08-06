@@ -25,7 +25,6 @@ import {QueryHeader} from "./QueryHeader";
 type StageStatisticsProps = {
     stage: any,
 }
-type StageStatisticsState = {}
 export type StageNodeInfo = {
     stageId: string,
     id: string,
@@ -147,29 +146,20 @@ type LivePlanProps = {
 type LivePlanState = {
     initialized: boolean,
     ended: boolean,
-
     query: ?any,
-
-    graph: any,
-    svg: any,
-    render: any,
-}
-
-function handleStageClick(stageCssId: any) {
-   window.open("stage.html?" + stageCssId.target.__data__, '_blank');
 }
 
 export const LivePlan = (props: LivePlanProps) => {
-    const [state, setState] = useState({
+    const [state, setState] = useState<LivePlanState>({
         initialized: false,
         ended: false,
         query: null,
-        graph: initializeGraph(),
-        svg: null,
-        render: new dagreD3.render(),
     });
 
     const timeoutId = useRef<number | null>(null);
+    const graphRef = useRef(initializeGraph());
+    const svgRef = useRef(null);
+    const renderRef = useRef(new dagreD3.render());
 
     const resetTimer = () => {
         clearTimeout(timeoutId.current);
@@ -200,6 +190,10 @@ export const LivePlan = (props: LivePlanProps) => {
                 resetTimer();
             });
     };
+    
+    const handleStageClick = (stageCssId: any) => {
+        window.open("stage.html?" + stageCssId.target.__data__, '_blank');
+    }
 
     const updateD3Stage = (stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) => {
         const clusterId = stage.stageId;
@@ -248,28 +242,21 @@ export const LivePlan = (props: LivePlanProps) => {
     };
 
     const updateD3Graph = () => {
-        if (!state.svg) {
-            setState(prevState => ({
-                ...prevState,
-                svg: initializeSvg("#plan-canvas"),
-            }));
-            return;
+        if (!svgRef.current || !state.query) {
+            return
         }
 
-        if (!state.query) {
-            return;
-        }
-
-        const graph = state.graph;
+        // const svg = d3.select(svgRef.current);
+        const svg = initializeSvg(svgRef.current);
+        const graph = graphRef.current;
         const stages = getStages(state.query);
         stages.forEach(stage => {
             updateD3Stage(stage, graph, stages);
         });
 
-        const inner = d3.select("#plan-canvas g");
-        state.render(inner, graph);
+        const inner = svg.select("g");
+        renderRef.current(inner, graph);
 
-        const svg = state.svg;
         svg.selectAll("g.cluster").on("click", handleStageClick);
 
         const width = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("width").replace(/px/, "")) - 50;
@@ -277,6 +264,7 @@ export const LivePlan = (props: LivePlanProps) => {
 
         const graphHeight = graph.graph().height + 100;
         const graphWidth = graph.graph().width + 100;
+
         if (state.ended) {
             // Zoom doesn't deal well with DOM changes
             const initialScale = Math.min(width / graphWidth, height / graphHeight);
@@ -295,21 +283,19 @@ export const LivePlan = (props: LivePlanProps) => {
         }
     };
 
-    // componentDidMount equivalent
     useEffect(() => {
         refreshLoop();
         
         return () => {
             clearTimeout(timeoutId.current);
         };
-    }, []);
+    }, [props.queryId]);
 
-    // componentDidUpdate equivalent
     useEffect(() => {
         updateD3Graph();
         //$FlowFixMe
         $('[data-bs-toggle="tooltip"]')?.tooltip?.()
-    }, [state.query, state.svg]);
+    }, [state.query, state.ended]);
 
     const query = state.query;
 
@@ -347,7 +333,7 @@ export const LivePlan = (props: LivePlanProps) => {
                         <div className="float-end">
                             {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
                         </div>
-                        <svg id="plan-canvas"/>
+                        <svg id="plan-canvas" ref={svgRef} />
                     </div>
                 </div>
             </div>
