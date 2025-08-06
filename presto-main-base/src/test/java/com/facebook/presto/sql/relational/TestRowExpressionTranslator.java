@@ -273,22 +273,24 @@ public class TestRowExpressionTranslator
     public static class TestFunctions
     {
         @ScalarFunction
-        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT))
-        public static String bitwiseAnd(String left, String right)
+        @SqlType(StandardTypes.BIGINT)
+        public static String bitwiseAnd(
+                @SqlType(StandardTypes.BIGINT) String left,
+                @SqlType(StandardTypes.BIGINT) String right)
         {
             return left + " BITWISE_AND " + right;
         }
 
         @ScalarFunction("ln")
-        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.DOUBLE, returnType = StandardTypes.DOUBLE))
-        public static String ln(String sql)
+        @SqlType(StandardTypes.DOUBLE)
+        public static String ln(@SqlType(StandardTypes.DOUBLE) String sql)
         {
             return "LNof(" + sql + ")";
         }
 
         @ScalarFunction("ceil")
-        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.DOUBLE))
-        public static String ceil(String sql)
+        @SqlType(StandardTypes.DOUBLE)
+        public static String ceil(@SqlType(StandardTypes.BOOLEAN) String sql)
         {
             return "CEILof(" + sql + ")";
         }
@@ -327,8 +329,10 @@ public class TestRowExpressionTranslator
         }
 
         @ScalarOperator(OperatorType.LESS_THAN)
-        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BOOLEAN))
-        public static String lessThan(String left, String right)
+        @SqlType(StandardTypes.BOOLEAN)
+        public static String lessThan(
+                @SqlType(StandardTypes.BIGINT) String left,
+                @SqlType(StandardTypes.BIGINT) String right)
         {
             return left + " LT " + right;
         }
