@@ -84,7 +84,7 @@ public final class DateTimeUtils
     private static final DateTimeFormatter TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
-    private static final java.time.format.DateTimeFormatter TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER;
+    private static final java.time.format.DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIMEZONE_FORMATTER_JAVA;
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -143,7 +143,7 @@ public final class DateTimeUtils
                 .toFormatter()
                 .withOffsetParsed();
 
-        TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER = new java.time.format.DateTimeFormatterBuilder()
+        TIMESTAMP_WITH_OR_WITHOUT_TIMEZONE_FORMATTER_JAVA = new java.time.format.DateTimeFormatterBuilder()
                 .appendValue(ChronoField.YEAR_OF_ERA, 3, 19, SignStyle.NORMAL)
                 .appendLiteral("-")
                 .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NORMAL)
@@ -268,14 +268,14 @@ public final class DateTimeUtils
         }
     }
 
-    public static long parseTimestampWithoutTimezoneJavaTime(String value)
+    public static long parseTimestampWithoutTimeZoneJavaTime(String value)
     {
         try {
-            return java.time.LocalDateTime.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atZone(ZoneId.of(TimeZoneKey.UTC_KEY.getId())).toInstant().toEpochMilli();
+            return java.time.LocalDateTime.parse(value, TIMESTAMP_WITH_OR_WITHOUT_TIMEZONE_FORMATTER_JAVA).atZone(ZoneId.of(TimeZoneKey.UTC_KEY.getId())).toInstant().toEpochMilli();
         }
         catch (DateTimeParseException e) {
             try {
-                return java.time.LocalDate.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atStartOfDay().atZone(ZoneId.of(TimeZoneKey.UTC_KEY.getId())).toInstant().toEpochMilli();
+                return java.time.LocalDate.parse(value, TIMESTAMP_WITH_OR_WITHOUT_TIMEZONE_FORMATTER_JAVA).atStartOfDay().atZone(ZoneId.of(TimeZoneKey.UTC_KEY.getId())).toInstant().toEpochMilli();
             }
             catch (Exception f) {
                 throw new RuntimeException(e);
@@ -296,7 +296,7 @@ public final class DateTimeUtils
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
         try {
-            return java.time.LocalDateTime.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atZone(ZoneId.of(timeZoneKey.getId())).toInstant().toEpochMilli();
+            return java.time.LocalDateTime.parse(value, TIMESTAMP_WITH_OR_WITHOUT_TIMEZONE_FORMATTER_JAVA).atZone(ZoneId.of(timeZoneKey.getId())).toInstant().toEpochMilli();
         }
         catch (ArithmeticException e) {
             throw new ArithmeticException("timestamp could not be converted to epoch milliseconds due to numeric overflow");
