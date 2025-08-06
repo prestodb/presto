@@ -37,10 +37,10 @@ import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getSchemeUriBuilder;
 import static java.util.Objects.requireNonNull;
 
-public class Oauth2WebUiAuthenticationManager
+public class OAuth2WebUiAuthenticationManager
         implements WebUiAuthenticationManager
 {
-    private static final Logger logger = Logger.get(Oauth2WebUiAuthenticationManager.class);
+    private static final Logger logger = Logger.get(OAuth2WebUiAuthenticationManager.class);
     private final OAuth2Service oAuth2Service;
     private final OAuth2Authenticator oAuth2Authenticator;
     private final TokenPairSerializer tokenPairSerializer;
@@ -48,7 +48,7 @@ public class Oauth2WebUiAuthenticationManager
     private final Optional<Duration> tokenExpiration;
 
     @Inject
-    public Oauth2WebUiAuthenticationManager(OAuth2Service oAuth2Service, OAuth2Authenticator oAuth2Authenticator, TokenPairSerializer tokenPairSerializer, OAuth2Client client, @ForRefreshTokens Optional<Duration> tokenExpiration)
+    public OAuth2WebUiAuthenticationManager(OAuth2Service oAuth2Service, OAuth2Authenticator oAuth2Authenticator, TokenPairSerializer tokenPairSerializer, OAuth2Client client, @ForRefreshTokens Optional<Duration> tokenExpiration)
     {
         this.oAuth2Service = requireNonNull(oAuth2Service, "oauth2Service is null");
         this.oAuth2Authenticator = requireNonNull(oAuth2Authenticator, "oauth2Authenticator is null");
