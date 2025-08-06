@@ -270,11 +270,11 @@ public class IcebergNativeMetadata
         Catalog catalog = catalogFactory.getCatalog(session);
         if (catalog instanceof ViewCatalog) {
             List<SchemaTableName> tableNames;
-            if (prefix.getTableName() != null) {
+            if (prefix.getSchemaName() != null && prefix.getTableName() != null) {
                 tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
             }
             else {
-                tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+                tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
             }
 
             for (SchemaTableName schemaTableName : tableNames) {
