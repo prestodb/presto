@@ -399,7 +399,9 @@ void PrestoServer::run() {
           proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(
             downstream,
-            getAnalyzedTableValueFunction(util::extractMessageBody(body)));
+            getAnalyzedTableValueFunction(
+                util::extractMessageBody(body),
+                server->nativeWorkerPool_.get()));
       });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {

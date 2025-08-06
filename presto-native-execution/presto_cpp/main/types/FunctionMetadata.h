@@ -15,6 +15,7 @@
 #pragma once
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::presto {
 
@@ -25,6 +26,7 @@ nlohmann::json getFunctionsMetadata();
 nlohmann::json getTableValuedFunctionsMetadata();
 
 nlohmann::json getAnalyzedTableValueFunction(
-    std::string connectorTableMetadataJson);
+    std::string connectorTableMetadataJson,
+    velox::memory::MemoryPool* pool);
 
 } // namespace facebook::presto

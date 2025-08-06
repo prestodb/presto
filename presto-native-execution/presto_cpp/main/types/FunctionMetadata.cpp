@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/tvf/spi/TableFunction.h"
+#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
@@ -479,8 +480,11 @@ protocol::NativeTableFunctionAnalysis getNativeTableFunctionAnalysis(
   return nativeTableFunctionAnalysis;
 }
 
-json getAnalyzedTableValueFunction(std::string connectorTableMetadataJson) {
+json getAnalyzedTableValueFunction(
+    std::string connectorTableMetadataJson,
+    velox::memory::MemoryPool* pool) {
   TypeParser parser;
+  VeloxExprConverter exprConverter_{pool, &parser};
   protocol::ConnectorTableMetadata1 connectorTableMetadata =
       json::parse(connectorTableMetadataJson);
   std::unordered_map<std::string, std::shared_ptr<tvf::Argument>> args;
@@ -490,10 +494,16 @@ json getAnalyzedTableValueFunction(std::string connectorTableMetadataJson) {
             std::dynamic_pointer_cast<protocol::ScalarArgument>(entry.second)) {
       auto serializableNullableValue =
           scalarArgument->nullableValue.serializable;
-      // arg = std::make_shared<tvf::ScalarArgument>(
-      //   parser.parse(serializableNullableValue.type),
-      //   BaseVector::create(rowType, 0, &streams_.getMemoryPool())
-      //   BaseVector::create(serializableNullableValue.block));
+      auto value = exprConverter_.getConstantValue(
+          parser.parse(serializableNullableValue.type),
+          serializableNullableValue.block);
+      functionArg = std::make_shared<tvf::ScalarArgument>(
+          value.inferType(),
+          BaseVector::createConstant(
+              value.inferType(),
+              value,
+              serializableNullableValue.block.data.size(),
+              pool));
     } else if (
         auto tableArgument =
             std::dynamic_pointer_cast<protocol::TableArgument>(entry.second)) {
