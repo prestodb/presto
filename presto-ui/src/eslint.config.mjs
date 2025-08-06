@@ -18,22 +18,26 @@ export default [
       "webpack.config.js",
     ],
   },
-  // Flow stuff
+  // Flow
   {
     languageOptions: {
       parser: hermes,
     },
     plugins: {
-      ftFlow,
+      "ft-flow": ftFlow,
     },
     settings: {
       flowtype: {
         onlyFilesWithFlowAnnotation: true,
       },
     },
+    rules: {
+      ...ftFlow.configs.recommended.rules,
+    },
   },
-  // React stuff
+  // React
   {
+    files: ["**/*.jsx"],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -46,7 +50,6 @@ export default [
     },
     rules: {
       ...react.configs.recommended.rules,
-      // ...prettier.rules,
       ["react/prop-types"]: "warn",
       ["react/no-deprecated"]: "warn",
       ["no-prototype-builtins"]: "warn",
@@ -57,6 +60,4 @@ export default [
       },
     },
   },
-  // Prettier Stuff
-  {},
 ];
