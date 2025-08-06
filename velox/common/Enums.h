@@ -48,7 +48,7 @@ struct Enums {
 ///
 /// enum class Foo {...};
 ///
-/// VELOX_DEFINE_ENUM_NAME(Foo);
+/// VELOX_DECLARE_ENUM_NAME(Foo);
 ///
 /// In the cpp file, define the mapping:
 ///
@@ -62,12 +62,12 @@ struct Enums {
 /// }
 /// } // namespace
 ///
-/// VELOX_DECLARE_ENUM_NAME(Foo, fooNames);
+/// VELOX_DEFINE_ENUM_NAME(Foo, fooNames);
 ///
 /// In the client code, use FooName::toName(Foo::kFirst) to get the name of the
 /// enum and FooName::toFoo("FIRST") or FooName::tryToFoo("FIRST") to get the
 /// enum value. toFoo throws an exception if input is not a valid name, while
-/// tryToFoo returns an std::nullopt.
+/// tryToFoo returns a std::nullopt.
 ///
 /// Use _EMBEDDED_ versions of the macros to define enums embedded in other
 /// classes.
