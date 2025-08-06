@@ -22,8 +22,15 @@ using IcebergConnectorProtocol = ConnectorProtocolTemplate<
     IcebergTableHandle,
     IcebergTableLayoutHandle,
     IcebergColumnHandle,
-    NotImplemented,
-    NotImplemented,
+
+#ifdef PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION
+    IcebergInsertTableHandle,
+    IcebergOutputTableHandle,
+#else
+    // NotImplemented,
+    // NotImplemented,
+#endif
+
     IcebergSplit,
     NotImplemented,
     hive::HiveTransactionHandle,
