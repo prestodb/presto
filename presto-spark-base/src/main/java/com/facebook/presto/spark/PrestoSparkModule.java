@@ -429,7 +429,7 @@ public class PrestoSparkModule
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
 
         // for thrift serde
-        binder.bind(ThriftCodecManager.class).toInstance(new ThriftCodecManager());
+        newOptionalBinder(binder, ThriftCodecManager.class).setDefault().toInstance(new ThriftCodecManager());
         binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
         // page sink provider
