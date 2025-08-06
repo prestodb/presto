@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.spi.tvf;
 
-import com.facebook.presto.spi.function.table.TableFunctionMetadata;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+
+import java.util.List;
 
 public interface TVFProvider
 {
-    TableFunctionMetadata resolveTableFunction(String functionName);
+    List<ConnectorTableFunction> getTableFunctions();
 }

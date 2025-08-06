@@ -19,7 +19,7 @@ import java.util.Map;
 
 public interface TVFProviderFactory
 {
-    TVFProvider createTVFProvider(String catalogName, Map<String, String> config, TVFProviderContext context);
+    TVFProvider createTVFProvider(Map<String, String> config, TVFProviderContext context);
 
     TableFunctionHandleResolver getTableFunctionHandleResolver();
 

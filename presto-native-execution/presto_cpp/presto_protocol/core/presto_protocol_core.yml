@@ -368,7 +368,6 @@ JavaClasses:
   - presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DeleteNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/BaseInputDistribution.java
-  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/AbstractConnectorTableFunction.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ArgumentSpecification.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ScalarArgumentSpecification.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgumentSpecification.java
@@ -382,12 +381,11 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgument.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ScalarArgument.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/table/TableArgument.java
-  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata1.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata.java
   - presto-common/src/main/java/com/facebook/presto/common/type/RowType.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/NullableValue.java
   - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionHandle.java
   - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java
   - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java
-
-  
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java
 

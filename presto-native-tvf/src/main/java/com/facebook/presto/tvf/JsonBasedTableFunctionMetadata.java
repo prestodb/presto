@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tvf;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ReturnTypeSpecification;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,34 +27,25 @@ import static java.util.Objects.requireNonNull;
 
 public class JsonBasedTableFunctionMetadata
 {
-    private final String schema;
-    private final String name;
     private final List<ArgumentSpecification> arguments;
     private final ReturnTypeSpecification returnTypeSpecification;
+    private final QualifiedObjectName functionName;
 
     @JsonCreator
     public JsonBasedTableFunctionMetadata(
-            @JsonProperty("schema") String schema,
-            @JsonProperty("name") String name,
+            @JsonProperty("functionName") QualifiedObjectName functionName,
             @JsonProperty("arguments") List<ArgumentSpecification> arguments,
             @JsonProperty("returnTypeSpecification") ReturnTypeSpecification returnTypeSpecification)
     {
-        this.schema = requireNonNull(schema, "schema is null");
-        this.name = requireNonNull(name, "name is null");
+        this.functionName = requireNonNull(functionName, "functionName is null");
         this.arguments = Collections.unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
         this.returnTypeSpecification = requireNonNull(returnTypeSpecification, "returnTypeSpecification is null");
     }
 
     @JsonProperty
-    public String getSchema()
+    public QualifiedObjectName getQualifiedObjectName()
     {
-        return schema;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
+        return functionName;
     }
 
     @JsonProperty

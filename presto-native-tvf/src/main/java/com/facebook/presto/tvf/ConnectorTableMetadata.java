@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tvf;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.function.table.Argument;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,24 +23,24 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorTableMetadata1
+public class ConnectorTableMetadata
 {
-    private final String name;
+    private final QualifiedObjectName functionName;
     private final Map<String, Argument> arguments;
 
     @JsonCreator
-    public ConnectorTableMetadata1(
-            @JsonProperty("name") String name,
+    public ConnectorTableMetadata(
+            @JsonProperty("functionName") QualifiedObjectName functionName,
             @JsonProperty("arguments") Map<String, Argument> arguments)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.functionName = requireNonNull(functionName, "functionName is null");
         this.arguments = ImmutableMap.copyOf(requireNonNull(arguments, "arguments is null"));
     }
 
-    @JsonProperty
-    public String getName()
+    @JsonProperty("functionName")
+    public QualifiedObjectName getFunctionName()
     {
-        return name;
+        return functionName;
     }
 
     @JsonProperty

@@ -16,12 +16,12 @@ package com.facebook.presto.tvf;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.function.CatalogSchemaFunctionName;
 import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
@@ -48,23 +48,24 @@ public class NativeConnectorTableFunction
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
     private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
-    private static final JsonCodec<ConnectorTableMetadata1> connectorTableMetadataJsonCodec = JsonCodec.jsonCodec(ConnectorTableMetadata1.class);
+    private static final JsonCodec<ConnectorTableMetadata> connectorTableMetadataJsonCodec = JsonCodec.jsonCodec(ConnectorTableMetadata.class);
     private static final JsonCodec<NativeTableFunctionAnalysis> tableFunctionAnalysisJsonCodec =
             JsonCodec.jsonCodec(NativeTableFunctionAnalysis.class);
+    private final QualifiedObjectName functionName;
 
     public NativeConnectorTableFunction(
             @ForWorkerInfo HttpClient httpClient,
             NodeManager nodeManager,
             TypeManager typeManager,
-            String schema,
-            String name,
+            QualifiedObjectName functionName,
             List<ArgumentSpecification> arguments,
             ReturnTypeSpecification returnTypeSpecification)
     {
-        super(schema, name, arguments, returnTypeSpecification);
+        super("builtin", functionName.getObjectName(), arguments, returnTypeSpecification);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionName = requireNonNull(functionName, "functionName is null");
     }
 
     @Override
@@ -85,7 +86,7 @@ public class NativeConnectorTableFunction
         return preparePost()
                 .setUri(getWorkerLocation(nodeManager, TVF_ANALYZE_ENDPOINT))
                 .setBodyGenerator(
-                        jsonBodyGenerator(connectorTableMetadataJsonCodec, new ConnectorTableMetadata1(new CatalogSchemaFunctionName("presto", "default", getName()).toString(), arguments)))
+                        jsonBodyGenerator(connectorTableMetadataJsonCodec, new ConnectorTableMetadata(functionName, arguments)))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .build();

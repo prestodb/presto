@@ -424,19 +424,18 @@ json getTableValuedFunctionsMetadata() {
   // Get metadata for all registered table valued functions in velox.
   const auto signatures = tableFunctions();
   for (const auto& entry : signatures) {
+    // Just a check to see if it's a fully qualified name
     const auto parts = getFunctionNameParts(entry.first);
-    const auto schema = parts[1];
     const auto functionName = parts[2];
 
-    protocol::AbstractConnectorTableFunction function;
+    protocol::JsonBasedTableFunctionMetadata jsonBasedTableFunctionMetadata;
     json tj;
-    function.name = functionName;
-    function.schema = schema;
-    function.returnTypeSpecification =
+    jsonBasedTableFunctionMetadata.functionName = entry.first;
+    jsonBasedTableFunctionMetadata.returnTypeSpecification =
         buildReturnTypeSpecification(getTableFunctionReturnType(entry.first));
-    function.arguments =
+    jsonBasedTableFunctionMetadata.arguments =
         buildArgumentSpecsList(getTableFunctionArgumentSpecs(entry.first));
-    protocol::to_json(tj, function);
+    protocol::to_json(tj, jsonBasedTableFunctionMetadata);
     j[functionName] = tj;
   }
   return j;
@@ -457,9 +456,10 @@ getRequiredColumns(const tvf::TableFunctionAnalysis* tableFunctionAnalysis) {
 }
 
 protocol::NativeTableFunctionHandle buildNativeTableFunctionHandle(
-    const TableFunctionHandlePtr tableFunctionHandle) {
+    const TableFunctionHandlePtr tableFunctionHandle,
+    std::string functionName) {
   protocol::NativeTableFunctionHandle handle;
-  handle.functionName = tableFunctionHandle->name();
+  handle.functionName = functionName;
   handle.serializedTableFunctionHandle =
       folly::toJson(tableFunctionHandle->serialize());
   return handle;
@@ -476,7 +476,7 @@ protocol::NativeTableFunctionAnalysis getNativeTableFunctionAnalysis(
       std::make_shared<protocol::NativeDescriptor>(
           buildNativeDescriptor(*tableFunctionAnalysis->returnType()));
   nativeTableFunctionAnalysis.handle = buildNativeTableFunctionHandle(
-      tableFunctionAnalysis->tableFunctionHandle());
+      tableFunctionAnalysis->tableFunctionHandle(), functionName);
   return nativeTableFunctionAnalysis;
 }
 
@@ -485,7 +485,7 @@ json getAnalyzedTableValueFunction(
     velox::memory::MemoryPool* pool) {
   TypeParser parser;
   VeloxExprConverter exprConverter_{pool, &parser};
-  protocol::ConnectorTableMetadata1 connectorTableMetadata =
+  protocol::ConnectorTableMetadata connectorTableMetadata =
       json::parse(connectorTableMetadataJson);
   std::unordered_map<std::string, std::shared_ptr<tvf::Argument>> args;
   for (const auto& entry : connectorTableMetadata.arguments) {
@@ -528,11 +528,11 @@ json getAnalyzedTableValueFunction(
       functionArg = std::make_shared<tvf::Descriptor>(
           std::move(fieldNames), std::move(fieldTypes));
     } else {
-      VELOX_FAIL("Failed to convert to a valid Argument");
+      VELOX_UNSUPPORTED("Failed to convert to a valid Argument");
     }
     args[entry.first] = functionArg;
   }
-  return json(
-      getNativeTableFunctionAnalysis(connectorTableMetadata.name, args));
+  return json(getNativeTableFunctionAnalysis(
+      connectorTableMetadata.functionName, args));
 }
 } // namespace facebook::presto

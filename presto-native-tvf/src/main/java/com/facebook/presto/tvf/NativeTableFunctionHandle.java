@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tvf;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.function.TableFunctionHandleResolver;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,13 +27,13 @@ import static java.util.Objects.requireNonNull;
 public class NativeTableFunctionHandle
         implements ConnectorTableFunctionHandle
 {
-    private final String functionName;
+    private final QualifiedObjectName functionName;
     private final String serializedTableFunctionHandle;
 
     @JsonCreator
     public NativeTableFunctionHandle(
             @JsonProperty("serializedTableFunctionHandle") String serializedTableFunctionHandle,
-            @JsonProperty("functionName") String functionName)
+            @JsonProperty("functionName") QualifiedObjectName functionName)
     {
         this.serializedTableFunctionHandle = requireNonNull(serializedTableFunctionHandle, "serializedTableFunctionHandle is null");
         this.functionName = requireNonNull(functionName, "functionName is null");
@@ -44,8 +45,8 @@ public class NativeTableFunctionHandle
         return serializedTableFunctionHandle;
     }
 
-    @JsonProperty
-    public String getFunctionName()
+    @JsonProperty("functionName")
+    public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }

@@ -18,20 +18,17 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 
 import static java.util.Objects.requireNonNull;
 
 public class NativeTVFProviderModule
         implements Module
 {
-    private final String catalogName;
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
 
-    public NativeTVFProviderModule(String catalogName, NodeManager nodeManager, TypeManager typeManager)
+    public NativeTVFProviderModule(NodeManager nodeManager, TypeManager typeManager)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
@@ -39,8 +36,6 @@ public class NativeTVFProviderModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(new TypeLiteral<String>() {}).annotatedWith(ServingCatalog.class).toInstance(catalogName);
-
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NativeTVFProvider.class).in(Scopes.SINGLETON);

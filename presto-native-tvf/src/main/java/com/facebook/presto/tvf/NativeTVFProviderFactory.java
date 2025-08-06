@@ -31,7 +31,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 public class NativeTVFProviderFactory
         implements TVFProviderFactory
 {
-    // Change this to "native" when enabling sidecar is the default behaviour
     private static final String NAME = "system";
 
     private static final NativeTableFunctionHandle.Resolver HANDLE_RESOLVER = new NativeTableFunctionHandle.Resolver();
@@ -49,11 +48,11 @@ public class NativeTVFProviderFactory
     }
 
     @Override
-    public TVFProvider createTVFProvider(String catalogName, Map<String, String> config, TVFProviderContext context)
+    public TVFProvider createTVFProvider(Map<String, String> config, TVFProviderContext context)
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new NativeTVFProviderModule(catalogName, context.getNodeManager(), context.getTypeManager()),
+                    new NativeTVFProviderModule(context.getNodeManager(), context.getTypeManager()),
                     new NativeWorkerCommunicationModule());
 
             Injector injector = app
