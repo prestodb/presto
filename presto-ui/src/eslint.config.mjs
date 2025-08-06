@@ -9,6 +9,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 export default [
   js.configs.recommended,
   prettierEslint,
+  reactHooks.configs["recommended-latest"],
   {
     ignores: [
       "**/vendor/**",
@@ -44,14 +45,12 @@ export default [
   },
   // React
   {
-    files: ["**/*.jsx", "**/use*.js"],
+    files: ["**/*.jsx"],
     plugins: {
       react,
-      "react-hooks": reactHooks,
     },
     rules: {
       ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
       ["react/prop-types"]: "warn",
       ["react/no-deprecated"]: "warn",
       ["no-prototype-builtins"]: "warn",
