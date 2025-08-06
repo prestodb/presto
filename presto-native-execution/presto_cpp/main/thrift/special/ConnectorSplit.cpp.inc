@@ -12,10 +12,18 @@
  * limitations under the License.
  */
 
-void toThrift(const std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto, ConnectorSplitWrapper& thrift) {
+void toThrift(const std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto, ConnectorSplit& thrift) {
 }
-void fromThrift(const ConnectorSplitWrapper& thrift, std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto) {
+void fromThrift(const ConnectorSplit& thrift, std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto) {
   if (thrift.connectorId().has_value() && thrift.customSerializedValue().has_value()) {
+    if (thrift.connectorId() == "$remote") {
+      auto protoRemoteSplit = std::make_shared<facebook::presto::protocol::RemoteSplit>();
+      auto thriftRemoteSplit = std::make_shared<RemoteSplit>();
+      thriftRead(thrift.customSerializedValue().value(), thriftRemoteSplit);
+      facebook::presto::thrift::fromThrift(thriftRemoteSplit, protoRemoteSplit);
+      proto = protoRemoteSplit;
+      return;
+    }
     facebook::presto::protocol::getConnectorProtocol(thrift.connectorId().value())
       .deserialize(thrift.customSerializedValue().value(), proto);
   } else if (thrift.jsonValue().has_value()) {
