@@ -66,9 +66,9 @@ public class TestPrestoSparkNativeGeneralQueries
     @Ignore
     public void testDistributedSortSingleNode() {}
 
-    // Disable: Text file reader is not supported. This test is also disabled in pom.xml through disabling groups "textfile_reader".
+    // Disable: Text file reader and writer is not supported.
     @Override
-    public void testReadTableWithTextfileFormat() {}
+    public void testTableWrite() {}
 
     // Disable: Not supporte by POS
     @Override
