@@ -74,9 +74,9 @@ export default function SQLClientView() {
                 SQL client directly accesses the coordinator APIs and submits SQL queries. Users who can access the Web UI can use this client to query,
                 update, and even delete data in the catalogs. Be sure to enable the user authentication to protect the Web UI access if needed.
                 By default, the SQL client uses the <strong>prestoui</strong> user id. You can set
-                up <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/built-in-system-access-control.html' target='_blank'>system access controls</a>
-                &nbsp;or <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/authorization.html' target='_blank'>authorization policies</a> to
-                restrict access from the SQL client. Check detailed <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"href='http://prestodb.io/docs/current/security.html' target="_blank">documentation</a>.
+                up <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/built-in-system-access-control.html' target='_blank' rel="noreferrer">system access controls</a>
+                &nbsp;or <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/authorization.html' target='_blank' rel="noreferrer">authorization policies</a> to
+                restrict access from the SQL client. Check detailed <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"href='http://prestodb.io/docs/current/security.html' target="_blank" rel="noreferrer">documentation</a>.
                 <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             <div className='container'>
