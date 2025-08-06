@@ -156,12 +156,9 @@ public class DriverStats
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
-        checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
-        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
-        checkArgument(revocableMemoryReservationInBytes >= 0, "revocableMemoryReservationInBytes is negative");
-        this.revocableMemoryReservationInBytes = revocableMemoryReservationInBytes;
-        checkArgument(systemMemoryReservationInBytes >= 0, "systemMemoryReservationInBytes is negative");
-        this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
+        this.userMemoryReservationInBytes = (userMemoryReservationInBytes >= 0) ? userMemoryReservationInBytes : Long.MAX_VALUE;
+        this.revocableMemoryReservationInBytes = (revocableMemoryReservationInBytes >= 0) ? revocableMemoryReservationInBytes : Long.MAX_VALUE;
+        this.systemMemoryReservationInBytes = (systemMemoryReservationInBytes >= 0) ? systemMemoryReservationInBytes : Long.MAX_VALUE;
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -169,30 +166,22 @@ public class DriverStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        checkArgument(totalAllocationInBytes >= 0, "totalAllocationInBytes is negative");
-        this.totalAllocationInBytes = totalAllocationInBytes;
+        this.totalAllocationInBytes = (totalAllocationInBytes >= 0) ? totalAllocationInBytes : Long.MAX_VALUE;
 
-        checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
-        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        this.rawInputDataSizeInBytes = (rawInputDataSizeInBytes >= 0) ? rawInputDataSizeInBytes : Long.MAX_VALUE;
 
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
+        this.rawInputPositions = (rawInputPositions >= 0) ? rawInputPositions : Long.MAX_VALUE;
         this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
-        checkArgument(processedInputDataSizeInBytes >= 0, "processedInputDataSizeInBytes is negative");
-        this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
+        this.processedInputDataSizeInBytes = (processedInputDataSizeInBytes >= 0) ? processedInputDataSizeInBytes : Long.MAX_VALUE;
 
-        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
-        this.processedInputPositions = processedInputPositions;
+        this.processedInputPositions = (processedInputPositions >= 0) ? processedInputPositions : Long.MAX_VALUE;
 
-        // An overflow could have occurred on this stat - handle this gracefully.
         this.outputDataSizeInBytes = (outputDataSizeInBytes >= 0) ? outputDataSizeInBytes : Long.MAX_VALUE;
 
-        checkArgument(outputPositions >= 0, "outputPositions is negative");
-        this.outputPositions = outputPositions;
+        this.outputPositions = (outputPositions >= 0) ? outputPositions : Long.MAX_VALUE;
 
-        checkArgument(physicalWrittenDataSizeInBytes >= 0, "writtenDataSizeInBytes is negative");
-        this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
+        this.physicalWrittenDataSizeInBytes = (physicalWrittenDataSizeInBytes >= 0) ? physicalWrittenDataSizeInBytes : Long.MAX_VALUE;
 
         this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
     }
