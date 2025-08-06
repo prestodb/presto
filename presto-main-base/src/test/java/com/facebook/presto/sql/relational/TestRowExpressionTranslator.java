@@ -294,32 +294,27 @@ public class TestRowExpressionTranslator
         }
 
         @ScalarFunction("not")
-        @SupportedSignatures(@SqlSignature(argumentType = StandardTypes.BOOLEAN, returnType = StandardTypes.BOOLEAN))
-        public static String not(String sql)
+        @SqlType(StandardTypes.BOOLEAN)
+        public static String not(@SqlType(StandardTypes.BOOLEAN) String sql)
         {
             return "NOT_2 " + sql;
         }
 
-//        @SupportedSignatures({
-//                @SqlSignature(argumentType = StandardTypes.INTEGER, returnType = StandardTypes.INTEGER),
-//                @SqlSignature(argumentType = StandardTypes.BIGINT, returnType = StandardTypes.BIGINT),
-//                @SqlSignature(argumentType = "decimal(38, 0)", returnType = "decimal(38, 0)"),
-//                @SqlSignature(argumentTypes = {StandardTypes.BIGINT, StandardTypes.INTEGER}, returnType = StandardTypes.BIGINT)})
         @ScalarOperator(OperatorType.ADD)
-        @TypeConstraints(constraints = {
-                @TypeConstraint(bindings = {
+        @TypeConstraints({
+                @TypeConstraint({
                         @TypeParameterBinding(parameter = "T", type = StandardTypes.INTEGER),
                         @TypeParameterBinding(parameter = "U", type = StandardTypes.INTEGER)
                 }),
-                @TypeConstraint(bindings = {
+                @TypeConstraint({
                         @TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT),
                         @TypeParameterBinding(parameter = "U", type = StandardTypes.INTEGER)
                 }),
-                @TypeConstraint(bindings = {
+                @TypeConstraint({
                         @TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT),
                         @TypeParameterBinding(parameter = "U", type = StandardTypes.BIGINT)
                 }),
-                @TypeConstraint(bindings = {
+                @TypeConstraint({
                         @TypeParameterBinding(parameter = "T", type = "decimal(38, 0)"),
                         @TypeParameterBinding(parameter = "U", type = "decimal(38, 0)")
                 })})

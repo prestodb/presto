@@ -15,5 +15,5 @@ package com.facebook.presto.spi.function;
 
 public @interface TypeConstraint
 {
-    TypeParameterBinding[] bindings() default {};
+    TypeParameterBinding[] value() default {};
 }

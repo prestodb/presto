@@ -148,50 +148,29 @@ class TranslatorAnnotationParser
     private static List<FunctionMetadata> methodToFunctionMetadata(ScalarTranslationHeader header, Method method)
     {
         requireNonNull(header, "header is null");
+        TypeSignature returnType = parseTypeSignature(method.getAnnotation(SqlType.class).value());
 
-        SupportedSignatures supportedSignatures = method.getAnnotation(SupportedSignatures.class);
-        checkArgument(supportedSignatures != null, format("Method [%s] is missing @SupportedSignatures annotation", method));
-        ImmutableList.Builder<FunctionMetadata> signaturesMetadataBuilder = new ImmutableList.Builder<>();
-        SqlSignature[] signatures = method.getAnnotation(SupportedSignatures.class).value();
-
-        for (SqlSignature signature : signatures) {
-            ImmutableList.Builder<TypeSignature> argumentTypes = new ImmutableList.Builder<>();
-            if (signature.argumentTypes().length == method.getParameterCount()) {
-                for (int i = 0; i < method.getParameterCount(); i++) {
-                    argumentTypes.add(parseTypeSignature(signature.argumentTypes()[i]));
-                }
-            }
-            else {
-                TypeSignature argumentType = parseTypeSignature(signature.argumentType());
-                for (int i = 0; i < method.getParameterCount(); i++) {
-                    argumentTypes.add(argumentType);
-                }
-            }
-            TypeSignature returnType = parseTypeSignature(signature.returnType());
-            FunctionMetadata derivedMetadata;
-            if (header.getOperatorType().isPresent()) {
-                derivedMetadata = new FunctionMetadata(
-                        header.getOperatorType().get(),
-                        argumentTypes.build(),
-                        returnType,
-                        SCALAR,
-                        JAVA,
-                        header.isDeterministic(),
-                        header.isCalledOnNullInput());
-            }
-            else {
-                derivedMetadata = new FunctionMetadata(
-                        header.getName(),
-                        argumentTypes.build(),
-                        returnType,
-                        SCALAR,
-                        JAVA,
-                        header.isDeterministic(),
-                        header.isCalledOnNullInput());
-            }
-            signaturesMetadataBuilder.add(derivedMetadata);
+        FunctionMetadata derivedMetadata;
+        if (header.getOperatorType().isPresent()) {
+            derivedMetadata = new FunctionMetadata(
+                    header.getOperatorType().get(),
+                    constraintParameterTypeSignatures.build(),
+                    updatedReturnType,
+                    SCALAR,
+                    JAVA,
+                    header.isDeterministic(),
+                    header.isCalledOnNullInput());
         }
-        return signaturesMetadataBuilder.build();
+        else {
+            derivedMetadata = new FunctionMetadata(
+                    header.getName(),
+                    constraintParameterTypeSignatures.build(),
+                    updatedReturnType,
+                    SCALAR,
+                    JAVA,
+                    header.isDeterministic(),
+                    header.isCalledOnNullInput());
+        }
     }
 
     private static List<FunctionMetadata> methodToFunctionMetadataWithConstraints(ScalarTranslationHeader header, Method method)
@@ -200,7 +179,7 @@ class TranslatorAnnotationParser
         TypeConstraints typeConstraints = method.getAnnotation(TypeConstraints.class);
         checkArgument(typeConstraints != null, format("Method [%s] is missing @TypeConstraints annotation", method));
 
-        TypeConstraint[] typeConstraintArray = typeConstraints.constraints();
+        TypeConstraint[] typeConstraintArray = typeConstraints.value();
         List<String> parameterTypes = getParameterTypes(method);
 
         ImmutableList.Builder<FunctionMetadata> signaturesMetadataBuilder = new ImmutableList.Builder<>();
@@ -208,7 +187,7 @@ class TranslatorAnnotationParser
 
         for (TypeConstraint constraint : typeConstraintArray) {
             FunctionMetadata derivedMetadata;
-            List<TypeParameterBinding> bindings = Arrays.asList(constraint.bindings());
+            List<TypeParameterBinding> bindings = Arrays.asList(constraint.value());
             Map<String, String> bindingsMap = bindings.stream()
                     .collect(Collectors.toMap(TypeParameterBinding::parameter, TypeParameterBinding::type));
             ImmutableList.Builder<TypeSignature> constraintParameterTypeSignatures = new ImmutableList.Builder<>();

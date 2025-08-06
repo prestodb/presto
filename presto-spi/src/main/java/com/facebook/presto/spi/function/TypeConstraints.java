@@ -23,5 +23,5 @@ import static java.lang.annotation.ElementType.METHOD;
 @Target(METHOD)
 public @interface TypeConstraints
 {
-    TypeConstraint[] constraints() default {};
+    TypeConstraint[] value() default {};
 }
