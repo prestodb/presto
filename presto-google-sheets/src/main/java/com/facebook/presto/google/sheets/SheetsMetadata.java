@@ -159,7 +159,7 @@ public class SheetsMetadata
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, Optional.of(prefix.getSchemaName()))) {
+        for (SchemaTableName tableName : listTables(session, Optional.ofNullable(prefix.getSchemaName()))) {
             Optional<ConnectorTableMetadata> tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata.isPresent()) {
