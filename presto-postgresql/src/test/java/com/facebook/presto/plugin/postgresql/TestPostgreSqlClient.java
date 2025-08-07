@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.mysql;
+package com.facebook.presto.plugin.postgresql;
 
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
@@ -32,7 +32,7 @@ import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geo
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestMySqlClient
+public class TestPostgreSqlClient
 {
     @Test
     public void testValidGeometryReadMapping()

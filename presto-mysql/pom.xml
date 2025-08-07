@@ -78,11 +78,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-geospatial-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
