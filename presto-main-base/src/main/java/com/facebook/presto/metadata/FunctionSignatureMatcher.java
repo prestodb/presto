@@ -56,7 +56,7 @@ public final class FunctionSignatureMatcher
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
-    public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed)
+    public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed, boolean nativeExecution)
     {
         List<SqlFunction> exactCandidates = candidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
@@ -71,7 +71,12 @@ public final class FunctionSignatureMatcher
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        match = matchFunctionExact(genericCandidates, parameterTypes);
+        // Scalar functions in Velox can provide an optimized implementation for certain cases and a generic
+        // implementation for all other cases. Eg, Presto C++ function map_subset in Velox provides an optimized
+        // implementation for constant search keys that are of primitive types. The function signatures will be same for
+        // the generic implementation and optimized implementations, so duplicate function signatures should be allowed
+        // when matching native functions with generic candidates.
+        match = matchFunctionGeneric(genericCandidates, parameterTypes, nativeExecution);
         if (match.isPresent()) {
             return match;
         }
@@ -88,15 +93,20 @@ public final class FunctionSignatureMatcher
 
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
-        return matchFunction(candidates, actualParameters, false);
+        return matchFunction(candidates, actualParameters, false, false);
+    }
+
+    private Optional<Signature> matchFunctionGeneric(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowDuplicateCandidates)
+    {
+        return matchFunction(candidates, actualParameters, false, allowDuplicateCandidates);
     }
 
     private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
-        return matchFunction(candidates, actualParameters, true);
+        return matchFunction(candidates, actualParameters, true, false);
     }
 
-    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed, boolean allowDuplicateCandidates)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -110,6 +120,14 @@ public final class FunctionSignatureMatcher
 
         if (applicableFunctions.size() == 1) {
             return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+        }
+
+        List<Signature> deduplicatedBoundSignatures = applicableFunctions.stream()
+                .map(applicableFunction -> applicableFunction.boundSignature)
+                .distinct()
+                .collect(toImmutableList());
+        if (deduplicatedBoundSignatures.size() == 1 && allowDuplicateCandidates) {
+            return Optional.of(getOnlyElement(deduplicatedBoundSignatures));
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();
