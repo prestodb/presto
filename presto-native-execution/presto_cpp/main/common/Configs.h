@@ -202,6 +202,8 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  static constexpr std::string_view kHttpServerHttp2Enabled{
+      "http-server.http2.enabled"};
   /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
@@ -784,6 +786,8 @@ class SystemConfig : public ConfigBase {
   bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
+
+  bool httpServerHttp2Enabled() const;
 
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
