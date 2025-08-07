@@ -143,6 +143,7 @@
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        <ignoredClassPattern>io.airlift.compress.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>
