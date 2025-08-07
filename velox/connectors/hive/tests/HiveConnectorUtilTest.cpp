@@ -357,4 +357,108 @@ TEST_F(HiveConnectorUtilTest, configureSstRowReaderOptions) {
   EXPECT_EQ(rowReaderOpts.serdeParameters(), hiveSplit->serdeParameters);
 }
 
+TEST_F(HiveConnectorUtilTest, configureRowReaderOptionsFromConfig) {
+  // Test default behavior (preserveFlatMapsInMemory = false)
+  {
+    auto hiveConfig =
+        std::make_shared<hive::HiveConfig>(std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
+    config::ConfigBase sessionProperties({});
+
+    dwio::common::RowReaderOptions rowReaderOpts;
+    auto hiveSplit =
+        std::make_shared<hive::HiveConnectorSplit>("", "", FileFormat::DWRF);
+
+    configureRowReaderOptions(
+        /*tableParameters=*/{},
+        /*scanSpec=*/nullptr,
+        /*metadataFilter=*/nullptr,
+        /*rowType=*/nullptr,
+        /*hiveSplit=*/hiveSplit,
+        /*hiveConfig=*/hiveConfig,
+        /*sessionProperties=*/&sessionProperties,
+        /*rowReaderOptions=*/rowReaderOpts);
+
+    EXPECT_FALSE(rowReaderOpts.preserveFlatMapsInMemory());
+  }
+
+  // Test with config override (preserveFlatMapsInMemory = true)
+  {
+    std::unordered_map<std::string, std::string> configProps = {
+        {hive::HiveConfig::kPreserveFlatMapsInMemory, "true"}};
+    auto hiveConfig = std::make_shared<hive::HiveConfig>(
+        std::make_shared<config::ConfigBase>(std::move(configProps)));
+    config::ConfigBase sessionProperties({});
+
+    dwio::common::RowReaderOptions rowReaderOpts;
+    auto hiveSplit =
+        std::make_shared<hive::HiveConnectorSplit>("", "", FileFormat::DWRF);
+
+    configureRowReaderOptions(
+        /*tableParameters=*/{},
+        /*scanSpec=*/nullptr,
+        /*metadataFilter=*/nullptr,
+        /*rowType=*/nullptr,
+        /*hiveSplit=*/hiveSplit,
+        /*hiveConfig=*/hiveConfig,
+        /*sessionProperties=*/&sessionProperties,
+        /*rowReaderOptions=*/rowReaderOpts);
+
+    EXPECT_TRUE(rowReaderOpts.preserveFlatMapsInMemory());
+  }
+
+  // Test with session override (preserveFlatMapsInMemory = true)
+  {
+    auto hiveConfig =
+        std::make_shared<hive::HiveConfig>(std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
+    std::unordered_map<std::string, std::string> sessionProps = {
+        {hive::HiveConfig::kPreserveFlatMapsInMemorySession, "true"}};
+    config::ConfigBase sessionProperties(std::move(sessionProps));
+
+    dwio::common::RowReaderOptions rowReaderOpts;
+    auto hiveSplit =
+        std::make_shared<hive::HiveConnectorSplit>("", "", FileFormat::DWRF);
+
+    configureRowReaderOptions(
+        /*tableParameters=*/{},
+        /*scanSpec=*/nullptr,
+        /*metadataFilter=*/nullptr,
+        /*rowType=*/nullptr,
+        /*hiveSplit=*/hiveSplit,
+        /*hiveConfig=*/hiveConfig,
+        /*sessionProperties=*/&sessionProperties,
+        /*rowReaderOptions=*/rowReaderOpts);
+
+    EXPECT_TRUE(rowReaderOpts.preserveFlatMapsInMemory());
+  }
+
+  // Test session override takes precedence over config
+  {
+    std::unordered_map<std::string, std::string> configProps = {
+        {hive::HiveConfig::kPreserveFlatMapsInMemory, "false"}};
+    auto hiveConfig = std::make_shared<hive::HiveConfig>(
+        std::make_shared<config::ConfigBase>(std::move(configProps)));
+    std::unordered_map<std::string, std::string> sessionProps = {
+        {hive::HiveConfig::kPreserveFlatMapsInMemorySession, "true"}};
+    config::ConfigBase sessionProperties(std::move(sessionProps));
+
+    dwio::common::RowReaderOptions rowReaderOpts;
+    auto hiveSplit =
+        std::make_shared<hive::HiveConnectorSplit>("", "", FileFormat::DWRF);
+
+    configureRowReaderOptions(
+        /*tableParameters=*/{},
+        /*scanSpec=*/nullptr,
+        /*metadataFilter=*/nullptr,
+        /*rowType=*/nullptr,
+        /*hiveSplit=*/hiveSplit,
+        /*hiveConfig=*/hiveConfig,
+        /*sessionProperties=*/&sessionProperties,
+        /*rowReaderOptions=*/rowReaderOpts);
+
+    EXPECT_TRUE(rowReaderOpts.preserveFlatMapsInMemory());
+  }
+}
+
 } // namespace facebook::velox::connector

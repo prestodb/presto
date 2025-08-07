@@ -187,6 +187,13 @@ class HiveConfig {
   static constexpr const char* kLocalDataPath = "hive_local_data_path";
   static constexpr const char* kLocalFileFormat = "hive_local_file_format";
 
+  /// Whether to preserve flat maps in memory as FlatMapVectors instead of
+  /// converting them to MapVectors.
+  static constexpr const char* kPreserveFlatMapsInMemory =
+      "preserve-flat-maps-in-memory";
+  static constexpr const char* kPreserveFlatMapsInMemorySession =
+      "preserve_flat_maps_in_memory";
+
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const config::ConfigBase* session) const;
 
@@ -266,6 +273,10 @@ class HiveConfig {
   /// Returns the name of the file format to use in interpreting the contents of
   /// hiveLocalDataPath().
   std::string hiveLocalFileFormat() const;
+
+  /// Whether to preserve flat maps in memory as FlatMapVectors instead of
+  /// converting them to MapVectors.
+  bool preserveFlatMapsInMemory(const config::ConfigBase* session) const;
 
   HiveConfig(std::shared_ptr<const config::ConfigBase> config) {
     VELOX_CHECK_NOT_NULL(

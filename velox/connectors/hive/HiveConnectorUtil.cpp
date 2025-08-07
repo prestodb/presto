@@ -628,6 +628,8 @@ void configureRowReaderOptions(
   if (hiveConfig && sessionProperties) {
     rowReaderOptions.setTimestampPrecision(static_cast<TimestampPrecision>(
         hiveConfig->readTimestampUnit(sessionProperties)));
+    rowReaderOptions.setPreserveFlatMapsInMemory(
+        hiveConfig->preserveFlatMapsInMemory(sessionProperties));
   }
   rowReaderOptions.setSerdeParameters(hiveSplit->serdeParameters);
 }

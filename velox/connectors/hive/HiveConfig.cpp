@@ -238,4 +238,11 @@ std::string HiveConfig::hiveLocalFileFormat() const {
   return config_->get<std::string>(kLocalFileFormat, "");
 }
 
+bool HiveConfig::preserveFlatMapsInMemory(
+    const config::ConfigBase* session) const {
+  return session->get<bool>(
+      kPreserveFlatMapsInMemorySession,
+      config_->get<bool>(kPreserveFlatMapsInMemory, false));
+}
+
 } // namespace facebook::velox::connector::hive
