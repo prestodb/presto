@@ -50,6 +50,10 @@ export const ClusterHUD = () => {
 
     const timeoutId = useRef(null);
 
+    const scheduleNextRefresh = () => {
+        timeoutId.current = setTimeout(refreshLoop, 1000);
+    };
+
     const refreshLoop = () => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
         $.get('/v1/cluster')
@@ -96,10 +100,10 @@ export const ClusterHUD = () => {
                         lastRefresh: Date.now()
                     };
                 });
-                timeoutId.current = setTimeout(refreshLoop, 1000);
+                scheduleNextRefresh();
             })
             .fail(() => {
-                timeoutId.current = setTimeout(refreshLoop, 1000);
+                scheduleNextRefresh();
             });
     };
 
