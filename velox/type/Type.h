@@ -594,6 +594,9 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
 
   bool containsUnknown() const;
 
+  template <typename T>
+  std::string valueToString(T value) const;
+
   VELOX_DEFINE_CLASS_NAME(Type)
 
  protected:
@@ -837,6 +840,8 @@ class LongDecimalType : public DecimalType<TypeKind::HUGEINT> {
  public:
   LongDecimalType(int precision, int scale)
       : DecimalType<TypeKind::HUGEINT>(precision, scale) {}
+
+  static std::string toString(int128_t value, const Type& type);
 };
 
 TypePtr DECIMAL(uint8_t precision, uint8_t scale);
@@ -2280,6 +2285,42 @@ class DeserializedTypeCache {
 };
 
 DeserializedTypeCache& deserializedTypeCache();
+
+template <typename T>
+std::string Type::valueToString(T value) const {
+  if constexpr (std::is_same_v<T, bool>) {
+    return value ? "true" : "false";
+  } else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
+    return "<opaque>";
+  } else if constexpr (
+      std::is_same_v<T, int64_t> || std::is_same_v<T, int128_t>) {
+    if (isDecimal()) {
+      return LongDecimalType::toString(value, *this);
+    } else {
+      return velox::to<std::string>(value);
+    }
+  } else if constexpr (std::is_same_v<T, int32_t>) {
+    if (isDate()) {
+      return DATE()->toString(value);
+    } else {
+      return velox::to<std::string>(value);
+    }
+  } else {
+    return velox::to<std::string>(value);
+  }
+}
+
+/// Return a string representation of a limited number of elements at the
+/// start of the array or map.
+///
+/// @param size Total number of elements.
+/// @param stringifyElement Function to call to append individual elements.
+/// Will be called up to 'limit' times.
+/// @param limit Maximum number of elements to include in the result.
+std::string stringifyTruncatedElementList(
+    size_t size,
+    const std::function<void(std::stringstream&, size_t)>& stringifyElement,
+    size_t limit = 5);
 
 } // namespace facebook::velox
 

@@ -244,36 +244,13 @@ class SimpleVector : public BaseVector {
 
   using BaseVector::toString;
 
-  static std::string valueToString(const TypePtr& type, T value) {
-    if constexpr (std::is_same_v<T, bool>) {
-      return value ? "true" : "false";
-    } else if constexpr (std::is_same_v<T, std::shared_ptr<void>>) {
-      return "<opaque>";
-    } else if constexpr (
-        std::is_same_v<T, int64_t> || std::is_same_v<T, int128_t>) {
-      if (type->isDecimal()) {
-        return DecimalUtil::toString(value, type);
-      } else {
-        return velox::to<std::string>(value);
-      }
-    } else if constexpr (std::is_same_v<T, int32_t>) {
-      if (type->isDate()) {
-        return DATE()->toString(value);
-      } else {
-        return velox::to<std::string>(value);
-      }
-    } else {
-      return velox::to<std::string>(value);
-    }
-  }
-
   std::string toString(vector_size_t index) const override {
     VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
     std::stringstream out;
     if (isNullAt(index)) {
       out << kNullValueString;
     } else {
-      out << valueToString(type(), valueAt(index));
+      out << type()->valueToString(valueAt(index));
     }
     return out.str();
   }

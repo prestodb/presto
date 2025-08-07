@@ -49,7 +49,11 @@ std::string CallExpr::toString() const {
 
 std::string CastExpr::toString() const {
   return appendAliasIfExists(
-      "cast(" + input()->toString() + ", " + type_->toString() + ")");
+      "cast(" + input()->toString() + " as " + type_->toString() + ")");
+}
+
+std::string ConstantExpr::toString() const {
+  return appendAliasIfExists(value_.toStringAsVector(type_));
 }
 
 std::string LambdaExpr::toString() const {

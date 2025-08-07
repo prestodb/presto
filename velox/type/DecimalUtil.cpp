@@ -54,8 +54,8 @@ std::string formatDecimal(uint8_t scale, int128_t unscaledValue) {
 }
 } // namespace
 
-std::string DecimalUtil::toString(int128_t value, const TypePtr& type) {
-  auto [precision, scale] = getDecimalPrecisionScale(*type);
+std::string DecimalUtil::toString(int128_t value, const Type& type) {
+  auto [precision, scale] = getDecimalPrecisionScale(type);
   return formatDecimal(scale, value);
 }
 

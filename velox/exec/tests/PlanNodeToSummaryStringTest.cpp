@@ -77,7 +77,7 @@ TEST_F(PlanNodeToSummaryStringTest, basic) {
       "        expressions: call: 8, cast: 2, constant: 5, field: 3\n"
       "        functions: and: 2, cardinality: 1, gt: 3, plus: 1, subscript: 1\n"
       "        constants: BIGINT: 5\n"
-      "        filter: and(and(gt(cast ROW[\"a\"] as BIGINT,10),gt(cardinal...\n"
+      "        filter: and(and(gt(cast(ROW[\"a\"] as BIGINT),10),gt(cardina...\n"
       "    -- TableScan[0]: 3 fields: a INTEGER, b ARRAY, c MAP\n"
       "          table: hive_table\n",
       plan->toSummaryString());
@@ -88,15 +88,15 @@ TEST_F(PlanNodeToSummaryStringTest, basic) {
       "      functions: plus: 3, subscript: 6\n"
       "      constants: BIGINT: 9\n"
       "      projections: 7 out of 7\n"
-      "         p0: plus(cast ROW[\"a\"] as BIGINT,1)\n"
-      "         p1: subscript(ROW[\"b\"],cast 1 as INTEGER)\n"
+      "         p0: plus(cast(ROW[\"a\"] as BIGINT),1)\n"
+      "         p1: subscript(ROW[\"b\"],cast(1 as INTEGER))\n"
       "         ... 5 more\n"
       "      dereferences: 0 out of 7\n"
       "  -- Filter[1]: 3 fields: a INTEGER, b ARRAY(BIGINT), c MAP(TINYINT, BIGINT)\n"
       "        expressions: call: 8, cast: 2, constant: 5, field: 3\n"
       "        functions: and: 2, cardinality: 1, gt: 3, plus: 1, subscript: 1\n"
       "        constants: BIGINT: 5\n"
-      "        filter: and(and(gt(cast ROW[\"a\"] as BIGINT,10),gt(cardinal...\n"
+      "        filter: and(and(gt(cast(ROW[\"a\"] as BIGINT),10),gt(cardina...\n"
       "    -- TableScan[0]: 3 fields: a INTEGER, b ARRAY(BIGINT), c MAP(TINYINT, BIGINT)\n"
       "          table: hive_table\n",
       plan->toSummaryString({

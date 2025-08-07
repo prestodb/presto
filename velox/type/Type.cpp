@@ -24,6 +24,7 @@
 #include <sstream>
 #include <typeindex>
 
+#include "velox/type/DecimalUtil.h"
 #include "velox/type/TimestampConversion.h"
 
 namespace std {
@@ -876,6 +877,11 @@ TypePtr DECIMAL(const uint8_t precision, const uint8_t scale) {
   return std::make_shared<LongDecimalType>(precision, scale);
 }
 
+// static
+std::string LongDecimalType::toString(int128_t value, const Type& type) {
+  return DecimalUtil::toString(value, type);
+}
+
 TypePtr createScalarType(TypeKind kind) {
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(createScalarType, kind);
 }
@@ -1344,5 +1350,33 @@ std::string getOpaqueAliasForTypeId(std::type_index typeIndex) {
       "Could not find type index '{}'. Did you call registerOpaqueType?",
       typeIndex.name());
   return it->second;
+}
+
+std::string stringifyTruncatedElementList(
+    size_t size,
+    const std::function<void(std::stringstream&, size_t)>& stringifyElement,
+    size_t limit) {
+  if (size == 0) {
+    return "<empty>";
+  }
+
+  VELOX_CHECK_GT(limit, 0);
+
+  const size_t limitedSize = std::min(size, limit);
+
+  std::stringstream out;
+  out << "{";
+  for (size_t i = 0; i < limitedSize; ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    stringifyElement(out, i);
+  }
+
+  if (size > limitedSize) {
+    out << ", ..." << (size - limitedSize) << " more";
+  }
+  out << "}";
+  return out.str();
 }
 } // namespace facebook::velox

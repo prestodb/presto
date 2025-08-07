@@ -28,35 +28,6 @@
 
 namespace facebook::velox {
 
-std::string ArrayVectorBase::stringifyTruncatedElementList(
-    vector_size_t size,
-    const std::function<void(std::stringstream&, vector_size_t)>&
-        stringifyElement,
-    vector_size_t limit) {
-  if (size == 0) {
-    return "<empty>";
-  }
-
-  VELOX_CHECK_GT(limit, 0);
-
-  const vector_size_t limitedSize = std::min(size, limit);
-
-  std::stringstream out;
-  out << "{";
-  for (vector_size_t i = 0; i < limitedSize; ++i) {
-    if (i > 0) {
-      out << ", ";
-    }
-    stringifyElement(out, i);
-  }
-
-  if (size > limitedSize) {
-    out << ", ..." << (size - limitedSize) << " more";
-  }
-  out << "}";
-  return out.str();
-}
-
 // static
 std::shared_ptr<RowVector> RowVector::createEmpty(
     std::shared_ptr<const Type> type,
@@ -413,7 +384,7 @@ std::string RowVector::deprecatedToString(
     return std::string(BaseVector::kNullValueString);
   }
 
-  return ArrayVectorBase::stringifyTruncatedElementList(
+  return stringifyTruncatedElementList(
       children_.size(),
       [&](auto& out, auto i) {
         out << (children_[i] ? children_[i]->toString(index) : "<not set>");

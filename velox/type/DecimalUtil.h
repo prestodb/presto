@@ -102,7 +102,12 @@ class DecimalUtil {
   }
 
   /// Helper function to convert a decimal value to string.
-  static std::string toString(int128_t value, const TypePtr& type);
+  static std::string toString(int128_t value, const Type& type);
+
+  // TODO Remove.
+  static std::string toString(int128_t value, const TypePtr& type) {
+    return toString(value, *type);
+  }
 
   template <typename T>
   inline static void fillDecimals(

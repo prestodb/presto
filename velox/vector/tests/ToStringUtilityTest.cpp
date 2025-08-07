@@ -15,34 +15,24 @@
  */
 
 #include <gtest/gtest.h>
-#include <sstream>
-#include "folly/Conv.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/TypeAliases.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox {
 namespace {
 TEST(ToStringUtil, stringifyTruncatedElementList) {
-  const auto indexAsString = [](std::stringstream& ss, vector_size_t i) {
+  const auto indexAsString = [](std::stringstream& ss, size_t i) {
     ss << folly::to<std::string>(i);
   };
 
   // no item
-  EXPECT_EQ(
-      ArrayVectorBase::stringifyTruncatedElementList(0, indexAsString),
-      "<empty>");
+  EXPECT_EQ(stringifyTruncatedElementList(0, indexAsString), "<empty>");
   // exact item
-  EXPECT_EQ(
-      ArrayVectorBase::stringifyTruncatedElementList(5, indexAsString),
-      "{0, 1, 2, 3, 4}");
+  EXPECT_EQ(stringifyTruncatedElementList(5, indexAsString), "{0, 1, 2, 3, 4}");
   // more items
   EXPECT_EQ(
-      ArrayVectorBase::stringifyTruncatedElementList(5, indexAsString, 2),
-      "{0, 1, ...3 more}");
+      stringifyTruncatedElementList(5, indexAsString, 2), "{0, 1, ...3 more}");
   // less items
-  EXPECT_EQ(
-      ArrayVectorBase::stringifyTruncatedElementList(3, indexAsString),
-      "{0, 1, 2}");
+  EXPECT_EQ(stringifyTruncatedElementList(3, indexAsString), "{0, 1, 2}");
 }
 } // namespace
 } // namespace facebook::velox

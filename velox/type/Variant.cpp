@@ -258,6 +258,83 @@ std::string Variant::toString(const TypePtr& type) const {
 }
 
 namespace {
+
+std::string toStringAsVectorImpl(const TypePtr& type, const Variant& value);
+
+template <TypeKind Kind>
+std::string toStringAsVectorNoNull(const TypePtr& type, const Variant& value) {
+  using T = typename TypeTraits<Kind>::NativeType;
+
+  return type->template valueToString<T>(T(value.value<Kind>()));
+}
+
+template <>
+std::string toStringAsVectorNoNull<TypeKind::OPAQUE>(
+    const TypePtr& type,
+    const Variant& value) {
+  return "<opaque>";
+}
+
+template <>
+std::string toStringAsVectorNoNull<TypeKind::ARRAY>(
+    const TypePtr& type,
+    const Variant& value) {
+  const auto& arrayValue = value.value<TypeKind::ARRAY>();
+  const auto& elementType = type->childAt(0);
+
+  return stringifyTruncatedElementList(
+      arrayValue.size(), [&](auto& out, auto i) {
+        out << toStringAsVectorImpl(elementType, arrayValue.at(i));
+      });
+}
+
+template <>
+std::string toStringAsVectorNoNull<TypeKind::MAP>(
+    const TypePtr& type,
+    const Variant& value) {
+  const auto& mapValue = value.value<TypeKind::MAP>();
+  const auto& keyType = type->childAt(0);
+  const auto& valueType = type->childAt(1);
+
+  auto it = mapValue.begin();
+
+  return stringifyTruncatedElementList(mapValue.size(), [&](auto& out, auto i) {
+    out << toStringAsVectorImpl(keyType, it->first) << " => "
+        << toStringAsVectorImpl(valueType, it->second);
+    ++it;
+  });
+}
+
+template <>
+std::string toStringAsVectorNoNull<TypeKind::ROW>(
+    const TypePtr& type,
+    const Variant& value) {
+  const auto size = type->size();
+
+  const auto& rowValue = value.value<TypeKind::ROW>();
+  VELOX_CHECK_EQ(size, rowValue.size());
+
+  return stringifyTruncatedElementList(size, [&](auto& out, auto i) {
+    out << toStringAsVectorImpl(type->childAt(i), rowValue.at(i));
+  });
+}
+
+std::string toStringAsVectorImpl(const TypePtr& type, const Variant& value) {
+  if (value.isNull()) {
+    return "null";
+  }
+
+  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
+      toStringAsVectorNoNull, type->kind(), type, value);
+}
+
+} // namespace
+
+std::string Variant::toStringAsVector(const TypePtr& type) const {
+  return toStringAsVectorImpl(type, *this);
+}
+
+namespace {
 const folly::json::serialization_opts& getOpts() {
   static const folly::json::serialization_opts kOpts;
   return kOpts;

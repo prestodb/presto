@@ -127,87 +127,12 @@ TypedExprPtr ConstantTypedExpr::create(
   return std::make_shared<ConstantTypedExpr>(restoreVector(dataStream, pool));
 }
 
-namespace {
-
-std::string toStringImpl(const TypePtr& type, const Variant& value);
-
-template <TypeKind Kind>
-std::string toStringNoNull(const TypePtr& type, const Variant& value) {
-  using T = typename TypeTraits<Kind>::NativeType;
-
-  return SimpleVector<T>::valueToString(type, T(value.value<Kind>()));
-}
-
-template <>
-std::string toStringNoNull<TypeKind::OPAQUE>(
-    const TypePtr& type,
-    const Variant& value) {
-  return "<opaque>";
-}
-
-template <>
-std::string toStringNoNull<TypeKind::ARRAY>(
-    const TypePtr& type,
-    const Variant& value) {
-  const auto& arrayValue = value.value<TypeKind::ARRAY>();
-  const auto& elementType = type->childAt(0);
-
-  return ArrayVectorBase::stringifyTruncatedElementList(
-      arrayValue.size(), [&](auto& out, auto i) {
-        out << toStringImpl(elementType, arrayValue.at(i));
-      });
-}
-
-template <>
-std::string toStringNoNull<TypeKind::MAP>(
-    const TypePtr& type,
-    const Variant& value) {
-  const auto& mapValue = value.value<TypeKind::MAP>();
-  const auto& keyType = type->childAt(0);
-  const auto& valueType = type->childAt(1);
-
-  auto it = mapValue.begin();
-
-  return ArrayVectorBase::stringifyTruncatedElementList(
-      mapValue.size(), [&](auto& out, auto i) {
-        out << toStringImpl(keyType, it->first) << " => "
-            << toStringImpl(valueType, it->second);
-        ++it;
-      });
-}
-
-template <>
-std::string toStringNoNull<TypeKind::ROW>(
-    const TypePtr& type,
-    const Variant& value) {
-  const auto size = type->size();
-
-  const auto& rowValue = value.value<TypeKind::ROW>();
-  VELOX_CHECK_EQ(size, rowValue.size());
-
-  return ArrayVectorBase::stringifyTruncatedElementList(
-      size, [&](auto& out, auto i) {
-        out << toStringImpl(type->childAt(i), rowValue.at(i));
-      });
-}
-
-std::string toStringImpl(const TypePtr& type, const Variant& value) {
-  if (value.isNull()) {
-    return std::string(BaseVector::kNullValueString);
-  }
-
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      toStringNoNull, type->kind(), type, value);
-}
-
-} // namespace
-
 std::string ConstantTypedExpr::toString() const {
   if (hasValueVector()) {
     return valueVector_->toString(0);
   }
 
-  return toStringImpl(type(), value_);
+  return value_.toStringAsVector(type());
 }
 
 namespace {
@@ -709,10 +634,10 @@ TypedExprPtr LambdaTypedExpr::create(const folly::dynamic& obj, void* context) {
 std::string CastTypedExpr::toString() const {
   if (isTryCast_) {
     return fmt::format(
-        "try_cast {} as {}", inputs()[0]->toString(), type()->toString());
+        "try_cast({} as {})", inputs()[0]->toString(), type()->toString());
   } else {
     return fmt::format(
-        "cast {} as {}", inputs()[0]->toString(), type()->toString());
+        "cast({} as {})", inputs()[0]->toString(), type()->toString());
   }
 }
 
