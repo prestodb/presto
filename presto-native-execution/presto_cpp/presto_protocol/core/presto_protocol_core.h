@@ -90,6 +90,7 @@ using String = std::string;
 using Integer = int;
 using Long = int64_t;
 using boolean = bool;
+using Double = double;
 
 template <typename T>
 using List = std::vector<T>;
@@ -1755,6 +1756,19 @@ void to_json(json& j, const MergeJoinNode& p);
 void from_json(const json& j, MergeJoinNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
+extern void to_json(json& j, const NodeState& e);
+extern void from_json(const json& j, NodeState& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NodeStats {
+  NodeState nodeState = {};
+  Map<String, Double> metrics = {};
+};
+void to_json(json& j, const NodeStats& p);
+void from_json(const json& j, NodeStats& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct NodeVersion {
   String version = {};
 };
@@ -2520,9 +2534,4 @@ struct WindowNode : public PlanNode {
 };
 void to_json(json& j, const WindowNode& p);
 void from_json(const json& j, WindowNode& p);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
-extern void to_json(json& j, const NodeState& e);
-extern void from_json(const json& j, NodeState& e);
 } // namespace facebook::presto::protocol
