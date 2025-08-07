@@ -12,9 +12,14 @@
 
 FROM quay.io/centos/centos:stream9
 
-ENV PROMPT_ALWAYS_RESPOND=n
+# Set this when build arm with common flags
+# from https://github.com/facebookincubator/velox/pull/14366
+ARG ARM_BUILD_TARGET
+
+ENV PROMPT_ALWAYS_RESPOND=y
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
+ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
