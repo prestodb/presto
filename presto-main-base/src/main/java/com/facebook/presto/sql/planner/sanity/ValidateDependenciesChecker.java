@@ -63,6 +63,8 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -602,6 +604,30 @@ public final class ValidateDependenciesChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, boundVariables); // visit child
+
+            return null;
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+            return null;
+        }
+
+        @Override
+        public Void visitMergeProcessor(MergeProcessorNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            checkArgument(source.getOutputVariables().contains(node.getRowIdSymbol()),
+                    "Invalid node. rowId symbol (%s) is not in source plan output (%s)",
+                    node.getRowIdSymbol(), node.getSource().getOutputVariables());
+            checkArgument(source.getOutputVariables().contains(node.getMergeRowSymbol()),
+                    "Invalid node. Merge row symbol (%s) is not in source plan output (%s)",
+                    node.getMergeRowSymbol(), node.getSource().getOutputVariables());
 
             return null;
         }

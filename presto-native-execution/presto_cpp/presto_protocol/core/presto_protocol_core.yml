@@ -88,6 +88,10 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
 
+  ConnectorMergeTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+
   ConnectorTransactionHandle:
     super: JsonEncodedSubclass
     subclasses:
@@ -132,6 +136,7 @@ AbstractClasses:
       - { name: InsertHandle,  key: InsertHandle }
       - { name: DeleteHandle,  key: DeleteHandle }
       - { name: UpdateHandle,  key: UpdateHandle }
+      - { name: MergeHandle,  key: MergeHandle }
 
   InputDistribution:
     super: JsonEncodedSubclass
@@ -222,6 +227,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorSplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorTableHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/connector/ConnectorTransactionHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/connector/RowChangeParadigm.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorIndexHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DistinctLimitNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MarkDistinctNode.java
@@ -344,3 +350,4 @@ JavaClasses:
   - presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DeleteNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/BaseInputDistribution.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/MergeHandle.java
