@@ -53,6 +53,8 @@ public interface Rule<T>
 
     interface Context
     {
+        Memo getMemo();
+
         Lookup getLookup();
 
         PlanNodeIdAllocator getIdAllocator();

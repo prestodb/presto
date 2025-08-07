@@ -268,6 +268,12 @@ public class RuleAssert
         return new Rule.Context()
         {
             @Override
+            public Memo getMemo()
+            {
+                return memo;
+            }
+
+            @Override
             public Lookup getLookup()
             {
                 return lookup;
