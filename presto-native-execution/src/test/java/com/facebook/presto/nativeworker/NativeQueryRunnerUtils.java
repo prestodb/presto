@@ -122,11 +122,11 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitem(QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
+//        queryRunner.execute("DROP TABLE IF EXISTS lineitem");
         String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
         String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
         String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
-        queryRunner.execute("CREATE TABLE lineitem AS " +
+        queryRunner.execute("CREATE TABLE IF NOT EXISTS lineitem AS " +
                 "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
                 "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
                 "   shipinstruct, shipmode, comment, " +
@@ -165,9 +165,9 @@ public class NativeQueryRunnerUtils
 
     public static void createOrders(Session session, QueryRunner queryRunner, boolean castDateToVarchar)
     {
-        queryRunner.execute(session, "DROP TABLE IF EXISTS orders");
+//        queryRunner.execute(session, "DROP TABLE IF EXISTS orders");
         String orderDate = castDateToVarchar ? "cast(orderdate as varchar) as orderdate" : "orderdate";
-        queryRunner.execute(session, "CREATE TABLE orders AS " +
+        queryRunner.execute(session, "CREATE TABLE IF NOT EXISTS orders AS " +
                 "SELECT orderkey, custkey, orderstatus, totalprice, " + orderDate + ", " +
                 "   orderpriority, clerk, shippriority, comment " +
                 "FROM tpch.tiny.orders");
@@ -216,7 +216,7 @@ public class NativeQueryRunnerUtils
 
     public static void createNationWithFormat(Session session, QueryRunner queryRunner, String storageFormat)
     {
-        queryRunner.execute(session, "DROP TABLE IF EXISTS nation");
+//        queryRunner.execute(session, "DROP TABLE IF EXISTS nation");
         if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(session, "nation")) {
             queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
