@@ -43,7 +43,7 @@ void updateFromSystemConfigs(
     std::unordered_map<std::string, std::string>& queryConfigs) {
   const auto& systemConfig = SystemConfig::instance();
   static const std::unordered_map<std::string, std::string>
-      sessionSystemConfigMapping{
+      veloxToSystemConfigMapping{
           {core::QueryConfig::kQueryMaxMemoryPerNode,
            std::string(SystemConfig::kQueryMaxMemoryPerNode)},
           {core::QueryConfig::kSpillFileCreateConfig,
@@ -56,19 +56,21 @@ void updateFromSystemConfigs(
           std::string(SystemConfig::kOrderBySpillEnabled)},
           {core::QueryConfig::kAggregationSpillEnabled,
           std::string(SystemConfig::kAggregationSpillEnabled)},
+          {core::QueryConfig::kMaxSpillBytes,
+          std::string(SystemConfig::kMaxSpillBytes)},
           {core::QueryConfig::kRequestDataSizesMaxWaitSec,
           std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
           {core::QueryConfig::kMaxSplitPreloadPerDriver,
           std::string(SystemConfig::kDriverMaxSplitPreload)},
           {core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
           std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)}};
-  for (const auto& configNameEntry : sessionSystemConfigMapping) {
-    const auto& sessionName = configNameEntry.first;
+  for (const auto& configNameEntry : veloxToSystemConfigMapping) {
+    const auto& veloxConfigName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;
-    if (queryConfigs.count(sessionName) == 0) {
+    if (queryConfigs.count(veloxConfigName) == 0) {
       const auto propertyOpt = systemConfig->optionalProperty(systemConfigName);
       if (propertyOpt.hasValue()) {
-        queryConfigs[sessionName] = propertyOpt.value();
+        queryConfigs[veloxConfigName] = propertyOpt.value();
       }
     }
   }
