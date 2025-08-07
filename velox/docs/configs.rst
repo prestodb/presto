@@ -1010,6 +1010,10 @@ Spark-specific Configuration
      - false
      - If true, Spark statistical aggregation functions including skewness, kurtosis, stddev, stddev_samp, variance,
        var_samp, covar_samp and corr will return NaN instead of NULL when dividing by zero during expression evaluation.
+   * - spark.json_ignore_null_fields
+     - bool
+     - true
+     - If true, ignore null fields when generating JSON string. If false, null fields are included with a null value.
 
 Tracing
 --------

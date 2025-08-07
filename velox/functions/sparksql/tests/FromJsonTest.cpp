@@ -13,30 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <limits>
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/core/Expressions.h"
-#include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
+#include "velox/functions/sparksql/tests/JsonTestUtil.h"
 
 using namespace facebook::velox::test;
 
 namespace facebook::velox::functions::sparksql::test {
 namespace {
-constexpr float kNaNFloat = std::numeric_limits<float>::quiet_NaN();
-constexpr float kInfFloat = std::numeric_limits<float>::infinity();
-constexpr double kNaNDouble = std::numeric_limits<double>::quiet_NaN();
-constexpr double kInfDouble = std::numeric_limits<double>::infinity();
-
 class FromJsonTest : public SparkFunctionBaseTest {
  protected:
-  core::CallTypedExprPtr createFromJson(const TypePtr& outputType) {
-    std::vector<core::TypedExprPtr> inputs = {
-        std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0")};
-
-    return std::make_shared<const core::CallTypedExpr>(
-        outputType, std::move(inputs), "from_json");
-  }
-
   void testFromJson(const VectorPtr& input, const VectorPtr& expected) {
     auto expr = createFromJson(expected->type());
     testEncodings(expr, {input}, expected);
