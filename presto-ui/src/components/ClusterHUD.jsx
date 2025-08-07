@@ -38,7 +38,6 @@ export const ClusterHUD = () => {
         byteInputRate: [],
         perWorkerCpuTimeRate: [],
 
-        lastRender: null,
         lastRefresh: null,
 
         lastInputRows: null,
@@ -49,6 +48,7 @@ export const ClusterHUD = () => {
     });
 
     const timeoutId = useRef(null);
+    const lastRenderRef = useRef(null);
 
     const scheduleNextRefresh = () => {
         timeoutId.current = setTimeout(refreshLoop, 1000);
@@ -119,7 +119,7 @@ export const ClusterHUD = () => {
     // componentDidUpdate equivalent
     useEffect(() => {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (state.lastRender === null || (Date.now() - state.lastRender) >= 1000) {
+        if (lastRenderRef.current === null || (Date.now() - lastRenderRef.current) >= 1000) {
             const renderTimestamp = Date.now();
             $('#running-queries-sparkline').sparkline(state.runningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
             $('#blocked-queries-sparkline').sparkline(state.blockedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
@@ -133,14 +133,11 @@ export const ClusterHUD = () => {
             $('#byte-input-rate-sparkline').sparkline(state.byteInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
             $('#cpu-time-rate-sparkline').sparkline(state.perWorkerCpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
 
-            setState(prevState => ({
-                ...prevState,
-                lastRender: renderTimestamp
-            }));
+            lastRenderRef.current = renderTimestamp
         }
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
-    }, [state.lastRender, state.initialized, state.runningQueries, state.blockedQueries, state.queuedQueries, state.activeWorkers, state.runningDrivers, state.reservedMemory, state.rowInputRate, state.byteInputRate, state.perWorkerCpuTimeRate]);
+    }, [state.initialized, state.runningQueries, state.blockedQueries, state.queuedQueries, state.activeWorkers, state.runningDrivers, state.reservedMemory, state.rowInputRate, state.byteInputRate, state.perWorkerCpuTimeRate]);
 
     return (
         <div className="row">
