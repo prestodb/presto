@@ -19,6 +19,8 @@ import javax.validation.constraints.NotNull;
 
 public class MySqlConnectionConfig
 {
+    private String jdbcDriverName = "com.mysql.jdbc.Driver";
+
     private String databaseUrl;
 
     @NotNull
@@ -32,5 +34,16 @@ public class MySqlConnectionConfig
     {
         this.databaseUrl = databaseUrl;
         return this;
+    }
+
+    public String getJdbcDriverName()
+    {
+        return jdbcDriverName;
+    }
+
+    @Config("database-driver-name")
+    public void setJdbcDriverName(String jdbcDriverName)
+    {
+        this.jdbcDriverName = jdbcDriverName;
     }
 }
