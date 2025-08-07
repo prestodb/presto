@@ -17,14 +17,14 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZoneJavaTime;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 
 public class TestDateTimeUtils
 {
     @Test(expectedExceptions = {ArithmeticException.class})
     public void testLongOverflowHigh()
     {
-        parseTimestampWithoutTimeZoneJavaTime("292278994-08-17 11:46:00.000");
+        parseTimestampWithoutTimeZone("292278994-08-17 11:46:00.000");
     }
 
     @DataProvider
@@ -48,6 +48,6 @@ public class TestDateTimeUtils
     @Test(dataProvider = "testWorkingTimestampsProvider")
     public void testWorkingTimestamps(String value, long millis)
     {
-        assertEquals(parseTimestampWithoutTimeZoneJavaTime(value), millis);
+        assertEquals(parseTimestampWithoutTimeZone(value), millis);
     }
 }
