@@ -88,7 +88,7 @@ maintainers of that component.
 ### Builds and CI
 
 * Deepak Majeti - [majetideepak](https://github.com/majetideepak) / deepak.majeti@ibm.com
-* Jacob Wujciak-Jens - [assignUser](https://github.com/assignUser) / jacob@voltrondata.com
+* Jacob Wujciak-Jens - [assignUser](https://github.com/assignUser) / jacob@wujciak.de
 * Krishna Pai - [kgpai](https://github.com/kgpai) / kpai@meta.com
 
 ### Fuzzers and Test Frameworks
