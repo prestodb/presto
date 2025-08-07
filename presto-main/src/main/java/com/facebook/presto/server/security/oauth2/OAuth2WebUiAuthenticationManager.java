@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static com.facebook.presto.server.security.AuthenticationFilter.withPrincipal;
+import static com.facebook.presto.server.security.oauth2.OAuth2Authenticator.extractTokenFromCookie;
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getSchemeUriBuilder;
 import static java.util.Objects.requireNonNull;
@@ -72,7 +73,7 @@ public class OAuth2WebUiAuthenticationManager
     private Optional<TokenPair> getTokenPair(HttpServletRequest request)
     {
         try {
-            Optional<String> token = this.oAuth2Authenticator.extractTokenFromCookie(request);
+            Optional<String> token = extractTokenFromCookie(request);
             if (token.isPresent()) {
                 return Optional.ofNullable(tokenPairSerializer.deserialize(token.get()));
             }
