@@ -16,7 +16,7 @@ FROM ${base}
 # Set a default timezone, can be overriden via ARG
 ARG tz="America/New_York"
 ARG DEBIAN_FRONTEND="noninteractive"
-ENV PROMPT_ALWAYS_RESPOND=n
+ENV PROMPT_ALWAYS_RESPOND=y
 ENV SUDO=" "
 # TZ and DEBIAN_FRONTEND="noninteractive"
 # are required to avoid tzdata installation
