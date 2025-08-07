@@ -115,6 +115,7 @@ Property                                                Description
 ``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
                                                         Should be set to ``true``.
 ``http-server.https.port``                              HTTPS server port.
+``http-server.http2.enabled``                           Enables HTTP2 server on the worker.
 ``http-server.https.keystore.path``                     The location of the Java Keystore file that will be
                                                         used to secure TLS.
 ``http-server.https.keystore.key``                      The password for the keystore. This must match the

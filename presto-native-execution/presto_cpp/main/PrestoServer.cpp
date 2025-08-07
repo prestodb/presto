@@ -318,8 +318,9 @@ void PrestoServer::run() {
       httpsSocketAddress.setFromLocalPort(httpsPort.value());
     }
 
+    const bool http2Enabled = SystemConfig::instance()->httpServerHttp2Enabled();
     httpsConfig = std::make_unique<http::HttpsConfig>(
-        httpsSocketAddress, certPath, keyPath, ciphers, reusePort);
+        httpsSocketAddress, certPath, keyPath, ciphers, reusePort, http2Enabled);
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(

@@ -157,6 +157,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kHttpServerHttpsPort),
           BOOL_PROP(kHttpServerHttpsEnabled, false),
+          BOOL_PROP(kHttpServerHttp2Enabled, true),
           STR_PROP(
               kHttpsSupportedCiphers,
               "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"),
@@ -295,6 +296,10 @@ int SystemConfig::httpServerHttpsPort() const {
 
 bool SystemConfig::httpServerHttpsEnabled() const {
   return optionalProperty<bool>(kHttpServerHttpsEnabled).value();
+}
+
+bool SystemConfig::httpServerHttp2Enabled() const {
+  return optionalProperty<bool>(kHttpServerHttp2Enabled).value();
 }
 
 std::string SystemConfig::httpsSupportedCiphers() const {

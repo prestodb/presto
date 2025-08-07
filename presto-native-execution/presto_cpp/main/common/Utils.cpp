@@ -37,6 +37,7 @@ std::shared_ptr<folly::SSLContext> createSSLContext(
     sslContext->loadCertKeyPairFromFiles(
         clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
     sslContext->setCiphersOrThrow(ciphers);
+    sslContext->setAdvertisedNextProtocols({"http/1.1"});
     return sslContext;
   } catch (const std::exception& ex) {
     LOG(FATAL) << fmt::format(
