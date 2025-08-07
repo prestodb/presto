@@ -121,11 +121,6 @@ export const PageTitle = (props: Props) => {
         };
     }, []);
 
-    useEffect(() => {
-        //$FlowFixMe$ Bootstrap 5 plugin
-        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
-    });
-
     const renderStatusLight = () => {
         if (state.noConnection) {
             if (state.lightShown) {
