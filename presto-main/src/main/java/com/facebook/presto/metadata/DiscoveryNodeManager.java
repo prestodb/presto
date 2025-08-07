@@ -29,6 +29,7 @@ import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.NodeStats;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
@@ -94,7 +95,7 @@ public final class DiscoveryNodeManager
     private final FailureDetector failureDetector;
     private final Optional<NodeStatusService> nodeStatusService;
     private final NodeVersion expectedNodeVersion;
-    private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, RemoteNodeStats> nodeStatsMap = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final DriftClient<ThriftServerInfoClient> driftClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
@@ -237,20 +238,20 @@ public final class DiscoveryNodeManager
 
         // Remove nodes that don't exist anymore
         // Make a copy to materialize the set difference
-        Set<String> deadNodes = difference(nodeStates.keySet(), aliveNodeIds).immutableCopy();
-        nodeStates.keySet().removeAll(deadNodes);
+        Set<String> deadNodes = difference(nodeStatsMap.keySet(), aliveNodeIds).immutableCopy();
+        nodeStatsMap.keySet().removeAll(deadNodes);
 
         // Add new nodes
         for (InternalNode node : aliveNodes) {
             switch (protocol) {
                 case HTTP:
-                    nodeStates.putIfAbsent(node.getNodeIdentifier(),
-                            new HttpRemoteNodeState(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build()));
+                    nodeStatsMap.putIfAbsent(node.getNodeIdentifier(),
+                            new HttpRemoteNodeStats(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/nodestate").build()));
                     break;
                 case THRIFT:
                     if (node.getThriftPort().isPresent()) {
-                        nodeStates.put(node.getNodeIdentifier(),
-                                new ThriftRemoteNodeState(driftClient, uriBuilderFrom(node.getInternalUri()).scheme("thrift").port(node.getThriftPort().getAsInt()).build()));
+                        nodeStatsMap.put(node.getNodeIdentifier(),
+                                new ThriftRemoteNodeStats(driftClient, uriBuilderFrom(node.getInternalUri()).scheme("thrift").port(node.getThriftPort().getAsInt()).build()));
                     }
                     else {
                         // thrift port has not yet been populated; ignore the node for now
@@ -260,7 +261,7 @@ public final class DiscoveryNodeManager
         }
 
         // Schedule refresh
-        nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
+        nodeStatsMap.values().forEach(RemoteNodeStats::asyncRefresh);
 
         // update indexes
         refreshNodesInternal();
@@ -439,10 +440,10 @@ public final class DiscoveryNodeManager
 
     private boolean isNodeShuttingDown(String nodeId)
     {
-        Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
-                ? nodeStates.get(nodeId).getNodeState()
+        Optional<NodeStats> remoteNodeStats = nodeStatsMap.containsKey(nodeId)
+                ? nodeStatsMap.get(nodeId).getNodeStats()
                 : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
+        return remoteNodeStats.isPresent() && remoteNodeStats.get().getNodeState() == SHUTTING_DOWN;
     }
 
     @Override
