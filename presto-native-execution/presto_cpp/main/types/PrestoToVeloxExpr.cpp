@@ -192,6 +192,7 @@ std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
 
 namespace {
 static const char* kVarchar = "varchar";
+static const char* kChar = "char";
 
 /// Convert cast of varchar to substr if target type is varchar with max length.
 /// Throw an exception for cast of varchar to varchar with max length.
@@ -230,6 +231,35 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
           std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
       },
       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "substr"));
+}
+
+TypedExprPtr convertCastToCharN(
+    const std::string& returnType,
+    const TypedExprPtr& arg,
+    bool nullOnFailure) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  if (nullOnFailure) {
+    VELOX_UNSUPPORTED("TRY_CAST of char is not supported.");
+  }
+
+  // Parse the max length from the return type string in the format of
+  // varchar(max_length). Assume return type string is valid given
+  // TypeParser.yy.
+  char* end;
+  const auto length =
+      strtol(returnType.data() + strlen(kChar) + 1, &end, 10);
+  VELOX_DCHECK(errno != ERANGE);
+  VELOX_DCHECK(end == returnType.data() + returnType.size() - 1);
+
+  return std::make_shared<CallTypedExpr>(
+  velox::VARCHAR(),
+  std::vector<TypedExprPtr>{
+    arg,
+    std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
+    std::make_shared<ConstantTypedExpr>(velox::VARCHAR(), " "),
+  },
+  util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "rpad"));
 }
 
 /// Converts cast and try_cast functions to CastTypedExpr with nullOnFailure
@@ -297,6 +327,12 @@ std::optional<TypedExprPtr> tryConvertCast(
 
   if (returnType == kCodePoints) {
     return args[0];
+  }
+
+  if (returnType.find(kChar) == 0 && returnType.size() > strlen(kChar)) {
+    VELOX_USER_CHECK_EQ(args[0]->type()->kind(), TypeKind::VARCHAR, "");
+    VELOX_DCHECK_EQ(args.size(), 1);
+    return convertCastToCharN(returnType, args[0], nullOnFailure);
   }
 
   // When the return type is varchar with max length, truncate if only the
@@ -809,7 +845,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
       returnType, args, mapScalarFunction(form));
 }
 
-std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
+FieldAccessTypedExprPtr VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::VariableReferenceExpression> pexpr) const {
   return std::make_shared<FieldAccessTypedExpr>(
       typeParser_->parse(pexpr->type), pexpr->name);
@@ -856,6 +892,13 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   if (auto variable =
           std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
               pexpr)) {
+    if (variable->type.find(kChar) == 0 && variable->type.size() > strlen(kChar)) {
+      return convertCastToCharN(
+        variable->type,
+        std::make_shared<FieldAccessTypedExpr>(
+          typeParser_->parse(variable->type), variable->name),
+          false);
+    }
     return toVeloxExpr(variable);
   }
   if (auto lambda =

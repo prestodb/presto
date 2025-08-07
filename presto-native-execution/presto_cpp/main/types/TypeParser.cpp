@@ -20,6 +20,9 @@
 namespace facebook::presto {
 
 velox::TypePtr TypeParser::parse(const std::string& text) const {
+  if (text.find("char(") != std::string::npos || text.find("CHAR(") != std::string::npos) {
+    return velox::VARCHAR();
+  }
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;
