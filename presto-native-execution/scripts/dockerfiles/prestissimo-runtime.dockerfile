@@ -26,8 +26,10 @@ ENV BUILD_DIR=""
 
 RUN mkdir -p /prestissimo /runtime-libraries
 COPY . /prestissimo/
-RUN EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
-    NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR}
+RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
+    EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
+    NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} && \
+    ccache -sz -v
 RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server  | grep "not found") && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
