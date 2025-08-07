@@ -750,6 +750,7 @@ class SystemConfig : public ConfigBase {
       "aggregation-spill-enabled"};
   static constexpr std::string_view kOrderBySpillEnabled{
       "order-by-spill-enabled"};
+  static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
@@ -1042,6 +1043,8 @@ class SystemConfig : public ConfigBase {
   bool aggregationSpillEnabled() const;
 
   bool orderBySpillEnabled() const;
+
+  uint64_t maxSpillBytes() const;
 
   int requestDataSizesMaxWaitSec() const;
 

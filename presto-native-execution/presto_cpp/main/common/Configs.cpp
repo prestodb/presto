@@ -260,6 +260,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kJoinSpillEnabled, true),
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
+          NUM_PROP(kMaxSpillBytes, 100UL << 30), // 100GB
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
           STR_PROP(kPluginDir, ""),
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
@@ -343,6 +344,10 @@ bool SystemConfig::aggregationSpillEnabled() const {
 
 bool SystemConfig::orderBySpillEnabled() const {
   return optionalProperty<bool>(kOrderBySpillEnabled).value();
+}
+
+uint64_t SystemConfig::maxSpillBytes() const {
+  return optionalProperty<uint64_t>(kMaxSpillBytes).value();
 }
 
 int SystemConfig::requestDataSizesMaxWaitSec() const {
@@ -1042,6 +1047,7 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               c.aggregationSpillEnabled()),
           BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
+          NUM_PROP(QueryConfig::kMaxSpillBytes, c.maxSpillBytes()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
           NUM_PROP(
