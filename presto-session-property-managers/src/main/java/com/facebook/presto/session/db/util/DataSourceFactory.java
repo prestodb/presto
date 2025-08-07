@@ -11,28 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.db.util;
 
-import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.session.db.DbSessionPropertyManagerConfig;
 
-import javax.validation.constraints.NotNull;
+import javax.sql.DataSource;
 
-import java.io.File;
-
-public class FileSessionPropertyManagerConfig
+public interface DataSourceFactory
 {
-    private File configFile;
-
-    @NotNull
-    public File getConfigFile()
-    {
-        return configFile;
-    }
-
-    @Config("session-property-manager.config-file")
-    public FileSessionPropertyManagerConfig setConfigFile(File configFile)
-    {
-        this.configFile = configFile;
-        return this;
-    }
+    DataSource create(DbSessionPropertyManagerConfig config);
 }
