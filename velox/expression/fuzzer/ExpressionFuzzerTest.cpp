@@ -239,6 +239,8 @@ std::unordered_set<std::string> skipFunctions = {
     "st_xmin",
     "st_ymax",
     "st_ymin",
+    "line_locate_point",
+    "line_interpolate_point",
 };
 
 std::unordered_set<std::string> skipFunctionsSOT = {

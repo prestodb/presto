@@ -348,7 +348,8 @@ Accessors
 
 .. function:: ST_Dimension(geometry: Geometry) -> output: tinyint
 
-    Returns the inherent dimension of this geometry object, which must be less than or equal to the coordinate dimension.
+    Returns the inherent dimension of this geometry object, which
+    must be less than or equal to the coordinate dimension.
 
 .. function:: ST_ExteriorRing(geometry: Geometry) -> output: Geometry
 
@@ -369,6 +370,21 @@ Accessors
     particular) that are invalid. Tolerance must be a non-negative finite value.
     Using tolerance of 0 will return the original geometry.  Empty geometries
     will also be returned as-is.
+
+.. function:: line_locate_point(linestring: Geometry, point: Geometry) -> output: double
+
+    Returns a float between 0 and 1 representing the location of the closest
+    point on the LineString to the given Point, as a fraction of total 2d line length.
+
+    Returns null if a LineString or a Point is empty or null.
+
+.. function:: line_interpolate_point(linestring: Geometry, fraction: double) -> output: geometry
+
+    Returns the Point on the LineString at a fractional distance given by
+    the double argument. Throws an exception if the distance is not between 0 and 1.
+
+    Returns an empty Point if the LineString is empty.
+    Returns null if either the LineString or double is null.
 
 Bing Tile Functions
 -------------------

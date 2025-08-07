@@ -2594,3 +2594,109 @@ TEST_F(GeometryFunctionsTest, testGeometryNearestPoints) {
   noNearestPointsFunc("LINESTRING (50 100, 50 200)", std::nullopt);
   noNearestPointsFunc(std::nullopt, std::nullopt);
 }
+
+TEST_F(GeometryFunctionsTest, testLineLocatePoint) {
+  const auto testLineLocatePointFunc = [&](const std::optional<std::string>&
+                                               lineWkt,
+                                           const std::optional<std::string>&
+                                               pointWkt,
+                                           const std::optional<double>&
+                                               expected) {
+    std::optional<double> result = evaluateOnce<double>(
+        "line_locate_point(ST_GeometryFromText(c0), ST_GeometryFromText(c1))",
+        lineWkt,
+        pointWkt);
+
+    if (expected.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_EQ(result.value(), expected.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testLineLocatePointFunc("LINESTRING (0 0, 0 1)", "POINT (0 0.2)", .2);
+  testLineLocatePointFunc("LINESTRING (0 0, 0 1)", "POINT (0 0)", 0.0);
+  testLineLocatePointFunc("LINESTRING (0 0, 0 1)", "POINT (0 -1)", 0.0);
+  testLineLocatePointFunc("LINESTRING (0 0, 0 1)", "POINT (0 1)", 1.0);
+  testLineLocatePointFunc("LINESTRING (0 0, 0 1)", "POINT (0 2)", 1.0);
+  testLineLocatePointFunc(
+      "LINESTRING (0 0, 0 1, 2 1)", "POINT (0 0.2)", 0.06666666666666667);
+  testLineLocatePointFunc(
+      "LINESTRING (0 0, 0 1, 2 1)", "POINT (0.9 1)", 0.6333333333333333);
+  testLineLocatePointFunc("LINESTRING (1 3, 5 4)", "POINT (1 3)", 0.0);
+  testLineLocatePointFunc(
+      "LINESTRING (1 3, 5 4)", "POINT (2 3)", 0.23529411764705882);
+  testLineLocatePointFunc("LINESTRING (1 3, 5 4)", "POINT (5 4)", 1.0);
+  testLineLocatePointFunc(
+      "MULTILINESTRING ((0 0, 0 1), (2 2, 4 2))",
+      "POINT (3 1)",
+      0.6666666666666666);
+
+  testLineLocatePointFunc("LINESTRING EMPTY", "POINT (5 4)", std::nullopt);
+  testLineLocatePointFunc("LINESTRING (1 3, 5 4)", "POINT EMPTY", std::nullopt);
+
+  testLineLocatePointFunc(std::nullopt, "POINT (5 4)", std::nullopt);
+  testLineLocatePointFunc("LINESTRING (1 3, 5 4)", std::nullopt, std::nullopt);
+
+  VELOX_ASSERT_USER_THROW(
+      testLineLocatePointFunc(
+          "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))", "POINT (5 4)", std::nullopt),
+      "First argument to line_locate_point must be a LineString or a MultiLineString. Got: Polygon");
+
+  VELOX_ASSERT_USER_THROW(
+      testLineLocatePointFunc(
+          "LINESTRING (0 0, 0 1)", "LINESTRING (1 3, 5 4)", std::nullopt),
+      "Second argument to line_locate_point must be a Point. Got: LineString");
+}
+
+TEST_F(GeometryFunctionsTest, testLineInterpolatePoint) {
+  const auto testLineInterpolatePointFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<double>& fraction,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(line_interpolate_point(ST_GeometryFromText(c0), c1))",
+            wkt,
+            fraction);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testLineInterpolatePointFunc("LINESTRING EMPTY", .5, "POINT EMPTY");
+  testLineInterpolatePointFunc("LINESTRING (0 0, 0 1)", .2, "POINT (0 0.2)");
+  testLineInterpolatePointFunc("LINESTRING (0 0, 0 1)", 0.0, "POINT (0 0)");
+  testLineInterpolatePointFunc("LINESTRING (0 0, 0 1)", 1.0, "POINT (0 1)");
+  testLineInterpolatePointFunc(
+      "LINESTRING (0 0, 0 1, 3 1)", .0625, "POINT (0 0.25)");
+  testLineInterpolatePointFunc(
+      "LINESTRING (0 0, 0 1, 3 1)", .75, "POINT (2 1)");
+  testLineInterpolatePointFunc("LINESTRING (1 3, 5 4)", 0.0, "POINT (1 3)");
+  testLineInterpolatePointFunc("LINESTRING (1 3, 5 4)", 0.25, "POINT (2 3.25)");
+  testLineInterpolatePointFunc("LINESTRING (1 3, 5 4)", 1.0, "POINT (5 4)");
+
+  VELOX_ASSERT_USER_THROW(
+      testLineInterpolatePointFunc(
+          "POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))", .5, std::nullopt),
+      "line_interpolate_point only applies to LineString. Input type is: Polygon");
+
+  VELOX_ASSERT_USER_THROW(
+      testLineInterpolatePointFunc(
+          "MULTILINESTRING ((0 0, 0 1), (2 2, 4 2))", .5, std::nullopt),
+      "line_interpolate_point only applies to LineString. Input type is: MultiLineString");
+
+  VELOX_ASSERT_USER_THROW(
+      testLineInterpolatePointFunc(
+          "LINESTRING (0 0, 0 1, 2 1)", -1.0, std::nullopt),
+      "line_interpolate_point: Fraction must be between 0 and 1, but is -1");
+
+  VELOX_ASSERT_USER_THROW(
+      testLineInterpolatePointFunc(
+          "LINESTRING (0 0, 0 1, 2 1)", 1.5, std::nullopt),
+      "line_interpolate_point: Fraction must be between 0 and 1, but is 1.5");
+}

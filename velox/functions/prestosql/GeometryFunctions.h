@@ -22,6 +22,7 @@
 #include <geos/io/WKBWriter.h>
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
+#include <geos/linearref/LengthIndexedLine.h>
 #include <geos/operation/distance/DistanceOp.h>
 #include <geos/simplify/TopologyPreservingSimplifier.h>
 #include <geos/util/AssertionFailedException.h>
@@ -1450,6 +1451,91 @@ struct GeometryNearestPointsFunction {
         "Failed to compute nearest points between geometries");
 
     return true;
+  }
+
+ private:
+  geos::geom::GeometryFactory::Ptr factory_;
+};
+
+template <typename T>
+struct LineLocatePointFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<double>& result,
+      const arg_type<Geometry>& inputLine,
+      const arg_type<Geometry>& inputPoint) {
+    auto line = geospatial::GeometryDeserializer::deserialize(inputLine);
+    auto point = geospatial::GeometryDeserializer::deserialize(inputPoint);
+
+    if (line->isEmpty() || point->isEmpty()) {
+      return false;
+    }
+
+    auto lineType = line->getGeometryTypeId();
+    if (lineType != geos::geom::GeometryTypeId::GEOS_LINESTRING &&
+        lineType != geos::geom::GeometryTypeId::GEOS_MULTILINESTRING) {
+      VELOX_USER_FAIL(fmt::format(
+          "First argument to line_locate_point must be a LineString or a MultiLineString. Got: {}",
+          line->getGeometryType()));
+    }
+
+    auto pointType = point->getGeometryTypeId();
+    if (pointType != geos::geom::GeometryTypeId::GEOS_POINT) {
+      VELOX_USER_FAIL(fmt::format(
+          "Second argument to line_locate_point must be a Point. Got: {}",
+          point->getGeometryType()));
+    }
+
+    result = geos::linearref::LengthIndexedLine(line.get())
+                 .indexOf(*(point->getCoordinate())) /
+        line->getLength();
+
+    return true;
+  }
+};
+
+template <typename T>
+struct LineInterpolatePointFunction {
+  LineInterpolatePointFunction() {
+    factory_ = geos::geom::GeometryFactory::create();
+  }
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& inputLine,
+      const arg_type<double>& fraction) {
+    if (!(0.0 <= fraction && fraction <= 1.0)) {
+      return Status::UserError(fmt::format(
+          "line_interpolate_point: Fraction must be between 0 and 1, but is {}",
+          fraction));
+    }
+    auto line = geospatial::GeometryDeserializer::deserialize(inputLine);
+    Status validate = Status::OK();
+    validate = geospatial::validateType(
+        *line,
+        {geos::geom::GeometryTypeId::GEOS_LINESTRING},
+        "line_interpolate_point");
+
+    if (!validate.ok()) {
+      return validate;
+    }
+
+    if (line->isEmpty()) {
+      geospatial::GeometrySerializer::serialize(
+          *(factory_->createPoint()), result);
+    }
+
+    geos::geom::Coordinate coordinate =
+        geos::linearref::LengthIndexedLine(line.get())
+            .extractPoint(fraction * line->getLength());
+
+    auto resultPoint =
+        std::unique_ptr<geos::geom::Point>(factory_->createPoint(coordinate));
+    geospatial::GeometrySerializer::serialize(*resultPoint, result);
+
+    return validate;
   }
 
  private:
