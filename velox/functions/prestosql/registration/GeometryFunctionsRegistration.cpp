@@ -151,6 +151,10 @@ void registerAccessors(const std::string& prefix) {
       Array<Geometry>,
       Geometry,
       Geometry>({{prefix + "geometry_nearest_points"}});
+  registerFunction<
+      FlattenGeometryCollectionsFunction,
+      Array<Geometry>,
+      Geometry>({{prefix + "flatten_geometry_collections"}});
 }
 
 } // namespace

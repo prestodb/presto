@@ -243,6 +243,7 @@ std::unordered_set<std::string> skipFunctions = {
     "st_ymin",
     "line_locate_point",
     "line_interpolate_point",
+    "flatten_geometry_collections",
 };
 
 std::unordered_set<std::string> skipFunctionsSOT = {

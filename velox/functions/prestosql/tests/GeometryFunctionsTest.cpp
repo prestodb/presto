@@ -2800,3 +2800,52 @@ TEST_F(GeometryFunctionsTest, testStGeometries) {
   ASSERT_TRUE(emptyGeomReturnsNull.has_value());
   ASSERT_TRUE(emptyGeomReturnsNull.value());
 }
+
+TEST_F(GeometryFunctionsTest, testFlattenGeometryCollections) {
+  const auto testFlattenGeometryCollectionsFunc = [&](const std::optional<
+                                                          std::string>& wkt,
+                                                      const std::optional<
+                                                          std::vector<
+                                                              std::optional<
+                                                                  std::
+                                                                      string>>>&
+                                                          expectedGeoms) {
+    auto input = makeSingleStringInputRow(wkt);
+    facebook::velox::VectorPtr output = evaluate(
+        "transform(flatten_geometry_collections(ST_GeometryFromText(c0)), x -> ST_AsText(x))",
+        input);
+
+    auto arrayVector =
+        std::dynamic_pointer_cast<facebook::velox::ArrayVector>(output);
+
+    if (expectedGeoms.has_value()) {
+      ASSERT_TRUE(arrayVector != nullptr);
+
+      std::vector<std::vector<std::optional<std::string>>> vec = {
+          expectedGeoms.value()};
+      auto expected = makeNullableArrayVector<std::string>(vec);
+      facebook::velox::test::assertEqualVectors(expected, output);
+    } else {
+      ASSERT_TRUE(output->isNullAt(0));
+    }
+  };
+
+  testFlattenGeometryCollectionsFunc("POINT (1 5)", {{"POINT (1 5)"}});
+  testFlattenGeometryCollectionsFunc(
+      "MULTIPOINT ((0 0), (1 1))", {{"MULTIPOINT (0 0, 1 1)"}});
+  testFlattenGeometryCollectionsFunc("GEOMETRYCOLLECTION EMPTY", {{}});
+  testFlattenGeometryCollectionsFunc(
+      "GEOMETRYCOLLECTION (POINT EMPTY)", {{"POINT EMPTY"}});
+  testFlattenGeometryCollectionsFunc(
+      "GEOMETRYCOLLECTION (POINT (0 0))", {{"POINT (0 0)"}});
+  testFlattenGeometryCollectionsFunc(
+      "GEOMETRYCOLLECTION (POINT (0 0), GEOMETRYCOLLECTION (POINT (1 1)))",
+      {{"POINT (0 0)", "POINT (1 1)"}});
+
+  std::optional<std::string> wkt = std::nullopt;
+  std::optional<bool> expectNullResult = evaluateOnce<bool>(
+      "flatten_geometry_collections(ST_GeometryFromText(c0)) IS NULL", wkt);
+
+  ASSERT_TRUE(expectNullResult.has_value());
+  ASSERT_TRUE(expectNullResult.value());
+}

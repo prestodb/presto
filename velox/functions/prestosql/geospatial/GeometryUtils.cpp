@@ -17,11 +17,67 @@
 #include "velox/functions/prestosql/geospatial/GeometryUtils.h"
 #include <geos/operation/valid/IsSimpleOp.h>
 #include <geos/operation/valid/IsValidOp.h>
+#include "velox/common/base/Exceptions.h"
 
 using geos::operation::valid::IsSimpleOp;
 using geos::operation::valid::IsValidOp;
 
 namespace facebook::velox::functions::geospatial {
+
+GeometryCollectionIterator::GeometryCollectionIterator(
+    const geos::geom::Geometry* geometry) {
+  if (!geometry) {
+    VELOX_USER_FAIL("geometry is null");
+  }
+  geometriesDeque.push_back(geometry);
+}
+// Returns true if there is a next geometry to iterate over
+bool GeometryCollectionIterator::hasNext() {
+  while (!geometriesDeque.empty()) {
+    const geos::geom::Geometry* top = geometriesDeque.back();
+    // Check if top is a GeometryCollection
+    if (top->getGeometryTypeId() == geos::geom::GEOS_GEOMETRYCOLLECTION) {
+      geometriesDeque.pop_back();
+      const geos::geom::GeometryCollection* collection =
+          dynamic_cast<const geos::geom::GeometryCollection*>(top);
+      if (collection) {
+        // Push children in reverse order so that the first child is on top of
+        // the stack
+        for (int i = static_cast<int>(collection->getNumGeometries()) - 1;
+             i >= 0;
+             --i) {
+          geometriesDeque.push_back(collection->getGeometryN(i));
+        }
+        continue; // Check again with new top
+      } else {
+        VELOX_FAIL("Failed to cast to GeometryCollection");
+      }
+    } else {
+      // Top is not a collection, so we have a next geometry
+      return true;
+    }
+  }
+  return false;
+}
+
+const geos::geom::Geometry* GeometryCollectionIterator::next() {
+  if (!hasNext()) {
+    throw std::out_of_range("No more geometries");
+  }
+  const geos::geom::Geometry* nextGeometry = geometriesDeque.back(); // NOLINT
+  geometriesDeque.pop_back();
+  return nextGeometry;
+}
+
+std::vector<const geos::geom::Geometry*> flattenCollection(
+    const geos::geom::Geometry* geometry) {
+  std::vector<const geos::geom::Geometry*> result;
+  GeometryCollectionIterator it(geometry);
+  while (it.hasNext()) {
+    result.push_back(it.next());
+  }
+  return result;
+}
 
 geos::geom::GeometryFactory* getGeometryFactory() {
   thread_local static geos::geom::GeometryFactory::Ptr geometryFactory =

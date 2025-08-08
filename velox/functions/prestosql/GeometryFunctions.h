@@ -1622,4 +1622,23 @@ struct StGeometriesFunction {
   }
 };
 
+template <typename T>
+struct FlattenGeometryCollectionsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status
+  call(out_type<Array<Geometry>>& result, const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    geospatial::GeometryCollectionIterator it(geosGeometry.get());
+    while (it.hasNext()) {
+      geospatial::GeometrySerializer::serialize(
+          *(it.next()), result.add_item());
+    }
+
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions

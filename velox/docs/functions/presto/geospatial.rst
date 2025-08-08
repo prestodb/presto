@@ -348,9 +348,20 @@ Accessors
     Returns null if input geometry is empty. For example, a MultiLineString
     will create an array of LineStrings. A GeometryCollection will
     produce an un-flattened array of its constituents:
-    GEOMETRYCOLLECTION(MULTIPOINT(0 0, 1 1),
-    GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3)))) would produce
-    array[MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3)))]
+    GEOMETRYCOLLECTION (MULTIPOINT(0 0, 1 1),
+    GEOMETRYCOLLECTION (MULTILINESTRING((2 2, 3 3))) ) would produce
+    array[MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION( MULTILINESTRING((2 2, 3 3)) )]
+
+.. function:: flatten_geometry_collections(geometry: Geometry) -> output: array(geometry)
+
+    Recursively flattens any GeometryCollections in Geometry, returning an array
+    of constituent non-GeometryCollection geometries. The order of the array
+    is arbitrary and should not be relied upon. null input results in null output.
+    Examples:
+
+    POINT (0 0) -> [POINT (0 0)], MULTIPOINT (0 0, 1 1) -> [MULTIPOINT (0 0, 1 1)],
+    GEOMETRYCOLLECTION (POINT (0 0), GEOMETRYCOLLECTION (POINT (1 1))) ->
+    [POINT (0 0), POINT (1 1)], GEOMETRYCOLLECTION EMPTY -> [].
 
 .. function:: ST_NumInteriorRing(geometry: Geometry) -> output: integer
 

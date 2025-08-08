@@ -56,6 +56,16 @@ namespace facebook::velox::functions::geospatial {
     VELOX_FAIL(fmt::format("{}: {}", user_error_message, e.what()));       \
   }
 
+class GeometryCollectionIterator {
+ public:
+  explicit GeometryCollectionIterator(const geos::geom::Geometry* geometry);
+  bool hasNext();
+  const geos::geom::Geometry* next();
+
+ private:
+  std::deque<const geos::geom::Geometry*> geometriesDeque;
+};
+
 geos::geom::GeometryFactory* getGeometryFactory();
 
 FOLLY_ALWAYS_INLINE const
@@ -182,5 +192,8 @@ FOLLY_ALWAYS_INLINE void canonicalizePolygonCoordinates(
         coordinates, partIndexes.back(), coordinates->size(), shellPart.back());
   }
 }
+
+std::vector<const geos::geom::Geometry*> flattenCollection(
+    const geos::geom::Geometry* geometry);
 
 } // namespace facebook::velox::functions::geospatial
