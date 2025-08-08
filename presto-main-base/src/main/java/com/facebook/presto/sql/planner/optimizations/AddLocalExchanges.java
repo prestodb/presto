@@ -29,6 +29,7 @@ import com.facebook.presto.spi.plan.InputDistribution;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
@@ -883,6 +884,23 @@ public class AddLocalExchanges
                             .withDefaultParallelism(session));
 
             PlanWithProperties build = planAndEnforce(node.getRight(), singleStream(), singleStream());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
+        }
+
+        @Override
+        public PlanWithProperties visitMergeJoin(MergeJoinNode node, StreamPreferredProperties parentPreferences)
+        {
+            PlanWithProperties probe = planAndEnforce(
+                    node.getLeft(),
+                    defaultParallelism(session),
+                    parentPreferences.constrainTo(node.getLeft().getOutputVariables())
+                            .withDefaultParallelism(session));
+            PlanWithProperties build = planAndEnforce(
+                    node.getRight(),
+                    defaultParallelism(session),
+                    parentPreferences.constrainTo(node.getRight().getOutputVariables())
+                            .withDefaultParallelism(session));
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
         }
