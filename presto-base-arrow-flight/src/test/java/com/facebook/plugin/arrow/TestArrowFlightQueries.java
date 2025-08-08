@@ -37,6 +37,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -103,18 +104,18 @@ public class TestArrowFlightQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM member");
 
-        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("id", "integer", "", "")
-                .row("name", "varchar", "", "")
-                .row("sex", "char", "", "")
-                .row("state", "char", "", "")
+        MaterializedResult expectedUnparametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("id", "integer", "", "", 10L, null, null)
+                .row("name", "varchar", "", "", null, null, 2147483647L)
+                .row("sex", "char", "", "", null, null, 2147483647L)
+                .row("state", "char", "", "", null, null, 2147483647L)
                 .build();
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("id", "integer", "", "")
-                .row("name", "varchar(50)", "", "")
-                .row("sex", "char(1)", "", "")
-                .row("state", "char(5)", "", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("id", "integer", "", "", 10L, null, null)
+                .row("name", "varchar(50)", "", "", null, null, 50L)
+                .row("sex", "char(1)", "", "", null, null, 1L)
+                .row("state", "char(5)", "", "", null, null, 5L)
                 .build();
 
         assertTrue(actual.equals(expectedParametrizedVarchar) || actual.equals(expectedUnparametrizedVarchar),
@@ -163,9 +164,11 @@ public class TestArrowFlightQueries
     public void testDescribeUnknownTable()
     {
         MaterializedResult actualRows = computeActual("DESCRIBE information_schema.enabled_roles");
-        MaterializedResult expectedRows = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("role_name", "varchar", "", "")
+        MaterializedResult expectedRows = resultBuilder(getSession(),
+                VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("role_name", "varchar", "", "", null, null, 2147483647L)
                 .build();
+
         assertEquals(actualRows, expectedRows);
     }
 
