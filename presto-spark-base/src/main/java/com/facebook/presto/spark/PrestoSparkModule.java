@@ -99,6 +99,7 @@ import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
+import com.facebook.presto.server.NodeOverloadPolicyModule;
 import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -330,6 +331,9 @@ public class PrestoSparkModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
+
+        // ClusterOverload policy module
+        binder.install(new NodeOverloadPolicyModule());
 
         // plugin manager
         configBinder(binder).bindConfig(PluginManagerConfig.class);

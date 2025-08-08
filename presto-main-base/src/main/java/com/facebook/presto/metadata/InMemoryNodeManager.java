@@ -27,7 +27,9 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -179,5 +181,11 @@ public class InMemoryNodeManager
     public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
     {
         listeners.remove(requireNonNull(listener, "listener is null"));
+    }
+
+    @Override
+    public Map<String, Double> getNodeLoadMetrics(String nodeIdentifier)
+    {
+        return Collections.emptyMap();
     }
 }
