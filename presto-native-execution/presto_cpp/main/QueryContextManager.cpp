@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/QueryContextManager.h"
+#include "presto_cpp/main/SessionProperties.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/connectors/hive/HiveConfig.h"
@@ -49,21 +50,21 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kSpillFileCreateConfig,
            std::string(SystemConfig::kSpillerFileCreateConfig)},
           {core::QueryConfig::kSpillEnabled,
-          std::string(SystemConfig::kSpillEnabled)},
+           std::string(SystemConfig::kSpillEnabled)},
           {core::QueryConfig::kJoinSpillEnabled,
-          std::string(SystemConfig::kJoinSpillEnabled)},
+           std::string(SystemConfig::kJoinSpillEnabled)},
           {core::QueryConfig::kOrderBySpillEnabled,
-          std::string(SystemConfig::kOrderBySpillEnabled)},
+           std::string(SystemConfig::kOrderBySpillEnabled)},
           {core::QueryConfig::kAggregationSpillEnabled,
-          std::string(SystemConfig::kAggregationSpillEnabled)},
+           std::string(SystemConfig::kAggregationSpillEnabled)},
           {core::QueryConfig::kMaxSpillBytes,
           std::string(SystemConfig::kMaxSpillBytes)},
           {core::QueryConfig::kRequestDataSizesMaxWaitSec,
-          std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
+           std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
           {core::QueryConfig::kMaxSplitPreloadPerDriver,
-          std::string(SystemConfig::kDriverMaxSplitPreload)},
+           std::string(SystemConfig::kDriverMaxSplitPreload)},
           {core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
-          std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)}};
+           std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)}};
   for (const auto& configNameEntry : veloxToSystemConfigMapping) {
     const auto& veloxConfigName = configNameEntry.first;
     const auto& systemConfigName = configNameEntry.second;
@@ -93,8 +94,7 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
         taskUpdateRequest.extraCredentials.begin(),
         taskUpdateRequest.extraCredentials.end());
     connectorConfig.insert({"user", taskUpdateRequest.session.user});
-    connectorConfigs.insert(
-        {entry.first, connectorConfig});
+    connectorConfigs.insert({entry.first, connectorConfig});
   }
 
   return connectorConfigs;
@@ -127,8 +127,7 @@ QueryContextManager::QueryContextManager(
     folly::Executor* driverExecutor,
     folly::Executor* spillerExecutor)
     : driverExecutor_(driverExecutor),
-      spillerExecutor_(spillerExecutor),
-      sessionProperties_(SessionProperties()) {}
+      spillerExecutor_(spillerExecutor) {}
 
 std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
@@ -251,8 +250,7 @@ QueryContextManager::toVeloxConfigs(
       configs[core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
     } else {
-      configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
-      sessionProperties_.updateVeloxConfig(it.first, it.second);
+      configs[SessionProperties::instance()->toVeloxConfig(it.first)] = it.second;
     }
   }
 

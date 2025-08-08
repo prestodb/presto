@@ -20,6 +20,7 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -107,11 +108,10 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory(
-      []() {
-        return std::make_unique<
-            velox::serializer::presto::PrestoOutputStreamListener>();
-      });
+  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory([]() {
+    return std::make_unique<
+        velox::serializer::presto::PrestoOutputStreamListener>();
+  });
 }
 
 // Log only the catalog keys that are configured to avoid leaking
@@ -502,7 +502,8 @@ void PrestoServer::run() {
         << "' has " << httpSrvCpuExecutor_->numThreads() << " threads.";
     for (auto evb : httpSrvIoExecutor_->getAllEventBases()) {
       evb->setMaxLatency(
-          std::chrono::milliseconds(systemConfig->httpSrvIoEvbViolationThresholdMs()),
+          std::chrono::milliseconds(
+              systemConfig->httpSrvIoEvbViolationThresholdMs()),
           []() { RECORD_METRIC_VALUE(kCounterHttpServerIoEvbViolation, 1); },
           /*dampen=*/false);
     }
@@ -834,7 +835,8 @@ void PrestoServer::initializeThreadPools() {
                            << " threads.";
   for (auto evb : exchangeHttpIoExecutor_->getAllEventBases()) {
     evb->setMaxLatency(
-        std::chrono::milliseconds(systemConfig->exchangeIoEvbViolationThresholdMs()),
+        std::chrono::milliseconds(
+            systemConfig->exchangeIoEvbViolationThresholdMs()),
         []() { RECORD_METRIC_VALUE(kCounterExchangeIoEvbViolation, 1); },
         /*dampen=*/false);
   }
@@ -1649,9 +1651,8 @@ void PrestoServer::registerSidecarEndpoints() {
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
-        auto sessionProperties =
-            taskManager_->getQueryContextManager()->getSessionProperties();
-        http::sendOkResponse(downstream, sessionProperties.serialize());
+        const auto* sessionProperties = SessionProperties::instance();
+        http::sendOkResponse(downstream, sessionProperties->serialize());
       });
   httpServer_->registerGet(
       "/v1/functions",
