@@ -87,6 +87,7 @@ jobs:
             -DENABLE_ALL_WARNINGS=1 \
             -DCMAKE_BUILD_TYPE=Release \
             -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_EXAMPLES=ON \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
             -DPRESTO_ENABLE_JWT=ON \
             -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
@@ -128,6 +129,7 @@ jobs:
           path: |
             presto-native-execution/_build/release/presto_cpp/main/presto_server
             presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
+            presto-native-execution/_build/release/presto_cpp/main/dynamic_registry/examples/
 
   prestocpp-linux-presto-e2e-tests:
     needs: [changes, prestocpp-linux-build-for-test]
