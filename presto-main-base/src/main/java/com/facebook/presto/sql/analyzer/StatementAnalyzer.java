@@ -2482,12 +2482,19 @@ class StatementAnalyzer
                     .map(fieldIndexes::get)
                     .collect(toImmutableList());
 
+            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, targetTableHandle).getColumns().stream()
+                    .filter(column -> !column.isNullable())
+                    .map(ColumnMetadata::getName)
+                    .map(targetAllColumnHandles::get)
+                    .collect(toImmutableSet());
+
             analysis.setMergeAnalysis(new MergeAnalysis(
                     targetTable,
                     targetColumnsMetadata,
                     targetColumnHandles,
                     targetRedistributionColumnHandles,
                     mergeCaseColumnHandles,
+                    nonNullableColumnHandles,
                     columnHandleFieldNumbers,
                     insertPartitioningArgumentIndexes,
                     targetInsertLayout,

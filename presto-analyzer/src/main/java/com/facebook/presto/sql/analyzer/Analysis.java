@@ -1344,10 +1344,11 @@ public class Analysis
     public static class MergeAnalysis
     {
         private final Table targetTable;
-        private final List<ColumnMetadata> dataColumnSchemas;
+        private final List<ColumnMetadata> dataColumnsMetadata;
         private final List<ColumnHandle> dataColumnHandles;
         private final List<ColumnHandle> redistributionColumnHandles;
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
+        private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
         private final List<Integer> insertPartitioningArgumentIndexes;
         private final Optional<NewTableLayout> insertLayout;
@@ -1357,10 +1358,11 @@ public class Analysis
 
         public MergeAnalysis(
                 Table targetTable,
-                List<ColumnMetadata> dataColumnSchemas,
+                List<ColumnMetadata> dataColumnsMetadata,
                 List<ColumnHandle> dataColumnHandles,
                 List<ColumnHandle> redistributionColumnHandles,
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
+                Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
                 List<Integer> insertPartitioningArgumentIndexes,
                 Optional<NewTableLayout> insertLayout,
@@ -1369,10 +1371,11 @@ public class Analysis
                 Scope joinScope)
         {
             this.targetTable = requireNonNull(targetTable, "targetTable is null");
-            this.dataColumnSchemas = requireNonNull(dataColumnSchemas, "dataColumnSchemas is null");
+            this.dataColumnsMetadata = requireNonNull(dataColumnsMetadata, "dataColumnSchemas is null");
             this.dataColumnHandles = requireNonNull(dataColumnHandles, "dataColumnHandles is null");
             this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
             this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
             this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
@@ -1386,9 +1389,9 @@ public class Analysis
             return targetTable;
         }
 
-        public List<ColumnMetadata> getDataColumnSchemas()
+        public List<ColumnMetadata> getDataColumnsMetadata()
         {
-            return dataColumnSchemas;
+            return dataColumnsMetadata;
         }
 
         public List<ColumnHandle> getDataColumnHandles()
@@ -1404,6 +1407,11 @@ public class Analysis
         public List<List<ColumnHandle>> getMergeCaseColumnHandles()
         {
             return mergeCaseColumnHandles;
+        }
+
+        public Set<ColumnHandle> getNonNullableColumnHandles()
+        {
+            return nonNullableColumnHandles;
         }
 
         public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()

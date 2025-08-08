@@ -827,6 +827,7 @@ public abstract class IcebergAbstractMetadata
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                         columnExtraInfo(partitionFields.get(column.name())) :
                                         null)
+                        .setNullable(column.isOptional())
                         .build())
                 .collect(toImmutableList());
     }

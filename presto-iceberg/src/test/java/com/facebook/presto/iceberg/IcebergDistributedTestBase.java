@@ -3071,6 +3071,47 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("DROP TABLE " + targetTable);
     }
 
+    @Test
+    public void testMergeNonNullableColumns()
+    {
+        String targetTable = "merge_non_nullable_target_" + randomTableSuffix();
+
+        assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR NOT NULL)", targetTable));
+        assertUpdate(format("INSERT INTO %s (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", targetTable), 3);
+
+        List<String> sqlMergeCommands = new ArrayList<>(3);
+
+        // Check that updating using a null value fails
+        sqlMergeCommands.add(
+                format("MERGE INTO %s t ", targetTable) +
+                        "USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name) " +
+                        "ON (t.nation_name = s.nation_name)\n" +
+                        "WHEN MATCHED THEN" +
+                        "    UPDATE SET region_name = NULL");
+
+        // Check that inserting using a null value fails
+        sqlMergeCommands.add(
+                format("MERGE INTO %s t ", targetTable) +
+                        " USING (VALUES ('ANGOLA', 'AFRICA')) s(nation_name, region_name) " +
+                        "ON (t.nation_name = s.nation_name) " +
+                        "WHEN NOT MATCHED THEN" +
+                        "    INSERT (nation_name, region_name) VALUES (s.nation_name, NULL)");
+
+        // Check that if the updated value is provided by a function unpredictably computing null, the merge fails
+        sqlMergeCommands.add(
+                format("MERGE INTO %s t ", targetTable) +
+                        "USING (VALUES ('ALGERIA', 'AFRICA')) s(nation_name, region_name) " +
+                        "ON (t.nation_name = s.nation_name) " +
+                        "WHEN MATCHED THEN" +
+                        "    UPDATE SET region_name = CAST(TRY(5/0) AS VARCHAR)");
+
+        for (@Language("SQL") String sqlMergeCommand : sqlMergeCommands) {
+            assertQueryFails(sqlMergeCommand, "Assigning a NULL value to a non-null column. Table: merge_non_nullable_target_.* Column: region_name");
+        }
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
     @DataProvider
     public Object[][] targetAndSourceWithDifferentPartitioning()
     {

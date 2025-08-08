@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
@@ -527,7 +528,10 @@ class QueryPlanner
 
         PlanBuilder subPlan = newPlanBuilder(joinRelationPlan, analysis, lambdaDeclarationToVariableMap);
 
+        Table targetTable = mergeAnalysis.getTargetTable();
         // Build the SearchedCaseExpression that creates the project merge_row
+        List<ColumnMetadata> dataColumnsMetadata = mergeAnalysis.getDataColumnsMetadata();
+        Set<ColumnHandle> nonNullableColumnHandles = mergeAnalysis.getNonNullableColumnHandles();
 
         ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
         for (int caseNumber = 0; caseNumber < mergeStmt.getMergeCases().size(); caseNumber++) {
@@ -552,7 +556,22 @@ class QueryPlanner
                     Expression original = mergeCase.getSetExpressions().get(index);
                     Expression setExpression = coerceIfNecessary(analysis, original, original);
                     subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, mergeStmt, sqlPlannerContext);
-                    rowBuilder.add(subPlan.rewrite(setExpression));
+                    Expression rewritten = subPlan.rewrite(setExpression);
+                    if (nonNullableColumnHandles.contains(dataColumnHandle)) {
+                        int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Could not find fieldIndex for non nullable column");
+                        ColumnMetadata columnMetadata = dataColumnsMetadata.get(fieldIndex);
+                        String columnName = columnMetadata.getName();
+                        rewritten = new CoalesceExpression(rewritten,
+                                new Cast(
+                                        new FunctionCall(
+                                                QualifiedName.of("presto", "default", "fail"),
+                                                ImmutableList.of(new Cast(new StringLiteral(
+                                                        "Assigning a NULL value to a non-null column. Table: " + targetTable.getName() + " Column: " + columnName),
+                                                        VARCHAR.getTypeSignature().toString()))),
+                                        columnMetadata.getType().getTypeSignature().toString())
+                        );
+                    }
+                    rowBuilder.add(rewritten);
                 }
                 else {
                     Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
@@ -591,7 +610,7 @@ class QueryPlanner
 
         // Build the "else" clause for the SearchedCaseExpression
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-        mergeAnalysis.getDataColumnSchemas().forEach(columnSchema ->
+        dataColumnsMetadata.forEach(columnSchema ->
                 rowBuilder.add(new Cast(new NullLiteral(), columnSchema.getType().getDisplayName())));
         rowBuilder.add(new IsNotNullPredicate(createSymbolReference(presentColumn)));
         // The operation number
@@ -600,9 +619,8 @@ class QueryPlanner
         rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
         SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
 
-        RowType rowType = createMergeRowType(mergeAnalysis.getDataColumnSchemas());
+        RowType rowType = createMergeRowType(dataColumnsMetadata);
 
-        Table targetTable = mergeAnalysis.getTargetTable();
         FieldReference rowIdReference = analysis.getRowIdField(targetTable);
         VariableReferenceExpression rowIdVariable = planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
         VariableReferenceExpression mergeRowSymbol = variableAllocator.newVariable("merge_row", rowType);
