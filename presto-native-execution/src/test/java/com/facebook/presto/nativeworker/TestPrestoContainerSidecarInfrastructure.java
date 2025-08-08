@@ -57,9 +57,9 @@ public class TestPrestoContainerSidecarInfrastructure
     public void TestNativeClusterWithDelayedSidecar()
             throws Exception
     {
-        QueryRunner queryRunner = new ContainerQueryRunner(4, true, true, true);
+        ContainerQueryRunner queryRunner = new ContainerQueryRunner(4, true, true, true);
         assertQueryFailsWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS", "Query failed .*.: Failed to get functions from sidecar.", true);
-        TimeUnit.SECONDS.sleep(30);
+        queryRunner.waitForSidecarRegistration();
         computeActualWithCustomQueryRunner(queryRunner, "SHOW FUNCTIONS");
         assertQueryFailsWithCustomQueryRunner(queryRunner, "SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
         computeActualWithCustomQueryRunner(queryRunner, "SHOW SESSION");

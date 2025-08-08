@@ -64,7 +64,7 @@ public class ContainerQueryRunner
     private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
     private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "1000");
+    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     private static final String BASE_DIR = System.getProperty("user.dir");
     private static final int DEFAULT_COORDINATOR_PORT = 8080;
     private static final String TPCH_CATALOG = "tpch";
@@ -73,7 +73,7 @@ public class ContainerQueryRunner
     private static final Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
-    private final Optional<GenericContainer<?>> sidecar;
+    private Optional<GenericContainer<?>> sidecar;
     private final int coordinatorPort;
     private final String catalog;
     private final String schema;
@@ -116,24 +116,17 @@ public class ContainerQueryRunner
         coordinator.start();
         startWorkers(numberOfWorkers, isNativeCluster, isSidecarEnabled);
 
-        if (isSidecarEnabled) {
+        TimeUnit.SECONDS.sleep(5);
+
+        if (isSidecarEnabled && !isSidecarDelayed) {
             GenericContainer<?> sidecarContainer = createSidecar(7777 + numberOfWorkers, "sidecar");
-            if (isSidecarDelayed) {
-                Thread.sleep(10000);
-            }
             sidecarContainer.start();
             this.sidecar = Optional.of(sidecarContainer);
+            // First, wait for coordinator to become ACTIVE
+            waitForCoordinatorActive(coordinator.getHost(), coordinator.getMappedPort(coordinatorPort), 60, 5);
         }
         else {
             this.sidecar = Optional.empty();
-        }
-
-        // Need some extra time for sidecar to register otherwise it throws sidecar not found error
-        if (isSidecarEnabled && !isSidecarDelayed) {
-            TimeUnit.SECONDS.sleep(5);
-        }
-        else {
-            TimeUnit.SECONDS.sleep(5);
         }
 
         startCoordinatorAndLogUI();
@@ -183,9 +176,6 @@ public class ContainerQueryRunner
         String dockerHostIp = coordinator.getHost();
         int mappedPort = coordinator.getMappedPort(coordinatorPort);
 
-        // First, wait for coordinator to become ACTIVE
-        waitForCoordinatorActive(dockerHostIp, mappedPort, 60, 5);
-
         String url = String.format("jdbc:presto://%s:%s/%s/%s?%s",
                 dockerHostIp,
                 mappedPort,
@@ -201,10 +191,9 @@ public class ContainerQueryRunner
         }
     }
 
-    private void waitForCoordinatorActive(String host, int port, int maxRetries, int retryDelaySeconds)
+    public void waitForCoordinatorActive(String host, int port, int maxRetries, int retryDelaySeconds)
     {
         String endpoint = String.format("http://%s:%d/v1/info/state", host, port);
-
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
@@ -317,6 +306,13 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
+    }
+
+    public void waitForSidecarRegistration() throws IOException {
+        GenericContainer<?> sidecarContainer = createSidecar(7777 + numberOfWorkers, "sidecar");
+        sidecarContainer.start();
+        this.sidecar = Optional.of(sidecarContainer);
+        waitForCoordinatorActive(coordinator.getHost(), coordinator.getMappedPort(coordinatorPort), 60, 5);
     }
 
     @Override
