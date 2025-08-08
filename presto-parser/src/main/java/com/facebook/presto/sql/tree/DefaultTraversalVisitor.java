@@ -476,6 +476,34 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitMerge(Merge node, C context)
+    {
+        process(node.getTarget(), context);
+        process(node.getSource(), context);
+        process(node.getPredicate(), context);
+        node.getMergeCases().forEach(mergeCase -> process(mergeCase, context));
+        return null;
+    }
+
+    @Override
+    protected R visitMergeInsert(MergeInsert node, C context)
+    {
+        node.getColumns().forEach(column -> process(column, context));
+        node.getValues().forEach(expression -> process(expression, context));
+        return null;
+    }
+
+    @Override
+    protected R visitMergeUpdate(MergeUpdate node, C context)
+    {
+        node.getAssignments().forEach(assignment -> {
+            process(assignment.getTarget(), context);
+            process(assignment.getValue(), context);
+        });
+        return null;
+    }
+
+    @Override
     protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         process(node.getQuery(), context);

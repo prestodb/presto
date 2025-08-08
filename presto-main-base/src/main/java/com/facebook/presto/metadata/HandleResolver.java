@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -135,6 +136,11 @@ public class HandleResolver
         return getFunctionNamespaceId(functionHandle, MaterializedFunctionHandleResolver::getFunctionHandleClass);
     }
 
+    public String getId(ConnectorMergeTableHandle mergeHandle)
+    {
+        return getId(mergeHandle, MaterializedHandleResolver::getMergeHandleClass);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -173,6 +179,11 @@ public class HandleResolver
     public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass(String id)
     {
         return resolverFor(id).getDeleteTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
+    public Class<? extends ConnectorMergeTableHandle> getMergeHandleClass(String id)
+    {
+        return resolverFor(id).getMergeHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
@@ -242,6 +253,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
         private final Optional<Class<? extends ConnectorDeleteTableHandle>> deleteTableHandle;
+        private final Optional<Class<? extends ConnectorMergeTableHandle>> mergeTableHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
 
@@ -255,6 +267,7 @@ public class HandleResolver
             outputTableHandle = getHandleClass(resolver::getOutputTableHandleClass);
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
             deleteTableHandle = getHandleClass(resolver::getDeleteTableHandleClass);
+            mergeTableHandle = getHandleClass(resolver::getMergeTableHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
         }
@@ -309,6 +322,11 @@ public class HandleResolver
             return deleteTableHandle;
         }
 
+        public Optional<Class<? extends ConnectorMergeTableHandle>> getMergeHandleClass()
+        {
+            return mergeTableHandle;
+        }
+
         public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()
         {
             return partitioningHandle;
@@ -337,6 +355,7 @@ public class HandleResolver
                     Objects.equals(outputTableHandle, that.outputTableHandle) &&
                     Objects.equals(insertTableHandle, that.insertTableHandle) &&
                     Objects.equals(deleteTableHandle, that.deleteTableHandle) &&
+                    Objects.equals(mergeTableHandle, that.mergeTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(transactionHandle, that.transactionHandle);
         }
@@ -344,7 +363,7 @@ public class HandleResolver
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, partitioningHandle, transactionHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, mergeTableHandle, partitioningHandle, transactionHandle);
         }
     }
 
