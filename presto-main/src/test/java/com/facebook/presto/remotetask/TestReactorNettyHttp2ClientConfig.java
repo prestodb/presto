@@ -1,0 +1,67 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.remotetask;
+
+import com.facebook.presto.server.remotetask.ReactorNettyHttp2ClientConfig;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
+import org.testng.annotations.Test;
+
+import java.util.Map;
+
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+public class TestReactorNettyHttp2ClientConfig
+{
+    @Test
+    public void testDefaults()
+    {
+        assertRecordedDefaults(recordDefaults(ReactorNettyHttp2ClientConfig.class)
+                .setReactorNettyHttp2ClientEnabled(false)
+                .setMaxConnections(100)
+                .setMaxStreamPerChannel(100)
+                .setSelectorThreadCount(Runtime.getRuntime().availableProcessors())
+                .setEventLoopThreadCount(Runtime.getRuntime().availableProcessors())
+                .setConnectTimeout(new Duration(5, SECONDS))
+                .setRequestTimeout(new Duration(5, SECONDS)));
+    }
+
+    @Test
+    public void testExplicitPropertyMappings()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("reactor.netty-http2-client-enabled", "true")
+                .put("reactor.max-connections", "500")
+                .put("reactor.max-stream-per-channel", "300")
+                .put("reactor.selector-thread-count", "50")
+                .put("reactor.event-loop-thread-count", "150")
+                .put("reactor.connect-timeout", "2s")
+                .put("reactor.request-timeout", "1s")
+                .build();
+
+        ReactorNettyHttp2ClientConfig expected = new ReactorNettyHttp2ClientConfig()
+                .setReactorNettyHttp2ClientEnabled(true)
+                .setMaxConnections(500)
+                .setMaxStreamPerChannel(300)
+                .setSelectorThreadCount(50)
+                .setEventLoopThreadCount(150)
+                .setConnectTimeout(new Duration(2, SECONDS))
+                .setRequestTimeout(new Duration(1, SECONDS));
+
+        assertFullMapping(properties, expected);
+    }
+}
