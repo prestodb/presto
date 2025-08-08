@@ -45,7 +45,7 @@ class PrestoQueryReplayRunner {
       const std::unordered_map<std::string, std::string>& config = {},
       const std::unordered_map<std::string, std::string>& hiveConfig = {});
 
-  /// Runs a query with the given serialized plan fragments and returns a pair
+  /// Run a query with the given serialized plan fragments and returns a pair
   /// of the results and execution status. The result is std::nullopt if the
   /// status is not kSuccess. The serialized plan fragments should have the same
   /// query id as 'queryId'.
@@ -59,9 +59,9 @@ class PrestoQueryReplayRunner {
       const std::string& queryId,
       const std::shared_ptr<memory::MemoryPool>& rootPool);
 
-  // For each jsonRecord of the logged plan fragment, extract the task prefix
-  // from the logged task id through taskPrefixExtractor_. Return a list of
-  // extracted task prefixes in the same order as the jsonRecords.
+  /// For each jsonRecord of the logged plan fragment, extract the task prefix
+  /// from the logged task id through taskPrefixExtractor_. Return a list of
+  /// extracted task prefixes in the same order as the jsonRecords.
   std::vector<std::string> getTaskPrefixes(
       const std::vector<folly::dynamic>& jsonRecords);
 
@@ -71,12 +71,17 @@ class PrestoQueryReplayRunner {
       const std::string& queryId,
       const std::vector<std::string>& serializedPlanFragments);
 
+  /// Deserialize a list of serialized splits into a map from plan node id to
+  /// connector splits.
   std::unordered_map<core::PlanNodeId, std::vector<ConnectorSplitPtr>>
   deserializeConnectorSplits(const std::vector<std::string>& serializedSplits);
 
   memory::MemoryPool* pool_{nullptr};
+  /// A function that extracts the stage id from a task id.
   TaskPrefixExtractor taskPrefixExtractor_;
+  /// The number of workers for each stage except the gathering stages.
   int32_t width_;
+  /// The maximum number of drivers for each worker.
   int32_t maxDrivers_;
 
   const std::unordered_map<std::string, std::string> config_;

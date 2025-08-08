@@ -251,11 +251,6 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializeSupportedPlan(
   VELOX_CHECK_EQ(jsonRecords.size(), serializedPlanFragments.size());
   VELOX_CHECK_EQ(taskPrefixes.size(), serializedPlanFragments.size());
 
-  // Assuming that the plan fragment of the root stage comes with the least
-  // task prefix, put the this root plan fragment at the end. This is because
-  // LocalRunner implicitly expect the last plan fragment to be the
-  // root stage.
-  // TODO: extend this logic to be more general.
   std::unordered_map<std::string, PlanFragmentInfo> planFragments;
   for (auto i = 0; i < serializedPlanFragments.size(); ++i) {
     auto& taskPrefix = taskPrefixes[i];
