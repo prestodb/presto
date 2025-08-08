@@ -1542,4 +1542,84 @@ struct LineInterpolatePointFunction {
   geos::geom::GeometryFactory::Ptr factory_;
 };
 
+template <typename T>
+struct StInteriorRingsFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Geometry>>& result,
+      const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    auto validate = geospatial::validateType(
+        *geosGeometry,
+        {geos::geom::GeometryTypeId::GEOS_POLYGON},
+        "ST_InteriorRings");
+
+    if (!validate.ok()) {
+      VELOX_USER_FAIL(validate.message());
+    }
+    if (geosGeometry->isEmpty()) {
+      return false;
+    }
+
+    geos::geom::Polygon* polygon =
+        dynamic_cast<geos::geom::Polygon*>(geosGeometry.get());
+    VELOX_CHECK_NOT_NULL(
+        polygon, "Validation passed but type not recognized as Polygon");
+
+    auto numInteriorRings = polygon->getNumInteriorRing();
+    result.reserve(static_cast<int32_t>(numInteriorRings));
+
+    for (int i = 0; i < numInteriorRings; i++) {
+      geospatial::GeometrySerializer::serialize(
+          *(polygon->getInteriorRingN(i)), result.add_item());
+    }
+
+    return true;
+  }
+};
+
+template <typename T>
+struct StGeometriesFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Geometry>>& result,
+      const arg_type<Geometry>& geometry) {
+    std::unique_ptr<geos::geom::Geometry> geosGeometry =
+        geospatial::GeometryDeserializer::deserialize(geometry);
+
+    if (geosGeometry->isEmpty()) {
+      return false;
+    }
+
+    if (!geospatial::isMultiType(*geosGeometry)) {
+      result.reserve(1);
+      geospatial::GeometrySerializer::serialize(
+          *(geosGeometry), result.add_item());
+      return true;
+    }
+
+    geos::geom::GeometryCollection* geomCollection =
+        dynamic_cast<geos::geom::GeometryCollection*>(geosGeometry.get());
+
+    VELOX_CHECK_NOT_NULL(
+        geomCollection,
+        "Failure in ST_Geometries: geometry should be multi type but cast to GeometryCollection failed");
+
+    int32_t numGeometries =
+        static_cast<int32_t>(geomCollection->getNumGeometries());
+    result.reserve(numGeometries);
+
+    for (int i = 0; i < numGeometries; i++) {
+      geospatial::GeometrySerializer::serialize(
+          *(geomCollection->getGeometryN(i)), result.add_item());
+    }
+
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions
