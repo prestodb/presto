@@ -237,6 +237,7 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
+    private boolean builtInSidecarFunctionsEnabled;
     private boolean disableTimeStampWithTimeZoneForNative;
     private boolean disableIPAddressForNative;
     private String nativeExecutionExecutablePath = "./presto_server";
@@ -2296,6 +2297,19 @@ public class FeaturesConfig
         return this.nativeExecutionEnabled;
     }
 
+    @Config("built-in-sidecar-functions-enabled")
+    @ConfigDescription("Enable using CPP functions from sidecar over coordinator SQL implementations.")
+    public FeaturesConfig setBuiltInSidecarFunctionsEnabled(boolean builtInSidecarFunctionsEnabled)
+    {
+        this.builtInSidecarFunctionsEnabled = builtInSidecarFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isBuiltInSidecarFunctionsEnabled()
+    {
+        return this.builtInSidecarFunctionsEnabled;
+    }
+
     @Config("disable-timestamp-with-timezone-for-native-execution")
     @ConfigDescription("Disable timestamp with timezone type on native engine")
     public FeaturesConfig setDisableTimeStampWithTimeZoneForNative(boolean disableTimeStampWithTimeZoneForNative)
@@ -2971,6 +2985,7 @@ public class FeaturesConfig
     {
         return inEqualityJoinPushdownEnabled;
     }
+
     public boolean isPrestoSparkExecutionEnvironment()
     {
         return prestoSparkExecutionEnvironment;

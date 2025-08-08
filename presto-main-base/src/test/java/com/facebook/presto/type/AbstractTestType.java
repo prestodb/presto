@@ -71,7 +71,8 @@ public abstract class AbstractTestType
             new FeaturesConfig(),
             new FunctionsConfig(),
             new HandleResolver(),
-            ImmutableSet.of());
+            ImmutableSet.of(),
+            () -> null);
 
     private final Class<?> objectValueType;
     private final Block testBlock;

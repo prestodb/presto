@@ -30,12 +30,16 @@ public class BuiltInFunctionHandle
         implements FunctionHandle
 {
     private final Signature signature;
+    private final boolean isBuiltInNativeFunction;
 
     @JsonCreator
-    public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature)
+    public BuiltInFunctionHandle(
+            @JsonProperty("signature") Signature signature,
+            @JsonProperty("isBuiltInNativeFunction") boolean isBuiltInNativeFunction)
     {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
+        this.isBuiltInNativeFunction = isBuiltInNativeFunction;
     }
 
     @JsonProperty
@@ -62,6 +66,13 @@ public class BuiltInFunctionHandle
         return signature.getArgumentTypes();
     }
 
+    @JsonProperty
+    @Override
+    public boolean isBuiltInNativeFunction()
+    {
+        return isBuiltInNativeFunction;
+    }
+
     @Override
     public CatalogSchemaName getCatalogSchemaName()
     {
@@ -78,13 +89,14 @@ public class BuiltInFunctionHandle
             return false;
         }
         BuiltInFunctionHandle that = (BuiltInFunctionHandle) o;
-        return Objects.equals(signature, that.signature);
+        return Objects.equals(signature, that.signature)
+                && Objects.equals(isBuiltInNativeFunction, that.isBuiltInNativeFunction);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature);
+        return Objects.hash(signature, isBuiltInNativeFunction);
     }
 
     @Override
