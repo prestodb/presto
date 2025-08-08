@@ -982,7 +982,7 @@ jobs:
           chmod +x velox_table_evolution_fuzzer_test
           ./velox_table_evolution_fuzzer_test \
                 --seed ${RANDOM} \
-                --duration_sec $DURATION \
+                --table_evolution_fuzzer_duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
                 --log_dir=/tmp/table_evolution_fuzzer_test/logs \

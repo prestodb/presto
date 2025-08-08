@@ -249,6 +249,11 @@ add_executable(velox_table_evolution_fuzzer_test TableEvolutionFuzzerTest.cpp
 
 target_link_libraries(
   velox_table_evolution_fuzzer_test
+  velox_expression_fuzzer
+  velox_expression_test_utility
+  velox_constrained_input_generators
+  velox_fuzzer_util
+  velox_functions_prestosql
   velox_exec_test_lib
   velox_temp_path
   velox_vector_fuzzer

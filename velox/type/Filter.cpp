@@ -1579,9 +1579,38 @@ std::unique_ptr<Filter> MultiRange::mergeWith(const Filter* other) const {
     case FilterKind::kIsNotNull:
       return this->clone(/*nullAllowed=*/false);
     case FilterKind::kDoubleRange:
-    case FilterKind::kFloatRange:
-      // TODO: Implement
-      VELOX_UNREACHABLE();
+    case FilterKind::kFloatRange: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      std::vector<std::unique_ptr<Filter>> merged;
+
+      for (auto const& filter : this->filters()) {
+        auto innerMerged = filter->mergeWith(other);
+        switch (innerMerged->kind()) {
+          case FilterKind::kAlwaysFalse:
+          case FilterKind::kIsNull:
+            continue;
+          case FilterKind::kMultiRange: {
+            auto innerMergedMulti =
+                static_cast<const MultiRange*>(innerMerged.get());
+            merged.reserve(merged.size() + innerMergedMulti->filters().size());
+            for (int i = 0; i < innerMergedMulti->filters().size(); ++i) {
+              merged.emplace_back(innerMergedMulti->filters()[i]->clone());
+            }
+            break;
+          }
+          default:
+            merged.emplace_back(innerMerged.release());
+        }
+      }
+
+      if (merged.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      } else if (merged.size() == 1) {
+        return merged.front()->clone(bothNullAllowed);
+      } else {
+        return std::make_unique<MultiRange>(std::move(merged), bothNullAllowed);
+      }
+    }
     case FilterKind::kBytesValues:
     case FilterKind::kNegatedBytesValues:
     case FilterKind::kBytesRange:

@@ -18,12 +18,13 @@
 
 #include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
+#include <unordered_set>
+#include "velox/expression/fuzzer/ExpressionFuzzer.h"
 
 namespace facebook::velox::exec::test {
 
@@ -79,16 +80,24 @@ class TableEvolutionFuzzer {
 
   TypePtr makeNewType(int maxDepth);
 
-  RowTypePtr makeInitialSchema();
+  RowTypePtr makeInitialSchema(
+      const std::vector<std::string>& additionalColumnNames = {},
+      const std::vector<TypePtr>& additionalColumnTypes = {});
 
   TypePtr evolveType(const TypePtr& old);
 
   RowTypePtr evolveRowType(
       const RowType& old,
-      const std::vector<column_index_t>& bucketColumnIndices);
+      const std::vector<column_index_t>& bucketColumnIndices,
+      std::unordered_map<std::string, std::string>* columnNameMapping =
+          nullptr);
 
   std::vector<Setup> makeSetups(
-      const std::vector<column_index_t>& bucketColumnIndices);
+      const std::vector<column_index_t>& bucketColumnIndices,
+      const std::vector<std::string>& additionalColumnNames = {},
+      const std::vector<TypePtr>& additionalColumnTypes = {},
+      std::unordered_map<std::string, std::string>* columnNameMapping =
+          nullptr);
 
   static std::unique_ptr<TaskCursor> makeWriteTask(
       const Setup& setup,
@@ -135,6 +144,16 @@ class TableEvolutionFuzzer {
       const std::vector<column_index_t>& bucketColumnIndices,
       std::optional<int32_t> selectedBucket,
       const RowVectorPtr& finalExpectedData);
+
+  /// Applies remaining filters with updated column names.
+  /// Updates filter expressions to use evolved column names based on the
+  /// column name mapping tracked during schema evolution.
+  void applyRemainingFilters(
+      const fuzzer::ExpressionFuzzer::FuzzedExpressionData&
+          generatedRemainingFilters,
+      const std::unordered_map<std::string, std::string>& columnNameMapping,
+      PushdownConfig& pushdownConfig,
+      const std::unordered_set<std::string>& subfieldFilteredFields);
 
   const Config config_;
   VectorFuzzer vectorFuzzer_;

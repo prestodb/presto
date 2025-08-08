@@ -26,7 +26,7 @@
 #include "velox/parse/TypeResolver.h"
 
 DEFINE_uint32(seed, 0, "");
-DEFINE_int32(duration_sec, 30, "");
+DEFINE_int32(table_evolution_fuzzer_duration_sec, 30, "");
 DEFINE_int32(column_count, 5, "");
 DEFINE_int32(evolution_count, 5, "");
 
@@ -63,7 +63,8 @@ TEST(TableEvolutionFuzzerTest, run) {
   exec::test::TableEvolutionFuzzer fuzzer(config);
   fuzzer.setSeed(FLAGS_seed);
   const auto startTime = std::chrono::system_clock::now();
-  const auto deadline = startTime + std::chrono::seconds(FLAGS_duration_sec);
+  const auto deadline = startTime +
+      std::chrono::seconds(FLAGS_table_evolution_fuzzer_duration_sec);
   for (int i = 0; std::chrono::system_clock::now() < deadline; ++i) {
     LOG(INFO) << "Starting iteration " << i << ", seed=" << fuzzer.seed();
     fuzzer.run();
