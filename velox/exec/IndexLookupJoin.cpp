@@ -146,6 +146,7 @@ IndexLookupJoin::IndexLookupJoin(
               ? outputBatchRows()
               : std::numeric_limits<vector_size_t>::max()},
       joinType_{joinNode->joinType()},
+      includeMatchColumn_(joinNode->includeMatchColumn()),
       numKeys_{joinNode->leftKeys().size()},
       probeType_{joinNode->sources()[0]->outputType()},
       lookupType_{joinNode->lookupSource()->outputType()},
@@ -359,8 +360,12 @@ void IndexLookupJoin::initOutputProjections() {
     }
     lookupOutputProjections_.emplace_back(i, outputChannelOpt.value());
   }
+  if (includeMatchColumn_) {
+    matchOutputChannel_ = outputType_->size() - 1;
+  }
   VELOX_USER_CHECK_EQ(
-      probeOutputProjections_.size() + lookupOutputProjections_.size(),
+      probeOutputProjections_.size() + lookupOutputProjections_.size() +
+          !!matchOutputChannel_.has_value(),
       outputType_->size());
 }
 
@@ -749,6 +754,23 @@ RowVectorPtr IndexLookupJoin::produceOutputForInnerJoin(
   return output_;
 }
 
+void IndexLookupJoin::fillOutputMatchRows(
+    vector_size_t offset,
+    vector_size_t size,
+    bool match) {
+  VELOX_CHECK_EQ(joinType_, core::JoinType::kLeft);
+  bits::fillBits(
+      rawLookupOutputNulls_,
+      offset,
+      offset + size,
+      match ? bits::kNotNull : bits::kNull);
+  if (!includeMatchColumn_) {
+    return;
+  }
+  VELOX_CHECK_NOT_NULL(rawMatchValues_);
+  bits::fillBits(rawMatchValues_, offset, size, match);
+}
+
 RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
     const InputBatchState& batch) {
   VELOX_CHECK_EQ(joinType_, core::JoinType::kLeft);
@@ -780,15 +802,12 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
     VELOX_CHECK_GE(numMissedInputRows, -1);
     if (numMissedInputRows > 0) {
       if (totalMissedInputRows == 0) {
-        bits::fillBits(rawLookupOutputNulls_, 0, maxOutputRows, bits::kNotNull);
+        ensureMatchColumn(maxOutputRows);
+        fillOutputMatchRows(0, maxOutputRows, true);
       }
       const auto numOutputMissedInputRows = std::min<vector_size_t>(
           numMissedInputRows, maxOutputRows - numOutputRows);
-      bits::fillBits(
-          rawLookupOutputNulls_,
-          numOutputRows,
-          numOutputRows + numOutputMissedInputRows,
-          bits::kNull);
+      fillOutputMatchRows(numOutputRows, numOutputMissedInputRows, false);
       for (auto i = 0; i < numOutputMissedInputRows; ++i) {
         rawProbeOutputRowIndices_[numOutputRows++] = ++lastProcessedInputRow;
       }
@@ -811,6 +830,7 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
 
   if (totalMissedInputRows > 0) {
     lookupOutputNulls_->setSize(bits::nbytes(numOutputRows));
+    setMatchColumnSize(numOutputRows);
   }
   probeOutputRowMapping_->setSize(numOutputRows * sizeof(vector_size_t));
   lookupOutputRowMapping_->setSize(numOutputRows * sizeof(vector_size_t));
@@ -852,6 +872,9 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
           numOutputRows,
           batch.lookupResult->output->childAt(projection.inputChannel));
     }
+    if (includeMatchColumn_) {
+      output_->childAt(matchOutputChannel_.value()) = matchColumn_;
+    }
   } else {
     if (startOutputRow == 0 &&
         numOutputRows == batch.lookupResult->output->size()) {
@@ -866,8 +889,36 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
                 ->slice(startOutputRow, numOutputRows);
       }
     }
+    if (includeMatchColumn_) {
+      output_->childAt(matchOutputChannel_.value()) =
+          BaseVector::createConstant(BOOLEAN(), true, numOutputRows, pool());
+    }
   }
   return output_;
+}
+
+void IndexLookupJoin::ensureMatchColumn(vector_size_t maxOutputRows) {
+  if (!includeMatchColumn_) {
+    return;
+  }
+  if (matchColumn_) {
+    VectorPtr matchColumn = std::move(matchColumn_);
+    BaseVector::prepareForReuse(matchColumn, maxOutputRows);
+    matchColumn_ = std::dynamic_pointer_cast<FlatVector<bool>>(matchColumn);
+  } else {
+    matchColumn_ =
+        BaseVector::create<FlatVector<bool>>(BOOLEAN(), maxOutputRows, pool());
+  }
+  VELOX_CHECK_NOT_NULL(matchColumn_);
+  rawMatchValues_ = matchColumn_->mutableRawValues<uint64_t>();
+}
+
+void IndexLookupJoin::setMatchColumnSize(vector_size_t numOutputRows) {
+  if (!includeMatchColumn_) {
+    return;
+  }
+  VELOX_CHECK_NOT_NULL(matchColumn_);
+  matchColumn_->resize(numOutputRows);
 }
 
 RowVectorPtr IndexLookupJoin::produceRemainingOutputForLeftJoin(
@@ -901,6 +952,10 @@ RowVectorPtr IndexLookupJoin::produceRemainingOutputForLeftJoin(
         output_->type()->childAt(projection.outputChannel),
         numOutputRows,
         pool());
+  }
+  if (includeMatchColumn_) {
+    output_->childAt(matchOutputChannel_.value()) =
+        BaseVector::createConstant(BOOLEAN(), false, numOutputRows, pool());
   }
   lastProcessedInputRow_ = lastProcessedInputRow + numOutputRows;
   return output_;
@@ -967,8 +1022,8 @@ void IndexLookupJoin::recordConnectorStats() {
     const CpuWallTiming backgroundTiming{
         static_cast<uint64_t>(connectorStats[kConnectorLookupWallTime].count),
         static_cast<uint64_t>(connectorStats[kConnectorLookupWallTime].sum),
-        // NOTE: this might not be accurate as it doesn't include the time spent
-        // inside the index storage client.
+        // NOTE: this might not be accurate as it doesn't include the time
+        // spent inside the index storage client.
         static_cast<uint64_t>(connectorStats[kConnectorResultPrepareTime].sum) +
             connectorStats[kClientRequestProcessTime].sum +
             connectorStats[kClientResultProcessTime].sum};

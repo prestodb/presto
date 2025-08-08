@@ -1213,6 +1213,9 @@ class PlanBuilder {
   /// condition column from left side or a constant but at least one of them
   /// must not be constant. They all have the same type.
   /// @param joinType Type of the join supported: inner, left.
+  /// @param includeMatchColumn if true, 'outputLayout' should include a boolean
+  /// column at the end to indicate if a join output row has a match or not.
+  /// This only applies for left join.
   ///
   /// See hashJoin method for the description of the other parameters.
   PlanBuilder& indexLookupJoin(
@@ -1220,6 +1223,7 @@ class PlanBuilder {
       const std::vector<std::string>& rightKeys,
       const core::TableScanNodePtr& right,
       const std::vector<std::string>& joinConditions,
+      bool includeMatchColumn,
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 

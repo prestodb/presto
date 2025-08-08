@@ -1953,12 +1953,19 @@ PlanBuilder& PlanBuilder::indexLookupJoin(
     const std::vector<std::string>& rightKeys,
     const core::TableScanNodePtr& right,
     const std::vector<std::string>& joinConditions,
+    bool includeMatchColumn,
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType) {
   VELOX_CHECK_NOT_NULL(planNode_, "indexLookupJoin cannot be the source node");
-  const auto inputType = concat(planNode_->outputType(), right->outputType());
+  auto inputType = concat(planNode_->outputType(), right->outputType());
+  if (includeMatchColumn) {
+    auto names = inputType->names();
+    names.push_back(outputLayout.back());
+    auto types = inputType->children();
+    types.push_back(BOOLEAN());
+    inputType = ROW(std::move(names), std::move(types));
+  }
   auto outputType = extract(inputType, outputLayout);
-
   auto leftKeyFields = fields(planNode_->outputType(), leftKeys);
   auto rightKeyFields = fields(right->outputType(), rightKeys);
 
@@ -1975,6 +1982,7 @@ PlanBuilder& PlanBuilder::indexLookupJoin(
       std::move(leftKeyFields),
       std::move(rightKeyFields),
       std::move(joinConditionPtrs),
+      includeMatchColumn,
       std::move(planNode_),
       right,
       std::move(outputType));

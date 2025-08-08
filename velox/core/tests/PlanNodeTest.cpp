@@ -185,16 +185,83 @@ TEST_F(PlanNodeTest, isIndexLookupJoin) {
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
   const std::vector<FieldAccessTypedExprPtr> rightKeys{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c1")};
-  const auto indexJoinNode = std::make_shared<IndexLookupJoinNode>(
-      "indexJoinNode",
-      core::JoinType::kInner,
-      leftKeys,
-      rightKeys,
-      std::vector<IndexLookupConditionPtr>{},
-      probeNode,
-      buildNode,
-      outputType);
-  ASSERT_TRUE(isIndexLookupJoin(indexJoinNode.get()));
+  {
+    const auto indexJoinNodeWithInnerJoin =
+        std::make_shared<IndexLookupJoinNode>(
+            "indexJoinNode",
+            core::JoinType::kInner,
+            leftKeys,
+            rightKeys,
+            std::vector<IndexLookupConditionPtr>{},
+            /*includeMatchColumn=*/false,
+            probeNode,
+            buildNode,
+            outputType);
+    ASSERT_TRUE(isIndexLookupJoin(indexJoinNodeWithInnerJoin.get()));
+    ASSERT_FALSE(indexJoinNodeWithInnerJoin->includeMatchColumn());
+  }
+  {
+    const RowTypePtr outputTypeWithMatchColumn =
+        ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), BOOLEAN()});
+    const auto indexJoinNodeWithLeftJoin =
+        std::make_shared<IndexLookupJoinNode>(
+            "indexJoinNode",
+            core::JoinType::kLeft,
+            leftKeys,
+            rightKeys,
+            std::vector<IndexLookupConditionPtr>{},
+            /*includeMatchColumn=*/true,
+            probeNode,
+            buildNode,
+            outputTypeWithMatchColumn);
+    ASSERT_TRUE(isIndexLookupJoin(indexJoinNodeWithLeftJoin.get()));
+    ASSERT_TRUE(indexJoinNodeWithLeftJoin->includeMatchColumn());
+  }
+  // Error case.
+  {
+    VELOX_ASSERT_THROW(
+        std::make_shared<IndexLookupJoinNode>(
+            "indexJoinNode",
+            core::JoinType::kInner,
+            leftKeys,
+            rightKeys,
+            std::vector<IndexLookupConditionPtr>{},
+            /*includeMatchColumn=*/true,
+            probeNode,
+            buildNode,
+            outputType),
+        "Index join match column can only present for LEFT but not INNER");
+  }
+  {
+    VELOX_ASSERT_THROW(
+        std::make_shared<IndexLookupJoinNode>(
+            "indexJoinNode",
+            core::JoinType::kLeft,
+            leftKeys,
+            rightKeys,
+            std::vector<IndexLookupConditionPtr>{},
+            /*includeMatchColumn=*/true,
+            probeNode,
+            buildNode,
+            outputType),
+        "The last output column must be boolean type if match column is present");
+  }
+  {
+    const RowTypePtr outputTypeWithDuplicateMatchColumn =
+        ROW({"c0", "c1", "c0"}, {BIGINT(), BIGINT(), BOOLEAN()});
+    VELOX_ASSERT_THROW(
+        std::make_shared<IndexLookupJoinNode>(
+            "indexJoinNode",
+            core::JoinType::kLeft,
+            leftKeys,
+            rightKeys,
+            std::vector<IndexLookupConditionPtr>{},
+            /*includeMatchColumn=*/true,
+            probeNode,
+            buildNode,
+            outputTypeWithDuplicateMatchColumn),
+        "");
+  }
 }
 
 TEST_F(PlanNodeTest, partitionedOutputNode) {

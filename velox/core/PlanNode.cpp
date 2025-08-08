@@ -1379,7 +1379,9 @@ AbstractJoinNode::AbstractJoinNode(
       rightKeys_(rightKeys),
       filter_(std::move(filter)),
       sources_({std::move(left), std::move(right)}),
-      outputType_(std::move(outputType)) {
+      outputType_(std::move(outputType)) {}
+
+void AbstractJoinNode::validate() const {
   VELOX_CHECK(!leftKeys_.empty(), "JoinNode requires at least one join key");
   VELOX_CHECK_EQ(
       leftKeys_.size(),
@@ -1558,6 +1560,7 @@ MergeJoinNode::MergeJoinNode(
           std::move(left),
           std::move(right),
           std::move(outputType)) {
+  validate();
   VELOX_USER_CHECK(
       isSupported(joinType_),
       "The join type is not supported by merge join: {}",
@@ -1617,6 +1620,106 @@ PlanNodePtr MergeJoinNode::create(const folly::dynamic& obj, void* context) {
       outputType);
 }
 
+IndexLookupJoinNode::IndexLookupJoinNode(
+    const PlanNodeId& id,
+    JoinType joinType,
+    const std::vector<FieldAccessTypedExprPtr>& leftKeys,
+    const std::vector<FieldAccessTypedExprPtr>& rightKeys,
+    const std::vector<IndexLookupConditionPtr>& joinConditions,
+    bool includeMatchColumn,
+    PlanNodePtr left,
+    TableScanNodePtr right,
+    RowTypePtr outputType)
+    : AbstractJoinNode(
+          id,
+          joinType,
+          leftKeys,
+          rightKeys,
+          /*filter=*/nullptr,
+          std::move(left),
+          right,
+          outputType),
+      lookupSourceNode_(std::move(right)),
+      joinConditions_(joinConditions),
+      includeMatchColumn_(includeMatchColumn) {
+  VELOX_USER_CHECK(
+      !leftKeys.empty(),
+      "The index lookup join node requires at least one join key");
+  VELOX_USER_CHECK_EQ(
+      leftKeys_.size(),
+      rightKeys_.size(),
+      "The index lookup join node requires same number of join keys on left and right sides");
+
+  // TODO: add check that (1) 'rightKeys_' form an index prefix. each of
+  // 'joinConditions_' uses columns from both sides and uses exactly one index
+  // column from the right side.
+  VELOX_USER_CHECK(
+      lookupSourceNode_->tableHandle()->supportsIndexLookup(),
+      "The lookup table handle {} from connector {} doesn't support index lookup",
+      lookupSourceNode_->tableHandle()->name(),
+      lookupSourceNode_->tableHandle()->connectorId());
+  VELOX_USER_CHECK(
+      isSupported(joinType_),
+      "Unsupported index lookup join type {}",
+      JoinTypeName::toName(joinType_));
+
+  auto leftType = sources_[0]->outputType();
+  for (const auto& key : leftKeys_) {
+    VELOX_USER_CHECK(
+        leftType->containsChild(key->name()),
+        "Left side join key not found in left side output: {}",
+        key->name());
+  }
+  auto rightType = sources_[1]->outputType();
+  for (const auto& key : rightKeys_) {
+    VELOX_USER_CHECK(
+        rightType->containsChild(key->name()),
+        "Right side join key not found in right side output: {}",
+        key->name());
+  }
+  for (auto i = 0; i < leftKeys_.size(); ++i) {
+    VELOX_USER_CHECK_EQ(
+        leftKeys_[i]->type()->kind(),
+        rightKeys_[i]->type()->kind(),
+        "Index lookup koin key types on the left and right sides must match");
+  }
+
+  auto numOutputColumns = outputType_->size();
+  if (includeMatchColumn_) {
+    VELOX_USER_CHECK(
+        isLeftJoin(),
+        "Index join match column can only present for {} but not {}",
+        JoinTypeName::toName(JoinType::kLeft),
+        JoinTypeName::toName(joinType_));
+    // Last output column must be a boolean 'match'.
+    --numOutputColumns;
+    VELOX_USER_CHECK_EQ(
+        outputType_->childAt(numOutputColumns),
+        BOOLEAN(),
+        "The last output column must be boolean type if match column is present");
+
+    // Verify that 'match' column name doesn't match any column from left or
+    // right source.
+    const auto& name = outputType_->nameOf(numOutputColumns);
+    VELOX_USER_CHECK(!leftType->containsChild(name));
+    VELOX_USER_CHECK(!rightType->containsChild(name));
+  }
+
+  for (auto i = 0; i < numOutputColumns; ++i) {
+    const auto name = outputType_->nameOf(i);
+    if (leftType->containsChild(name)) {
+      VELOX_USER_CHECK(
+          !rightType->containsChild(name),
+          "Duplicate column name found on index lookup join's left and right sides: {}",
+          name);
+    } else if (!rightType->containsChild(name)) {
+      VELOX_USER_FAIL(
+          "Index lookup join's output column not found in either left or right sides: {}",
+          name);
+    }
+  }
+}
+
 PlanNodePtr IndexLookupJoinNode::create(
     const folly::dynamic& obj,
     void* context) {
@@ -1633,6 +1736,8 @@ PlanNodePtr IndexLookupJoinNode::create(
 
   auto joinConditions = deserializeJoinConditions(obj, context);
 
+  const bool includeMatchColumn = obj["includeMatchColumn"].asBool();
+
   auto outputType = deserializeRowType(obj["outputType"]);
 
   return std::make_shared<IndexLookupJoinNode>(
@@ -1641,6 +1746,7 @@ PlanNodePtr IndexLookupJoinNode::create(
       std::move(leftKeys),
       std::move(rightKeys),
       std::move(joinConditions),
+      includeMatchColumn,
       sources[0],
       std::move(lookupSource),
       std::move(outputType));
@@ -1655,6 +1761,7 @@ folly::dynamic IndexLookupJoinNode::serialize() const {
     }
     obj["joinConditions"] = std::move(serializedJoins);
   }
+  obj["includeMatchColumn"] = includeMatchColumn_;
   return obj;
 }
 
@@ -1670,7 +1777,8 @@ void IndexLookupJoinNode::addDetails(std::stringstream& stream) const {
     joinConditionStrs.push_back(joinCondition->toString());
   }
   stream << ", joinConditions: [" << folly::join(", ", joinConditionStrs)
-         << " ]";
+         << " ], includeMatchColumn: ["
+         << (includeMatchColumn_ ? "true" : "false") << "]";
 }
 
 void IndexLookupJoinNode::accept(

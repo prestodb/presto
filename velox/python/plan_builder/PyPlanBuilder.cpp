@@ -291,7 +291,13 @@ PyPlanBuilder& PyPlanBuilder::indexLookupJoin(
           std::dynamic_pointer_cast<const core::TableScanNode>(
               indexPlanSubtree.planNode())) {
     planBuilder_.indexLookupJoin(
-        leftKeys, rightKeys, tableScanNode, {}, output, joinType);
+        leftKeys,
+        rightKeys,
+        tableScanNode,
+        {},
+        /*includeMatchColumn=*/false,
+        output,
+        joinType);
   } else {
     throw std::runtime_error(
         "Index Loop Join subtree must be a single TableScanNode.");

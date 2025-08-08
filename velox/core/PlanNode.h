@@ -3001,6 +3001,7 @@ class AbstractJoinNode : public PlanNode {
   }
 
  protected:
+  void validate() const;
   void addDetails(std::stringstream& stream) const override;
 
   folly::dynamic serializeBase() const;
@@ -3046,6 +3047,8 @@ class HashJoinNode : public AbstractJoinNode {
             std::move(right),
             std::move(outputType)),
         nullAware_{nullAware} {
+    validate();
+
     if (nullAware) {
       VELOX_USER_CHECK(
           isNullAwareSupported(joinType),
@@ -3335,6 +3338,21 @@ class IndexLookupJoinNode : public AbstractJoinNode {
  public:
   /// @param joinType Specifies the lookup join type. Only INNER and LEFT joins
   /// are supported.
+  /// @param includeMatchColumn if true, the output type includes a boolean
+  /// column at the end to indicate if a join output row has a match or not.
+  /// This only applies for left join.
+  IndexLookupJoinNode(
+      const PlanNodeId& id,
+      JoinType joinType,
+      const std::vector<FieldAccessTypedExprPtr>& leftKeys,
+      const std::vector<FieldAccessTypedExprPtr>& rightKeys,
+      const std::vector<IndexLookupConditionPtr>& joinConditions,
+      bool includeMatchColumn,
+      PlanNodePtr left,
+      TableScanNodePtr right,
+      RowTypePtr outputType);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   IndexLookupJoinNode(
       const PlanNodeId& id,
       JoinType joinType,
@@ -3344,37 +3362,17 @@ class IndexLookupJoinNode : public AbstractJoinNode {
       PlanNodePtr left,
       TableScanNodePtr right,
       RowTypePtr outputType)
-      : AbstractJoinNode(
+      : IndexLookupJoinNode(
             id,
             joinType,
             leftKeys,
             rightKeys,
-            /*filter=*/nullptr,
+            joinConditions,
+            /*includeMatchColumn=*/false,
             std::move(left),
-            right,
-            outputType),
-        lookupSourceNode_(std::move(right)),
-        joinConditions_(joinConditions) {
-    VELOX_USER_CHECK(
-        !leftKeys.empty(),
-        "The lookup join node requires at least one join key");
-    VELOX_USER_CHECK_EQ(
-        leftKeys_.size(),
-        rightKeys_.size(),
-        "The lookup join node requires same number of join keys on left and right sides");
-    // TODO: add check that (1) 'rightKeys_' form an index prefix. each of
-    // 'joinConditions_' uses columns from both sides and uses exactly one index
-    // column from the right side.
-    VELOX_USER_CHECK(
-        lookupSourceNode_->tableHandle()->supportsIndexLookup(),
-        "The lookup table handle {} from connector {} doesn't support index lookup",
-        lookupSourceNode_->tableHandle()->name(),
-        lookupSourceNode_->tableHandle()->connectorId());
-    VELOX_USER_CHECK(
-        isSupported(joinType_),
-        "Unsupported index lookup join type {}",
-        JoinTypeName::toName(joinType_));
-  }
+            std::move(right),
+            std::move(outputType)) {}
+#endif
 
   class Builder
       : public AbstractJoinNode::Builder<IndexLookupJoinNode, Builder> {
@@ -3389,6 +3387,11 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     Builder& joinConditions(
         std::vector<IndexLookupConditionPtr> joinConditions) {
       joinConditions_ = std::move(joinConditions);
+      return *this;
+    }
+
+    Builder& includeMatchColumn(bool includeMatchColumn) {
+      includeMatchColumn_ = includeMatchColumn;
       return *this;
     }
 
@@ -3416,6 +3419,7 @@ class IndexLookupJoinNode : public AbstractJoinNode {
           leftKeys_.value(),
           rightKeys_.value(),
           joinConditions_.value(),
+          includeMatchColumn_,
           left_.value(),
           std::dynamic_pointer_cast<const TableScanNode>(right_.value()),
           outputType_.value());
@@ -3423,6 +3427,7 @@ class IndexLookupJoinNode : public AbstractJoinNode {
 
    private:
     std::optional<std::vector<IndexLookupConditionPtr>> joinConditions_;
+    bool includeMatchColumn_;
   };
 
   bool supportsBarrier() const override {
@@ -3441,6 +3446,10 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     return "IndexLookupJoin";
   }
 
+  bool includeMatchColumn() const {
+    return includeMatchColumn_;
+  }
+
   void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
       const override;
 
@@ -3457,6 +3466,8 @@ class IndexLookupJoinNode : public AbstractJoinNode {
   const TableScanNodePtr lookupSourceNode_;
 
   const std::vector<IndexLookupConditionPtr> joinConditions_;
+
+  const bool includeMatchColumn_;
 };
 
 using IndexLookupJoinNodePtr = std::shared_ptr<const IndexLookupJoinNode>;

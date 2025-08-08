@@ -175,6 +175,18 @@ class IndexLookupJoin : public Operator {
   // Prepare 'output_' for the next output batch with size of 'numOutputRows'.
   void prepareOutput(vector_size_t numOutputRows);
 
+  // Invoked to ensure the match column is created to store the output match
+  // result for the left join.
+  void ensureMatchColumn(vector_size_t maxOutputRows);
+
+  // Invoked to fill the match column and output nulls with the match result for
+  // the left join.
+  void
+  fillOutputMatchRows(vector_size_t offset, vector_size_t size, bool match);
+
+  // Invoked to set the match column with the actual output size.
+  void setMatchColumnSize(vector_size_t numOutputRows);
+
   // Invoked to decode the probe input keys to detect if there are any null
   // keys.
   void decodeAndDetectNonNullKeys(InputBatchState& batch);
@@ -220,6 +232,7 @@ class IndexLookupJoin : public Operator {
   const vector_size_t outputBatchSize_;
   // Type of join.
   const core::JoinType joinType_;
+  const bool includeMatchColumn_;
   const size_t numKeys_;
   const RowTypePtr probeType_;
   const RowTypePtr lookupType_;
@@ -260,6 +273,7 @@ class IndexLookupJoin : public Operator {
   // Used to project output columns from the probe input and lookup output.
   std::vector<IdentityProjection> probeOutputProjections_;
   std::vector<IdentityProjection> lookupOutputProjections_;
+  std::optional<column_index_t> matchOutputChannel_;
 
   std::shared_ptr<connector::IndexSource> indexSource_;
 
@@ -288,6 +302,8 @@ class IndexLookupJoin : public Operator {
 
   // The reusable output vector for the join output.
   RowVectorPtr output_;
+  FlatVectorPtr<bool> matchColumn_{nullptr};
+  uint64_t* rawMatchValues_{nullptr};
 
   // The start time of the current lookup driver block wait, and reset after the
   // driver wait completes.

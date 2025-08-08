@@ -391,6 +391,7 @@ core::PlanNodePtr getTraceNode(
         indexLookupJoinNode->leftKeys(),
         indexLookupJoinNode->rightKeys(),
         indexLookupJoinNode->joinConditions(),
+        indexLookupJoinNode->includeMatchColumn(),
         std::make_shared<DummySourceNode>(
             indexLookupJoinNode->sources().front()->outputType()), // Probe side
         indexLookupJoinNode->lookupSource(), // Index side
