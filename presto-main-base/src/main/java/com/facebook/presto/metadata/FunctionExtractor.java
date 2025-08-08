@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.operator.scalar.annotations.CodegenScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -37,13 +39,23 @@ public final class FunctionExtractor
 
     public static List<SqlFunction> extractFunctions(Collection<Class<?>> classes)
     {
+        return extractFunctions(classes, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<SqlFunction> extractFunctions(Collection<Class<?>> classes, CatalogSchemaName functionNamespace)
+    {
         return classes.stream()
-                .map(FunctionExtractor::extractFunctions)
+                .map(c -> extractFunctions(c, functionNamespace))
                 .flatMap(Collection::stream)
                 .collect(toImmutableList());
     }
 
     public static List<? extends SqlFunction> extractFunctions(Class<?> clazz)
+    {
+        return extractFunctions(clazz, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<? extends SqlFunction> extractFunctions(Class<?> clazz, CatalogSchemaName functionNamespace)
     {
         if (WindowFunction.class.isAssignableFrom(clazz)) {
             @SuppressWarnings("unchecked")
@@ -65,7 +77,7 @@ public final class FunctionExtractor
         }
 
         List<SqlFunction> scalarFunctions = ImmutableList.<SqlFunction>builder()
-                .addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
+                .addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, functionNamespace))
                 .addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
                 .addAll(CodegenScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
                 .build();

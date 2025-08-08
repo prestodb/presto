@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.checkPushdownSubfieldArgIndex;
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -49,8 +51,13 @@ public final class ScalarFromAnnotationsParser
 
     public static List<SqlScalarFunction> parseFunctionDefinition(Class<?> clazz)
     {
+        return parseFunctionDefinition(clazz, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<SqlScalarFunction> parseFunctionDefinition(Class<?> clazz, CatalogSchemaName functionNamespace)
+    {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
-        for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
+        for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz, functionNamespace)) {
             builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz)));
         }
         return builder.build();
@@ -58,18 +65,23 @@ public final class ScalarFromAnnotationsParser
 
     public static List<SqlScalarFunction> parseFunctionDefinitions(Class<?> clazz)
     {
+        return parseFunctionDefinitions(clazz, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<SqlScalarFunction> parseFunctionDefinitions(Class<?> clazz, CatalogSchemaName functionNamespace)
+    {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
-        for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
+        for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz, functionNamespace)) {
             // Non-static function only makes sense in classes annotated @ScalarFunction.
             builder.add(parseParametricScalar(methods, Optional.empty()));
         }
         return builder.build();
     }
 
-    private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated)
+    private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated, CatalogSchemaName functionNamespace)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        List<ScalarImplementationHeader> classHeaders = ScalarImplementationHeader.fromAnnotatedElement(annotated);
+        List<ScalarImplementationHeader> classHeaders = ScalarImplementationHeader.fromAnnotatedElement(annotated, functionNamespace);
         checkArgument(!classHeaders.isEmpty(), "Class [%s] that defines function must be annotated with @ScalarFunction or @ScalarOperator", annotated.getName());
 
         for (ScalarImplementationHeader header : classHeaders) {
@@ -85,7 +97,7 @@ public final class ScalarFromAnnotationsParser
         return builder.build();
     }
 
-    private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated)
+    private static List<ScalarHeaderAndMethods> findScalarsInFunctionSetClass(Class<?> annotated, CatalogSchemaName functionNamespace)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         for (Method method : FunctionsParserHelper.findPublicMethods(
@@ -94,7 +106,7 @@ public final class ScalarFromAnnotationsParser
                 ImmutableSet.of(SqlInvokedScalarFunction.class, CodegenScalarFunction.class))) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
-            for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {
+            for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method, functionNamespace)) {
                 builder.add(new ScalarHeaderAndMethods(header, ImmutableSet.of(method)));
             }
         }
