@@ -608,6 +608,19 @@ __device__ void makeScatterIndices(GpuDecode::MakeScatterIndices& op) {
   }
 }
 
+template <typename T>
+inline __device__ T loadBits(
+    void const* p,
+    uint32_t idx,
+    uint32_t width = 8 * sizeof(T),
+    int64_t baseline = 0) {
+  if (sizeof(T) == 4 || width <= 32) {
+    return loadBits32(p, idx * width, width) + baseline;
+  } else {
+    return loadBits64(p, idx * width, width) + baseline;
+  }
+}
+
 template <typename T, DecodeStep kEncoding>
 inline __device__ T randomAccessDecode(const GpuDecode* op, int32_t idx) {
   switch (kEncoding) {
@@ -1156,6 +1169,91 @@ __device__ void selectiveFilter(GpuDecode* op) {
   }
 }
 
+__device__ inline int32_t
+rowExists(int32_t row, const int32_t* rows, int32_t numRows) {
+  int lo = 0, hi = numRows;
+  while (lo < hi) {
+    int i = (lo + hi) / 2;
+    if (rows[i] == row) {
+      return i;
+    }
+    if (rows[i] < row) {
+      lo = i + 1;
+    } else {
+      hi = i;
+    }
+  }
+  return -1;
+}
+
+// returns the index of the matching row in the rows array if exists . -1
+// if not exists.
+template <int32_t kBlockSize>
+__device__ int32_t rowExists(int32_t nthLoop, GpuDecode* op) {
+  auto row = threadIdx.x + op->data.selectiveChunked.chunkStart + op->baseRow +
+      nthLoop * kBlockSize; // global row id
+  auto tileSize = kBlockSize * op->numRowsPerThread;
+  auto resultBlockId = row / tileSize;
+  auto loopId = (row % tileSize) / kBlockSize;
+  auto resultStart = resultBlockId * tileSize + loopId * kBlockSize;
+  auto numRows =
+      op->filterRowCount[resultBlockId * op->numRowsPerThread + loopId];
+  auto match = rowExists(row, op->rows + resultStart, numRows);
+  return match == -1 ? match : resultStart + match;
+}
+
+template <typename T, int32_t kBlockSize>
+__device__ void selectiveFilterChunked(GpuDecode* op) {
+  using namespace breeze::utils;
+  int32_t nthLoop = 0;
+  bool hasNulls = op->nullMode == NullMode::kSparseNullable ||
+      op->nullMode == NullMode::kDenseNullable;
+  if (hasNulls) {
+    int32_t maxRow = op->maxRow;
+    auto* state = reinterpret_cast<NonNullState*>(op->temp);
+    if (threadIdx.x == 0) {
+      state->nonNullsBelow = op->nthBlock == 0
+          ? 0
+          : op->nonNullBases
+                [op->nthBlock *
+                     (op->gridNumRowsPerThread / (1024 / kBlockSize)) -
+                 1];
+      state->nonNullsBelowRow =
+          op->gridNumRowsPerThread * op->nthBlock * kBlockSize;
+    }
+    __syncthreads();
+    do {
+      auto base = op->baseRow + nthLoop * kBlockSize;
+      int32_t dataIdx = nonNullIndex256(
+          op->nulls, base, min(kBlockSize, maxRow - base), state);
+
+      auto row = threadIdx.x + base; // local row id wrt the chunk
+      auto resultIdx =
+          row < op->maxRow ? rowExists<kBlockSize>(nthLoop, op) : -1;
+      if (resultIdx != -1) {
+        if (dataIdx != -1) {
+          auto data = loadBits<T>(op->data.selectiveChunked.input, dataIdx);
+          reinterpret_cast<T*>(op->result)[resultIdx] = data;
+        }
+        op->resultNulls[resultIdx] = (dataIdx == -1 ? kNull : kNotNull);
+      }
+    } while (++nthLoop < op->numRowsPerThread);
+  } else {
+    do {
+      auto row = threadIdx.x + op->baseRow +
+          nthLoop * kBlockSize; // local row id wrt the chunk
+
+      auto resultIdx =
+          row < op->maxRow ? rowExists<kBlockSize>(nthLoop, op) : -1;
+      if (resultIdx != -1) {
+        auto data = loadBits<T>(op->data.selectiveChunked.input, row);
+        reinterpret_cast<T*>(op->result)[resultIdx] = data;
+      }
+    } while (++nthLoop < op->numRowsPerThread);
+  }
+  __syncthreads();
+}
+
 template <typename T, int32_t kBlockSize>
 __device__ void selectiveSwitch(GpuDecode* op) {
   if (op->encoding == DecodeStep::kDictionaryOnBitpack) {
@@ -1174,6 +1272,12 @@ __device__ void decodeSwitch(GpuDecode& op) {
       break;
     case DecodeStep::kSelective64:
       selectiveSwitch<int64_t, kBlockSize>(&op);
+      break;
+    case DecodeStep::kSelective32Chunked:
+      selectiveFilterChunked<int32_t, kBlockSize>(&op);
+      break;
+    case DecodeStep::kSelective64Chunked:
+      selectiveFilterChunked<int64_t, kBlockSize>(&op);
       break;
     case DecodeStep::kCompact64:
       detail::compactValues<int64_t, kBlockSize>(&op);
@@ -1251,6 +1355,8 @@ int32_t sharedMemorySizeForDecode(DecodeStep step) {
   switch (step) {
     case DecodeStep::kSelective32:
     case DecodeStep::kSelective64:
+    case DecodeStep::kSelective32Chunked:
+    case DecodeStep::kSelective64Chunked:
     case DecodeStep::kCompact64:
     case DecodeStep::kTrivial:
     case DecodeStep::kDictionaryOnBitpack:

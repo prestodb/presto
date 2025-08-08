@@ -480,7 +480,11 @@ std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
       resultOffset);
   auto kindSize = waveTypeKindSize(step->dataType);
 
-  if (processFilter) {
+  // True if it is a single-chunk, filter or non-filter column
+  bool singleChunkFilter = isRoot && !op.hasMultiChunks &&
+      (previousFilter || op.reader->scanSpec().filter());
+
+  if (singleChunkFilter) {
     if (kindSize != 4 && kindSize != 8) {
       VELOX_NYI(
           "Unsupported data type for nullable encoding. The data type must be either 4 or 8 bytes.");
@@ -513,6 +517,26 @@ std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
 
     return step;
   }
+
+  // True if it is a multi-chunk, non-filter column
+  bool multiChunkFiltered = isRoot && previousFilter && op.hasMultiChunks &&
+      !op.reader->scanSpec().filter();
+  if (multiChunkFiltered) {
+    step->step = kindSize == 4 ? DecodeStep::kSelective32Chunked
+                               : DecodeStep::kSelective64Chunked;
+    step->rows = previousFilter->deviceResult;
+    step->filterRowCount = previousFilter->extraRowCount;
+    step->result = op.waveVector->values<char>();
+    step->data.selectiveChunked.chunkStart = resultOffset;
+    getDeviceEncodingInput(
+        splitStaging,
+        bufferId,
+        rootEncoding,
+        hostPtr,
+        reinterpret_cast<const void**>(&step->data.selectiveChunked.input));
+    return step;
+  }
+
   step->step = DecodeStep::kTrivial;
   step->data.trivial.dataType = step->dataType;
   step->data.trivial.result = static_cast<char*>(step->result) +
@@ -659,6 +683,28 @@ std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
   }
   auto dataBufferPtr =
       childAt(EncodingIdentifiers::Nullable::Data)->decodedResultBuffer();
+
+  bool multiChunkFiltered = isRoot && previousFilter && op.hasMultiChunks &&
+      !op.reader->scanSpec().filter();
+  if (multiChunkFiltered) {
+    step->step = kindSize == 4 ? DecodeStep::kSelective32Chunked
+                               : DecodeStep::kSelective64Chunked;
+    step->rows = previousFilter->deviceResult;
+    step->filterRowCount = previousFilter->extraRowCount;
+    step->result = op.waveVector->values<char>();
+    step->nulls =
+        childAt(EncodingIdentifiers::Nullable::Nulls)->nulls(); // chunk local
+    step->nonNullBases =
+        childAt(EncodingIdentifiers::Nullable::Nulls)->numNonNull();
+
+    step->resultNulls = op.waveVector->nulls();
+    step->result = op.waveVector->values<void>();
+
+    step->data.selectiveChunked.chunkStart = resultOffset;
+    step->data.selectiveChunked.input =
+        dataBufferPtr ? dataBufferPtr->as<void>() : nullptr;
+    return step;
+  }
 
   step->step =
       kindSize == 4 ? DecodeStep::kSelective32 : DecodeStep::kSelective64;

@@ -64,6 +64,8 @@ enum class DecodeStep {
   kSelective32,
   kCompact64,
   kSelective64,
+  kSelective32Chunked,
+  kSelective64Chunked,
   kConstant32,
   kConstant64,
   kConstantChar,
@@ -275,6 +277,11 @@ struct alignas(16) GpuDecode {
     void* result;
   };
 
+  struct SelectiveChunked {
+    int32_t chunkStart;
+    const void* input;
+  };
+
   struct Varint {
     // Address of the input data.
     const char* input;
@@ -392,6 +399,7 @@ struct alignas(16) GpuDecode {
     RowCountNoFilter rowCountNoFilter;
     CountBits countBits;
     CompactValues compact;
+    SelectiveChunked selectiveChunked;
   } data;
 
   /// True if 'nulls' is a bitmap of nulls. False if 'nulls' an array of uint8_t

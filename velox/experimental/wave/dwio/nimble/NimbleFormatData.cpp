@@ -144,16 +144,15 @@ void NimbleFormatData::startOp(
   }
 
   auto readyForMultiChunkFiltering = [&]() {
-    // if there is only one chunk, we can do the filtering in the same kernel as
-    // decoding
-    if (pipelines_.size() == 1 ||
-        !(op.reader->scanSpec().filter() || previousFilter)) {
+    // if this column does not have a filter or there is only one chunk, we can
+    // do the filtering in the same kernel as decoding
+    if (!op.reader->scanSpec().filter() || !op.hasMultiChunks) {
       return false;
     }
 
     // Wait for all chunks to be decoded, which is indicated by no new decode
     // steps are created
-    if (newSteps) {
+    if (newSteps || !op.isFinal) {
       op.isFinal = false;
       return false;
     }
