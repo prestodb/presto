@@ -251,7 +251,7 @@ public class CassandraMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        createTable(tableMetadata);
+        createTable(session, tableMetadata);
     }
 
     @Override
@@ -280,10 +280,10 @@ public class CassandraMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        return createTable(tableMetadata);
+        return createTable(session, tableMetadata);
     }
 
-    private CassandraOutputTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    private CassandraOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -304,7 +304,7 @@ public class CassandraMetadata
         StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
-            String columnName = caseSensitiveNameMatchingEnabled ? validColumnName(name) : name;
+            String columnName = validColumnName(normalizeIdentifier(session, name));
             Type type = types.get(i);
             queryBuilder.append(", ")
                     .append(columnName)

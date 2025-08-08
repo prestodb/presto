@@ -62,6 +62,9 @@ public class TestCassandraIntergrationMixedCase
         getQueryRunner().execute(session, "CREATE TABLE  test_create(name VARCHAR(50), rollNum int)");
         assertTrue(getQueryRunner().tableExists(session, "test_create"));
 
+        assertQueryFails(session, "CREATE TABLE TEST_CREATE (name VARCHAR(50), rollNum int)", "line 1:1: Table 'cassandra.test_connetor.TEST_CREATE' already exists");
+        assertFalse(getQueryRunner().tableExists(session, "Test"));
+
         assertUpdate(session, "DROP TABLE IF EXISTS TEST_CREATE");
         assertFalse(getQueryRunner().tableExists(session, "TEST_CREATE"));
 
@@ -94,6 +97,15 @@ public class TestCassandraIntergrationMixedCase
         getQueryRunner().execute(session, "CREATE TABLE Test_CreateAs_Mixed_Join AS SELECT Cus.custkey, Ord.orderkey FROM " +
                 "tpch.customer Cus INNER JOIN tpch.orders Ord ON Cus.custkey = Ord.custkey WHERE Cus.mktsegment = 'BUILDING'");
         assertTrue(getQueryRunner().tableExists(session, "Test_CreateAs_Mixed_Join"));
+
+        assertUpdate(session, "DROP TABLE IF EXISTS TEST_CREATEAS");
+        assertFalse(getQueryRunner().tableExists(session, "TEST_CREATEAS"));
+
+        assertUpdate(session, "DROP TABLE IF EXISTS test_createas");
+        assertFalse(getQueryRunner().tableExists(session, "test_createas"));
+
+        assertUpdate(session, "DROP TABLE IF EXISTS Test_CreateAs_Mixed_Join");
+        assertFalse(getQueryRunner().tableExists(session, "Test_CreateAs_Mixed_Join"));
     }
 
     @Test
@@ -112,5 +124,30 @@ public class TestCassandraIntergrationMixedCase
 
         assertQueryFails("CREATE TABLE Test (a integer, a integer)", "line 1:31: Column name 'a' specified more than once");
         assertFalse(getQueryRunner().tableExists(session, "Test"));
+
+        assertUpdate(session, "DROP TABLE IF EXISTS test");
+        assertFalse(getQueryRunner().tableExists(session, "test"));
+
+        assertUpdate(session, "DROP TABLE IF EXISTS TEST");
+        assertFalse(getQueryRunner().tableExists(session, "TEST"));
+    }
+
+    @Test
+    public void testSelect()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("cassandra")
+                .setSchema(KEYSPACE)
+                .build();
+
+        getQueryRunner().execute(session, "CREATE TABLE Test_Select  AS SELECT * FROM tpch.region where regionkey=3");
+        assertTrue(getQueryRunner().tableExists(session, "Test_Select"));
+        assertQuery("SELECT * from test_connetor.Test_Select", "VALUES (3, 'EUROPE', 'ly final courts cajole furiously final excuse')");
+
+        getQueryRunner().execute(session, "CREATE TABLE test_select  AS SELECT * FROM tpch.region LIMIT 2");
+        assertQuery("SELECT COUNT(*) FROM test_connetor.test_select", "VALUES 2");
+
+        getQueryRunner().execute(session, "DROP TABLE IF EXISTS TEST_SELECT");
+        getQueryRunner().execute(session, "DROP TABLE IF EXISTS Test_Select");
     }
 }
