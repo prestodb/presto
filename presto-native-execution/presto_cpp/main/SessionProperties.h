@@ -324,18 +324,16 @@ class SessionProperties {
 
   SessionProperties();
 
-  const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-  getSessionProperties();
-
   /// Utility function to translate a config name in Presto to its equivalent in
   /// Velox. Returns 'name' as is if there is no mapping.
-  const std::string toVeloxConfig(const std::string& name);
+  const std::string toVeloxConfig(const std::string& name) const;
 
-  void updateVeloxConfig(const std::string& name, const std::string& value);
+  json serialize() const;
 
-  json serialize();
+  const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
+  testingSessionProperties() const;
 
- protected:
+ private:
   void addSessionProperty(
       const std::string& name,
       const std::string& description,
