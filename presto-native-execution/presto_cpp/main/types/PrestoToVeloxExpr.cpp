@@ -12,18 +12,29 @@
  * limitations under the License.
  */
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
+#endif
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include <unordered_map>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/functions/remote/client/VeloxRemoteFunction.h"
+#include "velox/expression/FunctionSignature.h"
+#endif
 
 using namespace facebook::velox::core;
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+using facebook::velox::functions::remote::PageFormat;
+#endif
 using facebook::velox::TypeKind;
 
 namespace facebook::presto {
@@ -131,6 +142,150 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
   return nameEnd != std::string::npos ? functionId.substr(0, nameEnd)
                                       : functionId;
 }
+
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+
+// Extracts the schema name from a fully qualified Presto function identifier.
+// The function identifier is expected in the format
+// "namespace.schema.function;TYPE;TYPE". This function returns the substring
+// between the first and second dots in the function name.If the schema cannot
+// be determined, "default" is returned.
+// @param functionId The fully qualified Presto function identifier.
+// @ return The extracted schema name or "default".
+std::string getSchemaName(const protocol::SqlFunctionId& functionId) {
+  // Example: "json.x4.eq;INTEGER;INTEGER".
+  const auto nameEnd = functionId.find(';');
+  std::string functionName = (nameEnd != std::string::npos)
+      ? functionId.substr(0, nameEnd)
+      : functionId;
+
+  const auto firstDot = functionName.find('.');
+  const auto secondDot = functionName.find('.', firstDot + 1);
+  if (firstDot != std::string::npos && secondDot != std::string::npos) {
+    return functionName.substr(firstDot + 1, secondDot - firstDot - 1);
+  }
+
+  return "default";
+}
+
+// Extracts the function name from a fully qualified function identifier string.
+// The input is expected to be in the format "namespace.schema.function", and
+// this function returns the substring after the last dot. If there is no dot,
+// the entire input string is returned.
+// @param input The fully qualified function identifier.
+// @return The extracted function name.
+std::string extractFunctionName(const std::string& input) {
+  size_t lastDot = input.find_last_of('.');
+  if (lastDot != std::string::npos) {
+    return input.substr(lastDot + 1);
+  }
+  return input;
+}
+
+// Encodes a string for safe inclusion in a URL by escaping non-alphanumeric
+// characters using percent-encoding. Alphanumeric characters and '-', '_', '.',
+// '~' are left unchanged. All other characters are replaced with '%' followed
+// by their two-digit hexadecimal value.
+// @param value The input string to encode.
+// @return The URL-encoded string.
+std::string urlEncode(const std::string& value) {
+  std::ostringstream escaped;
+  escaped.fill('0');
+  escaped << std::hex;
+  for (char c : value) {
+    if (isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' ||
+        c == '.' || c == '~') {
+      escaped << c;
+    } else {
+      escaped << '%' << std::setw(2) << int(static_cast<unsigned char>(c));
+    }
+  }
+  return escaped.str();
+}
+
+// Constructs a Velox function signature from a Presto function signature. This
+// function translates type variable constraints, integer variable constraints,
+// return type, argument types, and variable arity from the Presto signature to
+// the corresponding Velox signature builder.
+// @param prestoSignature The Presto function signature to convert.
+// @return A pointer to the constructed Velox function signature.
+velox::exec::FunctionSignaturePtr buildVeloxSignatureFromPrestoSignature(
+    const protocol::Signature& prestoSignature) {
+  velox::exec::FunctionSignatureBuilder signatureBuilder;
+
+  for (const auto& typeVar : prestoSignature.typeVariableConstraints) {
+    signatureBuilder.typeVariable(typeVar.name);
+  }
+
+  for (const auto& longVar : prestoSignature.longVariableConstraints) {
+    signatureBuilder.integerVariable(longVar.name);
+  }
+  signatureBuilder.returnType(prestoSignature.returnType);
+
+  for (const auto& argType : prestoSignature.argumentTypes) {
+    signatureBuilder.argumentType(argType);
+  }
+
+  if (prestoSignature.variableArity) {
+    signatureBuilder.variableArity();
+  }
+  return signatureBuilder.build();
+}
+
+void registerRestRemoteFunction(
+    const protocol::RestFunctionHandle& restFunctionHandle,
+    const std::string& remoteFunctionServerRestURL) {
+  static std::unordered_map<std::string, std::string> registeredFunctionHandles;
+  static std::unordered_map<std::string, std::shared_ptr<functions::RestRemoteClient>> remoteClients;
+
+  const std::string functionName =
+      getFunctionName(restFunctionHandle.functionId);
+
+  json functionHandleJson;
+  to_json(functionHandleJson, restFunctionHandle);
+  functionHandleJson["url"] = remoteFunctionServerRestURL;
+  const std::string serializedFunctionHandle = functionHandleJson.dump();
+
+  auto it = registeredFunctionHandles.find(functionName);
+  if (it != registeredFunctionHandles.end() &&
+      it->second == serializedFunctionHandle) {
+    return;
+  }
+
+  // Get or create shared RestRemoteClient for this server URL
+  auto clientIt = remoteClients.find(remoteFunctionServerRestURL);
+  if (clientIt == remoteClients.end()) {
+    remoteClients[remoteFunctionServerRestURL] = 
+        std::make_shared<functions::RestRemoteClient>(remoteFunctionServerRestURL);
+  }
+  auto remoteClient = remoteClients[remoteFunctionServerRestURL];
+
+  functions::VeloxRemoteFunctionMetadata metadata;
+
+  const std::string functionLocation = fmt::format(
+      "{}/v1/functions/{}/{}/{}/{}",
+      remoteFunctionServerRestURL,
+      getSchemaName(restFunctionHandle.functionId),
+      extractFunctionName(getFunctionName(restFunctionHandle.functionId)),
+      urlEncode(restFunctionHandle.functionId),
+      restFunctionHandle.version);
+  metadata.location = functionLocation;
+  metadata.serdeFormat = PageFormat::PRESTO_PAGE;
+
+  auto veloxSignature =
+      buildVeloxSignatureFromPrestoSignature(restFunctionHandle.signature);
+  std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
+      veloxSignature};
+
+  functions::registerVeloxRemoteFunction(
+      getFunctionName(restFunctionHandle.functionId),
+      veloxSignatures,
+      metadata,
+      remoteClient);
+
+  registeredFunctionHandles[functionName] = serializedFunctionHandle;
+}
+#endif
 
 } // namespace
 
@@ -514,6 +669,25 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  else if (
+      auto restFunctionHandle =
+          std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = typeParser_->parse(pexpr.returnType);
+
+    if (remoteFunctionSerde_ != "presto_page") {
+      VELOX_FAIL(
+          "presto_page serde is expected by remote function server but got : '{}'",
+          remoteFunctionSerde_);
+    }
+    registerRestRemoteFunction(
+        *restFunctionHandle, remoteFunctionServerRestURL_);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(restFunctionHandle->functionId));
+  }
+#endif
 
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
