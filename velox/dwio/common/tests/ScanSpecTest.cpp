@@ -54,5 +54,137 @@ TEST_F(ScanSpecTest, applyFilter) {
       VeloxRuntimeError);
 }
 
+class TypedScanSpecTest : public testing::TestWithParam<TypePtr>,
+                          public test::VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+  }
+
+  VectorPtr makeConstNullVector(TypePtr type, vector_size_t size) {
+    return BaseVector::createNullConstant(type, size, pool());
+  }
+
+  void addIsNullFilterRecursive(ScanSpec& scanSpec) {
+    scanSpec.setFilter(std::make_shared<velox::common::IsNull>());
+    for (auto& child : scanSpec.children()) {
+      addIsNullFilterRecursive(*child);
+    }
+  }
+
+  void addIsNotNullFilterRecursive(ScanSpec& scanSpec) {
+    scanSpec.setFilter(std::make_shared<velox::common::IsNotNull>());
+    for (auto& child : scanSpec.children()) {
+      addIsNullFilterRecursive(*child);
+    }
+  }
+
+  void addIsNullFilterToLeaf(ScanSpec& scanSpec) {
+    if (scanSpec.children().empty()) {
+      scanSpec.setFilter(std::make_shared<velox::common::IsNull>());
+    } else {
+      for (auto& child : scanSpec.children()) {
+        addIsNullFilterToLeaf(*child);
+      }
+    }
+  }
+
+  void addIsNotNullFilterToLeaf(ScanSpec& scanSpec) {
+    if (scanSpec.children().empty()) {
+      scanSpec.setFilter(std::make_shared<velox::common::IsNotNull>());
+    } else {
+      for (auto& child : scanSpec.children()) {
+        addIsNotNullFilterToLeaf(*child);
+      }
+    }
+  }
+};
+
+// Due to how subfield filters of maps and arrays are pruning
+// and can't affect the row selectivity, the current test skips
+// cases when maps and arrays are the lone child of (nested) structs.
+INSTANTIATE_TEST_SUITE_P(
+    TypedScanSpecTestSuite,
+    TypedScanSpecTest,
+    testing::Values(
+        TINYINT(),
+        SMALLINT(),
+        INTEGER(),
+        BIGINT(),
+        REAL(),
+        DOUBLE(),
+        VARCHAR(),
+        VARBINARY(),
+        ROW({"int", "real"}, {INTEGER(), REAL()}),
+        // TODO: the test cases fail when not specifying names for
+        // the struct fields. This indicates bug in internal topology
+        // when finding children of nested scan specs.
+        ROW({"int", "map"}, {INTEGER(), MAP(INTEGER(), REAL())}),
+        ROW({"int", "array"}, {INTEGER(), ARRAY(INTEGER())}),
+        ROW({"int0", "array0", "row0"},
+            {INTEGER(),
+             ARRAY(INTEGER()),
+             ROW({"int1", "real1", "row1"},
+                 {INTEGER(),
+                  REAL(),
+                  ROW({"int2", "real2"}, {INTEGER(), REAL()})})})));
+
+TEST_P(TypedScanSpecTest, applyFilterSchemaEvolution) {
+  auto rowVector = makeRowVector({
+      makeFlatVector<int64_t>(64, folly::identity),
+      makeConstNullVector(GetParam(), 64),
+  });
+  ASSERT_EQ(rowVector->size(), 64);
+  LOG(INFO) << "Testing with type: " << rowVector->type()->toString();
+
+  {
+    ScanSpec scanSpec("<root>");
+    scanSpec.addAllChildFields(*rowVector->type());
+
+    ASSERT_TRUE(scanSpec.childByName("c0"));
+    scanSpec.childByName("c0")->setFilter(
+        std::make_shared<BigintRange>(32, 64, false));
+
+    ASSERT_TRUE(scanSpec.childByName("c1"));
+    addIsNullFilterRecursive(*scanSpec.childByName("c1"));
+
+    uint64_t result = -1ll;
+    scanSpec.applyFilter(*rowVector, rowVector->size(), &result);
+    ASSERT_EQ(result, -1ll << 32);
+
+    // Now add a non-null filter on the missing column.
+    ASSERT_TRUE(scanSpec.childByName("c1"));
+    addIsNotNullFilterRecursive(*scanSpec.childByName("c1"));
+    result = -1ll;
+    scanSpec.applyFilter(*rowVector, rowVector->size(), &result);
+    ASSERT_EQ(result, 0);
+  }
+
+  {
+    ScanSpec scanSpec("<root>");
+    scanSpec.addAllChildFields(*rowVector->type());
+
+    ASSERT_TRUE(scanSpec.childByName("c0"));
+    scanSpec.childByName("c0")->setFilter(
+        std::make_shared<BigintRange>(32, 64, false));
+
+    // Now add a null filter only on the innermost node of the missing column.
+    // Should have the same result as recursive filters.
+    ASSERT_TRUE(scanSpec.childByName("c1"));
+    addIsNullFilterToLeaf(*scanSpec.childByName("c1"));
+    uint64_t result = -1ll;
+    scanSpec.applyFilter(*rowVector, rowVector->size(), &result);
+    ASSERT_EQ(result, -1ll << 32);
+
+    // Now add is not null filter only on the innermost node of the missing
+    // column. Should have the same result as recursive filters.
+    ASSERT_TRUE(scanSpec.childByName("c1"));
+    addIsNotNullFilterToLeaf(*scanSpec.childByName("c1"));
+    result = -1ll;
+    scanSpec.applyFilter(*rowVector, rowVector->size(), &result);
+    ASSERT_EQ(result, 0);
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::common
