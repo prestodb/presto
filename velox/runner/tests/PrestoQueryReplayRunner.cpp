@@ -17,6 +17,7 @@
 #include "velox/runner/tests/PrestoQueryReplayRunner.h"
 
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
 
 namespace facebook::velox::runner {
 namespace {
@@ -44,6 +45,7 @@ const std::string kHiveConnectorId = "test-hive";
 const int32_t kWaitTimeoutUs = 5'000'000;
 const int32_t kDefaultWidth = 2;
 const int32_t kDefaultMaxDrivers = 4;
+const std::string kFinalTaskPrefix = "final";
 
 PrestoQueryReplayRunner::PrestoQueryReplayRunner(
     memory::MemoryPool* pool,
@@ -243,6 +245,28 @@ bool isSupported(
   return isSupportedImpl(plan);
 }
 
+namespace {
+std::string findRootTaskPrefix(
+    const std::vector<std::string>& taskPrefixes,
+    const std::unordered_map<std::string, PlanFragmentInfo>& planFragments) {
+  std::unordered_set<std::string> inputTaskPrefixes;
+  for (const auto& [_, planFragmentInfo] : planFragments) {
+    for (const auto& [_, remoteTaskPrefixes] :
+         planFragmentInfo.remoteTaskIdMap) {
+      for (const auto& remoteTaskPrefix : remoteTaskPrefixes) {
+        inputTaskPrefixes.insert(remoteTaskPrefix);
+      }
+    }
+  }
+  for (const auto& taskPrefix : taskPrefixes) {
+    if (inputTaskPrefixes.count(taskPrefix) == 0) {
+      return taskPrefix;
+    }
+  }
+  VELOX_UNREACHABLE("No root task found.");
+}
+} // namespace
+
 MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializeSupportedPlan(
     const std::string& queryId,
     const std::vector<std::string>& serializedPlanFragments) {
@@ -306,6 +330,29 @@ MultiFragmentPlanPtr PrestoQueryReplayRunner::deserializeSupportedPlan(
           std::move(remoteTaskIdPrefixSet);
     }
     planFragments[taskPrefix].remoteTaskIdMap = remoteTaskIdMap;
+  }
+
+  // If the root task ends with a PartitionedOutputNode, we need to add a
+  // final gathering stage to collect the results.
+  auto rootTaskPrefix = findRootTaskPrefix(taskPrefixes, planFragments);
+  auto& rootPlanFragment = planFragments[rootTaskPrefix];
+  if (auto partitionedOutput =
+          std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
+              rootPlanFragment.plan)) {
+    VELOX_CHECK(
+        partitionedOutput->keys().empty() && !partitionedOutput->isBroadcast());
+    // Use a large plan node id to avoid conflicts with the existing plan node
+    // ids.
+    core::PlanNodeId id;
+    planFragments[kFinalTaskPrefix].plan =
+        exec::test::PlanBuilder(
+            std::make_shared<core::PlanNodeIdGenerator>(100000))
+            .exchange(
+                partitionedOutput->outputType(), partitionedOutput->serdeKind())
+            .capturePlanNodeId(id)
+            .planNode();
+    planFragments[kFinalTaskPrefix].numWorkers = 1;
+    planFragments[kFinalTaskPrefix].remoteTaskIdMap[id] = {rootTaskPrefix};
   }
 
   auto executableFragments = createExecutableFragments(planFragments);

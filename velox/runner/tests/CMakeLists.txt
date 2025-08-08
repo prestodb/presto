@@ -27,7 +27,8 @@ target_link_libraries(
 add_library(velox_presto_query_replay_runner PrestoQueryReplayRunner.cpp)
 
 target_link_libraries(
-  velox_presto_query_replay_runner velox_local_runner velox_hive_connector)
+  velox_presto_query_replay_runner velox_local_runner velox_hive_connector
+  velox_exec_test_lib)
 
 add_executable(velox_presto_query_replay_runner_test
                PrestoQueryReplayRunnerTest.cpp Main.cpp)
