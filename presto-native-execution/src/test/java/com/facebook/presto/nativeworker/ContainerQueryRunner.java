@@ -308,7 +308,9 @@ public class ContainerQueryRunner
                 .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
     }
 
-    public void waitForSidecarRegistration() throws IOException {
+    public void waitForSidecarRegistration()
+            throws IOException
+    {
         GenericContainer<?> sidecarContainer = createSidecar(7777 + numberOfWorkers, "sidecar");
         sidecarContainer.start();
         this.sidecar = Optional.of(sidecarContainer);

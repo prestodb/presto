@@ -17,8 +17,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.TimeUnit;
-
 public class TestPrestoContainerSidecarInfrastructure
         extends AbstractTestQueryFramework
 {
