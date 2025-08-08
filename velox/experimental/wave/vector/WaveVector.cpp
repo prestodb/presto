@@ -161,7 +161,7 @@ static VectorPtr toVeloxTyped(
 }
 
 bool isDenselyFilled(const BlockStatus* status, int32_t numBlocks) {
-  for (int32_t i = 0; i < numBlocks - 1; ++i) {
+  for (int32_t i = 0; i < numBlocks; ++i) {
     if (status[i].numRows != kBlockSize) {
       return false;
     }

@@ -368,6 +368,14 @@ void ReadStream::syncStaging(Stream& stream) {
 }
 
 void ReadStream::initializeResultNulls(Stream& stream) {
+  for (auto i = 0; i < filters_.size(); ++i) {
+    if (filters_[i].reader->formatData()->hasNulls()) {
+      auto waveVector = filters_[i].waveVector;
+      if (waveVector && waveVector->nulls()) {
+        stream.memset(waveVector->nulls(), 1, waveVector->size());
+      }
+    }
+  }
   for (auto i = 0; i < ops_.size(); ++i) {
     if (ops_[i].reader->formatData()->hasNulls()) {
       auto waveVector = ops_[i].waveVector;
