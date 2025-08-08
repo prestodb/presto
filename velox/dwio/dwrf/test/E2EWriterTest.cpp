@@ -1634,6 +1634,76 @@ TEST_F(E2EWriterTest, fuzzFlatmap) {
   }
 }
 
+TEST_F(E2EWriterTest, fuzzFlatmapWithFlatmapInput) {
+  auto pool = memory::memoryManager()->addLeafPool();
+  auto type = ROW({
+      {"flatmap1", MAP(INTEGER(), REAL())},
+      {"flatmap2", MAP(VARCHAR(), ARRAY(REAL()))},
+      {"flatmap3", MAP(INTEGER(), MAP(INTEGER(), REAL()))},
+  });
+  auto config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set(dwrf::Config::MAP_FLAT_COLS, {0, 1, 2});
+  auto seed = folly::Random::rand32();
+  LOG(INFO) << "seed: " << seed;
+  std::mt19937 rng{seed};
+
+  // Small batches creates more edge cases.
+  size_t batchSize = 10;
+  VectorFuzzer fuzzer(
+      {
+          .vectorSize = batchSize,
+          .nullRatio = 0,
+          .stringLength = 20,
+          .stringVariableLength = true,
+          .containerLength = 5,
+          .containerVariableLength = true,
+      },
+      pool.get(),
+      seed);
+
+  auto genFlatMap = [&](auto type) {
+    auto& mapType = type->asMap();
+
+    std::vector<BufferPtr> inMaps;
+    std::vector<VectorPtr> values;
+    for (size_t key = 0; key < batchSize; ++key) {
+      inMaps.push_back(AlignedBuffer::allocate<bool>(batchSize, pool.get(), 0));
+      auto* rawInMaps = inMaps.back()->asMutable<uint64_t>();
+      for (size_t row = 0; row < batchSize; ++row) {
+        bits::setBit(rawInMaps, row, folly::Random::oneIn(2, rng));
+      }
+
+      values.push_back(fuzzer.fuzz(mapType.valueType()));
+    }
+
+    return std::make_shared<FlatMapVector>(
+        pool.get(),
+        type,
+        nullptr,
+        batchSize,
+        createKeys(mapType.keyType(), *pool, rng, batchSize, batchSize),
+        std::move(values),
+        std::move(inMaps));
+  };
+
+  auto gen = [&]() {
+    std::vector<VectorPtr> children(type->size());
+    for (auto i = 0; i < type->size(); ++i) {
+      children[i] = genFlatMap(type->childAt(i));
+    }
+
+    return std::make_shared<RowVector>(
+        pool.get(), type, nullptr, batchSize, std::move(children));
+  };
+
+  auto iterations = 20;
+  auto batches = 20;
+  for (auto i = 0; i < iterations; ++i) {
+    testWriter(*pool, type, batches, gen, config);
+  }
+}
+
 TEST_F(E2EWriterTest, memoryConfigError) {
   const auto type = ROW(
       {{"int_val", INTEGER()},

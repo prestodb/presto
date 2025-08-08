@@ -18,7 +18,7 @@
 #include <velox/dwio/dwrf/writer/StatisticsBuilder.h>
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/FlatVector.h"
+#include "velox/vector/FlatMapVector.h"
 
 namespace facebook::velox::dwrf {
 
@@ -175,6 +175,7 @@ void FlatMapColumnWriter<K>::reset() {
   valueWriters_.clear();
   rowsInStrides_.clear();
   rowsInCurrentStride_ = 0;
+  totalRows_ = 0;
 }
 
 KeyInfo getKeyInfo(int64_t key) {
@@ -239,27 +240,30 @@ ValueWriter& FlatMapColumnWriter<K>::getValueWriter(
 template <TypeKind K>
 uint32_t updateKeyStatistics(
     typename TypeInfo<K>::StatisticsBuilder& keyStatsBuilder,
-    typename TypeTraits<K>::NativeType value) {
-  keyStatsBuilder.addValues(value);
-  return sizeof(typename TypeTraits<K>::NativeType);
+    typename TypeTraits<K>::NativeType value,
+    uint64_t count = 1) {
+  keyStatsBuilder.addValues(value, count);
+  return sizeof(typename TypeTraits<K>::NativeType) * count;
 }
 
 template <>
 uint32_t updateKeyStatistics<TypeKind::VARCHAR>(
     StringStatisticsBuilder& keyStatsBuilder,
-    StringView value) {
+    StringView value,
+    uint64_t count) {
   auto size = value.size();
-  keyStatsBuilder.addValues(folly::StringPiece{value.data(), size});
-  return size;
+  keyStatsBuilder.addValues(folly::StringPiece{value.data(), size}, count);
+  return size * count;
 }
 
 template <>
 uint32_t updateKeyStatistics<TypeKind::VARBINARY>(
     BinaryStatisticsBuilder& keyStatsBuilder,
-    StringView value) {
+    StringView value,
+    uint64_t count) {
   auto size = value.size();
-  keyStatsBuilder.addValues(size);
-  return size;
+  keyStatsBuilder.addValues(size, count);
+  return size * count;
 }
 
 namespace {
@@ -351,6 +355,11 @@ uint64_t FlatMapColumnWriter<K>::write(
     const common::Ranges& ranges) {
   switch (slice->typeKind()) {
     case TypeKind::MAP:
+      if (slice->wrappedVector()->encoding() ==
+          VectorEncoding::Simple::FLAT_MAP) {
+        return writeFlatMap(slice, ranges);
+      }
+
       return writeMap(slice, ranges);
     case TypeKind::ROW:
       if (!structKeys_.empty()) {
@@ -466,6 +475,7 @@ uint64_t FlatMapColumnWriter<K>::writeMap(
     rawSize += nullCount * NULL_SIZE;
   }
   rowsInCurrentStride_ += mapCount;
+  totalRows_ += mapCount;
   indexStatsBuilder_->increaseValueCount(mapCount);
   indexStatsBuilder_->increaseRawSize(rawSize);
   return rawSize;
@@ -484,6 +494,88 @@ common::Ranges getNonNullRanges(const common::Ranges& ranges, const Row& row) {
     nonNullRanges = ranges;
   }
   return nonNullRanges;
+}
+
+template <TypeKind K>
+uint64_t FlatMapColumnWriter<K>::writeFlatMap(
+    const VectorPtr& vector,
+    const common::Ranges& ranges) {
+  uint64_t rawSize = 0;
+  common::Ranges nonNullRanges;
+
+  const FlatMapVector* flatMap = vector->as<FlatMapVector>();
+  if (flatMap) {
+    // FlatMap has no additional encodings.
+    writeNulls(vector, ranges);
+    nonNullRanges = getNonNullRanges(ranges, Flat{vector});
+  } else {
+    // FlatMap has additional encodings, we need to decode.
+    auto localDecodedFlatMap = decode(vector, ranges);
+    auto& decodedFlatMap = localDecodedFlatMap.get();
+    writeNulls(decodedFlatMap, ranges);
+    flatMap = decodedFlatMap.base()->template as<FlatMapVector>();
+    nonNullRanges = getNonNullRanges(ranges, Decoded{decodedFlatMap});
+  }
+
+  auto processFlatMap = [&](const auto& keys) {
+    const auto& inMaps = flatMap->inMaps();
+    const auto& values = flatMap->mapValues();
+
+    for (size_t i = 0; i < flatMap->numDistinctKeys(); i++) {
+      const uint64_t* inMapsForKey = nullptr;
+      auto nonNullRangesForKey = nonNullRanges;
+
+      if (i < inMaps.size() && inMaps[i] != nullptr) {
+        inMapsForKey = inMaps[i]->as<uint64_t>();
+
+        // Filter out only values where the key is present in the map.
+        nonNullRangesForKey = nonNullRanges.filter([&inMapsForKey](auto i) {
+          return bits::isBitSet(inMapsForKey, i);
+        });
+      }
+      const auto& valuesForKey = values[i];
+      const auto& key = keys.valueAt(i);
+
+      auto keySize = updateKeyStatistics<K>(
+          *keyFileStatsBuilder_, key, nonNullRangesForKey.size());
+      keyFileStatsBuilder_->increaseRawSize(keySize);
+      rawSize += keySize;
+
+      ValueWriter& valueWriter = getValueWriter(key, nonNullRanges.size());
+      valueWriter.writeBuffers(
+          nonNullRangesForKey, valuesForKey, nonNullRanges, inMapsForKey);
+    }
+  };
+
+  if (flatMap->distinctKeys()->isFlatEncoding()) {
+    processFlatMap(Flat<KeyType>{flatMap->distinctKeys()});
+  } else {
+    auto localDecodedKeys = decode(
+        flatMap->distinctKeys(),
+        common::Ranges::of(0, flatMap->distinctKeys()->size()));
+    processFlatMap(Decoded<KeyType>{localDecodedKeys.get()});
+  }
+
+  totalRows_ += nonNullRanges.size();
+
+  for (auto& pair : valueWriters_) {
+    if (totalRows_ != pair.second.writtenValues()) {
+      if (pair.second.writtenValues() > totalRows_) {
+        DWIO_RAISE("Duplicated key in map: ", pair.first);
+      }
+      pair.second.backfill(nonNullRanges.size());
+    }
+  }
+
+  size_t numNullRows = ranges.size() - nonNullRanges.size();
+  if (numNullRows > 0) {
+    indexStatsBuilder_->setHasNull();
+    rawSize += numNullRows * NULL_SIZE;
+  }
+  rowsInCurrentStride_ += nonNullRanges.size();
+  indexStatsBuilder_->increaseValueCount(nonNullRanges.size());
+  indexStatsBuilder_->increaseRawSize(rawSize);
+  return rawSize;
 }
 
 template <TypeKind K>
@@ -536,6 +628,7 @@ uint64_t FlatMapColumnWriter<K>::writeRow(
     rawSize += numNullRows * NULL_SIZE;
   }
   rowsInCurrentStride_ += nonNullRanges.size();
+  totalRows_ += nonNullRanges.size();
   indexStatsBuilder_->increaseValueCount(nonNullRanges.size());
   indexStatsBuilder_->increaseRawSize(rawSize);
   return rawSize;

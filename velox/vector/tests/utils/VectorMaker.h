@@ -911,6 +911,71 @@ class VectorMaker {
         std::move(inMaps));
   }
 
+  template <typename TKey>
+  FlatMapVectorPtr flatMapVector(MapVectorPtr mapVector) {
+    std::unordered_map<TKey, vector_size_t> keysMap;
+    vector_size_t keyChannel = 0;
+    vector_size_t index = 0;
+
+    std::vector<TKey> flatKeys;
+    std::vector<VectorPtr> values;
+    std::vector<BufferPtr> inMaps;
+
+    VectorPtr* curValues;
+    uint64_t* curInMaps;
+
+    DecodedVector decodedKeys(*mapVector->mapKeys());
+
+    BufferPtr nulls = allocateNulls(mapVector->size(), pool_);
+    auto rawNulls = nulls->asMutable<uint64_t>();
+    bool hasNulls = false;
+
+    for (vector_size_t row = 0; row < mapVector->size(); row++) {
+      if (mapVector->isNullAt(row)) {
+        hasNulls = true;
+        bits::setNull(rawNulls, index, true);
+      } else {
+        for (vector_size_t entry = mapVector->offsetAt(row);
+             entry < mapVector->offsetAt(row) + mapVector->sizeAt(row);
+             entry++) {
+          TKey key = decodedKeys.valueAt<TKey>(entry);
+          auto it = keysMap.find(key);
+
+          // First time we see this key.
+          if (it == keysMap.end()) {
+            keysMap.insert({key, keyChannel++});
+            flatKeys.push_back(key);
+            values.push_back(BaseVector::create(
+                mapVector->type()->childAt(1), mapVector->size(), pool_));
+
+            // We allocate a new inMaps buffer, setting "not in map" by default.
+            // Then set the current key to in map.
+            inMaps.push_back(
+                AlignedBuffer::allocate<bool>(mapVector->size(), pool_, 0));
+            curInMaps = inMaps.back()->asMutable<uint64_t>();
+
+            curValues = &values.back();
+          } else {
+            curValues = &values[it->second];
+            curInMaps = inMaps[it->second]->template asMutable<uint64_t>();
+          }
+          (*curValues)->copy(mapVector->mapValues().get(), index, entry, 1);
+          bits::setBit(curInMaps, index);
+        }
+      }
+      ++index;
+    }
+
+    return std::make_shared<FlatMapVector>(
+        pool_,
+        mapVector->type(),
+        hasNulls ? nulls : nullptr,
+        mapVector->size(),
+        flatKeys.empty() ? nullptr : flatVector(flatKeys),
+        std::move(values),
+        std::move(inMaps));
+  }
+
   template <typename TKey, typename TValue>
   FlatMapVectorPtr flatMapVectorFromJson(
       const std::vector<std::string>& jsonMaps,
