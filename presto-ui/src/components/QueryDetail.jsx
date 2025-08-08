@@ -512,7 +512,7 @@ class RuntimeStatsList extends React.Component {
           {Object.values(this.props.stats)
             .sort((m1, m2) => m1.name.localeCompare(m2.name))
             .map((metric) => (
-              <tr style={this.getExpandedStyle()}>
+              <tr style={this.getExpandedStyle()} key={metric.name}>
                 <td className="info-text">{metric.name}</td>
                 <td className="info-text">
                   {this.renderMetricValue(metric.unit, metric.sum)}
@@ -1572,7 +1572,7 @@ export class QueryDetail extends React.Component {
             <hr className="h3-hr" />
             <table className="table" id="warnings-table">
               {query.warnings.map((warning) => (
-                <tr>
+                <tr key={warning?.warningCode?.name}>
                   <td>{warning.warningCode.name}</td>
                   <td>{warning.message}</td>
                 </tr>

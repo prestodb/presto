@@ -195,7 +195,7 @@ type ErrorCode = {
   retriable: boolean,
 };
 
-type QueryData = {
+export type QueryData = {
   outputStage: OutputStage,
   queryId: string,
   session: SessionRepresentation,
@@ -731,7 +731,9 @@ function StageSummary({
   };
 
   const renderTaskList = (tasks: Task[], index: number) => {
+    // TODO: Is this a bug? taskList is not used
     let taskList = state.expanded ? tasks : [];
+    // eslint-disable-next-line no-unused-vars
     taskList = taskList.filter((task) =>
       state.taskFilter.predicate(task.taskStatus.state),
     );
@@ -856,19 +858,11 @@ function StageSummary({
     $(histogramId).sparkline(histogramData, stageHistogramProperties);
   };
 
-  if (prestoStage === undefined || !prestoStage.hasOwnProperty("plan")) {
-    return (
-      <tr>
-        <td>Information about this stage is unavailable.</td>
-      </tr>
-    );
-  }
-
-  const totalBufferedBytes = prestoStage.latestAttemptExecutionInfo.tasks
+  const totalBufferedBytes = prestoStage?.latestAttemptExecutionInfo?.tasks
     .map((task) => task.outputBuffers.totalBufferedBytes)
     .reduce((a, b) => a + b, 0);
 
-  const stageId = getStageNumber(prestoStage.stageId);
+  const stageId = getStageNumber(prestoStage?.stageId);
 
   useEffect(() => {
     const numTasks = prestoStage.latestAttemptExecutionInfo.tasks.length;
@@ -922,6 +916,13 @@ function StageSummary({
     );
   }, [prestoStage]);
 
+  if (prestoStage === undefined || !prestoStage.hasOwnProperty("plan")) {
+    return (
+      <tr>
+        <td>Information about this stage is unavailable.</td>
+      </tr>
+    );
+  }
   return (
     <tr key={index}>
       <td className="stage-id">
@@ -1047,8 +1048,8 @@ function StageSummary({
                   </thead>
                   <tbody>
                     <tr>
-                      // Planned is the first state of a task. There is no
-                      "Pending" state. Also see line 787.
+                      {/* Planned is the first state of a task. There is no
+                      "Pending" state. Also see line 787. */}
                       <td className="stage-table-stat-title">Planned</td>
                       <td className="stage-table-stat-text">
                         {
@@ -1236,21 +1237,10 @@ function StageList({ outputStage }: { outputStage: OutputStage }): React.Node {
     </div>
   );
 }
-
-const SMALL_SPARKLINE_PROPERTIES = {
-  width: "100%",
-  height: "57px",
-  fillColor: "#3F4552",
-  lineColor: "#747F96",
-  spotColor: "#1EDCFF",
-  tooltipClassname: "sparkline-tooltip",
-  disableHiddenCheck: true,
-};
-
 const TASK_FILTER = {
   ALL: {
     text: "All",
-    predicate: function (state: string) {
+    predicate: function () {
       return true;
     },
   },
@@ -1490,7 +1480,7 @@ export default function QueryOverview({
             <hr className="h3-hr" />
             <table className="table" id="warnings-table">
               {data.warnings.map((warning) => (
-                <tr>
+                <tr key={warning.warningCode.name}>
                   <td>{warning.warningCode.name}</td>
                   <td>{warning.message}</td>
                 </tr>
@@ -1570,10 +1560,6 @@ export default function QueryOverview({
     }
   };
 
-  if (data === null) {
-    return;
-  }
-
   useEffect(() => {
     /* $FlowIgnore[cannot-resolve-name] */
     $("#query").each((i, block) => {
@@ -1581,6 +1567,10 @@ export default function QueryOverview({
       hljs.highlightBlock(block);
     });
   }, [data]);
+
+  if (data === null) {
+    return;
+  }
 
   const elapsedTime =
     (parseDuration(data.queryStats.elapsedTime) || 0) / 1000.0;

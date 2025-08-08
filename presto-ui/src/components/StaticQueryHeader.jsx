@@ -26,7 +26,7 @@ import {
 function QueryHeaderTabs({ tabs, current, clickHandler }) {
   return (
     <>
-      {tabs.map((tab, index) => (
+      {tabs.map((tab) => (
         <>
           <a
             className={clsx(

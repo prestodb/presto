@@ -1,3 +1,4 @@
+import React from "react";
 import { PageTitle } from "./components/PageTitle";
 import { createRoot } from "react-dom/client";
 import lazy from "./lazy";

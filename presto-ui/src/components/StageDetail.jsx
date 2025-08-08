@@ -13,7 +13,6 @@
  */
 
 import React from "react";
-import ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
@@ -24,7 +23,6 @@ import {
   formatCount,
   formatDataSize,
   formatDuration,
-  getChildren,
   getFirstParameter,
   getTaskNumber,
   isQueryEnded,
@@ -157,7 +155,7 @@ function OperatorStatistic({ id, name, operators, supplier, renderer }) {
   );
 }
 
-function OperatorDetail({ index, operator, tasks }) {
+function OperatorDetail({ operator, tasks }) {
   const selectedStatistics = [
     {
       name: "Total Wall Time",

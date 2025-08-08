@@ -171,7 +171,7 @@ export class WorkerThreadList extends React.Component {
   }
 
   renderStackLine(threadId) {
-    return (stackLine, index) => {
+    return function StackLine(stackLine, index) {
       return (
         <div key={threadId + index}>
           &nbsp;&nbsp;at {stackLine.className}.{stackLine.method}(
@@ -316,7 +316,7 @@ export class WorkerThreadList extends React.Component {
         displayedThreads = (
           <div className="row error-message">
             <div className="col-12">
-              <h4>No threads in group '{this.state.selectedGroup}'</h4>
+              <h4>{`No threads in group '${this.state.selectedGroup}'`}</h4>
             </div>
           </div>
         );
@@ -336,8 +336,7 @@ export class WorkerThreadList extends React.Component {
           <div className="row error-message">
             <div className="col-12">
               <h4>
-                No threads in group '{this.state.selectedGroup}' with state{" "}
-                {this.state.selectedThreadState}
+                {`No threads in group '${this.state.selectedGroup}' with state ${this.state.selectedThreadState}`}
               </h4>
             </div>
           </div>

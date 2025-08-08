@@ -277,7 +277,7 @@ export function truncateString(inputString: string, length: number): string {
   return inputString;
 }
 
-export function getStageNumber(stageId: string): number {
+export function getStageNumber(stageId: string = ""): number {
   return Number.parseInt(
     stageId.slice(stageId.indexOf(".") + 1, stageId.length),
   );

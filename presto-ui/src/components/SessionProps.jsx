@@ -111,7 +111,7 @@ export function SessionProps({ show, changeHandler }) {
       if (changeHandler) {
         changeHandler(row);
       }
-    } catch (e) {
+    } catch {
       // revert the session back to previous value and update the list
       row[1] = old;
       setFilter({ ...filter });

@@ -147,7 +147,7 @@ function OperatorStatistic({ id, name, operators, supplier, renderer }) {
   );
 }
 
-function OperatorDetail({ index, operator, tasks }) {
+function OperatorDetail({ operator, tasks }) {
   const selectedStatistics = [
     {
       name: "Total Wall Time",
@@ -335,7 +335,7 @@ function OperatorDetail({ index, operator, tasks }) {
   );
 }
 
-function StageOperatorGraph({ id, stage }) {
+function StageOperatorGraph({ stage }) {
   const detailContainer = React.useRef(null);
 
   const computeOperatorGraphs = () => {

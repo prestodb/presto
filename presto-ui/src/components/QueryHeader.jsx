@@ -173,7 +173,7 @@ export class QueryHeader extends React.Component {
           </div>
           <div className="col-6 d-flex justify-content-end">
             <nav className="nav nav-tabs">
-              {tabs.map((page, _) => (
+              {tabs.map((page) => (
                 <>
                   <a
                     className={clsx(
