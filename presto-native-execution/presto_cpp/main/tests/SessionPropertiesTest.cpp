@@ -15,7 +15,6 @@
 
 #include "presto_cpp/main/SessionProperties.h"
 #include "velox/core/QueryConfig.h"
-#include "velox/type/Type.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -23,52 +22,123 @@ using namespace facebook::velox;
 class SessionPropertiesTest : public testing::Test {};
 
 TEST_F(SessionPropertiesTest, validateMapping) {
-  const std::vector<std::string> names = {
-      SessionProperties::kLegacyTimestamp,
-      SessionProperties::kDriverCpuTimeSliceLimitMs,
-      SessionProperties::kSpillCompressionCodec,
-      SessionProperties::kScaleWriterRebalanceMaxMemoryUsageRatio,
-      SessionProperties::kScaleWriterMaxPartitionsPerWriter,
-      SessionProperties::
-          kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
-      SessionProperties::kScaleWriterMinProcessedBytesRebalanceThreshold,
-      SessionProperties::kTableScanScaledProcessingEnabled,
-      SessionProperties::kTableScanScaleUpMemoryUsageRatio,
-      SessionProperties::kStreamingAggregationMinOutputBatchRows,
-      SessionProperties::kRequestDataSizesMaxWaitSec,
-      SessionProperties::kNativeQueryMemoryReclaimerPriority,
-      SessionProperties::kMaxNumSplitsListenedTo};
-  const std::vector<std::string> veloxConfigNames = {
-      core::QueryConfig::kAdjustTimestampToTimezone,
-      core::QueryConfig::kDriverCpuTimeSliceLimitMs,
-      core::QueryConfig::kSpillCompressionKind,
-      core::QueryConfig::kScaleWriterRebalanceMaxMemoryUsageRatio,
-      core::QueryConfig::kScaleWriterMaxPartitionsPerWriter,
-      core::QueryConfig::
-          kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
-      core::QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold,
-      core::QueryConfig::kTableScanScaledProcessingEnabled,
-      core::QueryConfig::kTableScanScaleUpMemoryUsageRatio,
-      core::QueryConfig::kStreamingAggregationMinOutputBatchRows,
-      core::QueryConfig::kRequestDataSizesMaxWaitSec,
-      core::QueryConfig::kQueryMemoryReclaimerPriority,
-      core::QueryConfig::kMaxNumSplitsListenedTo};
-  auto sessionProperties = SessionProperties().testingSessionProperties();
-  const auto len = names.size();
-  for (auto i = 0; i < len; i++) {
-    EXPECT_EQ(
-        veloxConfigNames[i],
-        sessionProperties.at(names[i])->getVeloxConfigName());
+  const std::unordered_map<std::string, std::string> expectedMappings = {
+      {SessionProperties::kExprEvalSimplified,
+       core::QueryConfig::kExprEvalSimplified},
+      {SessionProperties::kExprMaxArraySizeInReduce,
+       core::QueryConfig::kExprMaxArraySizeInReduce},
+      {SessionProperties::kExprMaxCompiledRegexes,
+       core::QueryConfig::kExprMaxCompiledRegexes},
+      {SessionProperties::kMaxPartialAggregationMemory,
+       core::QueryConfig::kMaxPartialAggregationMemory},
+      {SessionProperties::kMaxExtendedPartialAggregationMemory,
+       core::QueryConfig::kMaxExtendedPartialAggregationMemory},
+      {SessionProperties::kMaxSpillLevel, core::QueryConfig::kMaxSpillLevel},
+      {SessionProperties::kMaxSpillFileSize,
+       core::QueryConfig::kMaxSpillFileSize},
+      {SessionProperties::kMaxSpillBytes, core::QueryConfig::kMaxSpillBytes},
+      {SessionProperties::kSpillCompressionCodec,
+       core::QueryConfig::kSpillCompressionKind},
+      {SessionProperties::kSpillWriteBufferSize,
+       core::QueryConfig::kSpillWriteBufferSize},
+      {SessionProperties::kSpillFileCreateConfig,
+       core::QueryConfig::kSpillFileCreateConfig},
+      {SessionProperties::kJoinSpillEnabled,
+       core::QueryConfig::kJoinSpillEnabled},
+      {SessionProperties::kWindowSpillEnabled,
+       core::QueryConfig::kWindowSpillEnabled},
+      {SessionProperties::kWriterSpillEnabled,
+       core::QueryConfig::kWriterSpillEnabled},
+      {SessionProperties::kWriterFlushThresholdBytes,
+       core::QueryConfig::kWriterFlushThresholdBytes},
+      {SessionProperties::kRowNumberSpillEnabled,
+       core::QueryConfig::kRowNumberSpillEnabled},
+      {SessionProperties::kSpillerNumPartitionBits,
+       core::QueryConfig::kSpillNumPartitionBits},
+      {SessionProperties::kTopNRowNumberSpillEnabled,
+       core::QueryConfig::kTopNRowNumberSpillEnabled},
+      {SessionProperties::kValidateOutputFromOperators,
+       core::QueryConfig::kValidateOutputFromOperators},
+      {SessionProperties::kDebugDisableExpressionWithPeeling,
+       core::QueryConfig::kDebugDisableExpressionWithPeeling},
+      {SessionProperties::kDebugDisableCommonSubExpressions,
+       core::QueryConfig::kDebugDisableCommonSubExpressions},
+      {SessionProperties::kDebugDisableExpressionWithMemoization,
+       core::QueryConfig::kDebugDisableExpressionWithMemoization},
+      {SessionProperties::kDebugDisableExpressionWithLazyInputs,
+       core::QueryConfig::kDebugDisableExpressionWithLazyInputs},
+      {SessionProperties::kDebugMemoryPoolNameRegex,
+       core::QueryConfig::kDebugMemoryPoolNameRegex},
+      {SessionProperties::kSelectiveNimbleReaderEnabled,
+       core::QueryConfig::kSelectiveNimbleReaderEnabled},
+      {SessionProperties::kQueryTraceEnabled,
+       core::QueryConfig::kQueryTraceEnabled},
+      {SessionProperties::kQueryTraceDir, core::QueryConfig::kQueryTraceDir},
+      {SessionProperties::kQueryTraceNodeId,
+       core::QueryConfig::kQueryTraceNodeId},
+      {SessionProperties::kQueryTraceMaxBytes,
+       core::QueryConfig::kQueryTraceMaxBytes},
+      {SessionProperties::kOpTraceDirectoryCreateConfig,
+       core::QueryConfig::kOpTraceDirectoryCreateConfig},
+      {SessionProperties::kMaxOutputBufferSize,
+       core::QueryConfig::kMaxOutputBufferSize},
+      {SessionProperties::kMaxPartitionedOutputBufferSize,
+       core::QueryConfig::kMaxPartitionedOutputBufferSize},
+      {SessionProperties::kLegacyTimestamp,
+       core::QueryConfig::kAdjustTimestampToTimezone},
+      {SessionProperties::kDriverCpuTimeSliceLimitMs,
+       core::QueryConfig::kDriverCpuTimeSliceLimitMs},
+      {SessionProperties::kMaxLocalExchangePartitionCount,
+       core::QueryConfig::kMaxLocalExchangePartitionCount},
+      {SessionProperties::kSpillPrefixSortEnabled,
+       core::QueryConfig::kSpillPrefixSortEnabled},
+      {SessionProperties::kPrefixSortNormalizedKeyMaxBytes,
+       core::QueryConfig::kPrefixSortNormalizedKeyMaxBytes},
+      {SessionProperties::kPrefixSortMinRows,
+       core::QueryConfig::kPrefixSortMinRows},
+      {SessionProperties::kScaleWriterRebalanceMaxMemoryUsageRatio,
+       core::QueryConfig::kScaleWriterRebalanceMaxMemoryUsageRatio},
+      {SessionProperties::kScaleWriterMaxPartitionsPerWriter,
+       core::QueryConfig::kScaleWriterMaxPartitionsPerWriter},
+      {SessionProperties::
+           kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+       core::QueryConfig::
+           kScaleWriterMinPartitionProcessedBytesRebalanceThreshold},
+      {SessionProperties::kScaleWriterMinProcessedBytesRebalanceThreshold,
+       core::QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold},
+      {SessionProperties::kTableScanScaledProcessingEnabled,
+       core::QueryConfig::kTableScanScaledProcessingEnabled},
+      {SessionProperties::kTableScanScaleUpMemoryUsageRatio,
+       core::QueryConfig::kTableScanScaleUpMemoryUsageRatio},
+      {SessionProperties::kStreamingAggregationMinOutputBatchRows,
+       core::QueryConfig::kStreamingAggregationMinOutputBatchRows},
+      {SessionProperties::kRequestDataSizesMaxWaitSec,
+       core::QueryConfig::kRequestDataSizesMaxWaitSec},
+      {SessionProperties::kNativeQueryMemoryReclaimerPriority,
+       core::QueryConfig::kQueryMemoryReclaimerPriority},
+      {SessionProperties::kMaxNumSplitsListenedTo,
+       core::QueryConfig::kMaxNumSplitsListenedTo}};
+
+  const auto& sessionProperties =
+      SessionProperties::instance()->testingSessionProperties();
+
+  ASSERT_EQ(expectedMappings.size(), sessionProperties.size());
+
+  for (const auto& [sessionPropertyName, expectedVeloxConfigName] :
+       expectedMappings) {
+    ASSERT_EQ(
+        expectedVeloxConfigName,
+        sessionProperties.at(sessionPropertyName)->getVeloxConfigName());
   }
 }
 
 TEST_F(SessionPropertiesTest, serializeProperty) {
-  auto properties = SessionProperties();
-  auto j = properties.serialize();
+  auto* sessionProperties = SessionProperties::instance();
+  auto j = sessionProperties->serialize();
   for (const auto& property : j) {
     auto name = property["name"];
     json expectedProperty =
-        properties.testingSessionProperties().at(name)->serialize();
+        sessionProperties->testingSessionProperties().at(name)->serialize();
     EXPECT_EQ(property, expectedProperty);
   }
 }
