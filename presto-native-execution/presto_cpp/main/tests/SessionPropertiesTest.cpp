@@ -53,7 +53,7 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       core::QueryConfig::kRequestDataSizesMaxWaitSec,
       core::QueryConfig::kQueryMemoryReclaimerPriority,
       core::QueryConfig::kMaxNumSplitsListenedTo};
-  auto sessionProperties = SessionProperties().getSessionProperties();
+  auto sessionProperties = SessionProperties().testingSessionProperties();
   const auto len = names.size();
   for (auto i = 0; i < len; i++) {
     EXPECT_EQ(
@@ -68,7 +68,7 @@ TEST_F(SessionPropertiesTest, serializeProperty) {
   for (const auto& property : j) {
     auto name = property["name"];
     json expectedProperty =
-        properties.getSessionProperties().at(name)->serialize();
+        properties.testingSessionProperties().at(name)->serialize();
     EXPECT_EQ(property, expectedProperty);
   }
 }

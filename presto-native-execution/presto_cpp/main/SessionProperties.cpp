@@ -316,7 +316,6 @@ SessionProperties::SessionProperties() {
       QueryConfig::kQueryTraceMaxBytes,
       std::to_string(c.queryTraceMaxBytes()));
 
-
   addSessionProperty(
       kOpTraceDirectoryCreateConfig,
       "Config used to create operator trace directory. This config is provided to"
@@ -507,31 +506,20 @@ SessionProperties::SessionProperties() {
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-SessionProperties::getSessionProperties() {
+SessionProperties::testingSessionProperties() const {
   return sessionProperties_;
 }
 
-const std::string SessionProperties::toVeloxConfig(const std::string& name) {
+const std::string SessionProperties::toVeloxConfig(
+    const std::string& name) const {
   auto it = sessionProperties_.find(name);
   return it == sessionProperties_.end() ? name
                                         : it->second->getVeloxConfigName();
 }
 
-void SessionProperties::updateVeloxConfig(
-    const std::string& name,
-    const std::string& value) {
-  auto it = sessionProperties_.find(name);
-  // Velox config value is updated only for presto session properties.
-  if (it == sessionProperties_.end()) {
-    return;
-  }
-  it->second->updateValue(value);
-}
-
-json SessionProperties::serialize() {
+json SessionProperties::serialize() const {
   json j = json::array();
-  const auto sessionProperties = getSessionProperties();
-  for (const auto& entry : sessionProperties) {
+  for (const auto& entry : sessionProperties_) {
     j.push_back(entry.second->serialize());
   }
   return j;
