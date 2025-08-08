@@ -827,7 +827,7 @@ __device__ void decodeSelective(GpuDecode* op) {
       int32_t maxRow = op->maxRow;
       int32_t dataIdx = 0;
       auto* state = reinterpret_cast<NonNullState*>(op->temp);
-      if (threadIdx.x == 0) {
+      if (threadIdx.x == 0 && op->isNullsBitmap) {
         state->nonNullsBelow = op->nthBlock == 0
             ? 0
             : op->nonNullBases
@@ -844,8 +844,14 @@ __device__ void decodeSelective(GpuDecode* op) {
         int32_t dataIdx;
         IndexT data{};
         if (base < maxRow) {
-          dataIdx = nonNullIndex256(
-              op->nulls, base, min(kBlockSize, maxRow - base), state);
+          if (op->isNullsBitmap) {
+            dataIdx = nonNullIndex256(
+                op->nulls, base, min(kBlockSize, maxRow - base), state);
+          } else {
+            dataIdx = base + threadIdx.x < maxRow
+                ? (op->nulls[base + threadIdx.x] ? base + threadIdx.x : -1)
+                : -1;
+          }
           filterPass = base + threadIdx.x < maxRow;
           if (filterPass) {
             if (dataIdx == -1) {
@@ -877,7 +883,7 @@ __device__ void decodeSelective(GpuDecode* op) {
     }
     case NullMode::kSparseNullable: {
       auto state = reinterpret_cast<NonNullState*>(op->temp);
-      if (threadIdx.x == 0) {
+      if (threadIdx.x == 0 && op->isNullsBitmap) {
         state->nonNullsBelow = op->nthBlock == 0
             ? 0
             : op->nonNullBases
@@ -895,8 +901,17 @@ __device__ void decodeSelective(GpuDecode* op) {
         } else {
           bool filterPass = true;
           IndexT data{};
-          int32_t dataIdx =
-              nonNullIndex256Sparse(op->nulls, op->rows + base, numRows, state);
+          int32_t dataIdx;
+          if (op->isNullsBitmap) {
+            dataIdx = nonNullIndex256Sparse(
+                op->nulls, op->rows + base, numRows, state);
+          } else {
+            dataIdx = threadIdx.x < numRows
+                ? (op->nulls[op->rows[base + threadIdx.x]]
+                       ? op->rows[base + threadIdx.x]
+                       : -1)
+                : -1;
+          }
           filterPass = threadIdx.x < numRows;
           if (filterPass) {
             if (dataIdx == -1) {

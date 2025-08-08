@@ -31,6 +31,10 @@ namespace facebook::velox::wave {
 class NimbleEncoding {
  public:
   explicit NimbleEncoding(std::string_view encodingData, bool encodeNulls);
+  explicit NimbleEncoding(
+      facebook::wave::nimble::EncodingType encodingType,
+      facebook::wave::nimble::DataType dataType,
+      uint32_t numValues);
 
   virtual ~NimbleEncoding() = default;
 
@@ -108,6 +112,7 @@ class NimbleEncoding {
   // required by decoding.
   virtual std::unique_ptr<GpuDecode> makeStep(
       ColumnOp& op,
+      const ColumnOp* previousFilter,
       ReadStream& stream,
       SplitStaging& staging,
       ResultStaging& deviceStaging,
@@ -158,16 +163,19 @@ class NimbleEncoding {
   // Populates the shared members of GpuDecode of different encodings.
   std::unique_ptr<GpuDecode> makeStepCommon(
       ColumnOp& op,
+      const ColumnOp* previousFilter,
       ReadStream& stream,
+      ResultStaging& deviceStaging,
       int32_t blockIdx,
       bool isRoot,
+      bool processFilter,
       int32_t resultOffset);
   void getDeviceEncodingInput(
       SplitStaging& staging,
       BufferId bufferId,
       const NimbleEncoding& rootEncoding,
       const void* hostPtr,
-      const void*& devicePtr);
+      const void** devicePtr);
 
  protected:
   std::string_view encodingData_;
@@ -200,6 +208,7 @@ class NimbleDictionaryEncoding : public NimbleEncoding {
   NimbleEncoding* indicesEncoding() override;
   std::unique_ptr<GpuDecode> makeStep(
       ColumnOp& op,
+      const ColumnOp* previousFilter,
       ReadStream& stream,
       SplitStaging& staging,
       ResultStaging& deviceStaging,
@@ -219,6 +228,7 @@ class NimbleTrivialEncoding : public NimbleEncoding {
   NimbleEncoding* lengthsEncoding() override;
   std::unique_ptr<GpuDecode> makeStep(
       ColumnOp& op,
+      const ColumnOp* previousFilter,
       ReadStream& stream,
       SplitStaging& staging,
       ResultStaging& deviceStaging,
@@ -246,6 +256,7 @@ class NimbleRLEEncoding : public NimbleEncoding {
   NimbleEncoding* runValuesEncoding() override;
   std::unique_ptr<GpuDecode> makeStep(
       ColumnOp& op,
+      const ColumnOp* previousFilter,
       ReadStream& stream,
       SplitStaging& staging,
       ResultStaging& deviceStaging,
@@ -266,6 +277,26 @@ class NimbleNullableEncoding : public NimbleEncoding {
   NimbleEncoding* nonNullsEncoding() override;
   std::unique_ptr<GpuDecode> makeStep(
       ColumnOp& op,
+      const ColumnOp* previousFilter,
+      ReadStream& stream,
+      SplitStaging& staging,
+      ResultStaging& deviceStaging,
+      BufferId bufferId,
+      const NimbleEncoding& rootEncoding,
+      int32_t blockIdx,
+      int32_t resultOffset) override;
+};
+
+class NimbleFilterEncoding : public NimbleEncoding {
+ public:
+  explicit NimbleFilterEncoding(
+      facebook::wave::nimble::DataType dataType,
+      uint32_t numValues,
+      bool hasNulls);
+
+  std::unique_ptr<GpuDecode> makeStep(
+      ColumnOp& op,
+      const ColumnOp* previousFilter,
       ReadStream& stream,
       SplitStaging& staging,
       ResultStaging& deviceStaging,

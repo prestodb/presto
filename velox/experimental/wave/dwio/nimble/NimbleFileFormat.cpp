@@ -37,6 +37,16 @@ NimbleEncoding::NimbleEncoding(std::string_view encodingData, bool encodeNulls)
       encodingData_.data() + Encoding::kRowCountOffset);
 }
 
+NimbleEncoding::NimbleEncoding(
+    facebook::wave::nimble::EncodingType encodingType,
+    facebook::wave::nimble::DataType dataType,
+    uint32_t numValues)
+    : encodingData_{},
+      encodingType_(encodingType),
+      dataType_(dataType),
+      numValues_(numValues),
+      encodeNulls_(false) {}
+
 uint8_t NimbleEncoding::childrenCount() const {
   const auto encodingType = this->encodingType();
   switch (encodingType) {
@@ -239,11 +249,39 @@ std::unique_ptr<NimbleEncoding> NimbleEncoding::create(
 
 #undef NIMBLE_ENCODING_FACTORY_CASE
 
+namespace {
+void setFilter(GpuDecode* step, ColumnReader* reader) {
+  auto* veloxFilter = reader->scanSpec().filter();
+  if (!veloxFilter) {
+    step->filterKind = WaveFilterKind::kAlwaysTrue;
+    return;
+  }
+  switch (veloxFilter->kind()) {
+    case common::FilterKind::kBigintRange: {
+      step->filterKind = WaveFilterKind::kBigintRange;
+      step->nullsAllowed = veloxFilter->testNull();
+      step->filter._.int64Range[0] =
+          reinterpret_cast<const common::BigintRange*>(veloxFilter)->lower();
+      step->filter._.int64Range[1] =
+          reinterpret_cast<const common::BigintRange*>(veloxFilter)->upper();
+      break;
+    }
+
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported filter kind", static_cast<int32_t>(veloxFilter->kind()));
+  }
+}
+} // namespace
+
 std::unique_ptr<GpuDecode> NimbleEncoding::makeStepCommon(
     ColumnOp& op,
+    const ColumnOp* previousFilter,
     ReadStream& stream,
+    ResultStaging& deviceStaging,
     int32_t blockIdx,
     bool isRoot,
+    bool processFilter,
     int32_t resultOffset) {
   auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
   auto maxRowsPerThread = (rowsPerBlock / kBlockSize);
@@ -256,10 +294,70 @@ std::unique_ptr<GpuDecode> NimbleEncoding::makeStepCommon(
   step->numRowsPerThread = bits::roundUp(rowsInBlock, kBlockSize) / kBlockSize;
   step->gridNumRowsPerThread = maxRowsPerThread;
   step->nthBlock = blockIdx;
-  step->maxRow = (blockIdx * rowsPerBlock) + rowsInBlock;
   step->baseRow = rowsPerBlock * blockIdx;
+  if (processFilter && previousFilter) {
+    step->maxRow = GpuDecode::kFilterHits;
+  } else {
+    step->maxRow = (blockIdx * rowsPerBlock) + rowsInBlock;
+  }
 
-  step->nullMode = NullMode::kDenseNonNull; // TODO(bowenwu): support null
+  // if the encoding is not a root, we ignore the previous filter when decoding
+  bool dense = (previousFilter == nullptr || !processFilter) &&
+      simd::isDense(op.rows.data(), op.rows.size());
+  bool nullable = isRoot && isNullableEncoding();
+  step->nullMode = dense
+      ? (nullable ? NullMode::kDenseNullable : NullMode::kDenseNonNull)
+      : (nullable ? NullMode::kSparseNullable : NullMode::kSparseNonNull);
+
+  // intermediate decoding steps don't need to worry about filters
+  if (processFilter) {
+    setFilter(step.get(), op.reader);
+  }
+
+  if (step->filterKind != WaveFilterKind::kAlwaysTrue && op.waveVector) {
+    /// Filtres get to record an extra copy of their passing rows if they make
+    /// values.
+    if (blockIdx == 0) {
+      op.extraRowCountId = deviceStaging.reserve(
+          numBlocks * step->numRowsPerThread * sizeof(int32_t));
+      deviceStaging.registerPointer(
+          op.extraRowCountId, &step->filterRowCount, true);
+      deviceStaging.registerPointer(
+          op.extraRowCountId, &op.extraRowCount, true);
+    } else {
+      step->filterRowCount = reinterpret_cast<int32_t*>(
+          blockIdx * sizeof(int32_t) * maxRowsPerThread);
+      deviceStaging.registerPointer(
+          op.extraRowCountId, &step->filterRowCount, false);
+    }
+  }
+
+  if (processFilter && previousFilter) {
+    if (previousFilter->deviceResult) {
+      // This is when the previous filter is in the previous kernel and its
+      // device side result is allocated.
+      step->rows = previousFilter->deviceResult + blockIdx * rowsPerBlock;
+    } else {
+      step->rows =
+          reinterpret_cast<int32_t*>(blockIdx * rowsPerBlock * sizeof(int32_t));
+      deviceStaging.registerPointer(
+          previousFilter->deviceResultId, &step->rows, false);
+    }
+  }
+
+  if (processFilter && op.reader->scanSpec().filter()) {
+    if (blockIdx == 0) {
+      op.deviceResultId =
+          deviceStaging.reserve(op.rows.size() * sizeof(int32_t));
+      deviceStaging.registerPointer(op.deviceResultId, &step->resultRows, true);
+      deviceStaging.registerPointer(op.deviceResultId, &op.deviceResult, true);
+    } else {
+      step->resultRows =
+          reinterpret_cast<int32_t*>(blockIdx * rowsPerBlock * sizeof(int32_t));
+      deviceStaging.registerPointer(
+          op.deviceResultId, &step->resultRows, false);
+    }
+  }
 
   auto columnKind = static_cast<WaveTypeKind>(typeKind());
   step->dataType = columnKind;
@@ -284,15 +382,15 @@ void NimbleEncoding::getDeviceEncodingInput(
     BufferId bufferId,
     const NimbleEncoding& rootEncoding,
     const void* hostPtr,
-    const void*& devicePtr) {
+    const void** devicePtr) {
   auto* hostBasePtr = rootEncoding.encodedDataPtr();
   void* deviceBasePtr = rootEncoding.deviceEncodedDataPtr();
   std::ptrdiff_t offset = static_cast<const char*>(hostPtr) - hostBasePtr;
   if (deviceBasePtr != nullptr) {
-    devicePtr = static_cast<char*>(deviceBasePtr) + offset;
+    *devicePtr = static_cast<char*>(deviceBasePtr) + offset;
   } else { // the root encoding is not transferred to the device yet
-    devicePtr = reinterpret_cast<void*>(offset);
-    staging.registerPointer(bufferId, &devicePtr, false);
+    *devicePtr = reinterpret_cast<void*>(offset);
+    staging.registerPointer(bufferId, devicePtr, false);
   }
 }
 
@@ -316,6 +414,7 @@ NimbleEncoding* NimbleDictionaryEncoding::indicesEncoding() {
 
 std::unique_ptr<GpuDecode> NimbleDictionaryEncoding::makeStep(
     ColumnOp& op,
+    const ColumnOp* previousFilter,
     ReadStream& stream,
     SplitStaging& staging,
     ResultStaging& deviceStaging,
@@ -338,6 +437,7 @@ NimbleEncoding* NimbleTrivialEncoding::lengthsEncoding() {
 
 std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
     ColumnOp& op,
+    const ColumnOp* previousFilter,
     ReadStream& stream,
     SplitStaging& splitStaging,
     ResultStaging& deviceStaging,
@@ -363,10 +463,56 @@ std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
         blockIdx,
         resultOffset);
   }
+  bool isRoot = (this == &rootEncoding);
 
-  auto step =
-      makeStepCommon(op, stream, blockIdx, this == &rootEncoding, resultOffset);
+  // True if we process the filter in this step.
+  bool processFilter = isRoot && !op.hasMultiChunks &&
+      (previousFilter || op.reader->scanSpec().filter());
+
+  auto step = makeStepCommon(
+      op,
+      previousFilter,
+      stream,
+      deviceStaging,
+      blockIdx,
+      isRoot,
+      processFilter,
+      resultOffset);
   auto kindSize = waveTypeKindSize(step->dataType);
+
+  if (processFilter) {
+    if (kindSize != 4 && kindSize != 8) {
+      VELOX_NYI(
+          "Unsupported data type for nullable encoding. The data type must be either 4 or 8 bytes.");
+    }
+    step->step =
+        kindSize == 4 ? DecodeStep::kSelective32 : DecodeStep::kSelective64;
+    step->encoding = DecodeStep::kDictionaryOnBitpack;
+    step->dictMode = DictMode::kNone;
+    step->data.dictionaryOnBitpack.dataType = step->dataType;
+    step->data.dictionaryOnBitpack.alphabet = nullptr;
+    step->data.dictionaryOnBitpack.scatter = nullptr;
+    step->data.dictionaryOnBitpack.bitWidth = 8 * kindSize;
+
+    // Input is exclusive to a chunk and does not need to be specified the chunk
+    // offset. TB offset is also not needed if we set baseRow and maxRow
+    // correctly.
+    getDeviceEncodingInput(
+        splitStaging,
+        bufferId,
+        rootEncoding,
+        hostPtr,
+        reinterpret_cast<const void**>(
+            &step->data.dictionaryOnBitpack.indices));
+
+    // Output is shared across chunks and must be specified the chunk offset and
+    // the TB offset.
+    step->result = step->data.dictionaryOnBitpack.result =
+        static_cast<char*>(step->result) + resultOffset * kindSize +
+        step->baseRow * kindSize;
+
+    return step;
+  }
   step->step = DecodeStep::kTrivial;
   step->data.trivial.dataType = step->dataType;
   step->data.trivial.result = static_cast<char*>(step->result) +
@@ -379,7 +525,7 @@ std::unique_ptr<GpuDecode> NimbleTrivialEncoding::makeStep(
       bufferId,
       rootEncoding,
       hostPtr + step->baseRow * waveTypeKindSize(step->dataType),
-      step->data.trivial.input);
+      &step->data.trivial.input);
   return step;
 }
 
@@ -453,6 +599,7 @@ NimbleEncoding* NimbleRLEEncoding::runValuesEncoding() {
 
 std::unique_ptr<GpuDecode> NimbleRLEEncoding::makeStep(
     ColumnOp& op,
+    const ColumnOp* previousFilter,
     ReadStream& stream,
     SplitStaging& staging,
     ResultStaging& deviceStaging,
@@ -482,6 +629,7 @@ NimbleEncoding* NimbleNullableEncoding::nonNullsEncoding() {
 
 std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
     ColumnOp& op,
+    const ColumnOp* previousFilter,
     ReadStream& stream,
     SplitStaging& staging,
     ResultStaging& deviceStaging,
@@ -492,18 +640,29 @@ std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
   VELOX_CHECK(
       this == &rootEncoding,
       "Only root encoding can be decoded for nullable encoding");
-  auto step =
-      makeStepCommon(op, stream, blockIdx, this == &rootEncoding, resultOffset);
+  bool isRoot = (this == &rootEncoding);
+  bool processFilter = isRoot && !op.hasMultiChunks &&
+      (previousFilter || op.reader->scanSpec().filter());
+  auto step = makeStepCommon(
+      op,
+      previousFilter,
+      stream,
+      deviceStaging,
+      blockIdx,
+      isRoot,
+      processFilter,
+      resultOffset);
   auto kindSize = waveTypeKindSize(step->dataType);
   if (kindSize != 4 && kindSize != 8) {
     VELOX_NYI(
         "Unsupported data type for nullable encoding. The data type must be either 4 or 8 bytes.");
   }
+  auto dataBufferPtr =
+      childAt(EncodingIdentifiers::Nullable::Data)->decodedResultBuffer();
+
   step->step =
       kindSize == 4 ? DecodeStep::kSelective32 : DecodeStep::kSelective64;
   step->encoding = DecodeStep::kDictionaryOnBitpack;
-  step->nullMode =
-      NullMode::kDenseNullable; // todo(bowenwu): revisit other null modes
   step->dictMode = DictMode::kNone;
   step->data.dictionaryOnBitpack.dataType = step->dataType;
   step->data.dictionaryOnBitpack.alphabet = nullptr;
@@ -514,9 +673,7 @@ std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
   // offset. TB offset is also not needed if we set baseRow and maxRow
   // correctly.
   step->data.dictionaryOnBitpack.indices =
-      childAt(EncodingIdentifiers::Nullable::Data)
-          ->decodedResultBuffer()
-          ->as<uint64_t>();
+      dataBufferPtr ? dataBufferPtr->as<uint64_t>() : nullptr;
   step->nulls =
       childAt(EncodingIdentifiers::Nullable::Nulls)->nulls(); // chunk local
   step->nonNullBases =
@@ -529,6 +686,60 @@ std::unique_ptr<GpuDecode> NimbleNullableEncoding::makeStep(
   step->result = step->data.dictionaryOnBitpack.result =
       static_cast<char*>(step->result) + resultOffset * kindSize +
       step->baseRow * kindSize;
+
+  return step;
+}
+
+NimbleFilterEncoding::NimbleFilterEncoding(
+    facebook::wave::nimble::DataType dataType,
+    uint32_t numValues,
+    bool hasNulls)
+    : NimbleEncoding(
+          hasNulls ? EncodingType::Nullable : EncodingType::Trivial,
+          dataType,
+          numValues) {}
+
+std::unique_ptr<GpuDecode> NimbleFilterEncoding::makeStep(
+    ColumnOp& op,
+    const ColumnOp* previousFilter,
+    ReadStream& stream,
+    SplitStaging& staging,
+    ResultStaging& deviceStaging,
+    BufferId bufferId,
+    const NimbleEncoding& rootEncoding,
+    int32_t blockIdx,
+    int32_t resultOffset) {
+  auto step = makeStepCommon(
+      op,
+      previousFilter,
+      stream,
+      deviceStaging,
+      blockIdx,
+      true,
+      true,
+      resultOffset);
+
+  auto columnKind = static_cast<WaveTypeKind>(typeKind());
+  step->dataType = columnKind;
+  auto kindSize = waveTypeKindSize(columnKind);
+  if (kindSize != 4 && kindSize != 8) {
+    VELOX_NYI(
+        "Unsupported data type for filters. The data type must be either 4 or 8 bytes.");
+  }
+  step->step =
+      kindSize == 4 ? DecodeStep::kSelective32 : DecodeStep::kSelective64;
+  step->encoding = DecodeStep::kDictionaryOnBitpack;
+  step->dictMode = DictMode::kNone;
+  step->data.dictionaryOnBitpack.dataType = step->dataType;
+  step->data.dictionaryOnBitpack.alphabet = nullptr;
+  step->data.dictionaryOnBitpack.scatter = nullptr;
+  step->data.dictionaryOnBitpack.bitWidth = 8 * kindSize;
+  step->data.dictionaryOnBitpack.indices = op.waveVector->values<uint64_t>();
+  step->nulls = reinterpret_cast<char*>(op.waveVector->nulls());
+  step->isNullsBitmap = false;
+  step->result = step->data.dictionaryOnBitpack.result =
+      op.waveVector->values<char>() + step->baseRow * kindSize;
+  step->resultNulls = op.waveVector->nulls() + step->baseRow;
 
   return step;
 }

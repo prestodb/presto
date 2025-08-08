@@ -394,6 +394,9 @@ struct alignas(16) GpuDecode {
     CompactValues compact;
   } data;
 
+  /// True if 'nulls' is a bitmap of nulls. False if 'nulls' an array of uint8_t
+  bool isNullsBitmap{true};
+
   /// Returns the amount of int aligned global memory per TB needed in 'temp'
   /// for standard size TB.
   int32_t tempSize() const;

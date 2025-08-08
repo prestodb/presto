@@ -40,7 +40,7 @@ std::unique_ptr<FormatData> NimbleFormatParams::toFormatData(
     totalRows += pipeline[pipeline.size() - 1].numValues();
   }
 
-  VELOX_CHECK(totalRows == stripe_.totalRows());
+  VELOX_CHECK_EQ(totalRows, stripe_.totalRows());
   return std::make_unique<NimbleFormatData>(
       operand, totalRows, std::move(pipelines));
 }
@@ -69,6 +69,18 @@ void NimbleFormatData::griddize(
   return;
 }
 
+int32_t NimbleFormatData::maxDecodeLevel() const {
+  int32_t maxLevel = 0;
+  for (auto& pipeline : pipelines_) {
+    maxLevel = std::max(maxLevel, pipeline.maxLevel());
+  }
+  return maxLevel;
+}
+
+bool NimbleFormatData::hasMultiChunks() const {
+  return pipelines_.size() > 1;
+}
+
 void NimbleFormatData::startOp(
     ColumnOp& op,
     const ColumnOp* previousFilter,
@@ -77,8 +89,10 @@ void NimbleFormatData::startOp(
     SplitStaging& splitStaging,
     DecodePrograms& program,
     ReadStream& stream) {
+  auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
   op.isFinal = true;
 
+  bool newSteps = false;
   for (size_t i = 0; i < pipelines_.size(); ++i) {
     auto& pipeline = pipelines_[i];
     auto& rootEncoding = pipeline.rootEncoding();
@@ -97,9 +111,8 @@ void NimbleFormatData::startOp(
       VELOX_CHECK_NOT_NULL(rootEncoding.deviceEncodedDataPtr());
     }
 
-    while (auto encoding = pipeline.next()) {
+    while (auto encoding = pipeline.next(op.decodeLevel)) {
       auto offset = encoding == &rootEncoding ? offsets_[i] : 0;
-      auto rowsPerBlock = FLAGS_wave_reader_rows_per_tb;
       int32_t numBlocks =
           bits::roundUp(encoding->numValues(), rowsPerBlock) / rowsPerBlock;
       if (numBlocks > program.programs.size()) {
@@ -112,6 +125,7 @@ void NimbleFormatData::startOp(
       for (auto blockIdx = 0; blockIdx < numBlocks; ++blockIdx) {
         auto step = encoding->makeStep(
             op,
+            previousFilter,
             stream,
             splitStaging,
             deviceStaging,
@@ -121,12 +135,58 @@ void NimbleFormatData::startOp(
             offset);
         if (step) {
           program.programs[blockIdx].push_back(std::move(step));
+          newSteps = true;
         }
       }
     }
 
     op.isFinal &= pipeline.finished();
   }
+
+  auto readyForMultiChunkFiltering = [&]() {
+    // if there is only one chunk, we can do the filtering in the same kernel as
+    // decoding
+    if (pipelines_.size() == 1 ||
+        !(op.reader->scanSpec().filter() || previousFilter)) {
+      return false;
+    }
+
+    // Wait for all chunks to be decoded, which is indicated by no new decode
+    // steps are created
+    if (newSteps) {
+      op.isFinal = false;
+      return false;
+    }
+
+    return true;
+  };
+
+  // if this column has a filter or the table has a filter and has multiple
+  // chunks, we need to do the filter in a separate kernel launch
+  if (readyForMultiChunkFiltering()) {
+    auto numBlocks = bits::roundUp(totalRows_, rowsPerBlock) / rowsPerBlock;
+    VELOX_CHECK_LT(numBlocks, 256 * 256, "Overflow 16 bit block number");
+
+    program.programs.resize(numBlocks);
+
+    NimbleFilterEncoding filterEncoding(
+        pipelines_[0].rootEncoding().dataType(), totalRows_, hasNulls());
+
+    for (auto blockIdx = 0; blockIdx < numBlocks; ++blockIdx) {
+      auto step = filterEncoding.makeStep(
+          op,
+          previousFilter,
+          stream,
+          splitStaging,
+          deviceStaging,
+          -1,
+          filterEncoding,
+          blockIdx,
+          0);
+      program.programs[blockIdx].push_back(std::move(step));
+    }
+  }
+
   streamStaged_ = true;
 }
 
@@ -138,41 +198,47 @@ NimbleChunkDecodePipeline::NimbleChunkDecodePipeline(
     return;
   }
 
-  std::queue<NimbleEncoding*> queue;
-  queue.push(encoding_.get());
+  std::queue<std::pair<NimbleEncoding*, int32_t>> queue;
+  queue.push({encoding_.get(), 0});
 
   while (!queue.empty()) {
-    NimbleEncoding* node = queue.front();
+    auto [node, level] = queue.front();
     queue.pop();
-    pipeline_.push_back(node);
+    pipeline_.push_back({node, level});
+    maxLevel_ = std::max(maxLevel_, level);
 
     for (uint8_t i = 0; i < node->childrenCount(); ++i) {
-      queue.push(node->childAt(i));
+      queue.push({node->childAt(i), level + 1});
     }
   }
+
+  // currentLevel_ = maxLevel_;
 
   std::reverse(pipeline_.begin(), pipeline_.end());
 
   // Reorder pipeline to ensure all leaves come first
-  std::stable_partition(
-      pipeline_.begin(), pipeline_.end(), [](NimbleEncoding* node) {
-        return node->childrenCount() == 0;
-      });
+  std::stable_partition(pipeline_.begin(), pipeline_.end(), [](auto& node) {
+    return node.first->childrenCount() == 0;
+  });
 
   currentEncoding_ = pipeline_.begin();
 }
 
-NimbleEncoding* NimbleChunkDecodePipeline::next() {
-  if (finished() || !((*currentEncoding_)->isReadyToDecode())) {
+NimbleEncoding* NimbleChunkDecodePipeline::next(int32_t level) {
+  if (finished() || !(currentEncoding_->first->isReadyToDecode())) {
     for (auto it = currentEncoding_ - 1;
-         it >= pipeline_.begin() && !(*it)->isDecoded();
+         it >= pipeline_.begin() && !it->first->isDecoded();
          --it) {
-      (*it)->setDecoded();
+      it->first->setDecoded();
     }
     return nullptr;
   }
 
-  return *currentEncoding_++;
+  if (level != kAnyLevel && currentEncoding_->second != level) {
+    return nullptr;
+  }
+
+  return (currentEncoding_++)->first;
 }
 
 bool NimbleChunkDecodePipeline::finished() const {

@@ -241,6 +241,12 @@ class ReadStream : public Executable {
   // Set to true when after first griddize() and akeOps().
   bool inited_{false};
   FileInfo fileInfo_;
+
+  // Keep track of which level of encodings we are decoding for. This is
+  // necessary when you decode multiple streams together and want them to be
+  // fully decoded in the same kernel launch in order to implement filters.
+  int32_t decodeLevel_{0};
+  bool filtersCompacted_{false};
 };
 
 } // namespace facebook::velox::wave

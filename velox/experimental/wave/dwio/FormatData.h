@@ -206,6 +206,7 @@ enum class ColumnAction { kNulls = 1, kLengths = 2, kFilter = 4, kValues = 8 };
 struct ColumnOp {
   static constexpr int32_t kNoPrerequisite = -1;
   static constexpr int32_t kNoOperand = -1;
+  static constexpr int32_t kAnyLevel = -1;
 
   // Is the op completed after this? If so, any dependent action can be
   // queued as soon as this is set.
@@ -221,6 +222,14 @@ struct ColumnOp {
   ColumnReader* reader{nullptr};
   // Vector completed by arrival of this. nullptr if no vector.
   WaveVector* waveVector{nullptr};
+
+  // True if the column contains multiple uncontiguous chunks.
+  bool hasMultiChunks{false};
+
+  // Set by ReadStream to coordinate the decoding of multiple streams. The
+  // FormatData should decode the current layer of encoding iff decodeLevel is
+  // equal to the current layer or kAnyLevel.
+  int32_t decodeLevel{kAnyLevel};
 
   // Host side result size. 0 for unconditional decoding. Can be buffer size for
   // passing rows, length/offset array etc.
@@ -277,6 +286,15 @@ class FormatData {
   /// row number in terms of the column of 'this'. The row number for a nested
   /// column is in terms of the column, not in terms of top level rows.
   virtual void newBatch(int32_t startRow) = 0;
+
+  /// Returns the maximum level of encoding of all chunks of 'this'.
+  virtual int32_t maxDecodeLevel() const {
+    return maxDecodeLevel_;
+  }
+
+  virtual bool hasMultiChunks() const {
+    return false;
+  }
 
   /// Schedules operations for preparing the encoded data to be
   /// consumed in 'numBlocks' parallel blocks of 'blockSize' rows. For
@@ -344,6 +362,8 @@ class FormatData {
 
   ColumnGridInfo grid_;
   bool griddized_{false};
+
+  int32_t maxDecodeLevel_{0};
 };
 
 class FormatParams {

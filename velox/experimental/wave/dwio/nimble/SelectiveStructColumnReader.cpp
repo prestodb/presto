@@ -81,6 +81,7 @@ std::unique_ptr<ColumnReader> NimbleFormatReader::build(
     case TypeKind::INTEGER:
     case TypeKind::BIGINT:
     case TypeKind::DOUBLE:
+    case TypeKind::REAL:
       return std::make_unique<ColumnReader>(
           requestedType, fileType, operand, params, scanSpec);
 

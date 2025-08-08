@@ -26,6 +26,7 @@ void ColumnReader::makeOp(
   op.action = action;
   op.reader = this;
   op.waveVector = readStream->operandVector(operand_->id, requestedType_);
+  op.hasMultiChunks = op.reader->formatData()->hasMultiChunks();
 };
 
 bool ColumnReader::hasNonNullFilter() const {

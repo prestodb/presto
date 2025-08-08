@@ -32,6 +32,7 @@
 #include "velox/experimental/wave/dwio/nimble/NimbleFileFormat.h"
 #include "velox/experimental/wave/dwio/nimble/NimbleFormatData.h"
 #include "velox/experimental/wave/dwio/nimble/SelectiveStructColumnReader.h"
+#include "velox/type/Filter.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::wave {
@@ -39,6 +40,12 @@ using namespace facebook::nimble;
 
 namespace {
 using namespace facebook::velox;
+
+struct FilterSpec {
+  std::string name;
+  std::shared_ptr<common::Filter> filter;
+  bool keepValues;
+};
 
 class NimbleReaderTest : public ::testing::Test,
                          public velox::test::VectorTestBase {
@@ -63,13 +70,14 @@ class NimbleReaderTest : public ::testing::Test,
     return pool_.get();
   }
 
-  // Helper function to decode a vector with specified read factors and
-  // compression options
-  void decodeVectorAndCheck(
-      const std::vector<VectorPtr>& chunkVectors,
+  // Helper function to write multiple vectors to nimble files and get back all
+  // streamLoaders. A chunk vector group contains several chunked vectors
+  // (mapping to chunked streams in Nimble) that share the same chunk
+  // boundaries.
+  std::vector<std::unique_ptr<StreamLoader>> writeToNimbleAndGetStreamLoaders(
+      const std::vector<std::vector<VectorPtr>>& chunkVectorGroups,
       const std::vector<std::pair<EncodingType, float>>& readFactors,
-      const CompressionOptions& compressionOptions = {
-          .compressionAcceptRatio = 0.0}) {
+      const CompressionOptions& compressionOptions) {
     using namespace facebook::nimble;
     auto pool = leafPool();
 
@@ -88,23 +96,106 @@ class NimbleReaderTest : public ::testing::Test,
           [](const StripeProgress&) { return FlushDecision::Chunk; });
     };
 
-    auto file = facebook::nimble::test::createNimbleFile(
-        *pool, chunkVectors, writerOptions, false);
+    std::vector<std::unique_ptr<StreamLoader>> allStreamLoaders;
 
-    auto input = chunkVectors[0]->as<RowVector>();
-    for (int i = 1; i < chunkVectors.size(); i++) {
-      input->append(chunkVectors[i].get());
+    for (const auto& chunkVectors : chunkVectorGroups) {
+      if (chunkVectors.empty()) {
+        continue;
+      }
+
+      auto file = facebook::nimble::test::createNimbleFile(
+          *pool, chunkVectors, writerOptions, false);
+
+      auto numChildren = chunkVectors[0]->as<RowVector>()->childrenSize();
+
+      auto readFile = std::make_unique<InMemoryReadFile>(file);
+      TabletReader tablet(*pool, std::move(readFile));
+      auto stripeIdentifier = tablet.getStripeIdentifier(0);
+      VELOX_CHECK_EQ(numChildren + 1, tablet.streamCount(stripeIdentifier));
+
+      std::vector<uint32_t> streamIds;
+      streamIds.resize(numChildren);
+      std::iota(streamIds.begin(), streamIds.end(), 1);
+      auto streamLoaders =
+          tablet.load(stripeIdentifier, std::span<const uint32_t>(streamIds));
+
+      for (auto& loader : streamLoaders) {
+        allStreamLoaders.push_back(std::move(loader));
+      }
     }
 
-    auto readFile = std::make_unique<InMemoryReadFile>(file);
-    TabletReader tablet(*pool, std::move(readFile));
-    auto stripeIdentifier = tablet.getStripeIdentifier(0);
-    ASSERT_EQ(input->childrenSize() + 1, tablet.streamCount(stripeIdentifier));
+    return allStreamLoaders;
+  }
 
-    std::vector<uint32_t> streamIds;
-    streamIds.resize(input->childrenSize());
-    std::iota(streamIds.begin(), streamIds.end(), 1);
-    auto streamLoaders = tablet.load(stripeIdentifier, std::move(streamIds));
+  // Helper function to create input by combining chunk vector groups
+  RowVectorPtr createInputFromChunkVectorGroups(
+      const std::vector<std::vector<VectorPtr>>& chunkVectorGroups) {
+    std::vector<RowVectorPtr> groupVectors;
+    for (const auto& chunkVectors : chunkVectorGroups) {
+      if (chunkVectors.empty()) {
+        continue;
+      }
+
+      auto groupVector = std::dynamic_pointer_cast<RowVector>(chunkVectors[0]);
+      for (int i = 1; i < chunkVectors.size(); i++) {
+        groupVector->append(chunkVectors[i].get());
+      }
+      groupVectors.push_back(groupVector);
+    }
+
+    if (groupVectors.empty()) {
+      return nullptr; // No valid groups
+    }
+
+    if (groupVectors.size() == 1) {
+      // Only one group, use it directly
+      return groupVectors[0];
+    } else {
+      // Multiple groups: combine them by adding columns
+      std::vector<std::string> allNames;
+      std::vector<TypePtr> allTypes;
+      std::vector<VectorPtr> allChildren;
+
+      // Collect all columns from all groups
+      int32_t childId = 0;
+      for (const auto& groupVector : groupVectors) {
+        const auto& rowType = groupVector->type()->asRow();
+        for (int i = 0; i < groupVector->childrenSize(); i++, childId++) {
+          allNames.push_back("c" + std::to_string(childId));
+          allTypes.push_back(rowType.childAt(i));
+          allChildren.push_back(groupVector->childAt(i));
+        }
+      }
+
+      auto combinedType = ROW(std::move(allNames), std::move(allTypes));
+      return std::make_shared<RowVector>(
+          groupVectors[0]->pool(),
+          combinedType,
+          BufferPtr(nullptr),
+          groupVectors[0]->size(),
+          std::move(allChildren));
+    }
+  }
+
+  // Helper function to decode a vector with specified read factors and
+  // compression options
+  void decodeVectorAndCheck(
+      const std::vector<std::vector<VectorPtr>>& chunkVectorGroups,
+      const std::vector<std::pair<EncodingType, float>>& readFactors,
+      const CompressionOptions& compressionOptions =
+          {.compressionAcceptRatio = 0.0},
+      const std::vector<FilterSpec>& filters = {},
+      RowVectorPtr expectedOutput = nullptr) {
+    using namespace facebook::nimble;
+    auto pool = leafPool();
+
+    auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+        chunkVectorGroups, readFactors, compressionOptions);
+
+    auto input = createInputFromChunkVectorGroups(chunkVectorGroups);
+    if (input == nullptr) {
+      return; // No valid groups
+    }
 
     std::vector<int32_t> nonNullOutputChildrenIds;
     std::vector<std::unique_ptr<NimbleChunkedStream>> chunkedStreams;
@@ -137,6 +228,15 @@ class NimbleReaderTest : public ::testing::Test,
     // Set up scan spec and format parameters
     auto scanSpec = std::make_shared<common::ScanSpec>("root");
     scanSpec->addAllChildFields(*nonNullRowType);
+
+    // Apply filters to specific children if provided
+    for (const auto& [childName, filter, keepValues] : filters) {
+      auto* childSpec = scanSpec->childByName(childName);
+      if (childSpec != nullptr) {
+        childSpec->setFilter(filter);
+        childSpec->setProjectOut(keepValues);
+      }
+    }
     auto requestedType = nonNullRowType;
     auto fileType = dwio::common::TypeWithId::create(requestedType);
     std::shared_ptr<dwio::common::TypeWithId> fileTypeShared =
@@ -174,7 +274,10 @@ class NimbleReaderTest : public ::testing::Test,
         fileInfo);
 
     // Launch read stream and get output
-    RowSet rows(0, input->size());
+    std::vector<int32_t> rowIds;
+    rowIds.resize(input->size());
+    std::iota(rowIds.begin(), rowIds.end(), 0);
+    RowSet rows(rowIds.data(), rowIds.size());
     ReadStream::launch(std::move(readStream), 0, rows);
 
     std::vector<OperandId> operandIds;
@@ -186,7 +289,10 @@ class NimbleReaderTest : public ::testing::Test,
     nonNullOutputChildren.resize(nonNullOutputChildrenIds.size());
     auto outputNumValues = waveStream->getOutput(
         0, *pool, operandIdRange, nonNullOutputChildren.data());
-    EXPECT_EQ(outputNumValues, input->size());
+
+    auto correct =
+        expectedOutput == nullptr ? input.get() : expectedOutput.get();
+    EXPECT_EQ(correct->size(), outputNumValues);
 
     auto output = std::make_shared<RowVector>(
         input->pool(),
@@ -200,13 +306,13 @@ class NimbleReaderTest : public ::testing::Test,
           std::move(nonNullOutputChildren[i]);
     }
 
-    for (int i = 0; i < input->childrenSize(); i++) {
+    for (int i = 0; i < correct->childrenSize(); i++) {
       SCOPED_TRACE(fmt::format("i: {}", i));
       if (output->childAt(i) == nullptr) { // populate the null children
         output->childAt(i) = BaseVector::createNullConstant(
-            input->childAt(i)->type(), input->size(), pool);
+            correct->childAt(i)->type(), correct->size(), pool);
       }
-      test::assertEqualVectors(input->childAt(i), output->childAt(i));
+      test::assertEqualVectors(correct->childAt(i), output->childAt(i));
     }
   }
 
@@ -475,7 +581,7 @@ TEST_F(NimbleReaderTest, decodeTrivialSingleLevelInteger) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({input}, readFactors, compressionOptions);
+  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeTrivialSingleLevelFloat) {
@@ -489,7 +595,7 @@ TEST_F(NimbleReaderTest, decodeTrivialSingleLevelFloat) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({input}, readFactors, compressionOptions);
+  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, TrivialWithCompressionShouldFail) {
@@ -503,7 +609,7 @@ TEST_F(NimbleReaderTest, TrivialWithCompressionShouldFail) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 1.0};
   try {
-    decodeVectorAndCheck({input}, readFactors, compressionOptions);
+    decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
     FAIL() << "Expected exception for decoding trivial with compression";
   } catch (const VeloxRuntimeError& e) {
     EXPECT_NE(
@@ -590,7 +696,7 @@ TEST_F(NimbleReaderTest, decodeTrivialMultiChunksFloat) {
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
   decodeVectorAndCheck(
-      {chunk1, chunk2, chunk3}, readFactors, compressionOptions);
+      {{chunk1, chunk2, chunk3}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeTrivialMultiChunksMultiStreams) {
@@ -615,7 +721,7 @@ TEST_F(NimbleReaderTest, decodeTrivialMultiChunksMultiStreams) {
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
   decodeVectorAndCheck(
-      {chunk1, chunk2, chunk3}, readFactors, compressionOptions);
+      {{chunk1, chunk2, chunk3}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeNullableFloat) {
@@ -630,7 +736,7 @@ TEST_F(NimbleReaderTest, decodeNullableFloat) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({input}, readFactors, compressionOptions);
+  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeAllNulls) {
@@ -647,7 +753,7 @@ TEST_F(NimbleReaderTest, decodeAllNulls) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({input}, readFactors, compressionOptions);
+  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeNullableMultiChunks) {
@@ -665,7 +771,7 @@ TEST_F(NimbleReaderTest, decodeNullableMultiChunks) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({c0, c1, c2}, readFactors, compressionOptions);
+  decodeVectorAndCheck({{c0, c1, c2}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeNullableMultiChunksMultiStreams) {
@@ -687,7 +793,567 @@ TEST_F(NimbleReaderTest, decodeNullableMultiChunksMultiStreams) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({c0, c1, c2}, readFactors, compressionOptions);
+  decodeVectorAndCheck({{c0, c1, c2}}, readFactors, compressionOptions);
 }
 
+TEST_F(NimbleReaderTest, NullableWithOneFilterKeepValues) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector({makeFlatVector<int32_t>(
+      1893, [](auto row) { return row; }, nullEvery(3))});
+
+  auto filter = std::make_shared<common::BigintRange>(1022, 1025, false);
+  std::vector<FilterSpec> filters = {{"c0", filter, true}};
+
+  auto expectedOutput =
+      makeRowVector({makeFlatVector<int32_t>({1022, 1024, 1025})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableWithMoreFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3))});
+
+  auto c0Filter = std::make_shared<common::BigintRange>(1022, 1025, false);
+  auto c1Filter = std::make_shared<common::BigintRange>(1022, 1024, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c1Filter, true}};
+
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>({1022, 1024}),
+       makeFlatVector<int32_t>({1022, 1024})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableWithOneFilterOneNonFilterKeepValues) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3))});
+
+  auto c0Filter =
+      std::make_shared<common::BigintRange>(1022, 1025, false); // 1000,1892
+  std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
+
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>({1022, 1024, 1025}),
+       makeFlatVector<int32_t>({1022, 1024, 1025})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableWithMoreFiltersMoreNonFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(2)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(2))});
+
+  auto c0Filter =
+      std::make_shared<common::BigintRange>(1022, 1025, false); // 1000,1892
+  auto c1Filter =
+      std::make_shared<common::BigintRange>(1022, 1024, false); // 1000,1892
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c1Filter, true}};
+
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>({1022, 1024}),
+       makeFlatVector<int32_t>({1022, 1024}),
+       makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt}),
+       makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableFilterNoResults) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(3)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(2)),
+       makeFlatVector<int32_t>(
+           1893, [](auto row) { return row; }, nullEvery(2))});
+
+  auto c0Filter = std::make_shared<common::BigintRange>(1893, 1944, false);
+  auto c1Filter = std::make_shared<common::BigintRange>(1022, 1024, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c1Filter, true}};
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>({}),
+       makeFlatVector<int32_t>({}),
+       makeFlatVector<int32_t>({}),
+       makeFlatVector<int32_t>({})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, TrivialWithOneFilterKeepValues) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(2000, [](auto row) { return row; })});
+
+  auto c0Filter = std::make_shared<common::BigintRange>(1022, 1025, false);
+  std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
+
+  auto expectedOutput =
+      makeRowVector({makeFlatVector<int32_t>({1022, 1023, 1024, 1025})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Trivial, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, TrivialWithMoreFiltersMoreNonFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto input = makeRowVector(
+      {makeFlatVector<int32_t>(1893, [](auto row) { return row; }),
+       makeFlatVector<int64_t>(1893, [](auto row) { return row; }),
+       makeFlatVector<int32_t>(1893, [](auto row) { return row; }),
+       makeFlatVector<int64_t>(1893, [](auto row) { return row; })});
+
+  auto c0Filter = std::make_shared<common::BigintRange>(1022, 1025, false);
+  auto c1Filter = std::make_shared<common::BigintRange>(1022, 1024, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c1Filter, true}};
+
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>({1022, 1023, 1024}),
+       makeFlatVector<int64_t>({1022, 1023, 1024}),
+       makeFlatVector<int32_t>({1022, 1023, 1024}),
+       makeFlatVector<int64_t>({1022, 1023, 1024})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Trivial, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, TrivialChunksOneFilterKeepValues) {
+  using namespace facebook::nimble;
+
+  auto chunk0 = makeRowVector(
+      {makeFlatVector<int32_t>(1200, [](auto row) { return row; })});
+  auto chunk1 = makeRowVector({makeFlatVector<int32_t>(
+      1800, [&](auto row) { return row + chunk0->size(); })});
+
+  int64_t lower = 1020, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
+
+  auto expectedOutput = makeRowVector({makeFlatVector<int32_t>(
+      upper - lower + 1, [&](auto row) { return row + lower; })});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Trivial, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableChunksOneFilterKeepValues) {
+  using namespace facebook::nimble;
+
+  auto chunk0 = makeRowVector({makeFlatVector<int32_t>(
+      1200, [](auto row) { return row; }, nullEvery(2))});
+  auto chunk1 = makeRowVector({makeFlatVector<int32_t>(
+      1800,
+      [&](auto row) { return row + chunk0->size(); },
+      nullEvery(2))}); // 1800
+
+  int64_t lower = 1198, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
+
+  auto expectedOutput = makeRowVector({makeFlatVector<int32_t>({1199, 1201})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableChunksFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto chunk0 = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1200, [](auto row) { return row; }, nullEvery(2)),
+       makeFlatVector<int32_t>(
+           1200, [](auto row) { return row; }, nullEvery(2))});
+  auto chunk1 = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1800, [&](auto row) { return row + chunk0->size(); }, nullEvery(2)),
+       makeFlatVector<int32_t>(
+           1800,
+           [&](auto row) { return row + chunk0->size(); },
+           nullEvery(2))});
+
+  int64_t lower = 1198, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  auto c1filter =
+      std::make_shared<common::BigintRange>(lower - 2, upper + 2, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c0Filter, true}};
+
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>({1199, 1201}),
+       makeFlatVector<int32_t>({1199, 1201})});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullableChunksFiltersNonFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto vector = [&](int32_t numValues, int32_t offset = 0) {
+    return makeFlatVector<int32_t>(
+        numValues, [&](auto row) { return row + offset; }, nullEvery(2));
+  };
+  auto chunk0 = makeRowVector({
+      vector(1200),
+      vector(1200),
+      vector(1200),
+      vector(1200),
+  });
+  auto chunk1 = makeRowVector({
+      vector(1800, chunk0->size()),
+      vector(1800, chunk0->size()),
+      vector(1800, chunk0->size()),
+      vector(1800, chunk0->size()),
+  });
+
+  int64_t lower = 1198, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  auto c1Filter =
+      std::make_shared<common::BigintRange>(lower - 2, upper + 2, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c1Filter, true}};
+
+  auto expectedOutput = makeRowVector({
+      makeFlatVector<int32_t>({1199, 1201}),
+      makeFlatVector<int32_t>({1199, 1201}),
+      makeFlatVector<int32_t>({1199, 1201}),
+      makeFlatVector<int32_t>({1199, 1201}),
+  });
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, TrivialChunksFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto chunk0 = makeRowVector(
+      {makeFlatVector<int32_t>(1200, [](auto row) { return row; }),
+       makeFlatVector<int32_t>(1200, [](auto row) { return row; })});
+  auto chunk1 = makeRowVector(
+      {makeFlatVector<int32_t>(
+           1800, [&](auto row) { return row + chunk0->size(); }),
+       makeFlatVector<int32_t>(
+           1800, [&](auto row) { return row + chunk0->size(); })});
+
+  int64_t lower = 1020, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  auto c1filter =
+      std::make_shared<common::BigintRange>(lower - 2, upper + 2, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c0Filter, true}};
+
+  auto numResults = upper - lower + 1;
+  auto expectedOutput = makeRowVector(
+      {makeFlatVector<int32_t>(
+           numResults, [&](auto row) { return row + lower; }),
+       makeFlatVector<int32_t>(
+           numResults, [&](auto row) { return row + lower; })});
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Trivial, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, TrivialChunksFiltersNonFiltersKeepValues) {
+  using namespace facebook::nimble;
+
+  auto vector = [&](int32_t numValues, int32_t offset = 0) {
+    return makeFlatVector<int32_t>(
+        numValues, [&](auto row) { return row + offset; });
+  };
+  auto chunk0 = makeRowVector({
+      vector(1200),
+      vector(1200),
+      vector(1200),
+      vector(1200),
+  });
+  auto chunk1 = makeRowVector({
+      vector(1800, chunk0->size()),
+      vector(1800, chunk0->size()),
+      vector(1800, chunk0->size()),
+      vector(1800, chunk0->size()),
+  });
+
+  int64_t lower = 1020, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  auto c1Filter =
+      std::make_shared<common::BigintRange>(lower - 2, upper + 2, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c1", c1Filter, true}};
+
+  auto numResults = upper - lower + 1;
+  auto expectedOutput = makeRowVector({
+      vector(numResults, lower),
+      vector(numResults, lower),
+      vector(numResults, lower),
+      vector(numResults, lower),
+  });
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Trivial, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, TrivialUnalignedChunks) {
+  using namespace facebook::nimble;
+
+  auto vector = [&](int32_t numValues, int32_t offset = 0) {
+    return makeFlatVector<int32_t>(
+        numValues, [&](auto row) { return row + offset; });
+  };
+  int32_t offset = 0;
+
+  // Group 1
+  auto chunk0 = makeRowVector({
+      vector(1200),
+      vector(1200),
+  });
+  offset = chunk0->size();
+  auto chunk1 = makeRowVector({
+      vector(1800, offset),
+      vector(1800, offset),
+  });
+
+  // Group 2
+  auto chunk2 = makeRowVector({
+      vector(500),
+      vector(500),
+  });
+  offset = chunk2->size();
+  auto chunk3 = makeRowVector({
+      vector(1200, offset),
+      vector(1200, offset),
+  });
+  offset += chunk3->size();
+  auto chunk4 = makeRowVector({
+      vector(1300, offset),
+      vector(1300, offset),
+  });
+
+  int64_t lower = 1020, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  auto c2Filter =
+      std::make_shared<common::BigintRange>(lower - 2, upper + 2, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c2", c2Filter, true}};
+
+  auto numResults = upper - lower + 1;
+  auto expectedOutput = makeRowVector({
+      vector(numResults, lower),
+      vector(numResults, lower),
+      vector(numResults, lower),
+      vector(numResults, lower),
+  });
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Trivial, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}, {chunk2, chunk3, chunk4}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
+
+TEST_F(NimbleReaderTest, NullablelUnalignedChunks) {
+  using namespace facebook::nimble;
+
+  auto vector = [&](int32_t numValues, int32_t nullFreq, int32_t offset = 0) {
+    return makeFlatVector<int32_t>(
+        numValues, [&](auto row) { return row + offset; }, nullEvery(nullFreq));
+  };
+  int32_t offset = 0;
+
+  // Group 1
+  auto chunk0 = makeRowVector({
+      vector(1200, 3),
+      vector(1200, 3),
+  });
+  offset = chunk0->size();
+  auto chunk1 = makeRowVector({
+      vector(1800, 3, offset),
+      vector(1800, 3, offset),
+  });
+
+  // Group 2
+  auto chunk2 = makeRowVector({
+      vector(600, 3),
+      vector(600, 3),
+  });
+  offset = chunk2->size();
+  auto chunk3 = makeRowVector({
+      vector(1200, 3, offset),
+      vector(1200, 3, offset),
+  });
+  offset += chunk3->size();
+  auto chunk4 = makeRowVector({
+      vector(1200, 3, offset),
+      vector(1200, 3, offset),
+  });
+
+  int64_t lower = 1020, upper = 1202;
+  auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
+  auto c2Filter =
+      std::make_shared<common::BigintRange>(lower - 2, upper + 2, false);
+  std::vector<FilterSpec> filters = {
+      {"c0", c0Filter, true}, {"c2", c2Filter, true}};
+
+  auto numResults = (upper - lower + 1) / 3 * 2;
+  auto expectedVector = [&]() {
+    auto inputRow = lower;
+    return makeFlatVector<int32_t>(numResults, [&](auto row) {
+      if (inputRow % 3 == 0) {
+        inputRow += 2;
+        return inputRow - 1;
+      } else {
+        return inputRow++;
+      }
+    });
+  };
+  auto expectedOutput = makeRowVector({
+      expectedVector(),
+      expectedVector(),
+      expectedVector(),
+      expectedVector(),
+  });
+
+  std::vector<std::pair<EncodingType, float>> readFactors = {
+      {EncodingType::Nullable, 1.0},
+  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
+
+  decodeVectorAndCheck(
+      {{chunk0, chunk1}, {chunk2, chunk3, chunk4}},
+      readFactors,
+      compressionOptions,
+      filters,
+      expectedOutput);
+}
 } // namespace facebook::velox::wave
