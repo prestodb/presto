@@ -11,17 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//@flow
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from "react";
 
-const LazyComponent = (filename: string) => {
-    const Component = lazy(() => import(`./components/${filename}`));
-    const LazyWrapper = (props: any) =>(
-        <Suspense fallback={<div className='loader'>Loading...</div>}>
-            <Component {...props} />
-        </Suspense>
-    );
-    return LazyWrapper;
+function LazyComponent<T>(
+  filename: string,
+): (props: any) => React.Element<any> {
+  const Component = lazy<T>(
+    () =>
+      // $FlowIgnore[unsupported-syntax] - Flow doesn't support dynamic imports with variables
+      import(`./components/${filename}`),
+  );
+  const LazyWrapper = (props: any) => (
+    <Suspense fallback={<div className="loader">Loading...</div>}>
+      <Component {...props} />
+    </Suspense>
+  );
+  return LazyWrapper;
 }
 
-export default LazyComponent
+export default LazyComponent;
