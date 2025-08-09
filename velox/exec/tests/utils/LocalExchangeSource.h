@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/exec/Exchange.h"
+
+#include "velox/exec/ExchangeSource.h"
 
 namespace facebook::velox::exec::test {
 

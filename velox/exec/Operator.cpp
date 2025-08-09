@@ -378,7 +378,7 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
   const auto wallNanos = (now - start) * 1000;
-  const auto blockReason = blockingReasonToString(reason).substr(1);
+  const auto blockReason = BlockingReasonName::toName(reason).substr(1);
 
   auto lockedStats = stats_.wlock();
   lockedStats->blockedWallNanos += wallNanos;

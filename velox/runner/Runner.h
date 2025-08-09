@@ -16,9 +16,8 @@
 #pragma once
 
 #include "velox/connectors/Connector.h"
-#include "velox/exec/Cursor.h"
-#include "velox/exec/Exchange.h"
-#include "velox/runner/MultiFragmentPlan.h"
+#include "velox/core/PlanNode.h"
+#include "velox/exec/TaskStats.h"
 
 /// Base classes for multifragment Velox query execution.
 namespace facebook::velox::runner {

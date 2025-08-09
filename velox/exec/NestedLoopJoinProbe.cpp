@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/NestedLoopJoinProbe.h"
+#include "velox/exec/DriverStats.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/FieldReference.h"

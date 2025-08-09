@@ -85,6 +85,7 @@ class LocalRunner : public Runner,
 
   // Creates all stages except for the single worker final consumer stage.
   std::vector<std::shared_ptr<exec::RemoteConnectorSplit>> makeStages();
+
   std::shared_ptr<SplitSource> splitSourceForScan(
       const core::TableScanNode& scan);
 

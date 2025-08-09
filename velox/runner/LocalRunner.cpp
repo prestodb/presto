@@ -17,8 +17,6 @@
 #include "velox/runner/LocalRunner.h"
 #include "velox/common/time/Timer.h"
 
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-
 namespace facebook::velox::runner {
 namespace {
 std::shared_ptr<exec::RemoteConnectorSplit> remoteSplit(
@@ -256,9 +254,14 @@ LocalRunner::makeStages() {
     }
   }
 
+  if (stages_.empty()) {
+    return {};
+  }
+
   for (auto fragmentIndex = 0; fragmentIndex < fragments_.size() - 1;
        ++fragmentIndex) {
-    auto& fragment = fragments_[fragmentIndex];
+    const auto& fragment = fragments_[fragmentIndex];
+
     for (auto& scan : fragment.scans) {
       auto source = splitSourceForScan(*scan);
       std::vector<SplitSource::SplitAndGroup> splits;
@@ -284,29 +287,30 @@ LocalRunner::makeStages() {
         }
       } while (!allDone);
     }
+
     for (auto& scan : fragment.scans) {
-      for (auto i = 0; i < stages_[fragmentIndex].size(); ++i) {
-        stages_[fragmentIndex][i]->noMoreSplits(scan->id());
+      for (const auto& task : stages_[fragmentIndex]) {
+        task->noMoreSplits(scan->id());
       }
     }
 
     for (auto& input : fragment.inputStages) {
       const auto sourceStage = stageMap[input.producerTaskPrefix];
+
       std::vector<std::shared_ptr<exec::RemoteConnectorSplit>> sourceSplits;
-      for (auto i = 0; i < stages_[sourceStage].size(); ++i) {
-        sourceSplits.push_back(remoteSplit(stages_[sourceStage][i]->taskId()));
+      for (const auto& task : stages_[sourceStage]) {
+        sourceSplits.push_back(remoteSplit(task->taskId()));
       }
+
       for (auto& task : stages_[fragmentIndex]) {
-        for (auto& remote : sourceSplits) {
+        for (const auto& remote : sourceSplits) {
           task->addSplit(input.consumerNodeId, exec::Split(remote));
         }
         task->noMoreSplits(input.consumerNodeId);
       }
     }
   }
-  if (stages_.empty()) {
-    return {};
-  }
+
   std::vector<std::shared_ptr<exec::RemoteConnectorSplit>> lastStage;
   for (auto& task : stages_.back()) {
     lastStage.push_back(remoteSplit(task->taskId()));
@@ -318,17 +322,16 @@ std::vector<exec::TaskStats> LocalRunner::stats() const {
   std::vector<exec::TaskStats> result;
   std::lock_guard<std::mutex> l(mutex_);
   for (auto i = 0; i < stages_.size(); ++i) {
-    auto& tasks = stages_[i];
+    const auto& tasks = stages_[i];
     VELOX_CHECK(!tasks.empty());
     auto stats = tasks[0]->taskStats();
     for (auto j = 1; j < tasks.size(); ++j) {
-      auto moreStats = tasks[j]->taskStats();
+      const auto moreStats = tasks[j]->taskStats();
       for (auto pipeline = 0; pipeline < stats.pipelineStats.size();
            ++pipeline) {
-        for (auto op = 0;
-             op < stats.pipelineStats[pipeline].operatorStats.size();
-             ++op) {
-          stats.pipelineStats[pipeline].operatorStats[op].add(
+        auto& pipelineStats = stats.pipelineStats[pipeline];
+        for (auto op = 0; op < pipelineStats.operatorStats.size(); ++op) {
+          pipelineStats.operatorStats[op].add(
               moreStats.pipelineStats[pipeline].operatorStats[op]);
         }
       }

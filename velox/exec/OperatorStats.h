@@ -15,8 +15,10 @@
  */
 #pragma once
 
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/common/time/CpuWallTimer.h"
+#include "velox/core/PlanNode.h"
 #include "velox/expression/ExprStats.h"
 
 namespace facebook::velox::exec {

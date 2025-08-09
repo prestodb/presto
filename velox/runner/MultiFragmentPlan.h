@@ -41,8 +41,11 @@ struct ExecutableFragment {
 
   explicit ExecutableFragment(const std::string& taskPrefix)
       : taskPrefix(taskPrefix) {}
+
   std::string taskPrefix;
+
   int32_t width{0};
+
   velox::core::PlanFragment fragment;
 
   /// Source fragments and Exchange node ids for remote shuffles producing input
@@ -51,6 +54,7 @@ struct ExecutableFragment {
 
   /// Table scan nodes in 'this'.
   std::vector<std::shared_ptr<const core::TableScanNode>> scans;
+
   int32_t numBroadcastDestinations{0};
 };
 

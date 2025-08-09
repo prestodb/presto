@@ -17,6 +17,7 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <atomic>
 #include "velox/common/testutil/TestValue.h"
+#include "velox/exec/ExchangeClient.h"
 #include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::velox::exec::test {

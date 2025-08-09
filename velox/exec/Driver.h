@@ -27,8 +27,7 @@
 #include "velox/common/base/TraceConfig.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanFragment.h"
-#include "velox/core/QueryCtx.h"
-#include "velox/type/Filter.h"
+#include "velox/exec/BlockingReason.h"
 
 namespace facebook::velox::exec {
 
@@ -61,14 +60,6 @@ enum class StopReason {
 std::string stopReasonString(StopReason reason);
 
 std::ostream& operator<<(std::ostream& out, const StopReason& reason);
-
-struct DriverStats {
-  static constexpr const char* kTotalPauseTime = "totalDriverPauseWallNanos";
-  static constexpr const char* kTotalOffThreadTime =
-      "totalDriverOffThreadWallNanos";
-
-  std::unordered_map<std::string, RuntimeMetric> runtimeStats;
-};
 
 /// Represents a Driver's state. This is used for cancellation, forcing
 /// release of and for waiting for memory. The fields are serialized on
@@ -182,45 +173,6 @@ struct ThreadState {
     return obj;
   }
 };
-
-enum class BlockingReason {
-  kNotBlocked,
-  kWaitForConsumer,
-  kWaitForSplit,
-  /// Some operators can get blocked due to the producer(s) (they are
-  /// currently waiting data from) not having anything produced. Used by
-  /// LocalExchange, LocalMergeExchange, Exchange and MergeExchange operators.
-  kWaitForProducer,
-  kWaitForJoinBuild,
-  /// For a build operator, it is blocked waiting for the probe operators to
-  /// finish probing before build the next hash table from one of the
-  /// previously spilled partition data. For a probe operator, it is blocked
-  /// waiting for all its peer probe operators to finish probing before
-  /// notifying the build operators to build the next hash table from the
-  /// previously spilled data.
-  kWaitForJoinProbe,
-  /// Used by MergeJoin operator, indicating that it was blocked by the right
-  /// side input being unavailable.
-  kWaitForMergeJoinRightSide,
-  kWaitForMemory,
-  kWaitForConnector,
-  /// Some operators (like Table Scan) may run long loops and can 'voluntarily'
-  /// exit them because Task requested to yield or stop or after a certain time.
-  /// This is the blocking reason used in such cases.
-  kYield,
-  /// Operator is blocked waiting for its associated query memory arbitration to
-  /// finish.
-  kWaitForArbitration,
-  /// For a table scan operator, it is blocked waiting for the scan controller
-  /// to increase the number of table scan processing threads to start
-  /// processing.
-  kWaitForScanScaleUp,
-  /// Used by IndexLookupJoin operator, indicating that it was blocked by the
-  /// async index lookup.
-  kWaitForIndexLookup,
-};
-
-std::string blockingReasonToString(BlockingReason reason);
 
 class BlockingState {
  public:
@@ -904,16 +856,6 @@ class ScopedDriverThreadContext {
 DriverThreadContext* driverThreadContext();
 
 } // namespace facebook::velox::exec
-
-template <>
-struct fmt::formatter<facebook::velox::exec::BlockingReason>
-    : formatter<std::string> {
-  auto format(facebook::velox::exec::BlockingReason b, format_context& ctx)
-      const {
-    return formatter<std::string>::format(
-        facebook::velox::exec::blockingReasonToString(b), ctx);
-  }
-};
 
 template <>
 struct fmt::formatter<facebook::velox::exec::StopReason>

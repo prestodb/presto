@@ -20,7 +20,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "velox/exec/Driver.h"
+#include "velox/exec/BlockingReason.h"
+#include "velox/exec/DriverStats.h"
+#include "velox/exec/OperatorStats.h"
 #include "velox/exec/OutputBuffer.h"
 
 namespace facebook::velox::exec {

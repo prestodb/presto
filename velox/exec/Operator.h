@@ -17,11 +17,11 @@
 
 #include <folly/Synchronized.h>
 #include "velox/core/PlanNode.h"
+#include "velox/core/QueryCtx.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/JoinBridge.h"
 #include "velox/exec/OperatorStats.h"
 #include "velox/exec/OperatorTraceWriter.h"
-#include "velox/type/Filter.h"
 
 namespace facebook::velox::exec {
 

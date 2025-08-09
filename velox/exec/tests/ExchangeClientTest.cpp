@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/ExchangeClient.h"
 #include <folly/ScopeGuard.h>
 #include <gtest/gtest.h>
 #include <atomic>
