@@ -23,6 +23,7 @@ NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 
 CURL_OPTIONS=${CURL_OPTIONS:-""}
 CMAKE_OPTIONS=${CMAKE_OPTIONS:-""}
+ARM_BUILD_TARGET=${ARM_BUILD_TARGET:-"local"}
 
 function run_and_time {
   time "$@"
@@ -149,7 +150,7 @@ function get_cxx_flags {
     Neoverse_N2="d49"
     Neoverse_V1="d40"
     Neoverse_V2="d4f"
-    if [ -f "$ARM_CPU_FILE" ]; then
+    if [ -f "$ARM_CPU_FILE" ] && [ "$ARM_BUILD_TARGET" = "local" ]; then
       hex_ARM_CPU_DETECT=$(cat $ARM_CPU_FILE)
       # PartNum, [15:4]: The primary part number such as Neoverse N1/N2 core.
       ARM_CPU_PRODUCT=${hex_ARM_CPU_DETECT: -4:3}
@@ -175,7 +176,7 @@ function get_cxx_flags {
         echo -n "-march=armv8-a+crc+crypto "
       fi
     else
-      echo -n ""
+      echo -n "-march=armv8-a+crc+crypto "
     fi
     ;;
   *)
