@@ -57,7 +57,7 @@ void updateFromSystemConfigs(
           {core::QueryConfig::kAggregationSpillEnabled,
            std::string(SystemConfig::kAggregationSpillEnabled)},
           {core::QueryConfig::kMaxSpillBytes,
-          std::string(SystemConfig::kMaxSpillBytes)},
+           std::string(SystemConfig::kMaxSpillBytes)},
           {core::QueryConfig::kRequestDataSizesMaxWaitSec,
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
           {core::QueryConfig::kMaxSplitPreloadPerDriver,
@@ -264,7 +264,8 @@ QueryContextManager::toVeloxConfigs(
 
   // Construct query tracing regex and pass to Velox config.
   // It replaces the given native_query_trace_task_reg_exp if also set.
-  // Normal format is {queryId}.{fragmentId}.{stageExecutionId}.{shardId}.{attemptId}
+  // Normal format is
+  // {queryId}.{fragmentId}.{stageExecutionId}.{shardId}.{attemptId}
   // Implementation details is in PrestoTaskId.h
   if (traceFragmentId.has_value() || traceShardId.has_value()) {
     configs.emplace(

@@ -2,7 +2,7 @@ name: release-notes
 
 on:
   pull_request:
-    types: [ opened, edited, reopened ]
+    types: [opened, edited, reopened]
 
 env:
   RELEASE_TOOLS_VERSION: "0.11"
@@ -10,16 +10,19 @@ env:
 jobs:
   check_release_note:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 8
-          cache: 'maven'
+          cache: maven
       - name: Get presto-release-tools
         run: |
           ./mvnw \

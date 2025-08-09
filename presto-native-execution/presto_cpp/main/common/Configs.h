@@ -43,12 +43,12 @@ class ConfigBase {
   }
 
   /// DO NOT DELETE THIS METHOD!
-  /// The method is used to register new properties after the config class is created.
-  /// Returns true if succeeded, false if failed (due to the property already
-  /// registered).
+  /// The method is used to register new properties after the config class is
+  /// created. Returns true if succeeded, false if failed (due to the property
+  /// already registered).
   bool registerProperty(
-    const std::string& propertyName,
-    const folly::Optional<std::string>& defaultValue = {});
+      const std::string& propertyName,
+      const folly::Optional<std::string>& defaultValue = {});
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -144,8 +144,9 @@ class ConfigBase {
 
  protected:
   ConfigBase()
-      : config_(std::make_unique<velox::config::ConfigBase>(
-            std::unordered_map<std::string, std::string>())){};
+      : config_(
+            std::make_unique<velox::config::ConfigBase>(
+                std::unordered_map<std::string, std::string>())) {};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
@@ -756,7 +757,7 @@ class SystemConfig : public ConfigBase {
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
-    "exchange.http-client.request-data-sizes-max-wait-sec"};
+      "exchange.http-client.request-data-sizes-max-wait-sec"};
 
   static constexpr std::string_view kExchangeIoEvbViolationThresholdMs{
       "exchange.io-evb-violation-threshold-ms"};
@@ -768,8 +769,7 @@ class SystemConfig : public ConfigBase {
 
   // Add to temporarily help with gradual rollout for text writer
   // TODO: remove once text writer is fully rolled out
-  static constexpr std::string_view kTextWriterEnabled{
-    "text-writer-enabled"};
+  static constexpr std::string_view kTextWriterEnabled{"text-writer-enabled"};
 
   SystemConfig();
 
@@ -1073,7 +1073,8 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodePrometheusExecutorThreads{"node.prometheus.num-executor-threads"};
+  static constexpr std::string_view kNodePrometheusExecutorThreads{
+      "node.prometheus.num-executor-threads"};
 
   NodeConfig();
 
