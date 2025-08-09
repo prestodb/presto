@@ -15,6 +15,7 @@ package com.facebook.presto.client;
 
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.security.SelectedRole;
+import okhttp3.Headers;
 
 import javax.annotation.Nullable;
 
@@ -59,6 +60,8 @@ public interface StatementClient
     Map<String, String> getAddedPreparedStatements();
 
     Set<String> getDeallocatedPreparedStatements();
+
+    Headers getResponseHeaders();
 
     @Nullable
     String getStartedTransactionId();

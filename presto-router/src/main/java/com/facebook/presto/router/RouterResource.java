@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.router;
 
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.router.cluster.ClusterManager;
@@ -27,6 +28,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
@@ -57,12 +59,23 @@ public class RouterResource
     @POST
     @Path("/v1/statement")
     @Produces(APPLICATION_JSON)
-    public Response routeQuery(String statement, @Context HttpServletRequest servletRequest)
+    public Response routeQuery(
+            String statement,
+            @Context HttpServletRequest servletRequest,
+            @QueryParam("retryUrl") String retryUrl,
+            @QueryParam("retryExpirationInSeconds") String retryExpirationInSeconds)
     {
         RequestInfo requestInfo = new RequestInfo(servletRequest, statement);
         URI coordinatorUri = clusterManager.getDestination(requestInfo).orElseThrow(() -> badRequest(BAD_GATEWAY, "No Presto cluster available"));
-        URI statementUri = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement").build();
+        HttpUriBuilder statementUriBuilder = uriBuilderFrom(coordinatorUri).replacePath("/v1/statement");
         successRedirectRequests.update(1);
+        if (retryUrl != null && !retryUrl.isEmpty()) {
+            statementUriBuilder.addParameter("retryUrl", retryUrl);
+        }
+        if (retryExpirationInSeconds != null && !retryExpirationInSeconds.isEmpty()) {
+            statementUriBuilder.addParameter("retryExpirationInSeconds", retryExpirationInSeconds);
+        }
+        URI statementUri = statementUriBuilder.build();
         log.info("route query to %s", statementUri);
         return Response.temporaryRedirect(statementUri).build();
     }
