@@ -226,9 +226,19 @@ public class BasePlanTest
         assertDistributedPlan(sql, getQueryRunner().getDefaultSession(), pattern);
     }
 
+    protected void assertNativeDistributedPlan(String sql, PlanMatchPattern pattern)
+    {
+        assertNativeDistributedPlan(sql, getQueryRunner().getDefaultSession(), pattern);
+    }
+
     protected void assertDistributedPlan(String sql, Session session, PlanMatchPattern pattern)
     {
         assertPlanWithSession(sql, session, false, pattern);
+    }
+
+    protected void assertNativeDistributedPlan(String sql, Session session, PlanMatchPattern pattern)
+    {
+        assertPlanWithSession(sql, session, false, true, pattern);
     }
 
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
@@ -263,8 +273,13 @@ public class BasePlanTest
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean noExchange, PlanMatchPattern pattern)
     {
+        assertPlanWithSession(sql, session, noExchange, false, pattern);
+    }
+
+    protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean noExchange, boolean nativeExecutionEnabled, PlanMatchPattern pattern)
+    {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, noExchange, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, noExchange, nativeExecutionEnabled, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });

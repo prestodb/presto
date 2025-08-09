@@ -318,9 +318,8 @@ public class TestNativeSidecarPlugin
     @Test
     public void testInformationSchemaTables()
     {
-        assertQueryFails("select lower(table_name) from information_schema.tables "
-                        + "where table_name = 'lineitem' or table_name = 'LINEITEM' ",
-                "Compiler failed");
+        assertQuery("select lower(table_name) from information_schema.tables "
+                + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
     }
 
     @Test
