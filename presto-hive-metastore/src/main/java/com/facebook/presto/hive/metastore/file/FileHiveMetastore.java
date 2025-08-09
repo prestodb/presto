@@ -135,6 +135,7 @@ public class FileHiveMetastore
 
     protected final HdfsEnvironment hdfsEnvironment;
     protected final HdfsContext hdfsContext;
+
     protected final FileSystem metadataFileSystem;
 
     private final Path catalogDirectory;
@@ -474,6 +475,47 @@ public class FileHiveMetastore
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
             setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
+
+        return EMPTY_RESULT;
+    }
+
+    @Override
+    public MetastoreOperationResult persistTable(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            Table newTable,
+            PrincipalPrivileges principalPrivileges,
+            Function<PartitionStatistics, PartitionStatistics> update,
+            Map<String, String> additionalParameters)
+    {
+        checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
+
+        Table oldTable = getRequiredTable(metastoreContext, databaseName, tableName);
+        validateReplaceTableType(oldTable, newTable);
+        if (!oldTable.getDatabaseName().equals(databaseName) || !oldTable.getTableName().equals(tableName)) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
+        }
+
+        Path tableMetadataDirectory = getTableMetadataDirectory(oldTable);
+
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
+
+        deleteTablePrivileges(oldTable);
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
+            setTablePrivileges(metastoreContext, new PrestoPrincipal(USER, entry.getKey()), databaseName, tableName, entry.getValue());
+        }
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
+            setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), databaseName, tableName, entry.getValue());
+        }
+        PartitionStatistics originalStatistics = getTableStatistics(metastoreContext, databaseName, tableName);
+        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+
+        TableMetadata updatedMetadata = new TableMetadata(newTable)
+                .withParameters(updateStatisticsParameters(newTable.getParameters(), updatedStatistics.getBasicStatistics()))
+                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, updatedMetadata, true);
 
         return EMPTY_RESULT;
     }
@@ -1293,7 +1335,6 @@ public class FileHiveMetastore
             if (!metadataFileSystem.isDirectory(metadataDirectory)) {
                 return ImmutableList.of();
             }
-
             ImmutableList.Builder<Path> childSchemaDirectories = ImmutableList.builder();
             for (FileStatus child : metadataFileSystem.listStatus(metadataDirectory)) {
                 if (!child.isDirectory()) {
