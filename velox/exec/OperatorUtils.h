@@ -168,7 +168,8 @@ folly::Range<vector_size_t*> initializeRowNumberMapping(
 /// Projects children of 'src' row vector according to 'projections'. Optionally
 /// takes a 'mapping' and 'size' that represent the indices and size,
 /// respectively, of a dictionary wrapping that should be applied to the
-/// projections. The output param 'projectedChildren' will contain all the final
+/// projections. Dictionary wrapping of the same child vector is cached for
+/// reuse. The output param 'projectedChildren' will contain all the final
 /// projections at the expected channel index. Indices not specified in
 /// 'projections' will be left untouched in 'projectedChildren'.
 void projectChildren(

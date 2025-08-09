@@ -531,6 +531,52 @@ TEST_F(OperatorUtilsTest, projectChildren) {
   }
 }
 
+TEST_F(OperatorUtilsTest, projectDuplicateChildren) {
+  // Test wrapping an unloaded lazy vector in dictionary vector multiple
+  // times.
+  auto flatVector = makeNullableFlatVector<int64_t>(
+      std::vector<std::optional<int64_t>>{1, std::nullopt, 3, 4, 5});
+  const auto size = flatVector->size();
+
+  auto lazyVector = std::make_shared<LazyVector>(
+      pool(),
+      BIGINT(),
+      size,
+      std::make_unique<SimpleVectorLoader>([&](RowSet /*rows*/) {
+        return makeFlatVector<int64_t>(
+            size,
+            [&](vector_size_t row) { return flatVector->valueAt(row); },
+            [&](vector_size_t row) { return flatVector->isNullAt(row); });
+      }));
+
+  std::vector<VectorPtr> children = {lazyVector};
+  auto rowVector = makeRowVector(std::move(children));
+
+  std::vector<IdentityProjection> identityProjections;
+  identityProjections.emplace_back(0, 0);
+  identityProjections.emplace_back(0, 1);
+
+  auto mapping = makeIndices(size, [](auto row) { return row % 3; });
+
+  std::vector<VectorPtr> projectedChildren(2);
+  projectChildren(
+      projectedChildren, rowVector, identityProjections, size, mapping);
+
+  for (const auto& projection : identityProjections) {
+    auto* result = projectedChildren[projection.outputChannel].get();
+    result->loadedVector();
+    auto* source = rowVector->childAt(projection.inputChannel).get();
+    for (auto i = 0; i < size; ++i) {
+      auto srcIndex = mapping->as<vector_size_t>()[i];
+      if (result->isNullAt(i)) {
+        ASSERT_TRUE(source->isNullAt(srcIndex));
+      } else {
+        ASSERT_TRUE(result->equalValueAt(source, i, srcIndex));
+      }
+    }
+  }
+}
+
 TEST_F(OperatorUtilsTest, reclaimableSectionGuard) {
   RowTypePtr rowType = ROW({"c0"}, {INTEGER()});
 

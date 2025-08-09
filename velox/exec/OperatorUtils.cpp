@@ -505,12 +505,23 @@ void projectChildren(
     const std::vector<IdentityProjection>& projections,
     int32_t size,
     const BufferPtr& mapping) {
+  // Cache for already wrapped children to avoid wrapping the same child
+  // multiple times.
+  std::unordered_map<int32_t, VectorPtr> wrappedChildren;
+
   for (auto [inputChannel, outputChannel] : projections) {
     if (outputChannel >= projectedChildren.size()) {
       projectedChildren.resize(outputChannel + 1);
     }
-    projectedChildren[outputChannel] =
-        wrapChild(size, mapping, src[inputChannel]);
+    auto it = wrappedChildren.find(inputChannel);
+    if (it == wrappedChildren.end()) {
+      auto wrapped = wrapChild(size, mapping, src[inputChannel]);
+      wrappedChildren[inputChannel] = wrapped;
+      projectedChildren[outputChannel] = wrapped;
+    } else {
+      // Reuse wrapped child.
+      projectedChildren[outputChannel] = it->second;
+    }
   }
 }
 

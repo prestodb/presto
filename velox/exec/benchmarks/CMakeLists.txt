@@ -137,3 +137,12 @@ target_link_libraries(
   velox_vector_fuzzer
   velox_vector_test_lib
   Folly::follybenchmark)
+
+add_executable(velox_exec_bm_duplicate_project DuplicateProjectBenchmark.cpp)
+
+target_link_libraries(
+  velox_exec_bm_duplicate_project
+  velox_exec_test_lib
+  velox_hive_connector
+  velox_vector_fuzzer
+  Folly::follybenchmark)
