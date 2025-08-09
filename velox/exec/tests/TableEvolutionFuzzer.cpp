@@ -437,30 +437,37 @@ void TableEvolutionFuzzer::run() {
     oomInjectorWritePath.enable();
   }
 
-  // Step 1: Generate remaining filters and extract new columns
-  auto generatedRemainingFilters =
-      generateRemainingFilters(config_, currentSeed_);
+  // Step 1: Randomly decide whether to generate remaining filters (50% chance)
+  bool shouldGenerateRemainingFilters = folly::Random::oneIn(2, rng_);
 
-  LOG(INFO) << "Generated remaining filters from expression fuzzer: "
-            << generatedRemainingFilters.expressions[0]->toString();
-
-  // Extract all columns from generatedRemainingFilters.inputType
+  fuzzer::ExpressionFuzzer::FuzzedExpressionData generatedRemainingFilters;
   std::vector<std::string> additionalColumnNames;
   std::vector<TypePtr> additionalColumnTypes;
 
-  if (generatedRemainingFilters.inputType) {
-    for (int i = 0; i < generatedRemainingFilters.inputType->size(); ++i) {
-      const auto& columnName = generatedRemainingFilters.inputType->nameOf(i);
-      additionalColumnNames.push_back(columnName);
-      additionalColumnTypes.push_back(
-          generatedRemainingFilters.inputType->childAt(i));
-    }
-  }
+  if (shouldGenerateRemainingFilters) {
+    // Generate remaining filters and extract new columns
+    generatedRemainingFilters = generateRemainingFilters(config_, currentSeed_);
 
-  if (!additionalColumnNames.empty()) {
-    VLOG(1)
-        << "Found " << additionalColumnNames.size()
-        << " columns from generateRemainingFilters, will add to schema evolution";
+    LOG(INFO) << "Generated remaining filters from expression fuzzer: "
+              << generatedRemainingFilters.expressions[0]->toString();
+
+    // Extract all columns from generatedRemainingFilters.inputType
+    if (generatedRemainingFilters.inputType) {
+      for (int i = 0; i < generatedRemainingFilters.inputType->size(); ++i) {
+        const auto& columnName = generatedRemainingFilters.inputType->nameOf(i);
+        additionalColumnNames.push_back(columnName);
+        additionalColumnTypes.push_back(
+            generatedRemainingFilters.inputType->childAt(i));
+      }
+    }
+
+    if (!additionalColumnNames.empty()) {
+      VLOG(1)
+          << "Found " << additionalColumnNames.size()
+          << " columns from generateRemainingFilters, will add to schema evolution";
+    }
+  } else {
+    LOG(INFO) << "Skipping remaining filter generation (50% randomization)";
   }
 
   // Step 2: Test setup and bucketColumnIndices generation with additional
@@ -539,11 +546,14 @@ void TableEvolutionFuzzer::run() {
 
   // Apply generated remaining filters with updated column names, avoiding
   // conflicts
-  applyRemainingFilters(
-      generatedRemainingFilters,
-      columnNameMapping,
-      pushownConfig,
-      subfieldFilteredFields);
+  if (shouldGenerateRemainingFilters) {
+    // Apply generated remaining filters
+    applyRemainingFilters(
+        generatedRemainingFilters,
+        columnNameMapping,
+        pushownConfig,
+        subfieldFilteredFields);
+  }
 
   std::vector<std::shared_ptr<TaskCursor>> scanTasks(2);
   scanTasks[0] =
