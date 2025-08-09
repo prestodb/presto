@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 #include <array>
-#include "velox/common/base/Status.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 

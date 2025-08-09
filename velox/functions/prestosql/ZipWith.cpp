@@ -15,7 +15,6 @@
  */
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/FunctionVector.h"
 

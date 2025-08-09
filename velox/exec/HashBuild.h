@@ -21,8 +21,6 @@
 #include "velox/exec/Spill.h"
 #include "velox/exec/Spiller.h"
 #include "velox/exec/UnorderedStreamReader.h"
-#include "velox/exec/VectorHasher.h"
-#include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
 class HashBuildSpiller;

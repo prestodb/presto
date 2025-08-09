@@ -16,7 +16,6 @@
 #pragma once
 
 #include <boost/regex.hpp>
-#include "velox/functions/lib/Utf8Utils.h"
 #include "velox/type/StringView.h"
 
 namespace facebook::velox::functions {

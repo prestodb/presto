@@ -15,7 +15,6 @@
  */
 
 #include "velox/exec/HashJoinBridge.h"
-#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/exec/HashBuild.h"
 
 namespace facebook::velox::exec {

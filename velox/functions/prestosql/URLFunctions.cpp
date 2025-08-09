@@ -16,7 +16,6 @@
 
 #include "URLFunctions.h"
 #include <optional>
-#include "velox/type/Type.h"
 
 namespace facebook::velox::functions::detail {
 
