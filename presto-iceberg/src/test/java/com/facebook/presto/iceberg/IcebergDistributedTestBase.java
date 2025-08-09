@@ -297,7 +297,7 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
-    public void testRenamePartitionColumn()
+    public void testRenameIdentityPartitionColumn()
     {
         assertQuerySucceeds("create table test_partitioned_table(a int, b varchar) with (partitioning = ARRAY['a'])");
         assertQuerySucceeds("insert into test_partitioned_table values(1, '1001'), (2, '1002')");
@@ -311,6 +311,54 @@ public abstract class IcebergDistributedTestBase
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 1").getOnlyValue(), 2L);
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 2").getOnlyValue(), 2L);
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 3").getOnlyValue(), 1L);
+        assertQuerySucceeds("DROP TABLE test_partitioned_table");
+    }
+
+    @DataProvider(name = "transforms")
+    public String[] transforms()
+    {
+        return new String[] {
+                "a",
+                "bucket(a, 3)",
+                "truncate(b, 2)",
+                "year(c)",
+                "month(c)",
+                "day(c)",
+                "hour(c)",
+                "bucket(b, 4)', 'b', 'day(c)"
+        };
+    }
+
+    @Test(dataProvider = "transforms")
+    public void testRenamePartitionColumn(String transform)
+    {
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_partitioned_table");
+        assertQuerySucceeds(format("create table test_partitioned_table(a int, b varchar, c timestamp) with (partitioning = ARRAY['%s'])", transform));
+        assertQuerySucceeds("insert into test_partitioned_table values(1, '1001', localtimestamp), (2, '1002', localtimestamp)");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where a = 1").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where a = 2").getOnlyValue(), 1L);
+
+        assertQuerySucceeds("alter table test_partitioned_table rename column a to d");
+        assertQuerySucceeds("insert into test_partitioned_table values(1, '5001', localtimestamp), (2, '5002', localtimestamp), (3, '5003', localtimestamp)");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where d = 1").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where d = 2").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where d = 3").getOnlyValue(), 1L);
+        assertQueryFails("select a from test_partitioned_table", "line 1:8: Column 'a' cannot be resolved");
+
+        assertQuerySucceeds("alter table test_partitioned_table rename column d to e");
+        assertQuerySucceeds("insert into test_partitioned_table values (3, '5004', NULL)");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where e = 1").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where e = 2").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where e = 3").getOnlyValue(), 2L);
+
+        assertQuerySucceeds("alter table test_partitioned_table rename column e to a");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where a = 1").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where a = 2").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where a = 3").getOnlyValue(), 2L);
+        assertQuerySucceeds("insert into test_partitioned_table values (3, '5005', localtimestamp)");
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_partitioned_table where a = 3").getOnlyValue(), 3L);
+        assertQueryFails("select d from test_partitioned_table", "line 1:8: Column 'd' cannot be resolved");
+        assertQueryFails("select e from test_partitioned_table", "line 1:8: Column 'e' cannot be resolved");
         assertQuerySucceeds("DROP TABLE test_partitioned_table");
     }
 
