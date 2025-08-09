@@ -4,7 +4,7 @@ July 2025 Update
 
 This update was generated with the assistance of AI. While we strive for accuracy, please note
 that AI-generated content may not always be error-free. We encourage you to verify any information
-that is important to you.
+that you deem important.
 
 Core Library
 ============
