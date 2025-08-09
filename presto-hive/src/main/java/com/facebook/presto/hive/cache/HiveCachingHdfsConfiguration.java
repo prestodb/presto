@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.cache;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
 import com.facebook.presto.cache.CacheManager;
@@ -30,17 +31,22 @@ import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemBase.AUTHENTICATION_PREFIX;
+import static com.google.cloud.hadoop.util.EntriesCredentialConfiguration.JSON_KEYFILE_SUFFIX;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCachingHdfsConfiguration
         implements HdfsConfiguration
 {
+    private static final Logger log = Logger.get(HiveCachingHdfsConfiguration.class);
     private final HdfsConfiguration hiveHdfsConfiguration;
     private final CacheManager cacheManager;
     private final CacheConfig cacheConfig;
@@ -71,6 +77,16 @@ public class HiveCachingHdfsConfiguration
                     currentConfig = hiveHdfsConfiguration.getConfiguration(context, factoryUri);
                 }
                 FileSystem fileSystem = (new Path(factoryUri)).getFileSystem(currentConfig);
+
+                String decryptedJsonKeyFilePath = currentConfig.get(AUTHENTICATION_PREFIX + JSON_KEYFILE_SUFFIX);
+                if (!isNullOrEmpty(decryptedJsonKeyFilePath)) {
+                    File file = new File(decryptedJsonKeyFilePath);
+                    if (file.exists()) {
+                        file.delete();
+                        log.debug("Decrypted JsonKeyFile deleted successfully");
+                    }
+                }
+
                 checkState(fileSystem instanceof ExtendedFileSystem);
                 return cacheFactory.createCachingFileSystem(
                         factoryConfig,
