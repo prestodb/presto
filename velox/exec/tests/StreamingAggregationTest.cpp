@@ -1139,5 +1139,154 @@ TEST_P(StreamingAggregationTest, constantInput) {
   config(AssertQueryBuilder(plan), 10).assertResults(expected);
 }
 
+namespace {
+class InputSourceNode : public core::PlanNode {
+ public:
+  InputSourceNode(
+      const core::PlanNodeId& id,
+      int numInitialInputCalls,
+      int numSkipInputCalls,
+      core::PlanNodePtr source)
+      : PlanNode{id},
+        numInitialInputCalls_(numInitialInputCalls),
+        numSkipInputCalls_(numSkipInputCalls),
+        sources_{std::move(source)} {}
+
+  const RowTypePtr& outputType() const override {
+    return sources_[0]->outputType();
+  }
+
+  const std::vector<core::PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  int numInitialInputCalls() const {
+    return numInitialInputCalls_;
+  }
+
+  int numSkipInputCalls() const {
+    return numSkipInputCalls_;
+  }
+
+  std::string_view name() const override {
+    return "external blocking node";
+  }
+
+ private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
+  const int numInitialInputCalls_;
+  const int numSkipInputCalls_;
+  const std::vector<core::PlanNodePtr> sources_;
+};
+
+class InputSourceOperator : public exec::Operator {
+ public:
+  InputSourceOperator(
+      int32_t operatorId,
+      exec::DriverCtx* driverCtx,
+      std::shared_ptr<const InputSourceNode> node)
+      : Operator(
+            driverCtx,
+            node->outputType(),
+            operatorId,
+            node->id(),
+            "InputSource"),
+        numInitialInputCalls_(node->numInitialInputCalls()),
+        numSkipInputCalls_(node->numSkipInputCalls()) {}
+
+  bool needsInput() const override {
+    if (numInitialInputCalls_-- >= 0) {
+      return true;
+    }
+    if (numSkipInputCalls_-- >= 0) {
+      return false;
+    }
+    return !noMoreInput_;
+  }
+
+  void addInput(RowVectorPtr input) override {
+    input_ = std::move(input);
+  }
+
+  RowVectorPtr getOutput() override {
+    auto output = std::move(input_);
+    input_ = nullptr;
+    return output;
+  }
+
+  exec::BlockingReason isBlocked(ContinueFuture* future) override {
+    return exec::BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return noMoreInput_;
+  }
+
+ private:
+  mutable int numInitialInputCalls_{0};
+  mutable int numSkipInputCalls_{0};
+  RowVectorPtr input_;
+};
+
+class SourceNodeTranslator : public exec::Operator::PlanNodeTranslator {
+  std::unique_ptr<exec::Operator> toOperator(
+      exec::DriverCtx* ctx,
+      int32_t id,
+      const core::PlanNodePtr& node) override {
+    if (auto castedNode =
+            std::dynamic_pointer_cast<const InputSourceNode>(node)) {
+      return std::make_unique<InputSourceOperator>(id, ctx, castedNode);
+    }
+    return nullptr;
+  }
+};
+} // namespace
+
+TEST_P(StreamingAggregationTest, needsInputWhenSplitOutput) {
+  exec::Operator::registerOperator(std::make_unique<SourceNodeTranslator>());
+  const auto size = 32;
+  const auto numBatches{5};
+  std::vector<RowVectorPtr> batches;
+  for (int i = 0; i < numBatches; ++i) {
+    batches.push_back(makeRowVector(
+        {makeFlatVector<int32_t>(
+             size,
+             [i, size](auto row) {
+               return row == 0 ? i * size + row - 1 : i * size + row;
+             }),
+         makeFlatVector<int32_t>(size, [](auto row) { return row; })}));
+  }
+  createDuckDbTable(batches);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId aggregationNodeId;
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(batches)
+                  .streamingAggregation(
+                      {"c0"},
+                      {"array_agg(c1)"},
+                      {},
+                      core::AggregationNode::Step::kSingle,
+                      false)
+                  .addNode([](std::string id, core::PlanNodePtr input) mutable {
+                    return std::make_shared<InputSourceNode>(
+                        id, 2, numBatches - 2, input);
+                  })
+                  .project({"c0", "a0"})
+                  .capturePlanNodeId(aggregationNodeId)
+                  .planNode();
+
+  auto task =
+      AssertQueryBuilder(plan, duckDbQueryRunner_)
+          .serialExecution(true)
+          .config(
+              core::QueryConfig::kStreamingAggregationMinOutputBatchRows, "1")
+          .assertResults("SELECT c0, array_agg(c1) FROM tmp GROUP BY c0");
+  const auto taskStats = task->taskStats();
+  ASSERT_EQ(
+      velox::exec::toPlanStats(taskStats).at(aggregationNodeId).outputVectors,
+      9);
+}
 } // namespace
 } // namespace facebook::velox::exec
