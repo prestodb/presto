@@ -405,11 +405,29 @@ struct TypeFactory;
 class Type;
 using TypePtr = std::shared_ptr<const Type>;
 
+/// A struct which represents the parameters for a BigintEnumType.
+/// Consists of the name of the enum and a map of string keys to bigint values.
+struct LongEnumParameter {
+  std::string name;
+  std::unordered_map<std::string, int64_t> valuesMap;
+};
+
+/// A struct which represents the parameters for a VarcharEnumType.
+/// Consists of the name of the enum and a map of string keys to string values.
+struct VarcharEnumParameter {
+  std::string name;
+  std::unordered_map<std::string, std::string> valuesMap;
+};
+
 enum class TypeParameterKind {
   /// Type. For example, element type in the array, map, or row children type.
   kType,
   /// Integer. For example, precision in a decimal type.
   kLongLiteral,
+  /// LongEnumLiteral. Used for BigintEnum types.
+  kLongEnumLiteral,
+  /// VarcharEnumLiteral. Used for VarcharEnum types.
+  kVarcharEnumLiteral,
 };
 
 struct TypeParameter {
@@ -423,6 +441,14 @@ struct TypeParameter {
   /// or unset.
   const std::optional<int64_t> longLiteral;
 
+  /// Must be set when kind is kLongEnumLiteral. All other properties should
+  /// be null or unset.
+  const std::optional<LongEnumParameter> longEnumLiteral;
+
+  /// Must be set when kind is kVarcharEnumLiteral. All other properties should
+  /// be null or unset.
+  const std::optional<VarcharEnumParameter> varcharEnumLiteral;
+
   /// If this parameter is a child of another parent row type, it can optionally
   /// have a name, e.g, "id" for `row(id bigint)`. Only set when kind is kType
   const std::optional<std::string> rowFieldName;
@@ -434,6 +460,8 @@ struct TypeParameter {
       : kind{TypeParameterKind::kType},
         type{std::move(_type)},
         longLiteral{std::nullopt},
+        longEnumLiteral{std::nullopt},
+        varcharEnumLiteral(std::nullopt),
         rowFieldName(std::move(_rowFieldName)) {}
 
   /// Creates kLongLiteral parameter.
@@ -441,6 +469,26 @@ struct TypeParameter {
       : kind{TypeParameterKind::kLongLiteral},
         type{nullptr},
         longLiteral{_longLiteral},
+        longEnumLiteral{std::nullopt},
+        varcharEnumLiteral(std::nullopt),
+        rowFieldName{std::nullopt} {}
+
+  /// Creates kLongEnumLiteral parameter.
+  explicit TypeParameter(const LongEnumParameter& _longEnumParameter)
+      : kind{TypeParameterKind::kLongEnumLiteral},
+        type{nullptr},
+        longLiteral{std::nullopt},
+        longEnumLiteral{_longEnumParameter},
+        varcharEnumLiteral(std::nullopt),
+        rowFieldName{std::nullopt} {}
+
+  /// Creates kVarcharEnumLiteral parameter.
+  explicit TypeParameter(const VarcharEnumParameter& _varcharEnumParameter)
+      : kind{TypeParameterKind::kVarcharEnumLiteral},
+        type{nullptr},
+        longLiteral{std::nullopt},
+        longEnumLiteral{std::nullopt},
+        varcharEnumLiteral{_varcharEnumParameter},
         rowFieldName{std::nullopt} {}
 };
 

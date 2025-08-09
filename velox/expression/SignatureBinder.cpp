@@ -277,6 +277,9 @@ bool SignatureBinderBase::tryBind(
           return false;
         }
         break;
+      default:
+        // TODO: Add support for kLongEnumLiteral and kVarcharEnumLiteral.
+        break;
     }
   }
   return true;
