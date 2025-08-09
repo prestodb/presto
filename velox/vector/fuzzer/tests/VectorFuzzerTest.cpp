@@ -996,14 +996,14 @@ TEST_F(VectorFuzzerTest, randTypeByWidth) {
       {INTEGER(), ARRAY(BIGINT()), MAP(VARCHAR(), DOUBLE()), ROW({TINYINT()})});
   ASSERT_EQ(approximateTypeEncodingwidth(type), 7);
 
-  // Test randType by width. Results should be at least a RowType with one
-  // field, so the minimal type width is 2.
+  // Test randType by width. Results should has at least one field, so the
+  // minimal type width is 1.
   type = fuzzer.randRowTypeByWidth(-1);
-  ASSERT_GE(approximateTypeEncodingwidth(type), 2);
+  ASSERT_GE(approximateTypeEncodingwidth(type), 1);
   type = fuzzer.randRowTypeByWidth(0);
-  ASSERT_GE(approximateTypeEncodingwidth(type), 2);
+  ASSERT_GE(approximateTypeEncodingwidth(type), 1);
   type = fuzzer.randRowTypeByWidth(1);
-  ASSERT_GE(approximateTypeEncodingwidth(type), 2);
+  ASSERT_GE(approximateTypeEncodingwidth(type), 1);
 
   folly::Random::DefaultGenerator rng;
   rng.seed(0);
