@@ -291,6 +291,12 @@ public class IterativeOptimizer
         return new Rule.Context()
         {
             @Override
+            public Memo getMemo()
+            {
+                return context.memo;
+            }
+
+            @Override
             public Lookup getLookup()
             {
                 return context.lookup;

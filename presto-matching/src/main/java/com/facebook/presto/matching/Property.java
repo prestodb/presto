@@ -52,6 +52,13 @@ public class Property<F, T>
         return function::apply;
     }
 
+    public <R> Property<F, R> map(Function<? super T, ? extends R> mapper)
+    {
+        return optionalProperty(
+                this.name + ".map",
+                f -> this.function.apply(f).map(mapper));
+    }
+
     public <R> PropertyPattern<F, R> matching(Pattern<R> pattern)
     {
         return PropertyPattern.of(this, pattern);
