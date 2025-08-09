@@ -42,7 +42,27 @@ class SplitTest : public SparkFunctionBaseTest {
       result = evaluate("split(c0, c1)", input);
     }
     assertEqualVectors(expectedResult, result);
-  };
+  }
+
+  void testSplitConstantDelim(
+      const std::vector<std::string>& input,
+      const std::string& delim,
+      std::optional<int32_t> limit,
+      size_t numRows,
+      const std::vector<std::vector<std::string>>& expected) {
+    auto strings = makeFlatVector(input);
+    auto expectedResult = makeArrayVector(expected);
+    VectorPtr result;
+    if (limit.has_value()) {
+      auto limits = makeConstant<int32_t>(limit.value(), numRows);
+      auto input = makeRowVector({strings, limits});
+      result = evaluate("split(c0, '" + delim + "', c1)", input);
+    } else {
+      auto input = makeRowVector({strings});
+      result = evaluate("split(c0, '" + delim + "')", input);
+    }
+    assertEqualVectors(expectedResult, result);
+  }
 };
 
 TEST_F(SplitTest, basic) {
@@ -252,6 +272,51 @@ TEST_F(SplitTest, regexDelimiter) {
       {""},
   };
   testSplit(input, "🙂", -1, numRows, expected);
+}
+
+TEST_F(SplitTest, fastPath) {
+  auto input = std::vector<std::string>{
+      {"I$he$she$they"}, // Simple
+      {"one$$$four$"}, // Empty strings
+      {"a$\xED$\xA0$123"}, // Not a well-formed UTF-8 string
+      {""}, // The whole string is empty
+  };
+  auto expected = std::vector<std::vector<std::string>>({
+      {"I", "he", "she", "they"},
+      {"one", "", "", "four", ""},
+      {"a", "\xED", "\xA0", "123"},
+      {""},
+  });
+
+  // Escaped delimiter.
+  testSplit(input, "\\$", std::nullopt, 1, expected);
+  testSplitConstantDelim(input, "\\$", std::nullopt, 1, expected);
+
+  // Octal string delimiter.
+  testSplit(input, "\\044", std::nullopt, 1, expected);
+  testSplitConstantDelim(input, "\\044", std::nullopt, 1, expected);
+
+  input = std::vector<std::string>{
+      {"I<he<she<they"}, // Simple
+      {"one<<<four<"}, // Empty strings
+      {"a<\xED<\xA0<123"}, // Not a well-formed UTF-8 string
+      {""}, // The whole string is empty
+  };
+
+  // Single character delimiter.
+  testSplit(input, "<", std::nullopt, 1, expected);
+  testSplitConstantDelim(input, "<", std::nullopt, 1, expected);
+
+  input = std::vector<std::string>{
+      {"I©he©she©they"}, // Simple
+      {"one©©©four©"}, // Empty strings
+      {"a©\xED©\xA0©123"}, // Not a well-formed UTF-8 string
+      {""}, // The whole string is empty
+  };
+
+  // Octal string delimiter that is outside the range of ASCII characters.
+  testSplit(input, "\\251", std::nullopt, 1, expected);
+  testSplitConstantDelim(input, "\\251", std::nullopt, 1, expected);
 }
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
