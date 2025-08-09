@@ -1,7 +1,7 @@
-### Placeholder TLS Certificates for Arrow Flight Connector Unit Testing
-The `tls_certs` directory contains placeholder TLS certificates generated for unit testing the Arrow Flight Connector with TLS enabled. These certificates are not intended for production use and should only be used in the context of unit tests.
+### Placeholder TLS & mTLS Certificates for Arrow Flight Connector Unit Testing
+The `certs/` directory contains placeholder certificates used for unit and integration testing of the Arrow Flight Connector with **TLS** and **mutual TLS (mTLS)** enabled. These certificates are **not intended for production use** and should only be used for local development or automated testing scenarios.
 
-### Generating TLS Certificates
-To create the TLS certificates and keys inside the `tls_certs` folder, run the following command:
+### Generating Certificates for TLS and mTLS Testing
+To generate the necessary certificates and keys for both TLS and mTLS testing, run the following script:
 
-`./generate_tls_certs.sh`
+`./generate_certs.sh`
