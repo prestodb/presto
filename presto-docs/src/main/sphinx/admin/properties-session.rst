@@ -426,7 +426,7 @@ Run the following command to use ``optimizers_to_enable_verbose_runtime_stats``:
 ``SET SESSION optimizers_to_enable_verbose_runtime_stats=ALL;``
 
 ``pushdown_subfields_for_map_functions``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
