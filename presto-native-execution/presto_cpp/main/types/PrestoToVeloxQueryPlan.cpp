@@ -1281,6 +1281,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       leftKeys,
       rightKeys,
       joinConditionPtrs,
+      false,
       left,
       std::dynamic_pointer_cast<const core::TableScanNode>(right),
       type::concatRowTypes({left->outputType(), right->outputType()}));

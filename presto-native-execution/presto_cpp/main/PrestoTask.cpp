@@ -710,7 +710,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
     for (const auto it : veloxTaskStats.numBlockedDrivers) {
       addRuntimeMetricIfNotZero(
           taskRuntimeStats,
-          fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
+          fmt::format("drivers.{}", exec::BlockingReasonName::toName(it.first)),
           it.second);
     }
     if (veloxTaskStats.longestRunningOpCallMs != 0) {
