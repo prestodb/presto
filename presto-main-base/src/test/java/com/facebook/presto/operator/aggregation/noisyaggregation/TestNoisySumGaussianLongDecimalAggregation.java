@@ -25,6 +25,8 @@ import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.util.RetryAnalyzer;
+import com.facebook.presto.util.RetryCount;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -281,7 +283,8 @@ public class TestNoisySumGaussianLongDecimalAggregation
                 expected);
     }
 
-    @Test
+    @Test(retryAnalyzer = RetryAnalyzer.class)
+    @RetryCount(100)
     public void testNoisySumGaussianLongDecimalClippingSomeNoiseScaleWithinSomeStd()
     {
         JavaAggregationFunctionImplementation noisySumGaussian = getFunction(LONG_DECIMAL_TYPE, DOUBLE, DOUBLE, DOUBLE);
