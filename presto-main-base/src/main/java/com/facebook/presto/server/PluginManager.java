@@ -306,6 +306,12 @@ public class PluginManager
             log.info("Registering client request filter factory");
             clientRequestFilterManager.registerClientRequestFilterFactory(clientRequestFilterFactory);
         }
+
+        for (Class<?> functionClass : plugin.getSqlInvokedFunctions()) {
+            log.info("Registering functions from %s", functionClass.getName());
+            metadata.getFunctionAndTypeManager().registerPluginFunctions(
+                    extractFunctions(functionClass, metadata.getFunctionAndTypeManager().getDefaultNamespace()));
+        }
     }
 
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)

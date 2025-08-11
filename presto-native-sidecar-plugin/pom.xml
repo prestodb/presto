@@ -203,14 +203,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
-            <scope>test</scope>
-            <type>test-jar</type>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main-base</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -234,7 +226,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

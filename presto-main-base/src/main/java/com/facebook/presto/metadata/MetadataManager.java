@@ -243,7 +243,7 @@ public class MetadataManager
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of(), () -> null),
                 blockEncodingManager,
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
