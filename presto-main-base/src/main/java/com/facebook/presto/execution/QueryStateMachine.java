@@ -32,7 +32,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -156,7 +155,7 @@ public class QueryStateMachine
     private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
 
-    private final AtomicReference<UpdateInfo> updateInfo = new AtomicReference<>();
+    private final AtomicReference<String> updateType = new AtomicReference<>();
 
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
@@ -493,7 +492,7 @@ public class QueryStateMachine
                 deallocatedPreparedStatements,
                 Optional.ofNullable(startedTransactionId.get()),
                 clearTransactionId.get(),
-                updateInfo.get(),
+                updateType.get(),
                 rootStage,
                 failureCause,
                 errorCode,
@@ -764,9 +763,9 @@ public class QueryStateMachine
         clearTransactionId.set(true);
     }
 
-    public void setUpdateInfo(UpdateInfo updateInfo)
+    public void setUpdateType(String updateType)
     {
-        this.updateInfo.set(updateInfo);
+        this.updateType.set(updateType);
     }
 
     public void setExpandedQuery(Optional<String> expandedQuery)
@@ -1133,7 +1132,7 @@ public class QueryStateMachine
                 queryInfo.getDeallocatedPreparedStatements(),
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
-                queryInfo.getUpdateInfo(),
+                queryInfo.getUpdateType(),
                 queryInfo.getOutputStage().map(QueryStateMachine::pruneStatsFromStageInfo),
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
@@ -1251,7 +1250,7 @@ public class QueryStateMachine
                 queryInfo.getDeallocatedPreparedStatements(),
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
-                queryInfo.getUpdateInfo(),
+                queryInfo.getUpdateType(),
                 prunedOutputStage,
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),

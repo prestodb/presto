@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.tree.Expression;
@@ -117,7 +116,7 @@ public class SessionDefinitionExecution<T extends Statement>
             SessionTransactionControlTask<T> task = (SessionTransactionControlTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            stateMachine.setUpdateInfo(new UpdateInfo(task.getName(), ""));
+            stateMachine.setUpdateType(task.getName());
             return new SessionDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, query);
         }
     }
