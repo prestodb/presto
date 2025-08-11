@@ -159,7 +159,7 @@ SparkQueryRunner::executeAndReturnVector(const core::PlanNodePtr& plan) {
       // Run the query.
       return std::make_pair(
           execute(*sql), exec::test::ReferenceQueryErrorCode::kSuccess);
-    } catch (const VeloxRuntimeError& e) {
+    } catch (const VeloxRuntimeError&) {
       throw;
     } catch (...) {
       LOG(WARNING) << "Query failed in Spark";

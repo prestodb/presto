@@ -65,7 +65,7 @@ TEST_F(MemoryManagerTest, ctor) {
     ASSERT_NE(sysPool->reclaimer(), nullptr);
     try {
       VELOX_FAIL("Trigger Error");
-    } catch (const velox::VeloxRuntimeError& e) {
+    } catch (const velox::VeloxRuntimeError&) {
       VELOX_ASSERT_THROW(
           sysPool->reclaimer()->abort(
               &manager.deprecatedSysRootPool(), std::current_exception()),

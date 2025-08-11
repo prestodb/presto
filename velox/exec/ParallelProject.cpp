@@ -183,7 +183,7 @@ std::unique_ptr<ParallelProject::WorkResult> ParallelProject::doWork(
       results[projection.outputChannel] =
           std::move(localResults[projection.inputChannel]);
     }
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     return std::make_unique<WorkResult>(std::current_exception());
   }
   return std::make_unique<WorkResult>(nullptr);

@@ -39,7 +39,7 @@ TEST_F(QueryCtxTest, withSysRootPool) {
   ASSERT_NE(queryPool->reclaimer(), nullptr);
   try {
     VELOX_FAIL("Trigger Error");
-  } catch (const velox::VeloxRuntimeError& e) {
+  } catch (const velox::VeloxRuntimeError&) {
     VELOX_ASSERT_THROW(
         queryPool->reclaimer()->abort(queryPool, std::current_exception()),
         "SysMemoryReclaimer::abort is not supported");
