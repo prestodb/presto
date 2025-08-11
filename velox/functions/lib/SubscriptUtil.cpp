@@ -255,7 +255,9 @@ VectorPtr applyMapComplexType(
       auto numKeys = rawSizes[0];
       hashMapPtr->reserve(numKeys * 1.3);
       for (auto i = 0; i < numKeys; ++i) {
-        hashMapPtr->insert(detail::MapKey{mapKeysBase, mapKeysIndices[i], i});
+        const vector_size_t offset = rawOffsets[0] + i;
+        hashMapPtr->insert(
+            detail::MapKey{mapKeysBase, mapKeysIndices[offset], offset});
       }
     }
 

@@ -1176,6 +1176,46 @@ TEST_F(ElementAtTest, testCachingOptimization) {
   }
 }
 
+TEST_F(ElementAtTest, testCachingOptimizationNonZeroOffset) {
+  // Test the case where the input map has a non-zero offset when caching is
+  // enabled.
+
+  // Make a dummy eval context.
+  exec::ExprSet exprSet({}, &execCtx_);
+  auto inputs = makeRowVector({});
+  exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputs.get());
+
+  SelectivityVector rows(1);
+  auto key = makeArrayVectorFromJson<int64_t>({"[1]", "[2]"});
+  auto value = makeFlatVector<int64_t>({10, 20});
+  // The map's offset is 1 (non-zero).
+  auto map = makeMapVector({1}, key, value);
+  auto search = makeArrayVectorFromJson<int64_t>({"[2]"});
+
+  std::vector<VectorPtr> args = {map, search};
+
+  facebook::velox::functions::detail::MapSubscript mapSubscriptWithCaching(
+      true);
+
+  auto checkStatus = [&](bool cachingEnabled,
+                         bool materializedMapIsNull,
+                         const VectorPtr& firtSeen) {
+    EXPECT_EQ(cachingEnabled, mapSubscriptWithCaching.cachingEnabled());
+    EXPECT_EQ(firtSeen, mapSubscriptWithCaching.firstSeenMap());
+    EXPECT_EQ(
+        materializedMapIsNull,
+        nullptr == mapSubscriptWithCaching.lookupTable());
+  };
+
+  // Initial state.
+  checkStatus(true, true, nullptr);
+
+  mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  auto result = mapSubscriptWithCaching.applyMap(rows, args, evalCtx);
+  test::assertEqualVectors(
+      makeFlatVector<int64_t>(1, [](auto) { return 20; }), result);
+}
+
 TEST_F(ElementAtTest, floatingPointCornerCases) {
   // Verify that different code paths (keys of simple types, complex types and
   // optimized caching) correctly identify NaNs and treat all NaNs with
