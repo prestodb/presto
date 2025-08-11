@@ -46,6 +46,21 @@
                 <artifactId>discovery</artifactId>
                 <version>0.216</version>
             </dependency>
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-codec</artifactId>
+                <version>1.46</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-client</artifactId>
+                <version>1.46</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-transport-spi</artifactId>
+                <version>1.46</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -61,6 +76,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift.drift</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -103,14 +124,21 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift.drift</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
+
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
         <dependency>
@@ -329,6 +357,10 @@
                 <exclusion>
                     <groupId>org.roaringbitmap</groupId>
                     <artifactId>RoaringBitmap</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.airlift.drift</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

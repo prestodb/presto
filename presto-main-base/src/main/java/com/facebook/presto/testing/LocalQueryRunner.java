@@ -14,8 +14,8 @@
 package com.facebook.presto.testing;
 
 import com.facebook.airlift.node.NodeInfo;
-import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.airlift.units.Duration;
+import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
