@@ -35,7 +35,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCode;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.base.Stopwatch;
@@ -526,7 +525,7 @@ public class TestQueryManager
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
-                new UpdateInfo("UPDATE TYPE", ""),
+                "33",
                 Optional.empty(),
                 null,
                 EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode(),

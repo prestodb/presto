@@ -594,17 +594,4 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return super.visitLateral(node, context);
     }
-
-    @Override
-    protected R visitRevokeRoles(RevokeRoles node, C context)
-    {
-        node.getRoles().forEach(property -> process(property, context));
-        return null;
-    }
-
-    @Override
-    protected R visitCreateType(CreateType node, C context)
-    {
-        return null;
-    }
 }
