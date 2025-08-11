@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -115,12 +114,6 @@ public class Query
         orderBy.ifPresent(nodes::add);
         offset.ifPresent(nodes::add);
         return nodes.build();
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("QUERY", "");
     }
 
     @Override

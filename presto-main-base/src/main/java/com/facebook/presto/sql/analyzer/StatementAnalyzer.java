@@ -78,11 +78,9 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
-import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
-import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -93,7 +91,6 @@ import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
-import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -109,7 +106,6 @@ import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Grant;
-import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -146,7 +142,6 @@ import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
-import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
@@ -155,7 +150,6 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SetProperties;
-import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -418,7 +412,7 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = process(insert.getQuery(), scope);
 
-            analysis.setUpdateInfo(insert.getUpdateInfo());
+            analysis.setUpdateType("INSERT");
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, metadataHandle, targetTable);
             // verify the insert destination columns match the query
@@ -618,7 +612,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateInfo(node.getUpdateInfo());
+            analysis.setUpdateType("DELETE");
 
             analysis.addAccessControlCheckForTable(TABLE_DELETE, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableName));
 
@@ -638,8 +632,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
+            analysis.setUpdateType("ANALYZE");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
-            analysis.setUpdateInfo(node.getUpdateInfo());
             MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
             // verify the target table exists, and it's not a view
@@ -673,7 +667,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
+            analysis.setUpdateType("CREATE TABLE");
 
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), metadata);
@@ -720,8 +714,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
+            analysis.setUpdateType("CREATE VIEW");
+
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
-            analysis.setUpdateInfo(node.getUpdateInfo());
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
@@ -739,8 +734,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
+
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
-            analysis.setUpdateInfo(node.getUpdateInfo());
             analysis.setCreateTableDestination(viewName);
 
             if (metadataResolver.tableExists(viewName)) {
@@ -770,8 +766,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView node, Optional<Scope> scope)
         {
+            analysis.setUpdateType("INSERT");
+
             QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName(), metadata);
-            analysis.setUpdateInfo(node.getUpdateInfo());
 
             MaterializedViewDefinition view = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
@@ -867,7 +864,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateFunction(CreateFunction node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
+            analysis.setUpdateType("CREATE FUNCTION");
 
             // Check function name
             checkFunctionName(node, node.getFunctionName(), node.isTemporary());
@@ -944,14 +941,12 @@ class StatementAnalyzer
         @Override
         protected Scope visitAddColumn(AddColumn node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
@@ -959,64 +954,19 @@ class StatementAnalyzer
         @Override
         protected Scope visitDropSchema(DropSchema node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameSchema(RenameSchema node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             validateProperties(node.getProperties(), scope);
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitCreateRole(CreateRole node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitDropRole(DropRole node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitSetRole(SetRole node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitGrantRoles(GrantRoles node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitRevokeRoles(RevokeRoles node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitCreateType(CreateType node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
@@ -1032,84 +982,72 @@ class StatementAnalyzer
         @Override
         protected Scope visitTruncateTable(TruncateTable node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropTable(DropTable node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameTable(RenameTable node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitSetProperties(SetProperties node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameColumn(RenameColumn node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropColumn(DropColumn node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropConstraint(DropConstraint node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitAddConstraint(AddConstraint node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitAlterColumnNotNull(AlterColumnNotNull node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameView(RenameView node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropView(DropView node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropMaterializedView(DropMaterializedView node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
@@ -1152,21 +1090,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitGrant(Grant node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRevoke(Revoke node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitCall(Call node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
@@ -1257,7 +1192,7 @@ class StatementAnalyzer
                     .map(ExplainType::getType)
                     .orElse(DISTRIBUTED).equals(DISTRIBUTED), "only DISTRIBUTED type is supported in EXPLAIN ANALYZE");
             process(node.getStatement(), scope);
-            analysis.setUpdateInfo(null);
+            analysis.setUpdateType(null);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "Query Plan", VARCHAR));
         }
 
@@ -2191,7 +2126,7 @@ class StatementAnalyzer
             List<ColumnMetadata> updatedColumns = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdateInfo(update.getUpdateInfo());
+            analysis.setUpdateType("UPDATE");
             analysis.setUpdatedColumns(updatedColumns);
 
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks

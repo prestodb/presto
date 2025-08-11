@@ -441,7 +441,7 @@ class Query
                         .build(),
                 null,
                 ImmutableList.of(),
-                queryResults.getUpdateInfo(),
+                queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
     }
 
@@ -526,7 +526,7 @@ class Query
 
         // TODO: figure out a better way to do this
         // grab the update count for non-queries
-        if ((data != null) && (queryInfo.getUpdateInfo() != null) && (updateCount == null) &&
+        if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
                 (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
             Iterator<List<Object>> iterator = data.iterator();
             if (iterator.hasNext()) {
@@ -597,7 +597,7 @@ class Query
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
                 queryInfo.getWarnings(),
-                queryInfo.getUpdateInfo(),
+                queryInfo.getUpdateType(),
                 updateCount);
 
         // cache the new result
