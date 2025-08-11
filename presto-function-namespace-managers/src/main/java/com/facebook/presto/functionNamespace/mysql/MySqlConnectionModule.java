@@ -36,9 +36,11 @@ public class MySqlConnectionModule
     {
         configBinder(binder).bindConfig(MySqlConnectionConfig.class);
 
-        String databaseUrl = buildConfigObject(MySqlConnectionConfig.class).getDatabaseUrl();
+        MySqlConnectionConfig mySqlConnectionConfig = buildConfigObject(MySqlConnectionConfig.class);
+        String databaseUrl = mySqlConnectionConfig.getDatabaseUrl();
+        String jdbcDriverName = mySqlConnectionConfig.getJdbcDriverName();
         try {
-            Class.forName("com.mysql.jdbc.Driver");
+            Class.forName(jdbcDriverName);
         }
         catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
