@@ -19,7 +19,6 @@
 #include <memory>
 #include <unordered_map>
 
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryCtx.h"
 
@@ -142,10 +141,6 @@ class QueryContextManager {
   /// Test method to clear the query context cache.
   void testingClearCache();
 
-  const SessionProperties& getSessionProperties() const {
-    return sessionProperties_;
-  }
-
  private:
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
@@ -162,7 +157,6 @@ class QueryContextManager {
   folly::Executor* const spillerExecutor_{nullptr};
 
   folly::Synchronized<QueryContextCache> queryContextCache_;
-  SessionProperties sessionProperties_;
 };
 
 } // namespace facebook::presto

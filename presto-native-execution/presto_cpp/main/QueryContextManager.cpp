@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/QueryContextManager.h"
+#include "presto_cpp/main/SessionProperties.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/connectors/hive/HiveConfig.h"
@@ -126,8 +127,7 @@ QueryContextManager::QueryContextManager(
     folly::Executor* driverExecutor,
     folly::Executor* spillerExecutor)
     : driverExecutor_(driverExecutor),
-      spillerExecutor_(spillerExecutor),
-      sessionProperties_(SessionProperties()) {}
+      spillerExecutor_(spillerExecutor) {}
 
 std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
@@ -250,7 +250,7 @@ QueryContextManager::toVeloxConfigs(
       configs[core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
     } else {
-      configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
+      configs[SessionProperties::instance()->toVeloxConfig(it.first)] = it.second;
     }
   }
 
