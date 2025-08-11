@@ -156,6 +156,8 @@ int main(int argc, char** argv) {
       "noisy_approx_set_sfm_from_index_and_zeros",
       // https://github.com/facebookincubator/velox/issues/13547
       "merge",
+      // https://github.com/facebookincubator/velox/issues/14423
+      "numeric_histogram",
   };
 
   static const std::unordered_set<std::string> functionsRequireSortedInput = {
