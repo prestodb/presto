@@ -220,7 +220,7 @@ public class SqlQueryExecution
                         .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> queryAnalyzer.analyze(analyzerContext, preparedQuery));
             }
 
-            stateMachine.setUpdateInfo(queryAnalysis.getUpdateInfo());
+            stateMachine.setUpdateType(queryAnalysis.getUpdateType());
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();

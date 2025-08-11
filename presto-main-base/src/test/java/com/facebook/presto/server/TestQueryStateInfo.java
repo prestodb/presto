@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCode;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
@@ -291,7 +290,7 @@ public class TestQueryStateInfo
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
-                new UpdateInfo("UPDATE TYPE", ""),
+                "33",
                 Optional.empty(),
                 null,
                 EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode(),

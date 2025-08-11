@@ -59,7 +59,6 @@ public class QueryCompletedEvent
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
     private final Map<PlanCanonicalizationStrategy, String> hboPlanHash;
     private final Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap;
-    private final Optional<String> qualifiedName;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -88,8 +87,7 @@ public class QueryCompletedEvent
             Set<String> windowFunctions,
             Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
             Map<PlanCanonicalizationStrategy, String> hboPlanHash,
-            Optional<Map<PlanNodeId, PlanNode>> planNodeIdMap,
-            Optional<String> qualifiedName)
+            Optional<Map<PlanNodeId, PlanNode>> planNodeIdMap)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -118,7 +116,6 @@ public class QueryCompletedEvent
         this.prestoSparkExecutionContext = requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
         this.hboPlanHash = requireNonNull(hboPlanHash, "planHash is null");
         this.planIdNodeMap = requireNonNull(planNodeIdMap, "planNodeIdMap is null");
-        this.qualifiedName = qualifiedName;
     }
 
     public QueryMetadata getMetadata()
@@ -254,10 +251,5 @@ public class QueryCompletedEvent
     public Optional<Map<PlanNodeId, PlanNode>> getPlanNodeIdMap()
     {
         return planIdNodeMap;
-    }
-
-    public Optional<String> getQualifiedName()
-    {
-        return qualifiedName;
     }
 }
