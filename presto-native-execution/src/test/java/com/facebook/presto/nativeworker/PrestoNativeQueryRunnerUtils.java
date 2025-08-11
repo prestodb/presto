@@ -219,7 +219,6 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
-
         public HiveQueryRunnerBuilder setWorkerSidecarEnabled(boolean workerSidecarEnabled)
         {
             this.workerSidecarEnabled = workerSidecarEnabled;
@@ -358,7 +357,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false,false, false);
+                        false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)

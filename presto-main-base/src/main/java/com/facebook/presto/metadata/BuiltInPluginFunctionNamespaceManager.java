@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.BuiltInType;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Parameter;
@@ -78,7 +79,7 @@ public class BuiltInPluginFunctionNamespaceManager
     @Override
     public FunctionHandle getFunctionHandle(Signature signature)
     {
-        return new BuiltInFunctionHandle(signature, false, true);
+        return new BuiltInFunctionHandle(signature, BuiltInType.PLUGIN);
     }
 
     @Override

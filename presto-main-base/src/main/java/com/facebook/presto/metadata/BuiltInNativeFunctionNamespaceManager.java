@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.BuiltInType;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.Parameter;
@@ -70,7 +71,7 @@ public class BuiltInNativeFunctionNamespaceManager
     @Override
     public FunctionHandle getFunctionHandle(Signature signature)
     {
-        return new BuiltInFunctionHandle(signature, true, false);
+        return new BuiltInFunctionHandle(signature, BuiltInType.NATIVE);
     }
 
     @Override

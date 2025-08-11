@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.function.BuiltInType;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -30,19 +31,16 @@ public class BuiltInFunctionHandle
         implements FunctionHandle
 {
     private final Signature signature;
-    private final boolean isBuiltInNativeFunction;
-    private final boolean isBuiltInPluginFunction;
+    private final BuiltInType builtInType;
 
     @JsonCreator
     public BuiltInFunctionHandle(
             @JsonProperty("signature") Signature signature,
-            @JsonProperty("isBuiltInNativeFunction") boolean isBuiltInNativeFunction,
-            @JsonProperty("isBuiltInPluginFunction") boolean isBuiltInPluginFunction)
+            @JsonProperty("builtInType") BuiltInType builtInType)
     {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
-        this.isBuiltInNativeFunction = isBuiltInNativeFunction;
-        this.isBuiltInPluginFunction = isBuiltInPluginFunction;
+        this.builtInType = builtInType;
     }
 
     @JsonProperty
@@ -71,16 +69,9 @@ public class BuiltInFunctionHandle
 
     @JsonProperty
     @Override
-    public boolean isBuiltInNativeFunction()
+    public BuiltInType getBuiltInType()
     {
-        return isBuiltInNativeFunction;
-    }
-
-    @JsonProperty
-    @Override
-    public boolean isBuiltInPluginFunction()
-    {
-        return isBuiltInPluginFunction;
+        return builtInType;
     }
 
     @Override
@@ -100,13 +91,13 @@ public class BuiltInFunctionHandle
         }
         BuiltInFunctionHandle that = (BuiltInFunctionHandle) o;
         return Objects.equals(signature, that.signature)
-                && Objects.equals(isBuiltInNativeFunction, that.isBuiltInNativeFunction);
+                && Objects.equals(builtInType, that.builtInType);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, isBuiltInNativeFunction);
+        return Objects.hash(signature, builtInType);
     }
 
     @Override

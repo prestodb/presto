@@ -37,6 +37,16 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
@@ -230,6 +240,11 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
         </dependency>
 
         <dependency>

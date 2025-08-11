@@ -13,28 +13,26 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
 
-import java.util.List;
-
-/**
- * FunctionHandle is a unique handle to identify the function implementation from namespaces.
- * However, currently it is still under changes, so please don't assume it is backward compatible.
- */
-public interface FunctionHandle
+@ThriftEnum
+public enum BuiltInType
 {
-    CatalogSchemaName getCatalogSchemaName();
+    NONE(0),
+    PLUGIN(1),
+    NATIVE(2);
 
-    String getName();
+    private final int value;
 
-    FunctionKind getKind();
-
-    List<TypeSignature> getArgumentTypes();
-
-    // todo: fix this hack
-    default BuiltInType getBuiltInType()
+    BuiltInType(int value)
     {
-        return BuiltInType.NONE;
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
     }
 }

@@ -225,6 +225,7 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.BuiltInType;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -1129,7 +1130,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     @Override
     public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
-        return new BuiltInFunctionHandle(signature, false, false);
+        return new BuiltInFunctionHandle(signature, BuiltInType.NONE);
     }
 
     @Override

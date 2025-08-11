@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
+import com.facebook.presto.spi.function.BuiltInType;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -83,7 +84,7 @@ public class TestFunctionAndTypeManager
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         FunctionHandle exactOperator = functionAndTypeManager.lookupCast(CastType.CAST, HYPER_LOG_LOG, HYPER_LOG_LOG);
-        assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature()), false, false));
+        assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature()), BuiltInType.NONE));
     }
 
     @Test
@@ -444,7 +445,7 @@ public class TestFunctionAndTypeManager
 
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
-            FunctionHandle expectedFunction = new BuiltInFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build(), false, false);
+            FunctionHandle expectedFunction = new BuiltInFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build(), BuiltInType.NONE);
             FunctionHandle actualFunction = resolveFunctionHandle();
             assertEquals(expectedFunction, actualFunction);
             return this;

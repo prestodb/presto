@@ -39,6 +39,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.BuiltInType;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -360,11 +361,11 @@ public class FunctionAndTypeManager
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {
             return ((SessionFunctionHandle) functionHandle).getFunctionMetadata();
         }
-        if (functionHandle.isBuiltInNativeFunction()) {
-            return builtInNativeFunctionNamespaceManager.getFunctionMetadata(functionHandle);
-        }
-        if (functionHandle.isBuiltInPluginFunction()) {
+        if (functionHandle.getBuiltInType().equals(BuiltInType.PLUGIN)) {
             return builtInPluginFunctionNamespaceManager.getFunctionMetadata(functionHandle);
+        }
+        if (functionHandle.getBuiltInType().equals(BuiltInType.NATIVE)) {
+            return builtInNativeFunctionNamespaceManager.getFunctionMetadata(functionHandle);
         }
 
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
@@ -640,12 +641,13 @@ public class FunctionAndTypeManager
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {
             return ((SessionFunctionHandle) functionHandle).getScalarFunctionImplementation();
         }
-        if (functionHandle.isBuiltInNativeFunction()) {
-            return builtInNativeFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
-        }
-        if (functionHandle.isBuiltInPluginFunction()) {
+        if (functionHandle.getBuiltInType().equals(BuiltInType.PLUGIN)) {
             return builtInPluginFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
         }
+        if (functionHandle.getBuiltInType().equals(BuiltInType.NATIVE)) {
+            return builtInNativeFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        }
+
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
@@ -844,7 +846,7 @@ public class FunctionAndTypeManager
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
 
-            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type), false, false);
+            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type), BuiltInType.NONE);
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(
