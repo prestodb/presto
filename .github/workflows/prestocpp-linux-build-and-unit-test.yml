@@ -99,6 +99,31 @@ jobs:
             -DMAX_LINK_JOBS=4
           ninja -C _build/release -j 4
 
+      - name: Build dynamic libraries
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          source /opt/rh/gcc-toolset-12/enable
+          cd presto-native-tests
+          cmake \
+            -B _build/debug \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_EXAMPLES=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_SPATIAL=ON \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DThrift_ROOT=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=4
+          ninja -C _build/debug -j 4
+
       - name: Ccache after
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -131,6 +156,15 @@ jobs:
             presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
             presto-native-execution/_build/release/presto_cpp/main/dynamic_registry/examples/
 
+      - name: Upload test artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-test-build
+          path: |
+            presto-native-tests/_build/debug/presto_cpp/tests/custom_functions
+
   prestocpp-linux-presto-e2e-tests:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
@@ -159,6 +193,14 @@ jobs:
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
+
+      - name: Download test artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-test-build
+          path: presto-native-tests/_build/debug/presto_cpp/tests/custom_functions
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path

@@ -38,6 +38,21 @@ public class TestCustomFunctions
     @BeforeSuite
     public void buildNativeLibrary() throws IOException, InterruptedException
     {
+        // During the pipeline build, shared libraries are compiled and their artifacts are expected to be present.
+        // This check attempts to locate the custom functions plugin directory, and if it exists, we assume
+        // the shared libraries are already built and available, so no further action is needed.
+        // Any exceptions during this check are intentionally ignored, as failure to find the directory
+        // simply means the build step hasn't completed yet.
+        try {
+            Path pluginDir = NativeTestsUtils.getCustomFunctionsPluginDirectory();
+            if (Files.exists(pluginDir)) {
+                return;
+            }
+        }
+        catch (Exception e) {
+            // Ignored intentionally: absence or access issues mean build artifacts aren't ready yet.
+        }
+
         Path prestoRoot = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         while (prestoRoot != null && !Files.exists(prestoRoot.resolve("presto-native-tests"))) {
             prestoRoot = prestoRoot.getParent();
