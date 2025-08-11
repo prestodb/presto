@@ -70,6 +70,41 @@ void from_json(const json& j, ClpColumnHandle& p) {
 }
 } // namespace facebook::presto::protocol::clp
 namespace facebook::presto::protocol::clp {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<SplitType, json> SplitType_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {SplitType::ARCHIVE, "ARCHIVE"},
+        {SplitType::IR, "IR"}};
+void to_json(json& j, const SplitType& e) {
+  static_assert(std::is_enum<SplitType>::value, "SplitType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SplitType_enum_table),
+      std::end(SplitType_enum_table),
+      [e](const std::pair<SplitType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(SplitType_enum_table))
+           ? it
+           : std::begin(SplitType_enum_table))
+          ->second;
+}
+void from_json(const json& j, SplitType& e) {
+  static_assert(std::is_enum<SplitType>::value, "SplitType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SplitType_enum_table),
+      std::end(SplitType_enum_table),
+      [&j](const std::pair<SplitType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(SplitType_enum_table))
+           ? it
+           : std::begin(SplitType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol::clp
+namespace facebook::presto::protocol::clp {
 ClpSplit::ClpSplit() noexcept {
   _type = "clp";
 }
@@ -78,12 +113,14 @@ void to_json(json& j, const ClpSplit& p) {
   j = json::object();
   j["@type"] = "clp";
   to_json_key(j, "path", p.path, "ClpSplit", "String", "path");
+  to_json_key(j, "type", p.type, "ClpSplit", "SplitType", "type");
   to_json_key(j, "kqlQuery", p.kqlQuery, "ClpSplit", "String", "kqlQuery");
 }
 
 void from_json(const json& j, ClpSplit& p) {
   p._type = j["@type"];
   from_json_key(j, "path", p.path, "ClpSplit", "String", "path");
+  from_json_key(j, "type", p.type, "ClpSplit", "SplitType", "type");
   from_json_key(j, "kqlQuery", p.kqlQuery, "ClpSplit", "String", "kqlQuery");
 }
 } // namespace facebook::presto::protocol::clp

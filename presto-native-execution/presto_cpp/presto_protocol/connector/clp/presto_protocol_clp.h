@@ -49,8 +49,14 @@ void to_json(json& j, const ClpColumnHandle& p);
 void from_json(const json& j, ClpColumnHandle& p);
 } // namespace facebook::presto::protocol::clp
 namespace facebook::presto::protocol::clp {
+enum class SplitType { ARCHIVE, IR };
+extern void to_json(json& j, const SplitType& e);
+extern void from_json(const json& j, SplitType& e);
+} // namespace facebook::presto::protocol::clp
+namespace facebook::presto::protocol::clp {
 struct ClpSplit : public ConnectorSplit {
   String path = {};
+  SplitType type = {};
   std::shared_ptr<String> kqlQuery = {};
 
   ClpSplit() noexcept;
