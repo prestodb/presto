@@ -13,9 +13,6 @@
  */
 // @flow
 
-// eslint-disable-next-line prettier/prettier
-declare const $: any;
-
 import React from "react";
 import { clsx } from "clsx";
 
@@ -128,7 +125,9 @@ export default function PlanView({
     });
     const svg = widgets.current.svg;
     // reset SVG to compose a new graph
+    // $FlowFixMe
     svg.selectAll("*").remove();
+    // $FlowFixMe
     svg.append("g");
     const inner = d3.select("#plan-canvas g");
     const render = new dagreD3.render();
@@ -160,14 +159,18 @@ export default function PlanView({
         inner.attr("transform", event.transform);
       });
 
+    // $FlowFixMe
     svg.call(zoom);
+    // $FlowFixMe
     svg.call(
       zoom.transform,
       d3.zoomIdentity
         .translate((width - graph.graph().width * initialScale) / 2, 20)
         .scale(initialScale),
     );
+    // $FlowFixMe
     svg.attr("height", height);
+    // $FlowFixMe
     svg.attr("width", width);
   };
 
@@ -176,6 +179,7 @@ export default function PlanView({
       widgets.current.svg = d3.select("#plan-canvas");
     }
     updateD3Graph();
+    // $FlowFixMe
     $('[data-bs-toggle="tooltip"]')?.tooltip?.();
   }, [data, show]);
 
@@ -186,9 +190,12 @@ export default function PlanView({
           <div id="plan-viewer" className="graph-container">
             {data && (
               <div className="pull-right">
-                {data.finalQueryInfo
-                  ? "Scroll to zoom."
-                  : "Zoom disabled while query is running."}{" "}
+                {
+                  // $FlowFixMe
+                  data.finalQueryInfo
+                    ? "Scroll to zoom."
+                    : "Zoom disabled while query is running."
+                }{" "}
                 Click stage to view additional statistics
               </div>
             )}
