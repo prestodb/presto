@@ -1040,6 +1040,13 @@ public class DistributedQueryRunner
         }
     }
 
+    public void registerNativeFunctions()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.registerNativeFunctions();
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {

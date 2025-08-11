@@ -51,6 +51,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -147,6 +148,7 @@ public class TestingPrestoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
     private final CatalogManager catalogManager;
@@ -367,6 +369,8 @@ public class TestingPrestoServer
 
         connectorManager = injector.getInstance(ConnectorManager.class);
 
+        functionAndTypeManager = injector.getInstance(FunctionAndTypeManager.class);
+
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -499,6 +503,11 @@ public class TestingPrestoServer
         // Add these last so explicitly specified properties override the defaults
         serverProperties.putAll(properties);
         return ImmutableMap.copyOf(serverProperties);
+    }
+
+    public void registerNativeFunctions()
+    {
+        functionAndTypeManager.registerNativeFunctions();
     }
 
     @Override
