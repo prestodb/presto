@@ -24,7 +24,6 @@ import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessControl;
@@ -101,7 +100,7 @@ public class Analysis
     @Nullable
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
-    private UpdateInfo updateInfo;
+    private String updateType;
 
     private final Map<NodeRef<Table>, NamedQuery> namedQueries = new LinkedHashMap<>();
 
@@ -213,14 +212,14 @@ public class Analysis
         return root;
     }
 
-    public UpdateInfo getUpdateInfo()
+    public String getUpdateType()
     {
-        return updateInfo;
+        return updateType;
     }
 
-    public void setUpdateInfo(UpdateInfo updateInfo)
+    public void setUpdateType(String updateType)
     {
-        this.updateInfo = updateInfo;
+        this.updateType = updateType;
     }
 
     public boolean isCreateTableAsSelectWithData()
