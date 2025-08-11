@@ -648,8 +648,7 @@ core::TypedExprPtr ExpressionFuzzer::generateArgFunction(const TypePtr& arg) {
 
   std::vector<std::string> eligible;
   for (const auto& functionName : baseList) {
-    if (auto* signature =
-            findConcreteSignature(args, returnType, functionName)) {
+    if (findConcreteSignature(args, returnType, functionName)) {
       eligible.push_back(functionName);
     } else if (
         auto* signatureTemplate =
@@ -659,8 +658,7 @@ core::TypedExprPtr ExpressionFuzzer::generateArgFunction(const TypePtr& arg) {
   }
 
   for (const auto& functionName : templateList) {
-    if (auto* signatureTemplate =
-            findSignatureTemplate(args, returnType, baseType, functionName)) {
+    if (findSignatureTemplate(args, returnType, baseType, functionName)) {
       eligible.push_back(functionName);
     }
   }

@@ -214,7 +214,7 @@ class TableScanTest : public virtual HiveConnectorTestBase,
     for (auto i = begin; i < end; ++i) {
       auto child = row->childAt(i);
       int32_t counter = 0;
-      if (auto ints = child->as<FlatVector<int64_t>>()) {
+      if (child->as<FlatVector<int64_t>>()) {
         makeNumbers(child, mod, counter);
       }
       if (notNull) {
