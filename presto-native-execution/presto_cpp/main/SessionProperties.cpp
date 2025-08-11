@@ -34,6 +34,12 @@ json SessionProperty::serialize() {
   return j;
 }
 
+SessionProperties* SessionProperties::instance() {
+  static std::unique_ptr<SessionProperties> instance =
+      std::make_unique<SessionProperties>();
+  return instance.get();
+}
+
 void SessionProperties::addSessionProperty(
     const std::string& name,
     const std::string& description,

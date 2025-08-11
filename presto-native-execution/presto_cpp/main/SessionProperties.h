@@ -322,8 +322,10 @@ class SessionProperties {
   static constexpr const char* kMaxNumSplitsListenedTo =
       "native_max_num_splits_listened_to";
 
-  SessionProperties();
+  static SessionProperties* instance();
 
+  SessionProperties();
+  
   /// Utility function to translate a config name in Presto to its equivalent in
   /// Velox. Returns 'name' as is if there is no mapping.
   const std::string toVeloxConfig(const std::string& name) const;

@@ -20,6 +20,7 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -1651,9 +1652,8 @@ void PrestoServer::registerSidecarEndpoints() {
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
-        auto sessionProperties =
-            taskManager_->getQueryContextManager()->getSessionProperties();
-        http::sendOkResponse(downstream, sessionProperties.serialize());
+        const auto* sessionProperties = SessionProperties::instance();
+        http::sendOkResponse(downstream, sessionProperties->serialize());
       });
   httpServer_->registerGet(
       "/v1/functions",
