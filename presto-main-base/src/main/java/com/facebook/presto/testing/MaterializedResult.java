@@ -35,7 +35,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -98,7 +97,7 @@ public class MaterializedResult
     private final List<Type> types;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
-    private final Optional<UpdateInfo> updateInfo;
+    private final Optional<String> updateType;
     private final OptionalLong updateCount;
     private final List<PrestoWarning> warnings;
 
@@ -112,7 +111,7 @@ public class MaterializedResult
             List<? extends Type> types,
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
-            Optional<UpdateInfo> updateInfo,
+            Optional<String> updateType,
             OptionalLong updateCount,
             List<PrestoWarning> warnings)
     {
@@ -120,7 +119,7 @@ public class MaterializedResult
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.setSessionProperties = ImmutableMap.copyOf(requireNonNull(setSessionProperties, "setSessionProperties is null"));
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
-        this.updateInfo = requireNonNull(updateInfo, "updateInfo is null");
+        this.updateType = requireNonNull(updateType, "updateType is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
     }
@@ -156,9 +155,9 @@ public class MaterializedResult
         return resetSessionProperties;
     }
 
-    public Optional<UpdateInfo> getUpdateInfo()
+    public Optional<String> getUpdateType()
     {
-        return updateInfo;
+        return updateType;
     }
 
     public OptionalLong getUpdateCount()
@@ -185,14 +184,14 @@ public class MaterializedResult
                 Objects.equals(rows, o.rows) &&
                 Objects.equals(setSessionProperties, o.setSessionProperties) &&
                 Objects.equals(resetSessionProperties, o.resetSessionProperties) &&
-                Objects.equals(updateInfo, o.updateInfo) &&
+                Objects.equals(updateType, o.updateType) &&
                 Objects.equals(updateCount, o.updateCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateInfo, updateCount);
+        return Objects.hash(rows, types, setSessionProperties, resetSessionProperties, updateType, updateCount);
     }
 
     @Override
@@ -203,7 +202,7 @@ public class MaterializedResult
                 .add("types", types)
                 .add("setSessionProperties", setSessionProperties)
                 .add("resetSessionProperties", resetSessionProperties)
-                .add("updateInfo", updateInfo.orElse(null))
+                .add("updateType", updateType.orElse(null))
                 .add("updateCount", updateCount.isPresent() ? updateCount.getAsLong() : null)
                 .omitNullValues()
                 .toString();
@@ -359,7 +358,7 @@ public class MaterializedResult
                 types,
                 setSessionProperties,
                 resetSessionProperties,
-                updateInfo,
+                updateType,
                 updateCount,
                 warnings);
     }

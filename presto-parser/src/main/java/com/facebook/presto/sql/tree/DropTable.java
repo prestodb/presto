@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -65,12 +64,6 @@ public class DropTable
     public List<Node> getChildren()
     {
         return ImmutableList.of();
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("DROP TABLE", tableName.toString());
     }
 
     @Override
