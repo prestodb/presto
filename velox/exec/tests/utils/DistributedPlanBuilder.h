@@ -38,11 +38,7 @@ class DistributedPlanBuilder : public PlanBuilder {
 
   ~DistributedPlanBuilder() override;
 
-  /// Returns the planned fragments. The builder will be empty after this. This
-  /// is only called on the root builder.
-  std::vector<runner::ExecutableFragment> fragments();
-
-  PlanBuilder& shufflePartitioned(
+  DistributedPlanBuilder& shufflePartitioned(
       const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
@@ -56,12 +52,24 @@ class DistributedPlanBuilder : public PlanBuilder {
 
   core::PlanNodePtr shuffleBroadcastResult() override;
 
- private:
-  void newFragment();
+  /// Returns the planned fragments. The builder will be empty after this. This
+  /// is only called on the root builder.
+  std::vector<runner::ExecutableFragment> fragments();
 
-  void gatherScans(const core::PlanNodePtr& plan);
+  runner::MultiFragmentPlanPtr build();
+
+ private:
+  void newFragment(int32_t width = 0);
+
+  void appendFragments(std::vector<runner::ExecutableFragment> fragments);
+
+  void addExchange(
+      const RowTypePtr& producerType,
+      const std::string& producerPrefix,
+      runner::ExecutableFragment& fragment);
 
   const runner::MultiFragmentPlan::Options& options_;
+
   DistributedPlanBuilder* const root_;
 
   // Stack of outstanding builders. The last element is the immediately

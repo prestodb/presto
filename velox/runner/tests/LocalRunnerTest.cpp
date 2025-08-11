@@ -88,13 +88,12 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     MultiFragmentPlan::Options options = {
         .queryId = id, .numWorkers = numWorkers, .numDrivers = 2};
 
-    DistributedPlanBuilder rootBuilder(options, idGenerator_, pool_.get());
-    rootBuilder.tableScan("T", rowType_);
+    DistributedPlanBuilder builder(options, idGenerator_, pool_.get());
+    builder.tableScan("T", rowType_);
     if (numWorkers > 1) {
-      rootBuilder.shufflePartitioned({}, 1, false);
+      builder.shufflePartitioned({}, 1, false);
     }
-    return std::make_shared<MultiFragmentPlan>(
-        rootBuilder.fragments(), std::move(options));
+    return builder.build();
   }
 
   MultiFragmentPlanPtr makeJoinPlan(
@@ -125,8 +124,8 @@ class LocalRunnerTest : public LocalRunnerTestBase {
         .shufflePartitioned({}, 1, false)
         .localPartition({})
         .finalAggregation({}, {"count(1)"}, {{BIGINT()}});
-    return std::make_shared<MultiFragmentPlan>(
-        rootBuilder.fragments(), std::move(options));
+
+    return rootBuilder.build();
   }
 
   static void makeAscending(const RowVectorPtr& rows, int32_t& counter) {
