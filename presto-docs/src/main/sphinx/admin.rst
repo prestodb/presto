@@ -20,3 +20,4 @@ Administration
     admin/spark
     admin/verifier
     admin/grafana-cloud
+    admin/version-support
