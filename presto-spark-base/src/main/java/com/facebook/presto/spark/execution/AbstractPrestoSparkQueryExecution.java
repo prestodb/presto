@@ -70,7 +70,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -416,7 +415,7 @@ public abstract class AbstractPrestoSparkQueryExecution
 
         // Based on com.facebook.presto.server.protocol.Query#getNextResult
         OptionalLong updateCount = OptionalLong.empty();
-        if (planAndMore.getUpdateInfo().isPresent() &&
+        if (planAndMore.getUpdateType().isPresent() &&
                 types.size() == 1 &&
                 types.get(0).equals(BIGINT) &&
                 results.size() == 1 &&
@@ -449,9 +448,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         return subPlanOptional.get().getFragment().getTypes();
     }
 
-    public Optional<UpdateInfo> getUpdateType()
+    public Optional<String> getUpdateType()
     {
-        return planAndMore.getUpdateInfo();
+        return planAndMore.getUpdateType();
     }
 
     protected abstract List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> doExecute()

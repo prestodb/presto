@@ -5891,7 +5891,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_view AS SELECT name FROM test_customer_base",
                 format(
-                        ".* Destination materialized view '%s.%s.test_customer_view' already exists",
+                        ".* Materialized view '%s.%s.test_customer_view' already exists",
                         getSession().getCatalog().get(),
                         getSession().getSchema().get()));
         assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_view AS SELECT name FROM test_customer_base");

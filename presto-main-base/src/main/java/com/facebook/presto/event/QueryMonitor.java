@@ -48,7 +48,6 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
@@ -278,7 +277,6 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                Optional.empty(),
                 Optional.empty()));
 
         logQueryTimeline(queryInfo);
@@ -322,8 +320,7 @@ public class QueryMonitor
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
                         getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
-                        Optional.of(queryInfo.getPlanIdNodeMap()),
-                        Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateObject)));
+                        Optional.of(queryInfo.getPlanIdNodeMap())));
 
         logQueryTimeline(queryInfo);
     }
@@ -366,7 +363,7 @@ public class QueryMonitor
                         .map(stageId -> String.valueOf(stageId.getId()))
                         .collect(toImmutableList()),
                 queryInfo.getSession().getTraceToken(),
-                Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateType));
+                Optional.ofNullable(queryInfo.getUpdateType()));
     }
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)
