@@ -99,6 +99,7 @@ import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
+import com.facebook.presto.runtimestats.RuntimeStatsManager;
 import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -488,6 +489,7 @@ public class PrestoSparkModule
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
+        binder.bind(RuntimeStatsManager.class).in(Scopes.SINGLETON);
 
         // Determine the NodeVersion
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);

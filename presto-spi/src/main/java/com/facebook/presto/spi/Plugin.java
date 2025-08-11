@@ -153,4 +153,9 @@ public interface Plugin
     {
         return emptyList();
     }
+
+    default Iterable<RuntimeStatsInstrumentFactory> getRuntimeStatsInstrumentFactories()
+    {
+        return emptyList();
+    }
 }

@@ -139,6 +139,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
+import com.facebook.presto.runtimestats.RuntimeStatsManager;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
@@ -837,6 +838,9 @@ public class ServerMainModule
                 mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
             }
         }
+
+        // RuntimeStats Manager binding.
+        binder.bind(RuntimeStatsManager.class).in(Scopes.SINGLETON);
 
         // Node manager binding
         binder.bind(PluginNodeManager.class).in(Scopes.SINGLETON);

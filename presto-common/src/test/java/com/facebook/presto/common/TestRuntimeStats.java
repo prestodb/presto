@@ -16,6 +16,9 @@ package com.facebook.presto.common;
 import com.facebook.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+import java.util.HashMap;
+
 import static com.facebook.presto.common.RuntimeUnit.BYTE;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -267,5 +270,30 @@ public class TestRuntimeStats
         stats.recordWallAndCpuTime(TEST_METRIC_NAME_NANO_2, () -> sleepUninterruptibly(100, MILLISECONDS));
         assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2).getSum()).isGreaterThanOrEqualTo(MILLISECONDS.toNanos(100));
         assertThat(stats.getMetric(TEST_METRIC_NAME_NANO_2 + "OnCpu").getSum()).isLessThan(MILLISECONDS.toNanos(100));
+    }
+
+    @Test
+    public void testAddMetricWithInstruments()
+    {
+        TestRuntimeStatsInstrument instrument = new TestRuntimeStatsInstrument(new HashMap<>());
+        RuntimeStats stats = new RuntimeStats(Collections.singletonList(instrument));
+        stats.addMetricValue(TEST_METRIC_NAME_1, NONE, 2);
+        assertEquals(instrument.getMetricValue(TEST_METRIC_NAME_1), 2);
+        stats.addMetricValue(TEST_METRIC_NAME_1, NONE, 3);
+        assertEquals(instrument.getMetricValue(TEST_METRIC_NAME_1), 5);
+        stats.addMetricValue(TEST_METRIC_NAME_2, NONE, 8);
+        assertEquals(instrument.getMetricValue(TEST_METRIC_NAME_2), 8);
+        stats.addMetricValue(TEST_METRIC_NAME_3, NONE, 8);
+        assertEquals(instrument.getMetricValue(TEST_METRIC_NAME_3), 8);
+        stats.addMetricValue(TEST_METRIC_NAME_NANO_1, NANO, 8);
+        assertEquals(instrument.getMetricValue(TEST_METRIC_NAME_NANO_1), 8);
+        stats.addMetricValue(TEST_METRIC_NAME_BYTE, BYTE, 8);
+        assertEquals(instrument.getMetricValue(TEST_METRIC_NAME_BYTE), 8);
+
+        JsonCodec<RuntimeStats> codec = JsonCodec.jsonCodec(RuntimeStats.class);
+        String json = codec.toJson(stats);
+        RuntimeStats actual = codec.fromJson(json);
+
+        actual.getMetrics().forEach((name, metric) -> assertRuntimeMetricEquals(metric, stats.getMetric(name)));
     }
 }

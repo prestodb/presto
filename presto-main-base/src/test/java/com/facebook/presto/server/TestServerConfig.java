@@ -72,6 +72,7 @@ public class TestServerConfig
                 .put("cluster-stats-expiration-duration", "10s")
                 .put("nested-data-serialization-enabled", "false")
                 .put("cluster-resource-group-state-info-expiration-duration", "10s")
+                .put("runtime-stats-instruments-enabled", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -90,7 +91,8 @@ public class TestServerConfig
                 .setPoolType(LEAF)
                 .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
                 .setNestedDataSerializationEnabled(false)
-                .setClusterResourceGroupStateInfoExpirationDuration(new Duration(10, SECONDS));
+                .setClusterResourceGroupStateInfoExpirationDuration(new Duration(10, SECONDS))
+                .setRuntimeStatsInstrumentsEnabled(true);
 
         assertFullMapping(properties, expected);
     }
