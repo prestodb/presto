@@ -2052,6 +2052,15 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testDeleteWithSpecialCharacterColumnName()
+    {
+        assertUpdate("CREATE TABLE test_special_character_column_name (\"<age>\" int, name varchar)");
+        assertUpdate("INSERT INTO test_special_character_column_name VALUES (1, 'abc'), (2, 'def'), (3, 'ghi')", 3);
+        assertUpdate("DELETE FROM test_special_character_column_name where \"<age>\" = 2", 1);
+        assertUpdate("DROP TABLE IF EXISTS test_special_character_column_name");
+    }
+
+    @Test
     public void testDeletedHiddenColumn()
     {
         assertUpdate("DROP TABLE IF EXISTS test_deleted");
