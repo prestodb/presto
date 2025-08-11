@@ -63,6 +63,17 @@ To commit code, you should:
 * Add or modify existing tests related to code changes being submitted
 * Run and ensure that local tests pass before submitting a merge request
 
+## Release Process and Version Support
+
+* **Release Cadence**: ~2 months (volunteer dependent)
+* **Version Support**: Latest release plus N-1 through N-4 receive critical fixes; N-5+ unsupported
+* **Trunk**: Not stable - never use in production
+* **Testing**: Extended RC periods with community testing
+
+Details:
+* [Release Process Documentation](presto-docs/src/main/sphinx/develop/release-process.rst) - For developers
+* [Version Support Guide](presto-docs/src/main/sphinx/admin/version-support.rst) - For administrators
+
 ## Designing Your Code
 * Consider your code through 3 axes
     1. Code Quality and Maintainability, for example:
