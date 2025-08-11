@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include <iostream>
 #include "velox/benchmarks/QueryBenchmarkBase.h"
+#include "velox/exec/PlanNodeStats.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

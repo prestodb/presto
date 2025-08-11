@@ -17,29 +17,16 @@
 #pragma once
 
 #include <fcntl.h>
-#include <sys/resource.h>
-#include <sys/time.h>
-
 #include <folly/Benchmark.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
-#include <fstream>
-
-#include "velox/common/base/SuccinctPrinter.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/MmapAllocator.h"
-#include "velox/dwio/common/Options.h"
-#include "velox/dwio/dwrf/RegisterDwrfReader.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
-#include "velox/exec/PlanNodeStats.h"
-#include "velox/exec/Split.h"
-#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/parse/TypeResolver.h"
 
 DECLARE_string(test_flags_file);
 DECLARE_bool(include_results);
@@ -56,25 +43,7 @@ struct RunStats {
   int64_t systemNanos{0};
   std::string output;
 
-  std::string toString(bool detail) {
-    std::stringstream out;
-    out << succinctNanos(micros * 1000) << " "
-        << succinctBytes(rawInputBytes / (micros / 1000000.0)) << "/s raw, "
-        << succinctNanos(userNanos) << " user " << succinctNanos(systemNanos)
-        << " system (" << (100 * (userNanos + systemNanos) / (micros * 1000))
-        << "%)";
-    if (!flags.empty()) {
-      out << " flags: ";
-      for (auto& pair : flags) {
-        out << pair.first << "=" << pair.second << " ";
-      }
-    }
-    out << std::endl << "======" << std::endl;
-    if (detail) {
-      out << std::endl << output << std::endl;
-    }
-    return out.str();
-  }
+  std::string toString(bool detail) const;
 };
 
 struct ParameterDim {
@@ -96,10 +65,6 @@ class QueryBenchmarkBase {
       const exec::test::TpchPlan& plan);
 
   static void ensureTaskCompletion(exec::Task* task);
-
-  static bool validateDataFormat(
-      const char* flagname,
-      const std::string& value);
 
   static void printResults(
       const std::vector<RowVectorPtr>& results,
