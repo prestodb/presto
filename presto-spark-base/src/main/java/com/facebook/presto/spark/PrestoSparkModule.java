@@ -19,7 +19,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.node.NodeConfig;
 import com.facebook.airlift.node.NodeInfo;
-import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
@@ -429,7 +429,7 @@ public class PrestoSparkModule
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
 
         // for thrift serde
-        newOptionalBinder(binder, ThriftCodecManager.class).setDefault().toInstance(new ThriftCodecManager());
+        binder.install(new ThriftCodecModule());
         binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
         // page sink provider
