@@ -44,7 +44,10 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.airlift.units.Duration;
+import org.apache.hadoop.hive.common.StatsSetupConst;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import javax.inject.Inject;
@@ -275,6 +278,21 @@ public class BridgingHiveMetastore
     private MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
         return delegate.alterTable(metastoreContext, databaseName, tableName, table);
+    }
+
+    private MetastoreOperationResult alterTableWithEnvironmentContext(MetastoreContext metastoreContext, String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table, org.apache.hadoop.hive.metastore.api.EnvironmentContext environmentContext)
+    {
+        return delegate.alterTableWithEnvironmentContext(metastoreContext, databaseName, tableName, table, environmentContext);
+    }
+
+    @Override
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Function<PartitionStatistics, PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
+        Map<String, String> env = Maps.newHashMapWithExpectedSize(additionalParameters.size() + 1);
+        env.putAll(additionalParameters);
+        env.put(StatsSetupConst.DO_NOT_UPDATE_STATS, StatsSetupConst.TRUE);
+        return alterTableWithEnvironmentContext(metastoreContext, databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges, metastoreContext.getColumnConverter()), new EnvironmentContext(env));
     }
 
     @Override
