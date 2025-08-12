@@ -70,6 +70,9 @@ public class PasswordAuthenticator
             throw needAuthentication(e.getMessage());
         }
         catch (RuntimeException e) {
+            if (isCredentialFailure(e)) {
+                throw needAuthentication("Invalid credentials: " + e.getMessage());
+            }
             throw new RuntimeException("Authentication error", e);
         }
     }
@@ -92,5 +95,16 @@ public class PasswordAuthenticator
     private static AuthenticationException needAuthentication(String message)
     {
         return new AuthenticationException(message, "Basic realm=\"Presto\"");
+    }
+
+    private static boolean isCredentialFailure(Throwable t)
+    {
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            if (c instanceof IllegalArgumentException) {
+                // Check if it is bcrypt strict length, malformed hash, etc. errors.
+                return true;
+            }
+        }
+        return false;
     }
 }
