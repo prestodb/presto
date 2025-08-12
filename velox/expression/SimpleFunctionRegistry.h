@@ -109,6 +109,9 @@ class SimpleFunctionRegistry {
     registeredFunctions_.withWLock([&](auto& map) { map.clear(); });
   }
 
+  std::unordered_map<std::string, std::vector<const exec::FunctionSignature*>>
+  getFunctionSignatureMap() const;
+
   std::vector<const FunctionSignature*> getFunctionSignatures(
       const std::string& name) const;
 

@@ -85,6 +85,25 @@ const SignatureMap* getSignatureMap(
 }
 } // namespace
 
+std::unordered_map<std::string, std::vector<const FunctionSignature*>>
+SimpleFunctionRegistry::getFunctionSignatureMap() const {
+  std::unordered_map<std::string, std::vector<const FunctionSignature*>> result;
+  registeredFunctions_.withRLock([&](const auto& map) {
+    result.reserve(map.size());
+
+    for (const auto& entry : map) {
+      std::vector<const FunctionSignature*> signatures;
+      const auto signatureMap = &entry.second;
+      signatures.reserve(signatureMap->size());
+      for (const auto& pair : *signatureMap) {
+        signatures.emplace_back(&pair.first);
+      }
+      result[entry.first] = signatures;
+    }
+  });
+  return result;
+}
+
 std::vector<const FunctionSignature*>
 SimpleFunctionRegistry::getFunctionSignatures(const std::string& name) const {
   std::vector<const FunctionSignature*> signatures;

@@ -32,13 +32,6 @@
 namespace facebook::velox {
 namespace {
 
-void populateSimpleFunctionSignatures(FunctionSignatureMap& map) {
-  const auto& simpleFunctions = exec::simpleFunctions();
-  for (const auto& functionName : simpleFunctions.getFunctionNames()) {
-    map[functionName] = simpleFunctions.getFunctionSignatures(functionName);
-  }
-}
-
 void populateVectorFunctionSignatures(FunctionSignatureMap& map) {
   auto vectorFunctions = exec::vectorFunctionFactories();
   vectorFunctions.withRLock([&map](const auto& locked) {
@@ -58,8 +51,8 @@ void populateVectorFunctionSignatures(FunctionSignatureMap& map) {
 } // namespace
 
 FunctionSignatureMap getFunctionSignatures() {
-  FunctionSignatureMap result;
-  populateSimpleFunctionSignatures(result);
+  const auto& simpleFunctions = exec::simpleFunctions();
+  FunctionSignatureMap result = simpleFunctions.getFunctionSignatureMap();
   populateVectorFunctionSignatures(result);
   return result;
 }
