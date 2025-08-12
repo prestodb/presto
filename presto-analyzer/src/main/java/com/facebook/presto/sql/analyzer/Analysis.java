@@ -19,14 +19,18 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.table.Argument;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -44,6 +48,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -52,6 +57,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
@@ -200,6 +206,10 @@ public class Analysis
 
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
+
+    // names of tables and aliased relations. All names are resolved case-insensitive.
+    private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
+    private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
@@ -1063,6 +1073,26 @@ public class Analysis
         return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
     }
 
+    public void setTableFunctionAnalysis(TableFunctionInvocation node, TableFunctionInvocationAnalysis analysis)
+    {
+        tableFunctionAnalyses.put(NodeRef.of(node), analysis);
+    }
+
+    public TableFunctionInvocationAnalysis getTableFunctionAnalysis(TableFunctionInvocation node)
+    {
+        return tableFunctionAnalyses.get(NodeRef.of(node));
+    }
+
+    public void setRelationName(Relation relation, QualifiedName name)
+    {
+        relationNames.put(NodeRef.of(relation), name);
+    }
+
+    public QualifiedName getRelationName(Relation relation)
+    {
+        return relationNames.get(NodeRef.of(relation));
+    }
+
     @Immutable
     public static final class Insert
     {
@@ -1311,6 +1341,59 @@ public class Analysis
         public int hashCode()
         {
             return Objects.hash(table, column, identity);
+        }
+    }
+
+    /**
+     * Encapsulates the result of analyzing a table function invocation.
+     * Includes the connector ID, function name, argument bindings, and the
+     * connector-specific table function handle needed for planning and execution.
+     */
+    public static class TableFunctionInvocationAnalysis
+    {
+        private final ConnectorId connectorId;
+        private final String functionName;
+        private final Map<String, Argument> arguments;
+        private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
+        private final ConnectorTransactionHandle transactionHandle;
+
+        public TableFunctionInvocationAnalysis(
+                ConnectorId connectorId,
+                String functionName,
+                Map<String, Argument> arguments,
+                ConnectorTableFunctionHandle connectorTableFunctionHandle,
+                ConnectorTransactionHandle transactionHandle)
+        {
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.functionName = requireNonNull(functionName, "functionName is null");
+            this.arguments = ImmutableMap.copyOf(arguments);
+            this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
+            this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        }
+
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
+        }
+
+        public String getFunctionName()
+        {
+            return functionName;
+        }
+
+        public Map<String, Argument> getArguments()
+        {
+            return arguments;
+        }
+
+        public ConnectorTableFunctionHandle getConnectorTableFunctionHandle()
+        {
+            return connectorTableFunctionHandle;
+        }
+
+        public ConnectorTransactionHandle getTransactionHandle()
+        {
+            return transactionHandle;
         }
     }
 }
