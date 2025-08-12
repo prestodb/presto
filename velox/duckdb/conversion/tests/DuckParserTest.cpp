@@ -197,6 +197,22 @@ TEST(DuckParserTest, in) {
       parseExpr("col1 in ('a', null, 'b', 'c')")->toString());
 }
 
+TEST(DuckParserTest, inListAsArray) {
+  ParseOptions parseOptions{.parseInListAsArray = false, .functionPrefix = ""};
+  EXPECT_EQ(
+      "in(\"col1\",1,2,3)",
+      parseExpr("col1 in (1, 2, 3)", parseOptions)->toString());
+  EXPECT_EQ(
+      "in(\"col1\",1,2,null,3)",
+      parseExpr("col1 in (1, 2, null, 3)", parseOptions)->toString());
+  EXPECT_EQ(
+      "in(\"col1\",a,b,c)",
+      parseExpr("col1 in ('a', 'b', 'c')", parseOptions)->toString());
+  EXPECT_EQ(
+      "in(\"col1\",a,null,b,c)",
+      parseExpr("col1 in ('a', null, 'b', 'c')", parseOptions)->toString());
+}
+
 TEST(DuckParserTest, notIn) {
   EXPECT_EQ(
       "not(in(\"col1\",{1, 2, 3}))",
@@ -229,6 +245,42 @@ TEST(DuckParserTest, notIn) {
   EXPECT_EQ(
       "not(in(\"col1\",{a, null, b, c}))",
       parseExpr("not(col1 in ('a', null, 'b', 'c'))")->toString());
+}
+
+TEST(DuckParserTest, notInListAsArray) {
+  ParseOptions parseOptions{.parseInListAsArray = false, .functionPrefix = ""};
+  EXPECT_EQ(
+      "not(in(\"col1\",1,2,3))",
+      parseExpr("col1 not in (1, 2, 3)", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",1,2,3))",
+      parseExpr("not(col1 in (1, 2, 3))", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",1,2,null,3))",
+      parseExpr("col1 not in (1, 2, null, 3)", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",1,2,null,3))",
+      parseExpr("not(col1 in (1, 2, null, 3))", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",a,b,c))",
+      parseExpr("col1 not in ('a', 'b', 'c')", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",a,b,c))",
+      parseExpr("not(col1 in ('a', 'b', 'c'))", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",a,null,b,c))",
+      parseExpr("col1 not in ('a', null, 'b', 'c')", parseOptions)->toString());
+
+  EXPECT_EQ(
+      "not(in(\"col1\",a,null,b,c))",
+      parseExpr("not(col1 in ('a', null, 'b', 'c'))", parseOptions)
+          ->toString());
 }
 
 TEST(DuckParserTest, expressions) {

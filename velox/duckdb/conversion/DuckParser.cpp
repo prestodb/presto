@@ -412,7 +412,15 @@ core::ExprPtr parseOperatorExpr(
     auto numValues = operExpr.children.size() - 1;
 
     std::vector<Variant> values;
-    values.reserve(numValues);
+    if (options.parseInListAsArray) {
+      values.reserve(numValues);
+    }
+
+    std::vector<core::ExprPtr> params;
+    if (!options.parseInListAsArray) {
+      params.reserve(numValues + 1);
+    }
+    params.emplace_back(parseExpr(*operExpr.children[0], options));
 
     TypePtr valueType = UNKNOWN();
     for (auto i = 0; i < numValues; i++) {
@@ -424,21 +432,29 @@ core::ExprPtr parseOperatorExpr(
               dynamic_cast<ConstantExpression*>(castExpr->child.get());
           auto value = constExpr->value.DefaultCastAs(
               castExpr->cast_type, !castExpr->try_cast);
-          values.emplace_back(duckValueToVariant(value));
-          valueType = toVeloxType(castExpr->cast_type);
+          if (options.parseInListAsArray) {
+            values.emplace_back(duckValueToVariant(value));
+            valueType = toVeloxType(castExpr->cast_type);
+          } else {
+            params.emplace_back(parseExpr(*castExpr->child, options));
+          }
           continue;
         }
       }
 
       if (auto constantExpr = dynamic_cast<ConstantExpression*>(valueExpr)) {
-        auto& value = constantExpr->value;
-        if (options.parseDecimalAsDouble &&
-            value.type().id() == duckdb::LogicalTypeId::DECIMAL) {
-          value = Value::DOUBLE(value.GetValue<double>());
-        }
-        values.emplace_back(duckValueToVariant(value));
-        if (!value.IsNull()) {
-          valueType = toVeloxType(value.type());
+        if (options.parseInListAsArray) {
+          auto& value = constantExpr->value;
+          if (options.parseDecimalAsDouble &&
+              value.type().id() == duckdb::LogicalTypeId::DECIMAL) {
+            value = Value::DOUBLE(value.GetValue<double>());
+          }
+          values.emplace_back(duckValueToVariant(value));
+          if (!value.IsNull()) {
+            valueType = toVeloxType(value.type());
+          }
+        } else {
+          params.emplace_back(parseExpr(*constantExpr, options));
         }
         continue;
       }
@@ -446,10 +462,10 @@ core::ExprPtr parseOperatorExpr(
       VELOX_UNSUPPORTED("IN list values need to be constant");
     }
 
-    std::vector<core::ExprPtr> params;
-    params.emplace_back(parseExpr(*operExpr.children[0], options));
-    params.emplace_back(std::make_shared<const core::ConstantExpr>(
-        ARRAY(valueType), Variant::array(values), std::nullopt));
+    if (options.parseInListAsArray) {
+      params.emplace_back(std::make_shared<const core::ConstantExpr>(
+          ARRAY(valueType), Variant::array(values), std::nullopt));
+    }
     auto inExpr = callExpr("in", std::move(params), getAlias(expr), options);
     // Translate COMPARE_NOT_IN into NOT(IN()).
     return (expr.GetExpressionType() == ExpressionType::COMPARE_IN)

@@ -24,6 +24,9 @@ struct ParseOptions {
   // Retain legacy behavior by default.
   bool parseDecimalAsDouble = true;
   bool parseIntegerAsBigint = true;
+  // Controls whether to parse the values in an IN list as separate arguments or
+  // as a single array argument.
+  bool parseInListAsArray = true;
 
   /// SQL functions could be registered with different prefixes by the user.
   /// This parameter is the registered prefix of presto or spark functions,

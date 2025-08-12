@@ -22,6 +22,7 @@ core::ExprPtr parseExpr(const std::string& expr, const ParseOptions& options) {
   facebook::velox::duckdb::ParseOptions duckConversionOptions;
   duckConversionOptions.parseDecimalAsDouble = options.parseDecimalAsDouble;
   duckConversionOptions.parseIntegerAsBigint = options.parseIntegerAsBigint;
+  duckConversionOptions.parseInListAsArray = options.parseInListAsArray;
   duckConversionOptions.functionPrefix = options.functionPrefix;
   return facebook::velox::duckdb::parseExpr(expr, duckConversionOptions);
 }
