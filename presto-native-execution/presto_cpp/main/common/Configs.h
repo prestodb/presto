@@ -131,10 +131,6 @@ class ConfigBase {
     return optionalProperty(std::string{propertyName});
   }
 
-  /// Returns "N<capacity_unit>" as string containing capacity in bytes.
-  std::string capacityPropertyAsBytesString(
-      std::string_view propertyName) const;
-
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {
     return config_->rawConfigsCopy();
