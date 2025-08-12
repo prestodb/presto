@@ -49,6 +49,7 @@ import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticTypeManagerStore;
 import com.facebook.presto.nodeManager.PluginNodeManager;
+import com.facebook.presto.runtimestats.RuntimeStatsManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
@@ -192,6 +193,9 @@ public class PrestoServer
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            if (serverConfig.isRuntimeStatsInstrumentsEnabled()) {
+                injector.getInstance(RuntimeStatsManager.class).loadRuntimeStatsInstruments();
+            }
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);

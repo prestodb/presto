@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.spi.NodePoolType;
 import io.airlift.units.Duration;
 
@@ -43,6 +44,7 @@ public class ServerConfig
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
+    private boolean runtimeStatsInstrumentsEnabled;
 
     public boolean isResourceManager()
     {
@@ -240,5 +242,18 @@ public class ServerConfig
     {
         this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
         return this;
+    }
+
+    @Config("runtime-stats-instruments-enabled")
+    @ConfigDescription("Enable monitoring instruments for runtime stats")
+    public ServerConfig setRuntimeStatsInstrumentsEnabled(boolean runtimeStatsInstrumentsEnabled)
+    {
+        this.runtimeStatsInstrumentsEnabled = runtimeStatsInstrumentsEnabled;
+        return this;
+    }
+
+    public boolean isRuntimeStatsInstrumentsEnabled()
+    {
+        return runtimeStatsInstrumentsEnabled;
     }
 }

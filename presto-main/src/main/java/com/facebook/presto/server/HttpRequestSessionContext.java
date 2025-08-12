@@ -18,6 +18,7 @@ import com.facebook.presto.Session.ResourceEstimateBuilder;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.runtimestats.RuntimeStatsManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
@@ -125,11 +126,11 @@ public final class HttpRequestSessionContext
 
     private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
-    private final RuntimeStats runtimeStats = new RuntimeStats();
+    private final RuntimeStats runtimeStats;
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty());
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty(), RuntimeStatsManager.newRuntimeStats());
     }
 
     /**
@@ -141,7 +142,8 @@ public final class HttpRequestSessionContext
      * session context creation stage.
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager,
+            RuntimeStats runtimeStats)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -240,6 +242,7 @@ public final class HttpRequestSessionContext
                 traceToken = Optional.ofNullable(tracerHandle.getTraceToken());
             }
         }
+        this.runtimeStats = runtimeStats;
     }
 
     private static Map<String, String> getRequestHeaders(HttpServletRequest servletRequest)
