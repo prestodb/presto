@@ -139,6 +139,29 @@ TEST_F(TraceUtilTest, traceDirectoryLayoutUtilities) {
       "/traceRoot/queryId/taskId/1/1/1/op_split_trace.split");
 }
 
+TEST_F(TraceUtilTest, traceDirectoryTrailingSlashHandling) {
+  const std::string queryId = "queryId";
+  const std::string taskId = "taskId";
+
+  const std::string expectedPath = "/traceRoot/queryId";
+  const std::string expectedTaskPath = "/traceRoot/queryId/taskId";
+
+  // Test with trailing slash
+  const std::string traceDirWithSlash = "/traceRoot/";
+  ASSERT_EQ(getQueryTraceDirectory(traceDirWithSlash, queryId), expectedPath);
+  ASSERT_EQ(
+      getTaskTraceDirectory(traceDirWithSlash, queryId, taskId),
+      expectedTaskPath);
+
+  // Test without trailing slash
+  const std::string traceDirWithoutSlash = "/traceRoot";
+  ASSERT_EQ(
+      getQueryTraceDirectory(traceDirWithoutSlash, queryId), expectedPath);
+  ASSERT_EQ(
+      getTaskTraceDirectory(traceDirWithoutSlash, queryId, taskId),
+      expectedTaskPath);
+}
+
 TEST_F(TraceUtilTest, getTaskIds) {
   const auto rootDir = TempDirectoryPath::create();
   const auto rootPath = rootDir->getPath();

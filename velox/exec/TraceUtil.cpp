@@ -109,7 +109,13 @@ void createTraceDirectory(
 std::string getQueryTraceDirectory(
     const std::string& traceDir,
     const std::string& queryId) {
-  return fmt::format("{}/{}", traceDir, queryId);
+  // Remove trailing slash from traceDir if present
+  std::string normalizedTraceDir = traceDir;
+  if (!normalizedTraceDir.empty() && normalizedTraceDir.back() == '/') {
+    normalizedTraceDir.pop_back();
+  }
+
+  return fmt::format("{}/{}", normalizedTraceDir, queryId);
 }
 
 std::string getTaskTraceDirectory(
@@ -123,8 +129,9 @@ std::string getTaskTraceDirectory(
     const std::string& traceDir,
     const std::string& queryId,
     const std::string& taskId) {
-  return fmt::format(
-      "{}/{}", getQueryTraceDirectory(traceDir, queryId), taskId);
+  auto queryTraceDir = getQueryTraceDirectory(traceDir, queryId);
+
+  return fmt::format("{}/{}", queryTraceDir, taskId);
 }
 
 std::string getTaskTraceMetaFilePath(const std::string& taskTraceDir) {
