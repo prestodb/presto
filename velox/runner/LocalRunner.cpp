@@ -114,30 +114,14 @@ RowVectorPtr LocalRunner::next() {
 
 void LocalRunner::start() {
   VELOX_CHECK_EQ(state_, State::kInitialized);
-  auto lastStage = makeStages();
+
   params_.maxDrivers = options_.numDrivers;
   params_.planNode = fragments_.back().fragment.planNode;
+
   auto cursor = exec::TaskCursor::create(params_);
-  stages_.push_back({cursor->task()});
-  // Add table scan splits to the final gathere stage.
-  for (auto& scan : fragments_.back().scans) {
-    auto splits = listAllSplits(splitSourceForScan(*scan));
-    for (auto& split : splits) {
-      cursor->task()->addSplit(scan->id(), std::move(split));
-    }
-    cursor->task()->noMoreSplits(scan->id());
-  }
-  // If the plan only has the final gather stage, there are no shuffles between
-  // the last
-  // and previous stages to set up.
-  if (!lastStage.empty()) {
-    const auto finalStageConsumer =
-        fragments_.back().inputStages[0].consumerNodeId;
-    for (auto& remote : lastStage) {
-      cursor->task()->addSplit(finalStageConsumer, exec::Split(remote));
-    }
-    cursor->task()->noMoreSplits(finalStageConsumer);
-  }
+
+  makeStages(cursor->task());
+
   {
     std::lock_guard<std::mutex> l(mutex_);
     if (!error_) {
@@ -145,6 +129,7 @@ void LocalRunner::start() {
       state_ = State::kRunning;
     }
   }
+
   if (!cursor_) {
     // The cursor was not set because previous fragments had an error.
     abort();
@@ -205,8 +190,7 @@ void LocalRunner::waitForCompletion(int32_t maxWaitUs) {
   }
 }
 
-std::vector<std::shared_ptr<exec::RemoteConnectorSplit>>
-LocalRunner::makeStages() {
+void LocalRunner::makeStages(const std::shared_ptr<exec::Task>& lastStageTask) {
   std::unordered_map<std::string, int32_t> stageMap;
   auto sharedRunner = shared_from_this();
   auto onError = [self = sharedRunner, this](std::exception_ptr error) {
@@ -225,9 +209,10 @@ LocalRunner::makeStages() {
 
   for (auto fragmentIndex = 0; fragmentIndex < fragments_.size() - 1;
        ++fragmentIndex) {
-    auto& fragment = fragments_[fragmentIndex];
+    const auto& fragment = fragments_[fragmentIndex];
     stageMap[fragment.taskPrefix] = stages_.size();
     stages_.emplace_back();
+
     for (auto i = 0; i < fragment.width; ++i) {
       exec::Consumer consumer = nullptr;
       auto task = exec::Task::create(
@@ -254,11 +239,9 @@ LocalRunner::makeStages() {
     }
   }
 
-  if (stages_.empty()) {
-    return {};
-  }
+  stages_.push_back({lastStageTask});
 
-  for (auto fragmentIndex = 0; fragmentIndex < fragments_.size() - 1;
+  for (auto fragmentIndex = 0; fragmentIndex < fragments_.size();
        ++fragmentIndex) {
     const auto& fragment = fragments_[fragmentIndex];
 
@@ -310,12 +293,6 @@ LocalRunner::makeStages() {
       }
     }
   }
-
-  std::vector<std::shared_ptr<exec::RemoteConnectorSplit>> lastStage;
-  for (auto& task : stages_.back()) {
-    lastStage.push_back(remoteSplit(task->taskId()));
-  }
-  return lastStage;
 }
 
 std::vector<exec::TaskStats> LocalRunner::stats() const {

@@ -84,9 +84,9 @@ class LocalRunnerTest : public LocalRunnerTestBase {
   // Returns a plan with a table scan. This is a single stage if 'numWorkers' is
   // 1, otherwise this is a scan stage plus shuffle to a stage that gathers the
   // scan results.
-  MultiFragmentPlanPtr makeScanPlan(const std::string& id, int32_t numWorkers) {
+  MultiFragmentPlanPtr makeScanPlan(int32_t numWorkers) {
     MultiFragmentPlan::Options options = {
-        .queryId = id, .numWorkers = numWorkers, .numDrivers = 2};
+        .queryId = makeQueryId(), .numWorkers = numWorkers, .numDrivers = 2};
 
     DistributedPlanBuilder builder(options, idGenerator_, pool_.get());
     builder.tableScan("T", rowType_);
@@ -100,7 +100,7 @@ class LocalRunnerTest : public LocalRunnerTestBase {
       std::string project = "c0",
       bool broadcastBuild = false) {
     MultiFragmentPlan::Options options = {
-        .queryId = "test.", .numWorkers = 4, .numDrivers = 2};
+        .queryId = makeQueryId(), .numWorkers = 4, .numDrivers = 2};
     const int32_t width = 3;
 
     DistributedPlanBuilder rootBuilder(options, idGenerator_, pool_.get());
@@ -144,9 +144,13 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     counter -= ints->size();
   }
 
-  void checkScanCount(const std::string& id, int32_t numWorkers) {
-    auto scan = makeScanPlan(id, numWorkers);
-    auto localRunner = makeRunner(id, scan);
+  std::string makeQueryId() {
+    return fmt::format("q{}", queryCounter_++);
+  }
+
+  void checkScanCount(int32_t numWorkers) {
+    auto scan = makeScanPlan(numWorkers);
+    auto localRunner = makeRunner(scan);
 
     auto results = readCursor(localRunner);
 
@@ -158,19 +162,21 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     EXPECT_EQ(250'000, count);
   }
 
-  std::shared_ptr<LocalRunner> makeRunner(
-      const std::string& id,
-      MultiFragmentPlanPtr plan) {
-    rootPool_ = makeRootPool(id);
+  std::shared_ptr<LocalRunner> makeRunner(const MultiFragmentPlanPtr& plan) {
+    const auto queryId = plan->options().queryId;
+    rootPool_ = makeRootPool(queryId);
     auto splitSourceFactory = makeSimpleSplitSourceFactory(plan);
     return std::make_shared<LocalRunner>(
-        std::move(plan), makeQueryCtx(id, rootPool_.get()), splitSourceFactory);
+        std::move(plan),
+        makeQueryCtx(queryId, rootPool_.get()),
+        splitSourceFactory);
   }
 
   std::shared_ptr<core::PlanNodeIdGenerator> idGenerator_{
       std::make_shared<core::PlanNodeIdGenerator>()};
 
   std::shared_ptr<memory::MemoryPool> rootPool_;
+  int32_t queryCounter_{0};
 
   // The below are declared static to be scoped to TestCase so as to reuse the
   // dataset between tests.
@@ -183,7 +189,7 @@ int64_t extractSingleInt64(const std::vector<RowVectorPtr>& vectors) {
 
 TEST_F(LocalRunnerTest, count) {
   auto join = makeJoinPlan();
-  auto localRunner = makeRunner("q1", join);
+  auto localRunner = makeRunner(join);
 
   auto results = readCursor(localRunner);
   auto stats = localRunner->stats();
@@ -197,7 +203,7 @@ TEST_F(LocalRunnerTest, count) {
 
 TEST_F(LocalRunnerTest, error) {
   auto join = makeJoinPlan("if (c0 = 111, c0 / 0, c0 + 1) as c0");
-  auto localRunner = makeRunner("q1", join);
+  auto localRunner = makeRunner(join);
 
   EXPECT_THROW(readCursor(localRunner), VeloxUserError);
   EXPECT_EQ(Runner::State::kError, localRunner->state());
@@ -205,19 +211,53 @@ TEST_F(LocalRunnerTest, error) {
 }
 
 TEST_F(LocalRunnerTest, scan) {
-  checkScanCount("s1", 1);
-  checkScanCount("s2", 3);
+  checkScanCount(1);
+  checkScanCount(3);
 }
 
 TEST_F(LocalRunnerTest, broadcast) {
   auto join = makeJoinPlan("c0", true);
-  auto localRunner = makeRunner("q1", join);
+  auto localRunner = makeRunner(join);
 
   auto results = readCursor(localRunner);
   auto stats = localRunner->stats();
   EXPECT_EQ(1, results.size());
   EXPECT_EQ(1, results[0]->size());
   EXPECT_EQ(kNumRows, extractSingleInt64(results));
+  results.clear();
+  EXPECT_EQ(Runner::State::kFinished, localRunner->state());
+  localRunner->waitForCompletion(kWaitTimeoutUs);
+}
+
+TEST_F(LocalRunnerTest, lastStageWithMultipleInputs) {
+  MultiFragmentPlan::Options options = {
+      .queryId = "test.", .numWorkers = 1, .numDrivers = 1};
+
+  DistributedPlanBuilder rootBuilder(options, idGenerator_, pool_.get());
+  auto probe = DistributedPlanBuilder(rootBuilder)
+                   .tableScan("T", rowType_)
+                   .project({"c0"})
+                   .shuffleBroadcastResult();
+  auto build = DistributedPlanBuilder(rootBuilder)
+                   .tableScan("U", rowType_)
+                   .project({"c0 as b0"})
+                   .shuffleBroadcastResult();
+  rootBuilder.addNode([&](auto, auto) { return probe; })
+      .hashJoin({"c0"}, {"b0"}, build, "", {"c0", "b0"});
+
+  auto plan = rootBuilder.build();
+
+  auto localRunner = makeRunner(plan);
+  auto results = readCursor(localRunner);
+  auto stats = localRunner->stats();
+
+  size_t numRows = 0;
+  for (const auto& result : results) {
+    numRows += result->size();
+  }
+
+  EXPECT_EQ(kNumRows, numRows);
+
   results.clear();
   EXPECT_EQ(Runner::State::kFinished, localRunner->state());
   localRunner->waitForCompletion(kWaitTimeoutUs);
