@@ -13,7 +13,7 @@
 set(PRESTO_AND_VELOX_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/../presto-native-execution
   ${CMAKE_SOURCE_DIR}/../presto-native-execution/velox
-  ${CMAKE_SOURCE_DIR}/../presto-native-execution/_build/release/_deps/xsimd-src/include/xsimd
+  ${CMAKE_SOURCE_DIR}/../presto-native-execution/_build/release/_deps/xsimd-src/include
 )
 
 add_library(presto_example_add_function_dynamic SHARED CustomAddDynamic.cpp)
