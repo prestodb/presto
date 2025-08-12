@@ -9,15 +9,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 set(PRESTO_AND_VELOX_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/../presto-native-execution
   ${CMAKE_SOURCE_DIR}/../presto-native-execution/velox
+  ${CMAKE_SOURCE_DIR}/../presto-native-execution/_build/release/_deps/xsimd-src/include/xsimd
 )
 
 add_library(presto_example_add_function_dynamic SHARED CustomAddDynamic.cpp)
 
 set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt
-                                    gflags::gflags xsimd)
+                                    gflags::gflags)
 target_link_libraries(presto_example_add_function_dynamic
                       PRIVATE
                       ${CMAKE_DYLIB_TEST_LINK_LIBRARIES})
