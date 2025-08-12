@@ -90,7 +90,7 @@ public class PrestoSparkNativeQueryRunnerUtils
 
         assertTrue(Files.exists(prestoServerPath), format("Native worker binary at %s not found. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.", prestoServerPath));
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
-<
+
         if (!Files.exists(dataDirectory)) {
             assertTrue(dataDirectory.toFile().mkdirs());
         }
