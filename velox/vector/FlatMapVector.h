@@ -89,9 +89,9 @@ class FlatMapVector : public BaseVector {
   // in-map buffers may not be present).
   FlatMapVector(
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<const Type> type,
+      const TypePtr& type,
       BufferPtr nulls,
-      size_t length,
+      vector_size_t length,
       VectorPtr distinctKeys,
       std::vector<VectorPtr> mapValues,
       std::vector<BufferPtr> inMaps,
@@ -101,7 +101,7 @@ class FlatMapVector : public BaseVector {
             pool,
             type,
             VectorEncoding::Simple::FLAT_MAP,
-            nulls,
+            std::move(nulls),
             length,
             std::nullopt,
             nullCount),
@@ -121,7 +121,7 @@ class FlatMapVector : public BaseVector {
         inMaps_.size(), numDistinctKeys(), "Wrong number of in map buffers.");
   }
 
-  virtual ~FlatMapVector() override {}
+  ~FlatMapVector() override = default;
 
   /// Overwrites the existing distinct keys vector, resizing map values and
   /// clearing in-map buffers.
@@ -332,11 +332,11 @@ class FlatMapVector : public BaseVector {
         "Unexpected key type: {}",
         distinctKeys->type()->toString());
 
-    distinctKeys_ = distinctKeys;
+    distinctKeys_ = std::move(distinctKeys);
     keyToChannel_.clear();
 
     for (vector_size_t i = 0; i < numDistinctKeys(); i++) {
-      keyToChannel_.insert({distinctKeys->hashValueAt(i), i});
+      keyToChannel_.insert({distinctKeys_->hashValueAt(i), i});
     }
   }
 

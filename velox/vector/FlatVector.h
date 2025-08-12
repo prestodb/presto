@@ -56,7 +56,7 @@ class FlatVector final : public SimpleVector<T> {
       velox::memory::MemoryPool* pool,
       const TypePtr& type,
       BufferPtr nulls,
-      size_t length,
+      vector_size_t length,
       BufferPtr values,
       std::vector<BufferPtr>&& stringBuffers,
       const SimpleVectorStats<T>& stats = {},

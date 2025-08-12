@@ -113,7 +113,7 @@ class SimpleVector : public BaseVector {
       TypePtr type,
       VectorEncoding::Simple encoding,
       BufferPtr nulls,
-      size_t length,
+      vector_size_t length,
       const SimpleVectorStats<T>& stats,
       std::optional<vector_size_t> distinctValueCount,
       std::optional<vector_size_t> nullCount,
@@ -134,7 +134,7 @@ class SimpleVector : public BaseVector {
         elementSize_(sizeof(T)),
         stats_(stats) {}
 
-  virtual ~SimpleVector() override {}
+  ~SimpleVector() override = default;
 
   SimpleVectorStats<T> getStats() const {
     return stats_;

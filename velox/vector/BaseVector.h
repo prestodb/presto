@@ -77,7 +77,7 @@ class BaseVector {
       TypePtr type,
       VectorEncoding::Simple encoding,
       BufferPtr nulls,
-      size_t length,
+      vector_size_t length,
       std::optional<vector_size_t> distinctValueCount = std::nullopt,
       std::optional<vector_size_t> nullCount = std::nullopt,
       std::optional<ByteCount> representedByteCount = std::nullopt,

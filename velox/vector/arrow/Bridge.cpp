@@ -532,14 +532,14 @@ VectorPtr createFlatVector(
     memory::MemoryPool* pool,
     const TypePtr& type,
     BufferPtr nulls,
-    size_t length,
+    vector_size_t length,
     BufferPtr values,
     int64_t nullCount) {
   using T = typename TypeTraits<kind>::NativeType;
   return std::make_shared<FlatVector<T>>(
       pool,
       type,
-      nulls,
+      std::move(nulls),
       length,
       values,
       std::vector<BufferPtr>(),
@@ -611,7 +611,7 @@ VectorPtr createStringFlatVector(
     memory::MemoryPool* pool,
     const TypePtr& type,
     BufferPtr nulls,
-    size_t length,
+    vector_size_t length,
     const TOffset* offsets,
     const char* values,
     int64_t nullCount,
@@ -634,7 +634,7 @@ VectorPtr createStringFlatVector(
   return std::make_shared<FlatVector<StringView>>(
       pool,
       type,
-      nulls,
+      std::move(nulls),
       length,
       stringViews,
       std::move(stringViewBuffers),
@@ -1837,7 +1837,7 @@ VectorPtr createTimestampVector(
     TimestampUnit unit,
     BufferPtr nulls,
     const int64_t* input,
-    size_t length,
+    vector_size_t length,
     int64_t nullCount) {
   BufferPtr timestamps = AlignedBuffer::allocate<Timestamp>(length, pool);
   auto* rawTimestamps = timestamps->asMutable<Timestamp>();
@@ -1849,7 +1849,7 @@ VectorPtr createTimestampVector(
   return std::make_shared<FlatVector<Timestamp>>(
       pool,
       type,
-      nulls,
+      std::move(nulls),
       length,
       timestamps,
       std::vector<BufferPtr>(),
@@ -1863,7 +1863,7 @@ VectorPtr createShortDecimalVector(
     const TypePtr& type,
     BufferPtr nulls,
     const int128_t* input,
-    size_t length,
+    vector_size_t length,
     int64_t nullCount) {
   auto values = AlignedBuffer::allocate<int64_t>(length, pool);
   auto rawValues = values->asMutable<int64_t>();
@@ -1872,7 +1872,7 @@ VectorPtr createShortDecimalVector(
   }
 
   return createFlatVector<TypeKind::BIGINT>(
-      pool, type, nulls, length, values, nullCount);
+      pool, type, std::move(nulls), length, values, nullCount);
 }
 
 // Arrow uses two uint64_t values to represent a 128-bit decimal value. The
@@ -1883,7 +1883,7 @@ VectorPtr createLongDecimalVector(
     const TypePtr& type,
     BufferPtr nulls,
     const int128_t* input,
-    size_t length,
+    vector_size_t length,
     int64_t nullCount,
     WrapInBufferViewFunc wrapInBufferView) {
   if ((reinterpret_cast<uintptr_t>(input) & 0xf) == 0) {
@@ -1891,7 +1891,7 @@ VectorPtr createLongDecimalVector(
     return createFlatVector<TypeKind::HUGEINT>(
         pool,
         type,
-        nulls,
+        std::move(nulls),
         length,
         wrapInBufferView(input, length * type->cppSizeInBytes()),
         nullCount);
@@ -1902,7 +1902,7 @@ VectorPtr createLongDecimalVector(
   memcpy(rawValues, input, length * sizeof(int128_t));
 
   return createFlatVector<TypeKind::HUGEINT>(
-      pool, type, nulls, length, values, nullCount);
+      pool, type, std::move(nulls), length, values, nullCount);
 }
 
 bool isREE(const ArrowSchema& arrowSchema) {

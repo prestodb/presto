@@ -64,7 +64,7 @@ template <typename T>
 DictionaryVector<T>::DictionaryVector(
     velox::memory::MemoryPool* pool,
     BufferPtr nulls,
-    size_t length,
+    vector_size_t length,
     VectorPtr dictionaryValues,
     BufferPtr dictionaryIndices,
     const SimpleVectorStats<T>& stats,
@@ -77,7 +77,7 @@ DictionaryVector<T>::DictionaryVector(
           pool,
           dictionaryValues->type(),
           VectorEncoding::Simple::DICTIONARY,
-          nulls,
+          std::move(nulls),
           length,
           stats,
           distinctValueCount,

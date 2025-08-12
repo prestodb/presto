@@ -53,7 +53,7 @@ class DictionaryVector : public SimpleVector<T> {
   DictionaryVector(
       velox::memory::MemoryPool* pool,
       BufferPtr nulls,
-      size_t length,
+      vector_size_t length,
       VectorPtr dictionaryValues,
       BufferPtr dictionaryIndexArray,
       const SimpleVectorStats<T>& stats = {},

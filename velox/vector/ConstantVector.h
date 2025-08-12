@@ -46,7 +46,7 @@ class ConstantVector final : public SimpleVector<T> {
 
   ConstantVector(
       velox::memory::MemoryPool* pool,
-      size_t length,
+      vector_size_t length,
       bool isNull,
       TypePtr type,
       T&& val,

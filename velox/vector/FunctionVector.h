@@ -94,7 +94,7 @@ class FunctionVector : public BaseVector {
       /// Rows that lambda applies to.
       SelectivityVector* rows;
 
-      operator bool() const {
+      explicit operator bool() const {
         return callable != nullptr;
       }
     };
@@ -130,7 +130,7 @@ class FunctionVector : public BaseVector {
   FunctionVector(velox::memory::MemoryPool* pool, TypePtr type)
       : BaseVector(
             pool,
-            type,
+            std::move(type),
             VectorEncoding::Simple::FUNCTION,
             BufferPtr(nullptr),
             0) {}
@@ -153,7 +153,7 @@ class FunctionVector : public BaseVector {
     }
 
     rowSets_.push_back(rows);
-    functions_.push_back(callable);
+    functions_.push_back(std::move(callable));
   }
 
   bool containsNullAt(vector_size_t idx) const override {

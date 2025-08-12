@@ -41,7 +41,7 @@ class SequenceVector : public SimpleVector<T> {
 
   SequenceVector(
       velox::memory::MemoryPool* pool,
-      size_t length,
+      vector_size_t length,
       VectorPtr sequenceValues,
       BufferPtr sequenceLengths,
       const SimpleVectorStats<T>& stats = {},

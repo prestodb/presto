@@ -23,7 +23,7 @@ namespace facebook::velox {
 template <typename T>
 SequenceVector<T>::SequenceVector(
     velox::memory::MemoryPool* pool,
-    size_t length,
+    vector_size_t length,
     VectorPtr sequenceValues,
     BufferPtr sequenceLengths,
     const SimpleVectorStats<T>& stats,
