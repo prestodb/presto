@@ -19,9 +19,9 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.Table;
@@ -86,7 +86,7 @@ public class SetTablePropertyProcedure
      */
     public void setTableProperty(ConnectorSession session, String schema, String table, String key, String value)
     {
-        ConnectorMetadata metadata = metadataFactory.create();
+        IcebergTransactionMetadata metadata = metadataFactory.create();
         IcebergTableName tableName = IcebergTableName.from(table);
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName.getTableName());
         Table icebergTable = IcebergUtil.getIcebergTable(metadata, session, schemaTableName);
@@ -94,5 +94,6 @@ public class SetTablePropertyProcedure
         icebergTable.updateProperties()
                 .set(key, value)
                 .commit();
+        metadata.commit();
     }
 }
