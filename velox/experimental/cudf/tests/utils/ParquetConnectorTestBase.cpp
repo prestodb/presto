@@ -183,7 +183,7 @@ void ParquetConnectorTestBase::writeToFile(
   auto options = cudf::io::chunked_parquet_writer_options::builder(sinkInfo)
                      .metadata(tableInputMetadata)
                      .build();
-  cudf::io::parquet_chunked_writer writer(options);
+  cudf::io::chunked_parquet_writer writer(options);
 
   // Write all table chunks
   for (const auto& table : cudfTables) {

@@ -308,7 +308,7 @@ class ParquetDataSink : public DataSink {
 
  private:
   // Creates a new cudf chunked parquet writer.
-  std::unique_ptr<cudf::io::parquet_chunked_writer> createCudfWriter(
+  std::unique_ptr<cudf::io::chunked_parquet_writer> createCudfWriter(
       cudf::table_view cudfTable);
   cudf::io::table_input_metadata createCudfTableInputMetadata(
       cudf::table_view cudfTable);
@@ -345,7 +345,7 @@ class ParquetDataSink : public DataSink {
 
   // Below are structures for partitions from all inputs. writerInfo_ and
   // writers_ are both indexed by partitionId.
-  std::unique_ptr<cudf::io::parquet_chunked_writer> writer_;
+  std::unique_ptr<cudf::io::chunked_parquet_writer> writer_;
 
   std::vector<cudf::io::sorting_column> sortingColumns_;
 

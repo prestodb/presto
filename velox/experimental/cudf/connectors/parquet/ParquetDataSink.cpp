@@ -173,7 +173,7 @@ void ParquetDataSink::appendData(RowVectorPtr input) {
   writerInfo_->numWrittenRows += input->size();
 }
 
-std::unique_ptr<cudf::io::parquet_chunked_writer>
+std::unique_ptr<cudf::io::chunked_parquet_writer>
 ParquetDataSink::createCudfWriter(cudf::table_view cudfTable) {
   // Create a table_input_metadata from the input
   auto tableInputMetadata = createCudfTableInputMetadata(cudfTable);
@@ -257,7 +257,7 @@ ParquetDataSink::createCudfWriter(cudf::table_view cudfTable) {
     }
   }
 
-  return std::make_unique<cudf::io::parquet_chunked_writer>(cudfWriterOptions);
+  return std::make_unique<cudf::io::chunked_parquet_writer>(cudfWriterOptions);
 }
 
 cudf::io::table_input_metadata ParquetDataSink::createCudfTableInputMetadata(
