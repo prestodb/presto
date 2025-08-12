@@ -30,7 +30,7 @@ type SessionValues = {
     [key: string]: string;
 };
 
-export default function SQLClientView() {
+const SQLClientView = () => {
     const [values, setValues] = React.useState({sql: '', running: false, results: undefined, view: 'SQL'});
     const sessions: SessionValues = React.useRef({});
     const views = [{name: 'SQL', label: 'SQL'}, {name: 'Session', label: 'Session Properties'}];
@@ -84,7 +84,7 @@ export default function SQLClientView() {
                     <div className="col-12">
                         <nav className="nav nav-tabs">
                             {views.map((view, idx) => (
-                                <a className={clsx('nav-link', values.view === view.name && 'active')} href="#" onClick={() => switchView(view)}>{view.label}</a>
+                                <a key={view.name} className={clsx('nav-link', values.view === view.name && 'active')} href="#" onClick={() => switchView(view)}>{view.label}</a>
                             ))}
                         </nav>
                     </div>
@@ -111,6 +111,7 @@ export default function SQLClientView() {
             </div>
         </>
     );
-
 }
+
+export default SQLClientView;
 
