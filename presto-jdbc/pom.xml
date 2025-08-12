@@ -125,6 +125,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-memory</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
             <scope>test</scope>
             <exclusions>
@@ -218,11 +224,13 @@
             <artifactId>jjwt-api</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
