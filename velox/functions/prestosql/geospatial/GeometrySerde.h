@@ -86,6 +86,42 @@ class GeometrySerializer {
     writeGeometry(geometry, writer);
   }
 
+  template <typename StringWriter>
+  static void serializeEnvelope(
+      double xMin,
+      double yMin,
+      double xMax,
+      double yMax,
+      StringWriter& stringWriter) {
+    VarbinaryWriter writer(stringWriter);
+    writer.write(static_cast<uint8_t>(GeometrySerializationType::ENVELOPE));
+    writer.write(xMin);
+    writer.write(yMin);
+    writer.write(xMax);
+    writer.write(yMax);
+  }
+
+  template <typename StringWriter>
+  static void serializeEnvelope(
+      geos::geom::Envelope& envelope,
+      StringWriter& stringWriter) {
+    if (FOLLY_UNLIKELY(envelope.isNull())) {
+      serializeEnvelope(
+          std::numeric_limits<double>::quiet_NaN(),
+          std::numeric_limits<double>::quiet_NaN(),
+          std::numeric_limits<double>::quiet_NaN(),
+          std::numeric_limits<double>::quiet_NaN(),
+          stringWriter);
+    } else {
+      serializeEnvelope(
+          envelope.getMinX(),
+          envelope.getMinY(),
+          envelope.getMaxX(),
+          envelope.getMaxY(),
+          stringWriter);
+    }
+  }
+
  private:
   template <typename T>
   static void writeGeometry(
@@ -123,7 +159,6 @@ class GeometrySerializer {
     }
   }
 
- private:
   template <typename T>
   static void writeEnvelope(
       const geos::geom::Geometry& geometry,

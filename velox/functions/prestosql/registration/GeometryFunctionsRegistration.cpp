@@ -71,6 +71,8 @@ void registerOverlayOperations(const std::string& prefix) {
       {{prefix + "ST_Union"}});
   registerFunction<StEnvelopeAsPtsFunction, Array<Geometry>, Geometry>(
       {{prefix + "ST_EnvelopeAsPts"}});
+  registerFunction<ExpandEnvelopeFunction, Geometry, Geometry, double>(
+      {{prefix + "expand_envelope"}});
 }
 
 void registerAccessors(const std::string& prefix) {

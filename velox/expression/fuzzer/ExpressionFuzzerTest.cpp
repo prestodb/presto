@@ -244,6 +244,7 @@ std::unordered_set<std::string> skipFunctions = {
     "line_locate_point",
     "line_interpolate_point",
     "flatten_geometry_collections",
+    "expand_envelope",
 };
 
 std::unordered_set<std::string> skipFunctionsSOT = {

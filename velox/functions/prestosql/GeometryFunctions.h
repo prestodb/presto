@@ -1641,4 +1641,45 @@ struct FlattenGeometryCollectionsFunction {
   }
 };
 
+template <typename T>
+struct ExpandEnvelopeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  ExpandEnvelopeFunction() {
+    factory_ = geos::geom::GeometryFactory::create();
+  }
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Geometry>& result,
+      const arg_type<Geometry>& geometry,
+      const arg_type<double>& distance) {
+    if (std::isnan(distance)) {
+      return Status::UserError("Distance must be a non-NaN number");
+    }
+    if (distance < 0) {
+      return Status::UserError("Distance must be a non-negative number");
+    }
+    if (distance == std::numeric_limits<double>::infinity()) {
+      geospatial::GeometrySerializer::serialize(
+          *factory_->createPolygon(), result);
+      return Status::OK();
+    }
+
+    const std::unique_ptr<geos::geom::Envelope> envelope =
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
+    if (envelope->isNull()) {
+      geospatial::GeometrySerializer::serializeEnvelope(*envelope, result);
+      return Status::OK();
+    }
+
+    envelope->expandBy(distance);
+    geospatial::GeometrySerializer::serializeEnvelope(*envelope, result);
+
+    return Status::OK();
+  }
+
+ private:
+  geos::geom::GeometryFactory::Ptr factory_;
+};
+
 } // namespace facebook::velox::functions

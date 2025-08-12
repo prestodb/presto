@@ -2848,3 +2848,71 @@ TEST_F(GeometryFunctionsTest, testFlattenGeometryCollections) {
   ASSERT_TRUE(expectNullResult.has_value());
   ASSERT_TRUE(expectNullResult.value());
 }
+
+TEST_F(GeometryFunctionsTest, testExpandEnvelope) {
+  const auto testExpandEnvelopeFunc =
+      [&](const std::optional<std::string>& wkt,
+          const std::optional<double>& distance,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(expand_envelope(ST_GeometryFromText(c0), c1))",
+            wkt,
+            distance);
+
+        if (wkt.has_value() && distance.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testExpandEnvelopeFunc(
+      "POINT (1 10)", 3, "POLYGON ((-2 7, -2 13, 4 13, 4 7, -2 7))");
+  testExpandEnvelopeFunc(
+      "LINESTRING (1 10, 3 15)", 2, "POLYGON ((-1 8, -1 17, 5 17, 5 8, -1 8))");
+  testExpandEnvelopeFunc(
+      "GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))",
+      1,
+      "POLYGON ((2 0, 2 5, 6 5, 6 0, 2 0))");
+
+  testExpandEnvelopeFunc("POINT EMPTY", 3, "POLYGON EMPTY");
+  testExpandEnvelopeFunc("POLYGON EMPTY", 3, "POLYGON EMPTY");
+
+  testExpandEnvelopeFunc(std::nullopt, 3, "POLYGON EMPTY");
+  testExpandEnvelopeFunc("POINT EMPTY", std::nullopt, "POLYGON EMPTY");
+  testExpandEnvelopeFunc(std::nullopt, std::nullopt, "POLYGON EMPTY");
+
+  // presto-java returns empty envelopes when expand_envelope is called with
+  // infinity distance, so we do the same for consistency.
+  testExpandEnvelopeFunc(
+      "POINT (1 1)", std::numeric_limits<double>::infinity(), "POLYGON EMPTY");
+
+  VELOX_ASSERT_USER_THROW(
+      testExpandEnvelopeFunc(
+          "POINT (1 10)", -1, "POLYGON ((-2 7, -2 13, 4 13, 4 7, -2 7))"),
+      "Distance must be a non-negative number");
+
+  VELOX_ASSERT_USER_THROW(
+      testExpandEnvelopeFunc(
+          "POINT (1 10)",
+          std::numeric_limits<double>::quiet_NaN(),
+          std::nullopt),
+      "Distance must be a non-NaN number");
+
+  VELOX_ASSERT_USER_THROW(
+      testExpandEnvelopeFunc(
+          "POINT (1 10)",
+          std::numeric_limits<double>::signaling_NaN(),
+          std::nullopt),
+      "Distance must be a non-NaN number");
+
+  std::optional<std::string> wrappedEnvelopeResult = evaluateOnce<std::string>(
+      "ST_AsText(expand_envelope(ST_Envelope(ST_GeometryFromText(c0)), c1))",
+      std::optional<std::string>("POINT (1 10)"),
+      std::optional<double>(3));
+  ASSERT_TRUE(wrappedEnvelopeResult.has_value());
+  ASSERT_EQ(
+      wrappedEnvelopeResult.value(),
+      "POLYGON ((-2 7, -2 13, 4 13, 4 7, -2 7))");
+}
