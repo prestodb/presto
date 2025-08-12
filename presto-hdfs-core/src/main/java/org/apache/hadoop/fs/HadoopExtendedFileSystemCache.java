@@ -13,10 +13,6 @@
  */
 package org.apache.hadoop.fs;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-
 public class HadoopExtendedFileSystemCache
 {
     private static PrestoExtendedFileSystemCache cache;
@@ -26,49 +22,9 @@ public class HadoopExtendedFileSystemCache
     public static synchronized void initialize()
     {
         if (cache == null) {
-            cache = setFinalStatic(FileSystem.class, "CACHE", new PrestoExtendedFileSystemCache());
-        }
-    }
-
-    private static <T> T setFinalStatic(Class<?> clazz, String name, T value)
-    {
-        try {
-            Field field = clazz.getDeclaredField(name);
-            field.setAccessible(true);
-
-            Field modifiersField = getModifiersField();
-            modifiersField.setAccessible(true);
-            modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-
-            field.set(null, value);
-
-            return value;
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
-
-    private static Field getModifiersField() throws NoSuchFieldException
-    {
-        try {
-            return Field.class.getDeclaredField("modifiers");
-        }
-        catch (NoSuchFieldException e) {
-            try {
-                Method getDeclaredFields0 = Class.class.getDeclaredMethod("getDeclaredFields0", boolean.class);
-                getDeclaredFields0.setAccessible(true);
-                Field[] fields = (Field[]) getDeclaredFields0.invoke(Field.class, false);
-                for (Field field : fields) {
-                    if ("modifiers".equals(field.getName())) {
-                        return field;
-                    }
-                }
-            }
-            catch (ReflectiveOperationException ex) {
-                e.addSuppressed(ex);
-            }
-            throw e;
+            PrestoExtendedFileSystemCache newCache = new PrestoExtendedFileSystemCache();
+            FileSystem.setCache(newCache);
+            cache = newCache;
         }
     }
 }
