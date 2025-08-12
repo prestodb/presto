@@ -19,11 +19,13 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +56,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
+import static com.facebook.presto.iceberg.IcebergPageSink.revertAdjustTimestampForPartitionTransform;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -98,6 +101,8 @@ public class IcebergUpdateablePageSource
     private final int isDeletedColumnId;
     private final int deleteFilePathColumnId;
 
+    private final ConnectorSession session;
+
     public IcebergUpdateablePageSource(
             Schema tableSchema,
             // represents the columns which need to be output from `getNextPage`
@@ -113,13 +118,15 @@ public class IcebergUpdateablePageSource
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             // the columns that this page source is supposed to update
             List<IcebergColumnHandle> updatedColumns,
-            Optional<IcebergColumnHandle> updateRowIdColumn)
+            Optional<IcebergColumnHandle> updateRowIdColumn,
+            ConnectorSession session)
     {
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
         this.columns = requireNonNull(outputColumns, "columns is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.delegateColumns = requireNonNull(delegateColumns, "delegateColumns is null");
+        this.session = requireNonNull(session, "session is null");
         // information for deletes
         this.deleteSinkSupplier = deleteSinkSupplier;
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
@@ -209,6 +216,7 @@ public class IcebergUpdateablePageSource
                 return null;
             }
 
+            dataPage = adjustPageIfNecessary(dataPage);
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
             if (isDeletedColumnId != -1 || deleteFilePathColumnId != -1) {
                 if (isDeletedColumnId != -1) {
@@ -236,6 +244,41 @@ public class IcebergUpdateablePageSource
             throwIfInstanceOf(e, PrestoException.class);
             throw new PrestoException(ICEBERG_BAD_DATA, e);
         }
+    }
+
+    private Page adjustPageIfNecessary(Page page)
+    {
+        if (page.getPositionCount() == 0 || page.getChannelCount() == 0) {
+            return page;
+        }
+        if (session.getSqlFunctionProperties().isLegacyTimestamp()) {
+            Block[] blocks = new Block[page.getChannelCount()];
+            for (int i = 0; i < delegateColumns.size(); i++) {
+                if (delegateColumns.get(i).getType() instanceof TimestampType) {
+                    TimestampType timestampType = (TimestampType) delegateColumns.get(i).getType();
+                    Block block = page.getBlock(i);
+                    BlockBuilder blockBuilder = timestampType.createBlockBuilder(null, block.getPositionCount());
+                    for (int t = 0; t < block.getPositionCount(); t++) {
+                        if (block.isNull(t)) {
+                            blockBuilder.appendNull();
+                        }
+                        else {
+                            long adjustedTimestampValue = (long) revertAdjustTimestampForPartitionTransform(
+                                    session.getSqlFunctionProperties(),
+                                    timestampType,
+                                    timestampType.getLong(block, t));
+                            timestampType.writeLong(blockBuilder, adjustedTimestampValue);
+                        }
+                    }
+                    blocks[i] = blockBuilder.build();
+                }
+                else {
+                    blocks[i] = page.getBlock(i);
+                }
+            }
+            return new Page(blocks);
+        }
+        return page;
     }
 
     @Override

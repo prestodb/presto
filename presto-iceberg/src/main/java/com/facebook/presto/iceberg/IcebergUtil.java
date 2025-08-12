@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -139,6 +140,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTI
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumnId;
+import static com.facebook.presto.iceberg.IcebergPageSink.revertAdjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
@@ -411,9 +413,11 @@ public final class IcebergUtil
         return Optional.ofNullable(view.properties().get(TABLE_COMMENT));
     }
 
-    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable, RuntimeStats runtimeStats)
+    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId,
+                                         Table icebergTable, RuntimeStats runtimeStats,
+                                         SqlFunctionProperties sqlFunctionProperties)
     {
-        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
+        Expression expression = ExpressionConverter.toIcebergExpression(predicates, sqlFunctionProperties);
         TableScan tableScan = icebergTable
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
@@ -600,7 +604,8 @@ public final class IcebergUtil
             Table icebergTable,
             Constraint<ColumnHandle> constraint,
             List<IcebergColumnHandle> partitionColumns,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            SqlFunctionProperties sqlFunctionProperties)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
         FileFormat fileFormat = getFileFormat(icebergTable);
@@ -615,7 +620,8 @@ public final class IcebergUtil
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
                 .filter(toIcebergExpression(getNonMetadataColumnConstraints(constraint
                         .getSummary()
-                        .simplify())))
+                        .simplify()),
+                        sqlFunctionProperties))
                 .useSnapshot(snapshotId.get());
 
         Set<HivePartition> partitions = new HashSet<>();
@@ -671,14 +677,34 @@ public final class IcebergUtil
                 for (IcebergColumnHandle column : partitionColumns) {
                     NullableValue value = newPartition.getKeys().get(column);
                     Domain allowedDomain = domains.get(column);
+                    if (column.getType() instanceof TimestampType && sqlFunctionProperties.isLegacyTimestamp() && !value.isNull()) {
+                        value = new NullableValue(value.getType(), revertAdjustTimestampForPartitionTransform(sqlFunctionProperties, column.getType(), value.getValue()));
+                    }
                     if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
                         isIncludePartition = false;
                         break;
                     }
                 }
 
-                if (constraint.predicate().isPresent() && !constraint.predicate().get().test(newPartition.getKeys())) {
-                    isIncludePartition = false;
+                if (constraint.predicate().isPresent()) {
+                    Map<ColumnHandle, NullableValue> map = new HashMap<>();
+                    if (sqlFunctionProperties.isLegacyTimestamp()) {
+                        newPartition.getKeys().entrySet().stream().forEach(entry -> {
+                            NullableValue value = entry.getValue();
+                            if (((IcebergColumnHandle) entry.getKey()).getType() instanceof TimestampType) {
+                                if (!value.isNull()) {
+                                    value = new NullableValue(value.getType(), revertAdjustTimestampForPartitionTransform(sqlFunctionProperties, value.getType(), value.getValue()));
+                                }
+                            }
+                            map.put(entry.getKey(), value);
+                        });
+                    }
+                    else {
+                        map.putAll(newPartition.getKeys());
+                    }
+                    if (!constraint.predicate().get().test(map)) {
+                        isIncludePartition = false;
+                    }
                 }
 
                 if (isIncludePartition) {
@@ -888,9 +914,9 @@ public final class IcebergUtil
             TupleDomain<IcebergColumnHandle> filter,
             Optional<Set<Integer>> requestedPartitionSpec,
             Optional<Set<Integer>> requestedSchema,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats, SqlFunctionProperties sqlFunctionProperties)
     {
-        Expression filterExpression = toIcebergExpression(filter);
+        Expression filterExpression = toIcebergExpression(filter, sqlFunctionProperties);
         CloseableIterable<FileScanTask> fileTasks = table
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
