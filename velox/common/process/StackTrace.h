@@ -25,65 +25,47 @@ namespace facebook::velox::process {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// TODO: Deprecate in favor of folly::symbolizer.
+/// TODO: Deprecate in favor of folly::symbolizer.
 class StackTrace {
  public:
-  /**
-   * Translate a frame pointer to file name and line number pair.
-   */
+  /// Translate a frame pointer to file name and line number pair.
   static std::string translateFrame(void* framePtr, bool lineNumbers = true);
 
-  /**
-   * Demangle a function name.
-   */
+  /// Demangle a function name.
   static std::string demangle(const char* mangled);
 
- public:
-  /**
-   * Constructor -- saves the current stack trace. By default, we skip the
-   * frames for StackTrace::StackTrace.  If you want those, you can pass
-   * '-2' to skipFrames.
-   */
+  /// Constructor -- saves the current stack trace. By default, we skip the
+  /// frames for StackTrace::StackTrace.  If you want those, you can pass '-2'
+  /// to skipFrames.
   explicit StackTrace(int32_t skipFrames = 0);
 
   StackTrace(const StackTrace& other);
   StackTrace& operator=(const StackTrace& other);
 
-  /**
-   * Generate an output of the written stack trace.
-   */
+  /// Generate an output of the written stack trace.
   const std::string& toString() const;
 
-  /**
-   * Generate a vector that for each position has the title of the frame.
-   */
+  /// Generate a vector that for each position has the title of the frame.
   const std::vector<std::string>& toStrVector() const;
 
-  /**
-   * Return the raw stack pointers.
-   */
+  /// Return the raw stack pointers.
   const std::vector<void*>& getStack() const {
-    return bt_pointers_;
+    return btPtrs_;
   }
 
-  /**
-   * Log stacktrace into a file under /tmp. If "out" is not null,
-   * also store translated stack trace into the variable.
-   * Returns the name of the generated file.
-   */
+  /// Log stacktrace into a file under /tmp. If "out" is not null, also store
+  /// translated stack trace into the variable. Returns the name of the
+  /// generated file.
   std::string log(const char* errorType, std::string* out = nullptr) const;
 
  private:
-  /**
-   * Record bt pointers.
-   */
+  // Record bt pointers.
   void create(int32_t skipFrames);
 
- private:
-  std::vector<void*> bt_pointers_;
-  mutable folly::once_flag bt_vector_flag_;
-  mutable std::vector<std::string> bt_vector_;
-  mutable folly::once_flag bt_flag_;
+  std::vector<void*> btPtrs_;
+  mutable folly::once_flag btVectorFlag_;
+  mutable std::vector<std::string> btVector_;
+  mutable folly::once_flag btFlag_;
   mutable std::string bt_;
 };
 

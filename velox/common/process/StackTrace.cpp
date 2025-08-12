@@ -46,14 +46,14 @@ StackTrace::StackTrace(int32_t skipFrames) {
 }
 
 StackTrace::StackTrace(const StackTrace& other) {
-  bt_pointers_ = other.bt_pointers_;
-  if (folly::test_once(other.bt_vector_flag_)) {
-    bt_vector_ = other.bt_vector_;
-    folly::call_once(bt_vector_flag_, [] {}); // Set the flag.
+  btPtrs_ = other.btPtrs_;
+  if (folly::test_once(other.btVectorFlag_)) {
+    btVector_ = other.btVector_;
+    folly::call_once(btVectorFlag_, [] {}); // Set the flag.
   }
-  if (folly::test_once(other.bt_flag_)) {
+  if (folly::test_once(other.btFlag_)) {
     bt_ = other.bt_;
-    folly::call_once(bt_flag_, [] {}); // Set the flag.
+    folly::call_once(btFlag_, [] {}); // Set the flag.
   }
 }
 
@@ -69,9 +69,9 @@ void StackTrace::create(int32_t skipFrames) {
   const int32_t kDefaultSkipFrameAdjust = 2; // ::create(), ::StackTrace()
   const int32_t kMaxFrames = 75;
 
-  bt_pointers_.clear();
-  uintptr_t btpointers[kMaxFrames];
-  ssize_t framecount = folly::symbolizer::getStackTrace(btpointers, kMaxFrames);
+  btPtrs_.clear();
+  uintptr_t btPtrs[kMaxFrames];
+  ssize_t framecount = folly::symbolizer::getStackTrace(btPtrs, kMaxFrames);
   if (framecount <= 0) {
     return;
   }
@@ -79,9 +79,9 @@ void StackTrace::create(int32_t skipFrames) {
   framecount = std::min(framecount, static_cast<ssize_t>(kMaxFrames));
   skipFrames = std::max(skipFrames + kDefaultSkipFrameAdjust, 0);
 
-  bt_pointers_.reserve(framecount - skipFrames);
+  btPtrs_.reserve(framecount - skipFrames);
   for (int32_t i = skipFrames; i < framecount; i++) {
-    bt_pointers_.push_back(reinterpret_cast<void*>(btpointers[i]));
+    btPtrs_.push_back(reinterpret_cast<void*>(btPtrs[i]));
   }
 }
 
@@ -89,32 +89,32 @@ void StackTrace::create(int32_t skipFrames) {
 // reporting functions
 
 const std::vector<std::string>& StackTrace::toStrVector() const {
-  folly::call_once(bt_vector_flag_, [&] {
+  folly::call_once(btVectorFlag_, [&] {
     size_t frame = 0;
     static folly::Indestructible<folly::fbstring> myname{
         folly::demangle(typeid(decltype(*this))) + "::"};
-    bt_vector_.reserve(bt_pointers_.size());
-    for (auto ptr : bt_pointers_) {
+    btVector_.reserve(btPtrs_.size());
+    for (auto ptr : btPtrs_) {
       auto framename = translateFrame(ptr);
       if (folly::StringPiece(framename).startsWith(*myname)) {
         continue; // ignore frames in the StackTrace class
       }
-      bt_vector_.push_back(fmt::format("# {:<2d} {}", frame++, framename));
+      btVector_.push_back(fmt::format("# {:<2d} {}", frame++, framename));
     }
   });
-  return bt_vector_;
+  return btVector_;
 }
 
 const std::string& StackTrace::toString() const {
-  folly::call_once(bt_flag_, [&] {
+  folly::call_once(btFlag_, [&] {
     const auto& vec = toStrVector();
     size_t needed = 0;
     for (const auto& frame : vec) {
       needed += frame.size() + 1;
     }
     bt_.reserve(needed);
-    for (const auto& frame_title : vec) {
-      bt_ += frame_title;
+    for (const auto& frameTitle : vec) {
+      bt_ += frameTitle;
       bt_ += '\n';
     }
   });
