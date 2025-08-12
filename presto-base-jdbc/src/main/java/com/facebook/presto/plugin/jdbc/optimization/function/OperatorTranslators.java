@@ -18,6 +18,9 @@ import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeConstraint;
+import com.facebook.presto.spi.function.TypeConstraints;
+import com.facebook.presto.spi.function.TypeParameterBinding;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -33,29 +36,74 @@ public class OperatorTranslators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.BIGINT)
-    public static JdbcExpression add(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    @TypeConstraints({
+            @TypeConstraint({
+                    @TypeParameterBinding(parameter = "T", type = StandardTypes.INTEGER),
+                    @TypeParameterBinding(parameter = "U", type = StandardTypes.INTEGER)
+            }),
+            @TypeConstraint({
+                    @TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT),
+                    @TypeParameterBinding(parameter = "U", type = StandardTypes.INTEGER)
+            }),
+            @TypeConstraint({
+                    @TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT),
+                    @TypeParameterBinding(parameter = "U", type = StandardTypes.BIGINT)
+            })})
+    @SqlType("T")
+    public static JdbcExpression add(
+            @SqlType("T") JdbcExpression left,
+            @SqlType("U") JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("+", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.BIGINT)
-    public static JdbcExpression subtract(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    public static JdbcExpression subtract(
+            @SqlType(StandardTypes.BIGINT) JdbcExpression left,
+            @SqlType(StandardTypes.BIGINT) JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("-", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(EQUAL)
+    @TypeConstraints({
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.INTEGER)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.SMALLINT)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.TINYINT)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.BOOLEAN)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.DATE)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.DECIMAL)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.REAL)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.DOUBLE)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.VARCHAR)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.TIMESTAMP)})})
     @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression equal(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    public static JdbcExpression equal(
+            @SqlType("T") JdbcExpression left,
+            @SqlType("T") JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("=", left, right), forwardBindVariables(left, right));
     }
 
     @ScalarOperator(NOT_EQUAL)
+    @TypeConstraints({
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.BIGINT)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.INTEGER)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.SMALLINT)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.TINYINT)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.BOOLEAN)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.DATE)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.DECIMAL)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.REAL)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.DOUBLE)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.VARCHAR)}),
+            @TypeConstraint({@TypeParameterBinding(parameter = "T", type = StandardTypes.TIMESTAMP)})})
     @SqlType(StandardTypes.BOOLEAN)
-    public static JdbcExpression notEqual(@SqlType(StandardTypes.BIGINT) JdbcExpression left, @SqlType(StandardTypes.BIGINT) JdbcExpression right)
+    public static JdbcExpression notEqual(
+            @SqlType("T") JdbcExpression left,
+            @SqlType("T") JdbcExpression right)
     {
         return new JdbcExpression(infixOperation("<>", left, right), forwardBindVariables(left, right));
     }
