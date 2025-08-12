@@ -14,14 +14,9 @@
 
 package com.facebook.presto.hudi;
 
-import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.HiveBucketProperty;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveSessionProperties;
-import com.facebook.presto.hive.OrcFileWriterConfig;
-import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
@@ -32,6 +27,10 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.exception.TableNotFoundException;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -86,11 +85,8 @@ public class TestHudiPartitionManager
     public void testParseValuesAndFilterPartition()
     {
         ConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig().setMaxBucketsForGroupedExecution(100),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+                new HudiSessionProperties(
+                        new HudiConfig().setMetadataTableEnabled(false)).getSessionProperties());
         TupleDomain<ColumnHandle> constraintSummary = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         new HudiColumnHandle(
@@ -100,9 +96,21 @@ public class TestHudiPartitionManager
                                 Optional.empty(),
                                 HudiColumnHandle.ColumnType.PARTITION_KEY),
                         Domain.singleValue(VARCHAR, utf8Slice("2019-07-23"))));
+        HoodieTableMetaClient metaClient = null;
+        try {
+            metaClient = HoodieTableMetaClient.builder()
+                    .setConf(new HadoopStorageConfiguration(new Configuration()))
+                    .setBasePath("/" + TABLE.getStorage().getLocation())
+                    .build();
+        }
+        catch (TableNotFoundException e) {
+            // Ignore
+        }
+
         List<String> actualPartitions = hudiPartitionManager.getEffectivePartitions(
                 session,
                 metastore,
+                metaClient,
                 new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
                 constraintSummary);
         assertEquals(actualPartitions, ImmutableList.of("ds=2019-07-23"));
