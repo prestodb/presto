@@ -38,7 +38,7 @@ namespace facebook::velox {
 using UpdateAndCheckTraceLimitCB = std::function<void(uint64_t)>;
 
 struct TraceConfig {
-  /// Target query trace nodes.
+  /// Target query trace node id.
   std::string queryNodeId;
   /// Base dir of query trace.
   std::string queryTraceDir;
@@ -51,7 +51,7 @@ struct TraceConfig {
   bool dryRun{false};
 
   TraceConfig(
-      std::string queryNodeIds,
+      std::string queryNodeId,
       std::string queryTraceDir,
       UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB,
       std::string taskRegExp,

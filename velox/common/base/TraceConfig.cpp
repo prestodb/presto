@@ -32,6 +32,6 @@ TraceConfig::TraceConfig(
       updateAndCheckTraceLimitCB(std::move(_updateAndCheckTraceLimitCB)),
       taskRegExp(std::move(_taskRegExp)),
       dryRun(_dryRun) {
-  VELOX_CHECK(!queryNodeId.empty(), "Query trace nodes cannot be empty");
+  VELOX_CHECK(!queryNodeId.empty(), "The query trace node cannot be empty");
 }
 } // namespace facebook::velox
