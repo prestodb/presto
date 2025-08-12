@@ -19,6 +19,8 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.NodeStats;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -127,6 +129,17 @@ public class ServerInfoResource
         else {
             return nodeState;
         }
+    }
+
+    @GET
+    @Path("nodestats")
+    @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @RolesAllowed(ADMIN)
+    public NodeStats getServerStats()
+    {
+        // For java workers we don't want coordinator throttling so no need to populate load metrics
+        NodeStats stats = new NodeStats(getServerState(), ImmutableMap.of());
+        return stats;
     }
 
     @GET
