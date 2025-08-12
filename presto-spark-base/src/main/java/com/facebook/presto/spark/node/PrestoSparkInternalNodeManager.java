@@ -22,6 +22,8 @@ import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -124,5 +126,11 @@ public class PrestoSparkInternalNodeManager
     public void removeNodeChangeListener(Consumer<AllNodes> listener)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<String, Double> getNodeLoadMetrics(String nodeIdentifier)
+    {
+        return Collections.emptyMap();
     }
 }

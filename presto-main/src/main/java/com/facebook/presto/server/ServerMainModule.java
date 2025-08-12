@@ -692,6 +692,9 @@ public class ServerMainModule
         // system connector
         binder.install(new SystemConnectorModule());
 
+        // ClusterOverload policy module
+        binder.install(new NodeOverloadPolicyModule());
+
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);

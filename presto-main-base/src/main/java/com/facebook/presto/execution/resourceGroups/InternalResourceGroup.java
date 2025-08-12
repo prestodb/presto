@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -97,6 +98,7 @@ public class InternalResourceGroup
     private final Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo;
     private final Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate;
     private final InternalNodeManager nodeManager;
+    private final ClusterResourceChecker clusterResourceChecker;
 
     // Configuration
     // =============
@@ -167,7 +169,8 @@ public class InternalResourceGroup
             boolean staticResourceGroup,
             Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
             Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            ClusterResourceChecker clusterResourceChecker)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -185,6 +188,7 @@ public class InternalResourceGroup
         this.staticResourceGroup = staticResourceGroup;
         this.additionalRuntimeInfo = requireNonNull(additionalRuntimeInfo, "additionalRuntimeInfo is null");
         this.shouldWaitForResourceManagerUpdate = requireNonNull(shouldWaitForResourceManagerUpdate, "shouldWaitForResourceManagerUpdate is null");
+        this.clusterResourceChecker = clusterResourceChecker;
     }
 
     public ResourceGroupInfo getResourceGroupInfo(boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
@@ -672,7 +676,8 @@ public class InternalResourceGroup
                     staticResourceGroup && staticSegment,
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
-                    nodeManager);
+                    nodeManager,
+                    clusterResourceChecker);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -1020,6 +1025,11 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
+            // Check if more queries can be run on the cluster based on cluster overload
+            if (clusterResourceChecker != null && !clusterResourceChecker.canRunMoreOnCluster(nodeManager)) {
+                return false;
+            }
+
             if (cpuUsageMillis >= hardCpuLimitMillis) {
                 return false;
             }
@@ -1145,7 +1155,28 @@ public class InternalResourceGroup
                     true,
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
-                    nodeManager);
+                    nodeManager,
+                    null);
+        }
+
+        public RootInternalResourceGroup(
+                String name,
+                BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
+                Executor executor,
+                Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
+                Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
+                InternalNodeManager nodeManager,
+                ClusterResourceChecker clusterResourceChecker)
+        {
+            super(Optional.empty(),
+                    name,
+                    jmxExportListener,
+                    executor,
+                    true,
+                    additionalRuntimeInfo,
+                    shouldWaitForResourceManagerUpdate,
+                    nodeManager,
+                    clusterResourceChecker);
         }
 
         public synchronized void processQueuedQueries()
