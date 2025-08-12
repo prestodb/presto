@@ -776,6 +776,9 @@ class Task : public std::enable_shared_from_this<Task> {
   /// split.
   bool testingHasDriverWaitForSplit() const;
 
+  /// Returns true if all the splits have finished.
+  bool testingAllSplitsFinished();
+
  private:
   // Hook of system-wide running task list.
   struct TaskListEntry {

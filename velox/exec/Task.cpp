@@ -187,7 +187,6 @@ void movePromisesOut(
   }
   from.clear();
 }
-
 } // namespace
 
 std::string executionModeString(Task::ExecutionMode mode) {
@@ -1762,7 +1761,6 @@ namespace {
 bool isTableScan(const Operator* op) {
   return dynamic_cast<const TableScan*>(op) != nullptr;
 }
-
 } // namespace
 
 void Task::dropInput(Operator* op) {
@@ -1854,6 +1852,11 @@ bool Task::checkNoMoreSplitGroupsLocked() {
   }
 
   return false;
+}
+
+bool Task::testingAllSplitsFinished() {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  return isAllSplitsFinishedLocked();
 }
 
 bool Task::isAllSplitsFinishedLocked() {
@@ -2000,9 +2003,6 @@ void Task::splitFinished(bool fromTableScan, int64_t splitWeight) {
     --taskStats_.numRunningTableScanSplits;
     taskStats_.runningTableScanSplitWeights -= splitWeight;
   }
-  if (isAllSplitsFinishedLocked()) {
-    taskStats_.executionEndTimeMs = getCurrentTimeMs();
-  }
 }
 
 void Task::multipleSplitsFinished(
@@ -2015,9 +2015,6 @@ void Task::multipleSplitsFinished(
   if (fromTableScan) {
     taskStats_.numRunningTableScanSplits -= numSplits;
     taskStats_.runningTableScanSplitWeights -= splitsWeight;
-  }
-  if (isAllSplitsFinishedLocked()) {
-    taskStats_.executionEndTimeMs = getCurrentTimeMs();
   }
 }
 
@@ -2166,13 +2163,6 @@ bool Task::checkIfFinishedLocked() {
     if (splitGroupStates_[kUngroupedGroupId].numFinishedOutputDrivers ==
         numDrivers(outputPipelineId)) {
       allFinished = true;
-
-      if (taskStats_.executionEndTimeMs == 0) {
-        // In case we haven't set executionEndTimeMs due to all splits
-        // depleted, we set it here. This can happen due to task error or task
-        // being cancelled.
-        taskStats_.executionEndTimeMs = getCurrentTimeMs();
-      }
     }
   }
 
