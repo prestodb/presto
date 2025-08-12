@@ -83,6 +83,65 @@ class ParquetWriterTest : public ParquetTestBase {
   inline static const std::string kHiveConnectorId = "test-hive";
 };
 
+class ArrowMemoryPool final : public ::arrow::MemoryPool {
+ public:
+  explicit ArrowMemoryPool() : allocated_(0) {}
+
+  ~ArrowMemoryPool() = default;
+
+  ::arrow::Status Allocate(int64_t size, int64_t alignment, uint8_t** out)
+      override {
+    *out = reinterpret_cast<uint8_t*>(malloc(size));
+    VELOX_CHECK_NOT_NULL(*out, "Failed to allocate memory in ArrowMemoryPool.");
+
+    allocated_ += size;
+    return ::arrow::Status::OK();
+  }
+
+  ::arrow::Status Reallocate(
+      int64_t oldSize,
+      int64_t newSize,
+      int64_t alignment,
+      uint8_t** ptr) override {
+    uint8_t* newBuffer = reinterpret_cast<uint8_t*>(realloc(*ptr, newSize));
+    VELOX_CHECK_NOT_NULL(
+        newBuffer, "Failed to reallocate memory in ArrowMemoryPool.");
+
+    *ptr = newBuffer;
+    allocated_ = allocated_ - oldSize + newSize;
+    return ::arrow::Status::OK();
+  }
+
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override {
+    free(buffer);
+    allocated_ -= size;
+  }
+
+  int64_t bytes_allocated() const override {
+    return allocated_;
+    ;
+  }
+
+  int64_t max_memory() const override {
+    VELOX_UNSUPPORTED("ArrowMemoryPool#max_memory() unsupported");
+  }
+
+  int64_t total_bytes_allocated() const override {
+    VELOX_UNSUPPORTED("ArrowMemoryPool#total_bytes_allocated() unsupported");
+  }
+
+  int64_t num_allocations() const override {
+    VELOX_UNSUPPORTED("ArrowMemoryPool#num_allocations() unsupported");
+  }
+
+  std::string backend_name() const override {
+    return "arrow memory pool";
+  }
+
+ private:
+  int64_t allocated_;
+};
+
 std::vector<CompressionKind> params = {
     CompressionKind::CompressionKind_NONE,
     CompressionKind::CompressionKind_SNAPPY,
@@ -720,7 +779,7 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromWriterOptions) {
   writer->close();
 };
 
-TEST_F(ParquetWriterTest, parquetWriteTimestampTimeZoneWithDefault) {
+DEBUG_ONLY_TEST_F(ParquetWriterTest, parquetWriteTimestampTimeZoneWithDefault) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::parquet::Writer::write",
       std::function<void(const ::arrow::Schema*)>(
@@ -737,6 +796,23 @@ TEST_F(ParquetWriterTest, parquetWriteTimestampTimeZoneWithDefault) {
   parquet::WriterOptions writerOptions;
   writerOptions.memoryPool = leafPool_.get();
   writerOptions.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
+
+  // Create an in-memory writer.
+  auto sink = std::make_unique<MemorySink>(
+      200 * 1024 * 1024,
+      dwio::common::FileSink::Options{.pool = leafPool_.get()});
+  auto writer = std::make_unique<parquet::Writer>(
+      std::move(sink), writerOptions, rootPool_, ROW({"c0"}, {TIMESTAMP()}));
+  writer->write(data);
+  writer->close();
+};
+
+TEST_F(ParquetWriterTest, parquetWriteWithArrowMemoryPool) {
+  const auto data = makeRowVector({makeFlatVector<Timestamp>(
+      10'000, [](auto row) { return Timestamp(row, row); })});
+  parquet::WriterOptions writerOptions;
+  writerOptions.memoryPool = leafPool_.get();
+  writerOptions.arrowMemoryPool = std::make_shared<ArrowMemoryPool>();
 
   // Create an in-memory writer.
   auto sink = std::make_unique<MemorySink>(
