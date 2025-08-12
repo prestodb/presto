@@ -98,6 +98,19 @@ public class TestNativeIndexJoinLogicalPlanner
                     anyTree(indexJoin(
                             project(filter(tableScan("lineitem"))),
                             indexSource("orders"))));
+
+            assertPlan("" +
+                            "SELECT *\n" +
+                            "FROM (\n" +
+                            "  SELECT CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus, *\n" +
+                            "  FROM lineitem\n" +
+                            "  WHERE partkey % 8 = 0) l\n" +
+                            joinType + " JOIN orders o\n" +
+                            "  ON l.orderkey = o.orderkey\n" +
+                            "  AND o.custkey = 100",
+                    anyTree(indexJoin(
+                            project(filter(tableScan("lineitem"))),
+                            filter(indexSource("orders")))));
         }
     }
 
