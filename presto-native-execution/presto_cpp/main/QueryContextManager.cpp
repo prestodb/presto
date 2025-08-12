@@ -88,6 +88,11 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
       auto veloxConfig = (sessionProperty.first.rfind("native_", 0) == 0)
           ? sessionProperty.first.substr(7)
           : sessionProperty.first;
+
+      if (veloxConfig == "parquet_writer_datapage_version") {
+        veloxConfig = "hive.parquet.writer.datapage_version";
+      }
+
       connectorConfig.emplace(veloxConfig, sessionProperty.second);
     }
     connectorConfig.insert(
@@ -111,6 +116,7 @@ void updateVeloxConfigs(
     configStrings.emplace(
         core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }
+
   // TODO: remove this once cpu driver slicing config is turned on by default in
   // Velox.
   it = configStrings.find(core::QueryConfig::kDriverCpuTimeSliceLimitMs);
