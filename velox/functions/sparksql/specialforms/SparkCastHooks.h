@@ -72,6 +72,10 @@ class SparkCastHooks : public exec::CastHooks {
     return allowOverflow_;
   }
 
+  bool applyTryCastRecursively() const override {
+    return true;
+  }
+
   exec::PolicyType getPolicy() const override;
 
  private:

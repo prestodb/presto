@@ -881,5 +881,56 @@ TEST_F(SparkCastExprTest, boolToTimestamp) {
       }));
 }
 
+TEST_F(SparkCastExprTest, recursiveTryCast) {
+  // Test array elements.
+  testCast(
+      makeArrayVector<StringView>({
+          {"1", "2", "3"},
+          {"4", "a", "6"},
+          {"b", "c", "d"},
+      }),
+      makeNullableArrayVector<int64_t>({
+          {1, 2, 3},
+          {4, std::nullopt, 6},
+          {std::nullopt, std::nullopt, std::nullopt},
+      }));
+
+  // Test map values (Spark doesn't allow casting if the map keys can become
+  // null).
+  testCast(
+      makeMapVectorFromJson<int64_t, std::string>({
+          R"( {1:"1", 2:"2", 3:"3"} )",
+          R"( {1:"4", 2:"a", 3:"6"} )",
+          R"( {1:"b", 2:"c", 3:"d"} )",
+      }),
+      makeMapVectorFromJson<int64_t, int64_t>({
+          "{1:1, 2:2, 3:3}",
+          "{1:4, 2:null, 3:6}",
+          "{1:null, 2:null, 3:null}",
+      }));
+
+  // Test row fields.
+  testCast(
+      makeRowVector(
+          {makeFlatVector<StringView>({"1", "4", "b"}),
+           makeFlatVector<StringView>({"2", "a", "c"}),
+           makeFlatVector<StringView>({"3", "6", "d"})}),
+      makeRowVector(
+          {makeNullableFlatVector<int64_t>({1, 4, std::nullopt}),
+           makeNullableFlatVector<int64_t>({2, std::nullopt, std::nullopt}),
+           makeNullableFlatVector<int64_t>({3, 6, std::nullopt})}));
+
+  // Test nested arrays.
+  testCast(
+      makeNestedArrayVectorFromJson<std::string>({
+          R"( [["1", "2", "3"], ["4", "a", "6"]] )",
+          R"( [["b", "c", "d"], ["x", "7", "z"]] )",
+      }),
+      makeNestedArrayVectorFromJson<int64_t>({
+          "[[1, 2, 3], [4, null, 6]]",
+          "[[null, null, null], [null, 7, null]]",
+      }));
+}
+
 } // namespace
 } // namespace facebook::velox::test

@@ -309,7 +309,7 @@ class CastExpr : public SpecialForm {
   }
 
   bool setNullInResultAtError() const {
-    return isTryCast() && inTopLevel;
+    return isTryCast() && (inTopLevel || hooks_->applyTryCastRecursively());
   }
 
   CastOperatorPtr getCastOperator(const TypePtr& type);

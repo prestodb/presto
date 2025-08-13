@@ -61,6 +61,10 @@ class PrestoCastHooks : public CastHooks {
     return false;
   }
 
+  bool applyTryCastRecursively() const override {
+    return false;
+  }
+
   PolicyType getPolicy() const override;
 
  private:
