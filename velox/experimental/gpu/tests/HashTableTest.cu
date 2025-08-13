@@ -710,8 +710,6 @@ void runPartitioned() {
       shuffledKeys.get(),
       tmp.get(),
       tmpSize);
-  CUDA_CHECK_FATAL(
-      cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte));
   CUDA_CHECK_FATAL(cudaFuncSetAttribute(
       probePartitioned<kUseTags>,
       cudaFuncAttributeMaxDynamicSharedMemorySize,
