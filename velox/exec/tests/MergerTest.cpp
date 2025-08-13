@@ -144,14 +144,19 @@ class MergerTest : public OperatorTestBase {
 
   std::unique_ptr<SourceMerger> createSourceMerger(
       const std::vector<std::shared_ptr<MergeSource>>& sources,
-      uint64_t outputBatchSize) const {
+      uint64_t outputBatchRows,
+      uint64_t outputBatchBytes) const {
     std::vector<std::unique_ptr<SourceStream>> sourceStreams;
     for (const auto& source : sources) {
       sourceStreams.push_back(std::make_unique<SourceStream>(
-          source.get(), sortingKeys_, outputBatchSize));
+          source.get(), sortingKeys_, outputBatchRows));
     }
     return std::make_unique<SourceMerger>(
-        inputType_, outputBatchSize, std::move(sourceStreams), pool());
+        inputType_,
+        std::move(sourceStreams),
+        outputBatchRows,
+        outputBatchBytes,
+        pool());
   }
 
   static std::vector<std::shared_ptr<MergeSource>> createMergeSources(int num) {
@@ -225,12 +230,13 @@ class MergerTest : public OperatorTestBase {
   std::shared_ptr<SpillMerger> createSpillMerger(
       std::vector<std::vector<std::unique_ptr<SpillReadFile>>>
           spillReadFilesGroups,
-      vector_size_t outputBatchSize) const {
+      vector_size_t outputBatchRows) const {
     return std::make_shared<SpillMerger>(
         sortingKeys_,
         inputType_,
-        outputBatchSize,
         std::move(spillReadFilesGroups),
+        outputBatchRows,
+        std::numeric_limits<int64_t>::max(),
         &spillConfig_,
         spillStats_,
         pool());
@@ -317,24 +323,28 @@ class MergerTest : public OperatorTestBase {
 TEST_F(MergerTest, sourceMerger) {
   struct {
     size_t maxOutputRows;
+    size_t maxOutputBytes;
     size_t numSources;
 
     std::string debugString() const {
       return fmt::format(
-          "maxOutputRows:{} numStreams:{}", maxOutputRows, numSources);
+          "maxOutputRows:{}, maxOutputBytes:{}, numStreams:{}",
+          maxOutputRows,
+          succinctBytes(maxOutputBytes),
+          numSources);
     }
   } testSettings[] = {
-      {1, 1},
-      {1, 3},
-      {1, 8},
-      {7, 1},
-      {7, 3},
-      {7, 8},
-      {16, 1},
-      {16, 3},
-      {16, 8},
-      {32, 3},
-      {1024, 8}};
+      {1, 1000'000'000, 1},
+      {1, 1000'000'000, 3},
+      {1, 1000'000'000, 8},
+      {7, 1000'000'000, 1},
+      {7, 1000'000'000, 3},
+      {7, 1000'000'000, 8},
+      {16, 1000'000'000, 1},
+      {16, 1000'000'000, 3},
+      {16, 1000'000'000, 8},
+      {32, 1000'000'000, 3},
+      {1024, 1000'000'000, 8}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     std::vector<std::vector<RowVectorPtr>> inputs;
@@ -342,8 +352,8 @@ TEST_F(MergerTest, sourceMerger) {
       inputs.emplace_back(generateSortedVectors(i, 16));
     }
     const auto sources = createMergeSources(testData.numSources);
-    const auto sourceMerger =
-        createSourceMerger(sources, testData.maxOutputRows);
+    const auto sourceMerger = createSourceMerger(
+        sources, testData.maxOutputRows, testData.maxOutputBytes);
     createProducers(testData.numSources, inputs, sources);
     const auto results = getOutputFromSourceMerger(sourceMerger.get());
     const auto expectedResults = makeExpectedResults(inputs, 16);
@@ -358,7 +368,7 @@ TEST_F(MergerTest, sourceMergerWithEmptySources) {
     inputs.emplace_back(generateSortedVectors(numVectors, 16));
   }
   const auto sources = createMergeSources(10);
-  const auto sourceMerger = createSourceMerger(sources, 32);
+  const auto sourceMerger = createSourceMerger(sources, 32, 1000'000'000);
   createProducers(10, inputs, sources);
   const auto results = getOutputFromSourceMerger(sourceMerger.get());
   const auto expectedResults = makeExpectedResults(inputs, 16);
@@ -372,7 +382,7 @@ TEST_F(MergerTest, spillMerger) {
 
     std::string debugString() const {
       return fmt::format(
-          "maxOutputRows:{} numStreams:{}", maxOutputRows, numSources);
+          "maxOutputRows:{}, numStreams:{}", maxOutputRows, numSources);
     }
   } testSettings[] = {
       {1, 1},

@@ -885,7 +885,7 @@ TEST_P(MultiFragmentTest, mergeExchangeWithSpill) {
   core::PlanNodeId partitionNodeId;
   std::unordered_map<std::string, std::string> spillMergeConfigs{
       {"spill_enabled", "true"},
-      {"local_merge_enabled", "true"},
+      {"local_merge_spill_enabled", "true"},
       {"local_merge_max_num_merge_sources", "3"}};
   std::vector<core::PlanNodeId> localMergeNodeIds;
   for (int numPartialSortTasks = 0; numPartialSortTasks < 2;

@@ -264,7 +264,8 @@ class QueryConfig {
       "topn_row_number_spill_enabled";
 
   /// LocalMerge spilling flag, only applies if "spill_enabled" flag is set.
-  static constexpr const char* kLocalMergeSpillEnabled = "local_merge_enabled";
+  static constexpr const char* kLocalMergeSpillEnabled =
+      "local_merge_spill_enabled";
 
   /// Specify the max number of local sources to merge at a time.
   static constexpr const char* kLocalMergeMaxNumMergeSources =

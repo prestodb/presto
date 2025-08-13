@@ -193,6 +193,28 @@ These stats are reported only by IndexLookupJoin operator
      -
      - The number of lazy decoded result batches returned from the storage client.
 
+Merge
+-----
+These stats are reported only by Merge operator
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - streamingSourceReadWallNanos
+     - nanos
+     - The number of a spillable operators that don't support spill because of
+       spill limitation. For instance, a window operator do not support spill
+       if there is no partitioning.
+   * - spilledSourceReadWallNanos
+     - nanos
+     - The running wall time of the merge operator reading from the spilled source to
+       produce the final output. This only applies when spilling is enabled for local
+       merge.
+
 Spilling
 --------
 These stats are reported by operators that support spilling.
