@@ -62,6 +62,10 @@ class StreamArena {
   /// serilizers.
   virtual void clear();
 
+  memory::MachinePageCount testingAllocationQuantum() const {
+    return allocationQuantum_;
+  }
+
  private:
   memory::MemoryPool* const pool_;
 

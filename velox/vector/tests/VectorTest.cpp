@@ -876,6 +876,17 @@ class VectorTest : public testing::Test, public velox::test::VectorTestBase {
     OStreamOutputStream oddOutputStream(&oddStream);
     even.flush(&evenOutputStream);
     odd.flush(&oddOutputStream);
+    ASSERT_GT(even.size(), 0);
+    even.clear();
+    // We expect two pages for header after clear.
+    ASSERT_EQ(
+        even.size(),
+        memory::AllocationTraits::pageBytes(even.testingAllocationQuantum()));
+    ASSERT_GT(odd.size(), 0);
+    odd.clear();
+    ASSERT_EQ(
+        odd.size(),
+        memory::AllocationTraits::pageBytes(odd.testingAllocationQuantum()));
 
     auto evenString = evenStream.str();
     checkSizes(source.get(), evenSizes, evenString);
@@ -4204,6 +4215,5 @@ TEST_F(VectorTest, estimateFlatSize) {
   // Test that the second call to prepareForReuse will not cause crash
   arrayVector->prepareForReuse();
 }
-
 } // namespace
 } // namespace facebook::velox

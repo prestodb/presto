@@ -467,7 +467,9 @@ class VectorStreamGroup : public StreamArena {
       const VectorSerde::Options* options);
 
   void clear() override {
+    serializer_->clear();
     StreamArena::clear();
+    // TODO: provide a separate method to initialize the serializer header.
     serializer_->clear();
   }
 

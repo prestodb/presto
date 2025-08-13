@@ -35,6 +35,7 @@ add_executable(
   VectorPrinterTest.cpp
   VectorSaverTest.cpp
   VectorStreamTest.cpp
+  VectorStreamGroupTest.cpp
   VectorTest.cpp
   VectorTestUtils.cpp
   VectorToStringTest.cpp)
