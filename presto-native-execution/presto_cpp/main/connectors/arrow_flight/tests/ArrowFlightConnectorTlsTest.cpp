@@ -39,8 +39,8 @@ class ArrowFlightConnectorTlsTestBase : public ArrowFlightConnectorTestBase {
   void setFlightServerOptions(
       flight::FlightServerOptions* serverOptions) override {
     flight::CertKeyPair tlsCertificate{
-        .pem_cert = readFile("./data/tls_certs/server.crt"),
-        .pem_key = readFile("./data/tls_certs/server.key")};
+        .pem_cert = readFile("./data/certs/server.crt"),
+        .pem_key = readFile("./data/certs/server.key")};
     serverOptions->tls_certificates.push_back(tlsCertificate);
   }
 
@@ -83,7 +83,7 @@ class ArrowFlightConnectorTlsTest : public ArrowFlightConnectorTlsTestBase {
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
                     {ArrowFlightConfig::kServerSslCertificate,
-                     "./data/tls_certs/ca.crt"}})) {}
+                     "./data/certs/ca.crt"}})) {}
 };
 
 TEST_F(ArrowFlightConnectorTlsTest, tlsEnabled) {

@@ -69,8 +69,8 @@ public class TestArrowFlightQueries
             throws Exception
     {
         arrowFlightQueryRunner = getDistributedQueryRunner();
-        File certChainFile = new File("src/test/resources/server.crt");
-        File privateKeyFile = new File("src/test/resources/server.key");
+        File certChainFile = new File("src/test/resources/mtls/server.crt");
+        File privateKeyFile = new File("src/test/resources/mtls/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
         Location location = Location.forGrpcTls("localhost", serverPort);
