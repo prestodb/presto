@@ -61,8 +61,9 @@ Additional Resources for Metastore Configuration
 * `AWS Glue Catalog Configuration Properties`_
 
 Additional authentication-related configuration properties are covered in
-"Hive Metastore Thrift Service Authentication" and "HDFS Authentication" in the
-Hive Security documentation (:doc:`/connector/hive-security`).
+:ref:`connector/hive-security:Hive Metastore Thrift Service Authentication` and
+:ref:`connector/hive-security:HDFS Authentication`.
+
 
 
 Configuration
