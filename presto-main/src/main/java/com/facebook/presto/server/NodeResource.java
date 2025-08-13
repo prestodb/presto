@@ -15,11 +15,10 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.google.common.collect.Maps;
-
-import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 
 import java.util.Collection;
 

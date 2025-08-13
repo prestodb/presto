@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>104</version>
+        <version>107</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -40,11 +40,11 @@
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
 
-        <air.java.version>1.8.0-151</air.java.version>
+        <air.java.version>17</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.216</dep.airlift.version>
+        <dep.airlift.version>0.221</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -52,21 +52,20 @@
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.46</dep.drift.version>
+        <dep.drift.version>${dep.airlift.version}</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.13.1</dep.joda.version>
-        <dep.tempto.version>1.54</dep.tempto.version>
+        <dep.tempto.version>1.55</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.11.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
-        <dep.slf4j.version>1.7.36</dep.slf4j.version>
+        <dep.slf4j.version>2.0.16</dep.slf4j.version>
         <dep.kafka.version>3.9.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
@@ -76,19 +75,19 @@
         <dep.docker-java.version>3.4.1</dep.docker-java.version>
         <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>3.1.3</dep.ratis.version>
-        <dep.errorprone.version>2.36.0</dep.errorprone.version>
+        <dep.errorprone.version>2.37.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.15.4</dep.jackson.version>
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
         <dep.protobuf-java.version>4.29.0</dep.protobuf-java.version>
+        <dep.jetty.version>12.0.18</dep.jetty.version>
         <dep.netty.version>4.1.119.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
-        <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
-        <dep.guice.version>5.1.0</dep.guice.version>
+        <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
@@ -416,9 +415,15 @@
             </dependency>
 
             <dependency>
-                <groupId>javax.annotation</groupId>
-                <artifactId>javax.annotation-api</artifactId>
-                <version>1.3.2</version>
+                <groupId>jakarta.ws.rs</groupId>
+                <artifactId>jakarta.ws.rs-api</artifactId>
+                <version>4.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.inject</groupId>
+                <artifactId>javax.inject</artifactId>
+                <version>1</version>
             </dependency>
 
             <dependency>
@@ -991,6 +996,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${dep.slf4j.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>net.minidev</groupId>
                 <artifactId>json-smart</artifactId>
                 <version>2.5.2</version>
@@ -1151,9 +1162,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>units</artifactId>
-                <version>1.3</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
@@ -1265,49 +1276,49 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-codec</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-protocol</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-transport-spi</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-codec-utils</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
@@ -1326,6 +1337,10 @@
                     <exclusion>
                         <groupId>com.google.code.findbugs</groupId>
                         <artifactId>annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.airlift</groupId>
+                        <artifactId>airline</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1391,9 +1406,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>airline</artifactId>
-                <version>0.8</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
@@ -1617,9 +1632,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.discovery</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.33</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
@@ -2187,6 +2202,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-metadata</artifactId>
+                <version>${dep.kafka.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.pinot</groupId>
                 <artifactId>presto-pinot-driver</artifactId>
                 <version>${dep.pinot.version}</version>
@@ -2276,6 +2297,10 @@
                         <artifactId>guice-multibindings</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
@@ -2294,6 +2319,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2315,6 +2344,10 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2330,6 +2363,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2424,7 +2461,7 @@
             <dependency>
                 <groupId>org.javassist</groupId>
                 <artifactId>javassist</artifactId>
-                <version>3.22.0-GA</version>
+                <version>3.30.2-GA</version>
             </dependency>
 
             <dependency>
@@ -2649,7 +2686,7 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.drift</groupId>
+                    <groupId>com.facebook.airlift.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
                 </plugin>
@@ -2774,6 +2811,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.0.0-M7</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-testng</artifactId>
+                        <version>3.5.1</version>
+                    </dependency>
+                </dependencies>
                 <configuration combine.children="append">
                     <includes>
                         <include>**/Test*.java</include>

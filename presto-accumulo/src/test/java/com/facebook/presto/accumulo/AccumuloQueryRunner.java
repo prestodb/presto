@@ -29,10 +29,10 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.Map;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

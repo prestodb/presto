@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.remotetask;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;

@@ -14,8 +14,7 @@
 package com.facebook.presto.server.security;
 
 import com.facebook.presto.spi.security.AuthorizedIdentity;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Optional;
 

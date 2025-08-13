@@ -26,8 +26,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 
 import static com.google.common.reflect.Reflection.newProxy;
 

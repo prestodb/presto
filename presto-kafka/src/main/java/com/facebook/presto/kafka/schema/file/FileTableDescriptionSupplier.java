@@ -25,8 +25,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import jakarta.inject.Inject;
 
-import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.io.File;

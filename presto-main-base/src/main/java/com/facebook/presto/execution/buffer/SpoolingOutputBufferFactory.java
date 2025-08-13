@@ -24,9 +24,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;

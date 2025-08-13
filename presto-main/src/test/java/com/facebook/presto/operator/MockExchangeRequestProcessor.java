@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -29,7 +30,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.units.DataSize;
 
 import java.net.URI;
 import java.util.ArrayList;
