@@ -30,8 +30,6 @@
 
 namespace facebook::velox::parquet {
 
-constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];
-
 BlockSplitBloomFilter::BlockSplitBloomFilter(memory::MemoryPool* pool)
     : pool_(pool),
       hashStrategy_(HashStrategy::XXHASH),
