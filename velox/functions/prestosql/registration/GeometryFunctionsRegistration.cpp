@@ -149,6 +149,10 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "ST_InteriorRings"}});
   registerFunction<StGeometriesFunction, Array<Geometry>, Geometry>(
       {{prefix + "ST_Geometries"}});
+  registerFunction<GeometryAsGeoJsonFunction, Varchar, Geometry>(
+      {{prefix + "geometry_as_geojson"}});
+  registerFunction<GeometryFromGeoJsonFunction, Geometry, Varchar>(
+      {{prefix + "geometry_from_geojson"}});
   registerFunction<
       GeometryNearestPointsFunction,
       Array<Geometry>,
