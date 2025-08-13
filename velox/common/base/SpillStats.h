@@ -101,10 +101,6 @@ struct SpillStats {
   bool operator!=(const SpillStats& other) const {
     return !(*this == other);
   }
-  bool operator>(const SpillStats& other) const;
-  bool operator<(const SpillStats& other) const;
-  bool operator>=(const SpillStats& other) const;
-  bool operator<=(const SpillStats& other) const;
 
   void reset();
 

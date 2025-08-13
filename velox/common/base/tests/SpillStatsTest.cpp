@@ -62,19 +62,11 @@ TEST(SpillStatsTest, spillStats) {
   stats2.spillReads = 10;
   stats2.spillReadTimeNanos = 100;
   stats2.spillDeserializationTimeNanos = 100;
-  ASSERT_TRUE(stats1 < stats2);
-  ASSERT_TRUE(stats1 <= stats2);
-  ASSERT_FALSE(stats1 > stats2);
-  ASSERT_FALSE(stats1 >= stats2);
   ASSERT_TRUE(stats1 != stats2);
   ASSERT_FALSE(stats1 == stats2);
 
   ASSERT_TRUE(stats1 == stats1);
   ASSERT_FALSE(stats1 != stats1);
-  ASSERT_FALSE(stats1 > stats1);
-  ASSERT_TRUE(stats1 >= stats1);
-  ASSERT_FALSE(stats1 < stats1);
-  ASSERT_TRUE(stats1 <= stats1);
 
   SpillStats delta = stats2 - stats1;
   ASSERT_EQ(delta.spilledInputBytes, 0);
@@ -114,10 +106,6 @@ TEST(SpillStatsTest, spillStats) {
   stats1.spilledInputBytes = 2060;
   stats1.spilledBytes = 1030;
   stats1.spillReadBytes = 4096;
-  VELOX_ASSERT_THROW(stats1 < stats2, "");
-  VELOX_ASSERT_THROW(stats1 > stats2, "");
-  VELOX_ASSERT_THROW(stats1 <= stats2, "");
-  VELOX_ASSERT_THROW(stats1 >= stats2, "");
   ASSERT_TRUE(stats1 != stats2);
   ASSERT_FALSE(stats1 == stats2);
   const SpillStats zeroStats;

@@ -124,57 +124,6 @@ SpillStats SpillStats::operator-(const SpillStats& other) const {
   return result;
 }
 
-bool SpillStats::operator<(const SpillStats& other) const {
-  uint32_t gtCount{0};
-  uint32_t ltCount{0};
-#define UPDATE_COUNTER(counter)           \
-  do {                                    \
-    if (counter < other.counter) {        \
-      ++ltCount;                          \
-    } else if (counter > other.counter) { \
-      ++gtCount;                          \
-    }                                     \
-  } while (0)
-
-  UPDATE_COUNTER(spillRuns);
-  UPDATE_COUNTER(spilledInputBytes);
-  UPDATE_COUNTER(spilledBytes);
-  UPDATE_COUNTER(spilledRows);
-  UPDATE_COUNTER(spilledPartitions);
-  UPDATE_COUNTER(spilledFiles);
-  UPDATE_COUNTER(spillFillTimeNanos);
-  UPDATE_COUNTER(spillSortTimeNanos);
-  UPDATE_COUNTER(spillExtractVectorTimeNanos);
-  UPDATE_COUNTER(spillSerializationTimeNanos);
-  UPDATE_COUNTER(spillWrites);
-  UPDATE_COUNTER(spillFlushTimeNanos);
-  UPDATE_COUNTER(spillWriteTimeNanos);
-  UPDATE_COUNTER(spillMaxLevelExceededCount);
-  UPDATE_COUNTER(spillReadBytes);
-  UPDATE_COUNTER(spillReads);
-  UPDATE_COUNTER(spillReadTimeNanos);
-  UPDATE_COUNTER(spillDeserializationTimeNanos);
-#undef UPDATE_COUNTER
-  VELOX_CHECK(
-      !((gtCount > 0) && (ltCount > 0)),
-      "gtCount {} ltCount {}",
-      gtCount,
-      ltCount);
-  return ltCount > 0;
-}
-
-bool SpillStats::operator>(const SpillStats& other) const {
-  return !(*this < other) && (*this != other);
-}
-
-bool SpillStats::operator>=(const SpillStats& other) const {
-  return !(*this < other);
-}
-
-bool SpillStats::operator<=(const SpillStats& other) const {
-  return !(*this > other);
-}
-
 bool SpillStats::operator==(const SpillStats& other) const {
   return std::tie(
              spillRuns,
