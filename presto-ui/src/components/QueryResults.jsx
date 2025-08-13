@@ -38,7 +38,7 @@ export function QueryResults({ results }) {
             let column = {
                 name: row.name,
             };
-            column.selector = row.type === 'bigint' ? row => row[index]?.toString() : row => row[index];
+            column.selector = row.type === 'bigint' ? row => row[index]?.toString() ?? 'NULL' : row => row[index];
             return column;
         });
     };
