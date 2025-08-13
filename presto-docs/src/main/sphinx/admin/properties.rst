@@ -150,7 +150,7 @@ To enable the ``OFFSET`` clause in SQL query expressions, set this property to `
 The corresponding session property is :ref:`admin/properties-session:\`\`offset_clause_enabled\`\``. 
 
 ``max-serializable-object-size``
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``long``
 * **Default value:** ``1000``
