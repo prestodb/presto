@@ -19,19 +19,13 @@
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
 
-#include "dwio/nimble/common/tests/NimbleFileWriter.h"
 #include "dwio/nimble/encodings/EncodingLayout.h"
 #include "dwio/nimble/encodings/EncodingLayoutCapture.h"
 #include "dwio/nimble/encodings/EncodingSelectionPolicy.h"
 #include "dwio/nimble/tablet/TabletReader.h"
-#include "dwio/nimble/velox/VeloxWriterOptions.h"
-#include "velox/common/file/File.h"
-#include "velox/dwio/common/Statistics.h"
-#include "velox/experimental/wave/dwio/ColumnReader.h"
-#include "velox/experimental/wave/dwio/StructColumnReader.h"
 #include "velox/experimental/wave/dwio/nimble/NimbleFileFormat.h"
 #include "velox/experimental/wave/dwio/nimble/NimbleFormatData.h"
-#include "velox/experimental/wave/dwio/nimble/SelectiveStructColumnReader.h"
+#include "velox/experimental/wave/dwio/nimble/tests/NimbleReaderTestUtil.h"
 #include "velox/type/Filter.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -40,12 +34,6 @@ using namespace facebook::nimble;
 
 namespace {
 using namespace facebook::velox;
-
-struct FilterSpec {
-  std::string name;
-  std::shared_ptr<common::Filter> filter;
-  bool keepValues;
-};
 
 class NimbleReaderTest : public ::testing::Test,
                          public velox::test::VectorTestBase {
@@ -58,266 +46,33 @@ class NimbleReaderTest : public ::testing::Test,
     if (int device; cudaGetDevice(&device) != cudaSuccess) {
       GTEST_SKIP() << "No CUDA detected, skipping all tests";
     }
-    deviceArena_ = std::make_unique<GpuArena>(
-        100000000, getDeviceAllocator(getDevice()), 400000000);
-  }
-
-  GpuArena& deviceArena() {
-    return *deviceArena_;
   }
 
   memory::MemoryPool* leafPool() {
     return pool_.get();
   }
 
-  // Helper function to write multiple vectors to nimble files and get back all
-  // streamLoaders. A chunk vector group contains several chunked vectors
-  // (mapping to chunked streams in Nimble) that share the same chunk
-  // boundaries.
-  std::vector<std::unique_ptr<StreamLoader>> writeToNimbleAndGetStreamLoaders(
-      const std::vector<std::vector<VectorPtr>>& chunkVectorGroups,
-      const std::vector<std::pair<EncodingType, float>>& readFactors,
-      const CompressionOptions& compressionOptions) {
-    using namespace facebook::nimble;
-    auto pool = leafPool();
-
-    // Configure writer options with the specified read factors and compression
-    // options
-    VeloxWriterOptions writerOptions;
-    ManualEncodingSelectionPolicyFactory encodingFactory(
-        readFactors, compressionOptions);
-    writerOptions.encodingSelectionPolicyFactory = [&](DataType dataType) {
-      return encodingFactory.createPolicy(dataType);
-    };
-    writerOptions.enableChunking = true;
-    writerOptions.minStreamChunkRawSize = 0;
-    writerOptions.flushPolicyFactory = [] {
-      return std::make_unique<LambdaFlushPolicy>(
-          [](const StripeProgress&) { return FlushDecision::Chunk; });
-    };
-
-    std::vector<std::unique_ptr<StreamLoader>> allStreamLoaders;
-
-    for (const auto& chunkVectors : chunkVectorGroups) {
-      if (chunkVectors.empty()) {
-        continue;
-      }
-
-      auto file = facebook::nimble::test::createNimbleFile(
-          *pool, chunkVectors, writerOptions, false);
-
-      auto numChildren = chunkVectors[0]->as<RowVector>()->childrenSize();
-
-      auto readFile = std::make_unique<InMemoryReadFile>(file);
-      TabletReader tablet(*pool, std::move(readFile));
-      auto stripeIdentifier = tablet.getStripeIdentifier(0);
-      VELOX_CHECK_EQ(numChildren + 1, tablet.streamCount(stripeIdentifier));
-
-      std::vector<uint32_t> streamIds;
-      streamIds.resize(numChildren);
-      std::iota(streamIds.begin(), streamIds.end(), 1);
-      auto streamLoaders =
-          tablet.load(stripeIdentifier, std::span<const uint32_t>(streamIds));
-
-      for (auto& loader : streamLoaders) {
-        allStreamLoaders.push_back(std::move(loader));
-      }
-    }
-
-    return allStreamLoaders;
-  }
-
-  // Helper function to create input by combining chunk vector groups
-  RowVectorPtr createInputFromChunkVectorGroups(
-      const std::vector<std::vector<VectorPtr>>& chunkVectorGroups) {
-    std::vector<RowVectorPtr> groupVectors;
-    for (const auto& chunkVectors : chunkVectorGroups) {
-      if (chunkVectors.empty()) {
-        continue;
-      }
-
-      auto groupVector = std::dynamic_pointer_cast<RowVector>(chunkVectors[0]);
-      for (int i = 1; i < chunkVectors.size(); i++) {
-        groupVector->append(chunkVectors[i].get());
-      }
-      groupVectors.push_back(groupVector);
-    }
-
-    if (groupVectors.empty()) {
-      return nullptr; // No valid groups
-    }
-
-    if (groupVectors.size() == 1) {
-      // Only one group, use it directly
-      return groupVectors[0];
-    } else {
-      // Multiple groups: combine them by adding columns
-      std::vector<std::string> allNames;
-      std::vector<TypePtr> allTypes;
-      std::vector<VectorPtr> allChildren;
-
-      // Collect all columns from all groups
-      int32_t childId = 0;
-      for (const auto& groupVector : groupVectors) {
-        const auto& rowType = groupVector->type()->asRow();
-        for (int i = 0; i < groupVector->childrenSize(); i++, childId++) {
-          allNames.push_back("c" + std::to_string(childId));
-          allTypes.push_back(rowType.childAt(i));
-          allChildren.push_back(groupVector->childAt(i));
-        }
-      }
-
-      auto combinedType = ROW(std::move(allNames), std::move(allTypes));
-      return std::make_shared<RowVector>(
-          groupVectors[0]->pool(),
-          combinedType,
-          BufferPtr(nullptr),
-          groupVectors[0]->size(),
-          std::move(allChildren));
-    }
-  }
-
   // Helper function to decode a vector with specified read factors and
   // compression options
-  void decodeVectorAndCheck(
+  void test(
       const std::vector<std::vector<VectorPtr>>& chunkVectorGroups,
       const std::vector<std::pair<EncodingType, float>>& readFactors,
       const CompressionOptions& compressionOptions =
           {.compressionAcceptRatio = 0.0},
-      const std::vector<FilterSpec>& filters = {},
-      RowVectorPtr expectedOutput = nullptr) {
-    using namespace facebook::nimble;
-    auto pool = leafPool();
-
+      const std::vector<FilterSpec>& filters = {}) {
     auto streamLoaders = writeToNimbleAndGetStreamLoaders(
-        chunkVectorGroups, readFactors, compressionOptions);
+        leafPool(), chunkVectorGroups, readFactors, compressionOptions);
 
     auto input = createInputFromChunkVectorGroups(chunkVectorGroups);
-    if (input == nullptr) {
-      return; // No valid groups
-    }
 
-    std::vector<int32_t> nonNullOutputChildrenIds;
-    std::vector<std::unique_ptr<NimbleChunkedStream>> chunkedStreams;
-    for (int i = 0; i < streamLoaders.size(); i++) {
-      auto& streamLoader = streamLoaders[i];
-      if (streamLoader == nullptr) { // this is a null stream
-        continue;
-      }
-      nonNullOutputChildrenIds.push_back(i);
-      auto chunkedStream = std::make_unique<NimbleChunkedStream>(
-          *pool, streamLoader->getStream());
-      EXPECT_TRUE(chunkedStream->hasNext());
-      chunkedStreams.emplace_back(std::move(chunkedStream));
-    }
+    TestNimbleReader reader(leafPool(), input, streamLoaders, filters);
+    auto testResult = reader.read();
 
-    if (chunkedStreams.empty()) { // only contain null streams
-      return;
-    }
-
-    // Create non-null type and scan spec that only include non-null streams
-    std::vector<std::string> nonNullNames;
-    std::vector<TypePtr> nonNullTypes;
-    const auto& inputRowType = input->type()->asRow();
-    for (int32_t childId : nonNullOutputChildrenIds) {
-      nonNullNames.push_back(inputRowType.nameOf(childId));
-      nonNullTypes.push_back(inputRowType.childAt(childId));
-    }
-    auto nonNullRowType = ROW(std::move(nonNullNames), std::move(nonNullTypes));
-
-    // Set up scan spec and format parameters
-    auto scanSpec = std::make_shared<common::ScanSpec>("root");
-    scanSpec->addAllChildFields(*nonNullRowType);
-
-    // Apply filters to specific children if provided
-    for (const auto& [childName, filter, keepValues] : filters) {
-      auto* childSpec = scanSpec->childByName(childName);
-      if (childSpec != nullptr) {
-        childSpec->setFilter(filter);
-        childSpec->setProjectOut(keepValues);
-      }
-    }
-    auto requestedType = nonNullRowType;
-    auto fileType = dwio::common::TypeWithId::create(requestedType);
-    std::shared_ptr<dwio::common::TypeWithId> fileTypeShared =
-        std::move(fileType);
-
-    NimbleStripe stripe(
-        std::move(chunkedStreams), fileTypeShared, input->size());
-
-    dwio::common::ColumnReaderStatistics stats;
-    auto formatParams =
-        std::make_unique<NimbleFormatParams>(*pool, stats, stripe);
-    auto reader = nimble::NimbleFormatReader::build(
-        requestedType, fileTypeShared, *formatParams, *scanSpec, nullptr, true);
-
-    // Set up wave stream and read stream
-    io::IoStatistics ioStats;
-    FileInfo fileInfo;
-    auto arena =
-        std::make_unique<GpuArena>(100000000, getAllocator(getDevice()));
-    OperatorStateMap operandStateMap;
-    InstructionStatus instructionStatus;
-    auto waveStream = std::make_unique<WaveStream>(
-        std::move(arena),
-        deviceArena(),
-        reinterpret_cast<nimble::SelectiveStructColumnReader*>(reader.get())
-            ->getOperands(),
-        &operandStateMap,
-        instructionStatus,
-        0);
-
-    auto readStream = std::make_unique<ReadStream>(
-        reinterpret_cast<StructColumnReader*>(reader.get()),
-        *waveStream,
-        &ioStats,
-        fileInfo);
-
-    // Launch read stream and get output
-    std::vector<int32_t> rowIds;
-    rowIds.resize(input->size());
-    std::iota(rowIds.begin(), rowIds.end(), 0);
-    RowSet rows(rowIds.data(), rowIds.size());
-    ReadStream::launch(std::move(readStream), 0, rows);
-
-    std::vector<OperandId> operandIds;
-    operandIds.resize(nonNullOutputChildrenIds.size());
-    std::iota(operandIds.begin(), operandIds.end(), 1);
-    folly::Range<const int32_t*> operandIdRange(
-        operandIds.data(), operandIds.size());
-    std::vector<VectorPtr> nonNullOutputChildren;
-    nonNullOutputChildren.resize(nonNullOutputChildrenIds.size());
-    auto outputNumValues = waveStream->getOutput(
-        0, *pool, operandIdRange, nonNullOutputChildren.data());
-
-    auto correct =
-        expectedOutput == nullptr ? input.get() : expectedOutput.get();
-    EXPECT_EQ(correct->size(), outputNumValues);
-
-    auto output = std::make_shared<RowVector>(
-        input->pool(),
-        input->type(),
-        BufferPtr(nullptr),
-        input->size(),
-        std::vector<VectorPtr>(input->childrenSize()));
-
-    for (int i = 0; i < nonNullOutputChildrenIds.size(); i++) {
-      output->childAt(nonNullOutputChildrenIds[i]) =
-          std::move(nonNullOutputChildren[i]);
-    }
-
-    for (int i = 0; i < correct->childrenSize(); i++) {
-      SCOPED_TRACE(fmt::format("i: {}", i));
-      if (output->childAt(i) == nullptr) { // populate the null children
-        output->childAt(i) = BaseVector::createNullConstant(
-            correct->childAt(i)->type(), correct->size(), pool);
-      }
-      test::assertEqualVectors(correct->childAt(i), output->childAt(i));
-    }
+    verifier_.verify(input, filters, testResult);
   }
 
  private:
-  std::unique_ptr<GpuArena> deviceArena_{nullptr};
+  NimbleReaderVerifier verifier_{};
 };
 
 #define ENCODING_TYPE_EXPECT_EQ(type1, type2) \
@@ -349,26 +104,17 @@ TEST_F(NimbleReaderTest, rootTrivialEncoding) {
   });
   auto pool = leafPool();
 
-  // Configure writer options to enforce trivial encoding on column c0
-  VeloxWriterOptions writerOptions;
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
-  ManualEncodingSelectionPolicyFactory encodingFactory(readFactors);
-  writerOptions.encodingSelectionPolicyFactory = [&](DataType dataType) {
-    return encodingFactory.createPolicy(dataType);
-  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  auto file =
-      facebook::nimble::test::createNimbleFile(*pool, c0, writerOptions);
-  auto readFile = std::make_unique<InMemoryReadFile>(file);
-  TabletReader tablet(*pool, std::move(readFile));
-  auto streams = tablet.load(
-      tablet.getStripeIdentifier(0), std::vector{static_cast<uint32_t>(1)});
+  auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+      pool, {{c0}}, readFactors, compressionOptions);
 
-  ASSERT_EQ(streams.size(), 1);
-  ASSERT_NE(streams[0], nullptr);
-  NimbleChunkedStream stream(*pool, streams[0]->getStream());
+  ASSERT_EQ(streamLoaders.size(), 1);
+  ASSERT_NE(streamLoaders[0], nullptr);
+  NimbleChunkedStream stream(*pool, streamLoaders[0]->getStream());
 
   ASSERT_TRUE(stream.hasNext());
 
@@ -392,25 +138,17 @@ TEST_F(NimbleReaderTest, rootNullableEncoding) {
   });
   auto pool = leafPool();
 
-  VeloxWriterOptions writerOptions;
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
-  ManualEncodingSelectionPolicyFactory encodingFactory(readFactors);
-  writerOptions.encodingSelectionPolicyFactory = [&](DataType dataType) {
-    return encodingFactory.createPolicy(dataType);
-  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  auto file =
-      facebook::nimble::test::createNimbleFile(*pool, c0, writerOptions);
-  auto readFile = std::make_unique<InMemoryReadFile>(file);
-  TabletReader tablet(*pool, std::move(readFile));
-  auto streams = tablet.load(
-      tablet.getStripeIdentifier(0), std::vector{static_cast<uint32_t>(1)});
+  auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+      pool, {{c0}}, readFactors, compressionOptions);
 
-  ASSERT_EQ(streams.size(), 1);
-  ASSERT_NE(streams[0], nullptr);
-  NimbleChunkedStream stream(*pool, streams[0]->getStream());
+  ASSERT_EQ(streamLoaders.size(), 1);
+  ASSERT_NE(streamLoaders[0], nullptr);
+  NimbleChunkedStream stream(*pool, streamLoaders[0]->getStream());
 
   ASSERT_TRUE(stream.hasNext());
 
@@ -436,25 +174,17 @@ TEST_F(NimbleReaderTest, rootDictionaryEncoding) {
   });
   auto pool = leafPool();
 
-  VeloxWriterOptions writerOptions;
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Dictionary, 1.0},
   };
-  ManualEncodingSelectionPolicyFactory encodingFactory(readFactors);
-  writerOptions.encodingSelectionPolicyFactory = [&](DataType dataType) {
-    return encodingFactory.createPolicy(dataType);
-  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  auto file =
-      facebook::nimble::test::createNimbleFile(*pool, c0, writerOptions);
-  auto readFile = std::make_unique<InMemoryReadFile>(file);
-  TabletReader tablet(*pool, std::move(readFile));
-  auto streams = tablet.load(
-      tablet.getStripeIdentifier(0), std::vector{static_cast<uint32_t>(1)});
+  auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+      pool, {{c0}}, readFactors, compressionOptions);
 
-  ASSERT_EQ(streams.size(), 1);
-  ASSERT_NE(streams[0], nullptr);
-  NimbleChunkedStream stream(*pool, streams[0]->getStream());
+  ASSERT_EQ(streamLoaders.size(), 1);
+  ASSERT_NE(streamLoaders[0], nullptr);
+  NimbleChunkedStream stream(*pool, streamLoaders[0]->getStream());
 
   ASSERT_TRUE(stream.hasNext());
 
@@ -480,25 +210,17 @@ TEST_F(NimbleReaderTest, rootRLEEncoding) {
   });
   auto pool = leafPool();
 
-  VeloxWriterOptions writerOptions;
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::RLE, 1.0},
   };
-  ManualEncodingSelectionPolicyFactory encodingFactory(readFactors);
-  writerOptions.encodingSelectionPolicyFactory = [&](DataType dataType) {
-    return encodingFactory.createPolicy(dataType);
-  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  auto file =
-      facebook::nimble::test::createNimbleFile(*pool, c0, writerOptions);
-  auto readFile = std::make_unique<InMemoryReadFile>(file);
-  TabletReader tablet(*pool, std::move(readFile));
-  auto streams = tablet.load(
-      tablet.getStripeIdentifier(0), std::vector{static_cast<uint32_t>(1)});
+  auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+      pool, {{c0}}, readFactors, compressionOptions);
 
-  ASSERT_EQ(streams.size(), 1);
-  ASSERT_NE(streams[0], nullptr);
-  NimbleChunkedStream stream(*pool, streams[0]->getStream());
+  ASSERT_EQ(streamLoaders.size(), 1);
+  ASSERT_NE(streamLoaders[0], nullptr);
+  NimbleChunkedStream stream(*pool, streamLoaders[0]->getStream());
 
   ASSERT_TRUE(stream.hasNext());
 
@@ -523,25 +245,17 @@ TEST_F(NimbleReaderTest, decodePipeline) {
   });
   auto pool = leafPool();
 
-  VeloxWriterOptions writerOptions;
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::RLE, 1.0},
   };
-  ManualEncodingSelectionPolicyFactory encodingFactory(readFactors);
-  writerOptions.encodingSelectionPolicyFactory = [&](DataType dataType) {
-    return encodingFactory.createPolicy(dataType);
-  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  auto file =
-      facebook::nimble::test::createNimbleFile(*pool, c0, writerOptions);
-  auto readFile = std::make_unique<InMemoryReadFile>(file);
-  TabletReader tablet(*pool, std::move(readFile));
-  auto streams = tablet.load(
-      tablet.getStripeIdentifier(0), std::vector{static_cast<uint32_t>(1)});
+  auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+      pool, {{c0}}, readFactors, compressionOptions);
 
-  ASSERT_EQ(streams.size(), 1);
-  ASSERT_NE(streams[0], nullptr);
-  NimbleChunkedStream stream(*pool, streams[0]->getStream());
+  ASSERT_EQ(streamLoaders.size(), 1);
+  ASSERT_NE(streamLoaders[0], nullptr);
+  NimbleChunkedStream stream(*pool, streamLoaders[0]->getStream());
 
   ASSERT_TRUE(stream.hasNext());
 
@@ -581,7 +295,7 @@ TEST_F(NimbleReaderTest, decodeTrivialSingleLevelInteger) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
+  test({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeTrivialSingleLevelFloat) {
@@ -595,7 +309,7 @@ TEST_F(NimbleReaderTest, decodeTrivialSingleLevelFloat) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
+  test({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, TrivialWithCompressionShouldFail) {
@@ -609,7 +323,7 @@ TEST_F(NimbleReaderTest, TrivialWithCompressionShouldFail) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 1.0};
   try {
-    decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
+    test({{input}}, readFactors, compressionOptions);
     FAIL() << "Expected exception for decoding trivial with compression";
   } catch (const VeloxRuntimeError& e) {
     EXPECT_NE(
@@ -635,35 +349,17 @@ TEST_F(NimbleReaderTest, loadMultiChunks) {
       makeFlatVector<double>(34, folly::identity),
   });
 
-  // Configure writer options to enforce trivial encoding on column c0
-  VeloxWriterOptions options;
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
-  options.enableChunking = true;
-  options.minStreamChunkRawSize = 0;
-  options.flushPolicyFactory = [] {
-    return std::make_unique<LambdaFlushPolicy>(
-        [](const StripeProgress&) { return FlushDecision::Chunk; });
-  };
-  ManualEncodingSelectionPolicyFactory encodingFactory(readFactors);
-  options.encodingSelectionPolicyFactory = [&](DataType dataType) {
-    return encodingFactory.createPolicy(dataType);
-  };
+  CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  auto file = facebook::nimble::test::createNimbleFile(
-      *pool,
-      {chunk0, chunk1, chunk2},
-      options,
-      false /* make sure chunks are not flushed into individual stripes*/);
-  auto readFile = std::make_unique<InMemoryReadFile>(file);
-  TabletReader tablet(*pool, std::move(readFile));
-  auto streams = tablet.load(
-      tablet.getStripeIdentifier(0), std::vector{static_cast<uint32_t>(1)});
+  auto streamLoaders = writeToNimbleAndGetStreamLoaders(
+      pool, {{chunk0, chunk1, chunk2}}, readFactors, compressionOptions);
 
-  ASSERT_EQ(streams.size(), 1);
-  ASSERT_NE(streams[0], nullptr);
-  NimbleChunkedStream stream(*pool, streams[0]->getStream());
+  ASSERT_EQ(streamLoaders.size(), 1);
+  ASSERT_NE(streamLoaders[0], nullptr);
+  NimbleChunkedStream stream(*pool, streamLoaders[0]->getStream());
 
   std::vector<RowVectorPtr> chunks{chunk0, chunk1, chunk2};
   for (int i = 0; i < 3; i++) {
@@ -695,8 +391,7 @@ TEST_F(NimbleReaderTest, decodeTrivialMultiChunksFloat) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk1, chunk2, chunk3}}, readFactors, compressionOptions);
+  test({{chunk1, chunk2, chunk3}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeTrivialMultiChunksMultiStreams) {
@@ -720,8 +415,7 @@ TEST_F(NimbleReaderTest, decodeTrivialMultiChunksMultiStreams) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk1, chunk2, chunk3}}, readFactors, compressionOptions);
+  test({{chunk1, chunk2, chunk3}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeNullableFloat) {
@@ -736,7 +430,7 @@ TEST_F(NimbleReaderTest, decodeNullableFloat) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
+  test({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeAllNulls) {
@@ -753,7 +447,7 @@ TEST_F(NimbleReaderTest, decodeAllNulls) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({{input}}, readFactors, compressionOptions);
+  test({{input}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeNullableMultiChunks) {
@@ -761,8 +455,8 @@ TEST_F(NimbleReaderTest, decodeNullableMultiChunks) {
 
   auto c0 = makeRowVector({makeFlatVector<double>(
       1893, [](auto row) { return row + 1.1; }, nullEvery(3))});
-  auto c1 = makeRowVector({makeFlatVector<double>(
-      2156, [](auto row) { return row + 1.2; })}); // nullEvery(13)
+  auto c1 = makeRowVector(
+      {makeFlatVector<double>(2156, [](auto row) { return row + 1.2; })});
   auto c2 = makeRowVector({makeFlatVector<double>(
       4790, [](auto row) { return row + 1.3; }, nullEvery(19))});
 
@@ -771,7 +465,7 @@ TEST_F(NimbleReaderTest, decodeNullableMultiChunks) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({{c0, c1, c2}}, readFactors, compressionOptions);
+  test({{c0, c1, c2}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, decodeNullableMultiChunksMultiStreams) {
@@ -793,7 +487,7 @@ TEST_F(NimbleReaderTest, decodeNullableMultiChunksMultiStreams) {
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck({{c0, c1, c2}}, readFactors, compressionOptions);
+  test({{c0, c1, c2}}, readFactors, compressionOptions);
 }
 
 TEST_F(NimbleReaderTest, NullableWithOneFilterKeepValues) {
@@ -805,16 +499,12 @@ TEST_F(NimbleReaderTest, NullableWithOneFilterKeepValues) {
   auto filter = std::make_shared<common::BigintRange>(1022, 1025, false);
   std::vector<FilterSpec> filters = {{"c0", filter, true}};
 
-  auto expectedOutput =
-      makeRowVector({makeFlatVector<int32_t>({1022, 1024, 1025})});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableWithMoreFiltersKeepValues) {
@@ -831,17 +521,12 @@ TEST_F(NimbleReaderTest, NullableWithMoreFiltersKeepValues) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c1Filter, true}};
 
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>({1022, 1024}),
-       makeFlatVector<int32_t>({1022, 1024})});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableWithOneFilterOneNonFilterKeepValues) {
@@ -853,21 +538,15 @@ TEST_F(NimbleReaderTest, NullableWithOneFilterOneNonFilterKeepValues) {
        makeFlatVector<int32_t>(
            1893, [](auto row) { return row; }, nullEvery(3))});
 
-  auto c0Filter =
-      std::make_shared<common::BigintRange>(1022, 1025, false); // 1000,1892
+  auto c0Filter = std::make_shared<common::BigintRange>(1022, 1025, false);
   std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
-
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>({1022, 1024, 1025}),
-       makeFlatVector<int32_t>({1022, 1024, 1025})});
 
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableWithMoreFiltersMoreNonFiltersKeepValues) {
@@ -883,26 +562,17 @@ TEST_F(NimbleReaderTest, NullableWithMoreFiltersMoreNonFiltersKeepValues) {
        makeFlatVector<int32_t>(
            1893, [](auto row) { return row; }, nullEvery(2))});
 
-  auto c0Filter =
-      std::make_shared<common::BigintRange>(1022, 1025, false); // 1000,1892
-  auto c1Filter =
-      std::make_shared<common::BigintRange>(1022, 1024, false); // 1000,1892
+  auto c0Filter = std::make_shared<common::BigintRange>(1022, 1025, false);
+  auto c1Filter = std::make_shared<common::BigintRange>(1022, 1024, false);
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c1Filter, true}};
-
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>({1022, 1024}),
-       makeFlatVector<int32_t>({1022, 1024}),
-       makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt}),
-       makeNullableFlatVector<int32_t>({std::nullopt, std::nullopt})});
 
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableFilterNoResults) {
@@ -922,19 +592,13 @@ TEST_F(NimbleReaderTest, NullableFilterNoResults) {
   auto c1Filter = std::make_shared<common::BigintRange>(1022, 1024, false);
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c1Filter, true}};
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>({}),
-       makeFlatVector<int32_t>({}),
-       makeFlatVector<int32_t>({}),
-       makeFlatVector<int32_t>({})});
 
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, TrivialWithOneFilterKeepValues) {
@@ -946,16 +610,12 @@ TEST_F(NimbleReaderTest, TrivialWithOneFilterKeepValues) {
   auto c0Filter = std::make_shared<common::BigintRange>(1022, 1025, false);
   std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
 
-  auto expectedOutput =
-      makeRowVector({makeFlatVector<int32_t>({1022, 1023, 1024, 1025})});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, TrivialWithMoreFiltersMoreNonFiltersKeepValues) {
@@ -972,19 +632,12 @@ TEST_F(NimbleReaderTest, TrivialWithMoreFiltersMoreNonFiltersKeepValues) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c1Filter, true}};
 
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>({1022, 1023, 1024}),
-       makeFlatVector<int64_t>({1022, 1023, 1024}),
-       makeFlatVector<int32_t>({1022, 1023, 1024}),
-       makeFlatVector<int64_t>({1022, 1023, 1024})});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{input}}, readFactors, compressionOptions, filters, expectedOutput);
+  test({{input}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, TrivialChunksOneFilterKeepValues) {
@@ -999,20 +652,12 @@ TEST_F(NimbleReaderTest, TrivialChunksOneFilterKeepValues) {
   auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
   std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
 
-  auto expectedOutput = makeRowVector({makeFlatVector<int32_t>(
-      upper - lower + 1, [&](auto row) { return row + lower; })});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk0, chunk1}},
-      readFactors,
-      compressionOptions,
-      filters,
-      expectedOutput);
+  test({{chunk0, chunk1}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableChunksOneFilterKeepValues) {
@@ -1021,27 +666,18 @@ TEST_F(NimbleReaderTest, NullableChunksOneFilterKeepValues) {
   auto chunk0 = makeRowVector({makeFlatVector<int32_t>(
       1200, [](auto row) { return row; }, nullEvery(2))});
   auto chunk1 = makeRowVector({makeFlatVector<int32_t>(
-      1800,
-      [&](auto row) { return row + chunk0->size(); },
-      nullEvery(2))}); // 1800
+      1800, [&](auto row) { return row + chunk0->size(); }, nullEvery(2))});
 
   int64_t lower = 1198, upper = 1202;
   auto c0Filter = std::make_shared<common::BigintRange>(lower, upper, false);
   std::vector<FilterSpec> filters = {{"c0", c0Filter, true}};
-
-  auto expectedOutput = makeRowVector({makeFlatVector<int32_t>({1199, 1201})});
 
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk0, chunk1}},
-      readFactors,
-      compressionOptions,
-      filters,
-      expectedOutput);
+  test({{chunk0, chunk1}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableChunksFiltersKeepValues) {
@@ -1067,21 +703,12 @@ TEST_F(NimbleReaderTest, NullableChunksFiltersKeepValues) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c0Filter, true}};
 
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>({1199, 1201}),
-       makeFlatVector<int32_t>({1199, 1201})});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk0, chunk1}},
-      readFactors,
-      compressionOptions,
-      filters,
-      expectedOutput);
+  test({{chunk0, chunk1}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, NullableChunksFiltersNonFiltersKeepValues) {
@@ -1111,24 +738,12 @@ TEST_F(NimbleReaderTest, NullableChunksFiltersNonFiltersKeepValues) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c1Filter, true}};
 
-  auto expectedOutput = makeRowVector({
-      makeFlatVector<int32_t>({1199, 1201}),
-      makeFlatVector<int32_t>({1199, 1201}),
-      makeFlatVector<int32_t>({1199, 1201}),
-      makeFlatVector<int32_t>({1199, 1201}),
-  });
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk0, chunk1}},
-      readFactors,
-      compressionOptions,
-      filters,
-      expectedOutput);
+  test({{chunk0, chunk1}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, TrivialChunksFiltersKeepValues) {
@@ -1150,24 +765,12 @@ TEST_F(NimbleReaderTest, TrivialChunksFiltersKeepValues) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c0Filter, true}};
 
-  auto numResults = upper - lower + 1;
-  auto expectedOutput = makeRowVector(
-      {makeFlatVector<int32_t>(
-           numResults, [&](auto row) { return row + lower; }),
-       makeFlatVector<int32_t>(
-           numResults, [&](auto row) { return row + lower; })});
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk0, chunk1}},
-      readFactors,
-      compressionOptions,
-      filters,
-      expectedOutput);
+  test({{chunk0, chunk1}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, TrivialChunksFiltersNonFiltersKeepValues) {
@@ -1197,25 +800,12 @@ TEST_F(NimbleReaderTest, TrivialChunksFiltersNonFiltersKeepValues) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c1", c1Filter, true}};
 
-  auto numResults = upper - lower + 1;
-  auto expectedOutput = makeRowVector({
-      vector(numResults, lower),
-      vector(numResults, lower),
-      vector(numResults, lower),
-      vector(numResults, lower),
-  });
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
-      {{chunk0, chunk1}},
-      readFactors,
-      compressionOptions,
-      filters,
-      expectedOutput);
+  test({{chunk0, chunk1}}, readFactors, compressionOptions, filters);
 }
 
 TEST_F(NimbleReaderTest, TrivialUnalignedChunks) {
@@ -1261,25 +851,16 @@ TEST_F(NimbleReaderTest, TrivialUnalignedChunks) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c2", c2Filter, true}};
 
-  auto numResults = upper - lower + 1;
-  auto expectedOutput = makeRowVector({
-      vector(numResults, lower),
-      vector(numResults, lower),
-      vector(numResults, lower),
-      vector(numResults, lower),
-  });
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Trivial, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
+  test(
       {{chunk0, chunk1}, {chunk2, chunk3, chunk4}},
       readFactors,
       compressionOptions,
-      filters,
-      expectedOutput);
+      filters);
 }
 
 TEST_F(NimbleReaderTest, NullablelUnalignedChunks) {
@@ -1325,35 +906,15 @@ TEST_F(NimbleReaderTest, NullablelUnalignedChunks) {
   std::vector<FilterSpec> filters = {
       {"c0", c0Filter, true}, {"c2", c2Filter, true}};
 
-  auto numResults = (upper - lower + 1) / 3 * 2;
-  auto expectedVector = [&]() {
-    auto inputRow = lower;
-    return makeFlatVector<int32_t>(numResults, [&](auto row) {
-      if (inputRow % 3 == 0) {
-        inputRow += 2;
-        return inputRow - 1;
-      } else {
-        return inputRow++;
-      }
-    });
-  };
-  auto expectedOutput = makeRowVector({
-      expectedVector(),
-      expectedVector(),
-      expectedVector(),
-      expectedVector(),
-  });
-
   std::vector<std::pair<EncodingType, float>> readFactors = {
       {EncodingType::Nullable, 1.0},
   };
   CompressionOptions compressionOptions = {.compressionAcceptRatio = 0.0};
 
-  decodeVectorAndCheck(
+  test(
       {{chunk0, chunk1}, {chunk2, chunk3, chunk4}},
       readFactors,
       compressionOptions,
-      filters,
-      expectedOutput);
+      filters);
 }
 } // namespace facebook::velox::wave
