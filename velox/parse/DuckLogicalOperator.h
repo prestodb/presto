@@ -161,6 +161,29 @@ class LogicalAggregate : public LogicalOperator {
   void ResolveTypes() override;
 };
 
+//! LogicalDistinct filters duplicate entries from its child operator
+class LogicalDistinct : public LogicalOperator {
+ public:
+  static constexpr const LogicalOperatorType TYPE =
+      LogicalOperatorType::LOGICAL_DISTINCT;
+
+ public:
+  explicit LogicalDistinct(DistinctType distinct_type);
+  explicit LogicalDistinct(
+      vector<unique_ptr<Expression>> targets,
+      DistinctType distinct_type);
+
+  //! Whether or not this is a DISTINCT or DISTINCT ON
+  DistinctType distinct_type;
+  //! The set of distinct targets
+  vector<unique_ptr<Expression>> distinct_targets;
+  //! The order by modifier (optional, only for distinct on)
+  unique_ptr<BoundOrderModifier> order_by;
+
+ protected:
+  void ResolveTypes() override;
+};
+
 //! LogicalCrossProduct represents a cross product between two relations
 class LogicalCrossProduct : public LogicalOperator {
  public:
