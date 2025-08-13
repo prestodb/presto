@@ -39,6 +39,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class ArrowFlightQueryRunner
 {
+    private static final Logger log = Logger.get(ArrowFlightQueryRunner.class);
+
     private ArrowFlightQueryRunner()
     {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
@@ -54,24 +56,15 @@ public class ArrowFlightQueryRunner
 
     public static DistributedQueryRunner createQueryRunner(int flightServerPort) throws Exception
     {
-        return createQueryRunner(flightServerPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+        return createQueryRunner(flightServerPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
             int flightServerPort,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
-            throws Exception
-    {
-        return createQueryRunner(extraProperties, ImmutableMap.of("arrow-flight.server.port", String.valueOf(flightServerPort)), coordinatorProperties, externalWorkerLauncher);
-    }
-
-    private static DistributedQueryRunner createQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> catalogProperties,
-            Map<String, String> coordinatorProperties,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<Boolean> mTLSEnabled)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -86,17 +79,24 @@ public class ArrowFlightQueryRunner
         DistributedQueryRunner queryRunner = queryRunnerBuilder
                 .setExtraProperties(extraProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setExternalWorkerLauncher(externalWorkerLauncher).build();
+                .setExternalWorkerLauncher(externalWorkerLauncher)
+                .build();
 
         try {
             boolean nativeExecution = externalWorkerLauncher.isPresent();
             queryRunner.installPlugin(new TestingArrowFlightPlugin(nativeExecution));
+            Map<String, String> catalogProperties = ImmutableMap.of("arrow-flight.server.port", String.valueOf(flightServerPort));
 
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                     .putAll(catalogProperties)
                     .put("arrow-flight.server", "localhost")
                     .put("arrow-flight.server-ssl-enabled", "true")
-                    .put("arrow-flight.server-ssl-certificate", "src/test/resources/server.crt");
+                    .put("arrow-flight.server-ssl-certificate", "src/test/resources/certs/ca.crt");
+
+            if (mTLSEnabled.orElse(false)) {
+                properties.put("arrow-flight.client-ssl-certificate", "src/test/resources/certs/client.crt");
+                properties.put("arrow-flight.client-ssl-key", "src/test/resources/certs/client.key");
+            }
 
             queryRunner.createCatalog(ARROW_FLIGHT_CATALOG, ARROW_FLIGHT_CONNECTOR, properties.build());
 
@@ -125,25 +125,33 @@ public class ArrowFlightQueryRunner
     {
         Logging.initialize();
 
+        boolean mTLSenabled = Boolean.parseBoolean(System.getProperty("flight.mtls.enabled", "false"));
+
         RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
         Location serverLocation = Location.forGrpcTls("localhost", 9443);
-        File certChainFile = new File("src/test/resources/server.crt");
-        File privateKeyFile = new File("src/test/resources/server.key");
-        FlightServer server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
-                .useTls(certChainFile, privateKeyFile)
-                .build();
+        FlightServer.Builder serverBuilder = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator));
 
+        File serverCert = new File("src/test/resources/certs/server.crt");
+        File serverKey = new File("src/test/resources/certs/server.key");
+        serverBuilder.useTls(serverCert, serverKey);
+
+        if (mTLSenabled) {
+            File caCert = new File("src/test/resources/certs/ca.crt");
+            serverBuilder.useMTlsClientVerification(caCert);
+        }
+
+        FlightServer server = serverBuilder.build();
         server.start();
-
-        Logger log = Logger.get(ArrowFlightQueryRunner.class);
 
         log.info("Server listening on port " + server.getPort());
 
         DistributedQueryRunner queryRunner = createQueryRunner(
+                server.getPort(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of("arrow-flight.server.port", String.valueOf(9443)),
                 ImmutableMap.of(),
-                Optional.empty());
+                Optional.empty(),
+                Optional.of(mTLSenabled));
+
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
