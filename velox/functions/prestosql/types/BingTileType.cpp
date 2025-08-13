@@ -161,24 +161,6 @@ addDistanceToLatitude(double latitude, double radiusInKm, double bearing) {
   return newLatitude;
 }
 
-/**
- * Return the longitude (in degrees) of the west edge of the tile.
- */
-double tileXToLongitude(uint32_t tileX, uint8_t zoomLevel) {
-  int32_t mapTileSize = 1 << zoomLevel;
-  double x = (std::clamp<double>(tileX, 0, mapTileSize) / mapTileSize) - 0.5;
-  return 360 * x;
-}
-
-/**
- * Return the latitude (in degrees) of the north edge of the tile.
- */
-double tileYToLatitude(uint32_t tileY, uint8_t zoomLevel) {
-  int32_t mapTileSize = 1 << zoomLevel;
-  double y = 0.5 - (std::clamp<double>(tileY, 0, mapTileSize) / mapTileSize);
-  return 90 - 360 * atan(exp(-y * 2 * M_PI)) / M_PI;
-}
-
 struct GreatCircleDistanceToPoint {
  public:
   GreatCircleDistanceToPoint(double latitude, double longitude) {
@@ -395,6 +377,18 @@ folly::Expected<uint64_t, std::string> BingTileType::latitudeLongitudeToTile(
   }
 
   return bingTileCoordsToInt(tileX.value(), tileY.value(), zoomLevel);
+}
+
+double BingTileType::tileXToLongitude(uint32_t tileX, uint8_t zoomLevel) {
+  int32_t mapTileSize = 1 << zoomLevel;
+  double x = (std::clamp<double>(tileX, 0, mapTileSize) / mapTileSize) - 0.5;
+  return 360 * x;
+}
+
+double BingTileType::tileYToLatitude(uint32_t tileY, uint8_t zoomLevel) {
+  int32_t mapTileSize = 1 << zoomLevel;
+  double y = 0.5 - (std::clamp<double>(tileY, 0, mapTileSize) / mapTileSize);
+  return 90 - 360 * atan(exp(-y * 2 * M_PI)) / M_PI;
 }
 
 // Given a (longitude, latitude) point, returns the surrounding Bing tiles at

@@ -2916,3 +2916,68 @@ TEST_F(GeometryFunctionsTest, testExpandEnvelope) {
       wrappedEnvelopeResult.value(),
       "POLYGON ((-2 7, -2 13, 4 13, 4 7, -2 7))");
 }
+
+TEST_F(GeometryFunctionsTest, testBingTilePolygon) {
+  const auto testBingTilePolygonFunc =
+      [&](const std::optional<int32_t>& x,
+          const std::optional<int32_t>& y,
+          const std::optional<int8_t>& zoom,
+          const std::optional<std::string>& expected) {
+        std::optional<std::string> result = evaluateOnce<std::string>(
+            "ST_AsText(bing_tile_polygon(bing_tile(c0, c1, c2)))", x, y, zoom);
+
+        if (x.has_value() && y.has_value() && zoom.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_EQ(result.value(), expected.value());
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testBingTilePolygonFunc(
+      0,
+      0,
+      0,
+      "POLYGON ((-180 85.05112877980659, -180 -85.05112877980659, 180 -85.05112877980659, 180 85.05112877980659, -180 85.05112877980659))");
+  testBingTilePolygonFunc(
+      1,
+      1,
+      1,
+      "POLYGON ((0 0, 0 -85.05112877980659, 180 -85.05112877980659, 180 0, 0 0))");
+  testBingTilePolygonFunc(
+      3,
+      3,
+      2,
+      "POLYGON ((90 -66.51326044311185, 90 -85.05112877980659, 180 -85.05112877980659, 180 -66.51326044311185, 90 -66.51326044311185))");
+  testBingTilePolygonFunc(
+      7,
+      7,
+      3,
+      "POLYGON ((135 -79.17133464081945, 135 -85.05112877980659, 180 -85.05112877980659, 180 -79.17133464081945, 135 -79.17133464081945))");
+  testBingTilePolygonFunc(
+      15,
+      15,
+      4,
+      "POLYGON ((157.5 -82.67628497834906, 157.5 -85.05112877980659, 180 -85.05112877980659, 180 -82.67628497834906, 157.5 -82.67628497834906))");
+
+  testBingTilePolygonFunc(
+      31,
+      31,
+      5,
+      "POLYGON ((168.75 -83.97925949886206, 168.75 -85.05112877980659, 180 -85.05112877980659, 180 -83.97925949886206, 168.75 -83.97925949886206))");
+  testBingTilePolygonFunc(
+      0,
+      0,
+      1,
+      "POLYGON ((-180 85.05112877980659, -180 0, 0 0, 0 85.05112877980659, -180 85.05112877980659))");
+  testBingTilePolygonFunc(
+      1,
+      1,
+      2,
+      "POLYGON ((-90 66.51326044311186, -90 0, 0 0, 0 66.51326044311186, -90 66.51326044311186))");
+  testBingTilePolygonFunc(
+      1,
+      1,
+      23,
+      "POLYGON ((-179.99995708465576 85.05112507763845, -179.99995708465576 85.05112137546752, -179.99991416931152 85.05112137546752, -179.99991416931152 85.05112507763845, -179.99995708465576 85.05112507763845))");
+}

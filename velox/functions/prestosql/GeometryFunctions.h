@@ -33,6 +33,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/geospatial/GeometrySerde.h"
 #include "velox/functions/prestosql/geospatial/GeometryUtils.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/GeometryType.h"
 #include "velox/type/Variant.h"
 
@@ -1680,6 +1681,27 @@ struct ExpandEnvelopeFunction {
 
  private:
   geos::geom::GeometryFactory::Ptr factory_;
+};
+
+template <typename T>
+struct BingTilePolygonFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Geometry>& result,
+      const arg_type<BingTile>& tile) {
+    auto x = BingTileType::bingTileX(tile);
+    auto y = BingTileType::bingTileY(tile);
+    auto zoom = BingTileType::bingTileZoom(tile);
+
+    double minX = BingTileType::tileXToLongitude(x, zoom);
+    double maxX = BingTileType::tileXToLongitude(x + 1, zoom);
+    double minY = BingTileType::tileYToLatitude(y, zoom);
+    double maxY = BingTileType::tileYToLatitude(y + 1, zoom);
+
+    geospatial::GeometrySerializer::serializeEnvelope(
+        minX, minY, maxX, maxY, result);
+  }
 };
 
 } // namespace facebook::velox::functions
