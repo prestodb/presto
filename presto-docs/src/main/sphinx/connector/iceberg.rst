@@ -2208,7 +2208,7 @@ Sorting can be combined with partitioning on the same column. For example::
         sorted_by = ARRAY['join_date']
     )
 
-The Iceberg connector does not support sort order transforms. The following sort order transformations are not supported:
+Sort order does not support transforms. The following transforms are not supported:
 
 .. code-block:: text
 
