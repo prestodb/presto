@@ -19,6 +19,7 @@
 #include "velox/functions/sparksql/specialforms/AtLeastNNonNulls.h"
 #include "velox/functions/sparksql/specialforms/DecimalRound.h"
 #include "velox/functions/sparksql/specialforms/FromJson.h"
+#include "velox/functions/sparksql/specialforms/GetArrayStructFields.h"
 #include "velox/functions/sparksql/specialforms/GetStructField.h"
 #include "velox/functions/sparksql/specialforms/MakeDecimal.h"
 #include "velox/functions/sparksql/specialforms/SparkCastExpr.h"
@@ -51,6 +52,9 @@ void registerSpecialFormGeneralFunctions(const std::string& prefix) {
       std::make_unique<FromJsonCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
       "get_struct_field", std::make_unique<GetStructFieldCallToSpecialForm>());
+  registerFunctionCallToSpecialForm(
+      GetArrayStructFieldsCallToSpecialForm::kGetArrayStructFields,
+      std::make_unique<GetArrayStructFieldsCallToSpecialForm>());
 }
 } // namespace sparksql
 } // namespace facebook::velox::functions
