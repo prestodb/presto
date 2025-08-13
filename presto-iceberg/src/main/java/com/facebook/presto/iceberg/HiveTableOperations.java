@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -215,7 +216,7 @@ public class HiveTableOperations
         Table table = getTable();
 
         if (!isIcebergTable(table)) {
-            throw new UnknownTableTypeException(getSchemaTableName());
+            throw new UnknownTableTypeException("Not an Iceberg table: " + getSchemaTableName());
         }
 
         if (isPrestoView(table)) {

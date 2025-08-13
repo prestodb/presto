@@ -11,18 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 
-import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE;
+import static com.facebook.presto.hive.HiveErrorCode.UNKNOWN_TABLE_TYPE;
 
 public class UnknownTableTypeException
         extends PrestoException
 {
-    public UnknownTableTypeException(SchemaTableName tableName)
+    public UnknownTableTypeException(String message)
     {
-        super(ICEBERG_UNKNOWN_TABLE_TYPE, "Not an Iceberg table: " + tableName);
+        super(UNKNOWN_TABLE_TYPE, message);
     }
 }

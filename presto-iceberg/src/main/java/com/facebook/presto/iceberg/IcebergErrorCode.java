@@ -24,7 +24,6 @@ import static com.facebook.presto.common.ErrorType.USER_ERROR;
 public enum IcebergErrorCode
         implements ErrorCodeSupplier
 {
-    ICEBERG_UNKNOWN_TABLE_TYPE(0, EXTERNAL),
     ICEBERG_INVALID_METADATA(1, EXTERNAL),
     ICEBERG_TOO_MANY_OPEN_PARTITIONS(2, USER_ERROR),
     ICEBERG_INVALID_PARTITION_VALUE(3, EXTERNAL),
