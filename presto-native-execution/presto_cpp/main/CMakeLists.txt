@@ -28,6 +28,7 @@ add_library(
   PrestoServer.cpp
   PrestoServerOperations.cpp
   PrestoTask.cpp
+  PrestoToVeloxQueryConfig.cpp
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
