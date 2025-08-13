@@ -48,6 +48,8 @@ namespace facebook {
 namespace velox {
 namespace bits {
 
+inline constexpr uint64_t kNullHash = 1;
+
 template <typename T>
 inline bool isBitSet(const T* bits, uint64_t idx) {
   return bits[idx / (sizeof(bits[0]) * 8)] &

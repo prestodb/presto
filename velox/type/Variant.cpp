@@ -17,6 +17,7 @@
 #include "velox/type/Variant.h"
 #include <cfloat>
 #include "folly/json.h"
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/FloatingPointUtil.h"
@@ -900,24 +901,21 @@ uint64_t Variant::hash() const {
 
 template <>
 uint64_t Variant::hash<TypeKind::ARRAY>() const {
-  auto& arrayVariant = value<TypeKind::ARRAY>();
-  auto hasher = folly::Hash{};
-  uint64_t hash = 0;
-  for (int32_t i = 0; i < arrayVariant.size(); i++) {
-    hash =
-        folly::hash::hash_combine_generic(hasher, hash, arrayVariant[i].hash());
+  const auto& arrayVariant = value<TypeKind::ARRAY>();
+  uint64_t hash = bits::kNullHash;
+  for (int32_t i = 0; i < arrayVariant.size(); ++i) {
+    hash = bits::hashMix(hash, arrayVariant[i].hash());
   }
   return hash;
 }
 
 template <>
 uint64_t Variant::hash<TypeKind::ROW>() const {
-  auto hasher = folly::Hash{};
-  uint64_t hash = 0;
-  auto& rowVariant = value<TypeKind::ROW>();
-  for (int32_t i = 0; i < rowVariant.size(); i++) {
-    hash =
-        folly::hash::hash_combine_generic(hasher, hash, rowVariant[i].hash());
+  const auto& rowVariant = value<TypeKind::ROW>();
+  uint64_t hash = bits::kNullHash;
+  for (int32_t i = 0; i < rowVariant.size(); ++i) {
+    const auto childHash = rowVariant[i].hash();
+    hash = (i == 0 ? childHash : bits::hashMix(hash, childHash));
   }
   return hash;
 }
@@ -930,23 +928,18 @@ uint64_t Variant::hash<TypeKind::TIMESTAMP>() const {
 
 template <>
 uint64_t Variant::hash<TypeKind::MAP>() const {
-  auto hasher = folly::Hash{};
-
   const auto& mapVariant = value<TypeKind::MAP>();
-
-  // Map is already sorted by key.
-  uint64_t hash = 0;
+  uint64_t hash = bits::kNullHash;
   for (const auto& [key, value] : mapVariant) {
-    hash = folly::hash::hash_combine_generic(hasher, hash, key.hash());
-    hash = folly::hash::hash_combine_generic(hasher, hash, value.hash());
+    const auto elementHash = bits::hashMix(key.hash(), value.hash());
+    hash = bits::commutativeHashMix(hash, elementHash);
   }
-
   return hash;
 }
 
 uint64_t Variant::hash() const {
   if (isNull()) {
-    return folly::Hash{}(static_cast<int32_t>(kind_));
+    return bits::kNullHash;
   }
 
   return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(hash, kind_);

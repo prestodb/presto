@@ -70,7 +70,7 @@ class BaseVector {
   BaseVector(const BaseVector&) = delete;
   BaseVector& operator=(const BaseVector&) = delete;
 
-  static constexpr uint64_t kNullHash = 1;
+  static constexpr uint64_t kNullHash = bits::kNullHash;
 
   BaseVector(
       velox::memory::MemoryPool* pool,
