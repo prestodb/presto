@@ -57,7 +57,11 @@ class S3WriteFile::Impl {
       }
       RECORD_METRIC_VALUE(
           kMetricS3GetObjectRetries, objectMetadata.GetRetryCount());
-      VELOX_CHECK(!objectMetadata.IsSuccess(), "S3 object already exists");
+      VELOX_CHECK(
+          !objectMetadata.IsSuccess(),
+          "S3 object already exists: bucket={}, key={}",
+          bucket_,
+          key_);
     }
 
     // Create bucket if not present.
