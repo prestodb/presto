@@ -42,7 +42,6 @@ jobs:
           -DTREAT_WARNINGS_AS_ERRORS=1 \
           -DENABLE_ALL_WARNINGS=1 \
           -DCMAKE_BUILD_TYPE=Debug \
-          -DPRESTO_ENABLE_PARQUET=ON \
           -DPRESTO_ENABLE_S3=ON \
           -DPRESTO_ENABLE_GCS=ON \
           -DPRESTO_ENABLE_ABFS=OFF \
@@ -51,7 +50,6 @@ jobs:
           -DPRESTO_ENABLE_JWT=ON \
           -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
           -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
-          -DPRESTO_ENABLE_SPATIAL=ON \
           -DPRESTO_ENABLE_TESTING=OFF \
           -DCMAKE_PREFIX_PATH=/usr/local \
           -DThrift_ROOT=/usr/local \
