@@ -60,9 +60,9 @@ public class TestArrowFlightMtls
         arrowFlightQueryRunner.createCatalog(ARROW_FLIGHT_CATALOG_WITH_NO_MTLS_CERTS, ARROW_FLIGHT_CONNECTOR, getNoMtlsCatalogProperties());
         arrowFlightQueryRunner.createCatalog(ARROW_FLIGHT_CATALOG_WITH_MTLS_CERTS, ARROW_FLIGHT_CONNECTOR, getMtlsCatalogProperties());
 
-        File certChainFile = new File("src/test/resources/mtls/server.crt");
-        File privateKeyFile = new File("src/test/resources/mtls/server.key");
-        File caCertFile = new File("src/test/resources/mtls/ca.crt");
+        File certChainFile = new File("src/test/resources/certs/server.crt");
+        File privateKeyFile = new File("src/test/resources/certs/server.key");
+        File caCertFile = new File("src/test/resources/certs/ca.crt");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
 
@@ -89,7 +89,7 @@ public class TestArrowFlightMtls
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(serverPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+        return ArrowFlightQueryRunner.createQueryRunner(serverPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 
     private Map<String, String> getInvalidCertCatalogProperties()
@@ -98,9 +98,9 @@ public class TestArrowFlightMtls
                 .put("arrow-flight.server.port", String.valueOf(serverPort))
                 .put("arrow-flight.server", "localhost")
                 .put("arrow-flight.server-ssl-enabled", "true")
-                .put("arrow-flight.server-ssl-certificate", "src/test/resources/mtls/server.crt")
-                .put("arrow-flight.client-ssl-certificate", "src/test/resources/mtls/invalid_cert.crt")
-                .put("arrow-flight.client-ssl-key", "src/test/resources/mtls/client.key");
+                .put("arrow-flight.server-ssl-certificate", "src/test/resources/certs/server.crt")
+                .put("arrow-flight.client-ssl-certificate", "src/test/resources/certs/invalid_cert.crt")
+                .put("arrow-flight.client-ssl-key", "src/test/resources/certs/client.key");
         return catalogProperties.build();
     }
 
@@ -110,7 +110,7 @@ public class TestArrowFlightMtls
                 .put("arrow-flight.server.port", String.valueOf(serverPort))
                 .put("arrow-flight.server", "localhost")
                 .put("arrow-flight.server-ssl-enabled", "true")
-                .put("arrow-flight.server-ssl-certificate", "src/test/resources/mtls/server.crt");
+                .put("arrow-flight.server-ssl-certificate", "src/test/resources/certs/server.crt");
         return catalogProperties.build();
     }
 
@@ -120,9 +120,9 @@ public class TestArrowFlightMtls
                 .put("arrow-flight.server.port", String.valueOf(serverPort))
                 .put("arrow-flight.server", "localhost")
                 .put("arrow-flight.server-ssl-enabled", "true")
-                .put("arrow-flight.server-ssl-certificate", "src/test/resources/mtls/server.crt")
-                .put("arrow-flight.client-ssl-certificate", "src/test/resources/mtls/client.crt")
-                .put("arrow-flight.client-ssl-key", "src/test/resources/mtls/client.key");
+                .put("arrow-flight.server-ssl-certificate", "src/test/resources/certs/server.crt")
+                .put("arrow-flight.client-ssl-certificate", "src/test/resources/certs/client.crt")
+                .put("arrow-flight.client-ssl-key", "src/test/resources/certs/client.key");
         return catalogProperties.build();
     }
 
