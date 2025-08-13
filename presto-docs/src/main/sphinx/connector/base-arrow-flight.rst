@@ -59,6 +59,47 @@ Property Name                               Description
 ``arrow-flight.server-ssl-enabled``         Port is ssl enabled
 ========================================== ==============================================================
 
+.. note::
+
+   A secure TLS connection is enabled whenever the server certificate
+   (``arrow-flight.server-ssl-certificate``) is provided, even if the
+   ``arrow-flight.server-ssl-enabled`` flag is not set.
+
+   If a client certificate (``arrow-flight.client-ssl-certificate``) is also provided,
+   the Flight client will be configured to perform mutual authentication.
+   Note that the Flight server must also be properly configured to **require and verify** client certificates to
+   enable mutual TLS (mTLS).
+
+   Otherwise, the connection will default to standard one-way TLS.
+
+Mutual TLS (mTLS) Support
+-------------------------
+
+
+To connect the Presto client to an Arrow Flight server with mutual TLS (mTLS) enabled, you must configure the client to present a valid certificate and key that the server can validate. This enhances security by ensuring both the client and server authenticate each other.
+
+To enable mTLS, the following properties must be configured:
+
+- ``arrow-flight.client-ssl-certificate``: Path to the client’s SSL certificate.
+- ``arrow-flight.client-ssl-key``: Path to the client’s SSL private key.
+
+These properties must be used alongside the existing SSL configurations for the server, such as `arrow-flight.server-ssl-certificate` and `arrow-flight.server-ssl-enabled=true`. Make sure the server is configured to trust the client certificates (typically via a shared CA).
+
+Below is an example code snippet to configure the Arrow Flight server with mTLS:
+
+.. code-block:: java
+
+   File certChainFile = new File("src/test/resources/mtls/server.crt");
+   File privateKeyFile = new File("src/test/resources/mtls/server.key");
+   File caCertFile = new File("src/test/resources/mtls/ca.crt");
+
+   server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
+           .useTls(certChainFile, privateKeyFile)
+           .useMTlsClientVerification(caCertFile)
+           .build();
+
+   server.start();
+
 Querying Arrow-Flight
 ---------------------
 
