@@ -60,6 +60,7 @@ add_executable(
   MonotonicallyIncreasingIdTest.cpp
   RaiseErrorTest.cpp
   RandTest.cpp
+  ReadSidePaddingFunctionTest.cpp
   RegexFunctionsTest.cpp
   SliceTest.cpp
   SizeTest.cpp
