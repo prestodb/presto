@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
@@ -154,6 +155,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -1117,6 +1119,18 @@ public class ExpressionAnalyzer
                         throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
                     }
                 }
+            }
+            List<TypeSignature> arguments = functionMetadata.getArgumentTypes();
+
+            if (!argumentTypes.isEmpty() && "map".equals(arguments.get(0).getBase())) {
+                arguments.stream()
+                        .skip(1).filter(arg -> {
+                            String base = arg.getBase();
+                            return "function".equals(base) || "lambda".equals(base);
+                        }).findFirst().ifPresent(arg -> {
+                            String warningMessage = createWarningMessage(node, "Lambdas on large maps are expensive, consider using map_subset");
+                            warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
+                        });
             }
 
             if (node.isIgnoreNulls() && node.getWindow().isPresent()) {
