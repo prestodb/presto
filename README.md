@@ -40,6 +40,11 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * Open the File menu and select Project Structure
 * In the SDKs section, ensure that a distribution of JDK 17 is selected (create one if none exist)
 * In the Project section, ensure the Project language level is set to at least 8.0.
+* When using JDK 17, an [IntelliJ bug](https://youtrack.jetbrains.com/issue/IDEA-201168) requires you
+  to disable the `Use '--release' option for cross-compilation (Java 9 and later)` setting in
+  `Settings > Build, Execution, Deployment > Compiler > Java Compiler`. If this option remains enabled,
+  you may encounter errors such as: `package sun.misc does not exist` because IntelliJ fails to resolve
+  certain internal JDK classes.
 
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 
