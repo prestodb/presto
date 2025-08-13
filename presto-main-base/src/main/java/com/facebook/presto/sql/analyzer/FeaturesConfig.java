@@ -226,6 +226,7 @@ public class FeaturesConfig
 
     private boolean streamingForPartialAggregationEnabled;
     private boolean preferMergeJoinForSortedInputs;
+    private boolean preferSortMergeJoin;
     private boolean segmentedAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
@@ -2232,6 +2233,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isPreferSortMergeJoin()
+    {
+        return preferSortMergeJoin;
+    }
+
+    @Config("experimental.optimizer.prefer-sort-merge-join")
+    @ConfigDescription("Prefer sort merge join for all joins. A SortNode is added if input is not already sorted.")
+    public FeaturesConfig setPreferSortMergeJoin(boolean preferSortMergeJoin)
+    {
+        this.preferSortMergeJoin = preferSortMergeJoin;
+        return this;
+    }
+
     public boolean isSegmentedAggregationEnabled()
     {
         return segmentedAggregationEnabled;
@@ -2970,6 +2984,7 @@ public class FeaturesConfig
     {
         return inEqualityJoinPushdownEnabled;
     }
+
     public boolean isPrestoSparkExecutionEnvironment()
     {
         return prestoSparkExecutionEnvironment;
