@@ -1504,10 +1504,6 @@ void testFlatMapWriter(
 }
 
 TEST_F(ColumnWriterTest, TestFlatMapKeyNotInAllBatches) {
-  using keyType = StringView;
-  using valueType = StringView;
-  using b = MapBuilder<keyType, valueType>;
-
   VectorMaker maker(pool_.get());
   // Test the case where not all keys appear in all batches.
   const std::vector<RowVectorPtr> batches{
@@ -1522,10 +1518,6 @@ TEST_F(ColumnWriterTest, TestFlatMapKeyNotInAllBatches) {
 }
 
 TEST_F(ColumnWriterTest, TesFlatMapDuplicatedKey) {
-  using keyType = StringView;
-  using valueType = StringView;
-  using b = MapBuilder<keyType, valueType>;
-
   const size_t size = 3;
   const BufferPtr inMaps = AlignedBuffer::allocate<bool>(size, pool_.get());
   bits::fillBits(inMaps->asMutable<uint64_t>(), 1, size, pool_.get());
