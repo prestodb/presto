@@ -115,7 +115,7 @@ class ConfigBase {
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
     auto val = config_->get<std::string>(propertyName);
-    if (val.hasValue()) {
+    if (val.has_value()) {
       return val;
     }
     const auto it = registeredProps_.find(propertyName);
