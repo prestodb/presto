@@ -416,7 +416,7 @@ bool WaveDriver::maybeWaitForPeers() {
   if (barrier_->stateMap().states.empty()) {
     return false;
   }
-  TR1("wait_for_peers\n");
+  TR("wait_for_peers\n");
   std::vector<ContinuePromise> promises;
   std::vector<std::shared_ptr<exec::Driver>> peers;
 

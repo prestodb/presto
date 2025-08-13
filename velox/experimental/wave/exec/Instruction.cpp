@@ -67,7 +67,7 @@ void restockAllocator(
   // If we can get rows by raising the row limit we do this first.
   int32_t adjustedSize = size - allocator->raiseRowLimits(size);
   if (adjustedSize <= 0) {
-    TR1(fmt::format(
+    TR(fmt::format(
         "Found {} rows of existing space", size / allocator->rowSize));
     return;
   }
@@ -82,7 +82,7 @@ void restockAllocator(
       size,
       size,
       allocator->rowSize);
-  TR1(fmt::format("Made range of {} rows", size / allocator->rowSize));
+  TR(fmt::format("Made range of {} rows", size / allocator->rowSize));
   if (allocator->ranges[0].empty()) {
     allocator->ranges[0] = std::move(newRange);
   } else {
@@ -101,7 +101,7 @@ void AggregateOperatorState::setSizesToSafe() {
   for (auto i = 0; i < numPartitions; ++i) {
     auto availableInAllocator = allocators[i].availableFixed() / rowSize;
     if (availableInAllocator > allowedPerPartition) {
-      TR1(fmt::format(
+      TR(fmt::format(
           "Trim avail from {} to {} rows\n",
           availableInAllocator,
           allowedPerPartition));
@@ -272,7 +272,7 @@ std::pair<int64_t, int64_t> countResultRows(
     auto bits = reinterpret_cast<uint64_t*>(range.base);
     int32_t numFree = bits::countBits(bits, 0, range.firstRowOffset * 8);
     if (numFree) {
-      TR1(fmt::format("freeRows={}\n", numFree));
+      TR(fmt::format("freeRows={}\n", numFree));
     }
     auto n = ((range.rowOffset - range.firstRowOffset) / rowSize) - numFree;
     count += n;

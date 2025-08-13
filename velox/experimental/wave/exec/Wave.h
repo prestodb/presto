@@ -30,22 +30,28 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 
 #include <iostream>
+#include <utility>
 
 DECLARE_bool(wave_timing);
 DECLARE_bool(wave_transfer_timing);
 DECLARE_bool(wave_trace_stream);
 
-#define TR(str, msg)                                                   \
-  if (FLAGS_wave_trace_stream) {                                       \
-    (std::cout << fmt::format("St{}: {}\n", (str)->streamIdx(), msg)); \
-  }
-
-#define TR1(msg)                 \
-  if (FLAGS_wave_trace_stream) { \
-    std::cout << msg;            \
-  }
-
 namespace facebook::velox::wave {
+
+template <typename StreamType, typename MsgType>
+inline void TR(StreamType&& stream, const MsgType& msg) {
+  if (FLAGS_wave_trace_stream) {
+    std::cout << fmt::format(
+        "St{}: {}\n", std::forward<StreamType>(stream)->streamIdx(), msg);
+  }
+}
+
+template <typename MsgType>
+inline void TR(const MsgType& msg) {
+  if (FLAGS_wave_trace_stream) {
+    std::cout << msg;
+  }
+}
 
 /// Scoped guard, prints the time spent inside if
 class PrintTime {
