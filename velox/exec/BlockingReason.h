@@ -58,13 +58,6 @@ enum class BlockingReason {
 };
 
 VELOX_DECLARE_ENUM_NAME(BlockingReason);
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-inline std::string blockingReasonToString(BlockingReason reason) {
-  return std::string(BlockingReasonName::toName(reason));
-}
-#endif
-
 } // namespace facebook::velox::exec
 
 template <>
