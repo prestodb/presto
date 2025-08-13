@@ -139,6 +139,16 @@ core::TypedExprPtr toJoinConditionExpr(
           "between"));
       continue;
     }
+    if (auto equalCondition =
+            std::dynamic_pointer_cast<core::EqualIndexLookupCondition>(
+                condition)) {
+      conditionExprs.push_back(std::make_shared<const core::CallTypedExpr>(
+          BOOLEAN(),
+          std::vector<core::TypedExprPtr>{
+              std::move(indexColumnExpr), equalCondition->value},
+          "eq"));
+      continue;
+    }
     VELOX_FAIL("Invalid index join condition: {}", condition->toString());
   }
   return std::make_shared<core::CallTypedExpr>(

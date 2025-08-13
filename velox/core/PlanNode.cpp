@@ -51,6 +51,9 @@ IndexLookupConditionPtr createIndexJoinCondition(
   if (obj["type"] == "between") {
     return BetweenIndexLookupCondition::create(obj, context);
   }
+  if (obj["type"] == "equal") {
+    return EqualIndexLookupCondition::create(obj, context);
+  }
   VELOX_USER_FAIL(
       "Unknown index join condition type {}", obj["type"].asString());
 }
@@ -3468,5 +3471,45 @@ void BetweenIndexLookupCondition::validate() const {
       key->type()->kind(),
       upper->type()->kind(),
       "Index key and upper condition must have the same type");
+}
+
+bool EqualIndexLookupCondition::isFilter() const {
+  return std::dynamic_pointer_cast<const ConstantTypedExpr>(value) != nullptr;
+}
+
+folly::dynamic EqualIndexLookupCondition::serialize() const {
+  folly::dynamic obj = IndexLookupCondition::serialize();
+  obj["type"] = "equal";
+  obj["value"] = value->serialize();
+  return obj;
+}
+
+std::string EqualIndexLookupCondition::toString() const {
+  return fmt::format("{} = {}", key->toString(), value->toString());
+}
+
+IndexLookupConditionPtr EqualIndexLookupCondition::create(
+    const folly::dynamic& obj,
+    void* context) {
+  auto key =
+      ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context);
+  return std::make_shared<EqualIndexLookupCondition>(
+      key, ISerializable::deserialize<ITypedExpr>(obj["value"], context));
+}
+
+void EqualIndexLookupCondition::validate() const {
+  VELOX_CHECK_NOT_NULL(key);
+  VELOX_CHECK_NOT_NULL(value);
+  VELOX_CHECK_NOT_NULL(
+      std::dynamic_pointer_cast<const ConstantTypedExpr>(value),
+      "Equal condition value must be a constant expression: {}",
+      value->toString());
+
+  VELOX_CHECK_EQ(
+      key->type()->kind(),
+      value->type()->kind(),
+      "Equal condition key and value must have compatible types: {} vs {}",
+      key->type()->toString(),
+      value->type()->toString());
 }
 } // namespace facebook::velox::core

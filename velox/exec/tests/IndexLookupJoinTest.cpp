@@ -177,6 +177,11 @@ TEST_F(IndexLookupJoinTest, joinCondition) {
   ASSERT_EQ(
       betweenJoinCondition3->toString(),
       "ROW[\"c0\"] BETWEEN ROW[\"c1\"] AND 0");
+
+  auto equalFilterCondition =
+      PlanBuilder::parseIndexJoinCondition("c0=1", rowType, pool_.get());
+  ASSERT_TRUE(equalFilterCondition->isFilter());
+  ASSERT_EQ(equalFilterCondition->toString(), "ROW[\"c0\"] = 1");
 }
 
 TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
@@ -1235,7 +1240,7 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         {},
         {{"t2", "t3"}},
         /*equalMatchPct=*/80,
-        /*inColumns=*/std::nullopt,
+        /*inMatchPct=*/std::nullopt,
         testData.betweenMatchPct);
     std::vector<std::shared_ptr<TempFilePath>> probeFiles =
         createProbeFiles(probeVectors);
@@ -1867,7 +1872,7 @@ TEST_P(IndexLookupJoinTest, prefixKeysbetweenJoinCondition) {
         {},
         {{"t1", "t2"}},
         /*equalMatchPct=*/80,
-        /*inColumns=*/std::nullopt,
+        /*inMatchPct=*/std::nullopt,
         testData.betweenMatchPct);
     std::vector<std::shared_ptr<TempFilePath>> probeFiles =
         createProbeFiles(probeVectors);

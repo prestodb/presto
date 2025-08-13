@@ -3302,6 +3302,33 @@ struct BetweenIndexLookupCondition : public IndexLookupCondition {
 using BetweenIndexLookupConditionPtr =
     std::shared_ptr<BetweenIndexLookupCondition>;
 
+/// Represents EQUAL index lookup condition: 'key' = 'value'. 'value' must be a
+/// constant value with the same type as 'key'.
+struct EqualIndexLookupCondition : public IndexLookupCondition {
+  /// The value to compare against.
+  TypedExprPtr value;
+
+  EqualIndexLookupCondition(FieldAccessTypedExprPtr _key, TypedExprPtr _value)
+      : IndexLookupCondition(std::move(_key)), value(std::move(_value)) {
+    validate();
+  }
+
+  bool isFilter() const override;
+
+  folly::dynamic serialize() const override;
+
+  std::string toString() const override;
+
+  static IndexLookupConditionPtr create(
+      const folly::dynamic& obj,
+      void* context);
+
+ private:
+  void validate() const;
+};
+
+using EqualIndexLookupConditionPtr = std::shared_ptr<EqualIndexLookupCondition>;
+
 /// Represents index lookup join. Translates to an exec::IndexLookupJoin
 /// operator. Assumes the right input is a table scan source node that provides
 /// indexed table lookup for the left input with the specified join keys and

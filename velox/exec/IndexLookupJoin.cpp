@@ -303,6 +303,20 @@ void IndexLookupJoin::initLookupInput() {
           lookupInputChannels_,
           lookupInputColumnSet);
     }
+
+    if (const auto equalCondition =
+            std::dynamic_pointer_cast<core::EqualIndexLookupCondition>(
+                lookupCondition)) {
+      // Process an equal join condition by validating that the value is
+      // constant. Equal conditions only support constant values for filtering.
+      VELOX_USER_CHECK(
+          core::TypedExprs::isConstant(equalCondition->value),
+          "Equal condition value must be constant: {}",
+          equalCondition->toString());
+      VELOX_USER_CHECK(core::TypedExprs::asConstant(equalCondition->value)
+                           ->type()
+                           ->equivalent(*indexKeyType));
+    }
   }
 }
 
