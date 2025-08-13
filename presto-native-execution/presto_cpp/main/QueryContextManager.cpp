@@ -70,7 +70,7 @@ void updateFromSystemConfigs(
     const auto& systemConfigName = configNameEntry.second;
     if (queryConfigs.count(veloxConfigName) == 0) {
       const auto propertyOpt = systemConfig->optionalProperty(systemConfigName);
-      if (propertyOpt.hasValue()) {
+      if (propertyOpt.has_value()) {
         queryConfigs[veloxConfigName] = propertyOpt.value();
       }
     }
