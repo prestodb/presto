@@ -468,7 +468,8 @@ HiveDataSink::HiveDataSink(
 bool HiveDataSink::canReclaim() const {
   // Currently, we only support memory reclaim on dwrf file writer.
   return (spillConfig_ != nullptr) &&
-      (insertTableHandle_->storageFormat() == dwio::common::FileFormat::DWRF);
+      (insertTableHandle_->storageFormat() == dwio::common::FileFormat::DWRF ||
+       insertTableHandle_->storageFormat() == dwio::common::FileFormat::NIMBLE);
 }
 
 void HiveDataSink::appendData(RowVectorPtr input) {
