@@ -49,7 +49,7 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
 
 * Main Class: `com.facebook.presto.server.PrestoServer`
-* VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
+* VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
 * Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends your version of IntelliJ)
 * Use classpath of module: `presto-main`
 
@@ -58,6 +58,32 @@ The working directory should be the `presto-main` subdirectory. In IntelliJ, usi
 Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
+
+### Additional configuration for Java 17
+
+When running with Java 17, additional `--add-opens` flags are required to allow reflective access used by certain catalogs based on which catalogs are configured.  
+For the default set of catalogs loaded when starting the Presto server in IntelliJ without changes, add the following flags to the **VM Options**:
+
+    --add-opens=java.base/java.io=ALL-UNNAMED
+    --add-opens=java.base/java.lang=ALL-UNNAMED
+    --add-opens=java.base/java.lang.ref=ALL-UNNAMED
+    --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+    --add-opens=java.base/java.net=ALL-UNNAMED
+    --add-opens=java.base/java.nio=ALL-UNNAMED
+    --add-opens=java.base/java.security=ALL-UNNAMED
+    --add-opens=java.base/javax.security.auth=ALL-UNNAMED
+    --add-opens=java.base/javax.security.auth.login=ALL-UNNAMED
+    --add-opens=java.base/java.text=ALL-UNNAMED
+    --add-opens=java.base/java.util=ALL-UNNAMED
+    --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+    --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+    --add-opens=java.base/java.util.regex=ALL-UNNAMED
+    --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED
+    --add-opens=java.base/sun.security.action=ALL-UNNAMED
+    --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+
+These flags ensure that internal JDK modules are accessible at runtime for components used by Presto’s default configuration.
+It is not a comprehensive list. Additional flags may need to be added, depending on the catalogs configured on the server.
 
 ### Using SOCKS for Hive or HDFS
 
