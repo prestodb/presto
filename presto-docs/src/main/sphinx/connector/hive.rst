@@ -237,7 +237,7 @@ Property Name                                            Description            
 ======================================================== ============================================================================== ======================================================================================
 
 Hive Metastore Configuration for Avro
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To support Avro tables with schema properties when using Hive 3.x, you must configure the Hive Metastore service:
 
