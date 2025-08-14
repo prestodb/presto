@@ -182,10 +182,12 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   // is still indexed by the query id.
   static std::atomic_uint64_t poolId{0};
   std::optional<memory::MemoryPool::DebugOptions> poolDbgOpts;
-  const auto debugMemoryPoolNameRegex = queryConfig.debugMemoryPoolNameRegex();
-  if (!debugMemoryPoolNameRegex.empty()) {
+  if (auto debugMemoryPoolNameRegex = queryConfig.debugMemoryPoolNameRegex();
+      !debugMemoryPoolNameRegex.empty()) {
     poolDbgOpts = memory::MemoryPool::DebugOptions{
-        .debugPoolNameRegex = debugMemoryPoolNameRegex};
+        .debugPoolNameRegex = std::move(debugMemoryPoolNameRegex),
+        .debugPoolWarnThresholdBytes =
+            queryConfig.debugMemoryPoolWarnThresholdBytes()};
   }
   auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
