@@ -144,78 +144,113 @@ filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File
 Hive Configuration Properties
 -----------------------------
 
-================================================== ============================================================ ============
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ============
-``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
-                                                   Thrift protocol. If multiple URIs are provided, the first
-                                                   URI is used by default and the rest of the URIs are
-                                                   fallback metastores. This property is required.
-                                                   Example: ``thrift://192.0.2.3:9083`` or
-                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+======================================================== ============================================================ ============
+Property Name                                            Description                                                  Default
+======================================================== ============================================================ ============
+``hive.metastore.uri``                                   The URI(s) of the Hive metastore to connect to using the
+                                                         Thrift protocol. If multiple URIs are provided, the first
+                                                         URI is used by default and the rest of the URIs are
+                                                         fallback metastores. This property is required.
+                                                         Example: ``thrift://192.0.2.3:9083`` or
+                                                         ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
-``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+``hive.metastore.username``                              The username Presto will use to access the Hive metastore.
 
-``hive.config.resources``                          An optional comma-separated list of HDFS
-                                                   configuration files. These files must exist on the
-                                                   machines running Presto. Only specify this if
-                                                   absolutely necessary to access HDFS.
-                                                   Example: ``/etc/hdfs-site.xml``
+``hive.config.resources``                                An optional comma-separated list of HDFS
+                                                         configuration files. These files must exist on the
+                                                         machines running Presto. Only specify this if
+                                                         absolutely necessary to access HDFS.
+                                                         Example: ``/etc/hdfs-site.xml``
 
-``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
+``hive.storage-format``                                  The default file format used when creating new tables.       ``ORC``
 
-``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
+``hive.compression-codec``                               The compression codec to use when writing files.             ``GZIP``
 
-``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
-                                                   DataNode process serving the split data.  This is useful for
-                                                   installations where Presto is collocated with every
-                                                   DataNode.
+``hive.force-local-scheduling``                          Force splits to be scheduled on the same node as the Hadoop  ``false``
+                                                         DataNode process serving the split data. This is useful for
+                                                         installations where Presto is collocated with every
+                                                         DataNode.
 
-``hive.order-based-execution-enabled``             Enable order-based execution. When it's enabled, hive files  ``false``
-                                                   become non-splittable and the table ordering properties
-                                                   would be exposed to plan optimizer
+``hive.order-based-execution-enabled``                   Enable order-based execution. When it's enabled, hive files  ``false``
+                                                         become non-splittable and the table ordering properties
+                                                         would be exposed to plan optimizer
 
-``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
-                                                   format or the default Presto format?
+``hive.respect-table-format``                            Should new partitions be written using the existing table    ``true``
+                                                         format or the default Presto format?
 
-``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
+``hive.immutable-partitions``                            Can new data be inserted into existing partitions?           ``false``
 
-``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``true``
+``hive.create-empty-bucket-files``                       Should empty files be created for buckets that have no data? ``true``
 
-``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
+``hive.max-partitions-per-writers``                      Maximum number of partitions per writer.                     100
 
-``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
+``hive.max-partitions-per-scan``                         Maximum number of partitions for a single table scan.        100,000
 
-``hive.dynamic-split-sizes-enabled``               Enable dynamic sizing of splits based on data scanned by     ``false``
-                                                   the query.
+``hive.dynamic-split-sizes-enabled``                     Enable dynamic sizing of splits based on data scanned by     ``false``
+                                                         the query.
 
-``hive.experimental.symlink.optimized-reader.enabled`` Experimental: Enable optimized SymlinkTextInputFormat reader ``true``
+``hive.experimental.symlink.optimized-reader.enabled``   Experimental: Enable optimized SymlinkTextInputFormat reader ``true``
 
-``hive.copy-on-first-write-configuration-enabled`` Optimize the number of configuration copies by enabling      ``false``
-                                                   copy-on-write
+``hive.copy-on-first-write-configuration-enabled``       Enable copy-on-write for Hadoop configurations to optimize   ``false``
+                                                         memory usage and improve performance with concurrent tasks.
 
-``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
+``hive.non-managed-table-writes-enabled``                Enable writes to non-managed (external) Hive tables.         ``false``
 
-``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
+``hive.non-managed-table-creates-enabled``               Enable creating non-managed (external) Hive tables.          ``true``
 
-``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``false``
-                                                   on write. See `Table Statistics <#table-statistics>`__ for
-                                                   details.
+``hive.collect-column-statistics-on-write``              Enables automatic column level statistics collection         ``false``
+                                                         on write. See `Table Statistics <#table-statistics>`__ for
+                                                         details.
 
-``hive.s3select-pushdown.enabled``                 Enable query pushdown to AWS S3 Select service.              ``false``
+``hive.s3select-pushdown.enabled``                       Enable query pushdown to AWS S3 Select service.              ``false``
 
-``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for    500
-                                                   S3SelectPushdown.
+``hive.s3select-pushdown.max-connections``               Maximum number of simultaneously open connections to S3 for    500
+                                                         S3SelectPushdown.
 
-``hive.metastore.load-balancing-enabled``          Enable load balancing between multiple Metastore instances
+``hive.metastore.load-balancing-enabled``                Enable load balancing between multiple Metastore instances    ``false``
 
-``hive.skip-empty-files``                          Enable skipping empty files. Otherwise, it will produce an   ``false``
-                                                   error iterating through empty files.
+``hive.skip-empty-files``                                Enable skipping empty files. Otherwise, it will produce an   ``false``
+                                                         error iterating through empty files.
 
- ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
+``hive.file-status-cache.max-retained-size``             Maximum size in bytes of the directory listing cache          ``0KB``
 
- ``hive.metastore.catalog.name``                   Specifies the catalog name to be passed to the metastore.
-================================================== ============================================================ ============
+``hive.metastore.catalog.name``                          Specifies the catalog name to be passed to the metastore.
+======================================================== ============================================================ ============
+
+Avro Configuration Properties
+-----------------------------
+
+When querying or creating Avro-formatted tables with the Hive connector, you may need to supply or override the Avro schema. In addition, Hive Metastore, especially Hive 3.x, must be configured to read storage schemas for Avro tables.
+
+Table Properties
+^^^^^^^^^^^^^^^^
+
+These properties can be used when creating or querying Avro tables in Presto:
+
+======================================================== ============================================================================== ======================================================================================
+Property Name                                            Description                                                                    Default
+======================================================== ============================================================================== ======================================================================================
+``avro_schema_url``                                      URL or path (HDFS, S3, HTTP, or others) to the Avro schema file for             None (must be specified if Metastore does not provide or you need to
+                                                         reading an Avro-formatted table. If specified, Presto will fetch                override schema)
+                                                         and use this schema instead of relying on any schema in the
+                                                         Metastore.
+======================================================== ============================================================================== ======================================================================================
+
+Hive Metastore Configuration for Avro
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To support Avro tables with schema properties when using Hive 3.x, you must configure the Hive Metastore service:
+
+Add the ``metastore.storage.schema.reader.impl`` property to ``hive-site.xml`` where the metastore service is running:
+
+.. code-block:: xml
+
+    <property>
+      <name>metastore.storage.schema.reader.impl</name>
+      <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
+    </property>
+
+You must restart the metastore service for this configuration to take effect. This setting allows the metastore to read storage schemas for Avro tables and avoids ``Storage schema reading not supported`` errors.
 
 Metastore Configuration Properties
 ----------------------------------
