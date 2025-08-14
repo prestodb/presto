@@ -341,9 +341,10 @@ TEST(VariantTest, mapWithNaNKey) {
     mapVariant.insert({Variant(1.2), Variant(2)});
     mapVariant.insert({Variant(12.4), Variant(3)});
     EXPECT_EQ(
-        "[{\"key\":1.2,\"value\":2},{\"key\":12.4,\"value\":3},{\"key\":\"NaN\",\"value\":1}]",
+        R"([{"key":1.2,"value":2},{"key":12.4,"value":3},{"key":"NaN","value":1}])",
         Variant::map(mapVariant).toJson(mapType));
   }
+
   {
     // NaN added in the middle of insertions.
     std::map<Variant, Variant> mapVariant;
@@ -351,7 +352,7 @@ TEST(VariantTest, mapWithNaNKey) {
     mapVariant.insert({Variant(KNan), Variant(1)});
     mapVariant.insert({Variant(12.4), Variant(3)});
     EXPECT_EQ(
-        "[{\"key\":1.2,\"value\":2},{\"key\":12.4,\"value\":3},{\"key\":\"NaN\",\"value\":1}]",
+        R"([{"key":1.2,"value":2},{"key":12.4,"value":3},{"key":"NaN","value":1}])",
         Variant::map(mapVariant).toJson(mapType));
   }
 }
@@ -375,12 +376,12 @@ TEST(VariantTest, serialize) {
 
   // Non-null values.
   testSerDe(Variant(true));
-  testSerDe(Variant((int8_t)12));
-  testSerDe(Variant((int16_t)1234));
-  testSerDe(Variant((int32_t)12345));
-  testSerDe(Variant((int64_t)1234567));
-  testSerDe(Variant((float)1.2));
-  testSerDe(Variant((double)1.234));
+  testSerDe(Variant(static_cast<int8_t>(12)));
+  testSerDe(Variant(static_cast<int16_t>(1234)));
+  testSerDe(Variant(static_cast<int32_t>(12345)));
+  testSerDe(Variant(static_cast<int64_t>(1234567)));
+  testSerDe(Variant(static_cast<float>(1.2f)));
+  testSerDe(Variant(static_cast<double>(1.234)));
   testSerDe(Variant("This is a test."));
   testSerDe(Variant::binary("This is a test."));
   testSerDe(Variant(Timestamp(1, 2)));
@@ -446,15 +447,15 @@ TEST(VariantFloatingToJsonTest, normalTest) {
   EXPECT_EQ(
       Variant::create<float>(std::numeric_limits<float>::infinity())
           .toJson(REAL()),
-      "\"Infinity\"");
+      R"("Infinity")");
   EXPECT_EQ(
       Variant::create<double>(std::numeric_limits<double>::infinity())
           .toJson(DOUBLE()),
-      "\"Infinity\"");
+      R"("Infinity")");
 
   // NaN
-  EXPECT_EQ(Variant::create<float>(0.0 / 0.0).toJson(REAL()), "\"NaN\"");
-  EXPECT_EQ(Variant::create<double>(0.0 / 0.0).toJson(DOUBLE()), "\"NaN\"");
+  EXPECT_EQ(Variant::create<float>(0.0 / 0.0).toJson(REAL()), R"("NaN")");
+  EXPECT_EQ(Variant::create<double>(0.0 / 0.0).toJson(DOUBLE()), R"("NaN")");
 }
 
 TEST(VariantTest, opaqueSerializationNotRegistered) {
@@ -483,7 +484,7 @@ TEST(VariantTest, toJsonRow) {
 
   rowType = ROW({{"c0", DECIMAL(20, 1)}, {"c1", BOOLEAN()}, {"c3", VARCHAR()}});
   EXPECT_EQ(
-      "[1234567890.1,true,\"test works fine\"]",
+      R"([1234567890.1,true,"test works fine"])",
       Variant::row({static_cast<int128_t>(12345678901),
                     Variant((bool)true),
                     Variant((std::string) "test works fine")})
@@ -502,10 +503,9 @@ TEST(VariantTest, toJsonRow) {
   VELOX_ASSERT_THROW(
       Variant::row(
           {static_cast<int128_t>(123456789),
-           Variant((
-               std::
-                   string) "test confirms Variant child count is greater than expected"),
-           Variant((bool)false)})
+           Variant(
+               "test confirms Variant child count is greater than expected"),
+           Variant(false)})
           .toJson(rowType),
       "(3 vs. 1) Wrong number of fields in a struct in Variant::toJson");
 
@@ -514,9 +514,8 @@ TEST(VariantTest, toJsonRow) {
   VELOX_ASSERT_THROW(
       Variant::row(
           {static_cast<int128_t>(12345678912),
-           Variant((
-               std::
-                   string) "test confirms Variant child count is lesser than expected")})
+           Variant(
+               "test confirms Variant child count is lesser than expected")})
           .toJson(rowType),
       "(2 vs. 3) Wrong number of fields in a struct in Variant::toJson");
 
@@ -559,25 +558,24 @@ TEST(VariantTest, toJsonArray) {
 TEST(VariantTest, toJsonMap) {
   auto mapType = MAP(VARCHAR(), DECIMAL(6, 3));
   std::map<Variant, Variant> mapValue = {
-      {(std::string) "key1", 235499LL}, {(std::string) "key2", 123456LL}};
+      {"key1", 235499LL}, {"key2", 123456LL}};
   EXPECT_EQ(
-      "[{\"key\":\"key1\",\"value\":235.499},{\"key\":\"key2\",\"value\":123.456}]",
+      R"([{"key":"key1","value":235.499},{"key":"key2","value":123.456}])",
       Variant::map(mapValue).toJson(mapType));
 
   mapType = MAP(VARCHAR(), DECIMAL(20, 3));
   mapValue = {
-      {(std::string) "key1", static_cast<int128_t>(45464562323423)},
-      {(std::string) "key2", static_cast<int128_t>(12334581232456)}};
+      {"key1", static_cast<int128_t>(45464562323423)},
+      {"key2", static_cast<int128_t>(12334581232456)}};
   EXPECT_EQ(
-      "[{\"key\":\"key1\",\"value\":45464562323.423},{\"key\":\"key2\",\"value\":12334581232.456}]",
+      R"([{"key":"key1","value":45464562323.423},{"key":"key2","value":12334581232.456}])",
       Variant::map(mapValue).toJson(mapType));
 
   // Map Variant tests that contains NULL variants.
   mapValue = {
       {Variant::null(TypeKind::VARCHAR), Variant::null(TypeKind::HUGEINT)}};
   EXPECT_EQ(
-      "[{\"key\":null,\"value\":null}]",
-      Variant::map(mapValue).toJson(mapType));
+      R"([{"key":null,"value":null}])", Variant::map(mapValue).toJson(mapType));
 }
 
 TEST(VariantTest, typeWithCustomComparison) {
