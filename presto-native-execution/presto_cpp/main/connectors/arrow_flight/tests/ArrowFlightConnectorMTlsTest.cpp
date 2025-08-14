@@ -30,9 +30,9 @@ using namespace facebook::velox::exec::test;
 
 namespace facebook::presto::test {
 
-class ArrowFlightConnectorTlsTestBase : public ArrowFlightConnectorTestBase {
+class ArrowFlightConnectorMtlsTestBase : public ArrowFlightConnectorTestBase {
  protected:
-  explicit ArrowFlightConnectorTlsTestBase(
+  explicit ArrowFlightConnectorMtlsTestBase(
       std::shared_ptr<velox::config::ConfigBase> config)
       : ArrowFlightConnectorTestBase(std::move(config)) {}
 
@@ -42,11 +42,11 @@ class ArrowFlightConnectorTlsTestBase : public ArrowFlightConnectorTestBase {
         .pem_cert = readFile("./data/certs/server.crt"),
         .pem_key = readFile("./data/certs/server.key")};
     serverOptions->tls_certificates.push_back(tlsCertificate);
+    serverOptions->verify_client = true;
+    serverOptions->root_certificates = readFile("./data/certs/ca.crt");
   }
 
-  void executeTest(
-      bool isPositiveTest = true,
-      const std::string& expectedError = "") {
+  void executeSuccessfulQuery() {
     std::vector<int64_t> idData = {
         1, 12, 2, std::numeric_limits<int64_t>::max()};
 
@@ -60,63 +60,65 @@ class ArrowFlightConnectorTlsTestBase : public ArrowFlightConnectorTestBase {
                     .flightTableScan(velox::ROW({"id"}, {velox::BIGINT()}))
                     .planNode();
 
-    auto runQuery = [&]() {
+    AssertQueryBuilder(plan)
+        .splits(makeSplits({"sample-data"}))
+        .assertResults(makeRowVector({idVec}));
+  }
+
+  std::function<void()> createQueryFunction() {
+    std::vector<int64_t> idData = {
+        1, 12, 2, std::numeric_limits<int64_t>::max()};
+
+    updateTable(
+        "sample-data",
+        makeArrowTable({"id"}, {makeNumericArray<arrow::Int64Type>(idData)}));
+
+    auto idVec = makeFlatVector<int64_t>(idData);
+
+    auto plan = ArrowFlightPlanBuilder()
+                    .flightTableScan(velox::ROW({"id"}, {velox::BIGINT()}))
+                    .planNode();
+
+    return [this, plan, idVec]() {
       AssertQueryBuilder(plan)
           .splits(makeSplits({"sample-data"}))
           .assertResults(makeRowVector({idVec}));
     };
-
-    if (isPositiveTest) {
-      runQuery();
-    } else {
-      VELOX_ASSERT_THROW(runQuery(), expectedError);
-    }
   }
 };
 
-class ArrowFlightConnectorTlsTest : public ArrowFlightConnectorTlsTestBase {
+class ArrowFlightConnectorMtlsTest : public ArrowFlightConnectorMtlsTestBase {
  protected:
-  explicit ArrowFlightConnectorTlsTest()
-      : ArrowFlightConnectorTlsTestBase(
+  explicit ArrowFlightConnectorMtlsTest()
+      : ArrowFlightConnectorMtlsTestBase(
             std::make_shared<velox::config::ConfigBase>(
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
                     {ArrowFlightConfig::kServerSslCertificate,
-                     "./data/certs/ca.crt"}})) {}
+                         "./data/certs/ca.crt"},
+                    {ArrowFlightConfig::kClientSslCertificate, "./data/certs/client.crt"},
+                    {ArrowFlightConfig::kClientSslKey, "./data/certs/client.key"}})) {}
 };
 
-TEST_F(ArrowFlightConnectorTlsTest, tlsEnabled) {
-  executeTest();
+TEST_F(ArrowFlightConnectorMtlsTest, successfulMtlsConnection) {
+  executeSuccessfulQuery();
 }
 
-class ArrowFlightTlsNoCertValidationTest
-    : public ArrowFlightConnectorTlsTestBase {
+class ArrowFlightMtlsNoClientCertTest : public ArrowFlightConnectorMtlsTestBase {
  protected:
-  explicit ArrowFlightTlsNoCertValidationTest()
-      : ArrowFlightConnectorTlsTestBase(
+  ArrowFlightMtlsNoClientCertTest()
+      : ArrowFlightConnectorMtlsTestBase(
             std::make_shared<velox::config::ConfigBase>(
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
-                    {ArrowFlightConfig::kServerVerify, "false"}})) {}
+                    {ArrowFlightConfig::kServerVerify, "true"},
+                    {ArrowFlightConfig::kServerSslCertificate, "./data/certs/ca.crt"}})) {}
 };
 
-TEST_F(ArrowFlightTlsNoCertValidationTest, tlsNoCertValidation) {
-  executeTest();
-}
-
-class ArrowFlightTlsNoCertTest : public ArrowFlightConnectorTlsTestBase {
- protected:
-  ArrowFlightTlsNoCertTest()
-      : ArrowFlightConnectorTlsTestBase(
-            std::make_shared<velox::config::ConfigBase>(
-                std::unordered_map<std::string, std::string>{
-                    {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
-                    {ArrowFlightConfig::kServerVerify, "true"}})) {}
-};
-
-TEST_F(ArrowFlightTlsNoCertTest, tlsNoCert) {
-  executeTest(false, "handshake failed");
+TEST_F(ArrowFlightMtlsNoClientCertTest, mtlsFailsWithoutClientCert) {
+  auto queryFunction = createQueryFunction();
+  VELOX_ASSERT_THROW(queryFunction(), "TLS handshake failed: missing or invalid client certificate");
 }
 
 } // namespace facebook::presto::test
