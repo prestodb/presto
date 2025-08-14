@@ -33,7 +33,7 @@ namespace facebook::velox::functions {
  *              "[]"     Subscript operator for array and map
  *              "*"      Wildcard for [], get all the elements of an array
  * @return Return json string object on success.
- *         On invalid json path, returns folly::none (not json null) value
+ *         On invalid json path, returns std::nullopt (not json null) value
  *         On non-json value, returns the original value.
  * Example:
  * For the following example: ,
@@ -51,23 +51,23 @@ namespace facebook::velox::functions {
  * jsonExtract(json, "$.non_exist_key") = NULL
  * jsonExtract(json, "$.store.fruit[*].type") = "[\"apple\", \"pear\"]"
  */
-folly::Optional<folly::dynamic> jsonExtract(
+std::optional<folly::dynamic> jsonExtract(
     folly::StringPiece json,
     folly::StringPiece path);
 
-folly::Optional<folly::dynamic> jsonExtract(
+std::optional<folly::dynamic> jsonExtract(
     const folly::dynamic& json,
     folly::StringPiece path);
 
-folly::Optional<std::string> jsonExtractScalar(
+std::optional<std::string> jsonExtractScalar(
     folly::StringPiece json,
     folly::StringPiece path);
 
-folly::Optional<folly::dynamic> jsonExtract(
+std::optional<folly::dynamic> jsonExtract(
     const std::string& json,
     const std::string& path);
 
-folly::Optional<std::string> jsonExtractScalar(
+std::optional<std::string> jsonExtractScalar(
     const std::string& json,
     const std::string& path);
 

@@ -61,25 +61,24 @@ namespace retrypolicy {
 class IRetryPolicy {
  public:
   virtual ~IRetryPolicy() = default;
-  virtual folly::Optional<RetryDuration> nextWaitTime() = 0;
+  virtual std::optional<RetryDuration> nextWaitTime() = 0;
   virtual void start() {}
 };
 
 class KAttempts : public IRetryPolicy {
  public:
   explicit KAttempts(std::vector<RetryDuration> durations)
-      : index_(0), durations_(std::move(durations)) {}
+      : durations_{std::move(durations)} {}
 
-  folly::Optional<RetryDuration> nextWaitTime() override {
+  std::optional<RetryDuration> nextWaitTime() override {
     if (index_ < durations_.size()) {
-      return folly::Optional<RetryDuration>(durations_[index_++]);
-    } else {
-      return folly::Optional<RetryDuration>();
+      return durations_[index_++];
     }
+    return std::nullopt;
   }
 
  private:
-  size_t index_;
+  size_t index_{0};
   const std::vector<RetryDuration> durations_;
 };
 
@@ -105,16 +104,16 @@ class ExponentialBackoff : public IRetryPolicy {
     startTime_ = std::chrono::system_clock::now();
   }
 
-  folly::Optional<RetryDuration> nextWaitTime() override {
+  std::optional<RetryDuration> nextWaitTime() override {
     if (retriesLeft_ == 0 || (maxTotal_.count() > 0 && total() >= maxTotal_)) {
-      return folly::Optional<RetryDuration>();
+      return std::nullopt;
     }
 
     RetryDuration waitTime = nextWait_ + jitter();
     nextWait_ = std::min(nextWait_ + nextWait_, maxWait_);
     --retriesLeft_;
     totalWait_ += waitTime;
-    return folly::Optional<RetryDuration>(waitTime);
+    return waitTime;
   }
 
  private:
@@ -204,7 +203,7 @@ class RetryModule {
         return func();
       } catch (const retriable_error& error) {
         LOG(INFO) << "RetryModule caught retriable exception. " << error.what();
-        folly::Optional<RetryDuration> wait = policy->nextWaitTime();
+        auto wait = policy->nextWaitTime();
         if (wait.has_value()) {
           auto ms = wait.value().count();
           LOG(INFO) << "RetryModule : Waiting for " << ms

@@ -112,17 +112,17 @@ class ConfigBase {
   }
 
   template <typename T>
-  folly::Optional<T> get(
+  std::optional<T> get(
       const std::string& key,
       std::function<T(std::string, std::string)> toT = [](auto /* unused */,
                                                           auto value) {
         return folly::to<T>(value);
       }) const {
     auto val = get(key);
-    if (val.hasValue()) {
+    if (val.has_value()) {
       return toT(key, val.value());
     } else {
-      return folly::none;
+      return std::nullopt;
     }
   }
 
@@ -135,7 +135,7 @@ class ConfigBase {
         return folly::to<T>(value);
       }) const {
     auto val = get(key);
-    if (val.hasValue()) {
+    if (val.has_value()) {
       return toT(key, val.value());
     } else {
       return defaultValue;
@@ -153,7 +153,7 @@ class ConfigBase {
   std::unordered_map<std::string, std::string> configs_;
 
  private:
-  folly::Optional<std::string> get(const std::string& key) const;
+  std::optional<std::string> get(const std::string& key) const;
 
   const bool mutable_;
 };

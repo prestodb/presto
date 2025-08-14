@@ -129,11 +129,11 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
     // Fall back to get a fixed endpoint from config.
     auto hdfsHost = config->get<std::string>("hive.hdfs.host");
     VELOX_CHECK(
-        hdfsHost.hasValue(),
+        hdfsHost.has_value(),
         "hdfsHost is empty, configuration missing for hdfs host");
     auto hdfsPort = config->get<std::string>("hive.hdfs.port");
     VELOX_CHECK(
-        hdfsPort.hasValue(),
+        hdfsPort.has_value(),
         "hdfsPort is empty, configuration missing for hdfs port");
     return HdfsServiceEndpoint{*hdfsHost, *hdfsPort};
   }

@@ -63,7 +63,7 @@ struct FollyJsonExtractScalarFunction {
     const folly::StringPiece& jsonPathStringPiece = jsonPath;
     auto extractResult =
         jsonExtractScalar(jsonStringPiece, jsonPathStringPiece);
-    if (extractResult.hasValue()) {
+    if (extractResult.has_value()) {
       UDFOutputString::assign(result, *extractResult);
       return true;
     } else {
@@ -82,7 +82,7 @@ struct FollyJsonExtractFunction {
       const arg_type<Varchar>& jsonPath) {
     auto extractResult =
         jsonExtract(folly::StringPiece(json), folly::StringPiece(jsonPath));
-    if (!extractResult.hasValue() || extractResult.value().isNull()) {
+    if (!extractResult.has_value() || extractResult.value().isNull()) {
       return false;
     }
 

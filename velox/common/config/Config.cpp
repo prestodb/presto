@@ -138,8 +138,8 @@ std::unordered_map<std::string, std::string> ConfigBase::rawConfigsCopy()
   return configs_;
 }
 
-folly::Optional<std::string> ConfigBase::get(const std::string& key) const {
-  folly::Optional<std::string> val;
+std::optional<std::string> ConfigBase::get(const std::string& key) const {
+  std::optional<std::string> val;
   std::shared_lock<std::shared_mutex> l(mutex_);
   auto it = configs_.find(key);
   if (it != configs_.end()) {

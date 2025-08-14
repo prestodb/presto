@@ -143,9 +143,9 @@ class ISerializable {
   template <
       typename T,
       std::enable_if_t<
-          std::is_same_v<T, folly::Optional<typename T::value_type>>>>
-  static folly::dynamic serialize(const folly::Optional<T>& val) {
-    if (!val.hasValue()) {
+          std::is_same_v<T, std::optional<typename T::value_type>>>>
+  static folly::dynamic serialize(const std::optional<T>& val) {
+    if (!val.has_value()) {
       return nullptr;
     }
 
@@ -250,16 +250,16 @@ class ISerializable {
   template <
       typename T,
       typename = std::enable_if_t<
-          std::is_same_v<T, folly::Optional<typename T::value_type>>>>
-  static folly::Optional<
+          std::is_same_v<T, std::optional<typename T::value_type>>>>
+  static std::optional<
       decltype(ISerializable::deserialize<typename T::value_type>(
           std::declval<folly::dynamic>()))>
   deserialize(const folly::dynamic& obj, void* context = nullptr) {
     if (obj.isNull()) {
-      return folly::none;
+      return std::nullopt;
     }
     auto val = deserialize<typename T::value_type>(obj);
-    return folly::Optional<
+    return std::optional<
         decltype(ISerializable::deserialize<typename T::value_type>(
             std::declval<folly::dynamic>()))>(move(val));
   }

@@ -53,7 +53,7 @@ class JsonExtractor {
     return *op;
   }
 
-  folly::Optional<folly::dynamic> extract(const folly::dynamic& json);
+  std::optional<folly::dynamic> extract(const folly::dynamic& json);
 
   // Shouldn't instantiate directly - use getInstance().
   explicit JsonExtractor(const std::string& path) {
@@ -139,7 +139,7 @@ void extractArray(
   }
 }
 
-folly::Optional<folly::dynamic> JsonExtractor::extract(
+std::optional<folly::dynamic> JsonExtractor::extract(
     const folly::dynamic& json) {
   JsonVector input;
   // Temporary extraction result holder, swap with input after
@@ -156,7 +156,7 @@ folly::Optional<folly::dynamic> JsonExtractor::extract(
       }
     }
     if (result.empty()) {
-      return folly::none;
+      return std::nullopt;
     }
     input.clear();
     result.swap(input);
@@ -164,7 +164,7 @@ folly::Optional<folly::dynamic> JsonExtractor::extract(
 
   auto len = input.size();
   if (0 == len) {
-    return folly::none;
+    return std::nullopt;
   } else if (1 == len) {
     return *input.front();
   } else {
@@ -176,20 +176,20 @@ folly::Optional<folly::dynamic> JsonExtractor::extract(
   }
 }
 
-bool isScalarType(const folly::Optional<folly::dynamic>& json) {
+bool isScalarType(const std::optional<folly::dynamic>& json) {
   return json.has_value() && !json->isObject() && !json->isArray() &&
       !json->isNull();
 }
 
 } // namespace
 
-folly::Optional<folly::dynamic> jsonExtract(
+std::optional<folly::dynamic> jsonExtract(
     folly::StringPiece json,
     folly::StringPiece path) {
   try {
     // If extractor fails to parse the path, this will throw a VeloxUserError,
     // and we want to let this exception bubble up to the client. We only catch
-    // json parsing failures (in which cases we return folly::none instead of
+    // json parsing failures (in which cases we return std::nullopt instead of
     // throw).
     auto& extractor = JsonExtractor::getInstance(path);
     return extractor.extract(folly::parseJson(json));
@@ -198,26 +198,26 @@ folly::Optional<folly::dynamic> jsonExtract(
     // Folly might throw a conversion error while parsing the input json. In
     // this case, let it return null.
   }
-  return folly::none;
+  return std::nullopt;
 }
 
-folly::Optional<folly::dynamic> jsonExtract(
+std::optional<folly::dynamic> jsonExtract(
     const std::string& json,
     const std::string& path) {
   return jsonExtract(folly::StringPiece(json), folly::StringPiece(path));
 }
 
-folly::Optional<folly::dynamic> jsonExtract(
+std::optional<folly::dynamic> jsonExtract(
     const folly::dynamic& json,
     folly::StringPiece path) {
   try {
     return JsonExtractor::getInstance(path).extract(json);
   } catch (const folly::json::parse_error&) {
   }
-  return folly::none;
+  return std::nullopt;
 }
 
-folly::Optional<std::string> jsonExtractScalar(
+std::optional<std::string> jsonExtractScalar(
     folly::StringPiece json,
     folly::StringPiece path) {
   auto res = jsonExtract(json, path);
@@ -229,10 +229,10 @@ folly::Optional<std::string> jsonExtractScalar(
       return res->asString();
     }
   }
-  return folly::none;
+  return std::nullopt;
 }
 
-folly::Optional<std::string> jsonExtractScalar(
+std::optional<std::string> jsonExtractScalar(
     const std::string& json,
     const std::string& path) {
   folly::StringPiece jsonPiece{json};

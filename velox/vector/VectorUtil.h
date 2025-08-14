@@ -26,7 +26,7 @@ template <typename T>
 static inline BufferPtr copyToBuffer(
     const T& values,
     velox::memory::MemoryPool* pool,
-    folly::Optional<int32_t> size = folly::none,
+    std::optional<int32_t> size = std::nullopt,
     bool returnsNullptr = false) {
   using Value = typename T::value_type;
   VELOX_CHECK(pool, "pool must be non-null");

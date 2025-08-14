@@ -29,7 +29,7 @@ namespace facebook::velox::test {
 template <typename T>
 class VectorUtilTest : public testing::Test {
  public:
-  void runTest(folly::Optional<int32_t> size = folly::none) {
+  void runTest(std::optional<int32_t> size = std::nullopt) {
     std::vector<T> vec;
     constexpr int32_t kSize = 3;
     for (size_t i = 1; i <= kSize; ++i) {
@@ -37,7 +37,7 @@ class VectorUtilTest : public testing::Test {
     }
     auto buffer = copyToBuffer(vec, pool_.get(), size);
     int32_t actualBufferSize =
-        size.hasValue() ? std::min(size.value(), kSize) : kSize;
+        size.has_value() ? std::min(size.value(), kSize) : kSize;
     ASSERT_EQ(actualBufferSize * sizeof(T), buffer->size());
   }
 
@@ -50,7 +50,7 @@ class VectorUtilTest : public testing::Test {
   void runTestWithEmptyVectorAndReturnsNullptr() {
     std::vector<T> vec;
     auto buffer = copyToBuffer(
-        vec, pool_.get(), folly::none /*size*/, true /*returnsNullptr*/);
+        vec, pool_.get(), std::nullopt /*size*/, true /*returnsNullptr*/);
     ASSERT_EQ(nullptr, buffer);
   }
 
