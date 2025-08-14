@@ -133,7 +133,7 @@ Kerberos authentication is supported for both HDFS and the Hive metastore.
 However, Kerberos authentication by ticket cache is not yet supported.
 
 For authentication-related configuration of the Hive Metastore Thrift service and HDFS,
-see the Hive Security documentation: :doc:`/connector/hive-security`.
+see :doc:`/connector/hive-security`.
 
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
