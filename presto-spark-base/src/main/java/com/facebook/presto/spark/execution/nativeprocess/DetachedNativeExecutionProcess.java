@@ -47,7 +47,7 @@ public class DetachedNativeExecutionProcess
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?> workerProperty)
             throws IOException
     {
         super(executablePath,
