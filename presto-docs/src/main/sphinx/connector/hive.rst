@@ -1005,11 +1005,15 @@ Hive catalog is called ``web``::
 
     CALL web.system.example_procedure()
 
-The following procedures are available:
+Create Empty Partition
+^^^^^^^^^^^^^^^^^^^^^^
 
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
   Create an empty partition in the specified table.
+
+Sync Partition Metadata
+^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
 
@@ -1024,6 +1028,9 @@ The following procedures are available:
   file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to ``false``.
 
+Invalidate Directory List Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 * ``system.invalidate_directory_list_cache()``
 
   Flush full directory list cache.
@@ -1031,6 +1038,9 @@ The following procedures are available:
 * ``system.invalidate_directory_list_cache(directory_path)``
 
   Invalidate directory list cache for specified directory_path.
+
+Invalidate Metastore Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``system.invalidate_metastore_cache()``
 
@@ -1048,8 +1058,10 @@ The following procedures are available:
 
   Invalidate all metastore cache entries linked to a specific partition.
 
-Note: To enable ``system.invalidate_metastore_cache`` procedure, please refer to the properties that
-apply to Hive Metastore and are listed in the `Metastore Configuration Properties`_ table.
+  .. note::
+
+    To enable ``system.invalidate_metastore_cache`` procedure, ``hive.invalidate-metastore-cache-procedure-enabled`` must be set to ``true``.
+    See the properties in `Metastore Configuration Properties`_ table for more information.
 
 Extra Hidden Columns
 --------------------
@@ -1064,22 +1076,22 @@ columns as a part of the query like any other columns of the table.
 How to invalidate metastore cache?
 ----------------------------------
 
-The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
-You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.
+Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
+There are a couple of ways for invalidating this cache and are listed below -
 
-This is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
 
-Currently, this procedure flushes the cache for all the tables in all the schemas. This is a known limitation and will be enhanced in the future.
+* The Hive connector exposes ``system.invalidate_metastore_cache`` procedure which enables users to invalidate the metastore cache completely or partially as per the requirement and can be invoked with various arguments. See `Invalidate Metastore Cache`_ for more information.
 
 How to invalidate directory list cache?
 ---------------------------------------
 
-The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.HiveDirectoryLister#flushCache``) to invalidate the directory list cache.
-You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm.
+Invalidating directory list cache is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
+There are a couple of ways for invalidating this cache and are listed below -
 
-This is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm. This procedure flushes all the cache entries.
 
-Currently, this procedure flushes all the cache entries. This is a known limitation and will be enhanced in the future.
+* The Hive connector exposes ``system.invalidate_directory_list_cache`` procedure which gives the flexibility to invalidate the list cache completely or partially as per the requirement and can be invoked in various ways. See `Invalidate Directory List Cache`_ for more information.
 
 Examples
 --------
