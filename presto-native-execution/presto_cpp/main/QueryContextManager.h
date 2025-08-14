@@ -134,9 +134,9 @@ class QueryContextManager {
   void setQueryHasStartedTasks(const protocol::TaskId& taskId);
 
   /// Calls the given functor for every present query context.
-  void visitAllContexts(std::function<void(
+  void visitAllContexts(const std::function<void(
                             const protocol::QueryId&,
-                            const velox::core::QueryCtx*)> visitor) const;
+                            const velox::core::QueryCtx*)>& visitor) const;
 
   /// Test method to clear the query context cache.
   void testingClearCache();
@@ -144,14 +144,10 @@ class QueryContextManager {
  private:
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
-      std::unordered_map<std::string, std::string>&& configStrings,
+      velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
           std::string,
-          std::unordered_map<std::string, std::string>>&&
-          connectorConfigStrings);
-
-  std::unordered_map<std::string, std::string> toVeloxConfigs(
-      const protocol::SessionRepresentation& session);
+          std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);
 
   folly::Executor* const driverExecutor_{nullptr};
   folly::Executor* const spillerExecutor_{nullptr};

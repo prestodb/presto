@@ -78,13 +78,6 @@ void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
       std::move(values), mutableConfig);
 }
 
-std::string ConfigBase::capacityPropertyAsBytesString(
-    std::string_view propertyName) const {
-  return folly::to<std::string>(velox::config::toCapacity(
-      optionalProperty(propertyName).value(),
-      velox::config::CapacityUnit::BYTE));
-}
-
 bool ConfigBase::registerProperty(
     const std::string& propertyName,
     const folly::Optional<std::string>& defaultValue) {
@@ -1084,19 +1077,7 @@ void BaseVeloxQueryConfig::updateLoadedValues(
   auto systemConfig = SystemConfig::instance();
 
   using namespace velox::core;
-  std::unordered_map<std::string, std::string> updatedValues{
-      {QueryConfig::kPrestoArrayAggIgnoreNulls,
-       bool2String(systemConfig->useLegacyArrayAgg())},
-      {QueryConfig::kMaxOutputBufferSize,
-       systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kSinkMaxBufferSize)},
-      {QueryConfig::kMaxPartitionedOutputBufferSize,
-       systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kDriverMaxPagePartitioningBufferSize)},
-      {QueryConfig::kMaxPartialAggregationMemory,
-       systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kTaskMaxPartialAggregationMemory)},
-  };
+  std::unordered_map<std::string, std::string> updatedValues{};
 
   auto taskWriterCount = systemConfig->taskWriterCount();
   if (taskWriterCount.has_value()) {
