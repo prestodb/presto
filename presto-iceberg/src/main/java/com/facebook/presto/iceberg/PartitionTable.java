@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.iceberg.IcebergPageSink.revertAdjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -73,12 +74,14 @@ public class PartitionTable
     private final List<com.facebook.presto.common.type.Type> resultTypes;
     private final List<RowType> columnMetricTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
+    private final ConnectorSession session;
 
-    public PartitionTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
+    public PartitionTable(ConnectorSession session, SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.session = requireNonNull(session, "session is null");
         this.idToTypeMapping = icebergTable.schema().columns().stream()
                 .filter(column -> column.type().isPrimitiveType())
                 .collect(Collectors.toMap(Types.NestedField::fieldId, (column) -> column.type().asPrimitiveType()));
@@ -299,9 +302,15 @@ public class PartitionTable
         }
         if (type instanceof Types.TimestampType) {
             com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
-            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
-                return MICROSECONDS.toMillis((long) value);
+            if (prestoType instanceof TimestampType) {
+                if (((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
+                    value = MICROSECONDS.toMillis((long) value);
+                }
+                if (session.getSqlFunctionProperties().isLegacyJsonCast()) {
+                    value = revertAdjustTimestampForPartitionTransform(session.getSqlFunctionProperties(), prestoType, value);
+                }
             }
+            return value;
         }
         if (type instanceof Types.TimeType) {
             return MICROSECONDS.toMillis((long) value);

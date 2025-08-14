@@ -1433,6 +1433,9 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQuery(session,
                     "SELECT * FROM " + tableName + " WHERE c2 = TIMESTAMP '1969-12-31 05:06:07.234'",
                     "VALUES (7, TIMESTAMP '1969-12-31 05:06:07.234')");
+            assertQuery(session,
+                    "SELECT * FROM " + tableName + " WHERE c2 in (timestamp '2022-10-01 00:00:00.000', TIMESTAMP '1969-12-30 18:47:33.345')",
+                    "VALUES (1, timestamp '2022-10-01 00:00:00.000'), (5, TIMESTAMP '1969-12-30 18:47:33.345')");
 
             assertQuery(session,
                     "SELECT * FROM " + tableName + " WHERE CAST(c2 as DATE) = DATE '1969-12-31'",
@@ -1457,7 +1460,12 @@ public abstract class IcebergDistributedSmokeTestBase
 
             assertQuery(session, "SELECT c2_hour, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_hour",
                     "VALUES (10, 1, 1), (34, 1, 1), (462394, 1, 1), (471924, 1, 1)");
+            assertQuery(session, "SELECT c2_hour, row_count, file_count FROM " + "\"" + tableName + "$partitions\" where c2_hour in (462394, 471924)",
+                    "VALUES (462394, 1, 1), (471924, 1, 1)");
             assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE c2 = timestamp '2023-11-02 12:10:31.315'", "VALUES (2, timestamp '2023-11-02 12:10:31.315')");
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE c2 in (timestamp '2022-10-01 10:00:00.000', timestamp '2023-11-02 12:10:31.315', timestamp '1970-01-02 10:10:31.315')",
+                    "VALUES (1, timestamp '2022-10-01 10:00:00.000'), (2, timestamp '2023-11-02 12:10:31.315'), (4, timestamp '1970-01-02 10:10:31.315')");
         }
         finally {
             dropTable(session, tableName);
