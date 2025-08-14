@@ -96,28 +96,12 @@ class PrefixSortIterator {
     return (prefix_ - other.prefix_) / other.entrySize_;
   }
 
-  FOLLY_ALWAYS_INLINE bool operator<(const PrefixSortIterator& other) const {
-    return prefix_ < other.prefix_;
-  }
-
-  FOLLY_ALWAYS_INLINE bool operator>(const PrefixSortIterator& other) const {
-    return prefix_ > other.prefix_;
-  }
-
-  FOLLY_ALWAYS_INLINE bool operator>=(const PrefixSortIterator& other) const {
-    return prefix_ >= other.prefix_;
-  }
-
-  FOLLY_ALWAYS_INLINE bool operator<=(const PrefixSortIterator& other) const {
-    return prefix_ <= other.prefix_;
-  }
-
   FOLLY_ALWAYS_INLINE bool operator==(const PrefixSortIterator& other) const {
     return prefix_ == other.prefix_;
   }
 
-  FOLLY_ALWAYS_INLINE bool operator!=(const PrefixSortIterator& other) const {
-    return prefix_ != other.prefix_;
+  FOLLY_ALWAYS_INLINE auto operator<=>(const PrefixSortIterator& other) const {
+    return prefix_ <=> other.prefix_;
   }
 
  private:

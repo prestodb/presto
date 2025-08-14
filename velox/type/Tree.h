@@ -60,10 +60,6 @@ class TreeIterator {
     return &tree_ == &rhs.tree_ && idx_ == rhs.idx_;
   }
 
-  bool operator!=(const self_type& rhs) const {
-    return (&tree_ != &(rhs.tree_)) || idx_ != rhs.idx_;
-  }
-
  private:
   const Tree<T>& tree_;
   size_t idx_;

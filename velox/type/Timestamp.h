@@ -377,33 +377,8 @@ struct Timestamp {
   /// A default time zone that is same across the process.
   static const tz::TimeZone& defaultTimezone();
 
-  bool operator==(const Timestamp& b) const {
-    return seconds_ == b.seconds_ && nanos_ == b.nanos_;
-  }
-
-  bool operator!=(const Timestamp& b) const {
-    return seconds_ != b.seconds_ || nanos_ != b.nanos_;
-  }
-
-  bool operator<(const Timestamp& b) const {
-    return seconds_ < b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ < b.nanos_);
-  }
-
-  bool operator<=(const Timestamp& b) const {
-    return seconds_ < b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ <= b.nanos_);
-  }
-
-  bool operator>(const Timestamp& b) const {
-    return seconds_ > b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ > b.nanos_);
-  }
-
-  bool operator>=(const Timestamp& b) const {
-    return seconds_ > b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ >= b.nanos_);
-  }
+  bool operator==(const Timestamp& b) const = default;
+  auto operator<=>(const Timestamp& b) const = default;
 
   void operator++() {
     if (nanos_ < kMaxNanos) {

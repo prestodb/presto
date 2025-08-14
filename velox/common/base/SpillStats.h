@@ -15,8 +15,9 @@
  */
 #pragma once
 
-#include <stdint.h>
-#include <string.h>
+#include <compare>
+#include <cstdint>
+#include <cstring>
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
 
@@ -97,10 +98,7 @@ struct SpillStats {
 
   SpillStats& operator+=(const SpillStats& other);
   SpillStats operator-(const SpillStats& other) const;
-  bool operator==(const SpillStats& other) const;
-  bool operator!=(const SpillStats& other) const {
-    return !(*this == other);
-  }
+  bool operator==(const SpillStats& other) const = default;
 
   void reset();
 

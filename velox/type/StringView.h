@@ -149,10 +149,6 @@ struct StringView {
                size_ - kPrefixSize) == 0;
   }
 
-  bool operator!=(const StringView& other) const {
-    return !(*this == other);
-  }
-
   // Returns 0, if this == other
   //       < 0, if this < other
   //       > 0, if this > other
@@ -176,20 +172,11 @@ struct StringView {
     return (result != 0) ? result : size_ - other.size_;
   }
 
-  bool operator<(const StringView& other) const {
-    return compare(other) < 0;
-  }
-
-  bool operator<=(const StringView& other) const {
-    return compare(other) <= 0;
-  }
-
-  bool operator>(const StringView& other) const {
-    return compare(other) > 0;
-  }
-
-  bool operator>=(const StringView& other) const {
-    return compare(other) >= 0;
+  auto operator<=>(const StringView& other) const {
+    const auto cmp = compare(other);
+    return cmp < 0 ? std::strong_ordering::less
+        : cmp > 0  ? std::strong_ordering::greater
+                   : std::strong_ordering::equal;
   }
 
   operator folly::StringPiece() && = delete;

@@ -44,10 +44,6 @@ class CoalesceRegions {
       return lhs.begin_ == rhs.begin_ && lhs.end_ == rhs.end_;
     }
 
-    friend bool operator!=(const Iter& lhs, const Iter& rhs) {
-      return !(lhs == rhs);
-    }
-
     std::pair<RegionIter, RegionIter> operator*() const {
       return {begin_, end_};
     }

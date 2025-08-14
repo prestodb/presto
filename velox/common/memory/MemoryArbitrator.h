@@ -241,11 +241,7 @@ class MemoryArbitrator {
 
     Stats operator-(const Stats& other) const;
     bool operator==(const Stats& other) const;
-    bool operator!=(const Stats& other) const;
-    bool operator<(const Stats& other) const;
-    bool operator>(const Stats& other) const;
-    bool operator>=(const Stats& other) const;
-    bool operator<=(const Stats& other) const;
+    std::strong_ordering operator<=>(const Stats& other) const;
 
     bool empty() const {
       return numRequests == 0;
@@ -321,8 +317,7 @@ class MemoryReclaimer {
 
     void reset();
 
-    bool operator==(const Stats& other) const;
-    bool operator!=(const Stats& other) const;
+    bool operator==(const Stats& other) const = default;
     Stats& operator+=(const Stats& other);
   };
 

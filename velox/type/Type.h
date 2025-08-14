@@ -123,24 +123,8 @@ struct UnknownValue {
     return true;
   }
 
-  bool operator!=(const UnknownValue& /* b */) const {
-    return false;
-  }
-
-  bool operator<(const UnknownValue& /* b */) const {
-    return false;
-  }
-
-  bool operator<=(const UnknownValue& /* b */) const {
-    return true;
-  }
-
-  bool operator>(const UnknownValue& /* b */) const {
-    return false;
-  }
-
-  bool operator>=(const UnknownValue& /* b */) const {
-    return true;
+  auto operator<=>(const UnknownValue& /* b */) const {
+    return std::strong_ordering::equal;
   }
 };
 
@@ -579,10 +563,6 @@ class Type : public Tree<const TypePtr>, public velox::ISerializable {
   /// For primitive types: same as equivalent.
   virtual bool operator==(const Type& other) const {
     return this->equals(other);
-  }
-
-  inline bool operator!=(const Type& other) const {
-    return !(*this == other);
   }
 
   // todo(youknowjack): avoid expensive virtual function calls for these

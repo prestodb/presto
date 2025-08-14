@@ -125,10 +125,6 @@ class PyTaskIterator {
       return *this;
     }
 
-    bool operator!=(const Iterator& other) const {
-      return vector_ != other.vector_;
-    }
-
     bool operator==(const Iterator& other) const {
       return vector_ == other.vector_;
     }

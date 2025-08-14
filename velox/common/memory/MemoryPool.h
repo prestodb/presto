@@ -1093,11 +1093,6 @@ class StlAllocator {
     }
     return false;
   }
-
-  template <typename T1>
-  bool operator!=(const StlAllocator<T1>& rhs) const {
-    return !(*this == rhs);
-  }
 };
 } // namespace facebook::velox::memory
 

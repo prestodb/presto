@@ -55,12 +55,8 @@ class HashBitRange {
     return 1 << numBits();
   }
 
-  inline bool operator==(const HashBitRange& other) const {
+  bool operator==(const HashBitRange& other) const {
     return std::tie(begin_, end_) == std::tie(other.begin_, other.end_);
-  }
-
-  inline bool operator!=(const HashBitRange& other) const {
-    return !(*this == other);
   }
 
  private:

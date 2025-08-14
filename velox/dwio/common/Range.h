@@ -63,14 +63,8 @@ class Ranges {
       }
     }
 
-    bool operator==(const Iterator& other) const {
-      return std::tie(cur_, end_, val_) ==
-          std::tie(other.cur_, other.end_, other.val_);
-    }
-
-    bool operator!=(const Iterator& other) const {
-      return !operator==(other);
-    }
+    // TODO: Maybe only cur_ or cur_ with end_ should be compared?
+    bool operator==(const Iterator& other) const = default;
 
     Iterator& operator++() {
       VELOX_DCHECK(cur_ != end_);

@@ -114,10 +114,6 @@ bool EncodingIter::operator==(const EncodingIter& other) const {
   return current_ == other.current_;
 }
 
-bool EncodingIter::operator!=(const EncodingIter& other) const {
-  return current_ != other.current_;
-}
-
 EncodingIter::reference EncodingIter::operator*() const {
   return *current_;
 }

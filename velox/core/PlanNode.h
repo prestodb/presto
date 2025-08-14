@@ -74,14 +74,7 @@ class SortOrder {
     return nullsFirst_;
   }
 
-  bool operator==(const SortOrder& other) const {
-    return std::tie(ascending_, nullsFirst_) ==
-        std::tie(other.ascending_, other.nullsFirst_);
-  }
-
-  bool operator!=(const SortOrder& other) const {
-    return !(*this == other);
-  }
+  bool operator==(const SortOrder& other) const = default;
 
   std::string toString() const {
     return fmt::format(

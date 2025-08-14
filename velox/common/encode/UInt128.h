@@ -108,12 +108,7 @@ class UInt128 {
     return UInt128(~hi_, ~lo_);
   }
 
-  bool operator==(UInt128 other) const {
-    return hi_ == other.hi_ && lo_ == other.lo_;
-  }
-  bool operator!=(UInt128 other) const {
-    return !(*this == other);
-  }
+  bool operator==(const UInt128& other) const = default;
 
  private:
   uint64_t hi_;

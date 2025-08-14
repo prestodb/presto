@@ -713,13 +713,7 @@ struct StlAllocator {
     return allocator_;
   }
 
-  friend bool operator==(const StlAllocator& lhs, const StlAllocator& rhs) {
-    return lhs.allocator_ == rhs.allocator_;
-  }
-
-  friend bool operator!=(const StlAllocator& lhs, const StlAllocator& rhs) {
-    return !(lhs == rhs);
-  }
+  bool operator==(const StlAllocator& other) const = default;
 
  private:
   HashStringAllocator* const allocator_;
@@ -801,12 +795,6 @@ struct AlignedStlAllocator {
       const AlignedStlAllocator& lhs,
       const AlignedStlAllocator& rhs) {
     return lhs.allocator_ == rhs.allocator_;
-  }
-
-  friend bool operator!=(
-      const AlignedStlAllocator& lhs,
-      const AlignedStlAllocator& rhs) {
-    return !(lhs == rhs);
   }
 
  private:

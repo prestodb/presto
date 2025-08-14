@@ -338,9 +338,6 @@ class SelectivityVector {
                  return bits_[index] == other.bits_[index];
                });
   }
-  bool operator!=(const SelectivityVector& other) const {
-    return !(*this == other);
-  }
 
   /// Invokes a function on each selected row. The function must take a single
   /// "row" argument of type vector_size_t and return void.

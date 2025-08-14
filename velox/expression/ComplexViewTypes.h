@@ -43,24 +43,11 @@ struct ViewWithComparison {
     return compareOrThrow(lhs, rhs, kEqualValueAtFlags) == 0;
   }
 
-  friend bool operator!=(const T& lhs, const T& rhs) {
-    return !(lhs == rhs);
-  }
-
-  friend bool operator<(const T& lhs, const T& rhs) {
-    return compareOrThrow(lhs, rhs) < 0;
-  }
-
-  friend bool operator>(const T& lhs, const T& rhs) {
-    return rhs < lhs;
-  }
-
-  friend bool operator<=(const T& lhs, const T& rhs) {
-    return !(lhs > rhs);
-  }
-
-  friend bool operator>=(const T& lhs, const T& rhs) {
-    return !(lhs < rhs);
+  friend std::strong_ordering operator<=>(const T& lhs, const T& rhs) {
+    const auto cmp = compareOrThrow(lhs, rhs);
+    return cmp < 0 ? std::strong_ordering::less
+        : cmp > 0  ? std::strong_ordering::greater
+                   : std::strong_ordering::equal;
   }
 
  private:
@@ -147,28 +134,12 @@ class IndexBasedIterator {
     return elementAccessor_(index_ + n);
   }
 
-  bool operator!=(const Iterator& rhs) const {
-    return index_ != rhs.index_;
-  }
-
   bool operator==(const Iterator& rhs) const {
     return index_ == rhs.index_;
   }
 
-  bool operator<(const Iterator& rhs) const {
-    return index_ < rhs.index_;
-  }
-
-  bool operator>(const Iterator& rhs) const {
-    return index_ > rhs.index_;
-  }
-
-  bool operator<=(const Iterator& rhs) const {
-    return index_ <= rhs.index_;
-  }
-
-  bool operator>=(const Iterator& rhs) const {
-    return index_ >= rhs.index_;
+  auto operator<=>(const Iterator& rhs) const {
+    return index_ <=> rhs.index_;
   }
 
   // Implement post increment.
@@ -320,16 +291,12 @@ class SkipNullsIterator {
     return PointerWrapper(iter_.value());
   }
 
-  bool operator<(const Iterator& rhs) const {
-    return iter_ < rhs.iter_;
-  }
-
-  bool operator!=(const Iterator& rhs) const {
-    return iter_ != rhs.iter_;
-  }
-
   bool operator==(const Iterator& rhs) const {
     return iter_ == rhs.iter_;
+  }
+
+  auto operator<=>(const Iterator& rhs) const {
+    return iter_ <=> rhs.iter_;
   }
 
   // Implement post increment.
@@ -393,10 +360,6 @@ class OptionalAccessor {
     }
     // Both are nulls.
     return true;
-  }
-
-  bool operator!=(const OptionalAccessor& other) const {
-    return !(*this == other);
   }
 
   bool has_value() const {
@@ -466,40 +429,14 @@ operator==(const OptionalAccessor<U>& lhs, const std::optional<T>& rhs) {
   return rhs == lhs;
 }
 
-template <typename T, typename U>
-typename std::enable_if_t<
-    std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>
-operator!=(const std::optional<T>& lhs, const OptionalAccessor<U>& rhs) {
-  return !(lhs == rhs);
-}
-
-template <typename U, typename T>
-typename std::enable_if_t<
-    std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>
-operator!=(const OptionalAccessor<U>& lhs, const std::optional<T>& rhs) {
-  return !(lhs == rhs);
-}
-
 template <typename T>
 bool operator==(std::nullopt_t, const OptionalAccessor<T>& rhs) {
   return !rhs.has_value();
 }
 
 template <typename T>
-bool operator!=(std::nullopt_t, const OptionalAccessor<T>& rhs) {
-  return rhs.has_value();
-}
-
-template <typename T>
 bool operator==(const OptionalAccessor<T>& lhs, std::nullopt_t) {
   return !lhs.has_value();
-}
-
-template <typename T>
-bool operator!=(const OptionalAccessor<T>& lhs, std::nullopt_t) {
-  return lhs.has_value();
 }
 
 // Allow comparing OptionalAccessor<T> with T::exec_t.
@@ -517,22 +454,6 @@ typename std::enable_if_t<
     bool>
 operator==(const OptionalAccessor<U>& lhs, const T& rhs) {
   return rhs == lhs;
-}
-
-template <typename T, typename U>
-typename std::enable_if_t<
-    std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>
-operator!=(const T& lhs, const OptionalAccessor<U>& rhs) {
-  return !(lhs == rhs);
-}
-
-template <typename U, typename T>
-typename std::enable_if_t<
-    std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>
-operator!=(const OptionalAccessor<U>& lhs, const T& rhs) {
-  return !(lhs == rhs);
 }
 
 // Helper function that calls materialize on element if it's not primitive.
@@ -785,20 +706,13 @@ class MapView {
     const KeyAccessor first;
     const ValueAccessor second;
 
-    bool operator==(const Element& other) const {
-      return first == other.first && second == other.second;
-    }
+    bool operator==(const Element& other) const = default;
 
     // T is pair like object.
     // TODO: compare is not defined for view types yet
     template <typename T>
     bool operator==(const T& other) const {
       return first == other.first && second == other.second;
-    }
-
-    template <typename T>
-    bool operator!=(const T& other) const {
-      return !(*this == other);
     }
 
    private:
@@ -1292,28 +1206,15 @@ class CustomTypeWithCustomComparisonView {
           type)
       : value_(value), type_(type) {}
 
-  bool operator!=(const CustomTypeWithCustomComparisonView<T>& other) const {
-    return type_->compare(value_, other.value_) != 0;
-  }
-
   bool operator==(const CustomTypeWithCustomComparisonView<T>& other) const {
     return type_->compare(value_, other.value_) == 0;
   }
 
-  bool operator<(const CustomTypeWithCustomComparisonView<T>& other) const {
-    return type_->compare(value_, other.value_) < 0;
-  }
-
-  bool operator>(const CustomTypeWithCustomComparisonView<T>& other) const {
-    return type_->compare(value_, other.value_) > 0;
-  }
-
-  bool operator<=(const CustomTypeWithCustomComparisonView<T>& other) const {
-    return type_->compare(value_, other.value_) <= 0;
-  }
-
-  bool operator>=(const CustomTypeWithCustomComparisonView<T>& other) const {
-    return type_->compare(value_, other.value_) >= 0;
+  auto operator<=>(const CustomTypeWithCustomComparisonView<T>& other) const {
+    const auto cmp = type_->compare(value_, other.value_);
+    return cmp < 0 ? std::strong_ordering::less
+        : cmp > 0  ? std::strong_ordering::greater
+                   : std::strong_ordering::equal;
   }
 
   uint64_t hash() const {

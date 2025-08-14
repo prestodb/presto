@@ -321,19 +321,6 @@ void MemoryReclaimer::Stats::reset() {
   reclaimWaitTimeUs = 0;
 }
 
-bool MemoryReclaimer::Stats::operator==(
-    const MemoryReclaimer::Stats& other) const {
-  return numNonReclaimableAttempts == other.numNonReclaimableAttempts &&
-      reclaimExecTimeUs == other.reclaimExecTimeUs &&
-      reclaimedBytes == other.reclaimedBytes &&
-      reclaimWaitTimeUs == other.reclaimWaitTimeUs;
-}
-
-bool MemoryReclaimer::Stats::operator!=(
-    const MemoryReclaimer::Stats& other) const {
-  return !(*this == other);
-}
-
 MemoryReclaimer::Stats& MemoryReclaimer::Stats::operator+=(
     const MemoryReclaimer::Stats& other) {
   numNonReclaimableAttempts += other.numNonReclaimableAttempts;
@@ -425,11 +412,8 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              other.numNonReclaimableAttempts);
 }
 
-bool MemoryArbitrator::Stats::operator!=(const Stats& other) const {
-  return !(*this == other);
-}
-
-bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
+std::strong_ordering MemoryArbitrator::Stats::operator<=>(
+    const Stats& other) const {
   uint32_t gtCount{0};
   uint32_t ltCount{0};
 #define UPDATE_COUNTER(counter)           \
@@ -454,19 +438,9 @@ bool MemoryArbitrator::Stats::operator<(const Stats& other) const {
       "gtCount {} ltCount {}",
       gtCount,
       ltCount);
-  return ltCount > 0;
-}
-
-bool MemoryArbitrator::Stats::operator>(const Stats& other) const {
-  return !(*this < other) && (*this != other);
-}
-
-bool MemoryArbitrator::Stats::operator>=(const Stats& other) const {
-  return !(*this < other);
-}
-
-bool MemoryArbitrator::Stats::operator<=(const Stats& other) const {
-  return !(*this > other);
+  return ltCount > 0 ? std::strong_ordering::less
+      : gtCount > 0  ? std::strong_ordering::greater
+                     : std::strong_ordering::equal;
 }
 
 MemoryArbitrationContext::MemoryArbitrationContext(const MemoryPool* requestor)

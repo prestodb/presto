@@ -124,47 +124,6 @@ SpillStats SpillStats::operator-(const SpillStats& other) const {
   return result;
 }
 
-bool SpillStats::operator==(const SpillStats& other) const {
-  return std::tie(
-             spillRuns,
-             spilledInputBytes,
-             spilledBytes,
-             spilledRows,
-             spilledPartitions,
-             spilledFiles,
-             spillFillTimeNanos,
-             spillSortTimeNanos,
-             spillExtractVectorTimeNanos,
-             spillSerializationTimeNanos,
-             spillWrites,
-             spillFlushTimeNanos,
-             spillWriteTimeNanos,
-             spillMaxLevelExceededCount,
-             spillReadBytes,
-             spillReads,
-             spillReadTimeNanos,
-             spillDeserializationTimeNanos) ==
-      std::tie(
-             other.spillRuns,
-             other.spilledInputBytes,
-             other.spilledBytes,
-             other.spilledRows,
-             other.spilledPartitions,
-             other.spilledFiles,
-             other.spillFillTimeNanos,
-             other.spillSortTimeNanos,
-             other.spillExtractVectorTimeNanos,
-             other.spillSerializationTimeNanos,
-             other.spillWrites,
-             other.spillFlushTimeNanos,
-             other.spillWriteTimeNanos,
-             spillMaxLevelExceededCount,
-             spillReadBytes,
-             spillReads,
-             spillReadTimeNanos,
-             spillDeserializationTimeNanos);
-}
-
 void SpillStats::reset() {
   spillRuns = 0;
   spilledInputBytes = 0;

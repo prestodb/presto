@@ -213,9 +213,6 @@ class [[nodiscard]] Status {
   inline Status& operator=(Status&& s) noexcept;
 
   inline bool operator==(const Status& other) const noexcept;
-  inline bool operator!=(const Status& other) const noexcept {
-    return !(*this == other);
-  }
 
   // AND the statuses.
   inline Status operator&(const Status& s) const noexcept;

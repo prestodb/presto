@@ -603,10 +603,6 @@ inline bool operator==(const SortingColumn& left, const SortingColumn& right) {
       left.column_idx == right.column_idx;
 }
 
-inline bool operator!=(const SortingColumn& left, const SortingColumn& right) {
-  return !(left == right);
-}
-
 // ----------------------------------------------------------------------
 
 struct ByteArray {
@@ -629,10 +625,6 @@ struct ByteArray {
 inline bool operator==(const ByteArray& left, const ByteArray& right) {
   return left.len == right.len &&
       (left.len == 0 || std::memcmp(left.ptr, right.ptr, left.len) == 0);
-}
-
-inline bool operator!=(const ByteArray& left, const ByteArray& right) {
-  return !(left == right);
 }
 
 struct FixedLenByteArray {
@@ -663,10 +655,6 @@ STRUCT_END(Int96, 12);
 
 inline bool operator==(const Int96& left, const Int96& right) {
   return std::equal(left.value, left.value + 3, right.value);
-}
-
-inline bool operator!=(const Int96& left, const Int96& right) {
-  return !(left == right);
 }
 
 static inline std::string ByteArrayToString(const ByteArray& a) {

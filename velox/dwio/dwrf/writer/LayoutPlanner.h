@@ -48,7 +48,6 @@ class EncodingIter {
   EncodingIter& operator++();
   EncodingIter operator++(int);
   bool operator==(const EncodingIter& other) const;
-  bool operator!=(const EncodingIter& other) const;
   reference operator*() const;
   pointer operator->() const;
 

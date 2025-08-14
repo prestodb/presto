@@ -266,9 +266,7 @@ class SpillPartitionId {
   /// Constructs a child spill level id, descending from provided 'parent'.
   SpillPartitionId(SpillPartitionId parent, uint32_t partitionNumber);
 
-  bool operator==(const SpillPartitionId& other) const;
-
-  bool operator!=(const SpillPartitionId& other) const;
+  bool operator==(const SpillPartitionId& other) const = default;
 
   /// Customize the compare operator for recursive spilling control. It
   /// ensures the order such that:
@@ -289,7 +287,7 @@ class SpillPartitionId {
   bool operator<(const SpillPartitionId& other) const;
 
   bool operator>(const SpillPartitionId& other) const {
-    return (*this != other) && !(*this < other);
+    return other < *this;
   }
 
   std::string toString() const;

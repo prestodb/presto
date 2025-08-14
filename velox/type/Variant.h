@@ -598,10 +598,6 @@ inline bool operator==(const Variant& a, const Variant& b) {
   return a.equals(b);
 }
 
-inline bool operator!=(const Variant& a, const Variant& b) {
-  return !(a == b);
-}
-
 struct VariantConverter {
   template <TypeKind FromKind, TypeKind ToKind>
   static Variant convert(const Variant& value) {
