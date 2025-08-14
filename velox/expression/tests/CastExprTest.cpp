@@ -2827,13 +2827,15 @@ TEST_F(CastExprTest, intervalDayTimeToVarchar) {
       "Cast from VARCHAR to INTERVAL DAY TO SECOND is not supported");
 }
 
-class BigintTypeWithCustomComparisonCastOperator : public exec::CastOperator {
- public:
-  static const std::shared_ptr<const CastOperator>& get() {
-    static const std::shared_ptr<const CastOperator> instance{
-        new BigintTypeWithCustomComparisonCastOperator()};
+class BigintTypeWithCustomComparisonCastOperator final
+    : public exec::CastOperator {
+  BigintTypeWithCustomComparisonCastOperator() = default;
 
-    return instance;
+ public:
+  static std::shared_ptr<const CastOperator> get() {
+    VELOX_CONSTEXPR_SINGLETON BigintTypeWithCustomComparisonCastOperator
+        kInstance;
+    return {std::shared_ptr<const CastOperator>{}, &kInstance};
   }
 
   bool isSupportedFromType(const TypePtr& other) const override {
@@ -2861,9 +2863,6 @@ class BigintTypeWithCustomComparisonCastOperator : public exec::CastOperator {
       VectorPtr& result) const override {
     VELOX_FAIL("Cast from BigintTypeWithCustomComparison should not be called");
   }
-
- private:
-  BigintTypeWithCustomComparisonCastOperator() = default;
 };
 
 class BigintTypeWithCustomComparisonTypeFactory : public CustomTypeFactory {

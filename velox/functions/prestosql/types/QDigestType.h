@@ -20,23 +20,18 @@
 
 namespace facebook::velox {
 
-class QDigestType : public VarbinaryType {
+class QDigestType final : public VarbinaryType {
  public:
-  static const std::shared_ptr<const QDigestType>& get(
-      const TypePtr& dataType) {
-    static const auto bigintInstance =
-        std::shared_ptr<const QDigestType>(new QDigestType(BIGINT()));
-    static const auto realInstance =
-        std::shared_ptr<const QDigestType>(new QDigestType(REAL()));
-    static const auto doubleInstance =
-        std::shared_ptr<const QDigestType>(new QDigestType(DOUBLE()));
-
+  static std::shared_ptr<const QDigestType> get(const TypePtr& dataType) {
     if (dataType->isBigint()) {
-      return bigintInstance;
+      static const QDigestType kInstance{BIGINT()};
+      return {std::shared_ptr<const QDigestType>{}, &kInstance};
     } else if (dataType->isReal()) {
-      return realInstance;
+      static const QDigestType kInstance{REAL()};
+      return {std::shared_ptr<const QDigestType>{}, &kInstance};
     } else if (dataType->isDouble()) {
-      return doubleInstance;
+      static const QDigestType kInstance{DOUBLE()};
+      return {std::shared_ptr<const QDigestType>{}, &kInstance};
     } else {
       VELOX_UNREACHABLE(
           "Only QDIGEST(BIGINT), QDIGEST(REAL), and QDIGEST(DOUBLE) are supported: QDIGEST({})",

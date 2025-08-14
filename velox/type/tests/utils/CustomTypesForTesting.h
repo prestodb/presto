@@ -19,16 +19,15 @@
 
 namespace facebook::velox::test {
 /// A custom type that provides custom comparison and hash functions.
-class BigintTypeWithCustomComparison : public BigintType {
-  BigintTypeWithCustomComparison() : BigintType(true) {}
+class BigintTypeWithCustomComparison final : public BigintType {
+  constexpr BigintTypeWithCustomComparison()
+      : BigintType{ProvideCustomComparison{}} {}
 
  public:
-  static const std::shared_ptr<const BigintTypeWithCustomComparison>& get() {
-    static const std::shared_ptr<const BigintTypeWithCustomComparison>
-        instance = std::shared_ptr<BigintTypeWithCustomComparison>(
-            new BigintTypeWithCustomComparison());
-
-    return instance;
+  static std::shared_ptr<const BigintTypeWithCustomComparison> get() {
+    VELOX_CONSTEXPR_SINGLETON BigintTypeWithCustomComparison kInstance;
+    return {
+        std::shared_ptr<const BigintTypeWithCustomComparison>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {
@@ -79,17 +78,16 @@ BIGINT_TYPE_WITH_CUSTOM_COMPARISON() {
 
 /// A custom type that declares it providesCustomComparison but does not
 /// implement the compare or hash functions. This is not supported.
-class BigintTypeWithInvalidCustomComparison : public BigintType {
-  BigintTypeWithInvalidCustomComparison() : BigintType(true) {}
+class BigintTypeWithInvalidCustomComparison final : public BigintType {
+  constexpr BigintTypeWithInvalidCustomComparison()
+      : BigintType{ProvideCustomComparison{}} {}
 
  public:
-  static const std::shared_ptr<const BigintTypeWithInvalidCustomComparison>&
-  get() {
-    static const std::shared_ptr<const BigintTypeWithInvalidCustomComparison>
-        instance = std::shared_ptr<BigintTypeWithInvalidCustomComparison>(
-            new BigintTypeWithInvalidCustomComparison());
-
-    return instance;
+  static std::shared_ptr<const BigintTypeWithInvalidCustomComparison> get() {
+    VELOX_CONSTEXPR_SINGLETON BigintTypeWithInvalidCustomComparison kInstance;
+    return {
+        std::shared_ptr<const BigintTypeWithInvalidCustomComparison>{},
+        &kInstance};
   }
 
   bool equivalent(const Type& other) const override {
@@ -124,56 +122,6 @@ BIGINT_TYPE_WITH_INVALID_CUSTOM_COMPARISON() {
 }
 
 /// A custom type that is not fixed width that provides custom comparison and
-/// hash functions. This is not currently supported.
-class VarcharTypeWithCustomComparison : public VarcharType {
-  VarcharTypeWithCustomComparison() : VarcharType(true) {}
-
- public:
-  static const std::shared_ptr<const VarcharTypeWithCustomComparison>& get() {
-    static const std::shared_ptr<const VarcharTypeWithCustomComparison>
-        instance = std::shared_ptr<VarcharTypeWithCustomComparison>(
-            new VarcharTypeWithCustomComparison());
-
-    return instance;
-  }
-
-  bool equivalent(const Type& other) const override {
-    // Pointer comparison works since this type is a singleton.
-    return this == &other;
-  }
-
-  int32_t compare(const StringView& left, const StringView& right)
-      const override {
-    return left.compare(right);
-  }
-
-  uint64_t hash(const StringView& value) const override {
-    return folly::hasher<StringView>()(value);
-  }
-
-  const char* name() const override {
-    return "VARCHAR TYPE WITH CUSTOM COMPARISON";
-  }
-
-  const std::vector<TypeParameter>& parameters() const override {
-    static const std::vector<TypeParameter> kEmpty = {};
-    return kEmpty;
-  }
-
-  std::string toString() const override {
-    return name();
-  }
-
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "Type";
-    obj["type"] = name();
-    return obj;
-  }
-};
-
-inline std::shared_ptr<const VarcharTypeWithCustomComparison>
-VARCHAR_TYPE_WITH_CUSTOM_COMPARISON() {
-  return VarcharTypeWithCustomComparison::get();
-}
+/// hash functions. This is not currently supported and it is checked in compile
+/// time (static_assert).
 } // namespace facebook::velox::test

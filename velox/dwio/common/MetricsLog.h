@@ -128,8 +128,8 @@ class MetricsLog {
   virtual void logFileClose(const FileCloseMetrics& /* metrics */) const {}
 
   static std::shared_ptr<const MetricsLog> voidLog() {
-    static std::shared_ptr<const MetricsLog> log{new MetricsLog("")};
-    return log;
+    static const MetricsLog kInstance{{}};
+    return {std::shared_ptr<const MetricsLog>{}, &kInstance};
   }
 
  protected:

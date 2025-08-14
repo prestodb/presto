@@ -20,6 +20,7 @@
 #include <ostream>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Macros.h"
 
 namespace facebook::velox::common {
 
@@ -32,16 +33,14 @@ enum SubfieldKind {
 
 // Contains field name separators to be used in Tokenizer.
 struct Separators {
-  static const std::shared_ptr<Separators>& get() {
-    static const std::shared_ptr<Separators> instance =
-        std::make_shared<Separators>();
-    return instance;
+  static std::shared_ptr<const Separators> get() {
+    VELOX_CONSTEXPR_SINGLETON Separators kInstance;
+    return {std::shared_ptr<const Separators>{}, &kInstance};
   }
 
   bool isSeparator(char c) const {
-    return (
-        c == closeBracket || c == dot || c == openBracket || c == quote ||
-        c == wildCard);
+    return c == closeBracket || c == dot || c == openBracket || c == quote ||
+        c == wildCard;
   }
 
   char backSlash = '\\';
@@ -222,7 +221,7 @@ class Subfield {
   // Separators: the customized separators to tokenize field name.
   explicit Subfield(
       const std::string& path,
-      const std::shared_ptr<Separators>& separators = Separators::get());
+      std::shared_ptr<const Separators> separators = Separators::get());
 
   explicit Subfield(std::vector<std::unique_ptr<PathElement>>&& path);
 

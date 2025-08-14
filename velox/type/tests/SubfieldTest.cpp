@@ -21,9 +21,9 @@ using namespace facebook::velox::common;
 
 std::vector<std::unique_ptr<Subfield::PathElement>> tokenize(
     const std::string& path,
-    const std::shared_ptr<Separators>& separators = Separators::get()) {
+    std::shared_ptr<const Separators> separators = Separators::get()) {
   std::vector<std::unique_ptr<Subfield::PathElement>> elements;
-  Tokenizer tokenizer(path, separators);
+  Tokenizer tokenizer(path, std::move(separators));
   while (tokenizer.hasNext()) {
     elements.push_back(tokenizer.next());
   }
@@ -50,8 +50,8 @@ TEST(SubfieldTest, invalidPaths) {
 
 void testColumnName(
     const std::string& name,
-    const std::shared_ptr<Separators>& separators = Separators::get()) {
-  auto elements = tokenize(name, separators);
+    std::shared_ptr<const Separators> separators = Separators::get()) {
+  auto elements = tokenize(name, std::move(separators));
   EXPECT_EQ(elements.size(), 1);
   EXPECT_EQ(*elements[0].get(), Subfield::NestedField(name));
 }

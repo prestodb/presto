@@ -46,15 +46,13 @@ namespace facebook::velox {
 /// 41-63: y-coordinate (23 bits)
 /// (high bits first, low bits last). This peculiar arrangement maximizes
 /// low-bit entropy for the Java long hash function.
-class BingTileType : public BigintType {
-  BingTileType() : BigintType() {}
+class BingTileType final : public BigintType {
+  BingTileType() = default;
 
  public:
-  static const std::shared_ptr<const BingTileType>& get() {
-    static const std::shared_ptr<const BingTileType> instance =
-        std::shared_ptr<BingTileType>(new BingTileType());
-
-    return instance;
+  static std::shared_ptr<const BingTileType> get() {
+    VELOX_CONSTEXPR_SINGLETON BingTileType kInstance;
+    return {std::shared_ptr<const BingTileType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

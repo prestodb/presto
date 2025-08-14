@@ -20,15 +20,13 @@
 
 namespace facebook::velox {
 
-class HyperLogLogType : public VarbinaryType {
+class HyperLogLogType final : public VarbinaryType {
   HyperLogLogType() = default;
 
  public:
-  static const std::shared_ptr<const HyperLogLogType>& get() {
-    static const std::shared_ptr<const HyperLogLogType> instance =
-        std::shared_ptr<HyperLogLogType>(new HyperLogLogType());
-
-    return instance;
+  static std::shared_ptr<const HyperLogLogType> get() {
+    VELOX_CONSTEXPR_SINGLETON HyperLogLogType kInstance;
+    return {std::shared_ptr<const HyperLogLogType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

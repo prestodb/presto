@@ -1128,10 +1128,6 @@ TEST(TypeTest, providesCustomComparison) {
   EXPECT_THROW(
       test::BIGINT_TYPE_WITH_INVALID_CUSTOM_COMPARISON()->hash(0),
       VeloxRuntimeError);
-
-  // We do not support variable width custom comparison for variable width
-  // types, so attempting to instantiate one should fail.
-  EXPECT_THROW(test::VARCHAR_TYPE_WITH_CUSTOM_COMPARISON(), VeloxRuntimeError);
 }
 
 TEST(TypeTest, toSummaryString) {

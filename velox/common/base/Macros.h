@@ -32,3 +32,13 @@
 // Need this extra layer to expand __COUNTER__.
 #define VELOX_VARNAME_IMPL(x, y) VELOX_CONCAT(x, y)
 #define VELOX_VARNAME(x) VELOX_VARNAME_IMPL(x, __COUNTER__)
+
+// Workaround for GCC bug, it was fixed only in GCC 13.
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=93413
+// TLDR: GCC 12 and earlier do not support constexpr static variables for
+// non-template classes with virtual default destructors.
+#if !defined(__clang__) && defined(__GNUC__) && __GNUC__ < 13
+#define VELOX_CONSTEXPR_SINGLETON static const
+#else
+#define VELOX_CONSTEXPR_SINGLETON static constexpr
+#endif

@@ -56,16 +56,14 @@ inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
 
 /// Represents timestamp with time zone as a number of milliseconds since epoch
 /// and time zone ID.
-class TimestampWithTimeZoneType : public BigintType {
-  TimestampWithTimeZoneType() : BigintType(true) {}
+class TimestampWithTimeZoneType final : public BigintType {
+  constexpr TimestampWithTimeZoneType()
+      : BigintType{ProvideCustomComparison{}} {}
 
  public:
-  static const std::shared_ptr<const TimestampWithTimeZoneType>& get() {
-    static const std::shared_ptr<const TimestampWithTimeZoneType> instance =
-        std::shared_ptr<TimestampWithTimeZoneType>(
-            new TimestampWithTimeZoneType());
-
-    return instance;
+  static std::shared_ptr<const TimestampWithTimeZoneType> get() {
+    VELOX_CONSTEXPR_SINGLETON TimestampWithTimeZoneType kInstance;
+    return {std::shared_ptr<const TimestampWithTimeZoneType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

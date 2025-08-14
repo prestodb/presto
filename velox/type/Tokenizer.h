@@ -38,7 +38,7 @@ class Tokenizer {
   // Separators: the customized separators to tokenize field name.
   explicit Tokenizer(
       const std::string& path,
-      const std::shared_ptr<Separators>& separators);
+      std::shared_ptr<const Separators> separators);
 
   bool hasNext();
 
@@ -47,11 +47,11 @@ class Tokenizer {
  private:
   const std::string path_;
   // Customized separators to tokenize field name.
-  std::shared_ptr<Separators> separators_;
+  std::shared_ptr<const Separators> separators_;
 
-  int index_;
-  State state;
-  bool firstSegment = true;
+  int index_ = 0;
+  State state_ = State::kNotReady;
+  bool firstSegment_ = true;
   std::unique_ptr<Subfield::PathElement> next_;
 
   bool hasNextCharacter();

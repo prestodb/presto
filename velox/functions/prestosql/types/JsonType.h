@@ -21,14 +21,13 @@
 namespace facebook::velox {
 
 /// Represents JSON as a string.
-class JsonType : public VarcharType {
+class JsonType final : public VarcharType {
   JsonType() = default;
 
  public:
-  static const std::shared_ptr<const JsonType>& get() {
-    static const std::shared_ptr<const JsonType> instance{new JsonType()};
-
-    return instance;
+  static std::shared_ptr<const JsonType> get() {
+    VELOX_CONSTEXPR_SINGLETON JsonType kInstance;
+    return {std::shared_ptr<const JsonType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

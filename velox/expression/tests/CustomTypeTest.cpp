@@ -35,14 +35,12 @@ struct FancyInt {
 };
 
 class FancyIntType : public OpaqueType {
-  FancyIntType() : OpaqueType(std::type_index(typeid(FancyInt))) {}
+  FancyIntType() : OpaqueType{std::type_index(typeid(FancyInt))} {}
 
  public:
-  static const std::shared_ptr<const FancyIntType>& get() {
-    static const std::shared_ptr<const FancyIntType> instance{
-        new FancyIntType()};
-
-    return instance;
+  static std::shared_ptr<const FancyIntType> get() {
+    static const FancyIntType kInstance;
+    return {std::shared_ptr<const FancyIntType>{}, &kInstance};
   }
 
   std::string toString() const override {
