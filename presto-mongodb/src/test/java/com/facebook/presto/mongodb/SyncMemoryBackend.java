@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
-import de.bwaldvogel.mongo.MongoBackend;
+import de.bwaldvogel.mongo.backend.CursorRegistry;
 import de.bwaldvogel.mongo.backend.memory.MemoryBackend;
 import de.bwaldvogel.mongo.backend.memory.MemoryDatabase;
 import de.bwaldvogel.mongo.exception.MongoServerException;
@@ -25,16 +25,16 @@ public class SyncMemoryBackend
     public MemoryDatabase openOrCreateDatabase(String databaseName)
             throws MongoServerException
     {
-        return new SyncMemoryDatabase(this, databaseName);
+        return new SyncMemoryDatabase(databaseName, this.getCursorRegistry());
     }
 
     private static class SyncMemoryDatabase
             extends MemoryDatabase
     {
-        public SyncMemoryDatabase(MongoBackend backend, String databaseName)
+        public SyncMemoryDatabase(String databaseName, CursorRegistry cursorRegistry)
                 throws MongoServerException
         {
-            super(backend, databaseName);
+            super(databaseName, cursorRegistry);
         }
     }
 }
