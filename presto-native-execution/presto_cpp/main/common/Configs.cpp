@@ -111,7 +111,7 @@ folly::Optional<std::string> ConfigBase::setValue(
   auto oldValue = config_->get<std::string>(propertyName);
   config_->set(propertyName, value);
   if (oldValue.has_value()) {
-    return oldValue;
+    return oldValue.value();
   }
   return registeredProps_[propertyName];
 }

@@ -116,7 +116,7 @@ class ConfigBase {
       const std::string& propertyName) const {
     auto val = config_->get<std::string>(propertyName);
     if (val.has_value()) {
-      return val;
+      return val.value();
     }
     const auto it = registeredProps_.find(propertyName);
     if (it != registeredProps_.end()) {
