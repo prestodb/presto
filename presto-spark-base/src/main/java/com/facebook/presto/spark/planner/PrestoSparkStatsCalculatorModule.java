@@ -22,6 +22,7 @@ import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -54,9 +55,10 @@ public class PrestoSparkStatsCalculatorModule
             FilterStatsCalculator filterStatsCalculator,
             FragmentStatsProvider fragmentStatsProvider,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
-            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
-        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator, fragmentStatsProvider);
+        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator, fragmentStatsProvider, expressionOptimizerManager);
         return new PrestoSparkStatsCalculator(historyBasedPlanStatisticsManager.getHistoryBasedPlanStatisticsCalculator(delegate), delegate, historyBasedOptimizationConfig);
     }
 }
