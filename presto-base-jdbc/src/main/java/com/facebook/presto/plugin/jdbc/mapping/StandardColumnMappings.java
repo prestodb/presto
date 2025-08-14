@@ -396,6 +396,15 @@ public final class StandardColumnMappings
         else if (type instanceof TimestampType) {
             return Optional.of(timestampWriteMapping((TimestampType) type));
         }
+        else if (type.equals(TIME)) {
+            return Optional.of(timeWriteMapping());
+        }
+        else if (type.equals(TIME_WITH_TIME_ZONE)) {
+            return Optional.of(timeWithTimeZoneWriteMapping());
+        }
+        else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return Optional.of(timestampWithTimeZoneWriteMapping());
+        }
         else if (type.equals(UUID)) {
             return Optional.of(uuidWriteMapping());
         }
@@ -427,6 +436,9 @@ public final class StandardColumnMappings
         }
         else if (type instanceof CharType || type instanceof VarcharType) {
             return Optional.of(charWriteMapping());
+        }
+        else if (type instanceof DecimalType) {
+            return Optional.of(decimalWriteMapping((DecimalType) type));
         }
         else if (type.equals(DateType.DATE)) {
             return Optional.of(dateWriteMapping());
