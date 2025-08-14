@@ -677,11 +677,17 @@ template <>
 inline uint64_t VectorHasher::valueId(bool value) {
   return value ? 2 : 1;
 }
-
 template <>
 inline uint64_t VectorHasher::valueId(Timestamp value) {
-  return value.getNanos() % 1'000'000 != 0 ? kUnmappable
-                                           : valueId(value.toMillis());
+  if (FOLLY_UNLIKELY(
+          value.getNanos() % Timestamp::kNanosecondsInMillisecond != 0)) {
+    // The timestamp is in nanosecond or microsecond precision. The values are
+    // not mappable to milliseconds without precision loss.
+    setRangeOverflow();
+    setDistinctOverflow();
+    return kUnmappable;
+  }
+  return valueId(value.toMillis());
 }
 
 template <>

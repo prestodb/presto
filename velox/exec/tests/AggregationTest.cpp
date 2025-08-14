@@ -384,14 +384,15 @@ class AggregationTest : public OperatorTestBase {
   }
 
   RowTypePtr rowType_{
-      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
+      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"},
           {BIGINT(),
            SMALLINT(),
            INTEGER(),
            BIGINT(),
            REAL(),
            DOUBLE(),
-           VARCHAR()})};
+           VARCHAR(),
+           TIMESTAMP()})};
   folly::Random::DefaultGenerator rng_;
   memory::MemoryReclaimer::Stats reclaimerStats_;
   VectorFuzzer::Options fuzzerOpts_{
@@ -399,6 +400,8 @@ class AggregationTest : public OperatorTestBase {
       .nullRatio = 0,
       .stringLength = 1024,
       .stringVariableLength = false,
+      .timestampPrecision =
+          VectorFuzzer::Options::TimestampPrecision::kMicroSeconds,
       .allowLazyVector = false};
 };
 
@@ -709,6 +712,20 @@ TEST_F(AggregationTest, singleStringKeyDistinct) {
   createDuckDbTable(vectors);
   testSingleKey<StringView>(vectors, "c6", false, true);
   testSingleKey<StringView>(vectors, "c6", true, true);
+}
+
+TEST_F(AggregationTest, singleTimestampKey) {
+  auto vectors = createVectors(100, rowType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+  testSingleKey<StringView>(vectors, "c7", false, false);
+  testSingleKey<StringView>(vectors, "c7", true, false);
+}
+
+TEST_F(AggregationTest, singleTimestampKeyDistinct) {
+  auto vectors = createVectors(100, rowType_, fuzzerOpts_);
+  createDuckDbTable(vectors);
+  testSingleKey<StringView>(vectors, "c7", false, true);
+  testSingleKey<StringView>(vectors, "c7", true, true);
 }
 
 TEST_F(AggregationTest, multiKey) {
