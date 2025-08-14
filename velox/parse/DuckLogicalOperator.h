@@ -397,4 +397,25 @@ class LogicalDelimJoin : public LogicalComparisonJoin {
   vector<unique_ptr<Expression>> duplicate_eliminated_columns;
 };
 
+//! LogicalAnyJoin represents a join with an arbitrary expression as
+//! JoinCondition
+class LogicalAnyJoin : public LogicalJoin {
+ public:
+  static constexpr const LogicalOperatorType TYPE =
+      LogicalOperatorType::LOGICAL_ANY_JOIN;
+
+ public:
+  explicit LogicalAnyJoin(JoinType type);
+
+  //! The JoinCondition on which this join is performed
+  unique_ptr<Expression> condition;
+
+ public:
+  string ParamsToString() const override;
+  void Serialize(FieldWriter& writer) const override;
+  static unique_ptr<LogicalOperator> Deserialize(
+      LogicalDeserializationState& state,
+      FieldReader& reader);
+};
+
 } // namespace duckdb
