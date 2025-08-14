@@ -303,6 +303,12 @@ public class MetadataManager
     }
 
     @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        functionAndTypeManager.registerConnectorFunctions(catalogName, functionInfos);
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, catalogName);

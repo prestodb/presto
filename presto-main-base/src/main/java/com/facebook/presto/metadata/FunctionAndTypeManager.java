@@ -150,6 +150,8 @@ public class FunctionAndTypeManager
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final BuiltInPluginFunctionNamespaceManager builtInPluginFunctionNamespaceManager;
+    private final FunctionsConfig functionsConfig;
+    private final Set<Type> types;
 
     @Inject
     public FunctionAndTypeManager(
@@ -162,6 +164,8 @@ public class FunctionAndTypeManager
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.functionsConfig = requireNonNull(functionsConfig, "functionsConfig is null");
+        this.types = requireNonNull(types, "types is null");
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
         this.functionNamespaceManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
@@ -447,6 +451,16 @@ public class FunctionAndTypeManager
     public void registerPluginFunctions(List<? extends SqlFunction> functions)
     {
         builtInPluginFunctionNamespaceManager.registerPluginFunctions(functions);
+    }
+
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functions)
+    {
+        FunctionNamespaceManager builtInPluginFunctionNamespaceManager = functionNamespaceManagers.get(catalogName);
+        if (builtInPluginFunctionNamespaceManager == null) {
+            builtInPluginFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this, false);
+            addFunctionNamespace(catalogName, builtInPluginFunctionNamespaceManager);
+        }
+        ((BuiltInTypeAndFunctionNamespaceManager) builtInPluginFunctionNamespaceManager).registerBuiltInFunctions(functions);
     }
 
     /**
