@@ -31,19 +31,18 @@ import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-// Disabled for 7.5 TestNG Upgrade, the constructor takes in parameter
-// TestNG 6 silently ignored, TestNG 7.5 fails (correctly), disabling for now
-public class DisabledTestOracleDistributedQueries
+public class TestOracleDistributedQueries
         extends AbstractTestDistributedQueries
 {
     private final OracleServerTester oracleServer;
     private final QueryRunner queryRunner;
 
-    protected DisabledTestOracleDistributedQueries(OracleServerTester oracleServer)
+    protected TestOracleDistributedQueries()
             throws Exception
     {
-        this.queryRunner = createOracleQueryRunner(oracleServer, TpchTable.getTables());
-        this.oracleServer = new OracleServerTester();
+        OracleServerTester oracleServerTester = new OracleServerTester();
+        this.queryRunner = createOracleQueryRunner(oracleServerTester, TpchTable.getTables());
+        this.oracleServer = oracleServerTester;
     }
 
     @Override
