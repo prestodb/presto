@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 public enum StandardWarningCode
         implements WarningCodeSupplier
+
 {
     TOO_MANY_STAGES(0x0000_0001),
     PARSER_WARNING(0x0000_0002),
@@ -27,7 +28,7 @@ public enum StandardWarningCode
     SAMPLED_FIELDS(0x0000_0009),
     MULTIPLE_TABLE_METADATA(0x0000_0010),
     UTILIZED_COLUMN_ANALYSIS_FAILED(0x0000_0011),
-    /**/;
+    NON_DETERMINISTIC_CTE_REUSE(10001); // pick a unique int
     private final WarningCode warningCode;
 
     StandardWarningCode(int code)

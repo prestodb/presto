@@ -47,6 +47,12 @@ public class With
 
         this.recursive = recursive;
         this.queries = ImmutableList.copyOf(queries);
+        for (WithQuery query : queries) {
+            if (query.getQuery().toString().contains("rand")) {
+                System.out.println("⚠️ Warning: CTE '" + query.getName() +
+                        "' contains a non-deterministic expression.");
+            }
+        }
     }
 
     public boolean isRecursive()
