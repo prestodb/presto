@@ -25,11 +25,10 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.pinot.common.datatable.DataTable;
+import org.apache.pinot.common.datatable.DataTableFactory;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
-import org.apache.pinot.common.utils.DataTable;
-import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
-import org.apache.pinot.core.common.datatable.DataTableFactory;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.utils.ByteArray;
 import org.apache.pinot.spi.utils.CommonConstants;
@@ -38,11 +37,9 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -102,18 +99,12 @@ public class PinotSegmentPageSource
 
     public static void checkExceptions(DataTable dataTable, PinotSplit split, boolean markDataFetchExceptionsAsRetriable)
     {
-        Map<String, String> metadata = dataTable.getMetadata();
-        List<String> exceptions = new ArrayList<>();
-        metadata.forEach((k, v) -> {
-            if (k.startsWith(DataTable.EXCEPTION_METADATA_KEY)) {
-                exceptions.add(v);
-            }
-        });
+        List<String> exceptions = dataTable.getExceptions().values().stream().toList();
         if (!exceptions.isEmpty()) {
             throw new PinotException(
                 markDataFetchExceptionsAsRetriable ? PINOT_DATA_FETCH_EXCEPTION : PINOT_EXCEPTION,
                 split.getSegmentPinotQuery(),
-                String.format("Encountered %d pinot exceptions for split %s: %s", exceptions.size(), split, exceptions));
+                String.format("Encountered %d pinot exceptions for split %s: %s", exceptions.size(), split, dataTable.getExceptions()));
         }
         int numColumnsExpected = split.getExpectedColumnHandles().size();
         int numColumnsActual = dataTable.getDataSchema().size();
