@@ -135,7 +135,7 @@ Above query drops the external table ``sales.apac.sales_data_new``. This only dr
 metadata for the table. The referenced data directory is not deleted.
 
 Delta Lake to PrestoDB type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------
 
 Map of Delta Lake types to the relevant PrestoDB types:
 
@@ -147,25 +147,29 @@ Map of Delta Lake types to the relevant PrestoDB types:
     - PrestoDB type
   * - ``BOOLEAN``
     - ``BOOLEAN``
+  * - ``SMALLINT``
+    - ``SMALLINT`` 
+  * - ``TINYINT``
+    - ``TINYINT``
   * - ``INT``
     - ``INTEGER``
   * - ``LONG``
     - ``BIGINT``
   * - ``FLOAT``
-    - ``FLOAT``
+    - ``REAL``
   * - ``DOUBLE``
     - ``DOUBLE``
   * - ``DECIMAL``
     - ``DECIMAL``
   * - ``STRING``
-    - ``STRING``
+    - ``VARCHAR``
   * - ``BINARY``
     - ``VARBINARY``
   * - ``DATE``
     - ``DATE``
-  * - ``TIMESTAMP``
+  * - ``TIMESTAMP_NTZ``
     - ``TIMESTAMP``
-  * - ``TIMESTAMP NTZ``
+  * - ``TIMESTAMP``
     - ``TIMESTAMP WITH TIME ZONE``
   * - ``ARRAY``
     - ``ARRAY``
