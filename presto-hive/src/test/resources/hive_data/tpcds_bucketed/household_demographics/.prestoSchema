@@ -1,0 +1,78 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "hd_demo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "hd_income_band_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "hd_buy_potential",
+    "type" : "char(15)"
+  }, {
+    "name" : "hd_dep_count",
+    "type" : "int"
+  }, {
+    "name" : "hd_vehicle_count",
+    "type" : "int"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025743_00048_difhw",
+    "numFiles" : "1",
+    "numRows" : "7200",
+    "rawDataSize" : "291600",
+    "totalSize" : "198453"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "hd_buy_potential" : {
+      "maxValueSizeInBytes" : 10,
+      "totalSizeInBytes" : 54000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 6
+    },
+    "hd_income_band_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 20
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    },
+    "hd_demo_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 7200
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 7082
+    },
+    "hd_dep_count" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 9
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 10
+    },
+    "hd_vehicle_count" : {
+      "integerStatistics" : {
+        "min" : -1,
+        "max" : 4
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 6
+    }
+  }
+}

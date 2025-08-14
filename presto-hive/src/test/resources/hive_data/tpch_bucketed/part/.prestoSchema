@@ -1,0 +1,112 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "partkey",
+    "type" : "bigint"
+  }, {
+    "name" : "name",
+    "type" : "varchar(55)"
+  }, {
+    "name" : "mfgr",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "brand",
+    "type" : "varchar(10)"
+  }, {
+    "name" : "type",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "size",
+    "type" : "int"
+  }, {
+    "name" : "container",
+    "type" : "varchar(10)"
+  }, {
+    "name" : "retailprice",
+    "type" : "double"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(23)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025629_00011_difhw",
+    "numFiles" : "2",
+    "numRows" : "2000",
+    "rawDataSize" : "298810",
+    "totalSize" : "234934"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "container" : {
+      "maxValueSizeInBytes" : 10,
+      "totalSizeInBytes" : 15221,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 40
+    },
+    "partkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1973
+    },
+    "size" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 50
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 50
+    },
+    "mfgr" : {
+      "maxValueSizeInBytes" : 14,
+      "totalSizeInBytes" : 28000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    },
+    "name" : {
+      "maxValueSizeInBytes" : 46,
+      "totalSizeInBytes" : 65314,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2000
+    },
+    "retailprice" : {
+      "doubleStatistics" : {
+        "min" : 901.0,
+        "max" : 1900.99
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1103
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 22,
+      "totalSizeInBytes" : 27173,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1947
+    },
+    "type" : {
+      "maxValueSizeInBytes" : 25,
+      "totalSizeInBytes" : 41102,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 150
+    },
+    "brand" : {
+      "maxValueSizeInBytes" : 8,
+      "totalSizeInBytes" : 16000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 25
+    }
+  }
+}

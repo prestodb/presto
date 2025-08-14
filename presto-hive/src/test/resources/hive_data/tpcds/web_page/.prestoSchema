@@ -1,0 +1,171 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "wp_web_page_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "wp_web_page_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "wp_rec_start_date",
+    "type" : "date"
+  }, {
+    "name" : "wp_rec_end_date",
+    "type" : "date"
+  }, {
+    "name" : "wp_creation_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "wp_access_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "wp_autogen_flag",
+    "type" : "char(1)"
+  }, {
+    "name" : "wp_customer_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "wp_url",
+    "type" : "varchar(100)"
+  }, {
+    "name" : "wp_type",
+    "type" : "char(50)"
+  }, {
+    "name" : "wp_char_count",
+    "type" : "int"
+  }, {
+    "name" : "wp_link_count",
+    "type" : "int"
+  }, {
+    "name" : "wp_image_count",
+    "type" : "int"
+  }, {
+    "name" : "wp_max_ad_count",
+    "type" : "int"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025717_00036_difhw",
+    "numFiles" : "1",
+    "numRows" : "2",
+    "rawDataSize" : "258",
+    "totalSize" : "1464"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "wp_char_count" : {
+      "integerStatistics" : {
+        "min" : 1564,
+        "max" : 2531
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_web_page_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 32,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_web_page_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_customer_sk" : {
+      "integerStatistics" : {
+        "min" : 539,
+        "max" : 539
+      },
+      "nullsCount" : 1,
+      "distinctValuesCount" : 1
+    },
+    "wp_autogen_flag" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 2,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_url" : {
+      "maxValueSizeInBytes" : 18,
+      "totalSizeInBytes" : 36,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "wp_rec_start_date" : {
+      "dateStatistics" : {
+        "min" : "1997-09-03",
+        "max" : "1997-09-03"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "wp_image_count" : {
+      "integerStatistics" : {
+        "min" : 3,
+        "max" : 3
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "wp_type" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 16,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_creation_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450810,
+        "max" : 2450814
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_link_count" : {
+      "integerStatistics" : {
+        "min" : 4,
+        "max" : 8
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_max_ad_count" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 4
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_access_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2452580,
+        "max" : 2452620
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "wp_rec_end_date" : {
+      "dateStatistics" : {
+        "min" : "2000-09-02",
+        "max" : "2000-09-02"
+      },
+      "nullsCount" : 1,
+      "distinctValuesCount" : 1
+    }
+  }
+}

@@ -1,0 +1,13 @@
+[ {
+  "permission" : "SELECT",
+  "grantOption" : true
+}, {
+  "permission" : "INSERT",
+  "grantOption" : true
+}, {
+  "permission" : "UPDATE",
+  "grantOption" : true
+}, {
+  "permission" : "DELETE",
+  "grantOption" : true
+} ]

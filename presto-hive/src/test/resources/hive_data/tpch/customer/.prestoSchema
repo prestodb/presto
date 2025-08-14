@@ -1,0 +1,103 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "custkey",
+    "type" : "bigint"
+  }, {
+    "name" : "name",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "address",
+    "type" : "varchar(40)"
+  }, {
+    "name" : "nationkey",
+    "type" : "bigint"
+  }, {
+    "name" : "phone",
+    "type" : "varchar(15)"
+  }, {
+    "name" : "acctbal",
+    "type" : "double"
+  }, {
+    "name" : "mktsegment",
+    "type" : "varchar(10)"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(117)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025557_00000_difhw",
+    "numFiles" : "2",
+    "numRows" : "1500",
+    "rawDataSize" : "287855",
+    "totalSize" : "82303"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "mktsegment" : {
+      "maxValueSizeInBytes" : 10,
+      "totalSizeInBytes" : 13465,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    },
+    "nationkey" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 24
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 25
+    },
+    "address" : {
+      "maxValueSizeInBytes" : 40,
+      "totalSizeInBytes" : 37090,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1500
+    },
+    "phone" : {
+      "maxValueSizeInBytes" : 15,
+      "totalSizeInBytes" : 22500,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1500
+    },
+    "custkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1500
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1483
+    },
+    "name" : {
+      "maxValueSizeInBytes" : 18,
+      "totalSizeInBytes" : 27000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1489
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 116,
+      "totalSizeInBytes" : 109800,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1444
+    },
+    "acctbal" : {
+      "doubleStatistics" : {
+        "min" : -994.79,
+        "max" : 9987.71
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1500
+    }
+  }
+}

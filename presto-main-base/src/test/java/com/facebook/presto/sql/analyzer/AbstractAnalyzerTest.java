@@ -464,9 +464,10 @@ public class AbstractAnalyzerTest
                 .execute(SETUP_SESSION, consumer);
     }
 
-    protected void analyze(@Language("SQL") String query)
+    protected Analysis analyze(@Language("SQL") String query)
     {
         analyze(CLIENT_SESSION, query);
+        return null;
     }
 
     protected WarningCollector analyzeWithWarnings(@Language("SQL") String query)

@@ -2751,22 +2751,37 @@
 
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
             </plugin>
+        </plugins>
 
-            <plugin>
-                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
-                <artifactId>provisio-maven-plugin</artifactId>
-                <version>1.0.18</version>
-                <extensions>true</extensions>
-            </plugin>
 
-            <plugin>
+        <plugin>
+            <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+            <artifactId>provisio-maven-plugin</artifactId>
+            <version>1.0.18</version>
+            <extensions>true</extensions>
+        </plugin>
+
+
+        <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <configuration combine.children="append">
-                    <fork>false</fork>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
             </plugin>
 
@@ -2786,13 +2801,10 @@
                 </configuration>
             </plugin>
 
-            <!-- Always build a jar with the test classes -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
-                    <!-- do not build an empty jar if the project is
-                         e.g. a pom project -->
                     <skipIfEmpty>true</skipIfEmpty>
                     <archive>
                         <manifest>
@@ -2801,7 +2813,6 @@
                             <addClasspath>false</addClasspath>
                         </manifest>
                         <manifestEntries>
-                            <!-- This is actually the time when the build was done -->
                             <Build-Time>${git.build.time}</Build-Time>
                             <Git-Commit-Id>${git.commit.id}</Git-Commit-Id>
                             <Implementation-Version>${project.version}-${git.commit.id.abbrev}</Implementation-Version>
@@ -2809,6 +2820,7 @@
                     </archive>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -2823,6 +2835,9 @@
             </plugin>
         </plugins>
     </build>
+
+
+
 
     <profiles>
         <profile>

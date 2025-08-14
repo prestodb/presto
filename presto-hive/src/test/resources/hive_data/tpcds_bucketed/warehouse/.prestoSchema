@@ -1,0 +1,157 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "w_warehouse_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "w_warehouse_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "w_warehouse_name",
+    "type" : "varchar(20)"
+  }, {
+    "name" : "w_warehouse_sq_ft",
+    "type" : "int"
+  }, {
+    "name" : "w_street_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "w_street_name",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "w_street_type",
+    "type" : "char(15)"
+  }, {
+    "name" : "w_suite_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "w_city",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "w_county",
+    "type" : "varchar(30)"
+  }, {
+    "name" : "w_state",
+    "type" : "char(2)"
+  }, {
+    "name" : "w_zip",
+    "type" : "char(10)"
+  }, {
+    "name" : "w_country",
+    "type" : "varchar(20)"
+  }, {
+    "name" : "w_gmt_offset",
+    "type" : "decimal(5,2)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025758_00059_difhw",
+    "numFiles" : "1",
+    "numRows" : "1",
+    "rawDataSize" : "179",
+    "totalSize" : "148"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "w_zip" : {
+      "maxValueSizeInBytes" : 5,
+      "totalSizeInBytes" : 5,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_warehouse_name" : {
+      "maxValueSizeInBytes" : 19,
+      "totalSizeInBytes" : 19,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_street_name" : {
+      "maxValueSizeInBytes" : 4,
+      "totalSizeInBytes" : 4,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_state" : {
+      "maxValueSizeInBytes" : 2,
+      "totalSizeInBytes" : 2,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_city" : {
+      "maxValueSizeInBytes" : 6,
+      "totalSizeInBytes" : 6,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_county" : {
+      "maxValueSizeInBytes" : 17,
+      "totalSizeInBytes" : 17,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_street_type" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 7,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_warehouse_sq_ft" : {
+      "integerStatistics" : {
+        "min" : 977787,
+        "max" : 977787
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_suite_number" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 9,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_street_number" : {
+      "maxValueSizeInBytes" : 3,
+      "totalSizeInBytes" : 3,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_country" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 13,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_warehouse_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_gmt_offset" : {
+      "decimalStatistics" : {
+        "min" : -5.00,
+        "max" : -5.00
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "w_warehouse_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 16,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    }
+  }
+}

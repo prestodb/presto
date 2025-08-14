@@ -1,0 +1,69 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "inv_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "inv_item_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "inv_warehouse_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "inv_quantity_on_hand",
+    "type" : "int"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025703_00026_difhw",
+    "numFiles" : "2",
+    "numRows" : "261261",
+    "rawDataSize" : "8360352",
+    "totalSize" : "409231"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "inv_quantity_on_hand" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 1000
+      },
+      "nullsCount" : 13044,
+      "distinctValuesCount" : 1010
+    },
+    "inv_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450815,
+        "max" : 2452635
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 267
+    },
+    "inv_warehouse_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "inv_item_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1973
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "nationkey",
+    "type" : "bigint"
+  }, {
+    "name" : "name",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "regionkey",
+    "type" : "bigint"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(152)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025620_00006_difhw",
+    "numFiles" : "1",
+    "numRows" : "25",
+    "rawDataSize" : "2734",
+    "totalSize" : "1527"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "nationkey" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 24
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 25
+    },
+    "regionkey" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 4
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    },
+    "name" : {
+      "maxValueSizeInBytes" : 14,
+      "totalSizeInBytes" : 177,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 25
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 114,
+      "totalSizeInBytes" : 1857,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 25
+    }
+  }
+}

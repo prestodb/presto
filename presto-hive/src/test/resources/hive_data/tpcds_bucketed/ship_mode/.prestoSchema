@@ -1,0 +1,81 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "sm_ship_mode_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sm_ship_mode_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "sm_type",
+    "type" : "char(30)"
+  }, {
+    "name" : "sm_code",
+    "type" : "char(10)"
+  }, {
+    "name" : "sm_carrier",
+    "type" : "char(20)"
+  }, {
+    "name" : "sm_contract",
+    "type" : "char(20)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025746_00054_difhw",
+    "numFiles" : "1",
+    "numRows" : "20",
+    "rawDataSize" : "1622",
+    "totalSize" : "2071"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "sm_ship_mode_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 20
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    },
+    "sm_type" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 150,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 6
+    },
+    "sm_code" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 87,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 4
+    },
+    "sm_carrier" : {
+      "maxValueSizeInBytes" : 14,
+      "totalSizeInBytes" : 133,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    },
+    "sm_contract" : {
+      "maxValueSizeInBytes" : 20,
+      "totalSizeInBytes" : 252,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    },
+    "sm_ship_mode_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 320,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    }
+  }
+}

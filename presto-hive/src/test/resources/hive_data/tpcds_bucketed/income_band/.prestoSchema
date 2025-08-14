@@ -1,0 +1,58 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "ib_income_band_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ib_lower_bound",
+    "type" : "int"
+  }, {
+    "name" : "ib_upper_bound",
+    "type" : "int"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025744_00049_difhw",
+    "numFiles" : "1",
+    "numRows" : "20",
+    "rawDataSize" : "380",
+    "totalSize" : "308"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "ib_income_band_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 20
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    },
+    "ib_lower_bound" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 190001
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    },
+    "ib_upper_bound" : {
+      "integerStatistics" : {
+        "min" : 10000,
+        "max" : 200000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 20
+    }
+  }
+}

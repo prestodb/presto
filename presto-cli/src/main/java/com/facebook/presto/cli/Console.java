@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.log.LoggingConfiguration;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.annotations.VisibleForTesting;
@@ -37,6 +38,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -316,6 +318,19 @@ public class Console
 
         try (Query query = queryRunner.startQuery(finalSql)) {
             boolean success = query.renderOutput(System.out, outputFormat, interactive);
+            try {
+                List<PrestoWarning> warnings = query.getWarnings();
+                if (warnings != null && !warnings.isEmpty()) {
+                    for (PrestoWarning warning : warnings) {
+                        System.err.println("WARNING: " + warning.getMessage());
+                    }
+                }
+            }
+            catch (Exception e) {
+                System.err.println("Failed to retrieve warnings: " + e.getMessage());
+            }
+
+        }
 
             ClientSession session = queryRunner.getSession();
 

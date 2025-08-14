@@ -1,0 +1,243 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "i_item_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "i_item_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "i_rec_start_date",
+    "type" : "date"
+  }, {
+    "name" : "i_rec_end_date",
+    "type" : "date"
+  }, {
+    "name" : "i_item_desc",
+    "type" : "varchar(200)"
+  }, {
+    "name" : "i_current_price",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "i_wholesale_cost",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "i_brand_id",
+    "type" : "int"
+  }, {
+    "name" : "i_brand",
+    "type" : "char(50)"
+  }, {
+    "name" : "i_class_id",
+    "type" : "int"
+  }, {
+    "name" : "i_class",
+    "type" : "char(50)"
+  }, {
+    "name" : "i_category_id",
+    "type" : "int"
+  }, {
+    "name" : "i_category",
+    "type" : "char(50)"
+  }, {
+    "name" : "i_manufact_id",
+    "type" : "int"
+  }, {
+    "name" : "i_manufact",
+    "type" : "char(50)"
+  }, {
+    "name" : "i_size",
+    "type" : "char(20)"
+  }, {
+    "name" : "i_formulation",
+    "type" : "char(20)"
+  }, {
+    "name" : "i_color",
+    "type" : "char(20)"
+  }, {
+    "name" : "i_units",
+    "type" : "char(10)"
+  }, {
+    "name" : "i_container",
+    "type" : "char(10)"
+  }, {
+    "name" : "i_manager_id",
+    "type" : "int"
+  }, {
+    "name" : "i_product_name",
+    "type" : "char(50)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025745_00051_difhw",
+    "numFiles" : "1",
+    "numRows" : "2000",
+    "rawDataSize" : "671150",
+    "totalSize" : "1020839"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "i_item_desc" : {
+      "maxValueSizeInBytes" : 200,
+      "totalSizeInBytes" : 202893,
+      "nullsCount" : 9,
+      "distinctValuesCount" : 1501
+    },
+    "i_container" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 13958,
+      "nullsCount" : 6,
+      "distinctValuesCount" : 1
+    },
+    "i_manufact_id" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 996
+      },
+      "nullsCount" : 5,
+      "distinctValuesCount" : 683
+    },
+    "i_wholesale_cost" : {
+      "decimalStatistics" : {
+        "min" : 0.03,
+        "max" : 85.83
+      },
+      "nullsCount" : 4,
+      "distinctValuesCount" : 707
+    },
+    "i_formulation" : {
+      "maxValueSizeInBytes" : 20,
+      "totalSizeInBytes" : 39900,
+      "nullsCount" : 5,
+      "distinctValuesCount" : 1528
+    },
+    "i_brand_id" : {
+      "integerStatistics" : {
+        "min" : 1001001,
+        "max" : 10016017
+      },
+      "nullsCount" : 8,
+      "distinctValuesCount" : 539
+    },
+    "i_current_price" : {
+      "decimalStatistics" : {
+        "min" : 0.09,
+        "max" : 99.89
+      },
+      "nullsCount" : 6,
+      "distinctValuesCount" : 1029
+    },
+    "i_size" : {
+      "maxValueSizeInBytes" : 11,
+      "totalSizeInBytes" : 8604,
+      "nullsCount" : 5,
+      "distinctValuesCount" : 7
+    },
+    "i_rec_start_date" : {
+      "dateStatistics" : {
+        "min" : "1997-10-27",
+        "max" : "2001-10-27"
+      },
+      "nullsCount" : 4,
+      "distinctValuesCount" : 4
+    },
+    "i_manufact" : {
+      "maxValueSizeInBytes" : 15,
+      "totalSizeInBytes" : 22609,
+      "nullsCount" : 4,
+      "distinctValuesCount" : 625
+    },
+    "i_item_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1973
+    },
+    "i_manager_id" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 100
+      },
+      "nullsCount" : 4,
+      "distinctValuesCount" : 100
+    },
+    "i_class" : {
+      "maxValueSizeInBytes" : 15,
+      "totalSizeInBytes" : 15499,
+      "nullsCount" : 5,
+      "distinctValuesCount" : 99
+    },
+    "i_class_id" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 16
+      },
+      "nullsCount" : 4,
+      "distinctValuesCount" : 16
+    },
+    "i_item_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 32000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1026
+    },
+    "i_category" : {
+      "maxValueSizeInBytes" : 11,
+      "totalSizeInBytes" : 11811,
+      "nullsCount" : 5,
+      "distinctValuesCount" : 10
+    },
+    "i_category_id" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 10
+      },
+      "nullsCount" : 6,
+      "distinctValuesCount" : 10
+    },
+    "i_brand" : {
+      "maxValueSizeInBytes" : 22,
+      "totalSizeInBytes" : 32267,
+      "nullsCount" : 4,
+      "distinctValuesCount" : 542
+    },
+    "i_units" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 8276,
+      "nullsCount" : 6,
+      "distinctValuesCount" : 21
+    },
+    "i_product_name" : {
+      "maxValueSizeInBytes" : 20,
+      "totalSizeInBytes" : 28640,
+      "nullsCount" : 3,
+      "distinctValuesCount" : 1997
+    },
+    "i_rec_end_date" : {
+      "dateStatistics" : {
+        "min" : "1999-10-27",
+        "max" : "2001-10-26"
+      },
+      "nullsCount" : 1000,
+      "distinctValuesCount" : 3
+    },
+    "i_color" : {
+      "maxValueSizeInBytes" : 10,
+      "totalSizeInBytes" : 10693,
+      "nullsCount" : 7,
+      "distinctValuesCount" : 92
+    }
+  }
+}

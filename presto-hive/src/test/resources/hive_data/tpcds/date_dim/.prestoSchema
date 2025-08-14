@@ -1,0 +1,311 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "d_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "d_date_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "d_date",
+    "type" : "date"
+  }, {
+    "name" : "d_month_seq",
+    "type" : "int"
+  }, {
+    "name" : "d_week_seq",
+    "type" : "int"
+  }, {
+    "name" : "d_quarter_seq",
+    "type" : "int"
+  }, {
+    "name" : "d_year",
+    "type" : "int"
+  }, {
+    "name" : "d_dow",
+    "type" : "int"
+  }, {
+    "name" : "d_moy",
+    "type" : "int"
+  }, {
+    "name" : "d_dom",
+    "type" : "int"
+  }, {
+    "name" : "d_qoy",
+    "type" : "int"
+  }, {
+    "name" : "d_fy_year",
+    "type" : "int"
+  }, {
+    "name" : "d_fy_quarter_seq",
+    "type" : "int"
+  }, {
+    "name" : "d_fy_week_seq",
+    "type" : "int"
+  }, {
+    "name" : "d_day_name",
+    "type" : "char(9)"
+  }, {
+    "name" : "d_quarter_name",
+    "type" : "char(6)"
+  }, {
+    "name" : "d_holiday",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_weekend",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_following_holiday",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_first_dom",
+    "type" : "int"
+  }, {
+    "name" : "d_last_dom",
+    "type" : "int"
+  }, {
+    "name" : "d_same_day_ly",
+    "type" : "int"
+  }, {
+    "name" : "d_same_day_lq",
+    "type" : "int"
+  }, {
+    "name" : "d_current_day",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_current_week",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_current_month",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_current_quarter",
+    "type" : "char(1)"
+  }, {
+    "name" : "d_current_year",
+    "type" : "char(1)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025700_00023_difhw",
+    "numFiles" : "2",
+    "numRows" : "73049",
+    "rawDataSize" : "13232305",
+    "totalSize" : "203297"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "d_quarter_seq" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 801
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 806
+    },
+    "d_last_dom" : {
+      "integerStatistics" : {
+        "min" : 2415020,
+        "max" : 2488372
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2468
+    },
+    "d_dom" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 31
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 31
+    },
+    "d_current_day" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "d_week_seq" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 10436
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 10536
+    },
+    "d_current_month" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "d_first_dom" : {
+      "integerStatistics" : {
+        "min" : 2415021,
+        "max" : 2488070
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2411
+    },
+    "d_moy" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 12
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 12
+    },
+    "d_dow" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 6
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 7
+    },
+    "d_current_quarter" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "d_holiday" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "d_following_holiday" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "d_date_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 1168784,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 71926
+    },
+    "d_current_week" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "d_fy_week_seq" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 10436
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 10536
+    },
+    "d_day_name" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 521779,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 7
+    },
+    "d_same_day_ly" : {
+      "integerStatistics" : {
+        "min" : 2414657,
+        "max" : 2487705
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 73023
+    },
+    "d_month_seq" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 2400
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2391
+    },
+    "d_weekend" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "d_date" : {
+      "dateStatistics" : {
+        "min" : "1900-01-02",
+        "max" : "2100-01-01"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 71148
+    },
+    "d_quarter_name" : {
+      "maxValueSizeInBytes" : 6,
+      "totalSizeInBytes" : 438294,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 792
+    },
+    "d_fy_quarter_seq" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 801
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 806
+    },
+    "d_current_year" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 73049,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "d_same_day_lq" : {
+      "integerStatistics" : {
+        "min" : 2414930,
+        "max" : 2487978
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 72827
+    },
+    "d_qoy" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 4
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 4
+    },
+    "d_year" : {
+      "integerStatistics" : {
+        "min" : 1900,
+        "max" : 2100
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 201
+    },
+    "d_fy_year" : {
+      "integerStatistics" : {
+        "min" : 1900,
+        "max" : 2100
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 201
+    },
+    "d_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2415022,
+        "max" : 2488070
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 73040
+    }
+  }
+}

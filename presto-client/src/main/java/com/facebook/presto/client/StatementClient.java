@@ -14,11 +14,13 @@
 package com.facebook.presto.client;
 
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.security.SelectedRole;
 
 import javax.annotation.Nullable;
 
 import java.io.Closeable;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -39,12 +41,15 @@ public interface StatementClient
     boolean isFinished();
 
     StatementStats getStats();
+    List<PrestoWarning> getWarnings();
+
 
     QueryStatusInfo currentStatusInfo();
 
     QueryData currentData();
 
     QueryStatusInfo finalStatusInfo();
+
 
     Optional<String> getSetCatalog();
 
