@@ -87,6 +87,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void registerBuiltInPluginFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        delegate.registerBuiltInPluginFunctions(catalogName, functionInfos);
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         return delegate.listSchemaNames(session, catalogName);
