@@ -319,6 +319,11 @@ struct ColumnHandle : public JsonEncodedSubclass {
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p);
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p);
 } // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct ConnectorMergeTableHandle : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p);
+} // namespace facebook::presto::protocol
 
 namespace facebook::presto::protocol {
 struct SourceLocation {
@@ -1739,6 +1744,16 @@ void to_json(json& j, const MemoryInfo& p);
 void from_json(const json& j, MemoryInfo& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct MergeHandle : public ExecutionWriterTarget {
+  TableHandle tableHandle = {};
+  std::shared_ptr<ConnectorMergeTableHandle> connectorMergeTableHandle = {};
+
+  MergeHandle() noexcept;
+};
+void to_json(json& j, const MergeHandle& p);
+void from_json(const json& j, MergeHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct MergeJoinNode : public PlanNode {
   MergeJoinNode() noexcept;
   PlanNodeId id = {};
@@ -1753,6 +1768,33 @@ struct MergeJoinNode : public PlanNode {
 };
 void to_json(json& j, const MergeJoinNode& p);
 void from_json(const json& j, MergeJoinNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+enum class RowChangeParadigm {
+  CHANGE_ONLY_UPDATED_COLUMNS,
+  DELETE_ROW_AND_INSERT_ROW
+};
+extern void to_json(json& j, const RowChangeParadigm& e);
+extern void from_json(const json& j, RowChangeParadigm& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct MergeParadigmAndTypes {
+  RowChangeParadigm paradigm = {};
+  List<Type> columnTypes = {};
+  Type rowIdType = {};
+};
+void to_json(json& j, const MergeParadigmAndTypes& p);
+void from_json(const json& j, MergeParadigmAndTypes& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct MergeTarget {
+  TableHandle handle = {};
+  std::shared_ptr<MergeHandle> mergeHandle = {};
+  SchemaTableName schemaTableName = {};
+  MergeParadigmAndTypes mergeParadigmAndTypes = {};
+};
+void to_json(json& j, const MergeTarget& p);
+void from_json(const json& j, MergeTarget& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct NodeVersion {
