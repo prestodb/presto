@@ -5,10 +5,11 @@ Session Property Managers
 Administrators can add session properties to control the behavior for subsets of their workload.
 These properties are defaults and can be overridden by users (if authorized to do so). Session
 properties can be used to control resource usage, enable or disable features, and change query
-characteristics. Session property managers are pluggable.
+characteristics. Session property managers are pluggable. A session property manager can either
+be database-based or file-based.
 
-Add an ``etc/session-property-config.properties`` file with the following contents to enable
-the built-in manager that reads a JSON config file:
+To enable a built-in manager that reads a JSON configuration file, add an
+``etc/session-property-config.properties`` file with the following contents:
 
 .. code-block:: none
 
@@ -23,6 +24,71 @@ conditions that the query must meet, and a list of session properties that shoul
 by default. All matching rules contribute to constructing a list of session properties. Rules
 are applied in the order they are specified. Rules specified later in the file override values
 for properties that have been previously encountered.
+
+
+For the database-based built-in manager, add an
+``etc/session-property-config.properties`` file with the following contents:
+
+.. code-block:: text
+
+    session-property-config.configuration-manager=db
+    session-property-manager.db.url=jdbc:mysql://localhost:3306/session_properties
+    session-property-manager.db.username=username
+    session-property-manager.db.password=password
+    session-property-manager.db.refresh-period=50s
+    session-property-manager.db.database-data-source-name=mysql
+
+Change the value of ``session-property-manager.db.url`` to the JDBC URL of a database.
+
+``session-property-manager.db.database-data-source-name`` can be set to either ``mysql`` or ``mariadb``.
+
+``session-property-manager.db.refresh-period`` should be set to how often Presto refreshes to
+match the database.
+
+This database consists of three tables: ``session_specs``, ``session_client_tags`` and ``session_property_values``.
+If the database does not exist, Presto will create it on startup if you are using mysql. If you are using MariaDB,
+add ``?createDatabaseIfNotExist=true`` to your JDBC URL to achieve the same functionality.
+If the tables do not exist, Presto will create them on startup.
+
+.. code-block:: text
+
+    mysql> DESCRIBE session_specs;
+    +-----------------------------+--------------+------+-----+---------+----------------+
+    | Field                       | Type         | Null | Key | Default | Extra          |
+    +-----------------------------+--------------+------+-----+---------+----------------+
+    | spec_id                     | bigint       | NO   | PRI | NULL    | auto_increment |
+    | user_regex                  | varchar(512) | YES  |     | NULL    |                |
+    | source_regex                | varchar(512) | YES  |     | NULL    |                |
+    | query_type                  | varchar(512) | YES  |     | NULL    |                |
+    | group_regex                 | varchar(512) | YES  |     | NULL    |                |
+    | client_info_regex           | varchar(512) | YES  |     | NULL    |                |
+    | override_session_properties | tinyint(1)   | YES  |     | NULL    |                |
+    | priority                    | int          | NO   |     | NULL    |                |
+    +-----------------------------+--------------+------+-----+---------+----------------+
+    8 rows in set (0.016 sec)
+
+.. code-block:: text
+
+    mysql> DESCRIBE session_client_tags;
+    +-------------+--------------+------+-----+---------+-------+
+    | Field       | Type         | Null | Key | Default | Extra |
+    +-------------+--------------+------+-----+---------+-------+
+    | tag_spec_id | bigint       | NO   | PRI | NULL    |       |
+    | client_tag  | varchar(512) | NO   | PRI | NULL    |       |
+    +-------------+--------------+------+-----+---------+-------+
+    2 rows in set (0.062 sec)
+
+.. code-block:: text
+
+    mysql> DESCRIBE session_property_values;
+    +------------------------+--------------+------+-----+---------+-------+
+    | Field                  | Type         | Null | Key | Default | Extra |
+    +------------------------+--------------+------+-----+---------+-------+
+    | property_spec_id       | bigint       | NO   | PRI | NULL    |       |
+    | session_property_name  | varchar(512) | NO   | PRI | NULL    |       |
+    | session_property_value | varchar(512) | YES  |     | NULL    |       |
+    +------------------------+--------------+------+-----+---------+-------+
+    3 rows in set (0.009 sec)
 
 Match Rules
 -----------

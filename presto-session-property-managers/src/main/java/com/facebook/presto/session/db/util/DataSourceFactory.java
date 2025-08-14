@@ -11,18 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package com.facebook.presto.session.db.util;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.session.db.DbSessionPropertyManagerConfig;
 
-public class FileSessionPropertyManagerPlugin
-        implements Plugin
+import javax.sql.DataSource;
+
+public interface DataSourceFactory
 {
-    @Override
-    public Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
-    {
-        return ImmutableList.of(new FileSessionPropertyManagerFactory());
-    }
+    DataSource create(DbSessionPropertyManagerConfig config);
 }
