@@ -167,6 +167,13 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- Exclude MariaDB client to avoid conflict with SingleStore JDBC Driver-->
+                    <groupId>org.mariadb.jdbc</groupId>
+                    <artifactId>mariadb-java-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
