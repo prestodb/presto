@@ -16,7 +16,6 @@
 
 #include "velox/parse/QueryPlanner.h"
 #include "velox/duckdb/conversion/DuckConversion.h"
-#include "velox/expression/ScopedVarSetter.h"
 #include "velox/parse/DuckLogicalOperator.h"
 
 #include <duckdb.hpp> // @manual
@@ -710,8 +709,6 @@ PlanNodePtr toVeloxPlan(
     QueryContext& queryContext) {
   std::vector<PlanNodePtr> sources;
 
-  ScopedVarSetter isDelim(
-      &queryContext.isInDelimJoin, queryContext.isInDelimJoin);
   if (plan.type == ::duckdb::LogicalOperatorType::LOGICAL_DELIM_JOIN) {
     queryContext.isInDelimJoin = true;
   }
