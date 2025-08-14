@@ -64,6 +64,7 @@ public class PluginManagerUtil
             .add("org.openjdk.jol.")
             .add("com.facebook.presto.common")
             .add("com.facebook.drift.annotations.")
+            .add("com.facebook.drift.buffer.ByteBufferPool")
             .add("com.facebook.drift.TException")
             .add("com.facebook.drift.TApplicationException")
             .build();

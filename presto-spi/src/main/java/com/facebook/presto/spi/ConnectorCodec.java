@@ -15,10 +15,16 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.api.Experimental;
 
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.function.Consumer;
+
 @Experimental
 public interface ConnectorCodec<T>
 {
-    byte[] serialize(T value);
+    void serialize(T value, Consumer<List<ByteBuffer>> consumer)
+            throws Exception;
 
-    T deserialize(byte[] bytes);
+    T deserialize(List<ByteBuffer> byteBufferList)
+            throws Exception;
 }
