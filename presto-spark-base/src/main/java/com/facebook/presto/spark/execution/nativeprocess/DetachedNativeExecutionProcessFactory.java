@@ -40,7 +40,7 @@ public class DetachedNativeExecutionProcessFactory
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?> workerProperty;
 
     @Inject
     public DetachedNativeExecutionProcessFactory(
@@ -48,7 +48,7 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty,
+            WorkerProperty<?, ?, ?> workerProperty,
             FeaturesConfig featuresConfig)
     {
         super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty, featuresConfig);
