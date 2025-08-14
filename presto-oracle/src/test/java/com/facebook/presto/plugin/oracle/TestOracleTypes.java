@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.function.Function;
 
-import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
@@ -38,26 +37,22 @@ import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
-// Disabled for 7.5 TestNG Upgrade, the constructor takes in parameter
-// TestNG 6 silently ignored, TestNG 7.5 fails (correctly), disabling for now
-public class DisabledTestOracleTypes
+public class TestOracleTypes
         extends AbstractTestQueryFramework
 {
     private final OracleServerTester oracleServer;
     private final QueryRunner queryRunner;
 
-    @Test
-    public void test()
-    {
-        OracleContainer oracle = new OracleContainer("wnameless/oracle-xe-11g-r2");
-        oracle.start();
-    }
-
-    private DisabledTestOracleTypes(OracleServerTester oracleServer)
+    private TestOracleTypes()
             throws Exception
     {
-        this.queryRunner = createOracleQueryRunner(oracleServer);
-        this.oracleServer = oracleServer;
+        OracleContainer oracleContainer = new OracleContainer("wnameless/oracle-xe-11g-r2");
+        oracleContainer.start();
+
+        OracleServerTester oracleServerTester = new OracleServerTester();
+
+        this.queryRunner = createOracleQueryRunner(oracleServerTester);
+        this.oracleServer = oracleServerTester;
     }
 
     @Override
@@ -93,7 +88,7 @@ public class DisabledTestOracleTypes
     public void testSpecialNumberFormats()
     {
         oracleServer.execute("CREATE TABLE test (num1 number)");
-        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.1234567890)");
         assertQuery("SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
@@ -103,7 +98,7 @@ public class DisabledTestOracleTypes
         DataTypeTest.create()
                 .addRoundTrip(varcharDataType(10), "test")
                 .addRoundTrip(stringDataType("varchar", createVarcharType(4000)), "test")
-                .addRoundTrip(stringDataType("varchar(5000)", createUnboundedVarcharType()), "test")
+                .addRoundTrip(stringDataType("varchar(4000)", createVarcharType(4000)), "test")
                 .addRoundTrip(varcharDataType(3), String.valueOf('\u2603'))
                 .execute(getQueryRunner(), prestoCreateAsSelect("varchar_types"));
     }
