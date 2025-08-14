@@ -35,6 +35,7 @@ import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -92,11 +93,13 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.SystemSessionProperties.isExperimentalFunctionsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.BuiltInFunctionKind.PLUGIN;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -146,6 +149,7 @@ public class FunctionAndTypeManager
     private final CatalogSchemaName defaultNamespace;
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
+    private final BuiltInPluginFunctionNamespaceManager builtInPluginFunctionNamespaceManager;
 
     @Inject
     public FunctionAndTypeManager(
@@ -177,6 +181,7 @@ public class FunctionAndTypeManager
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
+        this.builtInPluginFunctionNamespaceManager = new BuiltInPluginFunctionNamespaceManager(this);
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -345,6 +350,9 @@ public class FunctionAndTypeManager
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {
             return ((SessionFunctionHandle) functionHandle).getFunctionMetadata();
         }
+        if (isBuiltInPluginFunctionHandle(functionHandle)) {
+            return builtInPluginFunctionNamespaceManager.getFunctionMetadata(functionHandle);
+        }
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
@@ -436,6 +444,11 @@ public class FunctionAndTypeManager
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
+    public void registerPluginFunctions(List<? extends SqlFunction> functions)
+    {
+        builtInPluginFunctionNamespaceManager.registerPluginFunctions(functions);
+    }
+
     /**
      * likePattern / escape is an opportunistic optimization push down to function namespace managers.
      * Not all function namespace managers can handle it, thus the returned function list could
@@ -453,12 +466,14 @@ public class FunctionAndTypeManager
             functions.addAll(functionNamespaceManagers.get(
                             defaultNamespace.getCatalogName()).listFunctions(likePattern, escape).stream()
                     .collect(toImmutableList()));
+            functions.addAll(builtInPluginFunctionNamespaceManager.listFunctions(likePattern, escape).stream().collect(toImmutableList()));
         }
         else {
             functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
             functions.addAll(functionNamespaceManagers.values().stream()
                     .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
                     .collect(toImmutableList()));
+            functions.addAll(builtInPluginFunctionNamespaceManager.listFunctions(likePattern, escape).stream().collect(toImmutableList()));
         }
 
         return functions.build().stream()
@@ -486,7 +501,7 @@ public class FunctionAndTypeManager
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = session.getTransactionId().map(
                 id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
-        return functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
+        return getFunctions(functionName, transactionHandle, functionNamespaceManager.get());
     }
 
     public void createFunction(SqlInvokedFunction function, boolean replace)
@@ -601,6 +616,9 @@ public class FunctionAndTypeManager
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {
             return ((SessionFunctionHandle) functionHandle).getScalarFunctionImplementation();
         }
+        if (isBuiltInPluginFunctionHandle(functionHandle)) {
+            return builtInPluginFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        }
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
@@ -709,13 +727,7 @@ public class FunctionAndTypeManager
             return lookupCachedFunction(functionName, parameterTypes);
         }
 
-        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
-        Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, false);
-        if (!match.isPresent()) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
-        }
-
-        return functionNamespaceManager.get().getFunctionHandle(Optional.empty(), match.get());
+        return getMatchingFunctionHandle(functionName, Optional.empty(), functionNamespaceManager.get(), parameterTypes, false);
     }
 
     public FunctionHandle lookupCast(CastType castType, Type fromType, Type toType)
@@ -785,11 +797,14 @@ public class FunctionAndTypeManager
             return functionNamespaceManager.resolveFunction(transactionHandle, functionName, parameterTypes.stream().map(TypeSignatureProvider::getTypeSignature).collect(toImmutableList()));
         }
 
-        Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
-
-        Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
-        if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
+        try {
+            return getMatchingFunctionHandle(functionName, transactionHandle, functionNamespaceManager, parameterTypes, true);
+        }
+        catch (PrestoException e) {
+            // Could still match to a magic literal function
+            if (e.getErrorCode().getCode() != StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                throw e;
+            }
         }
 
         if (functionName.getObjectName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -805,7 +820,8 @@ public class FunctionAndTypeManager
             return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(
+                functionName, parameterTypes, getFunctions(functionName, transactionHandle, functionNamespaceManager)));
     }
 
     private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
@@ -829,7 +845,7 @@ public class FunctionAndTypeManager
         }
     }
 
-    private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
+    public Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(functionNamespace.getCatalogName()));
     }
@@ -840,7 +856,6 @@ public class FunctionAndTypeManager
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
     {
         QualifiedObjectName functionName = signature.getName();
@@ -849,8 +864,13 @@ public class FunctionAndTypeManager
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for signature '%s'", functionName));
         }
 
-        Collection<SqlFunction> candidates = (Collection<SqlFunction>) functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(Optional.empty(), functionName);
 
+        return getSpecializedFunctionKey(signature, candidates);
+    }
+
+    public SpecializedFunctionKey getSpecializedFunctionKey(Signature signature, Collection<? extends SqlFunction> candidates)
+    {
         // search for exact match
         Type returnType = getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
@@ -912,6 +932,66 @@ public class FunctionAndTypeManager
     {
         return servingTypeManager.get().getParametricTypes().stream()
                 .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
+    }
+
+    private Collection<? extends SqlFunction> getFunctions(
+            QualifiedObjectName functionName,
+            Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
+            FunctionNamespaceManager<?> functionNamespaceManager)
+    {
+        return ImmutableList.<SqlFunction>builder()
+                .addAll(functionNamespaceManager.getFunctions(transactionHandle, functionName))
+                .addAll(builtInPluginFunctionNamespaceManager.getFunctions(transactionHandle, functionName))
+                .build();
+    }
+
+    /**
+     * Gets the function handle of the function if there is a match. We enforce explicit naming for dynamic function namespaces.
+     * All unqualified function names will only be resolved against the built-in default function namespace. We get all the candidates
+     * from the current default namespace and additionally all the candidates from builtInPluginFunctionNamespaceManager.
+     *
+     * @throws PrestoException if there are no matches or multiple matches
+     */
+    private FunctionHandle getMatchingFunctionHandle(
+            QualifiedObjectName functionName,
+            Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
+            FunctionNamespaceManager<?> functionNamespaceManager,
+            List<TypeSignatureProvider> parameterTypes,
+            boolean coercionAllowed)
+    {
+        Optional<Signature> matchingDefaultFunctionSignature =
+                getMatchingFunction(functionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
+        Optional<Signature> matchingPluginFunctionSignature =
+                getMatchingFunction(builtInPluginFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
+
+        if (matchingDefaultFunctionSignature.isPresent() && matchingPluginFunctionSignature.isPresent()) {
+            throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Function '%s' has two matching signatures. Please specify parameter types. \n" +
+                    "First match : '%s', Second match: '%s'", functionName, matchingDefaultFunctionSignature.get(), matchingPluginFunctionSignature.get()));
+        }
+
+        if (matchingDefaultFunctionSignature.isPresent()) {
+            return functionNamespaceManager.getFunctionHandle(transactionHandle, matchingDefaultFunctionSignature.get());
+        }
+
+        if (matchingPluginFunctionSignature.isPresent()) {
+            return builtInPluginFunctionNamespaceManager.getFunctionHandle(transactionHandle, matchingPluginFunctionSignature.get());
+        }
+
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes,
+                getFunctions(functionName, transactionHandle, functionNamespaceManager)));
+    }
+
+    private Optional<Signature> getMatchingFunction(
+            Collection<? extends SqlFunction> candidates,
+            List<TypeSignatureProvider> parameterTypes,
+            boolean coercionAllowed)
+    {
+        return functionSignatureMatcher.match(candidates, parameterTypes, coercionAllowed);
+    }
+
+    private boolean isBuiltInPluginFunctionHandle(FunctionHandle functionHandle)
+    {
+        return (functionHandle instanceof BuiltInFunctionHandle) && ((BuiltInFunctionHandle) functionHandle).getBuiltInFunctionKind().equals(PLUGIN);
     }
 
     private static class FunctionResolutionCacheKey
