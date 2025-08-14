@@ -51,6 +51,7 @@ import static com.facebook.presto.plugin.bigquery.Conversions.toColumnMetadata;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -63,20 +64,23 @@ public class BigQueryMetadata
     private static final Logger log = Logger.get(BigQueryMetadata.class);
     private final BigQueryClient bigQueryClient;
     private final String projectId;
+    private final boolean caseSensitiveNameMatching;
 
     @Inject
     public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
     {
         this.bigQueryClient = bigQueryClient;
         this.projectId = config.getProjectId().orElse(bigQueryClient.getProjectId());
+        this.caseSensitiveNameMatching = config.isCaseSensitiveNameMatching();
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return Streams.stream(bigQueryClient.listDatasets(projectId))
-                .map(dataset -> dataset.getDatasetId().getDataset())
-                .filter(schemaName -> !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
+                .map(dataset -> caseSensitiveNameMatching ? dataset.getDatasetId().getDataset() : dataset.getDatasetId().getDataset().toLowerCase(ENGLISH))
+                .filter(schemaName -> caseSensitiveNameMatching ? !schemaName.equals(INFORMATION_SCHEMA) : !schemaName.equalsIgnoreCase(INFORMATION_SCHEMA))
+                .distinct()
                 .collect(toImmutableList());
     }
 
@@ -96,7 +100,7 @@ public class BigQueryMetadata
 
     private List<SchemaTableName> listTablesWithTypes(ConnectorSession session, Optional<String> schemaName, TableDefinition.Type... types)
     {
-        if (schemaName.isPresent() && schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA)) {
+        if (schemaName.isPresent() && (caseSensitiveNameMatching ? schemaName.get().equals(INFORMATION_SCHEMA) : schemaName.get().equalsIgnoreCase(INFORMATION_SCHEMA))) {
             return ImmutableList.of();
         }
         Set<String> schemaNames = schemaName.map(ImmutableSet::of)
@@ -105,7 +109,8 @@ public class BigQueryMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String datasetId : schemaNames) {
             for (Table table : bigQueryClient.listTables(DatasetId.of(projectId, datasetId), types)) {
-                tableNames.add(new SchemaTableName(datasetId, table.getTableId().getTable()));
+                String tableName = caseSensitiveNameMatching ? table.getTableId().getTable() : table.getTableId().getTable().toLowerCase(ENGLISH);
+                tableNames.add(new SchemaTableName(datasetId, tableName));
             }
         }
         return tableNames.build();
@@ -156,7 +161,9 @@ public class BigQueryMetadata
 
     private Optional<TableInfo> getBigQueryTable(SchemaTableName tableName)
     {
-        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
+        String schemaName = caseSensitiveNameMatching ? tableName.getSchemaName() : tableName.getSchemaName().toLowerCase(ENGLISH);
+        String table = caseSensitiveNameMatching ? tableName.getTableName() : tableName.getTableName().toLowerCase(ENGLISH);
+        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, schemaName, table));
         return Optional.ofNullable(tableInfo);
     }
 
@@ -232,5 +239,11 @@ public class BigQueryMetadata
         return tableInfo.isPresent() ?
                 ImmutableList.of(tableName) :
                 ImmutableList.of(); // table does not exist
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatching ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
