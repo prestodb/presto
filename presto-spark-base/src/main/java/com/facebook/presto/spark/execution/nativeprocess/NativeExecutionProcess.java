@@ -92,7 +92,7 @@ public class NativeExecutionProcess
     private final Executor executor;
     private final RequestErrorTracker errorTracker;
     private final OkHttpClient httpClient;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?> workerProperty;
 
     private volatile Process process;
     private volatile ProcessOutputPipe processOutputPipe;
@@ -106,7 +106,7 @@ public class NativeExecutionProcess
             ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?> workerProperty)
             throws IOException
     {
         this.executablePath = requireNonNull(executablePath, "executablePath is null");

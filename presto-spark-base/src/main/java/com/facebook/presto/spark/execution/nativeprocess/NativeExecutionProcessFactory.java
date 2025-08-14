@@ -43,7 +43,7 @@ public class NativeExecutionProcessFactory
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?> workerProperty;
     private final String executablePath;
     private final String programArguments;
 
@@ -55,7 +55,7 @@ public class NativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty,
+            WorkerProperty<?, ?, ?> workerProperty,
             FeaturesConfig featuresConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
