@@ -602,6 +602,11 @@ class PlanBuilder {
       const std::vector<std::vector<std::string>>& projectionGroups,
       const std::vector<std::string>& noLoadColumns = {});
 
+  /// Add a LazyDereferenceNode to the plan.
+  /// @param projections Same format as in `project`, but can only contain
+  /// field/subfield accesses.
+  PlanBuilder& lazyDereference(const std::vector<std::string>& projections);
+
   /// Add a ProjectNode to keep all existing columns and append more columns
   /// using specified expressions.
   /// @param newColumns A list of one or more expressions to use for computing

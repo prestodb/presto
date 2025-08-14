@@ -86,8 +86,12 @@ FilterProject::FilterProject(
           project ? project->id() : filter->id(),
           "FilterProject"),
       hasFilter_(filter != nullptr),
+      lazyDereference_(
+          dynamic_cast<const core::LazyDereferenceNode*>(project.get()) !=
+          nullptr),
       project_(project),
       filter_(filter) {
+  VELOX_CHECK(!(lazyDereference_ && filter));
   if (filter_ != nullptr && project_ != nullptr) {
     folly::Synchronized<OperatorStats>& opStats = Operator::stats();
     opStats.withWLock([&](auto& stats) {
@@ -124,7 +128,8 @@ void FilterProject::initialize() {
     isIdentityProjection_ = true;
   }
   numExprs_ = allExprs.size();
-  exprs_ = makeExprSetFromFlag(std::move(allExprs), operatorCtx_->execCtx());
+  exprs_ = makeExprSetFromFlag(
+      std::move(allExprs), operatorCtx_->execCtx(), lazyDereference_);
 
   if (numExprs_ > 0 && !identityProjections_.empty()) {
     const auto inputType = project_ ? project_->sources()[0]->outputType()
@@ -166,12 +171,15 @@ RowVectorPtr FilterProject::getOutput() {
   auto* rows = localRows.get();
   VELOX_DCHECK_NOT_NULL(rows);
   rows->setAll();
-  EvalCtx evalCtx(operatorCtx_->execCtx(), exprs_.get(), input_.get());
+  EvalCtx evalCtx(
+      operatorCtx_->execCtx(), exprs_.get(), input_.get(), lazyDereference_);
 
-  // Pre-load lazy vectors which are referenced by both expressions and identity
-  // projections.
-  for (auto fieldIdx : multiplyReferencedFieldIndices_) {
-    evalCtx.ensureFieldLoaded(fieldIdx, *rows);
+  if (!lazyDereference_) {
+    // Pre-load lazy vectors which are referenced by both expressions and
+    // identity projections.
+    for (auto fieldIdx : multiplyReferencedFieldIndices_) {
+      evalCtx.ensureFieldLoaded(fieldIdx, *rows);
+    }
   }
 
   if (!hasFilter_) {

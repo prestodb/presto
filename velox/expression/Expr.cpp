@@ -836,7 +836,10 @@ void Expr::eval(
   // different subset.
   //
   // TODO: Re-work the logic of deciding when to load which field.
-  if (!hasConditionals_ || distinctFields_.size() == 1 ||
+  if (context.lazyDereference()) {
+    // Do not load any lazy.
+  } else if (
+      !hasConditionals_ || distinctFields_.size() == 1 ||
       shouldEvaluateSharedSubexp(context) ||
       !context.deferredLazyLoadingEnabled()) {
     // Load lazy vectors if any.
@@ -1795,12 +1798,57 @@ std::vector<common::Subfield> Expr::extractSubfields() const {
   return subfields;
 }
 
+namespace {
+
+// Make sure there are only FieldReferences, and there is no overlap between the
+// output of expressions.
+void validateLazyDereference(const std::vector<std::shared_ptr<Expr>>& exprs) {
+#ifndef NDEBUG
+  std::vector<std::vector<std::string>> paths;
+  for (auto& expr : exprs) {
+    std::vector<std::string> path;
+    auto* fieldRef = dynamic_cast<const FieldReference*>(expr.get());
+    VELOX_CHECK_NOT_NULL(fieldRef);
+    path.push_back(fieldRef->field());
+    while (!fieldRef->inputs().empty()) {
+      VELOX_CHECK_EQ(fieldRef->inputs().size(), 1);
+      fieldRef =
+          dynamic_cast<const FieldReference*>(fieldRef->inputs()[0].get());
+      VELOX_CHECK_NOT_NULL(fieldRef);
+      path.push_back(fieldRef->field());
+    }
+    std::reverse(path.begin(), path.end());
+    paths.push_back(std::move(path));
+  }
+  std::sort(paths.begin(), paths.end());
+  for (int i = 1; i < paths.size(); ++i) {
+    if (paths[i - 1].size() > paths[i].size()) {
+      continue;
+    }
+    bool isPrefix = true;
+    for (int j = 0; j < paths[i - 1].size(); ++j) {
+      if (paths[i - 1][j] != paths[i][j]) {
+        isPrefix = false;
+        break;
+      }
+    }
+    VELOX_CHECK(!isPrefix);
+  }
+#endif
+}
+
+} // namespace
+
 ExprSet::ExprSet(
     const std::vector<core::TypedExprPtr>& sources,
     core::ExecCtx* execCtx,
-    bool enableConstantFolding)
-    : execCtx_(execCtx) {
+    bool enableConstantFolding,
+    bool lazyDereference)
+    : execCtx_(execCtx), lazyDereference_(lazyDereference) {
   exprs_ = compileExpressions(sources, execCtx, this, enableConstantFolding);
+  if (lazyDereference_) {
+    validateLazyDereference(exprs_);
+  }
   std::vector<FieldReference*> allDistinctFields;
   for (auto& expr : exprs_) {
     Expr::mergeFields(
@@ -1946,20 +1994,23 @@ void ExprSet::eval(
     const SelectivityVector& rows,
     EvalCtx& context,
     std::vector<VectorPtr>& result) {
+  VELOX_CHECK_EQ(lazyDereference_, context.lazyDereference());
   result.resize(exprs_.size());
   if (initialize) {
     clearSharedSubexprs();
   }
 
-  // Make sure LazyVectors, referenced by multiple expressions, are loaded
-  // for all the "rows".
-  //
-  // Consider projection with 2 expressions: f(a) AND g(b), h(b)
-  // If b is a LazyVector and f(a) AND g(b) expression is evaluated first, it
-  // will load b only for rows where f(a) is true. However, h(b) projection
-  // needs all rows for "b".
-  for (const auto& field : multiplyReferencedFields_) {
-    context.ensureFieldLoaded(field->index(context), rows);
+  if (!lazyDereference_) {
+    // Make sure LazyVectors, referenced by multiple expressions, are loaded for
+    // all the "rows".
+    //
+    // Consider projection with 2 expressions: f(a) AND g(b), h(b) If b is a
+    // LazyVector and f(a) AND g(b) expression is evaluated first, it will load
+    // b only for rows where f(a) is true. However, h(b) projection needs all
+    // rows for "b".
+    for (const auto& field : multiplyReferencedFields_) {
+      context.ensureFieldLoaded(field->index(context), rows);
+    }
   }
 
   if (FLAGS_velox_experimental_save_input_on_fatal_signal) {
@@ -2023,12 +2074,14 @@ void ExprSetSimplified::eval(
 
 std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<core::TypedExprPtr>&& source,
-    core::ExecCtx* execCtx) {
+    core::ExecCtx* execCtx,
+    bool lazyDereference) {
   if (execCtx->queryCtx()->queryConfig().exprEvalSimplified() ||
       FLAGS_force_eval_simplified) {
     return std::make_unique<ExprSetSimplified>(std::move(source), execCtx);
   }
-  return std::make_unique<ExprSet>(std::move(source), execCtx);
+  return std::make_unique<ExprSet>(
+      std::move(source), execCtx, true, lazyDereference);
 }
 
 std::string printExprWithStats(const exec::ExprSet& exprSet) {

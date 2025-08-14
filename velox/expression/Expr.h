@@ -739,7 +739,8 @@ class ExprSet {
   explicit ExprSet(
       const std::vector<core::TypedExprPtr>& source,
       core::ExecCtx* execCtx,
-      bool enableConstantFolding = true);
+      bool enableConstantFolding = true,
+      bool lazyDereference = false);
 
   virtual ~ExprSet();
 
@@ -787,6 +788,10 @@ class ExprSet {
     return distinctFields_;
   }
 
+  bool lazyDereference() const {
+    return lazyDereference_;
+  }
+
   // Flags a shared subexpression which needs to be reset (e.g. previously
   // computed results must be deleted) when evaluating new batch of data.
   void addToReset(const std::shared_ptr<Expr>& expr) {
@@ -829,6 +834,7 @@ class ExprSet {
   // Exprs which retain memoized state, e.g. from running over dictionaries.
   std::unordered_set<Expr*> memoizingExprs_;
   core::ExecCtx* const execCtx_;
+  const bool lazyDereference_;
 };
 
 class ExprSetSimplified : public ExprSet {
@@ -861,7 +867,8 @@ class ExprSetSimplified : public ExprSet {
 // account and instantiates the correct ExprSet class.
 std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<core::TypedExprPtr>&& source,
-    core::ExecCtx* execCtx);
+    core::ExecCtx* execCtx,
+    bool lazyDereference = false);
 
 /// Evaluates a deterministic expression that doesn't depend on any inputs and
 /// returns the result as single-row vector. Returns nullptr if the expression

@@ -430,5 +430,41 @@ TEST_F(FilterProjectTest, barrier) {
   }
 }
 
+TEST_F(FilterProjectTest, lazyDereference) {
+  constexpr int kSize = 10;
+  VectorPtr expected[] = {
+      makeFlatVector<int64_t>(kSize, [](auto i) { return i; }),
+      makeFlatVector<int64_t>(kSize, [](auto i) { return i + kSize; }),
+      makeFlatVector<int64_t>(kSize, [](auto i) { return i + kSize * 2; }),
+  };
+  auto vector = makeRowVector({
+      makeRowVector({expected[0], expected[1]}),
+      makeRowVector({makeRowVector({expected[2]})}),
+  });
+  auto file = test::TempFilePath::create();
+  writeToFile(file->getPath(), vector);
+  CursorParameters params;
+  params.copyResult = false;
+  params.serialExecution = true;
+  params.planNode = test::PlanBuilder()
+                        .tableScan(vector->rowType())
+                        .lazyDereference({"c0.c0", "c0.c1", "(c1).c0.c0"})
+                        .planNode();
+  auto cursor = TaskCursor::create(params);
+  cursor->task()->addSplit(
+      "0", exec::Split(makeHiveConnectorSplit(file->getPath())));
+  cursor->task()->noMoreSplits("0");
+  ASSERT_TRUE(cursor->moveNext());
+  auto* result = cursor->current()->asChecked<RowVector>();
+  ASSERT_EQ(result->size(), kSize);
+  ASSERT_EQ(result->childrenSize(), 3);
+  for (int i = 0; i < result->childrenSize(); ++i) {
+    auto* lazy = result->childAt(i)->asChecked<LazyVector>();
+    ASSERT_FALSE(lazy->isLoaded());
+    ASSERT_EQ(lazy->size(), kSize);
+    velox::test::assertEqualVectors(expected[i], lazy->loadedVectorShared());
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::exec

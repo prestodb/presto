@@ -950,6 +950,29 @@ class ParallelProjectNode : public core::AbstractProjectNode {
   const std::vector<std::string> noLoadIdentities_;
 };
 
+/// Variant of project node that contains only field accesses and dereferences,
+/// and does not materialize the input columns.  Used to split subfields of
+/// struct columns for later parallel processing.
+class LazyDereferenceNode : public core::ProjectNode {
+ public:
+  LazyDereferenceNode(
+      const PlanNodeId& id,
+      std::vector<std::string> names,
+      std::vector<TypedExprPtr> projections,
+      PlanNodePtr source)
+      : ProjectNode(
+            id,
+            std::move(names),
+            std::move(projections),
+            std::move(source)) {}
+
+  std::string_view name() const override {
+    return "LazyDereference";
+  }
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+};
+
 using ParallelProjectNodePtr = std::shared_ptr<const ParallelProjectNode>;
 
 class TableScanNode : public PlanNode {
