@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.function.BuiltInFunctionKind;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -24,18 +25,26 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.function.BuiltInFunctionKind.ENGINE;
 import static java.util.Objects.requireNonNull;
 
 public class BuiltInFunctionHandle
         implements FunctionHandle
 {
     private final Signature signature;
+    private final BuiltInFunctionKind builtInFunctionKind;
 
     @JsonCreator
     public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature)
     {
+        this(signature, ENGINE);
+    }
+
+    public BuiltInFunctionHandle(Signature signature, BuiltInFunctionKind builtInFunctionKind)
+    {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
+        this.builtInFunctionKind = requireNonNull(builtInFunctionKind, "builtInFunctionKind is null");
     }
 
     @JsonProperty
@@ -68,6 +77,12 @@ public class BuiltInFunctionHandle
         return signature.getName().getCatalogSchemaName();
     }
 
+    @JsonProperty
+    public BuiltInFunctionKind getBuiltInFunctionKind()
+    {
+        return builtInFunctionKind;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -78,13 +93,14 @@ public class BuiltInFunctionHandle
             return false;
         }
         BuiltInFunctionHandle that = (BuiltInFunctionHandle) o;
-        return Objects.equals(signature, that.signature);
+        return Objects.equals(signature, that.signature)
+                && Objects.equals(builtInFunctionKind, that.builtInFunctionKind);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature);
+        return Objects.hash(signature, builtInFunctionKind);
     }
 
     @Override
