@@ -14,6 +14,7 @@
 
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -71,8 +72,13 @@ public class CodegenScalarFromAnnotationsParser
 
     public static List<SqlScalarFunction> parseFunctionDefinitions(Class<?> clazz)
     {
+        return parseFunctionDefinitions(clazz, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<SqlScalarFunction> parseFunctionDefinitions(Class<?> clazz, CatalogSchemaName functionNamespace)
+    {
         return findScalarsInFunctionDefinitionClass(clazz).stream()
-                .map(method -> createSqlScalarFunction(method))
+                .map(method -> createSqlScalarFunction(method, functionNamespace))
                 .collect(toImmutableList());
     }
 
@@ -112,12 +118,12 @@ public class CodegenScalarFromAnnotationsParser
                 .collect(toImmutableList());
     }
 
-    private static SqlScalarFunction createSqlScalarFunction(Method method)
+    private static SqlScalarFunction createSqlScalarFunction(Method method, CatalogSchemaName functionNamespace)
     {
         CodegenScalarFunction codegenScalarFunction = method.getAnnotation(CodegenScalarFunction.class);
 
         Signature signature = new Signature(
-                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, codegenScalarFunction.value()),
+                QualifiedObjectName.valueOf(functionNamespace, codegenScalarFunction.value()),
                 FunctionKind.SCALAR,
                 Arrays.stream(method.getAnnotationsByType(TypeParameter.class)).map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy())).collect(toImmutableList()),
                 ImmutableList.of(),
