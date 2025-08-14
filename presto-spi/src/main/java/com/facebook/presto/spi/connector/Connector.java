@@ -110,6 +110,14 @@ public interface Connector
     }
 
     /**
+     * @return the set of functions provided by this connector
+     */
+    default Set<Class<?>> getSystemFunctions()
+    {
+        return emptySet();
+    }
+
+    /**
      * @return the system properties for this connector
      */
     default List<PropertyMetadata<?>> getSessionProperties()

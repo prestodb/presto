@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,7 +56,7 @@ public class AggregationFromAnnotationsParser
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz)) {
+        for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz, JAVA_BUILTIN_NAMESPACE)) {
             if (aggregation.getSignature().getReturnType().equals(returnType) &&
                     aggregation.getSignature().getArgumentTypes().equals(argumentTypes)) {
                 return aggregation;
@@ -64,6 +66,11 @@ public class AggregationFromAnnotationsParser
     }
 
     public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition)
+    {
+        return parseFunctionDefinitions(aggregationDefinition, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition, CatalogSchemaName functionNamespace)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
@@ -76,7 +83,7 @@ public class AggregationFromAnnotationsParser
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory, functionNamespace);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
                         builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
                     }
@@ -97,7 +104,7 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory, JAVA_BUILTIN_NAMESPACE);
                 implementationsBuilder.addImplementation(implementation);
             }
         }
