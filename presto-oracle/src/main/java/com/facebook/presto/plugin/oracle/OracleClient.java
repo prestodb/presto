@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
@@ -35,9 +38,15 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.bigintReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.decimalReadMapping;
@@ -172,6 +181,43 @@ public class OracleClient
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
         }
         return super.toPrestoType(session, typeHandle);
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded()) {
+                return "VARCHAR2(4000)"; // Oracle max before CLOB
+            }
+            return format("VARCHAR2(%s)", varcharType.getLengthSafe());
+        }
+        if (type instanceof CharType) {
+            return format("CHAR(%s)", ((CharType) type).getLength());
+        }
+        if (type instanceof DecimalType) {
+            return format("NUMBER(%s, %s)",
+                    ((DecimalType) type).getPrecision(),
+                    ((DecimalType) type).getScale());
+        }
+
+        if (BIGINT.equals(type)) {
+            return "NUMBER(19)";
+        }
+        if (INTEGER.equals(type)) {
+            return "NUMBER(10)";
+        }
+        if (DOUBLE.equals(type)) {
+            return "BINARY_DOUBLE";
+        }
+        if (REAL.equals(type)) {
+            return "BINARY_FLOAT";
+        }
+        if (BOOLEAN.equals(type)) {
+            return "NUMBER(1)";
+        }
+        return super.toSqlType(type);
     }
 
     @Override
