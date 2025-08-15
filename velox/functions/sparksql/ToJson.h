@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <vector>
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/TimeUtils.h"
@@ -44,9 +45,9 @@ template <typename T>
 void appendDecimal(T value, const Type& type, std::string& result) {
   auto [precision, scale] = getDecimalPrecisionScale(type);
   const size_t maxSize = DecimalUtil::maxStringViewSize(precision, scale);
-  char buffer[maxSize];
-  size_t len = DecimalUtil::castToString(value, scale, maxSize, buffer);
-  result.append(buffer, len);
+  std::vector<char> buffer(maxSize);
+  size_t len = DecimalUtil::castToString(value, scale, maxSize, buffer.data());
+  result.append(buffer.data(), len);
 }
 
 // Forward declarations for explicit specializations.
@@ -214,10 +215,10 @@ void toJson<TypeKind::TIMESTAMP>(
         functions::buildJodaDateTimeFormatter("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
             .value();
     const auto maxSize = formatter->maxResultSize(options.timeZone);
-    char buffer[maxSize];
-    auto size =
-        formatter->format(value, options.timeZone, maxSize, buffer, false, "Z");
-    result.append("\"").append(buffer, size).append("\"");
+    std::vector<char> buffer(maxSize);
+    auto size = formatter->format(
+        value, options.timeZone, maxSize, buffer.data(), false, "Z");
+    result.append("\"").append(buffer.data(), size).append("\"");
   }
 }
 
