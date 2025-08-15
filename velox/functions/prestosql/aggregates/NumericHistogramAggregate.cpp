@@ -58,7 +58,7 @@ class NumericHistogram {
       if (right != nullptr) {
         penalty_ = computePenalty(value, weight, right->value_, right->weight_);
       } else {
-        penalty_ = std::numeric_limits<double>::infinity();
+        penalty_ = std::numeric_limits<double>::quiet_NaN();
       }
       if (left != nullptr) {
         left->right_ = this;
@@ -70,10 +70,12 @@ class NumericHistogram {
 
     struct Compare {
       bool operator()(const Entry* current, const Entry* other) const {
-        if (current->penalty_ == other->penalty_) {
+        const auto penaltyComparison =
+            doubleCompare(current->penalty_, other->penalty_);
+        if (penaltyComparison == 0) {
           return current->id_ > other->id_;
         }
-        return current->penalty_ > other->penalty_;
+        return penaltyComparison == 1;
       }
     };
 
@@ -279,7 +281,7 @@ class NumericHistogram {
   }
   // Following Java Standard:
   // https://docs.oracle.com/javase/7/docs/api/java/lang/Double.html#compare(double,%20double)
-  int doubleCompare(double d1, double d2) {
+  static int doubleCompare(double d1, double d2) {
     // Handle NaN: NaN is considered greater than any other value, including
     // infinity
     if (std::isnan(d1)) {

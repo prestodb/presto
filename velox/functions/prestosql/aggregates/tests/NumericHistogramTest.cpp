@@ -585,6 +585,23 @@ class NumericHistogramTest : public AggregationTestBase {
           {"numeric_histogram(2, c0, c1)"},
           {expectedFiveBuckets});
     }
+    {
+      auto valuesAndWeights = makeRowVector({
+          makeNullableFlatVector<TValue>({1, -1, 50}),
+          makeNullableFlatVector<TWeight>({-1, 1, 1}),
+      });
+
+      auto expectedFiveBuckets = makeRowVector({
+          makeMapVector<TValue, TValue>({
+              {{-std::numeric_limits<TValue>::infinity(), 0}, {50, 1}},
+          }),
+      });
+      testAggregations(
+          {valuesAndWeights},
+          {},
+          {"numeric_histogram(2, c0, c1)"},
+          {expectedFiveBuckets});
+    }
   }
 };
 
