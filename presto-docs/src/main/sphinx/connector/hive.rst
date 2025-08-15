@@ -171,7 +171,7 @@ Property Name                                            Description            
                                                          installations where Presto is collocated with every
                                                          DataNode.
 
-``hive.order-based-execution-enabled``                   Enable order-based execution. When enabled, Hive files  ``false``
+``hive.order-based-execution-enabled``                   Enable order-based execution. When enabled, Hive files       ``false``
                                                          become non-splittable and the table ordering properties
                                                          would be exposed to plan optimizer
 
