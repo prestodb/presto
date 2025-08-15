@@ -2280,6 +2280,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<UpdateHandle>(p);
     return;
   }
+  if (type == "MergeHandle") {
+    j = *std::static_pointer_cast<MergeHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type ExecutionWriterTarget ");
 }
@@ -2320,6 +2324,12 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
   }
   if (type == "UpdateHandle") {
     std::shared_ptr<UpdateHandle> k = std::make_shared<UpdateHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "MergeHandle") {
+    std::shared_ptr<MergeHandle> k = std::make_shared<MergeHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -6891,6 +6901,71 @@ void from_json(const json& j, MemoryInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+}
+
+void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorMergeTableHandle  ConnectorMergeTableHandle");
+  }
+
+  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+MergeHandle::MergeHandle() noexcept {
+  _type = "MergeHandle";
+}
+
+void to_json(json& j, const MergeHandle& p) {
+  j = json::object();
+  j["@type"] = "MergeHandle";
+  to_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "MergeHandle",
+      "TableHandle",
+      "tableHandle");
+  to_json_key(
+      j,
+      "connectorMergeTableHandle",
+      p.connectorMergeTableHandle,
+      "MergeHandle",
+      "ConnectorMergeTableHandle",
+      "connectorMergeTableHandle");
+}
+
+void from_json(const json& j, MergeHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "MergeHandle",
+      "TableHandle",
+      "tableHandle");
+  from_json_key(
+      j,
+      "connectorMergeTableHandle",
+      p.connectorMergeTableHandle,
+      "MergeHandle",
+      "ConnectorMergeTableHandle",
+      "connectorMergeTableHandle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 MergeJoinNode::MergeJoinNode() noexcept {
   _type = ".MergeJoinNode";
 }
@@ -6980,6 +7055,151 @@ void from_json(const json& j, MergeJoinNode& p) {
       "MergeJoinNode",
       "VariableReferenceExpression",
       "rightHashVariable");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<RowChangeParadigm, json> RowChangeParadigm_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {RowChangeParadigm::CHANGE_ONLY_UPDATED_COLUMNS,
+         "CHANGE_ONLY_UPDATED_COLUMNS"},
+        {RowChangeParadigm::DELETE_ROW_AND_INSERT_ROW,
+         "DELETE_ROW_AND_INSERT_ROW"}};
+void to_json(json& j, const RowChangeParadigm& e) {
+  static_assert(
+      std::is_enum<RowChangeParadigm>::value,
+      "RowChangeParadigm must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RowChangeParadigm_enum_table),
+      std::end(RowChangeParadigm_enum_table),
+      [e](const std::pair<RowChangeParadigm, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(RowChangeParadigm_enum_table))
+           ? it
+           : std::begin(RowChangeParadigm_enum_table))
+          ->second;
+}
+void from_json(const json& j, RowChangeParadigm& e) {
+  static_assert(
+      std::is_enum<RowChangeParadigm>::value,
+      "RowChangeParadigm must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RowChangeParadigm_enum_table),
+      std::end(RowChangeParadigm_enum_table),
+      [&j](const std::pair<RowChangeParadigm, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(RowChangeParadigm_enum_table))
+           ? it
+           : std::begin(RowChangeParadigm_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const MergeParadigmAndTypes& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "paradigm",
+      p.paradigm,
+      "MergeParadigmAndTypes",
+      "RowChangeParadigm",
+      "paradigm");
+  to_json_key(
+      j,
+      "columnTypes",
+      p.columnTypes,
+      "MergeParadigmAndTypes",
+      "List<Type>",
+      "columnTypes");
+  to_json_key(
+      j,
+      "rowIdType",
+      p.rowIdType,
+      "MergeParadigmAndTypes",
+      "Type",
+      "rowIdType");
+}
+
+void from_json(const json& j, MergeParadigmAndTypes& p) {
+  from_json_key(
+      j,
+      "paradigm",
+      p.paradigm,
+      "MergeParadigmAndTypes",
+      "RowChangeParadigm",
+      "paradigm");
+  from_json_key(
+      j,
+      "columnTypes",
+      p.columnTypes,
+      "MergeParadigmAndTypes",
+      "List<Type>",
+      "columnTypes");
+  from_json_key(
+      j,
+      "rowIdType",
+      p.rowIdType,
+      "MergeParadigmAndTypes",
+      "Type",
+      "rowIdType");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const MergeTarget& p) {
+  j = json::object();
+  to_json_key(j, "handle", p.handle, "MergeTarget", "TableHandle", "handle");
+  to_json_key(
+      j,
+      "mergeHandle",
+      p.mergeHandle,
+      "MergeTarget",
+      "MergeHandle",
+      "mergeHandle");
+  to_json_key(
+      j,
+      "schemaTableName",
+      p.schemaTableName,
+      "MergeTarget",
+      "SchemaTableName",
+      "schemaTableName");
+  to_json_key(
+      j,
+      "mergeParadigmAndTypes",
+      p.mergeParadigmAndTypes,
+      "MergeTarget",
+      "MergeParadigmAndTypes",
+      "mergeParadigmAndTypes");
+}
+
+void from_json(const json& j, MergeTarget& p) {
+  from_json_key(j, "handle", p.handle, "MergeTarget", "TableHandle", "handle");
+  from_json_key(
+      j,
+      "mergeHandle",
+      p.mergeHandle,
+      "MergeTarget",
+      "MergeHandle",
+      "mergeHandle");
+  from_json_key(
+      j,
+      "schemaTableName",
+      p.schemaTableName,
+      "MergeTarget",
+      "SchemaTableName",
+      "schemaTableName");
+  from_json_key(
+      j,
+      "mergeParadigmAndTypes",
+      p.mergeParadigmAndTypes,
+      "MergeTarget",
+      "MergeParadigmAndTypes",
+      "mergeParadigmAndTypes");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
