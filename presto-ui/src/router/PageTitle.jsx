@@ -15,144 +15,181 @@
 import React from "react";
 
 type Props = {
-    title: string
-}
+  title: string,
+};
 
 type State = {
-    noConnection: boolean,
-    lightShown: boolean,
-    info: ?any,
-    lastSuccess: number,
-    modalShown: boolean,
-    errorText: ?string,
-}
+  noConnection: boolean,
+  lightShown: boolean,
+  info: ?any,
+  lastSuccess: number,
+  modalShown: boolean,
+  errorText: ?string,
+};
 
 export class PageTitle extends React.Component<Props, State> {
-    timeoutId: TimeoutID;
+  timeoutId: TimeoutID;
 
-    constructor(props: Props) {
-        super(props);
-        this.state = {
-            noConnection: false,
-            lightShown: false,
-            info: null,
-            lastSuccess: Date.now(),
-            modalShown: false,
-            errorText: null,
-        };
-    }
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      noConnection: false,
+      lightShown: false,
+      info: null,
+      lastSuccess: Date.now(),
+      modalShown: false,
+      errorText: null,
+    };
+  }
 
-    refreshLoop: () => void = () => {
-        clearTimeout(this.timeoutId);
-        fetch("/v1/info")
-            .then(response => response.json())
-            .then(info => {
-                this.setState({
-                    info: info,
-                    noConnection: false,
-                    lastSuccess: Date.now(),
-                    modalShown: false,
-                });
-                //$FlowFixMe$ Bootstrap 3 plugin
-                $('#no-connection-modal').hide();
-                this.resetTimer();
-            })
-            .catch(error => {
-                this.setState({
-                    noConnection: true,
-                    lightShown: !this.state.lightShown,
-                    errorText: error
-                });
-                this.resetTimer();
-
-                if (!this.state.modalShown && (error || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
-                    //$FlowFixMe$ Bootstrap 3 plugin
-                    $('#no-connection-modal').hide();
-                    this.setState({modalShown: true});
-                }
+  refreshLoop: () => void = () => {
+    clearTimeout(this.timeoutId);
+    fetch("/v1/info")
+      .then((response) => response.json())
+      .then((info) => {
+        this.setState({
+          info: info,
+          noConnection: false,
+          lastSuccess: Date.now(),
+          modalShown: false,
         });
-    }
+        //$FlowFixMe$ Bootstrap 3 plugin
+        $("#no-connection-modal").hide();
+        this.resetTimer();
+      })
+      .catch((error) => {
+        this.setState({
+          noConnection: true,
+          lightShown: !this.state.lightShown,
+          errorText: error,
+        });
+        this.resetTimer();
 
-    resetTimer() {
-        clearTimeout(this.timeoutId);
-        this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
-    }
-
-    componentDidMount() {
-        this.refreshLoop.bind(this)();
-    }
-
-    renderStatusLight(): any {
-        if (this.state.noConnection) {
-            if (this.state.lightShown) {
-                return <span className="status-light status-light-red" id="status-indicator"/>;
-            }
-            else {
-                return <span className="status-light" id="status-indicator"/>
-            }
+        if (
+          !this.state.modalShown &&
+          (error || Date.now() - this.state.lastSuccess > 30 * 1000)
+        ) {
+          //$FlowFixMe$ Bootstrap 3 plugin
+          $("#no-connection-modal").hide();
+          this.setState({ modalShown: true });
         }
-        return <span className="status-light status-light-green" id="status-indicator"/>;
-    }
+      });
+  };
 
-    render(): any {
-        const info = this.state.info;
-        if (!info) {
-            return null;
-        }
+  resetTimer() {
+    clearTimeout(this.timeoutId);
+    this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
+  }
 
+  componentDidMount() {
+    this.refreshLoop.bind(this)();
+  }
+
+  renderStatusLight(): any {
+    if (this.state.noConnection) {
+      if (this.state.lightShown) {
         return (
-            <div>
-                <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-                    <div className="container-fluid">
-                        <div className="navbar-header">
-                            <table>
-                                <tbody>
-                                <tr>
-                                    <td>
-                                        <a href="/ui/"><img src="assets/logo.png"/></a>
-                                    </td>
-                                    <td>
-                                        <span className="navbar-brand">Presto Router Overview</span>
-                                        
-                                    </td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
-                            <span className="navbar-toggler-icon"></span>
-                            </button>
-                        <div id="navbar" className="navbar-collapse collapse">
-                            <ul className="nav navbar-nav navbar-right">
-                                <li>
-                                    <span className="navbar-cluster-info">
-                                        <span className="uppercase">Environment</span><br/>
-                                        <span className="text" id="environment">{info.environment}</span>
-                                    </span>
-                                </li>
-                                <li>
-                                    <span className="navbar-cluster-info logout">
-                                        <a className="btn btn-md btn-info style-check logout-btn" href="/logout">Logout</a>
-                                    </span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </nav>
-                <div id="no-connection-modal" className="modal" tabIndex="-1" role="dialog">
-                    <div className="modal-dialog modal-sm" role="document">
-                        <div className="modal-content">
-                            <div className="row error-message">
-                                <div className="col-12">
-                                    <br />
-                                    <h4>Unable to connect to server</h4>
-                                    <p>{this.state.errorText ? "Error: " + this.state.errorText : null}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          <span
+            className="status-light status-light-red"
+            id="status-indicator"
+          />
         );
+      } else {
+        return <span className="status-light" id="status-indicator" />;
+      }
     }
+    return (
+      <span className="status-light status-light-green" id="status-indicator" />
+    );
+  }
+
+  render(): any {
+    const info = this.state.info;
+    if (!info) {
+      return null;
+    }
+
+    return (
+      <div>
+        <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
+          <div className="container-fluid">
+            <div className="navbar-header">
+              <table>
+                <tbody>
+                  <tr>
+                    <td>
+                      <a href="/ui/">
+                        <img src="assets/logo.png" />
+                      </a>
+                    </td>
+                    <td>
+                      <span className="navbar-brand">
+                        Presto Router Overview
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button
+              className="navbar-toggler"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#navbar"
+              aria-controls="navbar"
+              aria-expanded="false"
+              aria-label="Toggle navigation"
+            >
+              <span className="navbar-toggler-icon"></span>
+            </button>
+            <div id="navbar" className="navbar-collapse collapse">
+              <ul className="nav navbar-nav navbar-right">
+                <li>
+                  <span className="navbar-cluster-info">
+                    <span className="uppercase">Environment</span>
+                    <br />
+                    <span className="text" id="environment">
+                      {info.environment}
+                    </span>
+                  </span>
+                </li>
+                <li>
+                  <span className="navbar-cluster-info logout">
+                    <a
+                      className="btn btn-md btn-info style-check logout-btn"
+                      href="/logout"
+                    >
+                      Logout
+                    </a>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+        <div
+          id="no-connection-modal"
+          className="modal"
+          tabIndex="-1"
+          role="dialog"
+        >
+          <div className="modal-dialog modal-sm" role="document">
+            <div className="modal-content">
+              <div className="row error-message">
+                <div className="col-12">
+                  <br />
+                  <h4>Unable to connect to server</h4>
+                  <p>
+                    {this.state.errorText
+                      ? "Error: " + this.state.errorText
+                      : null}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
