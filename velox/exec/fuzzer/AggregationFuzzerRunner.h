@@ -101,7 +101,7 @@ class AggregationFuzzerRunner {
     if (filteredSignatures.empty()) {
       LOG(ERROR)
           << "No aggregate functions left after filtering using 'only' and 'skip' lists.";
-      exit(1);
+      return 1;
     }
 
     facebook::velox::parse::registerTypeResolver();

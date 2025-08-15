@@ -114,11 +114,9 @@ static void filterSignatures(
     facebook::velox::FunctionSignatureMap& input,
     const std::string& onlyFunctions,
     const std::unordered_set<std::string>& skipFunctions) {
-  auto filteredFunctions = filterOnly(onlyFunctions, skipFunctions);
-
-  if (!filteredFunctions.empty()) {
+  if (!onlyFunctions.empty()) {
     // Parse, lower case and trim it.
-    auto nameSet = exec::splitNames(filteredFunctions);
+    auto nameSet = exec::splitNames(onlyFunctions);
 
     // Use the generated set to filter the input signatures.
     for (auto it = input.begin(); it != input.end();) {

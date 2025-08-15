@@ -71,7 +71,7 @@ class WindowFuzzerRunner {
         filteredWindowSignatures.empty()) {
       LOG(ERROR)
           << "No function left after filtering using 'only' and 'skip' lists.";
-      exit(1);
+      return 1;
     }
 
     facebook::velox::parse::registerTypeResolver();
