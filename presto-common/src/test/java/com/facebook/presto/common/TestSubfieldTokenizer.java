@@ -83,6 +83,19 @@ public class TestSubfieldTokenizer
     }
 
     @Test
+    public void testAngleBracketsInColumnNames()
+    {
+        assertPath(new Subfield("<>col", ImmutableList.of()));
+        assertPath(new Subfield("col<with>brackets", ImmutableList.of()));
+        assertPath(new Subfield("<>col", ImmutableList.of(new NestedField("<>field"))));
+        assertPath(new Subfield("table", ImmutableList.of(new NestedField("<>field"))));
+        assertPath(new Subfield("table", ImmutableList.of(new Subfield.StringSubscript("<>value>"))));
+        assertPath(new Subfield("<table>", ImmutableList.of(
+                new NestedField("<field>"),
+                new Subfield.StringSubscript("<value>"))));
+    }
+
+    @Test
     public void testInvalidPaths()
     {
         assertInvalidPath("a[b]");

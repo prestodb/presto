@@ -153,7 +153,7 @@ class SubfieldTokenizer
 
     private static boolean isUnquotedPathCharacter(char c)
     {
-        return c == ':' || c == '$' || c == '-' || c == '/' || c == '@' || c == '|' || c == '#' || c == ' ' || isUnquotedSubscriptCharacter(c);
+        return c == ':' || c == '$' || c == '-' || c == '/' || c == '@' || c == '|' || c == '#' || c == ' ' || c == '<' || c == '>' || isUnquotedSubscriptCharacter(c);
     }
 
     private Subfield.PathElement matchUnquotedSubscript()
