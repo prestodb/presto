@@ -191,8 +191,19 @@ Property Name                                            Description            
 
 ``hive.experimental.symlink.optimized-reader.enabled``   Experimental: Enable optimized SymlinkTextInputFormat reader ``true``
 
-``hive.copy-on-first-write-configuration-enabled``       Enable copy-on-write for Hadoop configurations to optimize   ``false``
-                                                         memory usage and improve performance with concurrent tasks.
+``hive.copy-on-first-write-configuration-enabled``       Optimize the number of configuration copies by enabling       ``false``
+                                                         copy-on-write technique.
+
+                                                         CopyOnFirstWriteConfiguration acts as a wrapper around the
+                                                         standard Hadoop Configuration object, extending its
+                                                         behaviour by introducing an additional layer of
+                                                         indirection. However, many third-party libraries that
+                                                         integrate with Presto rely directly on the Configuration
+                                                         copy `constructor`_. Since this constructor does not
+                                                         recognise or account for the wrapped nature of
+                                                         CopyOnFirstWriteConfiguration, it can result in silent
+                                                         failures where critical configuration properties are not
+                                                         correctly propagated.
 
 ``hive.non-managed-table-writes-enabled``                Enable writes to non-managed (external) Hive tables.         ``false``
 
@@ -979,10 +990,6 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
-Avro schema properties on Hive 3.x
-----------------------------------
-
-To support Avro tables with schema properties when using Hive 3.x, you must configure the Hive Metastore service.
 
 Parquet Writer Version
 ----------------------
