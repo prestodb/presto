@@ -34,6 +34,7 @@ public class NodeResourceStatus
     @Override
     public boolean hasResources()
     {
-        return (!isResourceManagerEnabled || clusterSizeMonitor.hasRequiredResourceManagers()) && clusterSizeMonitor.hasRequiredCoordinators() && clusterSizeMonitor.hasRequiredWorkers();
+        System.out.println(clusterSizeMonitor.waitForMinimumCoordinatorSidecars());
+        return (!isResourceManagerEnabled || clusterSizeMonitor.hasRequiredResourceManagers()) && clusterSizeMonitor.hasRequiredCoordinators() && clusterSizeMonitor.hasRequiredWorkers() && clusterSizeMonitor.hasRequiredCoordinatorSidecars();
     }
 }
