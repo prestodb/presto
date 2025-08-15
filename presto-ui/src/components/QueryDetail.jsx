@@ -776,43 +776,41 @@ const StageSummary = ({ stage }) => {
     );
 };
 
-class StageList extends React.Component {
-    getStages(stage) {
+const StageList = ({ outputStage }) => {
+    const getStages = (stage) => {
         if (stage === undefined || !stage.hasOwnProperty('subStages')) {
             return []
         }
 
-        return [].concat.apply(stage, stage.subStages.map(this.getStages, this));
-    }
+        return [].concat.apply(stage, stage.subStages.map(getStages));
+    };
 
-    render() {
-        const stages = this.getStages(this.props.outputStage);
+    const stages = getStages(outputStage);
 
-        if (stages === undefined || stages.length === 0) {
-            return (
-                <div className="row">
-                    <div className="col-12">
-                        No stage information available.
-                    </div>
-                </div>
-            );
-        }
-
-        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
-
+    if (stages === undefined || stages.length === 0) {
         return (
             <div className="row">
                 <div className="col-12">
-                    <table className="table" id="stage-list">
-                        <tbody>
-                        {renderedStages}
-                        </tbody>
-                    </table>
+                    No stage information available.
                 </div>
             </div>
         );
     }
-}
+
+    const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
+
+    return (
+        <div className="row">
+            <div className="col-12">
+                <table className="table" id="stage-list">
+                    <tbody>
+                    {renderedStages}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
 
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
