@@ -234,6 +234,18 @@ PyPlanBuilder& PyPlanBuilder::aggregate(
   return *this;
 }
 
+PyPlanBuilder& PyPlanBuilder::streamingAggregate(
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregations) {
+  planBuilder_.streamingAggregation(
+      groupingKeys,
+      aggregations,
+      {},
+      core::AggregationNode::Step::kSingle,
+      false);
+  return *this;
+}
+
 PyPlanBuilder& PyPlanBuilder::orderBy(
     const std::vector<std::string>& keys,
     bool isPartial) {
@@ -302,6 +314,16 @@ PyPlanBuilder& PyPlanBuilder::indexLookupJoin(
     throw std::runtime_error(
         "Index Loop Join subtree must be a single TableScanNode.");
   }
+  return *this;
+}
+
+PyPlanBuilder& PyPlanBuilder::unnest(
+    const std::vector<std::string>& unnestColumns,
+    const std::vector<std::string>& replicateColumns,
+    const std::optional<std::string>& ordinalColumn,
+    const std::optional<std::string>& emptyUnnestValueName) {
+  planBuilder_.unnest(
+      replicateColumns, unnestColumns, ordinalColumn, emptyUnnestValueName);
   return *this;
 }
 

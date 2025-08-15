@@ -40,7 +40,7 @@ class TestPyVeloxRunner(unittest.TestCase):
     def tearDown(self) -> None:
         unregister_all()
 
-    def test_runner_empty(self):
+    def test_empty(self):
         plan_builder = PlanBuilder().values()
         runner = LocalRunner(plan_builder.get_plan_node())
         total_size = 0
@@ -49,19 +49,19 @@ class TestPyVeloxRunner(unittest.TestCase):
             total_size += vector.size()
         self.assertEqual(total_size, 0)
 
-    def test_runner_not_executed(self):
+    def test_not_executed(self):
         # Ensure it won't hang on destruction when it was not executed.
         plan_builder = PlanBuilder().values()
         LocalRunner(plan_builder.get_plan_node())
 
-    def test_runner_executed_twice(self):
+    def test_executed_twice(self):
         # Ensure the runner fails if it is executed twice.
         plan_builder = PlanBuilder().values()
         runner = LocalRunner(plan_builder.get_plan_node())
         runner.execute()
         self.assertRaises(RuntimeError, runner.execute)
 
-    def test_runner_with_values(self):
+    def test_values(self):
         vectors = []
         batch_size = 10
         num_batches = 10
@@ -79,7 +79,7 @@ class TestPyVeloxRunner(unittest.TestCase):
             total_size += vector.size()
         self.assertEqual(total_size, 100)
 
-    def test_runner_with_values_order_limit(self):
+    def test_values_order_limit(self):
         vectors = []
         batch_size = 10
         num_batches = 10
@@ -103,7 +103,7 @@ class TestPyVeloxRunner(unittest.TestCase):
         )
         self.assertEqual(output, expected_result)
 
-    def test_runner_with_hash_join(self):
+    def test_hash_join(self):
         batch_size = 100
         probe = list(range(batch_size))
         build = [i for i in probe if i % 2 == 0]
@@ -138,7 +138,7 @@ class TestPyVeloxRunner(unittest.TestCase):
         result = int(vector.child_at(0)[0])
         self.assertEqual(result, sum(build))
 
-    def test_runner_with_merge_join(self):
+    def test_merge_join(self):
         batch_size = 10
         array = pyarrow.array([42] * batch_size)
         batch = to_velox(pyarrow.record_batch([array], names=["c0"]))
@@ -159,7 +159,7 @@ class TestPyVeloxRunner(unittest.TestCase):
             total_size += vector.size()
         self.assertEqual(total_size, batch_size * batch_size)
 
-    def test_runner_with_merge_sort(self):
+    def test_merge_sort(self):
         array = pyarrow.array([0, 1, 2, 3, 4])
         batch = to_velox(pyarrow.record_batch([array], names=["c0"]))
 
@@ -185,6 +185,48 @@ class TestPyVeloxRunner(unittest.TestCase):
             )
         )
         self.assertEqual(output, expected)
+
+    def test_unnest_and_streaming_aggregate(self):
+        batch_size = 100
+        base = list(range(batch_size))
+
+        input_vector = to_velox(
+            pyarrow.record_batch(
+                [pyarrow.array([base])],
+                names=["c0"]
+            )
+        )
+        # Single row containing an array column with `batch_size` elements.
+        self.assertEqual(input_vector.size(), 1)
+
+        # Unnest it and check we get batch_size rows.
+        plan_builder = PlanBuilder()
+        plan_builder.values([input_vector]).unnest(unnest_columns=["c0"])
+
+        runner = LocalRunner(plan_builder.get_plan_node())
+        iterator = runner.execute()
+        vector = next(iterator)
+
+        self.assertRaises(StopIteration, next, iterator)
+        self.assertEqual(vector.size(), batch_size)
+
+        # Unnest then stream aggregate it back to ensure we get the input
+        # vector back.
+        plan_builder = PlanBuilder()
+        plan_builder.values(
+            [input_vector]
+        ).unnest(
+            unnest_columns=["c0"],
+        ).streaming_aggregate(
+            grouping_keys=[],
+            aggregations=["array_agg(c0_e)"],
+        )
+
+        runner = LocalRunner(plan_builder.get_plan_node())
+        iterator = runner.execute()
+        vector = next(iterator)
+
+        self.assertEqual(vector, input_vector)
 
     def test_register_connectors(self):
         register_hive("conn1")

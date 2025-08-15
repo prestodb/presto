@@ -184,6 +184,19 @@ PYBIND11_MODULE(plan_builder, m) {
           aggregations: List of aggregate expressions.
       )"))
       .def(
+          "streaming_aggregate",
+          &velox::py::PyPlanBuilder::streamingAggregate,
+          py::arg("grouping_keys") = std::vector<std::string>{},
+          py::arg("aggregations") = std::vector<std::string>{},
+          py::doc(R"(
+        Adds a single stage streaming aggregation. Assumes data is sorted based
+        on the grouping keys.
+
+        Args:
+          grouping_keys: List of columns to group by.
+          aggregations: List of aggregate expressions.
+      )"))
+      .def(
           "order_by",
           &velox::py::PyPlanBuilder::orderBy,
           py::arg("keys"),
@@ -275,6 +288,35 @@ PYBIND11_MODULE(plan_builder, m) {
           index_plan_node: The subtree containing the lookup table scan.
           output: List of columns to be projected out of the join.
           join_type: Join type (inner, left, right, full, etc).
+      )"))
+      .def(
+          "unnest",
+          &velox::py::PyPlanBuilder::unnest,
+          py::arg("unnest_columns"),
+          py::arg("replicate_columns") = std::vector<std::string>{},
+          py::arg("ordinal_column") = std::nullopt,
+          py::arg("empty_unnest_value_name") = std::nullopt,
+          py::doc(R"(
+        Add an UnnestNode to unnest (explode) one or more columns of type array
+        or map. The output will contain 'replicatedColumns' followed by
+        unnested columns, followed by an optional ordinality column.
+
+        Args:
+          unnest_columns: A subset of input columns to unnest. These columns
+                         must be of type array or map.
+          replicate_columns: A subset of input columns to include in the output
+                            unmodified.
+          ordinal_column: An optional name for the 'ordinal' column to produce.
+                         This column contains the index of the element of the
+                         unnested array or map. If not specified, the output
+                         will not contain this column.
+          empty_unnest_value_name: An optional name for the 'emptyUnnestValue'
+                                column to produce. This column contains a
+                                boolean indicating if the output row has empty
+                                unnest value or not. If not specified, the
+                                output will not contain this column and the
+                                unnest operator also skips producing output
+                                rows with empty unnest value.
       )"))
       .def(
           "sorted_merge",
