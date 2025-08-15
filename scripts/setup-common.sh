@@ -232,7 +232,7 @@ function install_stemmer {
   wget_and_untar https://snowballstem.org/dist/libstemmer_c-"${STEMMER_VERSION}".tar.gz stemmer
   (
     cd "${DEPENDENCY_DIR}"/stemmer || exit
-    sed -i '/CPPFLAGS=-Iinclude/ s/$/ -fPIC/' Makefile
+    sed -i='' '/CPPFLAGS=-Iinclude/ s/$/ -fPIC/' Makefile
     make clean && make "-j${NPROC}"
     ${SUDO} cp libstemmer.a "${INSTALL_PREFIX}"/lib/
     ${SUDO} cp include/libstemmer.h "${INSTALL_PREFIX}"/include/
