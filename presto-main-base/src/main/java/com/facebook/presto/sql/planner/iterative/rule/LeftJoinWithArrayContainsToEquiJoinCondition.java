@@ -48,7 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
- * When the join condition of a left join has pattern of contains(array, element) where array, we can rewrite it as a equi join condition. For example:
+ * When the join condition of a left join has pattern of contains(array, element) where array is from the right-side relation and element is from the left-side relation, we can rewrite it as an equi join condition. For example:
  * <pre>
  * - Left Join
  *      empty join clause
