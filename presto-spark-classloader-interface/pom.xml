@@ -12,7 +12,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -26,7 +25,7 @@
             <artifactId>guava</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
     </dependencies>

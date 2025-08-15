@@ -19,7 +19,8 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
 import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

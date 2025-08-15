@@ -19,7 +19,8 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.google.errorprone.annotations.ThreadSafe;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.concurrent.Executor;

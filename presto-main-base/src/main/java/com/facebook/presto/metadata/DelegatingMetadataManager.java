@@ -46,7 +46,8 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

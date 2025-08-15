@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.common.Page;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 @NotThreadSafe
 public interface JoinFilterFunction

@@ -45,7 +45,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

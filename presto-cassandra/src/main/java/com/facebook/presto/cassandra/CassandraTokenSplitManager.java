@@ -18,7 +18,8 @@ import com.datastax.driver.core.TokenRange;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -42,7 +42,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

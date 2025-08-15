@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17.0.15 ]
+        java: [ 8.0.452, 17.0.15 ]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:

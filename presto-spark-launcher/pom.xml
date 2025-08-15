@@ -14,7 +14,6 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <shadeBase>com.facebook.presto.spark.launcher.internal</shadeBase>
         <main-class>com.facebook.presto.spark.launcher.PrestoSparkLauncher</main-class>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -29,12 +28,12 @@
         </dependency>
 
         <dependency>
-            <groupId>jakarta.inject</groupId>
-            <artifactId>jakarta.inject-api</artifactId>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>airline</artifactId>
         </dependency>
 
@@ -71,12 +70,12 @@
                                     <shadedPattern>${shadeBase}.io.airlift.airline</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>jakarta.inject</pattern>
-                                    <shadedPattern>${shadeBase}.jakarta.inject</shadedPattern>
+                                    <pattern>javax.inject</pattern>
+                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>jakarta.annotation</pattern>
-                                    <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
+                                    <pattern>javax.annotation</pattern>
+                                    <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.checkerframework</pattern>

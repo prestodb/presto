@@ -15,7 +15,8 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.google.errorprone.annotations.ThreadSafe;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;

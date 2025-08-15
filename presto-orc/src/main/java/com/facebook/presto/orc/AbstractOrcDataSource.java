@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.airlift.units.DataSize;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
@@ -22,6 +21,7 @@ import io.airlift.slice.ChunkedSliceInput.SliceLoader;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

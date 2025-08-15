@@ -15,7 +15,8 @@ package com.facebook.presto.client;
 
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.security.SelectedRole;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.util.Map;

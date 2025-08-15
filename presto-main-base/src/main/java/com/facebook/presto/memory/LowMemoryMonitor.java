@@ -16,9 +16,10 @@ package com.facebook.presto.memory;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.executor.TaskExecutor;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;

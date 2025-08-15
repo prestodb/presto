@@ -24,7 +24,6 @@ import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import jakarta.annotation.Nullable;
 import org.apache.datasketches.common.ArrayOfBooleansSerDe;
 import org.apache.datasketches.common.ArrayOfDoublesSerDe;
 import org.apache.datasketches.common.ArrayOfItemsSerDe;
@@ -32,6 +31,8 @@ import org.apache.datasketches.common.ArrayOfLongsSerDe;
 import org.apache.datasketches.common.ArrayOfStringsSerDe;
 import org.apache.datasketches.kll.KllItemsSketch;
 import org.openjdk.jol.info.ClassLayout;
+
+import javax.annotation.Nullable;
 
 import java.util.Comparator;
 import java.util.Map;

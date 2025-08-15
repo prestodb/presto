@@ -301,11 +301,8 @@ See :doc:`/connector` for more information about configuring connectors.
 Running Presto
 --------------
 
-Presto requires Java 17 to run both the coordinator and workers. Please ensure
-that your system has a valid Java 17 installation before starting Presto.
-
-The installation directory contains the launcher script
-in ``bin/launcher``. Presto can be started as a daemon by running the following:
+The installation directory contains the launcher script in ``bin/launcher``.
+Presto can be started as a daemon by running the following:
 
 .. code-block:: none
 
@@ -499,7 +496,7 @@ and specify an entry point to run the server.
 
 .. code-block:: docker
 
-    FROM openjdk:17-jre
+    FROM openjdk:8-jre
 
     # Presto version will be passed in at build time
     ARG PRESTO_VERSION

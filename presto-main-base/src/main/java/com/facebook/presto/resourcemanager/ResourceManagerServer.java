@@ -23,7 +23,8 @@ import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

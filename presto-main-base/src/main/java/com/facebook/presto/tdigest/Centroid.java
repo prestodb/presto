@@ -31,7 +31,7 @@
 
 package com.facebook.presto.tdigest;
 
-import com.facebook.airlift.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicInteger;

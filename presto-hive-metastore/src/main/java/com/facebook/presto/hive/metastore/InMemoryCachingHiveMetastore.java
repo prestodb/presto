@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -31,9 +30,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.google.errorprone.annotations.ThreadSafe;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
+
+import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;

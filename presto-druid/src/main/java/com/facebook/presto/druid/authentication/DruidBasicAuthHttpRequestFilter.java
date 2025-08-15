@@ -17,7 +17,8 @@ import com.facebook.airlift.http.client.BasicAuthRequestFilter;
 import com.facebook.airlift.http.client.HttpRequestFilter;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.presto.druid.DruidConfig;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

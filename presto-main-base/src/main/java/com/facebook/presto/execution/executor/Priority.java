@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.google.errorprone.annotations.Immutable;
+import javax.annotation.concurrent.Immutable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

@@ -22,9 +22,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-
-import com.google.errorprone.annotations.ThreadSafe;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import org.weakref.jmx.Managed;
 
 @ThreadSafe

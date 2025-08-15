@@ -15,7 +15,8 @@ package com.facebook.presto.operator;
 
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.Immutable;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Comparator;
 import java.util.Iterator;

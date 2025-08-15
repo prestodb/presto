@@ -15,7 +15,8 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.AbstractEventClient;
 import com.facebook.presto.verifier.framework.VerifierConfig;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;

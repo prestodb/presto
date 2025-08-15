@@ -16,7 +16,8 @@ package com.facebook.presto.common.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceTooLargeException;
 import io.airlift.slice.Slices;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Arrays;
 

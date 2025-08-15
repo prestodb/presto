@@ -14,7 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.common.ErrorCode;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

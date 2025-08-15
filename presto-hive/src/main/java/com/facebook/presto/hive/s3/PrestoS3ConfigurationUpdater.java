@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
+
+import javax.inject.Inject;
 
 import java.io.File;
 

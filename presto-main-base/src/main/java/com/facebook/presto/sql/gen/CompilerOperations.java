@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.common.block.Block;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

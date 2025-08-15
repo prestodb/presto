@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.StateMachine;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -35,7 +35,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
@@ -62,6 +61,7 @@ import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.test
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;

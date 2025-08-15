@@ -15,7 +15,8 @@ package com.facebook.presto.iceberg.nessie;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.NotEmpty;
+
+import javax.validation.constraints.NotEmpty;
 
 import java.util.Optional;
 

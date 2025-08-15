@@ -13,8 +13,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <project.build.targetJdk>8</project.build.targetJdk>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -84,6 +82,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -126,7 +129,6 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -140,7 +142,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -150,50 +152,43 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-buffer</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-protocol</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -207,13 +202,18 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
         </dependency>
 
         <dependency>
@@ -247,13 +247,8 @@
         </dependency>
 
         <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.inject</groupId>
-            <artifactId>jakarta.inject-api</artifactId>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -325,7 +320,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -534,12 +528,6 @@
                     <ignoredDependencies>
                         <ignoredDependency>com.facebook.presto:presto-ui:jar</ignoredDependency>
                     </ignoredDependencies>
-                    <!-- Not used, but required to compile due to use of an implementation which uses the "Address" type from this dependency -->
-                    <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-transport-spi</ignoredNonTestScopedDependency>
-                        <!-- Used in tests, but required by drift-transport-netty which is in compile scope -->
-                        <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
-                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
         </plugins>

@@ -15,7 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.scheduler.PartialResultQueryTaskTracker;
 import com.google.inject.Inject;
-import jakarta.annotation.PreDestroy;
+
+import javax.annotation.PreDestroy;
 
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;

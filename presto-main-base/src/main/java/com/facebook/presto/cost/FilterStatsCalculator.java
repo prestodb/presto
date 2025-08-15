@@ -57,8 +57,9 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import jakarta.annotation.Nullable;
-import jakarta.inject.Inject;
+
+import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

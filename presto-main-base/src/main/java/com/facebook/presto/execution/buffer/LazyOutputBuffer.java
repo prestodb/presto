@@ -24,8 +24,9 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashSet;

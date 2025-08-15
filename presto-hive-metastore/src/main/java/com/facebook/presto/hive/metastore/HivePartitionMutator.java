@@ -15,8 +15,9 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.Partition.Builder;
-import jakarta.inject.Inject;
 import org.apache.hadoop.hive.metastore.api.Partition;
+
+import javax.inject.Inject;
 
 public class HivePartitionMutator
         implements PartitionMutator

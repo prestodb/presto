@@ -30,7 +30,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.time.ZoneId;
 import java.util.HashMap;

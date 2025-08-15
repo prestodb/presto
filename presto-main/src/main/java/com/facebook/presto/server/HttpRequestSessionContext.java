@@ -14,8 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -39,11 +37,14 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.Status;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -94,7 +95,7 @@ public final class HttpRequestSessionContext
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
-    private static final String X509_ATTRIBUTE = "jakarta.servlet.request.X509Certificate";
+    private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
     private final String catalog;
     private final String schema;

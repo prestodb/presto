@@ -16,8 +16,9 @@ package com.facebook.presto.server.security;
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.presto.spi.security.AccessDeniedException;
-import jakarta.inject.Inject;
-import jakarta.servlet.http.HttpServletRequest;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
 
 import java.security.Principal;
 import java.util.List;

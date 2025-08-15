@@ -28,8 +28,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;

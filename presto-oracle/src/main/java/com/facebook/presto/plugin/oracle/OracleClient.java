@@ -25,7 +25,8 @@ import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

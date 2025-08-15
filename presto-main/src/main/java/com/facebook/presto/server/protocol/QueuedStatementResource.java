@@ -15,8 +15,6 @@ package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.ErrorCode;
@@ -35,31 +33,34 @@ import com.facebook.presto.tracing.TracerProviderManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.annotation.PreDestroy;
-import jakarta.annotation.security.RolesAllowed;
-import jakarta.inject.Inject;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.DefaultValue;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.container.AsyncResponse;
-import jakarta.ws.rs.container.Suspended;
-import jakarta.ws.rs.core.CacheControl;
-import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.Status;
-import jakarta.ws.rs.core.UriInfo;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.security.RolesAllowed;
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.CacheControl;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.Map;
@@ -73,7 +74,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
-import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.NO_DURATION;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
@@ -92,11 +92,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
-import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
-import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
-import static jakarta.ws.rs.core.Response.Status.CONFLICT;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -104,6 +100,11 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
+import static javax.ws.rs.core.Response.Status.CONFLICT;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/")
 @RolesAllowed(USER)
@@ -193,8 +194,8 @@ public class QueuedStatementResource
      * @param statement The statement or sql query string submitted
      * @param xForwardedProto Forwarded protocol (http or https)
      * @param servletRequest The http request
-     * @param uriInfo {@link jakarta.ws.rs.core.UriInfo}
-     * @return {@link jakarta.ws.rs.core.Response} HTTP response code
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
      */
     @POST
     @Path("/v1/statement")
@@ -241,8 +242,8 @@ public class QueuedStatementResource
      * @param slug Pre-minted slug to protect this query
      * @param xForwardedProto Forwarded protocol (http or https)
      * @param servletRequest The http request
-     * @param uriInfo {@link jakarta.ws.rs.core.UriInfo}
-     * @return {@link jakarta.ws.rs.core.Response} HTTP response code
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
      */
     @PUT
     @Path("/v1/statement/{queryId}")
@@ -286,8 +287,8 @@ public class QueuedStatementResource
      * HTTP endpoint for re-processing a failed query
      * @param queryId Query Identifier of the query to be retried
      * @param xForwardedProto Forwarded protocol (http or https)
-     * @param uriInfo {@link jakarta.ws.rs.core.UriInfo}
-     * @return {@link jakarta.ws.rs.core.Response} HTTP response code
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
      */
     @GET
     @Path("/v1/statement/queued/retry/{queryId}")
@@ -340,7 +341,7 @@ public class QueuedStatementResource
      * @param slug Unique security token generated for each query that controls access to that query's results
      * @param maxWait Time to wait for the query to be dispatched
      * @param xForwardedProto Forwarded protocol (http or https)
-     * @param uriInfo {@link jakarta.ws.rs.core.UriInfo}
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
      * @param asyncResponse
      */
     @GET
@@ -387,7 +388,7 @@ public class QueuedStatementResource
      * @param queryId Query Identifier of query to be canceled
      * @param token Monotonically increasing token that identifies the next batch of query results
      * @param slug Unique security token generated for each query that controls access to that query's results
-     * @return {@link jakarta.ws.rs.core.Response} HTTP response code
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
      */
     @DELETE
     @Path("/v1/statement/queued/{queryId}/{token}")
@@ -566,7 +567,7 @@ public class QueuedStatementResource
 
         /**
          * Returns a placeholder for query results for the client to poll
-         * @param uriInfo {@link jakarta.ws.rs.core.UriInfo}
+         * @param uriInfo {@link javax.ws.rs.core.UriInfo}
          * @param xForwardedProto Forwarded protocol (http or https)
          * @return {@link com.facebook.presto.client.QueryResults}
          */

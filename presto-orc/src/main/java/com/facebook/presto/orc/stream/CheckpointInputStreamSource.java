@@ -14,7 +14,8 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 

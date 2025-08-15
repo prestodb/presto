@@ -28,7 +28,8 @@ import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
 import com.google.common.util.concurrent.ListenableFuture;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

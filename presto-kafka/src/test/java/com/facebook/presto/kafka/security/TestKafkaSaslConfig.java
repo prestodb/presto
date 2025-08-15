@@ -15,8 +15,9 @@ package com.facebook.presto.kafka.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import jakarta.validation.constraints.AssertTrue;
 import org.testng.annotations.Test;
+
+import javax.validation.constraints.AssertTrue;
 
 import java.io.FileWriter;
 import java.io.IOException;

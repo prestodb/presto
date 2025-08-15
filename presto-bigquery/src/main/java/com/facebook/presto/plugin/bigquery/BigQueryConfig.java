@@ -16,8 +16,9 @@ package com.facebook.presto.plugin.bigquery;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.auth.oauth2.GoogleCredentials;
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Min;
+
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.Min;
 
 import java.io.IOException;
 import java.util.Optional;

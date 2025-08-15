@@ -26,9 +26,10 @@ import com.facebook.presto.spi.router.SchedulerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.resolver.ArtifactResolver;
-import jakarta.inject.Inject;
+
+import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.ArrayList;

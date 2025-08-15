@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveType;
@@ -21,7 +20,9 @@ import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.units.Duration;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;

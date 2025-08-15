@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.rcfile;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
@@ -23,8 +22,10 @@ import com.google.common.io.Closer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import jakarta.annotation.Nullable;
+import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
+
+import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -35,8 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
-import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.rcfile.PageSplitterUtil.splitPage;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
@@ -44,6 +43,8 @@ import static com.facebook.presto.rcfile.RcFileReader.validateFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 

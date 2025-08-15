@@ -14,7 +14,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -29,8 +28,8 @@
         </dependency>
 
         <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -59,18 +58,18 @@
         </dependency>
 
         <dependency>
-            <groupId>jakarta.inject</groupId>
-            <artifactId>jakarta.inject-api</artifactId>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -92,18 +91,6 @@
         <dependency>
             <groupId>org.alluxio</groupId>
             <artifactId>alluxio-core-common</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>jakarta.servlet</groupId>
-                    <artifactId>jakarta.servlet-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-core</artifactId>
-            <version>4.1.11</version>
         </dependency>
 
         <!-- Presto SPI -->
@@ -120,7 +107,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -132,7 +119,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -171,11 +158,10 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <configuration>
-                        <ignoredNonTestScopedDependencies>
+                        <ignoredUsedUndeclaredDependencies>
                             <!-- Ignore because it's picked up as false-positive from alluxio's dependencies -->
-                            <ignoredNonTestScopedDependency>io.dropwizard.metrics:metrics-core</ignoredNonTestScopedDependency>
-                            <ignoredNonTestScopedDependency>org.alluxio:alluxio-core-client-fs</ignoredNonTestScopedDependency>
-                        </ignoredNonTestScopedDependencies>
+                            <dependency>io.dropwizard.metrics:metrics-core</dependency>
+                        </ignoredUsedUndeclaredDependencies>
                     </configuration>
                 </plugin>
             </plugins>

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -36,6 +35,8 @@ import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.traverse.TopologicalOrderIterator;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;

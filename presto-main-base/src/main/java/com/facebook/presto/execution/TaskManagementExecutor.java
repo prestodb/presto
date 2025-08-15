@@ -14,9 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.annotation.PreDestroy;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;

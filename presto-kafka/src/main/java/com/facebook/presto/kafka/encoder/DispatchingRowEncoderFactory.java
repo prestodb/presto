@@ -15,7 +15,8 @@ package com.facebook.presto.kafka.encoder;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

@@ -16,7 +16,8 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.List;

@@ -19,7 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;

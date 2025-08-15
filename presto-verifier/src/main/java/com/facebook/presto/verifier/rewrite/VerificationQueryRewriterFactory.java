@@ -30,7 +30,8 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

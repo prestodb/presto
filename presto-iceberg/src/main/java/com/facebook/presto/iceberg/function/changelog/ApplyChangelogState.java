@@ -18,7 +18,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Optional;
 

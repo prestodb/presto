@@ -14,7 +14,8 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.google.common.collect.Iterators;
-import com.google.errorprone.annotations.ThreadSafe;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Iterator;
 import java.util.List;

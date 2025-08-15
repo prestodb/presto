@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.airlift.units.Duration;
+import io.airlift.units.Duration;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;
 

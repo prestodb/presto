@@ -21,7 +21,8 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

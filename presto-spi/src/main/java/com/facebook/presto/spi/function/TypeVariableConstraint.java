@@ -20,7 +20,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 

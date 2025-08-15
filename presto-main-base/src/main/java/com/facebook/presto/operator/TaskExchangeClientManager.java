@@ -16,7 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;

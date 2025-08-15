@@ -27,7 +27,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.LocalCostEstimate;
@@ -42,6 +41,7 @@ import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;

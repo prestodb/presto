@@ -14,7 +14,7 @@
 
 package com.facebook.presto.hudi.split;
 
-import jakarta.inject.Qualifier;
+import javax.inject.Qualifier;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

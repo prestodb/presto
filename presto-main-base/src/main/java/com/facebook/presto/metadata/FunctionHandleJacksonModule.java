@@ -14,7 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.FunctionHandle;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class FunctionHandleJacksonModule
         extends AbstractTypedJacksonModule<FunctionHandle>

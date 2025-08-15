@@ -31,7 +31,8 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;

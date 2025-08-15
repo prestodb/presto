@@ -18,7 +18,8 @@ import com.facebook.airlift.event.client.EventType;
 import com.facebook.presto.verifier.framework.SkippedReason;
 import com.facebook.presto.verifier.framework.SourceQuery;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.Immutable;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;

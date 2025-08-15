@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.bytecode;
 
-import com.google.errorprone.annotations.Immutable;
+import javax.annotation.concurrent.Immutable;
 
 @Immutable
 public class Parameter

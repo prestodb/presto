@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryAllocation;
@@ -22,9 +21,11 @@ import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.annotation.Nullable;
+import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;

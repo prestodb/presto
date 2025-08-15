@@ -25,7 +25,8 @@ import com.google.inject.Provides;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.initialization.AutoModuleProvider;
 import io.prestodb.tempto.initialization.SuiteModuleProvider;
-import jakarta.inject.Named;
+
+import javax.inject.Named;
 
 import java.net.URI;
 

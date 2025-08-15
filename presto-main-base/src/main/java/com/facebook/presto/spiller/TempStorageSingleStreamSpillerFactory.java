@@ -26,7 +26,8 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
-import jakarta.annotation.PreDestroy;
+
+import javax.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.Optional;

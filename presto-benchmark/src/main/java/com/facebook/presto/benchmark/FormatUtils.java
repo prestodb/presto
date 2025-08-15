@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
-import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

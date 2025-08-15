@@ -22,7 +22,8 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

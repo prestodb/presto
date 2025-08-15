@@ -57,7 +57,8 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

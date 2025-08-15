@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.parquet.column.ParquetProperties;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

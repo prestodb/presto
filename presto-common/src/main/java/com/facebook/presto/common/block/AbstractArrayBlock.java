@@ -14,7 +14,8 @@
 package com.facebook.presto.common.block;
 
 import io.airlift.slice.SliceOutput;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.OptionalInt;
 

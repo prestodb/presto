@@ -21,7 +21,6 @@ import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -30,6 +29,8 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+
+import javax.annotation.Nullable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

@@ -18,7 +18,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.spark.execution.http.server.smile.BaseResponse;
+import com.facebook.presto.server.smile.BaseResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -27,8 +27,8 @@ import java.net.URI;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.presto.spark.execution.http.server.RequestHelpers.setContentTypeHeaders;
-import static com.facebook.presto.spark.execution.http.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
+import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static java.util.Objects.requireNonNull;
 
 /**

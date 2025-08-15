@@ -34,7 +34,8 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.security.ViewExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

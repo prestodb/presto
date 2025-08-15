@@ -19,7 +19,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.Immutable;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Arrays;
 import java.util.List;

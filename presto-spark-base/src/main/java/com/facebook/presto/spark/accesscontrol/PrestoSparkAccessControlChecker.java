@@ -22,7 +22,8 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

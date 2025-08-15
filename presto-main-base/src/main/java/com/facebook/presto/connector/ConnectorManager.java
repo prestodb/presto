@@ -69,10 +69,11 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
+
+import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

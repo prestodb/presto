@@ -13,8 +13,6 @@
  */
 package com.facebook.presto;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
@@ -51,7 +49,10 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+
+import javax.inject.Inject;
 
 import java.util.Comparator;
 import java.util.List;

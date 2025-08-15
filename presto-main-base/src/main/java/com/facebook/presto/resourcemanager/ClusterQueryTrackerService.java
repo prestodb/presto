@@ -15,9 +15,10 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.util.PeriodicTaskExecutor;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;

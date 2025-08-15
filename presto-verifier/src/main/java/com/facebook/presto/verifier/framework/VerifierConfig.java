@@ -20,8 +20,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 import java.util.Set;

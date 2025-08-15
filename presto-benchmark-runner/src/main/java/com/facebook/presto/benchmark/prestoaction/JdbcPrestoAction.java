@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.benchmark.prestoaction;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.QueryException;
 import com.facebook.presto.benchmark.framework.QueryResult;
@@ -25,6 +24,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 
 import java.sql.DriverManager;
 import java.sql.ResultSet;

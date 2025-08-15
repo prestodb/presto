@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -25,7 +24,9 @@ import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import jakarta.annotation.Nullable;
+import io.airlift.units.DataSize;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

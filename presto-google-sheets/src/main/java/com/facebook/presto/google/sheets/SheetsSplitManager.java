@@ -21,7 +21,8 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;

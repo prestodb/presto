@@ -26,7 +26,8 @@ import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.HashMap;

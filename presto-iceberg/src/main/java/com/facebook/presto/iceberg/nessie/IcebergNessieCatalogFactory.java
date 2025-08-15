@@ -20,7 +20,8 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

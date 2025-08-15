@@ -15,7 +15,8 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.execution.buffer.OutputBufferMemoryManager;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayDeque;
 import java.util.Queue;

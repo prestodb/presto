@@ -16,7 +16,8 @@ package com.facebook.presto.kafka.schema.file;
 import com.facebook.airlift.configuration.Config;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Set;

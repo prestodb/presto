@@ -17,7 +17,8 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.log.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.errorprone.annotations.ThreadSafe;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.Map;

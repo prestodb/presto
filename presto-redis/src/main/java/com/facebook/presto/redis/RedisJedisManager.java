@@ -19,11 +19,11 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 
@@ -111,7 +111,6 @@ public class RedisJedisManager
 
         return buildJedisPool(host, isTlsEnabled, sslContext);
     }
-
     /**
      * Creates SSLContext initialized with the given truststore.
      */
@@ -142,7 +141,6 @@ public class RedisJedisManager
         config.setMaxTotal(JEDIS_MAX_IDLE_CONNECTIONS);
         return config;
     }
-
     /**
      * Loads the truststore containing Redis server certificate.
      * Returns null if truststore path is not configured.

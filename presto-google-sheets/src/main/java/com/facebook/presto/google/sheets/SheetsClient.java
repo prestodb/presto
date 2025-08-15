@@ -30,7 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.io.FileInputStream;
 import java.io.IOException;

@@ -21,7 +21,8 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;

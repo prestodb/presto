@@ -15,9 +15,10 @@ package com.facebook.presto.memory.context;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;

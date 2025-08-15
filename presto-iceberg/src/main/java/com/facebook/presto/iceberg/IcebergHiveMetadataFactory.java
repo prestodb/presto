@@ -24,7 +24,8 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

@@ -21,7 +21,8 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;

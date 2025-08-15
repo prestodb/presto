@@ -47,9 +47,10 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;

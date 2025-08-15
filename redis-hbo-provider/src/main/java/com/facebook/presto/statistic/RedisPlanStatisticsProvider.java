@@ -22,7 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import io.lettuce.core.LettuceFutures;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.time.Duration;
 import java.util.ArrayList;

@@ -17,7 +17,8 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableSet;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Objects;

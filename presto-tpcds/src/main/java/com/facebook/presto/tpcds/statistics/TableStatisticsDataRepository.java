@@ -18,14 +18,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.teradata.tpcds.Table;
 
-import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Optional;
 
 import static java.lang.String.format;
@@ -60,7 +58,7 @@ public class TableStatisticsDataRepository
             objectMapper
                     .writerWithDefaultPrettyPrinter()
                     .writeValue(file, tableStatisticsData);
-            try (BufferedWriter fileWriter = Files.newBufferedWriter(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+            try (FileWriter fileWriter = new FileWriter(file, true)) {
                 fileWriter.append('\n');
             }
         }

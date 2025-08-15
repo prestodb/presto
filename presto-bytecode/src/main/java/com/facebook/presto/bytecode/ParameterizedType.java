@@ -14,9 +14,10 @@
 package com.facebook.presto.bytecode;
 
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.Immutable;
-import jakarta.annotation.Nullable;
 import org.objectweb.asm.Type;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 

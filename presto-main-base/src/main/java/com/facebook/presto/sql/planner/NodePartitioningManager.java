@@ -39,7 +39,8 @@ import com.facebook.presto.split.EmptySplit;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;

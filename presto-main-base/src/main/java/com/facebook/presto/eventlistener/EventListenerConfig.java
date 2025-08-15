@@ -17,7 +17,8 @@ package com.facebook.presto.eventlistener;
 import com.facebook.airlift.configuration.Config;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.List;

@@ -29,7 +29,8 @@ import com.facebook.presto.thrift.api.connector.PrestoThriftSplitBatch;
 import com.facebook.presto.thrift.api.connector.PrestoThriftTupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;

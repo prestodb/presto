@@ -17,7 +17,8 @@ import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Set;
 

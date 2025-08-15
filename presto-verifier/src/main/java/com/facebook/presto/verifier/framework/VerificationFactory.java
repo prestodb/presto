@@ -27,7 +27,8 @@ import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
 import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.resourcemanager;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -25,9 +24,11 @@ import com.facebook.presto.server.StatusResource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.util.PeriodicTaskExecutor;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

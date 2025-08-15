@@ -20,8 +20,9 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNonRetryableExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRetryableExecutionException;
-import jakarta.inject.Inject;
 import org.apache.spark.SparkException;
+
+import javax.inject.Inject;
 
 import java.util.Base64;
 import java.util.Optional;

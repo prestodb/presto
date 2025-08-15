@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.benchmark;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.OutputStreamDataSink;
@@ -67,6 +66,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;

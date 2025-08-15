@@ -20,7 +20,8 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class MemoryConnector
         implements Connector

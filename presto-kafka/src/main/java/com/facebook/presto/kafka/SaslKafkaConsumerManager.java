@@ -16,7 +16,8 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.kafka.security.ForKafkaSasl;
 import com.facebook.presto.kafka.security.KafkaSaslConfig;
 import com.facebook.presto.spi.HostAddress;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Properties;
 

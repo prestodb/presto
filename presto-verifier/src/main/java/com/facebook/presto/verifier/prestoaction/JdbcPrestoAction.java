@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
@@ -32,6 +31,7 @@ import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.sql.DriverManager;
 import java.sql.ResultSet;

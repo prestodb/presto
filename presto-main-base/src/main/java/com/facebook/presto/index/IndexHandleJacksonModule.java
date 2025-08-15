@@ -16,7 +16,8 @@ package com.facebook.presto.index;
 import com.facebook.presto.metadata.AbstractTypedJacksonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class IndexHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorIndexHandle>

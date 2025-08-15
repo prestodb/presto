@@ -15,7 +15,8 @@ package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 public class FileHiveMetastoreConfig
 {

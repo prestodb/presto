@@ -23,7 +23,8 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
 import com.google.common.collect.ImmutableList;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;

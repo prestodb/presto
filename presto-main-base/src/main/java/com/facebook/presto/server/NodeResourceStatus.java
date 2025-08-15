@@ -14,7 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.ClusterSizeMonitor;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

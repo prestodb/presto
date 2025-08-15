@@ -16,7 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Optional;
 

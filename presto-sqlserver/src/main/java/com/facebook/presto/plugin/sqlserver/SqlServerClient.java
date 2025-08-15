@@ -25,7 +25,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Joiner;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;

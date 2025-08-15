@@ -27,7 +27,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.google.common.collect.ImmutableSet;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;

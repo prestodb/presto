@@ -15,8 +15,6 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-import jakarta.annotation.PostConstruct;
-import jakarta.inject.Inject;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
@@ -26,6 +24,9 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
+
+import javax.annotation.PostConstruct;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.Collections;

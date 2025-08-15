@@ -15,8 +15,9 @@ package com.facebook.presto.server.remotetask;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import com.facebook.airlift.units.Duration;
-import jakarta.validation.constraints.Min;
+import io.airlift.units.Duration;
+
+import javax.validation.constraints.Min;
 
 import java.util.Optional;
 

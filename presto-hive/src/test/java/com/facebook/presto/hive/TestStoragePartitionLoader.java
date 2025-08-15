@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -34,8 +34,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
-import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -47,6 +45,8 @@ import static com.facebook.presto.hive.TestBackgroundHiveSplitLoader.SIMPLE_TABL
 import static com.facebook.presto.hive.TestBackgroundHiveSplitLoader.samplePartitionMetadatas;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static org.testng.Assert.assertEquals;
 
 public class TestStoragePartitionLoader

@@ -25,7 +25,8 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;

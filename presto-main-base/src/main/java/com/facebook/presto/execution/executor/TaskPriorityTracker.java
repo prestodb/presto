@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+import javax.annotation.concurrent.GuardedBy;
 
 import static java.util.Objects.requireNonNull;
 

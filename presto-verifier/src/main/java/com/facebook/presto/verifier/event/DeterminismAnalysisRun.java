@@ -16,7 +16,8 @@ package com.facebook.presto.verifier.event;
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.Immutable;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;

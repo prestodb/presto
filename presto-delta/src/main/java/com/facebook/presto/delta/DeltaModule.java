@@ -52,8 +52,9 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
 

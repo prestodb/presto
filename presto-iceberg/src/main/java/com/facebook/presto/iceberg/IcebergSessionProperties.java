@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.OrcFileWriterConfig;
@@ -26,8 +25,10 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
 import org.apache.parquet.column.ParquetProperties;
+
+import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.List;

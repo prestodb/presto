@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import jakarta.annotation.Nullable;
+import javax.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

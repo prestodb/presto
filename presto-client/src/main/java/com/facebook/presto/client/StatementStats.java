@@ -16,8 +16,9 @@ package com.facebook.presto.client;
 import com.facebook.presto.common.RuntimeStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.errorprone.annotations.Immutable;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 import java.util.OptionalDouble;
 

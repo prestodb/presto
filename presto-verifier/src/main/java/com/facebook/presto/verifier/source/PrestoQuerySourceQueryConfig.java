@@ -14,7 +14,8 @@
 package com.facebook.presto.verifier.source;
 
 import com.facebook.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 

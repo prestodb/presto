@@ -443,7 +443,7 @@ public class TestMySqlFunctionNamespaceManager
                 .max(comparing(SqlInvokedFunction::getRequiredVersion));
         assertTrue(function.isPresent());
         functionNamespaceManager.commit(transactionHandle);
-        return function.orElseThrow().getRequiredFunctionHandle();
+        return function.get().getRequiredFunctionHandle();
     }
 
     private void assertListFunctions(Optional<String> likePattern, Optional<String> escape, SqlInvokedFunction... functions)

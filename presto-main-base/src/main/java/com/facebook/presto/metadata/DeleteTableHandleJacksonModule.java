@@ -14,7 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class DeleteTableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorDeleteTableHandle>

@@ -23,7 +23,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import jakarta.inject.Singleton;
+
+import javax.inject.Singleton;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;

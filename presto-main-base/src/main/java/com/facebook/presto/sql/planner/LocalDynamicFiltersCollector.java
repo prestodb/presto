@@ -15,8 +15,9 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
 public class LocalDynamicFiltersCollector

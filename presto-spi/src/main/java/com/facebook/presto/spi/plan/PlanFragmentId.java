@@ -15,7 +15,8 @@ package com.facebook.presto.spi.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.errorprone.annotations.Immutable;
+
+import javax.annotation.concurrent.Immutable;
 
 import static java.util.Objects.requireNonNull;
 

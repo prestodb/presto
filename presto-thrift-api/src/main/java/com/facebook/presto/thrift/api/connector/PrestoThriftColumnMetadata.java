@@ -18,7 +18,8 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnMetadata;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 

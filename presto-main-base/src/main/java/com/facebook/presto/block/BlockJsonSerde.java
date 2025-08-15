@@ -26,7 +26,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.io.IOException;
 

@@ -16,7 +16,8 @@ package com.facebook.presto.metadata;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.HashMap;

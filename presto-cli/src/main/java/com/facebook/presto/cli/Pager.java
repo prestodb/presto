@@ -14,7 +14,8 @@
 package com.facebook.presto.cli;
 
 import com.google.common.collect.ImmutableList;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.io.FilterOutputStream;
 import java.io.IOException;

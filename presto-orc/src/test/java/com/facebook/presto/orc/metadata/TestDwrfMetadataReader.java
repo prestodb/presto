@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -31,6 +30,7 @@ import com.facebook.presto.orc.protobuf.ByteString;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.ALL_UTF8_SEQUENCES;
@@ -50,6 +49,7 @@ import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.TEST_CODE_P
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.concatSlice;
 import static com.facebook.presto.orc.proto.DwrfProto.Stream.Kind.DATA;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;

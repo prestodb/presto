@@ -19,7 +19,8 @@ import com.facebook.presto.benchmark.event.BenchmarkSuiteEvent;
 import com.facebook.presto.benchmark.source.BenchmarkSuiteSupplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import jakarta.annotation.PostConstruct;
+
+import javax.annotation.PostConstruct;
 
 import java.util.Set;
 

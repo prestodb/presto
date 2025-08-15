@@ -17,7 +17,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.PagesSerde;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Iterator;
 import java.util.List;

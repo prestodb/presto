@@ -42,8 +42,9 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.ThreadSafe;
-import jakarta.inject.Inject;
+
+import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;

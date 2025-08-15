@@ -47,8 +47,9 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import jakarta.inject.Inject;
 import org.apache.spark.SparkContext;
+
+import javax.inject.Inject;
 
 import java.util.Collections;
 import java.util.List;

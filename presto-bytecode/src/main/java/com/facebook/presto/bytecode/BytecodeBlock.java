@@ -23,6 +23,8 @@ import com.facebook.presto.bytecode.instruction.VariableInstruction;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
+import javax.annotation.concurrent.NotThreadSafe;
+
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -51,6 +53,7 @@ import static com.facebook.presto.bytecode.instruction.VariableInstruction.store
 import static com.google.common.base.Preconditions.checkArgument;
 
 @SuppressWarnings("UnusedDeclaration")
+@NotThreadSafe
 public class BytecodeBlock
         implements BytecodeNode
 {

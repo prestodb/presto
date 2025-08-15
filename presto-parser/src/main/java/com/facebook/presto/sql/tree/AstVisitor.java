@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import jakarta.annotation.Nullable;
+import javax.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
 {

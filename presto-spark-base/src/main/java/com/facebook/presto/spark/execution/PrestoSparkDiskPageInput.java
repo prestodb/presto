@@ -27,8 +27,9 @@ import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.InputStreamSliceInput;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.InputStream;

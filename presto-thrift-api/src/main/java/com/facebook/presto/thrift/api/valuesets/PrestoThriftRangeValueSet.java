@@ -23,7 +23,8 @@ import com.facebook.presto.common.predicate.Marker.Bound;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;

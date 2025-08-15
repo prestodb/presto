@@ -21,7 +21,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.airlift.stats.ExponentialDecay;
-import com.facebook.airlift.units.Duration;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
@@ -50,12 +49,14 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.airlift.units.Duration;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.AbstractEventExecutorGroup;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;

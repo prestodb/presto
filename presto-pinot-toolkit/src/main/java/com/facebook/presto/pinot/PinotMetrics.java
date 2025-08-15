@@ -15,9 +15,10 @@ package com.facebook.presto.pinot;
 
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
-import com.google.errorprone.annotations.ThreadSafe;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.TimeUnit;
 

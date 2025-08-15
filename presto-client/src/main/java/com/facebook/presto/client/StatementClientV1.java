@@ -14,7 +14,6 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -22,14 +21,16 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.ThreadSafe;
-import jakarta.annotation.Nullable;
+import io.airlift.units.Duration;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -498,7 +499,7 @@ class StatementClientV1
         if (!response.hasValue()) {
             if (response.getStatusCode() == HTTP_UNAUTHORIZED) {
                 return new ClientException("Authentication failed" +
-                        Optional.ofNullable(response.getResponseBody())
+                        Optional.ofNullable(response.getStatusMessage())
                                 .map(message -> ": " + message)
                                 .orElse(""));
             }

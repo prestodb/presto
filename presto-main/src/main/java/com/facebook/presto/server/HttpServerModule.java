@@ -31,8 +31,9 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import jakarta.servlet.Filter;
-import jakarta.servlet.Servlet;
+
+import javax.servlet.Filter;
+import javax.servlet.Servlet;
 
 import java.util.List;
 import java.util.Set;

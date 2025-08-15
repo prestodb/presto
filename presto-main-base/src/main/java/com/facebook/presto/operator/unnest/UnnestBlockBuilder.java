@@ -15,7 +15,8 @@ package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import static com.facebook.presto.operator.unnest.UnnestBlockBuilder.NullElementFinder.NULL_NOT_FOUND;
 import static com.google.common.base.Verify.verify;

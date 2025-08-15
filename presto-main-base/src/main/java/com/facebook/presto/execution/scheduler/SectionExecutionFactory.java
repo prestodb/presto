@@ -51,7 +51,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

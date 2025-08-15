@@ -22,7 +22,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.time.ZonedDateTime;
 import java.util.List;

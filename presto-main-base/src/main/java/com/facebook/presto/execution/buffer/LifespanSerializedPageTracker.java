@@ -15,7 +15,8 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.SerializedPageReference.PagesReleasedListener;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.Set;

@@ -15,9 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.DataSize.Unit;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -46,6 +43,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

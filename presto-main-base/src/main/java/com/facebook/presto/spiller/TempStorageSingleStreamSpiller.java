@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataOutput;
@@ -35,6 +34,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.io.IOException;

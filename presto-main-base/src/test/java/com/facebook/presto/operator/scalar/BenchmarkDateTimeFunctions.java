@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.airlift.units.Duration;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

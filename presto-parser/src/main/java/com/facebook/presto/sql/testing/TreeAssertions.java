@@ -21,7 +21,8 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

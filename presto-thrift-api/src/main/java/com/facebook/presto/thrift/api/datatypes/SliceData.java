@@ -18,7 +18,8 @@ import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;

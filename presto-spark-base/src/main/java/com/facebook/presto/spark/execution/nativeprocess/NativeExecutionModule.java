@@ -28,11 +28,13 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import io.airlift.units.Duration;
 
 import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class NativeExecutionModule
         implements Module
@@ -85,9 +87,7 @@ public class NativeExecutionModule
         httpClientBinder(binder)
                 .bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
                 .withConfigDefaults(config -> {
-                    // We cannot currently use com.facebook.airlift.units as we are using http-client 0.216
-                    // We need to use io.airlift.units.Duration() but that needs more work
-                    // config.setRequestTimeout(new io.airlift.units.Duration(10, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
                 });
     }

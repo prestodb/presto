@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
@@ -58,13 +57,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.HashSet;

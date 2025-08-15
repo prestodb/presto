@@ -15,8 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
-import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
+
+import javax.annotation.Nullable;
 
 import java.util.Optional;
 

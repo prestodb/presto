@@ -24,7 +24,8 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

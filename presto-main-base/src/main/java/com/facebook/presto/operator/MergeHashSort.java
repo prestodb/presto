@@ -18,7 +18,8 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.util.MergeSortedPages.PageWithPosition;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.function.BiPredicate;

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
@@ -22,7 +21,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.annotation.Nullable;
+import io.airlift.units.DataSize;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 

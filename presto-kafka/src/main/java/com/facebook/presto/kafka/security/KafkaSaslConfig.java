@@ -17,7 +17,8 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.google.common.collect.ImmutableMap;
-import jakarta.validation.constraints.AssertTrue;
+
+import javax.validation.constraints.AssertTrue;
 
 import java.util.Map;
 import java.util.Optional;

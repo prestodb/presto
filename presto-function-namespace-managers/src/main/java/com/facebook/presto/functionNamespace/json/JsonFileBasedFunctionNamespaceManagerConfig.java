@@ -15,7 +15,8 @@ package com.facebook.presto.functionNamespace.json;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 public class JsonFileBasedFunctionNamespaceManagerConfig
 {

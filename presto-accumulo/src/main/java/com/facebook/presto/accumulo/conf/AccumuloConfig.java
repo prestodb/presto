@@ -16,9 +16,10 @@ package com.facebook.presto.accumulo.conf;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
-import com.facebook.airlift.units.Duration;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import io.airlift.units.Duration;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 

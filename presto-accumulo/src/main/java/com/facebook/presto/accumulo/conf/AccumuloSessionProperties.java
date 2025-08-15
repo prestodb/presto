@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.accumulo.conf;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
+
+import javax.inject.Inject;
 
 import java.util.List;
 

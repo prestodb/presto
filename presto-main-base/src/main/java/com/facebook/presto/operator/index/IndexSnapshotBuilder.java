@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
@@ -24,6 +23,7 @@ import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;

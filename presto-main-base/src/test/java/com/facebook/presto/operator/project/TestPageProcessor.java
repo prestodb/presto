@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.airlift.testing.TestingTicker;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -35,6 +34,7 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 

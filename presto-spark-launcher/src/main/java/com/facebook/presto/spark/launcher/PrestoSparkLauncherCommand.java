@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-import jakarta.inject.Inject;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.Map;

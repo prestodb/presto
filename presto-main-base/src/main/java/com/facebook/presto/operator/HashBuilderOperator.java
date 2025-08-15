@@ -26,8 +26,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.ThreadSafe;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -40,7 +41,6 @@ import java.util.OptionalLong;
 import java.util.Queue;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
-import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
@@ -48,6 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

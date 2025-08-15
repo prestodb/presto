@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.resourcemanager;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.memory.ClusterMemoryPool;
 import com.facebook.presto.memory.MemoryInfo;
@@ -32,8 +31,10 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
+
+import javax.annotation.concurrent.GuardedBy;
+import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Collection;

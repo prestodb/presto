@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.DataSize.Unit;
 import com.facebook.hive.orc.lazy.OrcLazyObject;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
@@ -62,6 +60,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -128,8 +128,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
-import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY;
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL;
@@ -177,6 +175,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

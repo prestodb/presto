@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.writer.CompressionBufferPool;
 import com.facebook.presto.orc.writer.CompressionBufferPool.LastUsedCompressionBufferPool;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 
 import java.util.OptionalInt;
 import java.util.Set;
 
-import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_LAZY_OUTPUT_BUFFER;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT;
@@ -32,6 +31,7 @@ import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MIN_OUTPUT_BUFFER
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_RESET_OUTPUT_BUFFER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -14,9 +14,10 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.units.Duration;
-import com.facebook.airlift.units.MinDuration;
-import jakarta.validation.constraints.Min;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
+
+import javax.validation.constraints.Min;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 

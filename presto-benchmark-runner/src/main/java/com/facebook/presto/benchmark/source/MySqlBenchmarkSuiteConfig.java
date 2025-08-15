@@ -14,7 +14,8 @@
 package com.facebook.presto.benchmark.source;
 
 import com.facebook.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 public class MySqlBenchmarkSuiteConfig
 {

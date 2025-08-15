@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -21,6 +20,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Objects;

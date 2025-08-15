@@ -15,7 +15,6 @@ package com.facebook.presto.cli;
 
 import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.log.LoggingConfiguration;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -26,11 +25,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

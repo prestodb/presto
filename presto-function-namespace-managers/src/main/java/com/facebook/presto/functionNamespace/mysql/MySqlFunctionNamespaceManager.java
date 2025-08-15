@@ -32,9 +32,10 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import jakarta.annotation.PostConstruct;
-import jakarta.inject.Inject;
 import org.jdbi.v3.core.Jdbi;
+
+import javax.annotation.PostConstruct;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,7 +50,7 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.hash.Hashing.sha256;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -117,7 +118,10 @@ public class MySqlFunctionNamespaceManager
     public UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
     {
         Optional<UserDefinedType> type = functionNamespaceDao.getUserDefinedType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
-        return type.orElseThrow(() -> new PrestoException(NOT_FOUND, format("Type %s not found", typeName)));
+        if (!type.isPresent()) {
+            throw new PrestoException(NOT_FOUND, format("Type %s not found", typeName));
+        }
+        return type.get();
     }
 
     @Override
@@ -135,7 +139,10 @@ public class MySqlFunctionNamespaceManager
     {
         checkCatalog(functionHandle);
         Optional<SqlInvokedFunction> function = functionNamespaceDao.getFunction(hash(functionHandle.getFunctionId()), functionHandle.getFunctionId(), getLongVersion(functionHandle));
-        return sqlInvokedFunctionToMetadata(function.orElseThrow(() -> new InvalidFunctionHandleException(functionHandle)));
+        if (!function.isPresent()) {
+            throw new InvalidFunctionHandleException(functionHandle);
+        }
+        return sqlInvokedFunctionToMetadata(function.get());
     }
 
     @Override
@@ -143,7 +150,10 @@ public class MySqlFunctionNamespaceManager
     {
         checkCatalog(functionHandle);
         Optional<SqlInvokedFunction> function = functionNamespaceDao.getFunction(hash(functionHandle.getFunctionId()), functionHandle.getFunctionId(), getLongVersion(functionHandle));
-        return sqlInvokedFunctionToImplementation(function.orElseThrow(() -> new InvalidFunctionHandleException(functionHandle)));
+        if (!function.isPresent()) {
+            throw new InvalidFunctionHandleException(functionHandle);
+        }
+        return sqlInvokedFunctionToImplementation(function.get());
     }
 
     @Override
@@ -179,16 +189,16 @@ public class MySqlFunctionNamespaceManager
         jdbi.useTransaction(handle -> {
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             Optional<SqlInvokedFunctionRecord> latestVersion = transactionDao.getLatestRecordForUpdate(hash(function.getFunctionId()), function.getFunctionId());
-            if (!replace && latestVersion.isPresent() && !latestVersion.orElseThrow().isDeleted()) {
+            if (!replace && latestVersion.isPresent() && !latestVersion.get().isDeleted()) {
                 throw new PrestoException(ALREADY_EXISTS, "Function already exists: " + function.getFunctionId());
             }
 
-            if (latestVersion.isEmpty() || !latestVersion.orElseThrow().getFunction().hasSameDefinitionAs(function)) {
+            if (!latestVersion.isPresent() || !latestVersion.get().getFunction().hasSameDefinitionAs(function)) {
                 long newVersion = latestVersion.map(SqlInvokedFunctionRecord::getFunction).map(MySqlFunctionNamespaceManager::getLongVersion).orElse(0L) + 1;
                 insertSqlInvokedFunction(transactionDao, function, newVersion);
             }
-            else if (latestVersion.orElseThrow().isDeleted()) {
-                SqlInvokedFunction latest = latestVersion.orElseThrow().getFunction();
+            else if (latestVersion.get().isDeleted()) {
+                SqlInvokedFunction latest = latestVersion.get().getFunction();
                 checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), false);
             }
@@ -240,7 +250,7 @@ public class MySqlFunctionNamespaceManager
                 transactionDao.setDeleted(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getObjectName());
             }
             else {
-                SqlInvokedFunction latest = functions.stream().collect(onlyElement());
+                SqlInvokedFunction latest = getOnlyElement(functions);
                 checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
             }
@@ -253,7 +263,7 @@ public class MySqlFunctionNamespaceManager
     {
         List<SqlInvokedFunctionRecord> records = new ArrayList<>();
         if (parameterTypes.isPresent()) {
-            SqlFunctionId functionId = new SqlFunctionId(functionName, parameterTypes.orElseThrow());
+            SqlFunctionId functionId = new SqlFunctionId(functionName, parameterTypes.get());
             functionNamespaceDao.getLatestRecordForUpdate(hash(functionId), functionId).ifPresent(records::add);
         }
         else {

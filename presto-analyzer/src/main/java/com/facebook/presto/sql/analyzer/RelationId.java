@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Node;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;

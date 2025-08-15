@@ -18,7 +18,8 @@ import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.server.GracefulShutdownHandler;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.spi.NodeState.ACTIVE;

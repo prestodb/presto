@@ -27,8 +27,7 @@
  */
 package com.facebook.presto.pinot;
 
-import com.google.errorprone.annotations.ThreadSafe;
-
+import javax.annotation.concurrent.ThreadSafe;
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;

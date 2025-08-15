@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
@@ -26,10 +24,13 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Iterator;

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import jakarta.inject.Inject;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
@@ -30,6 +29,8 @@ import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
 import org.apache.kudu.shaded.com.google.common.base.Predicates;
 import org.apache.kudu.shaded.com.google.common.collect.Iterators;
+
+import javax.inject.Inject;
 
 import java.io.IOException;
 import java.math.BigDecimal;

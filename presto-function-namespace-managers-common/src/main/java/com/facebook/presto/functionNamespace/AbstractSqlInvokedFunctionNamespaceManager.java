@@ -44,8 +44,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import jakarta.annotation.Nonnull;
+
+import javax.annotation.ParametersAreNonnullByDefault;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Collection;
 import java.util.List;
@@ -89,7 +90,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 .build(new CacheLoader<QualifiedObjectName, Collection<SqlInvokedFunction>>()
                 {
                     @Override
-                    public Collection<SqlInvokedFunction> load(@Nonnull QualifiedObjectName functionName)
+                    @ParametersAreNonnullByDefault
+                    public Collection<SqlInvokedFunction> load(QualifiedObjectName functionName)
                     {
                         Collection<SqlInvokedFunction> functions = fetchFunctionsDirect(functionName);
                         for (SqlInvokedFunction function : functions) {
@@ -107,7 +109,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 .build(new CacheLoader<SqlFunctionHandle, FunctionMetadata>()
                 {
                     @Override
-                    public FunctionMetadata load(@Nonnull SqlFunctionHandle functionHandle)
+                    @ParametersAreNonnullByDefault
+                    public FunctionMetadata load(SqlFunctionHandle functionHandle)
                     {
                         return fetchFunctionMetadataDirect(functionHandle);
                     }

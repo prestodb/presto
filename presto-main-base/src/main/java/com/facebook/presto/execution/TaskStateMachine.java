@@ -16,7 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.ThreadSafe;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;

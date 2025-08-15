@@ -26,7 +26,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessControl;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Map;
 

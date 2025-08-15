@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.io.Closeable;
 

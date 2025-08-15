@@ -20,7 +20,8 @@ import com.facebook.presto.common.predicate.AllOrNoneValueSet;
 import com.facebook.presto.common.predicate.EquatableValueSet;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.ValueSet;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 

@@ -15,8 +15,9 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
-import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.sql.SQLWarning;
 import java.util.HashSet;

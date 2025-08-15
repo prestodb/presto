@@ -16,13 +16,14 @@ package com.facebook.presto.hudi;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import com.facebook.airlift.units.DataSize;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import io.airlift.units.DataSize;
 
-import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HudiConfig
 {

@@ -36,7 +36,8 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.MultibindingsScanner;
 import com.google.inject.multibindings.ProvidesIntoSet;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class SystemConnectorModule
         implements Module

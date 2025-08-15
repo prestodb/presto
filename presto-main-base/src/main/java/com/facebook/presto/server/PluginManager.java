@@ -63,9 +63,10 @@ import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderMana
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.resolver.ArtifactResolver;
-import jakarta.inject.Inject;
+
+import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;

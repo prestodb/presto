@@ -18,7 +18,8 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HostAndPort;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

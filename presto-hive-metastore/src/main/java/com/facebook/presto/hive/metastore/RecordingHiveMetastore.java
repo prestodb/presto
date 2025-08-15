@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
@@ -34,9 +33,11 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.Immutable;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
+
+import javax.annotation.concurrent.Immutable;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

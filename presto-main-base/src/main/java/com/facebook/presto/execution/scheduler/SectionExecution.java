@@ -15,7 +15,8 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.StageExecutionState;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 

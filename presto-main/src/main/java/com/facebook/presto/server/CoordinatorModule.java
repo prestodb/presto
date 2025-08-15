@@ -18,7 +18,6 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.server.HttpServerBinder.HttpResourceBinding;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
@@ -105,9 +104,11 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
+import io.airlift.units.Duration;
+
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

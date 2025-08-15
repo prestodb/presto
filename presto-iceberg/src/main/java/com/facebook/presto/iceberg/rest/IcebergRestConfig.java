@@ -15,7 +15,8 @@ package com.facebook.presto.iceberg.rest;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 

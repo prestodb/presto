@@ -17,6 +17,7 @@ import com.facebook.drift.client.address.AddressSelector;
 import com.facebook.drift.client.address.SimpleAddressSelector;
 import com.facebook.drift.client.address.SimpleAddressSelector.SimpleAddress;
 import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
+import com.facebook.drift.client.guice.AbstractAnnotatedProvider;
 import com.facebook.drift.client.guice.AddressSelectorBinder;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -55,7 +56,6 @@ public class ContextualSimpleAddressSelectorBinder
             extends AbstractAnnotatedProvider<AddressSelector<SimpleAddress>>
     {
         private final Map<String, SimpleAddressSelectorConfig> addresses;
-
         protected SimpleAddressSelectorProvider(Annotation annotation, Map<String, SimpleAddressSelectorConfig> addresses)
         {
             super(annotation);

@@ -14,7 +14,8 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.common.predicate.Domain;
-import com.google.errorprone.annotations.Immutable;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Map;
 import java.util.Objects;

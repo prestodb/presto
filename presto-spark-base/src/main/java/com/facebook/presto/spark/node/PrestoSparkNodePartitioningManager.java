@@ -24,7 +24,8 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 

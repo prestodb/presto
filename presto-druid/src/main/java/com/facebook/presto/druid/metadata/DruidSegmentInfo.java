@@ -16,7 +16,8 @@ package com.facebook.presto.druid.metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;

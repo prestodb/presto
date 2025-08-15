@@ -14,9 +14,10 @@
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.airlift.stats.CounterStat;
-import com.google.errorprone.annotations.ThreadSafe;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
 public class NodeSelectionStats

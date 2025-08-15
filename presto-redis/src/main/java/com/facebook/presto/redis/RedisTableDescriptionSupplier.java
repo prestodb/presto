@@ -19,7 +19,8 @@ import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

@@ -18,7 +18,8 @@ import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.RowDecoderFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

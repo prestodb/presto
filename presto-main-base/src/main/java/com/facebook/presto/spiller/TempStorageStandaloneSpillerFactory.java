@@ -20,7 +20,8 @@ import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.storage.TempStorageManager;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.Optional;
 

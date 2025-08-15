@@ -37,7 +37,8 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.Iterator;

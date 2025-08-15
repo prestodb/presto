@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CachingCostProvider;
@@ -40,6 +39,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.util.HashSet;
 import java.util.Iterator;

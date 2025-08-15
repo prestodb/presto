@@ -14,7 +14,8 @@
 package com.facebook.presto.memory.context;
 
 import com.google.common.io.Closer;
-import com.google.errorprone.annotations.ThreadSafe;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 

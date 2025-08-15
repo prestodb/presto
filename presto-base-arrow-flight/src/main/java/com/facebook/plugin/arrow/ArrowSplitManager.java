@@ -19,8 +19,9 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import jakarta.inject.Inject;
 import org.apache.arrow.flight.FlightInfo;
+
+import javax.inject.Inject;
 
 import java.util.List;
 

@@ -23,7 +23,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import io.airlift.slice.Slice;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 
@@ -41,7 +42,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 @ThriftStruct
 public final class PrestoThriftBlock
@@ -277,7 +278,7 @@ public final class PrestoThriftBlock
             case HYPER_LOG_LOG:
                 return PrestoThriftHyperLogLog.fromBlock(block);
             case ARRAY:
-                Type elementType = type.getTypeParameters().stream().collect(onlyElement());
+                Type elementType = getOnlyElement(type.getTypeParameters());
                 if (BigintType.BIGINT.equals(elementType)) {
                     return PrestoThriftBigintArray.fromBlock(block);
                 }

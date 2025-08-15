@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
@@ -24,7 +23,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.Immutable;
+import io.airlift.units.Duration;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.OptionalDouble;

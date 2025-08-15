@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 import static java.util.Objects.requireNonNull;
 

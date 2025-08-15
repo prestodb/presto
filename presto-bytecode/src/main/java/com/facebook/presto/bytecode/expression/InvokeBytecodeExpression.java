@@ -19,7 +19,8 @@ import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import jakarta.annotation.Nullable;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 

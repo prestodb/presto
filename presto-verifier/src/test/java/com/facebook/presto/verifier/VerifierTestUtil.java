@@ -37,6 +37,7 @@ import com.facebook.presto.verifier.source.MySqlSourceQueryConfig;
 import com.facebook.presto.verifier.source.VerifierDao;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
@@ -53,6 +54,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class VerifierTestUtil
 {
@@ -74,6 +76,7 @@ public class VerifierTestUtil
             false);
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
+            .setCommandTimeout(new Duration(90, SECONDS))
             .build();
 
     private VerifierTestUtil() {}

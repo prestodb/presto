@@ -54,10 +54,11 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import jakarta.inject.Singleton;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.Optional;
@@ -67,7 +68,6 @@ import static com.facebook.drift.client.ExceptionClassifier.NORMAL_RESULT;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory.createStaticDriftNettyMethodInvokerFactory;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static io.netty.buffer.ByteBufAllocator.DEFAULT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -108,7 +108,7 @@ public class TestThriftServerInfoIntegration
         AddressSelector<SimpleAddressSelector.SimpleAddress> addressSelector = new SimpleAddressSelector(
                 ImmutableSet.of(HostAndPort.fromParts("localhost", thriftServerPort)),
                 true);
-        try (DriftNettyMethodInvokerFactory<?> invokerFactory = createStaticDriftNettyMethodInvokerFactory(new DriftNettyClientConfig(), DEFAULT)) {
+        try (DriftNettyMethodInvokerFactory<?> invokerFactory = createStaticDriftNettyMethodInvokerFactory(new DriftNettyClientConfig())) {
             DriftClientFactory clientFactory = new DriftClientFactory(new ThriftCodecManager(), invokerFactory, addressSelector, NORMAL_RESULT);
             ThriftServerInfoClient client = clientFactory.createDriftClient(ThriftServerInfoClient.class).get();
 

@@ -14,7 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.io.File;
 

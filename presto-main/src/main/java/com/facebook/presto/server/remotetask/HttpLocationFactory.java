@@ -23,7 +23,8 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.facebook.presto.spi.QueryId;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.OptionalInt;

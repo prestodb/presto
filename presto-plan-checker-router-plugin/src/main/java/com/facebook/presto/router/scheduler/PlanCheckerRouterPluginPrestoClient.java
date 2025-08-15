@@ -15,16 +15,17 @@ package com.facebook.presto.router.scheduler;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableMap;
-import jakarta.inject.Inject;
+import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import javax.inject.Inject;
 
 import java.net.URI;
 import java.security.Principal;

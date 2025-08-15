@@ -18,8 +18,9 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.util.Set;
 

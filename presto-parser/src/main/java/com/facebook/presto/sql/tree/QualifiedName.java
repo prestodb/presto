@@ -16,7 +16,6 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,7 +23,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
+import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Iterables.isEmpty;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +48,7 @@ public class QualifiedName
     public static QualifiedName of(Iterable<Identifier> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
-        checkArgument(stream(originalParts).findAny().isPresent(), "originalParts is empty");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
 
         return new QualifiedName(ImmutableList.copyOf(originalParts));
     }
@@ -102,12 +102,12 @@ public class QualifiedName
 
     public String getSuffix()
     {
-        return Streams.findLast(parts.stream()).orElseThrow(() -> new IllegalStateException("No suffix found for " + this));
+        return getLast(parts);
     }
 
     public Identifier getOriginalSuffix()
     {
-        return Streams.findLast(originalParts.stream()).orElseThrow(() -> new IllegalStateException("No original suffix found for " + this));
+        return getLast(originalParts);
     }
 
     @Override

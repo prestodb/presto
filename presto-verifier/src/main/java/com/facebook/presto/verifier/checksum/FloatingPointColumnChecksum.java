@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import jakarta.annotation.Nullable;
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 

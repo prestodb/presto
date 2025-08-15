@@ -39,8 +39,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import jakarta.annotation.Nullable;
-import jakarta.annotation.PreDestroy;
+
+import javax.annotation.Nullable;
+import javax.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

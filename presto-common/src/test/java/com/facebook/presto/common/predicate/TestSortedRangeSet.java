@@ -64,7 +64,7 @@ public class TestSortedRangeSet
         assertTrue(rangeSet.isNone());
         assertFalse(rangeSet.isAll());
         assertFalse(rangeSet.isSingleValue());
-        assertFalse(rangeSet.getOrderedRanges().stream().findAny().isPresent());
+        assertTrue(Iterables.isEmpty(rangeSet.getOrderedRanges()));
         assertEquals(rangeSet.getRangeCount(), 0);
         assertEquals(rangeSet.complement(), SortedRangeSet.all(BIGINT));
         assertFalse(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));

@@ -15,7 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.Min;
+
+import javax.validation.constraints.Min;
 
 public class NodeResourceStatusConfig
 {

@@ -14,13 +14,13 @@
 package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.http.TestPrestoSparkHttpClient;
 import com.facebook.presto.sql.planner.PlanFragment;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.net.URI;

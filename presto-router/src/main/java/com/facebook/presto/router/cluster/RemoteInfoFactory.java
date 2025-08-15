@@ -15,7 +15,8 @@ package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.presto.router.RouterConfig;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.net.URI;
 

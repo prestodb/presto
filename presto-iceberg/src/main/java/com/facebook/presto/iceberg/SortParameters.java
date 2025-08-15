@@ -18,7 +18,8 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.OrcFileWriterFactory;
 import com.facebook.presto.hive.SortingFileWriterConfig;
 import com.facebook.presto.spi.PageSorter;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class SortParameters
 {

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.google.errorprone.annotations.Immutable;
+import javax.annotation.concurrent.Immutable;
 
 @Immutable
 public final class PipelineStatus

@@ -15,8 +15,6 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.GarbageCollectionNotificationInfo;
-import com.facebook.airlift.units.DataSize;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.SqlTask;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
@@ -27,10 +25,12 @@ import com.facebook.presto.spi.QueryId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ListMultimap;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import jakarta.inject.Inject;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.Notification;
 import javax.management.NotificationListener;

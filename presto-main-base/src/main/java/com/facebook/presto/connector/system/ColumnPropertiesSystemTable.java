@@ -15,7 +15,8 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.transaction.TransactionManager;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 public class ColumnPropertiesSystemTable
         extends AbstractPropertiesSystemTable

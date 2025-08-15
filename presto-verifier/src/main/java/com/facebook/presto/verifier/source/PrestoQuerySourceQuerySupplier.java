@@ -21,7 +21,8 @@ import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
-import jakarta.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

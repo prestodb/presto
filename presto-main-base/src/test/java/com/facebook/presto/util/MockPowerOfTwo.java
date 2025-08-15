@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.airlift.units.MinDataSize;
-import jakarta.validation.Payload;
+import io.airlift.units.MinDataSize;
+
+import javax.validation.Payload;
 
 import java.lang.annotation.Annotation;
 
