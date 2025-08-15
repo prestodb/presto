@@ -86,15 +86,15 @@ class CudfHashJoinProbe : public exec::Operator, public NvtxHelper {
 
   RowVectorPtr getOutput() override;
 
+  bool skipProbeOnEmptyBuild() const;
+
   exec::BlockingReason isBlocked(ContinueFuture* future) override;
 
   static bool isSupportedJoinType(core::JoinType joinType) {
     return joinType == core::JoinType::kInner ||
         joinType == core::JoinType::kLeft ||
-        joinType == core::JoinType::kRight ||
         joinType == core::JoinType::kAnti ||
-        joinType == core::JoinType::kLeftSemiFilter ||
-        joinType == core::JoinType::kRightSemiFilter;
+        joinType == core::JoinType::kLeftSemiFilter;
   }
 
   bool isFinished() override;
@@ -116,6 +116,15 @@ class CudfHashJoinProbe : public exec::Operator, public NvtxHelper {
   std::vector<size_t> leftColumnOutputIndices_;
   std::vector<size_t> rightColumnOutputIndices_;
   bool finished_{false};
+
+  // Copied from HashProbe.h
+  // Indicates whether to skip probe input data processing or not. It only
+  // applies for a specific set of join types (see skipProbeOnEmptyBuild()), and
+  // the build table is empty and the probe input is read from non-spilled
+  // source. This ensures the hash probe operator keeps running until all the
+  // probe input from the sources have been processed. It prevents the exchange
+  // hanging problem at the producer side caused by the early query finish.
+  bool skipInput_{false};
 };
 
 class CudfHashJoinBridgeTranslator : public exec::Operator::PlanNodeTranslator {

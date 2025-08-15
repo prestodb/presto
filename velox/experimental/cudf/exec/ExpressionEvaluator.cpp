@@ -238,7 +238,9 @@ const std::unordered_map<std::string, Op> sparkBinaryOps = {
     {"lessthanorequal", Op::LESS_EQUAL},
     {"greaterthanorequal", Op::GREATER_EQUAL},
     {"and", Op::NULL_LOGICAL_AND},
-    {"or", Op::NULL_LOGICAL_OR}};
+    {"or", Op::NULL_LOGICAL_OR},
+    {"mod", Op::MOD},
+};
 
 const std::unordered_map<std::string, Op> binaryOps = [] {
   std::unordered_map<std::string, Op> merged(
