@@ -17,10 +17,10 @@ import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 
-import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemBase.AUTHENTICATION_PREFIX;
+/*import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemBase.AUTHENTICATION_PREFIX;
 import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemConfiguration.AUTH_SERVICE_ACCOUNT_ENABLE;
 import static com.google.cloud.hadoop.util.AccessTokenProviderClassFromConfigFactory.ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX;
-import static com.google.cloud.hadoop.util.EntriesCredentialConfiguration.JSON_KEYFILE_SUFFIX;
+import static com.google.cloud.hadoop.util.EntriesCredentialConfiguration.JSON_KEYFILE_SUFFIX;*/
 
 public class HiveGcsConfigurationInitializer
         implements GcsConfigurationInitializer
@@ -41,13 +41,13 @@ public class HiveGcsConfigurationInitializer
 
         if (useGcsAccessToken) {
             // use oauth token to authenticate with Google Cloud Storage
-            config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "false");
-            config.set(AUTHENTICATION_PREFIX + ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX, GcsAccessTokenProvider.class.getName());
+            config.set("fs.gs.enable.service.account.auth", "false");
+            config.set("fs.gs" + ".auth.access.token.provider.impl", GcsAccessTokenProvider.class.getName());
         }
         else if (jsonKeyFilePath != null) {
             // use service account key file
-            config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "true");
-            config.set(AUTHENTICATION_PREFIX + JSON_KEYFILE_SUFFIX, jsonKeyFilePath);
+            config.set("fs.gs.enable.service.account.auth", "true");
+            config.set("fs.gs" + ".auth.service.account.json.keyfile", jsonKeyFilePath);
         }
     }
 }
