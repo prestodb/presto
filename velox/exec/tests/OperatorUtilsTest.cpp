@@ -448,6 +448,36 @@ TEST_F(OperatorUtilsTest, addOperatorRuntimeStats) {
   ASSERT_EQ(stats[statsName].min, 100);
 }
 
+TEST_F(OperatorUtilsTest, setOperatorRuntimeStats) {
+  std::unordered_map<std::string, RuntimeMetric> stats;
+  const std::string statsName("stats");
+  const RuntimeCounter minStatsValue(100, RuntimeCounter::Unit::kBytes);
+  const RuntimeCounter maxStatsValue(200, RuntimeCounter::Unit::kBytes);
+  setOperatorRuntimeStats(statsName, minStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 1);
+  ASSERT_EQ(stats[statsName].sum, 100);
+  ASSERT_EQ(stats[statsName].max, 100);
+  ASSERT_EQ(stats[statsName].min, 100);
+
+  setOperatorRuntimeStats(statsName, maxStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 1);
+  ASSERT_EQ(stats[statsName].sum, 200);
+  ASSERT_EQ(stats[statsName].max, 200);
+  ASSERT_EQ(stats[statsName].min, 200);
+
+  addOperatorRuntimeStats(statsName, maxStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 2);
+  ASSERT_EQ(stats[statsName].sum, 400);
+  ASSERT_EQ(stats[statsName].max, 200);
+  ASSERT_EQ(stats[statsName].min, 200);
+
+  setOperatorRuntimeStats(statsName, minStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 1);
+  ASSERT_EQ(stats[statsName].sum, 100);
+  ASSERT_EQ(stats[statsName].max, 100);
+  ASSERT_EQ(stats[statsName].min, 100);
+}
+
 TEST_F(OperatorUtilsTest, initializeRowNumberMapping) {
   BufferPtr mapping;
   auto rawMapping = initializeRowNumberMapping(mapping, 10, pool());

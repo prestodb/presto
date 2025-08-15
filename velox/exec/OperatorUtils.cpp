@@ -230,7 +230,7 @@ vector_size_t processEncodedFilterResults(
     const SelectivityVector& rows,
     FilterEvalCtx& filterEvalCtx,
     memory::MemoryPool* pool) {
-  auto size = rows.size();
+  const auto size = rows.size();
 
   DecodedVector& decoded = filterEvalCtx.decodedResult;
   decoded.decode(*filterResult.get(), rows);
@@ -454,6 +454,14 @@ std::string makeOperatorSpillPath(
     int32_t operatorId) {
   VELOX_CHECK(!spillDir.empty());
   return fmt::format("{}/{}_{}_{}", spillDir, pipelineId, driverId, operatorId);
+}
+
+void setOperatorRuntimeStats(
+    const std::string& name,
+    const RuntimeCounter& value,
+    std::unordered_map<std::string, RuntimeMetric>& stats) {
+  stats[name] = RuntimeMetric(value.unit);
+  stats[name].addValue(value.value);
 }
 
 void addOperatorRuntimeStats(

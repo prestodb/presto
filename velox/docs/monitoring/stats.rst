@@ -330,3 +330,18 @@ These stats are reported by IterativeVectorSerializer.
    * - compressionSkippedBytes
      -
      - The number of bytes that skip in-efficient compression.
+
+Connector
+---------
+These stats are reported only by connector data or index sources.
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - totalRemainingFilterWallNanos
+     - nanos
+     - The total walltime in nanoseconds that the data or index connector do the remaining filtering.

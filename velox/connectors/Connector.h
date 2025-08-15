@@ -662,6 +662,11 @@ class Connector {
     return nullptr;
   }
 
+  /// The name of the common runtime stats collected and reported by connector
+  /// data/index sources.
+  static inline const std::string kTotalRemainingFilterTime{
+      "totalRemainingFilterWallNanos"};
+
  private:
   static void unregisterTracker(cache::ScanTracker* tracker);
 

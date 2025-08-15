@@ -215,7 +215,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"          runningFinishWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"          runningGetOutputWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"          storageReadBytes    [ ]* sum: .+, count: 1, min: .+, max: .+"},
-       {"          totalRemainingFilterTime\\s+sum: .+, count: .+, min: .+, max: .+"},
+       {"          totalRemainingFilterWallNanos\\s+sum: .+, count: .+, min: .+, max: .+"},
        {"          totalScanTime       [ ]* sum: .+, count: .+, min: .+, max: .+"},
        {"    -- Project\\[1\\]\\[expressions: \\(u_c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(u_c1:BIGINT, ROW\\[\"c1\"\\]\\)\\] -> u_c0:INTEGER, u_c1:BIGINT"},
        {"       Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1, CPU breakdown: B/I/O/F (.+/.+/.+/.+)"},
@@ -310,7 +310,7 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
          {"        runningFinishWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
          {"        runningGetOutputWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
          {"        storageReadBytes [ ]* sum: .+, count: 1, min: .+, max: .+"},
-         {"        totalRemainingFilterTime\\s+sum: .+, count: .+, min: .+, max: .+"},
+         {"        totalRemainingFilterWallNanos\\s+sum: .+, count: .+, min: .+, max: .+"},
          {"        totalScanTime    [ ]* sum: .+, count: .+, min: .+, max: .+"}});
   }
 }
@@ -384,7 +384,7 @@ TEST_F(PrintPlanWithStatsTest, tableWriterWithTableScan) {
        {"        runningFinishWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        runningGetOutputWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        storageReadBytes [ ]* sum: .+, count: 1, min: .+, max: .+"},
-       {"        totalRemainingFilterTime\\s+sum: .+, count: .+, min: .+, max: .+"},
+       {"        totalRemainingFilterWallNanos\\s+sum: .+, count: .+, min: .+, max: .+"},
        {"        totalScanTime    [ ]* sum: .+, count: .+, min: .+, max: .+"}});
 }
 

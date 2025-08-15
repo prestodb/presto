@@ -145,6 +145,12 @@ std::string makeOperatorSpillPath(
     int driverId,
     int32_t operatorId);
 
+/// Set a named runtime metric in operator 'stats'.
+void setOperatorRuntimeStats(
+    const std::string& name,
+    const RuntimeCounter& value,
+    std::unordered_map<std::string, RuntimeMetric>& stats);
+
 /// Add a named runtime metric to operator 'stats'.
 void addOperatorRuntimeStats(
     const std::string& name,
