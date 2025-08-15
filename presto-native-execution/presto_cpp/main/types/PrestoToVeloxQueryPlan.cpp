@@ -559,6 +559,14 @@ std::shared_ptr<protocol::CallExpression> isContains(
   return isFunctionCall(expression, kContains);
 }
 
+// Check if input RowExpression is an 'equal' expression and returns it as
+// CallExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::CallExpression> isEqual(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  static constexpr std::string_view kEqual = "presto.default.$operator$equal";
+  return isFunctionCall(expression, kEqual);
+}
+
 // Check if input RowExpression is an 'and' expression and returns it as
 // SpecialFormExpression. Returns nullptr if input expression is something else.
 std::shared_ptr<protocol::SpecialFormExpression> isAnd(
@@ -2350,6 +2358,41 @@ void parseIndexLookupCondition(
     joinConditionPtrs.push_back(
         std::make_shared<core::InIndexLookupCondition>(
             keyColumnExpr, conditionColumnExpr));
+    return;
+  }
+
+  if (const auto equals = isEqual(filter)) {
+    VELOX_CHECK_EQ(equals->arguments.size(), 2);
+    const auto leftExpr = exprConverter.toVeloxExpr(equals->arguments[0]);
+    const auto rightExpr = exprConverter.toVeloxExpr(equals->arguments[1]);
+
+    const bool leftIsConstant = core::TypedExprs::isConstant(leftExpr);
+    const bool rightIsConstant = core::TypedExprs::isConstant(rightExpr);
+
+    VELOX_CHECK_NE(
+      leftIsConstant,
+      rightIsConstant,
+      "The equal condition must have one key and one constant: {}",
+      toJsonString(filter));
+
+    // Determine which argument is the key (non-constant) and which is the value
+    // (constant)
+    const auto& keyArgument =
+        leftIsConstant ? equals->arguments[1] : equals->arguments[0];
+    const auto& constantExpr = leftIsConstant ? leftExpr : rightExpr;
+
+    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+            keyArgument));
+
+    VELOX_CHECK_NOT_NULL(
+        keyColumnExpr,
+        "Key argument must be a variable reference: {}",
+        toJsonString(keyArgument));
+
+    joinConditionPtrs.push_back(
+        std::make_shared<core::EqualIndexLookupCondition>(
+            keyColumnExpr, constantExpr));
     return;
   }
 
