@@ -13,23 +13,29 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeArrayFunctionQueries;
+import com.facebook.presto.nativeworker.AbstractTestNativeJoinQueries;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoSparkNativeArrayFunctionQueries
-        extends AbstractTestNativeArrayFunctionQueries
+public class TestPrestoSparkNativeJoinQueries
+        extends AbstractTestNativeJoinQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createNativeHiveRunner();
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return createQueryRunner();
+    }
+
+    @Override
+    public Object[][] joinTypeProviderImpl()
+    {
+        return new Object[][] {{partitionedJoin()}};
     }
 }

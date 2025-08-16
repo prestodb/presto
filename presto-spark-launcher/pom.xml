@@ -15,12 +15,18 @@
         <shadeBase>com.facebook.presto.spark.launcher.internal</shadeBase>
         <main-class>com.facebook.presto.spark.launcher.PrestoSparkLauncher</main-class>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <dep.pos.classloader.version>2</dep.pos.classloader.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark${dep.pos.classloader.version}</artifactId>
         </dependency>
 
         <dependency>
@@ -48,7 +54,42 @@
             <artifactId>spark-core</artifactId>
             <scope>provided</scope>
         </dependency>
+
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>spark3</id>
+
+            <activation>
+                <property>
+                    <name>upgrade</name>
+                    <value>true</value>
+                </property>
+            </activation>
+
+            <properties>
+                <dep.pos.classloader.version>3</dep.pos.classloader.version>
+            </properties>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto.spark</groupId>
+                    <artifactId>spark-core</artifactId>
+                    <version>3.4.1-1-20250715.082553-3</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                    <version>2.13.8</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+
 
     <build>
         <plugins>
@@ -105,6 +146,16 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredDependencies>
+                        <ignoredDependency>com.facebook.presto:presto-spark-classloader-spark${dep.pos.classloader.version}</ignoredDependency>
+                    </ignoredDependencies>
+                </configuration>
             </plugin>
         </plugins>
     </build>

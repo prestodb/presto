@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
+import okhttp3.OkHttpClient;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class DetachedNativeExecutionProcessFactory
         extends NativeExecutionProcessFactory
 {
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
@@ -44,7 +44,7 @@ public class DetachedNativeExecutionProcessFactory
 
     @Inject
     public DetachedNativeExecutionProcessFactory(
-            @ForNativeExecutionTask HttpClient httpClient,
+            @ForNativeExecutionTask OkHttpClient httpClient,
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,

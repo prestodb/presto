@@ -45,7 +45,7 @@ public class TestHttpNativeExecutionTaskInfoFetcher
     public void testNativeExecutionTaskFailsWhenProcessCrashes()
     {
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
-                new TestPrestoSparkHttpClient.TestingHttpClient(
+                new TestPrestoSparkHttpClient.TestingOkHttpClient(
                         updateScheduledExecutor,
                         new TestPrestoSparkHttpClient.TestingResponseManager(
                                 TEST_TASK_ID.toString(),
