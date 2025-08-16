@@ -108,9 +108,9 @@ public class SystemConnectorTests
     @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectMetadataCatalogs()
     {
-        String sql = "select catalog_name, connector_id from system.metadata.catalogs";
+        String sql = "select catalog_name, connector_id, connector_name from system.metadata.catalogs";
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR)
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR)
                 .hasAnyRows();
     }
 

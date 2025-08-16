@@ -15,8 +15,8 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -32,7 +32,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
-import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogsWithConnectorContext;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +45,7 @@ public class CatalogSystemTable
     public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
             .column("catalog_name", createUnboundedVarcharType())
             .column("connector_id", createUnboundedVarcharType())
+            .column("connector_name", createUnboundedVarcharType())
             .build();
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -73,8 +74,8 @@ public class CatalogSystemTable
     {
         Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, ConnectorId> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
-            table.addRow(entry.getKey(), entry.getValue().toString());
+        for (Map.Entry<String, CatalogContext> entry : listCatalogsWithConnectorContext(session, metadata, accessControl).entrySet()) {
+            table.addRow(entry.getKey(), entry.getValue().getCatalogName(), entry.getValue().getConnectorName());
         }
         return table.build().cursor();
     }
