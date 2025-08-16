@@ -143,6 +143,10 @@ struct PrestoTask {
   /// Info request. May arrive before there is a Task.
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
 
+  /// If the task has not been started yet, we collect all plan node IDs that
+  /// had 'no more splits' message to process them after the task starts.
+  std::vector<velox::core::PlanNodeId> planNodesWithDelayedNoMoreSplits_;
+
   /// @param taskId Task ID.
   /// @param nodeId Node ID.
   /// @param startCpuTime CPU time in nanoseconds recorded when request to
