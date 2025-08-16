@@ -173,7 +173,7 @@ Property Name                                            Description            
 
 ``hive.order-based-execution-enabled``                   Enable order-based execution. When enabled, Hive files       ``false``
                                                          become non-splittable and the table ordering properties
-                                                         would be exposed to plan optimizer
+                                                         would be exposed to plan optimizer.
 
 ``hive.respect-table-format``                            Should new partitions be written using the existing table    ``true``
                                                          format or the default Presto format?
@@ -227,6 +227,8 @@ Property Name                                            Description            
 
 ``hive.metastore.catalog.name``                          Specifies the catalog name to be passed to the metastore.
 ======================================================== ============================================================ ============
+
+.. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
 
 Avro Configuration Properties
 -----------------------------
@@ -989,7 +991,6 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * ``CREATE TABLE AS`` is not supported.
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
-
 
 Parquet Writer Version
 ----------------------
