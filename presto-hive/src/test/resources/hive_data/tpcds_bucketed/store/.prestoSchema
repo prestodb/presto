@@ -1,0 +1,308 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "s_store_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "s_store_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "s_rec_start_date",
+    "type" : "date"
+  }, {
+    "name" : "s_rec_end_date",
+    "type" : "date"
+  }, {
+    "name" : "s_closed_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "s_store_name",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "s_number_employees",
+    "type" : "int"
+  }, {
+    "name" : "s_floor_space",
+    "type" : "int"
+  }, {
+    "name" : "s_hours",
+    "type" : "char(20)"
+  }, {
+    "name" : "s_manager",
+    "type" : "varchar(40)"
+  }, {
+    "name" : "s_market_id",
+    "type" : "int"
+  }, {
+    "name" : "s_geography_class",
+    "type" : "varchar(100)"
+  }, {
+    "name" : "s_market_desc",
+    "type" : "varchar(100)"
+  }, {
+    "name" : "s_market_manager",
+    "type" : "varchar(40)"
+  }, {
+    "name" : "s_division_id",
+    "type" : "int"
+  }, {
+    "name" : "s_division_name",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "s_company_id",
+    "type" : "int"
+  }, {
+    "name" : "s_company_name",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "s_street_number",
+    "type" : "varchar(10)"
+  }, {
+    "name" : "s_street_name",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "s_street_type",
+    "type" : "char(15)"
+  }, {
+    "name" : "s_suite_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "s_city",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "s_county",
+    "type" : "varchar(30)"
+  }, {
+    "name" : "s_state",
+    "type" : "char(2)"
+  }, {
+    "name" : "s_zip",
+    "type" : "char(10)"
+  }, {
+    "name" : "s_country",
+    "type" : "varchar(20)"
+  }, {
+    "name" : "s_gmt_offset",
+    "type" : "decimal(5,2)"
+  }, {
+    "name" : "s_tax_precentage",
+    "type" : "decimal(5,2)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025747_00055_difhw",
+    "numFiles" : "1",
+    "numRows" : "2",
+    "rawDataSize" : "710",
+    "totalSize" : "596"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "s_geography_class" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 14,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_company_id" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_closed_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2451189,
+        "max" : 2451189
+      },
+      "nullsCount" : 1,
+      "distinctValuesCount" : 1
+    },
+    "s_county" : {
+      "maxValueSizeInBytes" : 17,
+      "totalSizeInBytes" : 34,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_city" : {
+      "maxValueSizeInBytes" : 6,
+      "totalSizeInBytes" : 12,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_division_name" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 14,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_zip" : {
+      "maxValueSizeInBytes" : 5,
+      "totalSizeInBytes" : 10,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_state" : {
+      "maxValueSizeInBytes" : 2,
+      "totalSizeInBytes" : 4,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_rec_end_date" : {
+      "dateStatistics" : {
+        "min" : "2000-03-12",
+        "max" : "2000-03-12"
+      },
+      "nullsCount" : 1,
+      "distinctValuesCount" : 1
+    },
+    "s_floor_space" : {
+      "integerStatistics" : {
+        "min" : 5250760,
+        "max" : 5285950
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_number_employees" : {
+      "integerStatistics" : {
+        "min" : 236,
+        "max" : 245
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_tax_precentage" : {
+      "decimalStatistics" : {
+        "min" : 0.03,
+        "max" : 0.03
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_company_name" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 14,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_street_number" : {
+      "maxValueSizeInBytes" : 3,
+      "totalSizeInBytes" : 6,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_market_id" : {
+      "integerStatistics" : {
+        "min" : 2,
+        "max" : 8
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_rec_start_date" : {
+      "dateStatistics" : {
+        "min" : "1997-03-13",
+        "max" : "1997-03-13"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_store_name" : {
+      "maxValueSizeInBytes" : 5,
+      "totalSizeInBytes" : 9,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_suite_number" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 18,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_street_name" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 16,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_division_id" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_market_desc" : {
+      "maxValueSizeInBytes" : 56,
+      "totalSizeInBytes" : 106,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_country" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 26,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_hours" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 14,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_manager" : {
+      "maxValueSizeInBytes" : 12,
+      "totalSizeInBytes" : 23,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_market_manager" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 31,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_store_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 32,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_gmt_offset" : {
+      "decimalStatistics" : {
+        "min" : -5.00,
+        "max" : -5.00
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "s_street_type" : {
+      "maxValueSizeInBytes" : 3,
+      "totalSizeInBytes" : 5,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "s_store_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    }
+  }
+}

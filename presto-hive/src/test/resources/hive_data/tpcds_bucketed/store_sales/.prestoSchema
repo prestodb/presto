@@ -1,0 +1,284 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "ss_sold_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_sold_time_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_item_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_customer_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_cdemo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_hdemo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_addr_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_store_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_promo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_ticket_number",
+    "type" : "bigint"
+  }, {
+    "name" : "ss_quantity",
+    "type" : "int"
+  }, {
+    "name" : "ss_wholesale_cost",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_list_price",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_sales_price",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_ext_discount_amt",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_ext_sales_price",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_ext_wholesale_cost",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_ext_list_price",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_ext_tax",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_coupon_amt",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_net_paid",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_net_paid_inc_tax",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "ss_net_profit",
+    "type" : "decimal(7,2)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025748_00057_difhw",
+    "numFiles" : "11",
+    "numRows" : "120527",
+    "rawDataSize" : "35555465",
+    "totalSize" : "15398761"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "bucketProperty" : {
+    "bucketedBy" : [ "ss_sold_date_sk" ],
+    "bucketCount" : 11,
+    "sortedBy" : [ ],
+    "bucketFunctionType" : "HIVE_COMPATIBLE"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "ss_sold_time_sk" : {
+      "integerStatistics" : {
+        "min" : 28810,
+        "max" : 75585
+      },
+      "nullsCount" : 5372,
+      "distinctValuesCount" : 8921
+    },
+    "ss_cdemo_sk" : {
+      "integerStatistics" : {
+        "min" : 37,
+        "max" : 1920695
+      },
+      "nullsCount" : 5380,
+      "distinctValuesCount" : 10071
+    },
+    "ss_ext_discount_amt" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 16289.77
+      },
+      "nullsCount" : 5327,
+      "distinctValuesCount" : 20260
+    },
+    "ss_ext_sales_price" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 18723.88
+      },
+      "nullsCount" : 5344,
+      "distinctValuesCount" : 80388
+    },
+    "ss_promo_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 3
+      },
+      "nullsCount" : 5303,
+      "distinctValuesCount" : 3
+    },
+    "ss_net_profit" : {
+      "decimalStatistics" : {
+        "min" : -9753.89,
+        "max" : 8463.00
+      },
+      "nullsCount" : 5469,
+      "distinctValuesCount" : 86273
+    },
+    "ss_addr_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1000
+      },
+      "nullsCount" : 5291,
+      "distinctValuesCount" : 1006
+    },
+    "ss_ticket_number" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 10000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 10167
+    },
+    "ss_wholesale_cost" : {
+      "decimalStatistics" : {
+        "min" : 1.00,
+        "max" : 100.00
+      },
+      "nullsCount" : 5369,
+      "distinctValuesCount" : 10091
+    },
+    "ss_ext_list_price" : {
+      "decimalStatistics" : {
+        "min" : 1.29,
+        "max" : 19651.50
+      },
+      "nullsCount" : 5328,
+      "distinctValuesCount" : 94509
+    },
+    "ss_sold_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450816,
+        "max" : 2452642
+      },
+      "nullsCount" : 5335,
+      "distinctValuesCount" : 1765
+    },
+    "ss_item_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1973
+    },
+    "ss_coupon_amt" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 16289.77
+      },
+      "nullsCount" : 5327,
+      "distinctValuesCount" : 20260
+    },
+    "ss_store_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2
+      },
+      "nullsCount" : 5422,
+      "distinctValuesCount" : 2
+    },
+    "ss_quantity" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 100
+      },
+      "nullsCount" : 5450,
+      "distinctValuesCount" : 100
+    },
+    "ss_list_price" : {
+      "decimalStatistics" : {
+        "min" : 1.03,
+        "max" : 199.98
+      },
+      "nullsCount" : 5429,
+      "distinctValuesCount" : 18197
+    },
+    "ss_sales_price" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 199.56
+      },
+      "nullsCount" : 5436,
+      "distinctValuesCount" : 14115
+    },
+    "ss_customer_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1000
+      },
+      "nullsCount" : 5298,
+      "distinctValuesCount" : 1008
+    },
+    "ss_ext_wholesale_cost" : {
+      "decimalStatistics" : {
+        "min" : 1.14,
+        "max" : 10000.00
+      },
+      "nullsCount" : 5369,
+      "distinctValuesCount" : 90292
+    },
+    "ss_net_paid" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 17690.96
+      },
+      "nullsCount" : 5290,
+      "distinctValuesCount" : 83196
+    },
+    "ss_ext_tax" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 1592.18
+      },
+      "nullsCount" : 5310,
+      "distinctValuesCount" : 28089
+    },
+    "ss_hdemo_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 7200
+      },
+      "nullsCount" : 5333,
+      "distinctValuesCount" : 5271
+    },
+    "ss_net_paid_inc_tax" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 19283.14
+      },
+      "nullsCount" : 5313,
+      "distinctValuesCount" : 91981
+    }
+  }
+}

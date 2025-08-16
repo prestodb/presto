@@ -1,0 +1,54 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "regionkey",
+    "type" : "bigint"
+  }, {
+    "name" : "name",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(152)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025632_00015_difhw",
+    "numFiles" : "1",
+    "numRows" : "5",
+    "rawDataSize" : "459",
+    "totalSize" : "384"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "regionkey" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 4
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    },
+    "name" : {
+      "maxValueSizeInBytes" : 11,
+      "totalSizeInBytes" : 34,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 115,
+      "totalSizeInBytes" : 330,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    }
+  }
+}

@@ -32,8 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryResults
-        implements QueryStatusInfo, QueryData
-{
+        implements QueryStatusInfo, QueryData {
     private final String id;
     private final URI infoUri;
     private final URI partialCancelUri;
@@ -46,6 +45,7 @@ public class QueryResults
     private final List<PrestoWarning> warnings;
     private final String updateType;
     private final Long updateCount;
+
 
     @JsonCreator
     public QueryResults(
@@ -60,8 +60,7 @@ public class QueryResults
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("updateCount") Long updateCount)
-    {
+            @JsonProperty("updateCount") Long updateCount) {
         this(
                 id,
                 infoUri,
@@ -89,8 +88,7 @@ public class QueryResults
             QueryError error,
             List<PrestoWarning> warnings,
             String updateType,
-            Long updateCount)
-    {
+            Long updateCount) {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
         this.partialCancelUri = partialCancelUri;
@@ -217,6 +215,7 @@ public class QueryResults
     {
         return warnings;
     }
+
 
     /**
      * Returns the update type, if any, of the query as determined by the Analyzer

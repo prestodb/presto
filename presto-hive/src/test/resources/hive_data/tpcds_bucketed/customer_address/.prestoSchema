@@ -1,0 +1,146 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "ca_address_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "ca_address_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "ca_street_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "ca_street_name",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "ca_street_type",
+    "type" : "char(15)"
+  }, {
+    "name" : "ca_suite_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "ca_city",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "ca_county",
+    "type" : "varchar(30)"
+  }, {
+    "name" : "ca_state",
+    "type" : "char(2)"
+  }, {
+    "name" : "ca_zip",
+    "type" : "char(10)"
+  }, {
+    "name" : "ca_country",
+    "type" : "varchar(20)"
+  }, {
+    "name" : "ca_gmt_offset",
+    "type" : "decimal(5,2)"
+  }, {
+    "name" : "ca_location_type",
+    "type" : "char(20)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025731_00045_difhw",
+    "numFiles" : "1",
+    "numRows" : "1000",
+    "rawDataSize" : "161958",
+    "totalSize" : "145300"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "ca_street_name" : {
+      "maxValueSizeInBytes" : 18,
+      "totalSizeInBytes" : 8346,
+      "nullsCount" : 28,
+      "distinctValuesCount" : 551
+    },
+    "ca_suite_number" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 7613,
+      "nullsCount" : 29,
+      "distinctValuesCount" : 75
+    },
+    "ca_location_type" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 8582,
+      "nullsCount" : 34,
+      "distinctValuesCount" : 3
+    },
+    "ca_state" : {
+      "maxValueSizeInBytes" : 2,
+      "totalSizeInBytes" : 1946,
+      "nullsCount" : 27,
+      "distinctValuesCount" : 51
+    },
+    "ca_address_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1000
+    },
+    "ca_country" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 12610,
+      "nullsCount" : 30,
+      "distinctValuesCount" : 1
+    },
+    "ca_address_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 16000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1000
+    },
+    "ca_county" : {
+      "maxValueSizeInBytes" : 28,
+      "totalSizeInBytes" : 13505,
+      "nullsCount" : 29,
+      "distinctValuesCount" : 636
+    },
+    "ca_street_number" : {
+      "maxValueSizeInBytes" : 3,
+      "totalSizeInBytes" : 2811,
+      "nullsCount" : 32,
+      "distinctValuesCount" : 647
+    },
+    "ca_zip" : {
+      "maxValueSizeInBytes" : 5,
+      "totalSizeInBytes" : 4840,
+      "nullsCount" : 32,
+      "distinctValuesCount" : 645
+    },
+    "ca_city" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 8642,
+      "nullsCount" : 28,
+      "distinctValuesCount" : 197
+    },
+    "ca_street_type" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 4063,
+      "nullsCount" : 37,
+      "distinctValuesCount" : 20
+    },
+    "ca_gmt_offset" : {
+      "decimalStatistics" : {
+        "min" : -10.00,
+        "max" : -5.00
+      },
+      "nullsCount" : 31,
+      "distinctValuesCount" : 6
+    }
+  }
+}

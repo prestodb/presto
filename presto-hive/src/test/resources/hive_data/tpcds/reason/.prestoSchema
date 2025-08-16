@@ -1,0 +1,54 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "r_reason_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "r_reason_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "r_reason_desc",
+    "type" : "char(100)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025706_00029_difhw",
+    "numFiles" : "1",
+    "numRows" : "1",
+    "rawDataSize" : "54",
+    "totalSize" : "539"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "r_reason_desc" : {
+      "maxValueSizeInBytes" : 19,
+      "totalSizeInBytes" : 19,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "r_reason_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "r_reason_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 16,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    }
+  }
+}

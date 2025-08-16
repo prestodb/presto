@@ -23,6 +23,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.spi.*;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
@@ -33,15 +34,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.MaterializedViewDefinition;
-import com.facebook.presto.spi.MaterializedViewStatus;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
@@ -1194,26 +1187,36 @@ class StatementAnalyzer
             analysis.setUpdateType(null);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "Query Plan", VARCHAR));
         }
-
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
-            List<Expression> orderByExpressions = emptyList();
-            if (node.getOrderBy().isPresent()) {
-                orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
-                if (queryBodyScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent()) {
-                    // not the root scope and ORDER BY is ineffective
-                    analysis.markRedundantOrderBy(node.getOrderBy().get());
-                    warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+
+
+            // 🔔 Insert warning logic here
+            if (node.getWith().isPresent()) {
+                for (WithQuery withQuery : node.getWith().get().getQueries()) {
+                    if (isNonDeterministic(withQuery.getQuery())) {
+                        WarningCode code = new WarningCode(1234, "NON_DETERMINISTIC_CTE");
+                        PrestoWarning warning = new PrestoWarning(code, "CTE reuse may lead to non-deterministic results");
+                        warningCollector.add(warning);
+                    }
                 }
             }
+            List<Expression> orderByExpressions = node.getOrderBy()
+                    .map(OrderBy::getSortItems)
+                    .orElse(ImmutableList.of())
+                    .stream()
+                    .map(SortItem::getSortKey)
+                    .collect(toImmutableList());
+
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
             }
+
             // Input fields == Output fields
             analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
 
@@ -1224,6 +1227,11 @@ class StatementAnalyzer
 
             analysis.setScope(node, queryScope);
             return queryScope;
+        }
+
+        private boolean isNonDeterministic(Query query) {
+            // Naive check — refine later if needed
+            return query.toString().contains("rand()") || query.toString().contains("now()");
         }
 
         @Override
@@ -3241,11 +3249,6 @@ class StatementAnalyzer
 
             List<Expression> orderByFields = orderByFieldsBuilder.build();
             return orderByFields;
-        }
-
-        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)
-        {
-            return createAndAssignScope(node, parentScope, emptyList());
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Field... fields)

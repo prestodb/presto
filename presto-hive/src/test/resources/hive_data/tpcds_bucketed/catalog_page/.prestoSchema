@@ -1,0 +1,116 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "cp_catalog_page_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "cp_catalog_page_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "cp_start_date_sk",
+    "type" : "int"
+  }, {
+    "name" : "cp_end_date_sk",
+    "type" : "int"
+  }, {
+    "name" : "cp_department",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "cp_catalog_number",
+    "type" : "int"
+  }, {
+    "name" : "cp_catalog_page_number",
+    "type" : "int"
+  }, {
+    "name" : "cp_description",
+    "type" : "varchar(100)"
+  }, {
+    "name" : "cp_type",
+    "type" : "varchar(100)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025720_00041_difhw",
+    "numFiles" : "1",
+    "numRows" : "11718",
+    "rawDataSize" : "1832250",
+    "totalSize" : "1621610"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "cp_catalog_page_number" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 108
+      },
+      "nullsCount" : 116,
+      "distinctValuesCount" : 108
+    },
+    "cp_description" : {
+      "maxValueSizeInBytes" : 99,
+      "totalSizeInBytes" : 865538,
+      "nullsCount" : 109,
+      "distinctValuesCount" : 11514
+    },
+    "cp_department" : {
+      "maxValueSizeInBytes" : 10,
+      "totalSizeInBytes" : 115980,
+      "nullsCount" : 120,
+      "distinctValuesCount" : 1
+    },
+    "cp_type" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 89062,
+      "nullsCount" : 110,
+      "distinctValuesCount" : 3
+    },
+    "cp_catalog_page_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 11718
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 11710
+    },
+    "cp_catalog_page_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 187488,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 11718
+    },
+    "cp_catalog_number" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 109
+      },
+      "nullsCount" : 104,
+      "distinctValuesCount" : 109
+    },
+    "cp_end_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450844,
+        "max" : 2453186
+      },
+      "nullsCount" : 108,
+      "distinctValuesCount" : 97
+    },
+    "cp_start_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450815,
+        "max" : 2453005
+      },
+      "nullsCount" : 101,
+      "distinctValuesCount" : 91
+    }
+  }
+}

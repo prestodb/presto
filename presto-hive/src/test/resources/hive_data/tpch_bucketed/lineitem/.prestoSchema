@@ -1,0 +1,197 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "orderkey",
+    "type" : "bigint"
+  }, {
+    "name" : "partkey",
+    "type" : "bigint"
+  }, {
+    "name" : "suppkey",
+    "type" : "bigint"
+  }, {
+    "name" : "linenumber",
+    "type" : "int"
+  }, {
+    "name" : "quantity",
+    "type" : "double"
+  }, {
+    "name" : "extendedprice",
+    "type" : "double"
+  }, {
+    "name" : "discount",
+    "type" : "double"
+  }, {
+    "name" : "tax",
+    "type" : "double"
+  }, {
+    "name" : "returnflag",
+    "type" : "varchar(1)"
+  }, {
+    "name" : "linestatus",
+    "type" : "varchar(1)"
+  }, {
+    "name" : "shipdate",
+    "type" : "date"
+  }, {
+    "name" : "commitdate",
+    "type" : "date"
+  }, {
+    "name" : "receiptdate",
+    "type" : "date"
+  }, {
+    "name" : "shipinstruct",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "shipmode",
+    "type" : "varchar(10)"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(44)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025627_00010_difhw",
+    "numFiles" : "11",
+    "numRows" : "60175",
+    "rawDataSize" : "13049110",
+    "totalSize" : "7291064"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "bucketProperty" : {
+    "bucketedBy" : [ "orderkey" ],
+    "bucketCount" : 11,
+    "sortedBy" : [ ],
+    "bucketFunctionType" : "HIVE_COMPATIBLE"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "returnflag" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 60175,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 3
+    },
+    "linenumber" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 7
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 7
+    },
+    "quantity" : {
+      "doubleStatistics" : {
+        "min" : 1.0,
+        "max" : 50.0
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 50
+    },
+    "orderkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 60000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 15432
+    },
+    "shipmode" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 258126,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 7
+    },
+    "discount" : {
+      "doubleStatistics" : {
+        "min" : 0.0,
+        "max" : 0.1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 11
+    },
+    "tax" : {
+      "doubleStatistics" : {
+        "min" : 0.0,
+        "max" : 0.08
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 9
+    },
+    "suppkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 100
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    },
+    "partkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1973
+    },
+    "shipinstruct" : {
+      "maxValueSizeInBytes" : 17,
+      "totalSizeInBytes" : 722163,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 4
+    },
+    "linestatus" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 60175,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "extendedprice" : {
+      "doubleStatistics" : {
+        "min" : 904.0,
+        "max" : 94949.5
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 35912
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 43,
+      "totalSizeInBytes" : 1598371,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 59880
+    },
+    "receiptdate" : {
+      "dateStatistics" : {
+        "min" : "1992-01-09",
+        "max" : "1998-12-25"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2553
+    },
+    "commitdate" : {
+      "dateStatistics" : {
+        "min" : "1992-02-02",
+        "max" : "1998-10-28"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2487
+    },
+    "shipdate" : {
+      "dateStatistics" : {
+        "min" : "1992-01-04",
+        "max" : "1998-11-29"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2543
+    }
+  }
+}

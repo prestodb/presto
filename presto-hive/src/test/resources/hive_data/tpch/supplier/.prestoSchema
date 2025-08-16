@@ -1,0 +1,94 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "suppkey",
+    "type" : "bigint"
+  }, {
+    "name" : "name",
+    "type" : "varchar(25)"
+  }, {
+    "name" : "address",
+    "type" : "varchar(40)"
+  }, {
+    "name" : "nationkey",
+    "type" : "bigint"
+  }, {
+    "name" : "phone",
+    "type" : "varchar(15)"
+  }, {
+    "name" : "acctbal",
+    "type" : "double"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(101)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025620_00005_difhw",
+    "numFiles" : "2",
+    "numRows" : "100",
+    "rawDataSize" : "16652",
+    "totalSize" : "8201"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "nationkey" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 24
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 25
+    },
+    "address" : {
+      "maxValueSizeInBytes" : 40,
+      "totalSizeInBytes" : 2537,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    },
+    "phone" : {
+      "maxValueSizeInBytes" : 15,
+      "totalSizeInBytes" : 1500,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    },
+    "name" : {
+      "maxValueSizeInBytes" : 18,
+      "totalSizeInBytes" : 1800,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 100,
+      "totalSizeInBytes" : 6115,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    },
+    "suppkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 100
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    },
+    "acctbal" : {
+      "doubleStatistics" : {
+        "min" : -966.2,
+        "max" : 9915.24
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 100
+    }
+  }
+}

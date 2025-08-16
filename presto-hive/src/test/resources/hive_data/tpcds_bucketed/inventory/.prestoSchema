@@ -1,0 +1,75 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "inv_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "inv_item_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "inv_warehouse_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "inv_quantity_on_hand",
+    "type" : "int"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025744_00050_difhw",
+    "numFiles" : "11",
+    "numRows" : "261261",
+    "rawDataSize" : "12519328",
+    "totalSize" : "4778999"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "bucketProperty" : {
+    "bucketedBy" : [ "inv_date_sk" ],
+    "bucketCount" : 11,
+    "sortedBy" : [ ],
+    "bucketFunctionType" : "HIVE_COMPATIBLE"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "inv_quantity_on_hand" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 1000
+      },
+      "nullsCount" : 13044,
+      "distinctValuesCount" : 1010
+    },
+    "inv_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450815,
+        "max" : 2452635
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 267
+    },
+    "inv_warehouse_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "inv_item_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1973
+    }
+  }
+}

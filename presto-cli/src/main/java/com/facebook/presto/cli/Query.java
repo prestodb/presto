@@ -58,6 +58,15 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
+    private final List<PrestoWarning> warnings;
+    public Query(StatementClient client, boolean debug, boolean runtime) {
+        this.client = requireNonNull(client, "client is null");
+        this.debug = debug;
+        this.runtime = runtime;
+        this.warnings = client.getWarnings();
+    }
+
+
     private final boolean runtime;
     private Optional<Long> clientStopTimestamp = Optional.empty();
 
@@ -407,6 +416,9 @@ public class Query
             out.println(prefix + errorLine);
             out.println(padding + "^");
         }
+    }
+
+    public PrestoWarning[] getWarnings() {
     }
 
     private static class PrintStreamWarningsPrinter

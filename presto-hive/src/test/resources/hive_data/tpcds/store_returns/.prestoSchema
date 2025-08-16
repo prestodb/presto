@@ -1,0 +1,245 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "sr_returned_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_return_time_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_item_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_customer_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_cdemo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_hdemo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_addr_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_store_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_reason_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_ticket_number",
+    "type" : "bigint"
+  }, {
+    "name" : "sr_return_quantity",
+    "type" : "int"
+  }, {
+    "name" : "sr_return_amt",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_return_tax",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_return_amt_inc_tax",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_fee",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_return_ship_cost",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_refunded_cash",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_reversed_charge",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_store_credit",
+    "type" : "decimal(7,2)"
+  }, {
+    "name" : "sr_net_loss",
+    "type" : "decimal(7,2)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025707_00032_difhw",
+    "numFiles" : "2",
+    "numRows" : "11925",
+    "rawDataSize" : "2098800",
+    "totalSize" : "431037"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "sr_reversed_charge" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 8152.37
+      },
+      "nullsCount" : 468,
+      "distinctValuesCount" : 8573
+    },
+    "sr_hdemo_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 7200
+      },
+      "nullsCount" : 453,
+      "distinctValuesCount" : 5758
+    },
+    "sr_return_ship_cost" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 7339.15
+      },
+      "nullsCount" : 427,
+      "distinctValuesCount" : 9561
+    },
+    "sr_returned_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450822,
+        "max" : 2452817
+      },
+      "nullsCount" : 451,
+      "distinctValuesCount" : 1945
+    },
+    "sr_ticket_number" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 10000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 7333
+    },
+    "sr_net_loss" : {
+      "decimalStatistics" : {
+        "min" : 1.70,
+        "max" : 7940.72
+      },
+      "nullsCount" : 454,
+      "distinctValuesCount" : 11081
+    },
+    "sr_reason_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1
+      },
+      "nullsCount" : 444,
+      "distinctValuesCount" : 1
+    },
+    "sr_item_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1927
+    },
+    "sr_refunded_cash" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 13074.25
+      },
+      "nullsCount" : 470,
+      "distinctValuesCount" : 9736
+    },
+    "sr_return_tax" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 1136.89
+      },
+      "nullsCount" : 429,
+      "distinctValuesCount" : 5626
+    },
+    "sr_fee" : {
+      "decimalStatistics" : {
+        "min" : 0.50,
+        "max" : 100.00
+      },
+      "nullsCount" : 453,
+      "distinctValuesCount" : 6797
+    },
+    "sr_cdemo_sk" : {
+      "integerStatistics" : {
+        "min" : 316,
+        "max" : 1920559
+      },
+      "nullsCount" : 450,
+      "distinctValuesCount" : 11442
+    },
+    "sr_store_credit" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 8958.83
+      },
+      "nullsCount" : 423,
+      "distinctValuesCount" : 8057
+    },
+    "sr_return_amt" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 14211.15
+      },
+      "nullsCount" : 437,
+      "distinctValuesCount" : 10405
+    },
+    "sr_return_amt_inc_tax" : {
+      "decimalStatistics" : {
+        "min" : 0.00,
+        "max" : 15348.04
+      },
+      "nullsCount" : 443,
+      "distinctValuesCount" : 11142
+    },
+    "sr_addr_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1000
+      },
+      "nullsCount" : 452,
+      "distinctValuesCount" : 1008
+    },
+    "sr_store_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2
+      },
+      "nullsCount" : 436,
+      "distinctValuesCount" : 2
+    },
+    "sr_return_quantity" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 100
+      },
+      "nullsCount" : 466,
+      "distinctValuesCount" : 100
+    },
+    "sr_customer_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1000
+      },
+      "nullsCount" : 419,
+      "distinctValuesCount" : 1008
+    },
+    "sr_return_time_sk" : {
+      "integerStatistics" : {
+        "min" : 28799,
+        "max" : 61195
+      },
+      "nullsCount" : 432,
+      "distinctValuesCount" : 9689
+    }
+  }
+}

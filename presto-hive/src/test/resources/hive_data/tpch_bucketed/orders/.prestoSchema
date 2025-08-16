@@ -1,0 +1,122 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "orderkey",
+    "type" : "bigint"
+  }, {
+    "name" : "custkey",
+    "type" : "bigint"
+  }, {
+    "name" : "orderstatus",
+    "type" : "varchar(1)"
+  }, {
+    "name" : "totalprice",
+    "type" : "double"
+  }, {
+    "name" : "orderdate",
+    "type" : "date"
+  }, {
+    "name" : "orderpriority",
+    "type" : "varchar(15)"
+  }, {
+    "name" : "clerk",
+    "type" : "varchar(15)"
+  }, {
+    "name" : "shippriority",
+    "type" : "int"
+  }, {
+    "name" : "comment",
+    "type" : "varchar(79)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025625_00009_difhw",
+    "numFiles" : "11",
+    "numRows" : "15000",
+    "rawDataSize" : "2488552",
+    "totalSize" : "1642713"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "bucketProperty" : {
+    "bucketedBy" : [ "custkey" ],
+    "bucketCount" : 11,
+    "sortedBy" : [ ],
+    "bucketFunctionType" : "HIVE_COMPATIBLE"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "clerk" : {
+      "maxValueSizeInBytes" : 15,
+      "totalSizeInBytes" : 225000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 995
+    },
+    "orderkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 60000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 15000
+    },
+    "orderstatus" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 15000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 3
+    },
+    "totalprice" : {
+      "doubleStatistics" : {
+        "min" : 874.89,
+        "max" : 466001.28
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 15000
+    },
+    "custkey" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1499
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 990
+    },
+    "comment" : {
+      "maxValueSizeInBytes" : 78,
+      "totalSizeInBytes" : 727364,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 15000
+    },
+    "orderdate" : {
+      "dateStatistics" : {
+        "min" : "1992-01-01",
+        "max" : "1998-08-02"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2443
+    },
+    "shippriority" : {
+      "integerStatistics" : {
+        "min" : 0,
+        "max" : 0
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "orderpriority" : {
+      "maxValueSizeInBytes" : 15,
+      "totalSizeInBytes" : 126188,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 5
+    }
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "c_customer_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "c_customer_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "c_current_cdemo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "c_current_hdemo_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "c_current_addr_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "c_first_shipto_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "c_first_sales_date_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "c_salutation",
+    "type" : "char(10)"
+  }, {
+    "name" : "c_first_name",
+    "type" : "char(20)"
+  }, {
+    "name" : "c_last_name",
+    "type" : "char(30)"
+  }, {
+    "name" : "c_preferred_cust_flag",
+    "type" : "char(1)"
+  }, {
+    "name" : "c_birth_day",
+    "type" : "int"
+  }, {
+    "name" : "c_birth_month",
+    "type" : "int"
+  }, {
+    "name" : "c_birth_year",
+    "type" : "int"
+  }, {
+    "name" : "c_birth_country",
+    "type" : "varchar(20)"
+  }, {
+    "name" : "c_login",
+    "type" : "char(13)"
+  }, {
+    "name" : "c_email_address",
+    "type" : "char(50)"
+  }, {
+    "name" : "c_last_review_date_sk",
+    "type" : "bigint"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025651_00020_difhw",
+    "numFiles" : "1",
+    "numRows" : "1000",
+    "rawDataSize" : "184787",
+    "totalSize" : "44507"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+    "inputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "c_preferred_cust_flag" : {
+      "maxValueSizeInBytes" : 1,
+      "totalSizeInBytes" : 971,
+      "nullsCount" : 29,
+      "distinctValuesCount" : 2
+    },
+    "c_salutation" : {
+      "maxValueSizeInBytes" : 4,
+      "totalSizeInBytes" : 3145,
+      "nullsCount" : 30,
+      "distinctValuesCount" : 6
+    },
+    "c_first_sales_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2449002,
+        "max" : 2452642
+      },
+      "nullsCount" : 30,
+      "distinctValuesCount" : 858
+    },
+    "c_customer_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 1000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1000
+    },
+    "c_login" : {
+      "nullsCount" : 1000,
+      "distinctValuesCount" : 0
+    },
+    "c_current_cdemo_sk" : {
+      "integerStatistics" : {
+        "min" : 2631,
+        "max" : 1913607
+      },
+      "nullsCount" : 26,
+      "distinctValuesCount" : 967
+    },
+    "c_first_name" : {
+      "maxValueSizeInBytes" : 11,
+      "totalSizeInBytes" : 5650,
+      "nullsCount" : 32,
+      "distinctValuesCount" : 516
+    },
+    "c_current_hdemo_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 7193
+      },
+      "nullsCount" : 28,
+      "distinctValuesCount" : 893
+    },
+    "c_current_addr_sk" : {
+      "integerStatistics" : {
+        "min" : 2,
+        "max" : 1000
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 632
+    },
+    "c_last_name" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 6011,
+      "nullsCount" : 24,
+      "distinctValuesCount" : 671
+    },
+    "c_customer_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 16000,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1000
+    },
+    "c_last_review_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2452283,
+        "max" : 2452648
+      },
+      "nullsCount" : 25,
+      "distinctValuesCount" : 344
+    },
+    "c_birth_month" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 12
+      },
+      "nullsCount" : 34,
+      "distinctValuesCount" : 12
+    },
+    "c_birth_country" : {
+      "maxValueSizeInBytes" : 20,
+      "totalSizeInBytes" : 8448,
+      "nullsCount" : 31,
+      "distinctValuesCount" : 210
+    },
+    "c_birth_year" : {
+      "integerStatistics" : {
+        "min" : 1924,
+        "max" : 1992
+      },
+      "nullsCount" : 31,
+      "distinctValuesCount" : 69
+    },
+    "c_birth_day" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 31
+      },
+      "nullsCount" : 38,
+      "distinctValuesCount" : 31
+    },
+    "c_email_address" : {
+      "maxValueSizeInBytes" : 41,
+      "totalSizeInBytes" : 26562,
+      "nullsCount" : 31,
+      "distinctValuesCount" : 969
+    },
+    "c_first_shipto_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2449032,
+        "max" : 2452672
+      },
+      "nullsCount" : 35,
+      "distinctValuesCount" : 849
+    }
+  }
+}

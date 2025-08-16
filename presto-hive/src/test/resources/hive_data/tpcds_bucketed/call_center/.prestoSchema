@@ -1,0 +1,325 @@
+{
+  "owner" : "hive",
+  "tableType" : "MANAGED_TABLE",
+  "dataColumns" : [ {
+    "name" : "cc_call_center_sk",
+    "type" : "bigint"
+  }, {
+    "name" : "cc_call_center_id",
+    "type" : "char(16)"
+  }, {
+    "name" : "cc_rec_start_date",
+    "type" : "date"
+  }, {
+    "name" : "cc_rec_end_date",
+    "type" : "date"
+  }, {
+    "name" : "cc_closed_date_sk",
+    "type" : "int"
+  }, {
+    "name" : "cc_open_date_sk",
+    "type" : "int"
+  }, {
+    "name" : "cc_name",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "cc_class",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "cc_employees",
+    "type" : "int"
+  }, {
+    "name" : "cc_sq_ft",
+    "type" : "int"
+  }, {
+    "name" : "cc_hours",
+    "type" : "char(20)"
+  }, {
+    "name" : "cc_manager",
+    "type" : "varchar(40)"
+  }, {
+    "name" : "cc_mkt_id",
+    "type" : "int"
+  }, {
+    "name" : "cc_mkt_class",
+    "type" : "char(50)"
+  }, {
+    "name" : "cc_mkt_desc",
+    "type" : "varchar(100)"
+  }, {
+    "name" : "cc_market_manager",
+    "type" : "varchar(40)"
+  }, {
+    "name" : "cc_division",
+    "type" : "int"
+  }, {
+    "name" : "cc_division_name",
+    "type" : "varchar(50)"
+  }, {
+    "name" : "cc_company",
+    "type" : "int"
+  }, {
+    "name" : "cc_company_name",
+    "type" : "char(50)"
+  }, {
+    "name" : "cc_street_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "cc_street_name",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "cc_street_type",
+    "type" : "char(15)"
+  }, {
+    "name" : "cc_suite_number",
+    "type" : "char(10)"
+  }, {
+    "name" : "cc_city",
+    "type" : "varchar(60)"
+  }, {
+    "name" : "cc_county",
+    "type" : "varchar(30)"
+  }, {
+    "name" : "cc_state",
+    "type" : "char(2)"
+  }, {
+    "name" : "cc_zip",
+    "type" : "char(10)"
+  }, {
+    "name" : "cc_country",
+    "type" : "varchar(20)"
+  }, {
+    "name" : "cc_gmt_offset",
+    "type" : "decimal(5,2)"
+  }, {
+    "name" : "cc_tax_percentage",
+    "type" : "decimal(5,2)"
+  } ],
+  "partitionColumns" : [ ],
+  "parameters" : {
+    "presto_version" : "testversion",
+    "presto_query_id" : "20250710_025720_00040_difhw",
+    "numFiles" : "1",
+    "numRows" : "2",
+    "rawDataSize" : "798",
+    "totalSize" : "815"
+  },
+  "storageFormat" : {
+    "serDe" : "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+    "inputFormat" : "org.apache.hadoop.mapred.TextInputFormat",
+    "outputFormat" : "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+  },
+  "storageParameters" : {
+    "preferred_ordering_columns" : ""
+  },
+  "serdeParameters" : { },
+  "columnStatistics" : {
+    "cc_class" : {
+      "maxValueSizeInBytes" : 6,
+      "totalSizeInBytes" : 11,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_city" : {
+      "maxValueSizeInBytes" : 6,
+      "totalSizeInBytes" : 12,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "cc_division_name" : {
+      "maxValueSizeInBytes" : 4,
+      "totalSizeInBytes" : 7,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_market_manager" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 24,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_company" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 6
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_mkt_class" : {
+      "maxValueSizeInBytes" : 42,
+      "totalSizeInBytes" : 65,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_zip" : {
+      "maxValueSizeInBytes" : 5,
+      "totalSizeInBytes" : 10,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "cc_street_name" : {
+      "maxValueSizeInBytes" : 11,
+      "totalSizeInBytes" : 19,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_rec_end_date" : {
+      "dateStatistics" : {
+        "min" : "2000-12-31",
+        "max" : "2000-12-31"
+      },
+      "nullsCount" : 1,
+      "distinctValuesCount" : 1
+    },
+    "cc_closed_date_sk" : {
+      "integerStatistics" : { },
+      "nullsCount" : 2,
+      "distinctValuesCount" : 0
+    },
+    "cc_division" : {
+      "integerStatistics" : {
+        "min" : 3,
+        "max" : 5
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_hours" : {
+      "maxValueSizeInBytes" : 7,
+      "totalSizeInBytes" : 14,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_open_date_sk" : {
+      "integerStatistics" : {
+        "min" : 2450806,
+        "max" : 2450952
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_mkt_desc" : {
+      "maxValueSizeInBytes" : 64,
+      "totalSizeInBytes" : 123,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_street_number" : {
+      "maxValueSizeInBytes" : 3,
+      "totalSizeInBytes" : 6,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_name" : {
+      "maxValueSizeInBytes" : 12,
+      "totalSizeInBytes" : 20,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_call_center_sk" : {
+      "integerStatistics" : {
+        "min" : 1,
+        "max" : 2
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_tax_percentage" : {
+      "decimalStatistics" : {
+        "min" : 0.11,
+        "max" : 0.12
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_call_center_id" : {
+      "maxValueSizeInBytes" : 16,
+      "totalSizeInBytes" : 32,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_country" : {
+      "maxValueSizeInBytes" : 13,
+      "totalSizeInBytes" : 26,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "cc_sq_ft" : {
+      "integerStatistics" : {
+        "min" : 1138,
+        "max" : 2268
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_company_name" : {
+      "maxValueSizeInBytes" : 5,
+      "totalSizeInBytes" : 10,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_mkt_id" : {
+      "integerStatistics" : {
+        "min" : 2,
+        "max" : 6
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_state" : {
+      "maxValueSizeInBytes" : 2,
+      "totalSizeInBytes" : 4,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "cc_county" : {
+      "maxValueSizeInBytes" : 17,
+      "totalSizeInBytes" : 34,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "cc_employees" : {
+      "integerStatistics" : {
+        "min" : 2,
+        "max" : 6
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_manager" : {
+      "maxValueSizeInBytes" : 14,
+      "totalSizeInBytes" : 25,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_rec_start_date" : {
+      "dateStatistics" : {
+        "min" : "1998-01-01",
+        "max" : "1998-01-01"
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    },
+    "cc_suite_number" : {
+      "maxValueSizeInBytes" : 8,
+      "totalSizeInBytes" : 15,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_street_type" : {
+      "maxValueSizeInBytes" : 9,
+      "totalSizeInBytes" : 12,
+      "nullsCount" : 0,
+      "distinctValuesCount" : 2
+    },
+    "cc_gmt_offset" : {
+      "decimalStatistics" : {
+        "min" : -5.00,
+        "max" : -5.00
+      },
+      "nullsCount" : 0,
+      "distinctValuesCount" : 1
+    }
+  }
+}
