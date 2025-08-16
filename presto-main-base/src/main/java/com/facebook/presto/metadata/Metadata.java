@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -52,6 +53,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
@@ -359,6 +361,11 @@ public interface Metadata
      * @return Map of catalog name to connector id
      */
     Map<String, ConnectorId> getCatalogNames(Session session);
+
+    default Map<String, CatalogContext> getCatalogNamesWithConnectorContext(Session session)
+    {
+        return ImmutableMap.of();
+    }
 
     /**
      * Get the names that match the specified table prefix (never null).
