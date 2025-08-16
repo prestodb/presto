@@ -12,22 +12,24 @@
  * limitations under the License.
  */
 package com.facebook.presto.spark.execution.http;
-
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.http.server.smile.BaseResponse;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.IOException;
 import java.net.URI;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.presto.spark.execution.http.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.spark.execution.http.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static java.util.Objects.requireNonNull;
 
@@ -40,13 +42,13 @@ public class PrestoSparkHttpServerClient
     private static final Logger log = Logger.get(PrestoSparkHttpServerClient.class);
     private static final String SERVER_URI = "/v1/info";
 
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
     private final URI location;
     private final URI serverUri;
     private final JsonCodec<ServerInfo> serverInfoCodec;
 
     public PrestoSparkHttpServerClient(
-            HttpClient httpClient,
+            OkHttpClient httpClient,
             URI location,
             JsonCodec<ServerInfo> serverInfoCodec)
     {
@@ -58,10 +60,36 @@ public class PrestoSparkHttpServerClient
 
     public ListenableFuture<BaseResponse<ServerInfo>> getServerInfo()
     {
-        Request request = setContentTypeHeaders(false, prepareGet())
-                .setUri(serverUri)
+        HttpUrl url = HttpUrl.get(serverUri);
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Accept", "application/json")
+                .addHeader("Content-Type", "application/json")
                 .build();
-        return httpClient.executeAsync(request, createAdaptingJsonResponseHandler(serverInfoCodec));
+        
+        SettableFuture<BaseResponse<ServerInfo>> future = SettableFuture.create();
+        
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                future.setException(e);
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                try {
+                    OkHttpBaseResponse<ServerInfo> baseResponse = new OkHttpBaseResponse<>(response, serverInfoCodec);
+                    future.set(baseResponse);
+                } catch (Exception e) {
+                    future.setException(e);
+                } finally {
+                    response.close();
+                }
+            }
+        });
+        
+        return future;
     }
 
     public URI getLocation()
@@ -71,8 +99,10 @@ public class PrestoSparkHttpServerClient
 
     private URI getServerUri(URI baseUri)
     {
-        return uriBuilderFrom(baseUri)
-                .appendPath(SERVER_URI)
-                .build();
+        return HttpUrl.get(baseUri).newBuilder()
+                .addPathSegment("v1")
+                .addPathSegment("info")
+                .build()
+                .uri();
     }
 }

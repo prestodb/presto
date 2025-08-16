@@ -13,23 +13,15 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.nativeworker.AbstractTestNativeAggregations;
-import com.facebook.presto.testing.ExpectedQueryRunner;
+import com.facebook.presto.nativeworker.AbstractTestExpressionCompiler;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestPrestoSparkNativeAggregations
-        extends AbstractTestNativeAggregations
+public class TestPrestoSparkExpressionCompiler
+        extends AbstractTestExpressionCompiler
 {
     @Override
-    protected QueryRunner createQueryRunner()
+    protected QueryRunner getQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
-    }
-
-    @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
-            throws Exception
-    {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        return PrestoSparkNativeQueryRunnerUtils.createNativeHiveRunner();
     }
 }
