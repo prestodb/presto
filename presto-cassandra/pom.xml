@@ -266,6 +266,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestCassandraIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestCassandraIntergrationMixedCase.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -282,6 +283,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestCassandraIntegrationSmokeTest.java</include>
+                                <include>**/TestCassandraIntergrationMixedCase.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -19,7 +19,9 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -34,7 +36,7 @@ public final class CassandraQueryRunner
 
     private static boolean tpchLoaded;
 
-    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server)
+    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
@@ -42,11 +44,13 @@ public final class CassandraQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
+        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+        connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
+        connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
+        connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
+
         queryRunner.installPlugin(new CassandraPlugin());
-        queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", server.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
-                "cassandra.allow-drop-table", "true"));
+        queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
         createKeyspace(server.getSession(), "tpch");
         List<TpchTable<?>> tables = TpchTable.getTables();
