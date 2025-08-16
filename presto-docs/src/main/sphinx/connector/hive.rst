@@ -41,7 +41,7 @@ The following file types are supported for the Hive connector:
 Hive Metastore
 --------------
 
-The Hive Metastore is a central metadata repository that Presto uses to access table definitions, partition information, 
+The Hive Metastore is a central metadata repository that the Hive connector uses to access table definitions, partition information, 
 and other structural details about your Hive tables. It serves as the foundation for Presto's Hive connector operations.
 
 Key Concepts
