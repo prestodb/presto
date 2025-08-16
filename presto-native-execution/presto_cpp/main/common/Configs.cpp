@@ -78,13 +78,6 @@ void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
       std::move(values), mutableConfig);
 }
 
-std::string ConfigBase::capacityPropertyAsBytesString(
-    std::string_view propertyName) const {
-  return folly::to<std::string>(velox::config::toCapacity(
-      optionalProperty(propertyName).value(),
-      velox::config::CapacityUnit::BYTE));
-}
-
 bool ConfigBase::registerProperty(
     const std::string& propertyName,
     const folly::Optional<std::string>& defaultValue) {
@@ -110,8 +103,8 @@ folly::Optional<std::string> ConfigBase::setValue(
       propertyName);
   auto oldValue = config_->get<std::string>(propertyName);
   config_->set(propertyName, value);
-  if (oldValue.hasValue()) {
-    return oldValue;
+  if (oldValue.has_value()) {
+    return oldValue.value();
   }
   return registeredProps_[propertyName];
 }
@@ -372,7 +365,7 @@ SystemConfig::remoteFunctionServerLocation() const {
   // First check if there is a UDS path registered. If there's one, use it.
   auto remoteServerUdsPath =
       optionalProperty(kRemoteFunctionServerThriftUdsPath);
-  if (remoteServerUdsPath.hasValue()) {
+  if (remoteServerUdsPath.has_value()) {
     return folly::SocketAddress::makeFromPath(remoteServerUdsPath.value());
   }
 
@@ -382,13 +375,13 @@ SystemConfig::remoteFunctionServerLocation() const {
   auto remoteServerPort =
       optionalProperty<uint16_t>(kRemoteFunctionServerThriftPort);
 
-  if (remoteServerPort.hasValue()) {
+  if (remoteServerPort.has_value()) {
     // Fallback to localhost if address is not specified.
-    return remoteServerAddress.hasValue()
+    return remoteServerAddress.has_value()
         ? folly::
               SocketAddress{remoteServerAddress.value(), remoteServerPort.value()}
         : folly::SocketAddress{"::1", remoteServerPort.value()};
-  } else if (remoteServerAddress.hasValue()) {
+  } else if (remoteServerAddress.has_value()) {
     VELOX_FAIL(
         "Remote function server port not provided using '{}'.",
         kRemoteFunctionServerThriftPort);
@@ -959,7 +952,7 @@ int NodeConfig::prometheusExecutorThreads() const {
   static constexpr int
       kNodePrometheusExecutorThreadsDefault = 2;
   auto resultOpt = optionalProperty<int>(kNodePrometheusExecutorThreads);
-  if (resultOpt.hasValue()) {
+  if (resultOpt.has_value()) {
     return resultOpt.value();
   }
   return kNodePrometheusExecutorThreadsDefault;
@@ -967,7 +960,7 @@ int NodeConfig::prometheusExecutorThreads() const {
 
 std::string NodeConfig::nodeId() const {
   auto resultOpt = optionalProperty(kNodeId);
-  if (resultOpt.hasValue()) {
+  if (resultOpt.has_value()) {
     return resultOpt.value();
   }
   // Generate the nodeId which must be a UUID. nodeId must be a singleton.
@@ -985,7 +978,7 @@ std::string NodeConfig::nodeInternalAddress(
   auto resultOpt = optionalProperty(kNodeInternalAddress);
   /// node.ip(kNodeIp) is legacy config replaced with node.internal-address, but
   /// still valid config in Presto, so handling both.
-  if (!resultOpt.hasValue()) {
+  if (!resultOpt.has_value()) {
     resultOpt = optionalProperty(kNodeIp);
   }
   if (resultOpt.has_value()) {
@@ -1084,19 +1077,7 @@ void BaseVeloxQueryConfig::updateLoadedValues(
   auto systemConfig = SystemConfig::instance();
 
   using namespace velox::core;
-  std::unordered_map<std::string, std::string> updatedValues{
-      {QueryConfig::kPrestoArrayAggIgnoreNulls,
-       bool2String(systemConfig->useLegacyArrayAgg())},
-      {QueryConfig::kMaxOutputBufferSize,
-       systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kSinkMaxBufferSize)},
-      {QueryConfig::kMaxPartitionedOutputBufferSize,
-       systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kDriverMaxPagePartitioningBufferSize)},
-      {QueryConfig::kMaxPartialAggregationMemory,
-       systemConfig->capacityPropertyAsBytesString(
-           SystemConfig::kTaskMaxPartialAggregationMemory)},
-  };
+  std::unordered_map<std::string, std::string> updatedValues{};
 
   auto taskWriterCount = systemConfig->taskWriterCount();
   if (taskWriterCount.has_value()) {

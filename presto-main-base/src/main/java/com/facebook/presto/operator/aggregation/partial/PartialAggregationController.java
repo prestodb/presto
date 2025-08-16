@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.partial;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 
 import java.util.OptionalLong;
 

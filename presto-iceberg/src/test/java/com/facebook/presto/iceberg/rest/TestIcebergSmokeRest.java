@@ -47,7 +47,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Test
@@ -126,69 +125,6 @@ public class TestIcebergSmokeRest
         return getNativeIcebergTable(getCatalogFactory(restConfig),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
-    }
-
-    @Test
-    public void testDeleteOnPartitionedV1Table()
-    {
-        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-        assertThatThrownBy(super::testDeleteOnPartitionedV1Table)
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageMatching("Cannot downgrade v2 table to v1");
-    }
-
-    @Test
-    public void testCreateTableWithFormatVersion()
-    {
-        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-        assertThatThrownBy(() -> super.testMetadataDeleteOnNonIdentityPartitionColumn("1", "copy-on-write"))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageMatching("Cannot downgrade v2 table to v1");
-
-        // v2 succeeds
-        super.testCreateTableWithFormatVersion("2", "merge-on-read");
-    }
-
-    @Test(dataProvider = "version_and_mode")
-    public void testMetadataDeleteOnNonIdentityPartitionColumn(String version, String mode)
-    {
-        if (version.equals("1")) {
-            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-            assertThatThrownBy(() -> super.testMetadataDeleteOnNonIdentityPartitionColumn(version, mode))
-                    .isInstanceOf(RuntimeException.class);
-        }
-        else {
-            // v2 succeeds
-            super.testMetadataDeleteOnNonIdentityPartitionColumn(version, mode);
-        }
-    }
-
-    @Test(dataProvider = "version_and_mode")
-    public void testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(String version, String mode)
-    {
-        if (version.equals("1")) {
-            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-            assertThatThrownBy(() -> super.testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(version, mode))
-                    .isInstanceOf(RuntimeException.class);
-        }
-        else {
-            // v2 succeeds
-            super.testMetadataDeleteOnTableWithUnsupportedSpecsIncludingNoData(version, mode);
-        }
-    }
-
-    @Test(dataProvider = "version_and_mode")
-    public void testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(String version, String mode)
-    {
-        if (version.equals("1")) {
-            // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-            assertThatThrownBy(() -> super.testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(version, mode))
-                    .isInstanceOf(RuntimeException.class);
-        }
-        else {
-            // v2 succeeds
-            super.testMetadataDeleteOnTableWithUnsupportedSpecsWhoseDataAllDeleted(version, mode);
-        }
     }
 
     @Test

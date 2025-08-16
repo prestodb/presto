@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
@@ -34,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -43,6 +43,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -50,7 +51,6 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNati
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -155,7 +155,7 @@ public class TestNativeSidecarPlugin
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={driver_cpu_time_slice_limit_ms=500}, " +
-                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}}");
+                        "resetSessionProperties=[], updateType=SET SESSION}");
     }
 
     @Test
@@ -318,9 +318,8 @@ public class TestNativeSidecarPlugin
     @Test
     public void testInformationSchemaTables()
     {
-        assertQueryFails("select lower(table_name) from information_schema.tables "
-                        + "where table_name = 'lineitem' or table_name = 'LINEITEM' ",
-                "Compiler failed");
+        assertQuery("select lower(table_name) from information_schema.tables "
+                + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
     }
 
     @Test

@@ -31,8 +31,7 @@ import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;

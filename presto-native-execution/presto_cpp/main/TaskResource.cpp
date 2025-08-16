@@ -415,6 +415,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
               if (!handlerState->requestExpired()) {
                 if (taskInfo == nullptr) {
                   sendTaskNotFound(downstream, taskId);
+                  return;
                 }
                 if (sendThrift) {
                   thrift::TaskInfo thriftTaskInfo;

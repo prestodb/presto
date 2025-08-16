@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
@@ -83,7 +84,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -108,8 +109,6 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

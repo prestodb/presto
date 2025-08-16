@@ -14,9 +14,8 @@
 
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.concurrent.NotThreadSafe;
 import com.facebook.presto.common.block.ArrayAllocator;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Arrays;
 

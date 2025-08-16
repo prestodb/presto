@@ -110,6 +110,7 @@ import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
+import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlChecker;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
@@ -146,6 +147,7 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -216,10 +218,11 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
+import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
-import javax.inject.Singleton;
 import javax.management.MBeanServer;
 
 import java.util.Optional;
@@ -233,6 +236,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
@@ -353,6 +357,14 @@ public class PrestoSparkModule
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+
+        MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
+                newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
+        FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
+        if (featuresConfig.isNativeExecutionEnabled()) {
+            mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class)
+                    .in(Scopes.SINGLETON);
+        }
 
         // expression manager
         binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);

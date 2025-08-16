@@ -18,6 +18,7 @@ add_executable(
   PeriodicMemoryCheckerTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
+  PrestoToVeloxQueryConfigTest.cpp
   QueryContextCacheTest.cpp
   ServerOperationTest.cpp
   SessionPropertiesTest.cpp

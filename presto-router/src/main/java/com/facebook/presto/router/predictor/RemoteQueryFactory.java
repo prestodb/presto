@@ -14,8 +14,7 @@
 package com.facebook.presto.router.predictor;
 
 import com.facebook.airlift.http.client.HttpClient;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.net.URI;
 

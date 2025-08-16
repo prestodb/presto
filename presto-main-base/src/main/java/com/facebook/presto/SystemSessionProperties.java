@@ -13,6 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
@@ -49,10 +51,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Comparator;
 import java.util.List;
@@ -256,6 +255,7 @@ public final class SystemSessionProperties
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN_FOR_SORTED_INPUTS = "prefer_merge_join_for_sorted_inputs";
+    public static final String PREFER_SORT_MERGE_JOIN = "prefer_sort_merge_join";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
@@ -1386,6 +1386,11 @@ public final class SystemSessionProperties
                         "Prefer merge join for sorted join inputs, e.g., tables pre-sorted, pre-partitioned by join columns." +
                                 "To make it work, the connector needs to guarantee and expose the data properties of the underlying table.",
                         featuresConfig.isPreferMergeJoinForSortedInputs(),
+                        true),
+                booleanProperty(
+                        PREFER_SORT_MERGE_JOIN,
+                        "Prefer sort merge join for all joins. A SortNode is added if input is not already sorted.",
+                        featuresConfig.isPreferSortMergeJoin(),
                         true),
                 booleanProperty(
                         SEGMENTED_AGGREGATION_ENABLED,
@@ -2880,6 +2885,11 @@ public final class SystemSessionProperties
     public static boolean preferMergeJoinForSortedInputs(Session session)
     {
         return session.getSystemProperty(PREFER_MERGE_JOIN_FOR_SORTED_INPUTS, Boolean.class);
+    }
+
+    public static boolean preferSortMergeJoin(Session session)
+    {
+        return session.getSystemProperty(PREFER_SORT_MERGE_JOIN, Boolean.class);
     }
 
     public static boolean isSegmentedAggregationEnabled(Session session)

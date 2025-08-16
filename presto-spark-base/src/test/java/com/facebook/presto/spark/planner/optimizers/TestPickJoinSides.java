@@ -53,6 +53,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
@@ -89,7 +90,7 @@ public class TestPickJoinSides
         tester = new RuleTester(
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                new PrestoSparkSessionPropertyManagerProvider(new SystemSessionProperties(), new PrestoSparkSessionProperties(), new JavaFeaturesConfig(), new NodeSpillConfig()).get(),
+                new PrestoSparkSessionPropertyManagerProvider(new SystemSessionProperties(), new PrestoSparkSessionProperties(), new ConcurrentHashMap<>(), new JavaFeaturesConfig(), new NodeSpillConfig()).get(),
                 Optional.of(NODES_COUNT),
                 new TpchConnectorFactory(1));
     }

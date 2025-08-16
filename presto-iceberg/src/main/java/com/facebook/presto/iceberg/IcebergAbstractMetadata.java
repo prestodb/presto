@@ -28,6 +28,7 @@ import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;

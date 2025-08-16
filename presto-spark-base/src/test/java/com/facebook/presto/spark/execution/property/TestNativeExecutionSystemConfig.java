@@ -14,8 +14,8 @@
 package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -117,7 +117,7 @@ public class TestNativeExecutionSystemConfig
                 .setPrestoVersion("presto-version")
                 .setShutdownOnsetSec(30)
                 .setSystemMemoryGb(40)
-                .setQueryMemoryGb(new DataSize(20, DataSize.Unit.GIGABYTE))
+                .setQueryMemoryGb(new DataSize(20, Unit.GIGABYTE))
                 .setUseMmapAllocator(false)
                 .setMemoryArbitratorKind("")
                 .setMemoryArbitratorCapacityGb(10)

@@ -15,13 +15,13 @@ package com.facebook.presto.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.testng.Assert.assertEquals;
@@ -69,7 +69,7 @@ public class TestKdbTree
 
         assertEquals(tree.getLeaves().size(), 1);
 
-        Map.Entry<Integer, Rectangle> entry = Iterables.getOnlyElement(tree.getLeaves().entrySet());
+        Map.Entry<Integer, Rectangle> entry = tree.getLeaves().entrySet().stream().collect(onlyElement());
         assertEquals(entry.getKey().intValue(), 0);
         assertEquals(entry.getValue(), Rectangle.getUniverseRectangle());
     }

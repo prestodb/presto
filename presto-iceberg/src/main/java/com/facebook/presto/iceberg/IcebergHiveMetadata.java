@@ -24,6 +24,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.hive.ViewAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
@@ -230,7 +231,7 @@ public class IcebergHiveMetadata
             return false;
         }
         if (!isIcebergTable(hiveTable.get())) {
-            throw new UnknownTableTypeException(schemaTableName);
+            throw new UnknownTableTypeException("Not an Iceberg table: " + schemaTableName);
         }
         return true;
     }

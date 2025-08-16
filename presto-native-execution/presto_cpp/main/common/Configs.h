@@ -95,7 +95,7 @@ class ConfigBase {
   template <typename T>
   folly::Optional<T> optionalProperty(const std::string& propertyName) const {
     auto valOpt = config_->get<T>(propertyName);
-    if (valOpt.hasValue()) {
+    if (valOpt.has_value()) {
       return valOpt.value();
     }
     const auto it = registeredProps_.find(propertyName);
@@ -115,8 +115,8 @@ class ConfigBase {
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
     auto val = config_->get<std::string>(propertyName);
-    if (val.hasValue()) {
-      return val;
+    if (val.has_value()) {
+      return val.value();
     }
     const auto it = registeredProps_.find(propertyName);
     if (it != registeredProps_.end()) {
@@ -130,10 +130,6 @@ class ConfigBase {
       std::string_view propertyName) const {
     return optionalProperty(std::string{propertyName});
   }
-
-  /// Returns "N<capacity_unit>" as string containing capacity in bytes.
-  std::string capacityPropertyAsBytesString(
-      std::string_view propertyName) const;
 
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {

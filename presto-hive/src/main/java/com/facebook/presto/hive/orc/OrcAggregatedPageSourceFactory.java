@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -35,12 +36,10 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;

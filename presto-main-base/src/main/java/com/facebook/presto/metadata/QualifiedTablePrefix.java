@@ -20,8 +20,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;

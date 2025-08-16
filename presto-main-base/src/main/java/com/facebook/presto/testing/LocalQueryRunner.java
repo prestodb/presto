@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
@@ -239,7 +240,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
-import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
@@ -1118,11 +1118,16 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, boolean noExchange, WarningCollector warningCollector)
     {
+        return createPlan(session, sql, stage, noExchange, false, warningCollector);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, boolean noExchange, boolean nativeExecutionEnabled, WarningCollector warningCollector)
+    {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
         BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
-        return createPlan(session, sql, getPlanOptimizers(noExchange), stage, warningCollector);
+        return createPlan(session, sql, getPlanOptimizers(noExchange, nativeExecutionEnabled), stage, warningCollector);
     }
 
     public void setAdditionalOptimizer(List<PlanOptimizer> additionalOptimizer)
@@ -1132,9 +1137,15 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean noExchange)
     {
+        return getPlanOptimizers(noExchange, false);
+    }
+
+    public List<PlanOptimizer> getPlanOptimizers(boolean noExchange, boolean nativeExecutionEnabled)
+    {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
+                .setOptimizeHashGeneration(true)
+                .setNativeExecutionEnabled(nativeExecutionEnabled);
         ImmutableList.Builder<PlanOptimizer> planOptimizers = ImmutableList.builder();
         if (!additionalOptimizer.isEmpty()) {
             planOptimizers.addAll(additionalOptimizer);

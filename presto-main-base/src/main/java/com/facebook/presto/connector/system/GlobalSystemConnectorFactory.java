@@ -20,8 +20,7 @@ import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableSet;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;
