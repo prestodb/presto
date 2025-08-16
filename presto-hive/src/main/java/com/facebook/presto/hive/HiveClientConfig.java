@@ -107,7 +107,6 @@ public class HiveClientConfig
 
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
     private boolean assumeCanonicalPartitionKeys;
-    private boolean useOrcColumnNames;
     private double orcDefaultBloomFilterFpp = 0.05;
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
@@ -717,19 +716,6 @@ public class HiveClientConfig
     public HiveClientConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
     {
         this.s3FileSystemType = s3FileSystemType;
-        return this;
-    }
-
-    public boolean isUseOrcColumnNames()
-    {
-        return useOrcColumnNames;
-    }
-
-    @Config("hive.orc.use-column-names")
-    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
-    public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
-    {
-        this.useOrcColumnNames = useOrcColumnNames;
         return this;
     }
 
