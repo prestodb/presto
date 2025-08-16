@@ -127,35 +127,6 @@ presto_protocol:		#: Build the presto_protocol serde library
 TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
-format-fix: 			#: Fix formatting issues in the presto-native-execution directory
-ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
-	source ${PYTHON_VENV}/bin/activate; scripts/check.py format master --fix
-else
-	scripts/check.py format master --fix
-endif
-
-format-check: 			#: Check for formatting issues in the presto-native-execution directory
-	clang-format --version
-ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
-	source ${PYTHON_VENV}/bin/activate; scripts/check.py format master
-else
-	scripts/check.py format master
-endif
-
-header-fix:			#: Fix license header issues in the presto-native-execution directory
-ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
-	source ${PYTHON_VENV}/bin/activate; scripts/check.py header master --fix
-else
-	scripts/check.py header master --fix
-endif
-
-header-check:			#: Check for license header issues in the presto-native-execution directory
-ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
-	source ${PYTHON_VENV}/bin/activate; scripts/check.py header master
-else
-	scripts/check.py header master
-endif
-
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
 	awk '/^[-a-z]+:/' | \

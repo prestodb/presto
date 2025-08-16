@@ -231,8 +231,7 @@ class SessionProperties {
   static constexpr const char* kQueryTraceDir = "native_query_trace_dir";
 
   /// The plan node id whose input data will be traced.
-  static constexpr const char* kQueryTraceNodeId =
-      "native_query_trace_node_id";
+  static constexpr const char* kQueryTraceNodeId = "native_query_trace_node_id";
 
   /// The max trace bytes limit. Tracing is disabled if zero.
   static constexpr const char* kQueryTraceMaxBytes =
@@ -325,7 +324,7 @@ class SessionProperties {
   static SessionProperties* instance();
 
   SessionProperties();
-  
+
   /// Utility function to translate a config name in Presto to its equivalent in
   /// Velox. Returns 'name' as is if there is no mapping.
   const std::string toVeloxConfig(const std::string& name) const;
