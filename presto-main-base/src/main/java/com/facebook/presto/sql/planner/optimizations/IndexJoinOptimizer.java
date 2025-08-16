@@ -40,7 +40,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -65,6 +64,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
@@ -841,61 +841,43 @@ public class IndexJoinOptimizer
         // Traverse the non-equal join condition and extract the lookup variables.
         private static void extractFromFilter(RowExpression expression, Context context)
         {
-            if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == SpecialFormExpression.Form.AND) {
-                for (RowExpression operand : LogicalRowExpressions.extractConjuncts(expression)) {
-                    extractFromFilter(operand, context);
-                    if (!context.isEligible()) {
-                        return;
+            List<RowExpression> conjuncts = extractConjuncts(expression);
+            for (RowExpression conjunct : conjuncts) {
+                // Index lookup condition only supports Equal, BETWEEN and CONTAINS.
+                if (!(conjunct instanceof CallExpression)) {
+                    continue;
+                }
+
+                CallExpression callExpression = (CallExpression) conjunct;
+                if (context.getStandardFunctionResolution().isEqualsFunction(callExpression.getFunctionHandle())
+                        && callExpression.getArguments().size() == 2) {
+                    RowExpression leftArg = callExpression.getArguments().get(0);
+                    RowExpression rightArg = callExpression.getArguments().get(1);
+
+                    VariableReferenceExpression variable = null;
+                    // Check for pattern: constant = variable or variable = constant.
+                    if (isConstant(leftArg) && isVariable(rightArg)) {
+                        variable = (VariableReferenceExpression) rightArg;
+                    }
+                    else if (isVariable(leftArg) && isConstant(rightArg)) {
+                        variable = (VariableReferenceExpression) leftArg;
+                    }
+
+                    if (variable != null) {
+                        // It is a lookup equal condition only when it's variable=constant.
+                        context.getLookupVariables().add(variable);
                     }
                 }
-                return;
-            }
-
-            // Index lookup only supports Equal, BETWEEN and CONTAINS/IN.
-            if (!(expression instanceof CallExpression)) {
-                context.markIneligible();
-                return;
-            }
-
-            CallExpression callExpression = (CallExpression) expression;
-            if (context.getStandardFunctionResolution().isEqualsFunction(callExpression.getFunctionHandle())
-                    && callExpression.getArguments().size() == 2) {
-                RowExpression leftArg = callExpression.getArguments().get(0);
-                RowExpression rightArg = callExpression.getArguments().get(1);
-
-                VariableReferenceExpression variable = null;
-                // Check for pattern: constant = variable or variable = constant.
-                if (isConstant(leftArg) && isVariable(rightArg)) {
-                    variable = (VariableReferenceExpression) rightArg;
+                else if (context.getStandardFunctionResolution().isBetweenFunction(callExpression.getFunctionHandle())
+                        && isVariable(callExpression.getArguments().get(0))) {
+                    context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(0));
                 }
-                else if (isVariable(leftArg) && isConstant(rightArg)) {
-                    variable = (VariableReferenceExpression) leftArg;
+                else if (callExpression.getDisplayName().equalsIgnoreCase("CONTAINS")
+                        && callExpression.getArguments().size() == 2
+                        && isVariable(callExpression.getArguments().get(1))) {
+                    context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(1));
                 }
-
-                if (variable != null) {
-                    context.getLookupVariables().add(variable);
-                    return;
-                }
-
-                // Equal condition must be constant.
-                context.markIneligible();
-                return;
             }
-
-            if (context.getStandardFunctionResolution().isBetweenFunction(callExpression.getFunctionHandle())
-                    && isVariable(callExpression.getArguments().get(0))) {
-                context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(0));
-                return;
-            }
-
-            if (callExpression.getDisplayName().equalsIgnoreCase("CONTAINS")
-                    && callExpression.getArguments().size() == 2
-                    && isVariable(callExpression.getArguments().get(1))) {
-                context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(1));
-                return;
-            }
-
-            context.markIneligible();
         }
 
         public static void extractFromSubPlan(PlanNode node, Context context)
