@@ -26,6 +26,7 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
+import com.facebook.presto.server.RetryUrlValidator;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.PrestoException;
@@ -61,10 +62,13 @@ import jakarta.ws.rs.core.UriInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -75,6 +79,7 @@ import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_RETRY_QUERY;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.NO_DURATION;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.createQueuedQueryResults;
@@ -97,7 +102,10 @@ import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static jakarta.ws.rs.core.Response.Status.CONFLICT;
 import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -131,6 +139,7 @@ public class QueuedStatementResource
     private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
     private final QueryBlockingRateLimiter queryRateLimiter;
+    private final RetryUrlValidator retryUrlValidator;
 
     @Inject
     public QueuedStatementResource(
@@ -141,7 +150,8 @@ public class QueuedStatementResource
             ServerConfig serverConfig,
             TracerProviderManager tracerProviderManager,
             SessionPropertyManager sessionPropertyManager,
-            QueryBlockingRateLimiter queryRateLimiter)
+            QueryBlockingRateLimiter queryRateLimiter,
+            RetryUrlValidator retryUrlValidator)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.executingQueryResponseProvider = requireNonNull(executingQueryResponseProvider, "executingQueryResponseProvider is null");
@@ -155,6 +165,7 @@ public class QueuedStatementResource
         this.sessionPropertyManager = sessionPropertyManager;
 
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
+        this.retryUrlValidator = requireNonNull(retryUrlValidator, "retryUrlValidator is null");
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -202,6 +213,9 @@ public class QueuedStatementResource
     public Response postStatement(
             String statement,
             @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
+            @QueryParam("retryUrl") String retryUrlString,
+            @QueryParam("retryExpirationInSeconds") Long retryExpirationInSeconds,
+            @HeaderParam(PRESTO_RETRY_QUERY) String isRetryQueryHeader,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context HttpServletRequest servletRequest,
@@ -213,6 +227,24 @@ public class QueuedStatementResource
 
         abortIfPrefixUrlInvalid(xPrestoPrefixUrl);
 
+        // Parse retry query header
+        boolean isRetryQuery = parseBoolean(isRetryQueryHeader);
+
+        // Validate retry URL if provided
+        Optional<URI> retryUrl = Optional.empty();
+        OptionalLong retryExpirationEpochTime = OptionalLong.empty();
+        if ((retryUrlString != null && !retryUrlString.isEmpty()) || retryExpirationInSeconds != null) {
+            if (retryUrlString == null || retryUrlString.isEmpty() || retryExpirationInSeconds == null || retryExpirationInSeconds < 1) {
+                throw badRequest(BAD_REQUEST, format("Invalid retry parameters: retryUrl=%s, retryExpiration=%s", retryUrlString, retryExpirationInSeconds));
+            }
+            retryUrl = Optional.of(getRetryUrl(retryUrlString));
+            retryExpirationEpochTime = OptionalLong.of(currentTimeMillis() + SECONDS.toMillis(retryExpirationInSeconds));
+            String currentHost = uriInfo.getBaseUri().getHost();
+            if (!retryUrlValidator.isValidRetryUrl(retryUrl.get(), currentHost)) {
+                throw badRequest(BAD_REQUEST, "Invalid retry URL");
+            }
+        }
+
         // TODO: For future cases we may want to start tracing from client. Then continuation of tracing
         //       will be needed instead of creating a new trace here.
         SessionContext sessionContext = new HttpRequestSessionContext(
@@ -220,12 +252,35 @@ public class QueuedStatementResource
                 sqlParserOptions,
                 tracerProviderManager.getTracerProvider(),
                 Optional.of(sessionPropertyManager));
-        Query query = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0);
+        QueryId newQueryId = dispatchManager.createQueryId();
+        Query query = new Query(
+                statement,
+                sessionContext,
+                dispatchManager,
+                executingQueryResponseProvider,
+                0,
+                newQueryId,
+                createSlug(),
+                isRetryQuery,
+                retryUrl,
+                retryExpirationEpochTime);
+
         queries.put(query.getQueryId(), query);
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl, binaryResults)), compressionEnabled)
                 .cacheControl(query.getDefaultCacheControl())
                 .build();
+    }
+
+    private static URI getRetryUrl(String urlEncodedUrl)
+    {
+        try {
+            String decodedUrl = URLDecoder.decode(urlEncodedUrl, UTF_8.toString());
+            return URI.create(decodedUrl);
+        }
+        catch (UnsupportedEncodingException | IllegalArgumentException e) {
+            throw badRequest(BAD_REQUEST, "Retry URL invalid");
+        }
     }
 
     /**
@@ -308,6 +363,12 @@ public class QueuedStatementResource
             throw new PrestoException(RETRY_QUERY_NOT_FOUND, "failed to find the query to retry with ID " + queryId);
         }
 
+        if (dispatchManager.isQueryPresent(queryId) &&
+                dispatchManager.getQueryInfo(queryId).getFailureInfo() == null &&
+                !failedQuery.isRetryQuery()) {
+            throw badRequest(CONFLICT, "Query with ID " + queryId + " has not failed and cannot be retried");
+        }
+
         int retryCount = failedQuery.getRetryCount() + 1;
         Query query = new Query(
                 "-- retry query " + queryId + "; attempt: " + retryCount + "\n" + failedQuery.getQuery(),
@@ -318,6 +379,11 @@ public class QueuedStatementResource
 
         retriedQueries.putIfAbsent(queryId, query);
         synchronized (retriedQueries.get(queryId)) {
+            // Retry queries should never be processed except through this endpoint
+            if (failedQuery.isRetryQuery() && failedQuery.getLastToken() != 0) {
+                throw badRequest(CONFLICT, "Query with ID " + queryId + " has already been processed and cannot be retried");
+            }
+
             if (retriedQueries.get(queryId).getQueryId().equals(query.getQueryId())) {
                 queries.put(query.getQueryId(), query);
             }
@@ -360,6 +426,14 @@ public class QueuedStatementResource
         abortIfPrefixUrlInvalid(xPrestoPrefixUrl);
 
         Query query = getQuery(queryId, slug);
+
+        if (query.isRetryQuery()) {
+            throw badRequest(
+                    CONFLICT,
+                    format("Query with ID %s is a retry query and cannot be polled directly. Use /v1/statement/queued/retry/%s endpoint to retry it.",
+                            queryId, queryId));
+        }
+
         ListenableFuture<Double> acquirePermitAsync = queryRateLimiter.acquire(queryId);
         ListenableFuture<?> waitForDispatchedAsync = transformAsync(
                 acquirePermitAsync,
@@ -441,6 +515,11 @@ public class QueuedStatementResource
         return builder;
     }
 
+    private static String createSlug()
+    {
+        return "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+    }
+
     private static final class Query
     {
         private static final int CACHE_CONTROL_MAX_AGE_SEC = 60;
@@ -453,13 +532,16 @@ public class QueuedStatementResource
         private final AtomicLong lastToken = new AtomicLong();
         private final int retryCount;
         private final long expirationTime;
+        private final boolean isRetryQuery;
+        private final Optional<URI> retryUrl;
+        private final OptionalLong retryExpirationEpochTime;
 
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, ExecutingQueryResponseProvider executingQueryResponseProvider, int retryCount)
         {
-            this(query, sessionContext, dispatchManager, executingQueryResponseProvider, retryCount, dispatchManager.createQueryId(), createSlug());
+            this(query, sessionContext, dispatchManager, executingQueryResponseProvider, retryCount, dispatchManager.createQueryId(), createSlug(), false, Optional.empty(), OptionalLong.empty());
         }
 
         public Query(
@@ -471,6 +553,21 @@ public class QueuedStatementResource
                 QueryId queryId,
                 String slug)
         {
+            this(query, sessionContext, dispatchManager, executingQueryResponseProvider, retryCount, queryId, slug, false, Optional.empty(), OptionalLong.empty());
+        }
+
+        public Query(
+                String query,
+                SessionContext sessionContext,
+                DispatchManager dispatchManager,
+                ExecutingQueryResponseProvider executingQueryResponseProvider,
+                int retryCount,
+                QueryId queryId,
+                String slug,
+                boolean isRetryQuery,
+                Optional<URI> retryUrl,
+                OptionalLong retryExpirationEpochTime)
+        {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
@@ -479,6 +576,9 @@ public class QueuedStatementResource
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.slug = requireNonNull(slug, "slug is null");
             this.expirationTime = currentTimeMillis() + SECONDS.toMillis(CACHE_CONTROL_MAX_AGE_SEC);
+            this.isRetryQuery = isRetryQuery;
+            this.retryUrl = requireNonNull(retryUrl, "retryUrl is null");
+            this.retryExpirationEpochTime = requireNonNull(retryExpirationEpochTime, "retryExpirationEpochTime is null");
         }
 
         /**
@@ -519,6 +619,14 @@ public class QueuedStatementResource
         public long getLastToken()
         {
             return lastToken.get();
+        }
+
+        /**
+         * Returns whether or not this query was stored as a retry query
+         */
+        public boolean isRetryQuery()
+        {
+            return isRetryQuery;
         }
 
         /**
@@ -640,7 +748,10 @@ public class QueuedStatementResource
                         compressionEnabled,
                         nestedDataSerializationEnabled,
                         binaryResults,
-                        durationUntilExpirationMs);
+                        durationUntilExpirationMs,
+                        retryUrl,
+                        retryExpirationEpochTime,
+                        isRetryQuery);
 
                 if (executingQueryResponse.isPresent()) {
                     return executingQueryResponse.get();

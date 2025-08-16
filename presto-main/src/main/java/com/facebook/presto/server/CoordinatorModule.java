@@ -210,6 +210,10 @@ public class CoordinatorModule
         binder.bind(QueryBlockingRateLimiter.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryBlockingRateLimiter.class).withGeneratedName();
 
+        // retry configuration
+        configBinder(binder).bindConfig(RetryConfig.class);
+        binder.bind(RetryUrlValidator.class).in(Scopes.SINGLETON);
+
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
         binder.bind(ExecutingQueryResponseProvider.class).to(LocalExecutingQueryResponseProvider.class).in(Scopes.SINGLETON);
 
