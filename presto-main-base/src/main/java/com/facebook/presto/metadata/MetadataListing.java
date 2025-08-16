@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -47,6 +48,20 @@ public final class MetadataListing
 
         ImmutableSortedMap.Builder<String, ConnectorId> result = ImmutableSortedMap.naturalOrder();
         for (Map.Entry<String, ConnectorId> entry : catalogNames.entrySet()) {
+            if (allowedCatalogs.contains(entry.getKey())) {
+                result.put(entry);
+            }
+        }
+        return result.build();
+    }
+
+    public static SortedMap<String, CatalogContext> listCatalogsWithConnectorContext(Session session, Metadata metadata, AccessControl accessControl)
+    {
+        Map<String, CatalogContext> catalogNamesWithConnectorContext = metadata.getCatalogNamesWithConnectorContext(session);
+        Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), session.getAccessControlContext(), catalogNamesWithConnectorContext.keySet());
+
+        ImmutableSortedMap.Builder<String, CatalogContext> result = ImmutableSortedMap.naturalOrder();
+        for (Map.Entry<String, CatalogContext> entry : catalogNamesWithConnectorContext.entrySet()) {
             if (allowedCatalogs.contains(entry.getKey())) {
                 result.put(entry);
             }
