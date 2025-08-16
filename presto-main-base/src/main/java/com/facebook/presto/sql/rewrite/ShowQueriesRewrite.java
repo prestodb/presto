@@ -423,7 +423,10 @@ final class ShowQueriesRewrite
                             aliasedName("column_name", "Column"),
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
-                            aliasedNullToEmpty("comment", "Comment")),
+                            aliasedNullToEmpty("comment", "Comment"),
+                            aliasedName("precision", "Precision"),
+                            aliasedName("scale", "Scale"),
+                            aliasedName("length", "Length")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
                             equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),

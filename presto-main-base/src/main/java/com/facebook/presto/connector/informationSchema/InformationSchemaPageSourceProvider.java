@@ -18,6 +18,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
@@ -44,6 +48,12 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
@@ -53,6 +63,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
+import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.decimalDigits;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
 import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
@@ -167,7 +178,10 @@ public class InformationSchemaPageSourceProvider
                             column.isNullable() ? "YES" : "NO",
                             column.getType().getDisplayName(),
                             column.getComment().orElse(null),
-                            column.getExtraInfo().orElse(null));
+                            column.getExtraInfo().orElse(null),
+                            getPrecision(column.getType()),
+                            decimalDigits(column.getType()),
+                            getCharVarcharLength(column.getType()));
                     ordinalPosition++;
                 }
             }
@@ -280,5 +294,41 @@ public class InformationSchemaPageSourceProvider
             table.add(role);
         }
         return table.build();
+    }
+
+    public static Integer getCharVarcharLength(Type type)
+    {
+        if (type instanceof VarcharType) {
+            return ((VarcharType) type).getLength();
+        }
+        if (type instanceof CharType) {
+            return (((CharType) type).getLength());
+        }
+        return null;
+    }
+    public static Integer getPrecision(Type type)
+    {
+        if (type.equals(BIGINT)) {
+            return 19;  // 2**63-1
+        }
+        if (type.equals(INTEGER)) {
+            return 10;  // 2**31-1
+        }
+        if (type.equals(SMALLINT)) {
+            return 5;   // 2**15-1
+        }
+        if (type.equals(TINYINT)) {
+            return 3;   // 2**7-1
+        }
+        if (type instanceof DecimalType) {
+            return ((DecimalType) type).getPrecision();
+        }
+        if (type.equals(REAL)) {
+            return 24; // IEEE 754
+        }
+        if (type.equals(DOUBLE)) {
+            return 53; // IEEE 754
+        }
+        return null;
     }
 }
