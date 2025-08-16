@@ -24,19 +24,18 @@ import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQu
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
-// Disabled for 7.5 TestNG Upgrade, the constructor takes in parameter
-// TestNG 6 silently ignored, TestNG 7.5 fails (correctly), disabling for now
-public class DisabledTestOracleIntegrationSmokeTest
+public class TestOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private final OracleServerTester oracleServer;
     private QueryRunner queryRunner;
 
-    protected DisabledTestOracleIntegrationSmokeTest(OracleServerTester oracleServer)
+    protected TestOracleIntegrationSmokeTest()
             throws Exception
     {
-        this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
-        this.oracleServer = new OracleServerTester();
+        OracleServerTester oracleServerTester = new OracleServerTester();
+        this.queryRunner = createOracleQueryRunner(oracleServerTester, ORDERS);
+        this.oracleServer = oracleServerTester;
     }
 
     @Override
