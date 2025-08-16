@@ -13,47 +13,44 @@
  */
 package com.facebook.presto.spark.execution.http.server.smile;
 
-import com.facebook.airlift.http.client.FullJsonResponseHandler;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spark.execution.http.OkHttpBaseResponse;
+import com.facebook.presto.spark.execution.http.OkHttpResponseHandler;
+import okhttp3.Request;
+import okhttp3.Response;
 
-import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static com.facebook.presto.spark.execution.http.server.smile.JsonResponseWrapper.wrapJsonResponse;
+import java.io.IOException;
+
 import static java.util.Objects.requireNonNull;
 
 /**
- * This response handler helps clients convert responses of type `JsonResponse`
- * to `BaseResponse`, which simplifies the client code for handling both
- * JSON and SMILE responses.
+ * This response handler helps clients convert OkHttp responses to BaseResponse,
+ * which simplifies the client code for handling both JSON and SMILE responses.
  */
 public class AdaptingJsonResponseHandler<T>
-        implements ResponseHandler<BaseResponse<T>, RuntimeException>
+        implements OkHttpResponseHandler<T>
 {
-    private final FullJsonResponseHandler<T> jsonResponseHandler;
+    private final JsonCodec<T> jsonCodec;
 
-    private AdaptingJsonResponseHandler(FullJsonResponseHandler<T> jsonResponseHandler)
+    private AdaptingJsonResponseHandler(JsonCodec<T> jsonCodec)
     {
-        this.jsonResponseHandler = requireNonNull(jsonResponseHandler, "jsonResponseHandler is null");
+        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
     }
 
     public static <T> AdaptingJsonResponseHandler<T> createAdaptingJsonResponseHandler(JsonCodec<T> jsonCodec)
     {
-        return new AdaptingJsonResponseHandler<>(createFullJsonResponseHandler(jsonCodec));
+        return new AdaptingJsonResponseHandler<>(jsonCodec);
     }
 
-    @Override
     public BaseResponse<T> handleException(Request request, Exception exception)
             throws RuntimeException
     {
-        return wrapJsonResponse(jsonResponseHandler.handleException(request, exception));
+        throw new RuntimeException("Failed to execute request: " + request.url(), exception);
     }
 
-    @Override
     public BaseResponse<T> handle(Request request, Response response)
-            throws RuntimeException
+            throws IOException
     {
-        return wrapJsonResponse(jsonResponseHandler.handle(request, response));
+        return new OkHttpBaseResponse<>(response, jsonCodec);
     }
 }

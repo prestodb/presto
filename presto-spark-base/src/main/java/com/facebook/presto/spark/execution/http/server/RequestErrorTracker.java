@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark.execution.http.server;
 
-import com.facebook.airlift.event.client.ServiceUnavailableException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.TaskId;
@@ -162,8 +161,7 @@ public class RequestErrorTracker
             if ((t instanceof SocketException) ||
                     (t instanceof SocketTimeoutException) ||
                     (t instanceof EOFException) ||
-                    (t instanceof TimeoutException) ||
-                    (t instanceof ServiceUnavailableException)) {
+                    (t instanceof TimeoutException)) {
                 return true;
             }
             t = t.getCause();
