@@ -100,11 +100,6 @@ struct OpaqueSerdeRegistry {
 };
 } // namespace
 
-std::ostream& operator<<(std::ostream& os, const TypeKind& kind) {
-  os << TypeKindName::toName(kind);
-  return os;
-}
-
 namespace {
 std::vector<TypePtr> deserializeChildTypes(const folly::dynamic& obj) {
   return velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);

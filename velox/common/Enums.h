@@ -77,7 +77,8 @@ struct Enums {
     static std::string_view toName(EnumType value);                        \
     static EnumType to##EnumType(std::string_view name);                   \
     static std::optional<EnumType> tryTo##EnumType(std::string_view name); \
-  };
+  };                                                                       \
+  std::ostream& operator<<(std::ostream& os, const EnumType& value);
 
 #define VELOX_DEFINE_ENUM_NAME(EnumType, Names)                             \
   std::string_view EnumType##Name::toName(EnumType value) {                 \
@@ -107,6 +108,10 @@ struct Enums {
       return std::nullopt;                                                  \
     }                                                                       \
     return it->second;                                                      \
+  }                                                                         \
+  std::ostream& operator<<(std::ostream& os, const EnumType& value) {       \
+    os << EnumType##Name::toName(value);                                    \
+    return os;                                                              \
   }
 
 #define VELOX_DECLARE_EMBEDDED_ENUM_NAME(EnumType)     \

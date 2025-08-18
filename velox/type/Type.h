@@ -106,8 +106,6 @@ inline std::string mapTypeKindToName(const TypeKind& typeKind) {
   return std::string(TypeKindName::toName(typeKind));
 }
 
-std::ostream& operator<<(std::ostream& os, const TypeKind& kind);
-
 template <TypeKind KIND>
 class ScalarType;
 class ShortDecimalType;
