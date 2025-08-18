@@ -309,6 +309,7 @@ public class FeaturesConfig
     private boolean addDistinctBelowSemiJoinBuild;
     private boolean pushdownSubfieldForMapFunctions = true;
     private long maxSerializableObjectSize = 1000;
+    private boolean utilizeUniquePropertyInQueryPlanning = true;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -3099,6 +3100,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldForMapFunctions()
     {
         return pushdownSubfieldForMapFunctions;
+    }
+
+    @Config("optimizer.utilize-unique-property-in-query-planning")
+    @ConfigDescription("Utilize the unique property of input columns in query planning")
+    public FeaturesConfig setUtilizeUniquePropertyInQueryPlanning(boolean utilizeUniquePropertyInQueryPlanning)
+    {
+        this.utilizeUniquePropertyInQueryPlanning = utilizeUniquePropertyInQueryPlanning;
+        return this;
+    }
+
+    public boolean isUtilizeUniquePropertyInQueryPlanning()
+    {
+        return utilizeUniquePropertyInQueryPlanning;
     }
 
     @Config("max_serializable_object_size")

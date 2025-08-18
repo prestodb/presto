@@ -337,6 +337,7 @@ public final class SystemSessionProperties
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
     public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
+    public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
 
@@ -1950,6 +1951,10 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
+                booleanProperty(UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING,
+                        "Utilize the unique property of input columns in query planning",
+                        featuresConfig.isUtilizeUniquePropertyInQueryPlanning(),
+                        false),
                 booleanProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD,
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
@@ -3308,6 +3313,11 @@ public final class SystemSessionProperties
     public static boolean isPushSubfieldsForMapFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isUtilizeUniquePropertyInQueryPlanningEnabled(Session session)
+    {
+        return session.getSystemProperty(UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING, Boolean.class);
     }
 
     public static boolean isAddDistinctBelowSemiJoinBuildEnabled(Session session)
