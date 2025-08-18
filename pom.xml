@@ -90,6 +90,7 @@
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
+        <dep.helix.version>1.4.3</dep.helix.version>
 
         <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
 
@@ -2243,6 +2244,13 @@
                 <groupId>org.apache.pinot</groupId>
                 <artifactId>presto-pinot-driver</artifactId>
                 <version>${dep.pinot.version}</version>
+            </dependency>
+
+            <!-- Upgrades the transitive helix-core version used by the Presto Pinot driver to address CVE-2023-38647 -->
+            <dependency>
+                <groupId>org.apache.helix</groupId>
+                <artifactId>helix-core</artifactId>
+                <version>${dep.helix.version}</version>
             </dependency>
 
             <dependency>
