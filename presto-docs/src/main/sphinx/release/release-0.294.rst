@@ -11,67 +11,52 @@ Release 0.294
 * Add changes to populate data source metadata to support combined lineage tracking. `#25127 <https://github.com/prestodb/presto/pull/25127>`_
 * Add mixed case support for schema and table names. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
 * Add case-sensitive support for column names. It can be enabled for JDBC based connector by setting ``case-sensitive-name-matching=true`` at the catalog level. `#24983 <https://github.com/prestodb/presto/pull/24983>`_
-* Replace ``EXPLAIN (TYPE DISTRIBUTED)`` with ``EXPLAIN (TYPE VALIDATE)`` for faster, lightweight analysis. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
+* Update ``presto-plan-checker-router-plugin router`` plugin to use ``EXPLAIN (TYPE VALIDATE)`` in place of ``EXPLAIN (TYPE DISTRIBUTED)``, enabling faster routing of queries to either native or Java clusters. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
 
 **Details**
 ===========
 
 General Changes
 _______________
-* Fix PushdownSubfields optimizer to enable subfield pushdown for maps which is accessed with negative keys. `#25445 <https://github.com/prestodb/presto/pull/25445>`_
-* Fix a bug in FunctionHandle serialization where multiple types corresponds to the same type of FunctionHandle. `#25526 <https://github.com/prestodb/presto/pull/25526>`_
+* Fix filter pushdown to enable subfield pushdown for maps which are accessed with negative keys. `#25445 <https://github.com/prestodb/presto/pull/25445>`_
 * Fix error classification for unsupported array comparison with null elements, converting it as a user error. `#25187 <https://github.com/prestodb/presto/pull/25187>`_
 * Fix for :ref:`sql/update:UPDATE` statements involving multiple identical target column values. `#25599 <https://github.com/prestodb/presto/pull/25599>`_
 * Fix inconsistent ordering with offset and limit. `#25216 <https://github.com/prestodb/presto/pull/25216>`_
 * Fix precision loss in ``parse_duration`` function for large millisecond values. `#25538 <https://github.com/prestodb/presto/pull/25538>`_
 * Fix randomize null join optimizer to keep HBO information for join input. `#25466 <https://github.com/prestodb/presto/pull/25466>`_
-* Fix subfield pushdown arg index for scalar functions to support selecting whole struct column. `#25471 <https://github.com/prestodb/presto/pull/25471>`_
-* Fix: Revert the Write mapping support. `#25369 <https://github.com/prestodb/presto/pull/25369>`_
-* Fix: Revert the move of bootstrap from presto-main to presto-bytecode. `#25260 <https://github.com/prestodb/presto/pull/25260>`_
-* Improve ``MinMaxByToWindowFunction`` optimizer to cover cases where aggregation is on both map/array and non map/array types. `#25435 <https://github.com/prestodb/presto/pull/25435>`_
 * Improve and optimize Docker image layers. `#25487 <https://github.com/prestodb/presto/pull/25487>`_
 * Improve efficiency of inserts on ORC files. `#24913 <https://github.com/prestodb/presto/pull/24913>`_
 * Improve query resource usage by enabling subfield pushdown for :func:`map_filter` when selected keys are constants. `#25451 <https://github.com/prestodb/presto/pull/25451>`_
 * Improve query resource usage by enabling subfield pushdown for :func:`map_subset` when the input array is a constant array. `#25394 <https://github.com/prestodb/presto/pull/25394>`_
-* Improve MergePartialAggregationsWithFilter to work for queries where all aggregations have mask. `#25171 <https://github.com/prestodb/presto/pull/25171>`_
-* Improve remove map cast rule to cover :func:`map_subset`. `#25395 <https://github.com/prestodb/presto/pull/25395>`_
-* Improve memory usage in writer by freeing unused buffers. `#23724 <https://github.com/prestodb/presto/pull/23724>`_
 * Improve semi join performance for large filtering tables. `#25236 <https://github.com/prestodb/presto/pull/25236>`_
-* Improve the collector optimizer by moving ``UnnestNode`` class to SPI. `#25317 <https://github.com/prestodb/presto/pull/25317>`_
-* Improve ``check_access_control_on_utilized_columns_only`` session property by setting the default value to ``true``. `#25469 <https://github.com/prestodb/presto/pull/25469>`_
 * Improve efficiency of queries with distinct aggregation and semi joins. `#25238 <https://github.com/prestodb/presto/pull/25238>`_
+* Improve performance of min_by/max_by aggregations. `#25190 <https://github.com/prestodb/presto/pull/25190>`_
 * Add :func:`dot_product(array(real), array(real)) -> real()` to calculate the sum of element wise product between two identically sized vectors represented as arrays. This function supports both array(real) and array(double) input types. For more information, refer to the `Dot Product definition <https://en.wikipedia.org/wiki/Dot_product>`_. `#25508 <https://github.com/prestodb/presto/pull/25508>`_
-* Add a new optimization ``MinMaxByToWindowFunction`` to rewrite min_by/max_by aggregations with row_number window function. `#25190 <https://github.com/prestodb/presto/pull/25190>`_
 * Add ``broadcast_semi_join_for_delete`` session property to disable the ReplicateSemiJoinInDelete optimizer. `#25256 <https://github.com/prestodb/presto/pull/25256>`_
 * Add ``history_based_optimizer_estimate_size_using_variables`` session property to have HBO estimate plan node output size using individual variables. `#25400 <https://github.com/prestodb/presto/pull/25400>`_
 * Add changes to populate data source metadata to support combined lineage tracking. `#25127 <https://github.com/prestodb/presto/pull/25127>`_
 * Add mixed case support for schema and table names. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
 * Add session property ``native_query_memory_reclaimer_priority`` which controls which queries are killed first when a worker is running low on memory. Higher value means lower priority to be consistent with velox memory reclaimer's convention. See :doc:`/presto_cpp/properties-session` `#25325 <https://github.com/prestodb/presto/pull/25325>`_
-* Add pushdownSubfieldArgIndex parameter to ComplexTypeFunctionDescriptor for subfield optimization during query planning. `#25175 <https://github.com/prestodb/presto/pull/25175>`_
 * Add xxhash64 override with seed argument. `#25521 <https://github.com/prestodb/presto/pull/25521>`_
-* Add aggregation tests from ``presto-tests`` to run with native query runner in ``presto-native-tests``. `#24809 <https://github.com/prestodb/presto/pull/24809>`_
 * Add the :func:`l2_squared(array(real), array(real)) -> real()` function to Java workers. `#25409 <https://github.com/prestodb/presto/pull/25409>`_
-* Update ProtocolToThrift files to be generated for cpp thrift serde. `#25162 <https://github.com/prestodb/presto/pull/25162>`_
 * Update QueryPlanner to only include the optional ``$row_id`` column in :ref:`sql/delete:DELETE` query output variables when it is actually used by the connector. `#25284 <https://github.com/prestodb/presto/pull/25284>`_
+* Update the default value of ``check_access_control_on_utilized_columns_only`` session property to ``true``. The ``false`` value makes the access check apply to all columns. See :ref:`admin/properties-session:\`\`check_access_control_on_utilized_columns_only\`\`` . `#25469 <https://github.com/prestodb/presto/pull/25469>`_
 
 Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix Native Plan Checker for CTAS and Insert queries. `#25115 <https://github.com/prestodb/presto/pull/25115>`_
 * Fix native session property manager reading plugin configs from file. `#25553 <https://github.com/prestodb/presto/pull/25553>`_
 * Fix PrestoExchangeSource 400 Bad Request by adding the "Host" header. `#25272 <https://github.com/prestodb/presto/pull/25272>`_
-* Improve memory usage in PartitionAndSerialize Operator by pre-determining the serialized byte size of a given sort key at ``rowId``. This allows the PartitionAndSerialize Operator to pre-allocate the exact output buffer size needed for serialization and avoid wasted memory allocation. User should expect lower memory usage and up to 20% runtime increase when serializing a sort key. `#25393 <https://github.com/prestodb/presto/pull/25393>`_
-* Improve serialized size estimation by introducing a batched API using vectorized operations. It delivers up to 8x faster size estimation compared to the previous row-by-row implementation. Workloads with high serialization cost will benefit from adopting this range-based API. `#25569 <https://github.com/prestodb/presto/pull/25569>`_
-* Add BinarySortableSerializer::serializedSizeInBytes method that returns the serialized byte size of a given input row at ``rowId``. This allows us to pre-allocate the exact output buffer size needed for serialization, avoiding wasted memory space. `#25359 <https://github.com/prestodb/presto/pull/25359>`_
+* Improve memory usage in the ``PartitionAndSerialize`` operator and lower memory usage when serializing a sort key. `#25393 <https://github.com/prestodb/presto/pull/25393>`_
+* Improve the efficiency of queries that involve with serialization operator by processing data in large groups instead of one by one. `#25569 <https://github.com/prestodb/presto/pull/25569>`_
 * Add geometry type to the list of supported types in NativeTypeManager. `#25560 <https://github.com/prestodb/presto/pull/25560>`_
-* Add sidecar in presto-native-tests module. `#25174 <https://github.com/prestodb/presto/pull/25174>`_
-* Replace ``EXPLAIN (TYPE DISTRIBUTED)`` with ``EXPLAIN (TYPE VALIDATE)`` for faster, lightweight analysis. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
-* Update thrift IDL to expand connector specific fields. `#25474 <https://github.com/prestodb/presto/pull/25474>`_
 * Update stats API and Presto UI to report number of drivers and splits separately. `#24671 <https://github.com/prestodb/presto/pull/24671>`_
 
 Router Changes
 ______________
 * Add the `Presto Plan Checker Router Scheduler Plugin <https://github.com/prestodb/presto/tree/master/presto-plan-checker-router-plugin/README.md>`_. `#25035 <https://github.com/prestodb/presto/pull/25035>`_
 * Replace the parameters in router schedulers to use `RouterRequestInfo` to get the URL destination. `#25244 <https://github.com/prestodb/presto/pull/25244>`_
+* Update ``presto-plan-checker-router-plugin router`` plugin to use ``EXPLAIN (TYPE VALIDATE)`` in place of ``EXPLAIN (TYPE DISTRIBUTED)``, enabling faster routing of queries to either native or Java clusters. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
 * Update router UI to eliminate vulnerabilities. `#25206 <https://github.com/prestodb/presto/pull/25206>`_
 
 Security Changes
@@ -99,9 +84,9 @@ ____________________________
 
 Hive Connector Changes
 ______________________
-* Fix an issue while accessing Symlink tables. `#25307 <https://github.com/prestodb/presto/pull/25307>`_
+* Fix an issue while accessing symlink tables. `#25307 <https://github.com/prestodb/presto/pull/25307>`_
 * Fix incorrectly ignoring computed table statistics in ``ANALYZE``. `#24973 <https://github.com/prestodb/presto/pull/24973>`_
-* Improve split generation and read throughput for Symlink Tables. `#25277 <https://github.com/prestodb/presto/pull/25277>`_
+* Improve split generation and read throughput for symlink tables. `#25277 <https://github.com/prestodb/presto/pull/25277>`_
 * Add support for symlink files in :ref:`connector/hive:Quick Stats`. `#25250 <https://github.com/prestodb/presto/pull/25250>`_
 * Update default value of ``hive.copy-on-first-write-configuration-enabled`` to ``false``. `#25420 <https://github.com/prestodb/presto/pull/25420>`_
 
@@ -127,6 +112,7 @@ __________________________
 SPI Changes
 ___________
 * Add a function to SPI ``Constraint`` class to return the input arguments for the predicate. `#25248 <https://github.com/prestodb/presto/pull/25248>`_
+* Add support for ``UnnestNode`` in connector optimizers. `#25317 <https://github.com/prestodb/presto/pull/25317>`_
 
 Documentation Changes
 _____________________
