@@ -263,6 +263,7 @@ public class TestFeaturesConfig
                 .setAddExchangeBelowPartialAggregationOverGroupId(false)
                 .setAddDistinctBelowSemiJoinBuild(false)
                 .setPushdownSubfieldForMapFunctions(true)
+                .setUtilizeUniquePropertyInQueryPlanning(true)
                 .setInnerJoinPushdownEnabled(false)
                 .setBroadcastSemiJoinForDelete(true)
                 .setInEqualityJoinPushdownEnabled(false)
@@ -482,6 +483,7 @@ public class TestFeaturesConfig
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("optimizer.add-distinct-below-semi-join-build", "true")
                 .put("optimizer.pushdown-subfield-for-map-functions", "false")
+                .put("optimizer.utilize-unique-property-in-query-planning", "false")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .put("max_serializable_object_size", "50")
                 .build();
@@ -692,6 +694,7 @@ public class TestFeaturesConfig
                 .setAddExchangeBelowPartialAggregationOverGroupId(true)
                 .setAddDistinctBelowSemiJoinBuild(true)
                 .setPushdownSubfieldForMapFunctions(false)
+                .setUtilizeUniquePropertyInQueryPlanning(false)
                 .setInEqualityJoinPushdownEnabled(true)
                 .setBroadcastSemiJoinForDelete(false)
                 .setRewriteMinMaxByToTopNEnabled(true)

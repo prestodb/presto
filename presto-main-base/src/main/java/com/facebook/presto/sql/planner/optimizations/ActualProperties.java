@@ -49,6 +49,7 @@ import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.tr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ActualProperties
@@ -56,11 +57,22 @@ public class ActualProperties
     private final Global global;
     private final List<LocalProperty<VariableReferenceExpression>> localProperties;
     private final Map<VariableReferenceExpression, ConstantExpression> constants;
+    // Used to track the properties of the unique row_id
+    private final Optional<ActualProperties> propertiesFromUniqueColumn;
 
     private ActualProperties(
             Global global,
             List<? extends LocalProperty<VariableReferenceExpression>> localProperties,
             Map<VariableReferenceExpression, ConstantExpression> constants)
+    {
+        this(global, localProperties, constants, Optional.empty());
+    }
+
+    private ActualProperties(
+            Global global,
+            List<? extends LocalProperty<VariableReferenceExpression>> localProperties,
+            Map<VariableReferenceExpression, ConstantExpression> constants,
+            Optional<ActualProperties> propertiesFromUniqueColumn)
     {
         requireNonNull(global, "globalProperties is null");
         requireNonNull(localProperties, "localProperties is null");
@@ -85,11 +97,18 @@ public class ActualProperties
 
         this.localProperties = ImmutableList.copyOf(updatedLocalProperties);
         this.constants = ImmutableMap.copyOf(constants);
+        propertiesFromUniqueColumn.ifPresent(actualProperties -> checkArgument(!actualProperties.getPropertiesFromUniqueColumn().isPresent()));
+        this.propertiesFromUniqueColumn = propertiesFromUniqueColumn;
     }
 
     public boolean isCoordinatorOnly()
     {
         return global.isCoordinatorOnly();
+    }
+
+    public Optional<ActualProperties> getPropertiesFromUniqueColumn()
+    {
+        return propertiesFromUniqueColumn;
     }
 
     /**
@@ -120,6 +139,16 @@ public class ActualProperties
         }
     }
 
+    public boolean isStreamPartitionedOnAdditionalProperty(Collection<VariableReferenceExpression> columns, boolean exactly)
+    {
+        if (exactly) {
+            return propertiesFromUniqueColumn.isPresent() && propertiesFromUniqueColumn.get().global.isStreamPartitionedOnExactly(columns, ImmutableSet.of(), false);
+        }
+        else {
+            return propertiesFromUniqueColumn.isPresent() && propertiesFromUniqueColumn.get().global.isStreamPartitionedOn(columns, ImmutableSet.of(), false);
+        }
+    }
+
     public boolean isNodePartitionedOn(Collection<VariableReferenceExpression> columns, boolean exactly)
     {
         return isNodePartitionedOn(columns, false, exactly);
@@ -132,6 +161,16 @@ public class ActualProperties
         }
         else {
             return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
+        }
+    }
+
+    public boolean isNodePartitionedOnAdditionalProperty(Collection<VariableReferenceExpression> columns, boolean exactly)
+    {
+        if (exactly) {
+            return propertiesFromUniqueColumn.isPresent() && propertiesFromUniqueColumn.get().global.isNodePartitionedOnExactly(columns, ImmutableSet.of(), false);
+        }
+        else {
+            return propertiesFromUniqueColumn.isPresent() && propertiesFromUniqueColumn.get().global.isNodePartitionedOn(columns, ImmutableSet.of(), false);
         }
     }
 
@@ -194,6 +233,13 @@ public class ActualProperties
                 translatedConstants.put(translatedKey.get(), entry.getValue());
             }
         }
+        Optional<ActualProperties> newAdditionalProperty = Optional.empty();
+        if (propertiesFromUniqueColumn.isPresent()) {
+            ActualProperties translatedAdditionalProperty = propertiesFromUniqueColumn.get().translateVariable(translator);
+            if (!translatedAdditionalProperty.getLocalProperties().isEmpty()) {
+                newAdditionalProperty = Optional.of(translatedAdditionalProperty);
+            }
+        }
         return builder()
                 .global(global.translateVariableToRowExpression(variable -> {
                     Optional<RowExpression> translated = translator.apply(variable).map(RowExpression.class::cast);
@@ -204,6 +250,7 @@ public class ActualProperties
                 }))
                 .local(LocalProperties.translate(localProperties, translator))
                 .constants(translatedConstants)
+                .propertiesFromUniqueColumn(newAdditionalProperty)
                 .build();
     }
 
@@ -229,10 +276,20 @@ public class ActualProperties
         constants.entrySet().stream()
                 .filter(entry -> !inputToOutputVariables.containsKey(entry.getKey()))
                 .forEach(inputToOutputMappings::put);
+
+        Optional<ActualProperties> newAdditionalProperty = Optional.empty();
+        if (propertiesFromUniqueColumn.isPresent()) {
+            ActualProperties translatedAdditionalProperty = propertiesFromUniqueColumn.get().translateRowExpression(assignments);
+            if (!translatedAdditionalProperty.getLocalProperties().isEmpty()) {
+                newAdditionalProperty = Optional.of(translatedAdditionalProperty);
+            }
+        }
+
         return builder()
                 .global(global.translateRowExpression(inputToOutputMappings.build(), assignments))
                 .local(LocalProperties.translate(localProperties, variable -> Optional.ofNullable(inputToOutputVariables.get(variable))))
                 .constants(translatedConstants)
+                .propertiesFromUniqueColumn(newAdditionalProperty)
                 .build();
     }
 
@@ -274,6 +331,7 @@ public class ActualProperties
         private List<LocalProperty<VariableReferenceExpression>> localProperties;
         private Map<VariableReferenceExpression, ConstantExpression> constants;
         private boolean unordered;
+        private Optional<ActualProperties> propertiesFromUniqueColumn;
 
         public Builder()
         {
@@ -282,9 +340,15 @@ public class ActualProperties
 
         public Builder(Global global, List<LocalProperty<VariableReferenceExpression>> localProperties, Map<VariableReferenceExpression, ConstantExpression> constants)
         {
+            this(global, localProperties, constants, Optional.empty());
+        }
+
+        public Builder(Global global, List<LocalProperty<VariableReferenceExpression>> localProperties, Map<VariableReferenceExpression, ConstantExpression> constants, Optional<ActualProperties> propertiesFromUniqueColumn)
+        {
             this.global = requireNonNull(global, "global is null");
             this.localProperties = ImmutableList.copyOf(localProperties);
             this.constants = ImmutableMap.copyOf(constants);
+            this.propertiesFromUniqueColumn = propertiesFromUniqueColumn;
         }
 
         public Builder global(Global global)
@@ -317,6 +381,18 @@ public class ActualProperties
             return this;
         }
 
+        public Builder propertiesFromUniqueColumn(Optional<ActualProperties> propertiesFromUniqueColumn)
+        {
+            if (propertiesFromUniqueColumn.isPresent() && !propertiesFromUniqueColumn.get().getLocalProperties().isEmpty()) {
+                checkArgument(propertiesFromUniqueColumn.get().getLocalProperties().size() == 1);
+                this.propertiesFromUniqueColumn = propertiesFromUniqueColumn;
+            }
+            else {
+                this.propertiesFromUniqueColumn = Optional.empty();
+            }
+            return this;
+        }
+
         public ActualProperties build()
         {
             List<LocalProperty<VariableReferenceExpression>> localProperties = this.localProperties;
@@ -332,14 +408,19 @@ public class ActualProperties
                 }
                 localProperties = newLocalProperties.build();
             }
-            return new ActualProperties(global, localProperties, constants);
+            if (propertiesFromUniqueColumn.isPresent() && unordered) {
+                propertiesFromUniqueColumn = Optional.of(ActualProperties.builderFrom(propertiesFromUniqueColumn.get())
+                        .unordered(unordered)
+                        .build());
+            }
+            return new ActualProperties(global, localProperties, constants, propertiesFromUniqueColumn);
         }
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(global, localProperties, constants.keySet());
+        return Objects.hash(global, localProperties, constants.keySet(), propertiesFromUniqueColumn);
     }
 
     @Override
@@ -354,7 +435,8 @@ public class ActualProperties
         final ActualProperties other = (ActualProperties) obj;
         return Objects.equals(this.global, other.global)
                 && Objects.equals(this.localProperties, other.localProperties)
-                && Objects.equals(this.constants.keySet(), other.constants.keySet());
+                && Objects.equals(this.constants.keySet(), other.constants.keySet())
+                && Objects.equals(this.propertiesFromUniqueColumn, other.propertiesFromUniqueColumn);
     }
 
     @Override
@@ -364,6 +446,7 @@ public class ActualProperties
                 .add("globalProperties", global)
                 .add("localProperties", localProperties)
                 .add("constants", constants)
+                .add("propertiesFromUniqueColumn", propertiesFromUniqueColumn)
                 .toString();
     }
 
@@ -391,7 +474,7 @@ public class ActualProperties
                             || !streamPartitioning.isPresent()
                             || nodePartitioning.get().getVariableReferences().containsAll(streamPartitioning.get().getVariableReferences())
                             || streamPartitioning.get().getVariableReferences().containsAll(nodePartitioning.get().getVariableReferences()),
-                    "Global stream partitioning columns should match node partitioning columns");
+                    format("Global stream partitioning columns should match node partitioning columns, nodePartitioning: %s, streamPartitioning: %s", nodePartitioning, streamPartitioning));
             this.nodePartitioning = requireNonNull(nodePartitioning, "nodePartitioning is null");
             this.streamPartitioning = requireNonNull(streamPartitioning, "streamPartitioning is null");
             this.nullsAndAnyReplicated = nullsAndAnyReplicated;

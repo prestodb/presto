@@ -184,6 +184,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUM
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ROW_ID_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.rowIdColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
@@ -2927,7 +2928,8 @@ public class HiveMetadata
                 streamPartitionColumns,
                 discretePredicates,
                 localPropertyBuilder.build(),
-                Optional.of(combinedRemainingPredicate));
+                Optional.of(combinedRemainingPredicate),
+                Optional.of(rowIdColumnHandle()));
     }
 
     @Override

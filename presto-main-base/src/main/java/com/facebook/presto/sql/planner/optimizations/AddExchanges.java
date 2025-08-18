@@ -312,7 +312,8 @@ public class AddExchanges
                         child.getProperties());
             }
             else if (hasMixedGroupingSets
-                    || !isStreamPartitionedOn(child.getProperties(), partitioningRequirement) && !isNodePartitionedOn(child.getProperties(), partitioningRequirement)) {
+                    || !isStreamPartitionedOn(child.getProperties(), partitioningRequirement) && !isNodePartitionedOn(child.getProperties(), partitioningRequirement)
+                    && !isNodePartitionedOnAdditionalProperty(child.getProperties(), partitioningRequirement) && !isStreamPartitionedOnAdditionalProperty(child.getProperties(), partitioningRequirement)) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
@@ -1631,9 +1632,19 @@ public class AddExchanges
             return properties.isNodePartitionedOn(columns, isExactPartitioningPreferred(session));
         }
 
+        private boolean isNodePartitionedOnAdditionalProperty(ActualProperties properties, Collection<VariableReferenceExpression> columns)
+        {
+            return properties.isNodePartitionedOnAdditionalProperty(columns, isExactPartitioningPreferred(session));
+        }
+
         private boolean isStreamPartitionedOn(ActualProperties properties, Collection<VariableReferenceExpression> columns)
         {
             return properties.isStreamPartitionedOn(columns, isExactPartitioningPreferred(session));
+        }
+
+        private boolean isStreamPartitionedOnAdditionalProperty(ActualProperties properties, Collection<VariableReferenceExpression> columns)
+        {
+            return properties.isStreamPartitionedOnAdditionalProperty(columns, isExactPartitioningPreferred(session));
         }
 
         private boolean shouldAggregationMergePartitionPreferences(AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy)
