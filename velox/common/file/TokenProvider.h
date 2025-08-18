@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 namespace facebook::velox::filesystems {
@@ -25,11 +26,13 @@ namespace facebook::velox::filesystems {
 /// be passed down and stored in the ReadFile/WriteFile object of the specific
 /// file system.
 class AccessTokenKey {
+ public:
   virtual ~AccessTokenKey() = default;
 };
 
 /// Abstract token each file system can implement and cast.
 class AccessToken {
+ public:
   virtual ~AccessToken() = default;
 };
 

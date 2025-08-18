@@ -30,7 +30,8 @@ std::shared_ptr<QueryCtx> QueryCtx::create(
     cache::AsyncDataCache* cache,
     std::shared_ptr<memory::MemoryPool> pool,
     folly::Executor* spillExecutor,
-    const std::string& queryId) {
+    const std::string& queryId,
+    std::shared_ptr<filesystems::TokenProvider> tokenProvider) {
   std::shared_ptr<QueryCtx> queryCtx(new QueryCtx(
       executor,
       std::move(queryConfig),
@@ -38,7 +39,8 @@ std::shared_ptr<QueryCtx> QueryCtx::create(
       cache,
       std::move(pool),
       spillExecutor,
-      queryId));
+      queryId,
+      std::move(tokenProvider)));
   queryCtx->maybeSetReclaimer();
   return queryCtx;
 }
@@ -51,14 +53,16 @@ QueryCtx::QueryCtx(
     cache::AsyncDataCache* cache,
     std::shared_ptr<memory::MemoryPool> pool,
     folly::Executor* spillExecutor,
-    const std::string& queryId)
+    const std::string& queryId,
+    std::shared_ptr<filesystems::TokenProvider> tokenProvider)
     : queryId_(queryId),
       executor_(executor),
       spillExecutor_(spillExecutor),
       cache_(cache),
       connectorSessionProperties_(connectorSessionProperties),
       pool_(std::move(pool)),
-      queryConfig_{std::move(queryConfig)} {
+      queryConfig_{std::move(queryConfig)},
+      fsTokenProvider_(std::move(tokenProvider)) {
   initPool(queryId);
 }
 

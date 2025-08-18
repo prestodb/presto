@@ -664,6 +664,13 @@ class QueryConfig {
   static constexpr const char* kMaxNumSplitsListenedTo =
       "max_num_splits_listened_to";
 
+  /// Source of the query. Used by Presto to identify the file system username.
+  static constexpr const char* kSource = "source";
+
+  /// Client tags of the query. Used by Presto to identify the file system
+  /// username.
+  static constexpr const char* kClientTags = "client_tags";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -1201,6 +1208,14 @@ class QueryConfig {
 
   int32_t maxNumSplitsListenedTo() const {
     return get<int32_t>(kMaxNumSplitsListenedTo, 0);
+  }
+
+  std::string source() const {
+    return get<std::string>(kSource, "");
+  }
+
+  std::string clientTags() const {
+    return get<std::string>(kClientTags, "");
   }
 
   template <typename T>

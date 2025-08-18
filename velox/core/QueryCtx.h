@@ -51,7 +51,8 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       folly::Executor* spillExecutor = nullptr,
-      const std::string& queryId = "");
+      const std::string& queryId = "",
+      std::shared_ptr<filesystems::TokenProvider> tokenProvider = {});
 
   static std::string generatePoolName(const std::string& queryId);
 
@@ -87,6 +88,10 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   const std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&
   connectorSessionProperties() const {
     return connectorSessionProperties_;
+  }
+
+  std::shared_ptr<filesystems::TokenProvider> fsTokenProvider() const {
+    return fsTokenProvider_;
   }
 
   /// Overrides the previous configuration. Note that this function is NOT
@@ -153,7 +158,8 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
       std::shared_ptr<memory::MemoryPool> pool = nullptr,
       folly::Executor* spillExecutor = nullptr,
-      const std::string& queryId = "");
+      const std::string& queryId = "",
+      std::shared_ptr<filesystems::TokenProvider> tokenProvider = {});
 
   class MemoryReclaimer : public memory::MemoryReclaimer {
    public:
@@ -227,6 +233,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   // Indicates if this query is under memory arbitration or not.
   std::atomic_bool underArbitration_{false};
   std::vector<ContinuePromise> arbitrationPromises_;
+  std::shared_ptr<filesystems::TokenProvider> fsTokenProvider_;
 };
 
 // Represents the state of one thread of query execution.
