@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//@flow
 
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
@@ -18,17 +19,17 @@ import * as d3 from "d3";
 // DagreD3 Graph-related functions
 // ===============================
 
-export function initializeGraph(): any
-{
-    return new dagreD3.graphlib.Graph({compound: true})
-        .setGraph({rankdir: 'BT'})
-        .setDefaultEdgeLabel(function () { return {}; });
+export function initializeGraph(): any {
+  return new dagreD3.graphlib.Graph({ compound: true })
+    .setGraph({ rankdir: "BT" })
+    .setDefaultEdgeLabel(function () {
+      return {};
+    });
 }
 
-export function initializeSvg(selector: any): any
-{
-    const svg = d3.select(selector);
-    svg.append("g");
+export function initializeSvg(selector: any): any {
+  const svg = d3.select(selector);
+  svg.append("g");
 
-    return svg;
+  return svg;
 }
