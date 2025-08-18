@@ -234,6 +234,28 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testMysqlTime()
+    {
+        assertUpdate("CREATE TABLE test_time (datatype_time time)");
+
+        assertUpdate("INSERT INTO test_time VALUES (time '01:02:03.456')", 1);
+
+        assertQuery(
+                "SELECT datatype_time FROM test_time",
+                "VALUES " +
+                        "CAST('01:02:03.456' AS time)");
+
+        assertUpdate("DROP TABLE test_time");
+    }
+
+    @Test
+    public void testMysqlUnsupportedTimeTypes()
+    {
+        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (timestamp_with_time_zone timestamp with time zone)", "Unsupported column type: timestamp with time zone");
+        assertQueryFails("CREATE TABLE test_time_with_timezone (time_with_with_time_zone time with time zone)", "Unsupported column type: time with time zone");
+    }
+
+    @Test
     public void testCharTrailingSpace()
             throws Exception
     {
