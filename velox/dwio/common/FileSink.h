@@ -46,6 +46,7 @@ class FileSink : public Closeable {
     memory::MemoryPool* pool{nullptr};
     MetricsLogPtr metricLogger{MetricsLog::voidLog()};
     IoStatistics* stats{nullptr};
+    filesystems::File::IoStats* fileSystemStats{nullptr};
   };
 
   FileSink(std::string name, const Options& options)
@@ -54,6 +55,7 @@ class FileSink : public Closeable {
         pool_(options.pool),
         metricLogger_{options.metricLogger},
         stats_{options.stats},
+        fileSystemStats_{options.fileSystemStats},
         size_{0} {}
 
   ~FileSink() override {
@@ -117,6 +119,7 @@ class FileSink : public Closeable {
   memory::MemoryPool* const pool_;
   const MetricsLogPtr metricLogger_;
   IoStatistics* const stats_;
+  filesystems::File::IoStats* const fileSystemStats_;
 
   uint64_t size_;
 };

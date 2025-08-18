@@ -240,6 +240,10 @@ class DataSink {
 
   /// Returns the stats of this data sink.
   virtual Stats stats() const = 0;
+
+  virtual std::unordered_map<std::string, RuntimeCounter> runtimeStats() const {
+    return {};
+  }
 };
 
 class DataSource {
