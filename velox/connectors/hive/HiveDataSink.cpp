@@ -423,6 +423,7 @@ HiveDataSink::HiveDataSink(
           hiveConfig_,
           connectorQueryCtx->sessionProperties())),
       fileNameGenerator_(insertTableHandle_->fileNameGenerator()) {
+  fileSystemStats_ = std::make_shared<filesystems::File::IoStats>();
   if (isBucketed()) {
     VELOX_USER_CHECK_LT(
         bucketCount_,
@@ -590,6 +591,19 @@ DataSink::Stats HiveDataSink::stats() const {
     }
   }
   return stats;
+}
+
+std::unordered_map<std::string, RuntimeCounter> HiveDataSink::runtimeStats()
+    const {
+  std::unordered_map<std::string, RuntimeCounter> runtimeStats;
+
+  const auto fsStatsMap = fileSystemStats_->stats();
+  for (const auto& [statName, statValue] : fsStatsMap) {
+    runtimeStats.emplace(
+        statName, RuntimeCounter(statValue.sum, statValue.unit));
+  }
+
+  return runtimeStats;
 }
 
 std::shared_ptr<memory::MemoryPool> HiveDataSink::createWriterPool(
@@ -762,6 +776,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       std::move(sinkPool),
       std::move(sortPool)));
   ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
+
   setMemoryReclaimers(writerInfo_.back().get(), ioStats_.back().get());
 
   // Take the writer options provided by the user as a starting point, or
@@ -826,6 +841,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
               .pool = writerInfo_.back()->sinkPool.get(),
               .metricLogger = dwio::common::MetricsLog::voidLog(),
               .stats = ioStats_.back().get(),
+              .fileSystemStats = fileSystemStats_.get(),
           }),
       options);
   writer = maybeCreateBucketSortWriter(std::move(writer));

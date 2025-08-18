@@ -536,6 +536,8 @@ class HiveDataSink : public DataSink {
 
   Stats stats() const override;
 
+  std::unordered_map<std::string, RuntimeCounter> runtimeStats() const override;
+
   std::vector<std::string> close() override;
 
   void abort() override;
@@ -692,6 +694,8 @@ class HiveDataSink : public DataSink {
   std::vector<std::unique_ptr<dwio::common::Writer>> writers_;
   // IO statistics collected for each writer.
   std::vector<std::shared_ptr<io::IoStatistics>> ioStats_;
+  // Generic filesystem stats, exposed as RuntimeStats
+  std::shared_ptr<filesystems::File::IoStats> fileSystemStats_;
 
   // Below are structures updated when processing current input. partitionIds_
   // are indexed by the row of input_. partitionRows_, rawPartitionRows_ and
