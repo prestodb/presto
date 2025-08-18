@@ -38,6 +38,7 @@ public class ServerInfo
 
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
+    private final Optional<ExecutionType> executionType;
 
     @ThriftConstructor
     @JsonCreator
@@ -46,13 +47,15 @@ public class ServerInfo
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
             @JsonProperty("starting") boolean starting,
-            @JsonProperty("uptime") Optional<Duration> uptime)
+            @JsonProperty("uptime") Optional<Duration> uptime,
+            @JsonProperty("executionType") Optional<ExecutionType> executionType)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
         this.starting = starting;
         this.uptime = requireNonNull(uptime, "uptime is null");
+        this.executionType = executionType;
     }
 
     @ThriftField(1)
@@ -90,6 +93,13 @@ public class ServerInfo
         return uptime;
     }
 
+    @ThriftField(6)
+    @JsonProperty
+    public Optional<ExecutionType> getExecutionType()
+    {
+        return executionType;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -102,13 +112,14 @@ public class ServerInfo
 
         ServerInfo that = (ServerInfo) o;
         return Objects.equals(nodeVersion, that.nodeVersion) &&
-                Objects.equals(environment, that.environment);
+                Objects.equals(environment, that.environment) &&
+                Objects.equals(executionType, that.executionType);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nodeVersion, environment);
+        return Objects.hash(nodeVersion, environment, executionType);
     }
 
     @Override
@@ -118,6 +129,7 @@ public class ServerInfo
                 .add("nodeVersion", nodeVersion)
                 .add("environment", environment)
                 .add("coordinator", coordinator)
+                .add("executionType", executionType.map(ExecutionType::toString).orElse(null))
                 .add("uptime", uptime.orElse(null))
                 .omitNullValues()
                 .toString();
