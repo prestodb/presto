@@ -511,6 +511,7 @@ export class QueryList extends React.Component {
 
     componentDidMount() {
         this.refreshLoop();
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
     }
 
     handleSearchStringChange(event) {
