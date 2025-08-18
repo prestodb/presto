@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.TableWriterUtils.CONTEXT_CHANNEL;
@@ -351,7 +350,7 @@ public class TableWriterMergeOperator
     {
         requireNonNull(statisticsTiming, "statisticsTiming is null");
         return () -> new TableWriterMergeInfo(
-                succinctNanos(statisticsTiming.getWallNanos()),
-                succinctNanos(statisticsTiming.getCpuNanos()));
+                statisticsTiming.getWallNanos(),
+                statisticsTiming.getCpuNanos());
     }
 }

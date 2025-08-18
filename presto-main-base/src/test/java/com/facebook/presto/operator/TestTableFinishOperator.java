@@ -66,7 +66,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -167,8 +166,8 @@ public class TestTableFinishOperator
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
         TableFinishInfo tableFinishInfo = operator.getInfo();
-        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
-        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsWallTimeInNanos()).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsCpuTimeInNanos()).isGreaterThan(0);
 
         assertTrue(pageSinkCommitter.getCommittedFragments().isEmpty());
 
@@ -266,8 +265,8 @@ public class TestTableFinishOperator
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
         TableFinishInfo tableFinishInfo = operator.getInfo();
-        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
-        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsWallTimeInNanos()).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsCpuTimeInNanos()).isGreaterThan(0);
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
