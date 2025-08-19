@@ -271,7 +271,8 @@
                           "bigint"
                         ],
                         "variableArity":false
-                      }
+                      },
+                      "builtInFunctionKind": "ENGINE"
                     },
                     "returnType":"boolean",
                     "arguments":[

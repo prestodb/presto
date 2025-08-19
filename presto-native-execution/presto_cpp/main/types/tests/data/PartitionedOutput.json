@@ -159,7 +159,8 @@
                   "map(varchar,bigint)"
                 ],
                 "variableArity":false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType":"array(varchar)",
             "arguments":[
@@ -200,7 +201,8 @@
                 "array(varchar)"
               ],
               "variableArity":false
-            }
+            },
+            "builtInFunctionKind": "ENGINE"
           },
           "returnType":"array(varchar)",
           "arguments":[
@@ -228,7 +230,8 @@
               "array(varchar)"
             ],
             "variableArity":false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
         "arguments":[
           {
@@ -258,7 +261,8 @@
 
               ],
               "variableArity":false
-            }
+            },
+            "builtInFunctionKind": "ENGINE"
           },
           "returnType":"bigint",
           "arguments":[
@@ -282,7 +286,8 @@
 
             ],
             "variableArity":false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
         "arguments":[
 
@@ -308,7 +313,8 @@
                 "array(varchar(17))"
               ],
               "variableArity":false
-            }
+            },
+            "builtInFunctionKind": "ENGINE"
           },
           "returnType":"array(varchar(17))",
           "arguments":[
@@ -336,7 +342,8 @@
               "array(varchar(17))"
             ],
             "variableArity":false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
         "arguments":[
           {
