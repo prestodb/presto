@@ -57,6 +57,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
@@ -144,6 +145,9 @@ public class MongoPageSink
             return type.getDouble(block, position);
         }
         if (isVarcharType(type)) {
+            return type.getSlice(block, position).toStringUtf8();
+        }
+        if (isCharType(type)) {
             return type.getSlice(block, position).toStringUtf8();
         }
         if (type.equals(VarbinaryType.VARBINARY)) {
