@@ -41,7 +41,8 @@ const std::string strJson = R"(
                             "integer"
                          ],
                          "variableArity":false
-                      }
+                      },
+                     "builtInFunctionKind": "ENGINE"
                    },
                    "returnType":"bigint",
                    "arguments":[
@@ -109,7 +110,8 @@ TEST_F(RowExpressionTest, call) {
                     "integer"
                  ],
                  "variableArity":false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
            },
            "returnType":"bigint",
            "arguments":[
