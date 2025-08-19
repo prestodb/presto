@@ -260,7 +260,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
-        BOOL_PROP(kTextWriterEnabled, false),
+          BOOL_PROP(kTextWriterEnabled, false),
       };
 }
 
@@ -910,17 +910,16 @@ std::string SystemConfig::pluginDir() const {
 }
 
 int32_t SystemConfig::exchangeIoEvbViolationThresholdMs() const {
-  return optionalProperty<int32_t>(kExchangeIoEvbViolationThresholdMs)
-      .value();
+  return optionalProperty<int32_t>(kExchangeIoEvbViolationThresholdMs).value();
 }
 
 int32_t SystemConfig::httpSrvIoEvbViolationThresholdMs() const {
-  return optionalProperty<int32_t>(kHttpSrvIoEvbViolationThresholdMs)
-      .value();
+  return optionalProperty<int32_t>(kHttpSrvIoEvbViolationThresholdMs).value();
 }
 
 uint64_t SystemConfig::maxLocalExchangePartitionBufferSize() const {
-  return optionalProperty<uint64_t>(kMaxLocalExchangePartitionBufferSize).value();
+  return optionalProperty<uint64_t>(kMaxLocalExchangePartitionBufferSize)
+      .value();
 }
 
 bool SystemConfig::textWriterEnabled() const {
@@ -949,8 +948,7 @@ std::string NodeConfig::nodeEnvironment() const {
 }
 
 int NodeConfig::prometheusExecutorThreads() const {
-  static constexpr int
-      kNodePrometheusExecutorThreadsDefault = 2;
+  static constexpr int kNodePrometheusExecutorThreadsDefault = 2;
   auto resultOpt = optionalProperty<int>(kNodePrometheusExecutorThreads);
   if (resultOpt.has_value()) {
     return resultOpt.value();
@@ -989,117 +987,6 @@ std::string NodeConfig::nodeInternalAddress(
     VELOX_FAIL(
         "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
-  }
-}
-
-BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
-  // Use empty instance to get default property values.
-  velox::core::QueryConfig c{{}};
-  using namespace velox::core;
-  registeredProps_ =
-      std::unordered_map<std::string, folly::Optional<std::string>>{
-          BOOL_PROP(kMutableConfig, false),
-          STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
-          BOOL_PROP(
-              QueryConfig::kAdjustTimestampToTimezone,
-              c.adjustTimestampToTimezone()),
-          BOOL_PROP(QueryConfig::kExprEvalSimplified, c.exprEvalSimplified()),
-          BOOL_PROP(QueryConfig::kExprTrackCpuUsage, c.exprTrackCpuUsage()),
-          BOOL_PROP(
-              QueryConfig::kOperatorTrackCpuUsage, c.operatorTrackCpuUsage()),
-          BOOL_PROP(
-              QueryConfig::kCastMatchStructByName, c.isMatchStructByName()),
-          NUM_PROP(
-              QueryConfig::kMaxLocalExchangeBufferSize,
-              c.maxLocalExchangeBufferSize()),
-          NUM_PROP(
-              QueryConfig::kMaxPartialAggregationMemory,
-              c.maxPartialAggregationMemoryUsage()),
-          NUM_PROP(
-              QueryConfig::kMaxExtendedPartialAggregationMemory,
-              c.maxExtendedPartialAggregationMemoryUsage()),
-          NUM_PROP(
-              QueryConfig::kAbandonPartialAggregationMinRows,
-              c.abandonPartialAggregationMinRows()),
-          NUM_PROP(
-              QueryConfig::kAbandonPartialAggregationMinPct,
-              c.abandonPartialAggregationMinPct()),
-          NUM_PROP(
-              QueryConfig::kMaxPartitionedOutputBufferSize,
-              c.maxPartitionedOutputBufferSize()),
-          NUM_PROP(
-              QueryConfig::kPreferredOutputBatchBytes,
-              c.preferredOutputBatchBytes()),
-          NUM_PROP(
-              QueryConfig::kPreferredOutputBatchRows,
-              c.preferredOutputBatchRows()),
-          NUM_PROP(QueryConfig::kMaxOutputBatchRows, c.maxOutputBatchRows()),
-          BOOL_PROP(
-              QueryConfig::kHashAdaptivityEnabled, c.hashAdaptivityEnabled()),
-          BOOL_PROP(
-              QueryConfig::kAdaptiveFilterReorderingEnabled,
-              c.adaptiveFilterReorderingEnabled()),
-          BOOL_PROP(QueryConfig::kSpillEnabled, c.spillEnabled()),
-          BOOL_PROP(
-              QueryConfig::kAggregationSpillEnabled,
-              c.aggregationSpillEnabled()),
-          BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
-          BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
-          NUM_PROP(QueryConfig::kMaxSpillBytes, c.maxSpillBytes()),
-          NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
-          NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
-          NUM_PROP(
-              QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
-          NUM_PROP(
-              QueryConfig::kSpillNumPartitionBits, c.spillNumPartitionBits()),
-          NUM_PROP(
-              QueryConfig::kSpillableReservationGrowthPct,
-              c.spillableReservationGrowthPct()),
-          BOOL_PROP(
-              QueryConfig::kPrestoArrayAggIgnoreNulls,
-              c.prestoArrayAggIgnoreNulls()),
-          BOOL_PROP(
-              QueryConfig::kSelectiveNimbleReaderEnabled,
-              c.selectiveNimbleReaderEnabled()),
-          NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
-      };
-}
-
-BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
-  static std::unique_ptr<BaseVeloxQueryConfig> instance =
-      std::make_unique<BaseVeloxQueryConfig>();
-  return instance.get();
-}
-
-void BaseVeloxQueryConfig::updateLoadedValues(
-    std::unordered_map<std::string, std::string>& values) const {
-  // Update velox config with values from presto system config.
-  auto systemConfig = SystemConfig::instance();
-
-  using namespace velox::core;
-  std::unordered_map<std::string, std::string> updatedValues{};
-
-  auto taskWriterCount = systemConfig->taskWriterCount();
-  if (taskWriterCount.has_value()) {
-    updatedValues[QueryConfig::kTaskWriterCount] =
-        std::to_string(taskWriterCount.value());
-  }
-  auto taskPartitionedWriterCount = systemConfig->taskPartitionedWriterCount();
-  if (taskPartitionedWriterCount.has_value()) {
-    updatedValues[QueryConfig::kTaskPartitionedWriterCount] =
-        std::to_string(taskPartitionedWriterCount.value());
-  }
-
-  std::stringstream updated;
-  for (const auto& pair : updatedValues) {
-    updated << "  " << pair.first << "=" << pair.second << "\n";
-    values[pair.first] = pair.second;
-  }
-  auto str = updated.str();
-  if (!str.empty()) {
-    PRESTO_STARTUP_LOG(INFO)
-        << "Updated in '" << filePath_ << "' from SystemProperties:\n"
-        << str;
   }
 }
 
