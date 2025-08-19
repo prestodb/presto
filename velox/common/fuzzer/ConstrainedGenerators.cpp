@@ -110,9 +110,9 @@ folly::dynamic JsonInputGenerator::convertVariantToDynamic(
     case TypeKind::BIGINT:
       return convertVariantToDynamicPrimitive<TypeKind::BIGINT>(object);
     case TypeKind::REAL:
-      return convertVariantToDynamicPrimitive<TypeKind::REAL>(object);
+      return convertVariantToDynamicFloatingPoint<TypeKind::REAL>(object);
     case TypeKind::DOUBLE:
-      return convertVariantToDynamicPrimitive<TypeKind::DOUBLE>(object);
+      return convertVariantToDynamicFloatingPoint<TypeKind::DOUBLE>(object);
     case TypeKind::VARCHAR:
       return convertVariantToDynamicPrimitive<TypeKind::VARCHAR>(object);
     case TypeKind::VARBINARY:

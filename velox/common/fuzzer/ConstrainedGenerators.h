@@ -380,6 +380,21 @@ class JsonInputGenerator : public AbstractInputGenerator {
     return folly::dynamic(value);
   }
 
+  // Presto and Velox JSON parser have different behavior for floating point
+  // with magnitudes greater than equal to 10^-3 and less than 10^7. Clamp
+  // values to avoid scientific notation when comparing JSON parse results.
+  template <TypeKind KIND>
+  folly::dynamic convertVariantToDynamicFloatingPoint(const variant& v) {
+    using T = typename TypeTraits<KIND>::DeepCopiedType;
+    VELOX_CHECK(v.isSet());
+    const T value = v.value<T>();
+    const T absValue = std::abs(value);
+    const T sign = value < 0 ? static_cast<T>(-1.0) : static_cast<T>(1.0);
+    const T clampedValue =
+        std::clamp(absValue, static_cast<T>(1e-3), static_cast<T>(1e7 - 1));
+    return folly::dynamic(sign * clampedValue);
+  }
+
   folly::dynamic convertVariantToDynamic(const variant& object);
 
   void makeRandomVariation(std::string& json);
