@@ -8,7 +8,7 @@ Synopsis
 .. code-block:: none
 
     REVOKE [ GRANT OPTION FOR ]
-    ( privilege [, ...] | ALL PRIVILEGES )
+    ( privilege [, ...] [,] | ALL PRIVILEGES )
     ON [ TABLE ] table_name FROM ( user | USER user | ROLE role )
 
 Description
