@@ -1,6 +1,6 @@
-==================================
-Catalog-Aware Kerberos Authentication
-==================================
+=====================================
+Hive Catalog-Aware Kerberos Authentication
+=====================================
 
 Overview
 --------
@@ -12,12 +12,12 @@ Traditional Kerberos authentication in Presto uses a global configuration that a
 Configuration
 -------------
 
-To enable catalog-aware Kerberos authentication, you need to configure the following properties in your Hive catalog configuration files.
+To enable catalog-aware Kerberos authentication, you must configure the following properties in your Hive catalog configuration files.
 
 Basic Configuration
 ^^^^^^^^^^^^^^^^^^^
 
-In your catalog properties file (e.g., ``etc/catalog/hive.properties``):
+In your catalog properties file (for example, ``etc/catalog/hive.properties``):
 
 .. code-block:: properties
 
