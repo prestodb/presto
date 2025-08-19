@@ -829,8 +829,14 @@ void to_json(json& j, const BufferInfo& p);
 void from_json(const json& j, BufferInfo& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class BuiltInFunctionKind { ENGINE, PLUGIN };
+extern void to_json(json& j, const BuiltInFunctionKind& e);
+extern void from_json(const json& j, BuiltInFunctionKind& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct BuiltInFunctionHandle : public FunctionHandle {
   Signature signature = {};
+  BuiltInFunctionKind builtInFunctionKind = {};
 
   BuiltInFunctionHandle() noexcept;
 };
