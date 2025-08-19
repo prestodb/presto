@@ -686,6 +686,9 @@ RowVectorPtr Window::getOutput() {
 
   const auto numRowsLeft = numRows_ - numProcessedRows_;
   if (numRowsLeft == 0) {
+    if (windowBuild_ != nullptr) {
+      windowBuild_->release();
+    }
     return nullptr;
   }
 
