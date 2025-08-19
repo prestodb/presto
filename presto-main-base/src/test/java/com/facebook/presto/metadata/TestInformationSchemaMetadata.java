@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.MAX_PREFIXES_COUNT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -59,6 +60,7 @@ public class TestInformationSchemaMetadata
 
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private static final String TEST_CATALOG = "test_catalog";
 
     public TestInformationSchemaMetadata()
     {
@@ -102,9 +104,9 @@ public class TestInformationSchemaMetadata
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
         Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
 
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
+        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(TEST_CATALOG, metadata);
         ConnectorTableLayoutResult layoutResult = informationSchemaMetadata.getTableLayoutForConstraint(
-                createNewSession(transactionId),
+                createNewSession(transactionId, 101),
                 new InformationSchemaTableHandle("test_catalog", "information_schema", "views"),
                 constraint,
                 Optional.empty());
@@ -128,7 +130,7 @@ public class TestInformationSchemaMetadata
                     NullableValue table = bindings.get(new InformationSchemaColumnHandle("table_name"));
                     boolean isValid = true;
                     if (catalog != null) {
-                        isValid = ((Slice) catalog.getValue()).toStringUtf8().equals("test_catalog");
+                        isValid = ((Slice) catalog.getValue()).toStringUtf8().equals(TEST_CATALOG);
                     }
                     if (schema != null) {
                         isValid &= ((Slice) schema.getValue()).toStringUtf8().equals("test_schema");
@@ -139,25 +141,26 @@ public class TestInformationSchemaMetadata
                     return isValid;
                 });
 
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
+        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata(TEST_CATALOG, metadata);
         ConnectorTableLayoutResult layoutResult = informationSchemaMetadata.getTableLayoutForConstraint(
-                createNewSession(transactionId),
-                new InformationSchemaTableHandle("test_catalog", "information_schema", "views"),
+                createNewSession(transactionId, 10),
+                new InformationSchemaTableHandle(TEST_CATALOG, "information_schema", "views"),
                 constraint,
                 Optional.empty());
 
         ConnectorTableLayoutHandle handle = layoutResult.getTableLayout().getHandle();
         assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
         InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix(TEST_CATALOG, "test_schema", "test_view")));
     }
 
-    private ConnectorSession createNewSession(TransactionId transactionId)
+    private ConnectorSession createNewSession(TransactionId transactionId, int maxPrefixesCount)
     {
         return testSessionBuilder()
-                .setCatalog("test_catalog")
+                .setCatalog(TEST_CATALOG)
                 .setSchema("information_schema")
                 .setTransactionId(transactionId)
+                .setSystemProperty(MAX_PREFIXES_COUNT, String.valueOf(maxPrefixesCount))
                 .build()
                 .toConnectorSession();
     }
