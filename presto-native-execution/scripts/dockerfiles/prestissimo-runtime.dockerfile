@@ -39,12 +39,15 @@ FROM ${BASE_IMAGE}
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 
-# Temporary fix for https://github.com/prestodb/presto/issues/25531
-# TODO: Update this code when there's a proper fix
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# NOTE:
+# - We need `ca-certificates` to support reads from signed S3 URLs.
+# - We need `tzdata` as a temporary workaround for https://github.com/prestodb/presto/issues/25531
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    ca-certificates \
+    tzdata \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
