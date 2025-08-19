@@ -36,7 +36,40 @@ System Connector Tables
 ``metadata.catalogs``
 ^^^^^^^^^^^^^^^^^^^^^
 
-The catalogs table contains the list of available catalogs.
+The catalogs table contains the list of available catalogs. The columns in ``metadata.catalogs`` are:
+
+======================================= ======================================================================
+Column Name                             Description
+======================================= ======================================================================
+``catalog_name``                        The value of this column is derived from the names of
+                                        catalog.properties files present under ``etc/catalog`` path under
+                                        presto installation directory. Everything except the suffix
+                                        ``.properties`` is treated as the catalog name. For example, if there
+                                        is a file named ``my_catalog.properties``, then ``my_catalog`` will be
+                                        listed as the value for this column.
+
+``connector_id``                        The values in this column are a duplicate of the values in the
+                                        ``catalog_name`` column.
+
+``connector_name``                      This column represents the actual name of the underlying connector
+                                        that a particular catalog is using. This column contains the value of
+                                        ``connector.name`` property from the catalog.properties file.
+======================================= ======================================================================
+
+Example:
+
+Suppose a user configures a single catalog by creating a file named ``my_catalog.properties`` with the
+below contents::
+
+    connector.name=hive-hadoop2
+    hive.metastore.uri=thrift://localhost:9083
+
+``metadata.catalogs`` table will show below output::
+
+    presto> select * from system.metadata.catalogs;
+     catalog_name | connector_id | connector_name
+    --------------+--------------+----------------
+     my_catalog   | my_catalog   | hive-hadoop2
 
 ``metadata.schema_properties``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
