@@ -30,6 +30,7 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -165,6 +166,11 @@ public class PrestoSparkInjectorFactory
             modules.add(new TempStorageModule());
         }
 
+        Map<String, String> nativeWorkerConfigs = new HashMap<>(
+                this.nativeWorkerConfigProperties.orElse(ImmutableMap.of()));
+        nativeWorkerConfigs.put("node.environment", "spark");
+        modules.add(new NativeExecutionConfigModule(nativeWorkerConfigs));
+
         modules.addAll(additionalModules);
 
         Bootstrap app = new Bootstrap(modules.build());
@@ -172,11 +178,10 @@ public class PrestoSparkInjectorFactory
         // Stream redirect doesn't work well with spark logging
         app.doNotInitializeLogging();
 
-        Map<String, String> requiredProperties = new HashMap<>();
-        requiredProperties.put("node.environment", "spark");
-        requiredProperties.putAll(configProperties);
-
-        app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredProperties));
+        Map<String, String> requiredConfigProperties = new HashMap<>();
+        requiredConfigProperties.put("node.environment", "spark");
+        requiredConfigProperties.putAll(configProperties);
+        app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredConfigProperties));
 
         bootstrapTimer.beginInjectorInitialization();
         Injector injector = app.initialize();
