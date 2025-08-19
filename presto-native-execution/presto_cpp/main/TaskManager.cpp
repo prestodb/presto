@@ -639,7 +639,13 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       if (source.noMoreSplits) {
         LOG(INFO) << "No more splits for " << taskId << " for node "
                   << source.planNodeId;
-        execTask->noMoreSplits(source.planNodeId);
+        // If the task has not been started yet, we collect the plan node to
+        // call 'no more splits' after the start.
+        if (prestoTask->taskStarted) {
+          execTask->noMoreSplits(source.planNodeId);
+        } else {
+          prestoTask->delayedNoMoreSplitsPlanNodes_.emplace(source.planNodeId);
+        }
       }
     }
 
@@ -803,6 +809,16 @@ void TaskManager::maybeStartNextQueuedTask() {
     LOG(INFO) << "TASK QUEUE: Picking task to start from the queue: "
               << taskToStart->info.taskId;
     startTaskLocked(taskToStart);
+    // Make sure we call 'no more splits' we might have received before the task
+    // started.
+    auto execTask = taskToStart->task;
+    if (execTask != nullptr) {
+      for (const auto& planNodeId :
+           taskToStart->delayedNoMoreSplitsPlanNodes_) {
+        execTask->noMoreSplits(planNodeId);
+      }
+      taskToStart->delayedNoMoreSplitsPlanNodes_.clear();
+    }
   }
   const auto queuedTasksLeft = numQueuedTasks();
   if (queuedTasksLeft > 0) {
