@@ -143,8 +143,8 @@ public final class HttpRequestSessionContext
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
             throws WebApplicationException
     {
-        catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
-        schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
+        catalog = filterSpecialCharacters(trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG)));
+        schema = filterSpecialCharacters(trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA)));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
@@ -167,7 +167,7 @@ public final class HttpRequestSessionContext
             certificates = ImmutableList.of();
         }
 
-        source = servletRequest.getHeader(PRESTO_SOURCE);
+        source = filterSpecialCharacters(servletRequest.getHeader(PRESTO_SOURCE));
         userAgent = servletRequest.getHeader(USER_AGENT);
         remoteUserAddress = !isNullOrEmpty(servletRequest.getHeader(X_FORWARDED_FOR)) ? servletRequest.getHeader(X_FORWARDED_FOR) : servletRequest.getRemoteAddr();
         timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
@@ -389,6 +389,11 @@ public final class HttpRequestSessionContext
     private static String trimEmptyToNull(String value)
     {
         return emptyToNull(nullToEmpty(value).trim());
+    }
+
+    private static String filterSpecialCharacters(String value)
+    {
+        return emptyToNull(nullToEmpty(value).replaceAll("[;&|><*?$\\[\\](){}/!#%=\\\\]", ""));
     }
 
     private static String urlDecode(String value)
