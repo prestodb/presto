@@ -297,7 +297,7 @@ public class DispatchManager
 
             session = sessionBuilder.build();
             if (sessionContext.getTransactionId().isPresent()) {
-                session = session.beginTransactionId(sessionContext.getTransactionId().get(), preparedQuery.isRollbackStatement(), transactionManager, accessControl);
+                session = session.beginTransactionId(sessionContext.getTransactionId().get(), preparedQuery.isRollbackEnabledForStatement(), transactionManager, accessControl);
             }
 
             // mark existing transaction as active
