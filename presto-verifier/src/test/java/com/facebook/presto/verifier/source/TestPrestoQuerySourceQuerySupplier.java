@@ -55,6 +55,7 @@ public class TestPrestoQuerySourceQuerySupplier
             "    'test' suite,\n" +
             "    name,\n" +
             "    query control_query,\n" +
+            "    query control_query_utf8,\n" +
             "    'catalog' control_catalog,\n" +
             "    'schema' control_schema,\n" +
             "    'user' control_username,\n" +
@@ -64,6 +65,7 @@ public class TestPrestoQuerySourceQuerySupplier
             "    query_id control_query_id,\n" +
             "    NULL control_password,\n" +
             "    query test_query,\n" +
+            "    query test_query_utf8,\n" +
             "    'catalog' test_catalog,\n" +
             "    'schema' test_schema,\n" +
             "    'user' test_username,\n" +
