@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <optional>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
@@ -32,6 +33,8 @@ using namespace facebook::velox::exec;
 namespace facebook::velox {
 namespace {
 
+static constexpr int64_t overflowSize = 3UL << 30;
+
 class GenericWriterTest : public functions::test::FunctionBaseTest {};
 
 TEST_F(GenericWriterTest, boolean) {
@@ -39,6 +42,7 @@ TEST_F(GenericWriterTest, boolean) {
   BaseVector::ensureWritable(SelectivityVector(5), BOOLEAN(), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 5; ++i) {
@@ -65,6 +69,7 @@ TEST_F(GenericWriterTest, integer) {
   BaseVector::ensureWritable(SelectivityVector(100), BIGINT(), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 100; ++i) {
@@ -87,6 +92,7 @@ TEST_F(GenericWriterTest, ArrayOfGeneric) {
       SelectivityVector(2), ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Array<Any>> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result->as<ArrayVector>());
 
   for (int i = 0; i < 2; ++i) {
@@ -140,6 +146,7 @@ TEST_F(GenericWriterTest, ensureSizeDoesNotResize) {
   BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), result);
   EXPECT_EQ(result->size(), 6);
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
   writer.ensureSize(1);
   EXPECT_EQ(result->size(), 6);
@@ -150,6 +157,7 @@ TEST_F(GenericWriterTest, varchar) {
   BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 5; ++i) {
@@ -177,6 +185,7 @@ TEST_F(GenericWriterTest, arrayAnyCast) {
       SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
   for (int i = 0; i < 5; ++i) {
     writer.setOffset(i);
@@ -209,6 +218,7 @@ TEST_F(GenericWriterTest, castToDifferentTypesNotSupported) {
   BaseVector::ensureWritable(
       SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   writer.setOffset(0);
@@ -232,6 +242,7 @@ TEST_F(GenericWriterTest, arrayIntCast) {
       SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
   for (int i = 0; i < 5; ++i) {
     writer.setOffset(i);
@@ -266,6 +277,7 @@ TEST_F(GenericWriterTest, arrayWriteThenCommitNull) {
   BaseVector::ensureWritable(rows, ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
   {
     writer.setOffset(0);
@@ -300,6 +312,7 @@ TEST_F(GenericWriterTest, genericWriteThenCommitNull) {
   BaseVector::ensureWritable(rows, CppToType<test_t>::create(), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
   {
     writer.setOffset(0);
@@ -335,6 +348,7 @@ TEST_F(GenericWriterTest, mapAnyAnyCast) {
       SelectivityVector(4), MAP(VARCHAR(), BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 4; ++i) {
@@ -370,6 +384,7 @@ TEST_F(GenericWriterTest, mapVarcharIntCast) {
       SelectivityVector(4), MAP(VARCHAR(), BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 4; ++i) {
@@ -408,6 +423,7 @@ TEST_F(GenericWriterTest, row) {
       result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 3; ++i) {
@@ -470,6 +486,7 @@ TEST_F(GenericWriterTest, dynamicRow) {
       SelectivityVector(6), ROW({BIGINT(), DOUBLE()}), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   writer.setOffset(0);
@@ -551,6 +568,7 @@ TEST_F(GenericWriterTest, nested) {
       result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 3; ++i) {
@@ -627,6 +645,7 @@ TEST_F(GenericWriterTest, commitNull) {
   BaseVector::ensureWritable(SelectivityVector(3), BIGINT(), pool(), result);
 
   VectorWriter<Any> writer;
+  VELOX_ASSERT_THROW(writer.ensureSize(overflowSize), "");
   writer.init(*result);
 
   for (int i = 0; i < 3; ++i) {

@@ -48,7 +48,7 @@ class VectorWriterBase {
     offset_ = offset;
   }
   virtual void commit(bool isSet) = 0;
-  virtual void ensureSize(size_t size) = 0;
+  virtual void ensureSize(vector_size_t size) = 0;
   virtual void finish() {}
   // Implementations that write variable length data or complex types should
   // override this to reset their state and that of their children.
