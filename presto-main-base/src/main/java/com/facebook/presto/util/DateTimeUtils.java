@@ -257,7 +257,6 @@ public final class DateTimeUtils
      *
      * @return stack representation of TIMESTAMP type
      */
-
     public static long parseTimestampWithoutTimeZone(String value)
     {
         try {
