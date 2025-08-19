@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -730,6 +731,13 @@ public class AddExchanges
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
             return planTableScan(node, TRUE_CONSTANT);
+        }
+
+        @Override
+        public PlanWithProperties visitMetadataDelete(MetadataDeleteNode node, PreferredProperties preferredProperties)
+        {
+            // MetadataDeleteNode is a leaf node that runs on coordinator
+            return new PlanWithProperties(node);
         }
 
         @Override
