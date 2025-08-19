@@ -79,9 +79,9 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestMySqlFunctionNamespaceManager
 {
-    private static final String DB = "presto";
+    protected static final String DB = "presto";
 
-    private TestingMySqlServer mySqlServer;
+    protected TestingMySqlServer mySqlServer;
     private Jdbi jdbi;
     private Injector injector;
     private MySqlFunctionNamespaceManager functionNamespaceManager;
@@ -102,16 +102,10 @@ public class TestMySqlFunctionNamespaceManager
                 new DriftNettyClientModule(),
                 new MySqlConnectionModule());
 
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .put("function-cache-expiration", "0s")
-                .put("function-instance-cache-expiration", "0s")
-                .put("database-url", mySqlServer.getJdbcUrl(DB))
-                .build();
-
         try {
             this.injector = app
                     .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
+                    .setRequiredConfigurationProperties(getConfig())
                     .initialize();
             this.functionNamespaceManager = injector.getInstance(MySqlFunctionNamespaceManager.class);
             this.jdbi = injector.getInstance(Jdbi.class);
@@ -120,6 +114,15 @@ public class TestMySqlFunctionNamespaceManager
             throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
+    }
+
+    protected Map<String, String> getConfig()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("function-cache-expiration", "0s")
+                .put("function-instance-cache-expiration", "0s")
+                .put("database-url", mySqlServer.getJdbcUrl(DB))
+                .build();
     }
 
     @BeforeMethod
