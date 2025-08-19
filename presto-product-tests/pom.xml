@@ -215,10 +215,6 @@
             <groupId>com.facebook.presto.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.apache.hudi</groupId>
-            <artifactId>hudi-presto-bundle</artifactId>
-        </dependency>
     </dependencies>
 
     <build>

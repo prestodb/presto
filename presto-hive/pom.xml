@@ -71,7 +71,6 @@
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-presto-bundle</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -496,7 +495,6 @@
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>META-INF.versions.9.module-info</ignoredResourcePattern>
-                        <ignoredResourcePattern>logicalType.avsc</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
@@ -507,14 +505,6 @@
                         <dependency>
                             <groupId>net.bytebuddy</groupId>
                             <artifactId>byte-buddy</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>io.airlift</groupId>
-                            <artifactId>aircompressor</artifactId>
-                        </dependency>
-                        <dependency>
-                            <groupId>org.apache.hive</groupId>
-                            <artifactId>hive-storage-api</artifactId>
                         </dependency>
                     </ignoredDependencies>
                 </configuration>
@@ -528,8 +518,6 @@
                     <ignoredDependencies>
                         <ignoredDependency>org.glassfish.jersey.core:jersey-common:jar</ignoredDependency>
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
-                        <ignoredDependency>io.airlift:aircompressor:jar</ignoredDependency>
-                        <ignoredDependency>org.apache.hive:hive-storage-api:jar</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>

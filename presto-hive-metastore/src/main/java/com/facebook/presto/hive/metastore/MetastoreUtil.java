@@ -303,14 +303,11 @@ public class MetastoreUtil
             columnCommentBuilder.append(column.getComment().orElse(""));
             first = false;
         }
-
         String columnNames = columnNameBuilder.toString();
         String columnTypes = columnTypeBuilder.toString();
         schema.setProperty(META_TABLE_COLUMNS, columnNames);
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes);
         schema.setProperty("columns.comments", columnCommentBuilder.toString());
-        // disable file group reader until issue is fixed.
-        schema.setProperty("hoodie.file.group.reader.enabled", "false");
 
         schema.setProperty(SERIALIZATION_DDL, toThriftDdl(tableName, partitionDataColumns));
 
