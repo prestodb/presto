@@ -151,6 +151,7 @@ import com.facebook.presto.operator.scalar.ArraySumBigIntFunction;
 import com.facebook.presto.operator.scalar.ArraySumDoubleFunction;
 import com.facebook.presto.operator.scalar.ArrayTrimFunction;
 import com.facebook.presto.operator.scalar.ArrayUnionFunction;
+import com.facebook.presto.operator.scalar.ArraysOverlapCountFunction;
 import com.facebook.presto.operator.scalar.ArraysOverlapFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
@@ -884,6 +885,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayHashCodeOperator.class)
                 .scalars(ArrayIntersectFunction.class)
                 .scalar(ArraysOverlapFunction.class)
+                .scalars(ArraysOverlapCountFunction.class)
                 .scalar(ArrayDistinctFromOperator.class)
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArrayExceptFunction.class)
@@ -986,6 +988,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .sqlInvokedScalar(MapNormalizeFunction.class)
                 .sqlInvokedScalars(ArraySqlFunctions.class)
                 .sqlInvokedScalars(ArrayIntersectFunction.class)
+                .sqlInvokedScalars(ArraysOverlapCountFunction.class)
                 .sqlInvokedScalars(MapSqlFunctions.class)
                 .sqlInvokedScalars(SimpleSamplingPercent.class)
                 .sqlInvokedScalars(StringSqlFunctions.class)
