@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
@@ -239,12 +240,16 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNamesWithVersion)
     {
+        Set<String> partitionNames = partitionNamesWithVersion.stream()
+                .map(PartitionNameWithVersion::getPartitionName)
+                .collect(Collectors.toSet());
+
         return loadValue(
                 partitionStatisticsCache,
                 getHivePartitionNames(databaseName, tableName, partitionNames),
-                () -> delegate.getPartitionStatistics(metastoreContext, databaseName, tableName, partitionNames));
+                () -> delegate.getPartitionStatistics(metastoreContext, databaseName, tableName, partitionNamesWithVersion));
     }
 
     @Override
