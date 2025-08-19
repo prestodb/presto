@@ -542,7 +542,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
   if (eventBase_ != nullptr) {
     if (delayMs > 0) {
       // schedule() is expected to be run in the event base thread
-      eventBase_->runInEventBaseThread([=]() {
+      eventBase_->runInEventBaseThread([=, this]() {
         eventBase_->schedule(sendCb, std::chrono::milliseconds(delayMs));
       });
     } else {

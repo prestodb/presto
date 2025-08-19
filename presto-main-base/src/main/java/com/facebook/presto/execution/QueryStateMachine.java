@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -32,7 +33,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -57,10 +57,9 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -78,6 +77,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.execution.BasicStageExecutionStats.EMPTY_STAGE_STATS;
 import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -102,7 +102,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -156,7 +155,7 @@ public class QueryStateMachine
     private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
 
-    private final AtomicReference<UpdateInfo> updateInfo = new AtomicReference<>();
+    private final AtomicReference<String> updateType = new AtomicReference<>();
 
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
@@ -493,7 +492,7 @@ public class QueryStateMachine
                 deallocatedPreparedStatements,
                 Optional.ofNullable(startedTransactionId.get()),
                 clearTransactionId.get(),
-                updateInfo.get(),
+                updateType.get(),
                 rootStage,
                 failureCause,
                 errorCode,
@@ -764,9 +763,9 @@ public class QueryStateMachine
         clearTransactionId.set(true);
     }
 
-    public void setUpdateInfo(UpdateInfo updateInfo)
+    public void setUpdateType(String updateType)
     {
-        this.updateInfo.set(updateInfo);
+        this.updateType.set(updateType);
     }
 
     public void setExpandedQuery(Optional<String> expandedQuery)
@@ -1025,6 +1024,11 @@ public class QueryStateMachine
         return queryStateTimer.getCreateTimeInMillis();
     }
 
+    public Duration getQueuedTime()
+    {
+        return queryStateTimer.getQueuedTime();
+    }
+
     public long getExecutionStartTimeInMillis()
     {
         return queryStateTimer.getExecutionStartTimeInMillis();
@@ -1133,7 +1137,7 @@ public class QueryStateMachine
                 queryInfo.getDeallocatedPreparedStatements(),
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
-                queryInfo.getUpdateInfo(),
+                queryInfo.getUpdateType(),
                 queryInfo.getOutputStage().map(QueryStateMachine::pruneStatsFromStageInfo),
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),
@@ -1251,7 +1255,7 @@ public class QueryStateMachine
                 queryInfo.getDeallocatedPreparedStatements(),
                 queryInfo.getStartedTransactionId(),
                 queryInfo.isClearTransactionId(),
-                queryInfo.getUpdateInfo(),
+                queryInfo.getUpdateType(),
                 prunedOutputStage,
                 queryInfo.getFailureInfo(),
                 queryInfo.getErrorCode(),

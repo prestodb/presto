@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.server.RequestErrorTracker;
-import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
+import com.facebook.presto.spark.execution.http.server.RequestErrorTracker;
+import com.facebook.presto.spark.execution.http.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,7 +29,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
 import org.apache.spark.SparkEnv$;
 import org.apache.spark.SparkFiles;
 
@@ -59,8 +60,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
@@ -72,6 +71,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.http.HttpStatus.SC_OK;
 
 public class NativeExecutionProcess
         implements AutoCloseable
@@ -91,7 +91,7 @@ public class NativeExecutionProcess
     private final int port;
     private final Executor executor;
     private final RequestErrorTracker errorTracker;
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     private volatile Process process;
@@ -101,7 +101,7 @@ public class NativeExecutionProcess
             String executablePath,
             String programArguments,
             Session session,
-            HttpClient httpClient,
+            OkHttpClient httpClient,
             Executor executor,
             ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
@@ -114,11 +114,7 @@ public class NativeExecutionProcess
         String nodeInternalAddress = workerProperty.getNodeConfig().getNodeInternalAddress();
         this.port = getAvailableTcpPort(nodeInternalAddress);
         this.session = requireNonNull(session, "session is null");
-        this.location = uriBuilder()
-                .scheme("http")
-                .host(nodeInternalAddress)
-                .port(getPort())
-                .build();
+        this.location = HttpUrl.parse("http://" + nodeInternalAddress + ":" + getPort()).uri();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
@@ -355,7 +351,7 @@ public class NativeExecutionProcess
             @Override
             public void onSuccess(@Nullable BaseResponse<ServerInfo> response)
             {
-                if (response.getStatusCode() != OK.code()) {
+                if (response.getStatusCode() != SC_OK) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with HTTP status " + response.getStatusCode());
                 }
                 future.set(response.getValue());
@@ -364,8 +360,8 @@ public class NativeExecutionProcess
             @Override
             public void onFailure(Throwable failedReason)
             {
-                if (failedReason instanceof RejectedExecutionException && httpClient.isClosed()) {
-                    log.error(format("Unable to start the native process. HTTP client is closed. Reason: %s", failedReason.getMessage()));
+                if (failedReason instanceof RejectedExecutionException) {
+                    log.error(format("Unable to start the native process. Reason: %s", failedReason.getMessage()));
                     future.setException(failedReason);
                     return;
                 }

@@ -14,13 +14,13 @@
 package com.facebook.presto.verifier.retry;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.retry.RetryDriver.RetryOperation;
-import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

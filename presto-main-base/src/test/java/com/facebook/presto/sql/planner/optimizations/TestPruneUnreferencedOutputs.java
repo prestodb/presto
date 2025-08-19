@@ -191,7 +191,8 @@ public class TestPruneUnreferencedOutputs
                         output(
                                 indexJoin(
                                         strictTableScan("lineitem", ImmutableMap.of("partkey", "partkey", "suppkey", "suppkey")),
-                                        strictIndexSource("orders", ImmutableMap.of("custkey", "custkey", "orderkey", "orderkey")))));
+                                        strictIndexSource("orders",
+                                                ImmutableMap.of("custkey", "custkey", "orderkey", "orderkey", "orderstatus", "orderstatus", "totalprice", "totalprice")))));
     }
 
     private OptimizerAssert assertRuleApplication()

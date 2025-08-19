@@ -660,7 +660,8 @@ public class UnaliasSymbolReferences
                     canonicalizeIndexJoinCriteria(node.getCriteria()),
                     node.getFilter().map(this::canonicalize),
                     canonicalize(node.getProbeHashVariable()),
-                    canonicalize(node.getIndexHashVariable()));
+                    canonicalize(node.getIndexHashVariable()),
+                    node.getLookupVariables());
         }
 
         @Override

@@ -206,7 +206,31 @@ public class TestHiveCommitHandleOutput
         assertEquals(handle.getSerializedCommitOutputForRead(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)), serializedCommitOutput);
         assertTrue(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)).isEmpty());
 
+        // Add the same partition with the same location, the metastore will generate same commit output.
+        hiveMeta = getHiveMetadata(metastore, hiveClientConfig, listeningExecutor);
+        hiveMeta.getMetastore().addPartition(
+                connectorSession,
+                TEST_SCHEMA,
+                TEST_TABLE,
+                "random_table_path",
+                false,
+                createPartition(partitionName, "location1"),
+                new Path("/" + TEST_TABLE),
+                PartitionStatistics.empty());
+        handle = hiveMeta.commit();
+
+        assertEquals(handle.getSerializedCommitOutputForRead(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)), "");
+        assertFalse(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)).isEmpty());
+        assertEquals(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)), serializedCommitOutput);
+
         // Add the same partition with different location, it should trigger the metastore to generate different commit output.
+        // Wait for 1000ms to make sure the commit time changes
+        try {
+            Thread.sleep(1000);
+        }
+        catch (InterruptedException e) {
+            // ignored
+        }
         hiveMeta = getHiveMetadata(metastore, hiveClientConfig, listeningExecutor);
         hiveMeta.getMetastore().addPartition(
                 connectorSession,
@@ -221,7 +245,7 @@ public class TestHiveCommitHandleOutput
 
         assertEquals(handle.getSerializedCommitOutputForRead(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)), "");
         assertFalse(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)).isEmpty());
-        assertEquals(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)), serializedCommitOutput);
+        assertTrue(Long.parseLong(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE))) > Long.parseLong(serializedCommitOutput));
     }
 
     private HiveMetadata getHiveMetadata(TestingExtendedHiveMetastore metastore, HiveClientConfig hiveClientConfig, ListeningExecutorService listeningExecutor)
@@ -257,7 +281,6 @@ public class TestHiveCommitHandleOutput
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));

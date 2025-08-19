@@ -149,6 +149,16 @@ To enable the ``OFFSET`` clause in SQL query expressions, set this property to `
 
 The corresponding session property is :ref:`admin/properties-session:\`\`offset_clause_enabled\`\``. 
 
+``max-serializable-object-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``long``
+* **Default value:** ``1000``
+
+Maximum object size in bytes that can be considered serializable in a function call by the coordinator.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`max_serializable_object_size\`\``. 
+
 Memory Management Properties
 ----------------------------
 
@@ -1137,3 +1147,13 @@ This property can be used to configure how long a query runs without contact
 from the client application, such as the CLI, before it's abandoned.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`query_client_timeout\`\``.
+
+``query.max-queued-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``100d``
+
+Use to configure how long a query can be queued before it is terminated.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`query_max_queued_time\`\``.

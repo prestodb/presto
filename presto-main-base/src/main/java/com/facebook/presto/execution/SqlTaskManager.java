@@ -19,6 +19,8 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
@@ -36,13 +38,11 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -54,17 +54,14 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.nio.file.Paths;
@@ -432,15 +429,6 @@ public class SqlTaskManager
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
-    }
-
-    @Override
-    public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
-    {
-        TaskMetadataContext metadataContext = tasks.getUnchecked(taskId).getTaskMetadataContext();
-        for (ConnectorMetadataUpdater metadataUpdater : metadataContext.getMetadataUpdaters()) {
-            metadataUpdater.setMetadataUpdateResults(metadataUpdates.getMetadataUpdates());
-        }
     }
 
     @Override

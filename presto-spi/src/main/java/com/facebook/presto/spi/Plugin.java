@@ -153,4 +153,9 @@ public interface Plugin
     {
         return emptyList();
     }
+
+    default Set<Class<?>> getSqlInvokedFunctions()
+    {
+        return emptySet();
+    }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
@@ -29,9 +30,11 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Ordering;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -40,6 +43,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -47,10 +51,10 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNati
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestNativeSidecarPlugin
@@ -151,7 +155,7 @@ public class TestNativeSidecarPlugin
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={driver_cpu_time_slice_limit_ms=500}, " +
-                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}}");
+                        "resetSessionProperties=[], updateType=SET SESSION}");
     }
 
     @Test
@@ -266,11 +270,56 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testApproxPercentile()
+    {
+        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");
+
+        Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
+        Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
+        for (MaterializedRow row : raw.getMaterializedRows()) {
+            orderKeyByStatus.put((String) row.getField(0), ((Number) row.getField(1)).longValue());
+            totalPriceByStatus.put((String) row.getField(0), (Double) row.getField(2));
+        }
+
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, " +
+                "   approx_percentile(orderkey, 0.5), " +
+                "   approx_percentile(totalprice, 0.5)," +
+                "   approx_percentile(orderkey, 2, 0.5)," +
+                "   approx_percentile(totalprice, 2, 0.5)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        for (MaterializedRow row : actual.getMaterializedRows()) {
+            String status = (String) row.getField(0);
+            Long orderKey = ((Number) row.getField(1)).longValue();
+            Double totalPrice = (Double) row.getField(2);
+            Long orderKeyWeighted = ((Number) row.getField(3)).longValue();
+            Double totalPriceWeighted = (Double) row.getField(4);
+
+            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
+            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+
+            // verify real rank of returned value is within 1% of requested rank
+            assertTrue(orderKey >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKey <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
+
+            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+        }
+    }
+
+    @Test
     public void testInformationSchemaTables()
     {
-        assertQueryFails("select lower(table_name) from information_schema.tables "
-                        + "where table_name = 'lineitem' or table_name = 'LINEITEM' ",
-                "Compiler failed");
+        assertQuery("select lower(table_name) from information_schema.tables "
+                + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
     }
 
     @Test

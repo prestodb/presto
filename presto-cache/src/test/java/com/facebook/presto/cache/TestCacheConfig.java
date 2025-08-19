@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cache;
 
+import com.facebook.airlift.units.DataSize;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.net.URI;

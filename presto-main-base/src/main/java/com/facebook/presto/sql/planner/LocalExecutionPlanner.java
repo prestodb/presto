@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
@@ -30,7 +31,6 @@ import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
@@ -48,7 +48,6 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.BuiltInFunctionHandle;
-import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -234,9 +233,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -256,6 +253,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SystemSessionProperties.getAdaptivePartialAggregationRowsReductionRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
@@ -355,7 +353,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
@@ -369,7 +366,6 @@ public class LocalExecutionPlanner
     private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
-    private final ConnectorMetadataUpdaterManager metadataUpdaterManager;
     private final ExpressionCompiler expressionCompiler;
     private final PageFunctionCompiler pageFunctionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -405,7 +401,6 @@ public class LocalExecutionPlanner
             PartitioningProviderManager partitioningProviderManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
-            ConnectorMetadataUpdaterManager metadataUpdaterManager,
             ExpressionCompiler expressionCompiler,
             PageFunctionCompiler pageFunctionCompiler,
             JoinFilterFunctionCompiler joinFilterFunctionCompiler,
@@ -434,7 +429,6 @@ public class LocalExecutionPlanner
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
-        this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "compiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.joinFilterFunctionCompiler = requireNonNull(joinFilterFunctionCompiler, "compiler is null");
@@ -794,11 +788,6 @@ public class LocalExecutionPlanner
         private void setInputDriver(boolean inputDriver)
         {
             this.inputDriver = inputDriver;
-        }
-
-        public TaskMetadataContext getTaskMetadataContext()
-        {
-            return taskContext.getTaskMetadataContext();
         }
 
         public TableWriteInfo getTableWriteInfo()
@@ -2749,8 +2738,6 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     pageSinkManager,
-                    metadataUpdaterManager,
-                    context.getTaskMetadataContext(),
                     context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent")),
                     inputChannels,
                     notNullChannelColumnNames,
@@ -3008,16 +2995,15 @@ public class LocalExecutionPlanner
         {
             Integer[] columnValueAndRowIdChannels = new Integer[columnValueAndRowIdSymbols.size()];
             int symbolCounter = 0;
-            // This depends on the outputSymbols being ordered as the blocks of the
-            // resulting page are ordered.
-            for (VariableReferenceExpression variableReferenceExpression : variableReferenceExpressions) {
-                int index = columnValueAndRowIdSymbols.indexOf(variableReferenceExpression);
-                if (index >= 0) {
-                    columnValueAndRowIdChannels[index] = symbolCounter;
-                }
+            for (VariableReferenceExpression columnValueAndRowIdSymbol : columnValueAndRowIdSymbols) {
+                int index = variableReferenceExpressions.indexOf(columnValueAndRowIdSymbol);
+
+                verify(index >= 0, "Could not find columnValueAndRowIdSymbol %s in the variableReferenceExpressions %s", columnValueAndRowIdSymbol, variableReferenceExpressions);
+                columnValueAndRowIdChannels[symbolCounter] = index;
+
                 symbolCounter++;
             }
-            checkArgument(symbolCounter == columnValueAndRowIdSymbols.size(), "symbolCounter %s should be columnValueAndRowIdChannels.size() %s", symbolCounter);
+
             return Arrays.asList(columnValueAndRowIdChannels);
         }
 

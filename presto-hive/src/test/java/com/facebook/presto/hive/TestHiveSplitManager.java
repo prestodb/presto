@@ -531,7 +531,6 @@ public class TestHiveSplitManager
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
-                new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));
@@ -679,7 +678,6 @@ public class TestHiveSplitManager
                 new HivePartitionObjectBuilder(),
                 encryptionInformationProvider,
                 new HivePartitionStats(),
-                new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));
@@ -814,11 +812,11 @@ public class TestHiveSplitManager
         {
             try {
                 return ImmutableList.of(
-                        createHiveFileInfo(
-                                new LocatedFileStatus(
-                                        new FileStatus(0, false, 1, 0, 0, new Path(path.toString() + "/" + "test_file_name")),
-                                        new BlockLocation[] {}),
-                                Optional.empty()))
+                                createHiveFileInfo(
+                                        new LocatedFileStatus(
+                                                new FileStatus(0, false, 1, 0, 0, new Path(path.toString() + "/" + "test_file_name")),
+                                                new BlockLocation[] {}),
+                                        Optional.empty()))
                         .iterator();
             }
             catch (IOException e) {

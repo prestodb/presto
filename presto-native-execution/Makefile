@@ -119,7 +119,7 @@ cmake-and-build:			#: cmake and build without updating submodules which requires
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
 
 unittest: debug			#: Build with debugging and run unit tests
-	cd $(BUILD_BASE_DIR)/debug && ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex velox.*
+	cd $(BUILD_BASE_DIR)/debug && ctest -j $(NUM_THREADS) -VV --output-on-failure --exclude-regex ^velox.*
 
 presto_protocol:		#: Build the presto_protocol serde library
 	cd presto_cpp/presto_protocol; $(MAKE) presto_protocol

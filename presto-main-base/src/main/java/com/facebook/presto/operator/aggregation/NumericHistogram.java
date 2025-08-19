@@ -184,7 +184,7 @@ public class NumericHistogram
 
             Entry right = current.getRight();
 
-            // right is guaranteed to exist because we set the penalty of the last bucket to infinity
+            // right is guaranteed to exist because we set the penalty of the last bucket to NaN
             // so the first current in the queue can never be the last bucket
             checkState(right != null, "Expected right to be != null");
             checkState(right.isValid(), "Expected right to be valid");
@@ -250,7 +250,7 @@ public class NumericHistogram
 
         int current = 0;
         for (int i = 1; i < nextIndex; i++) {
-            if (values[current] == values[i]) {
+            if (values[current] == values[i] || (Double.isNaN(values[current]) && Double.isNaN(values[i]))) {
                 weights[current] += weights[i];
             }
             else {
@@ -350,7 +350,7 @@ public class NumericHistogram
                 penalty = computePenalty(value, weight, right.value, right.weight);
             }
             else {
-                penalty = Double.POSITIVE_INFINITY;
+                penalty = Double.NaN;
             }
 
             if (left != null) {

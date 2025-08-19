@@ -69,13 +69,11 @@ import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.cache.ParquetCacheConfig;
 import com.facebook.presto.parquet.cache.ParquetFileMetadata;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
-import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -86,9 +84,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
+import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
-
-import javax.inject.Singleton;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -98,7 +95,6 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
-import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
 import static com.facebook.presto.orc.StripeMetadataSource.CacheableRowGroupIndices;
 import static com.facebook.presto.orc.StripeMetadataSource.CacheableSlice;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -152,9 +148,6 @@ public class HiveClientModule
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).as(generatedNameOf(HiveWriterStats.class, connectorId));
 
-        binder.bind(HiveFileRenamer.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(HiveFileRenamer.class).as(generatedNameOf(HiveFileRenamer.class, connectorId));
-
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HivePartitionManager.class).withGeneratedName();
@@ -177,11 +170,8 @@ public class HiveClientModule
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerProvider.class).to(HivePlanOptimizerProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorMetadataUpdaterProvider.class).to(HiveMetadataUpdaterProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorTypeSerdeProvider.class).to(HiveConnectorTypeSerdeProvider.class).in(Scopes.SINGLETON);
         binder.install(new ThriftCodecModule());
         binder.install(new DefaultThriftCodecsModule());
-        thriftCodecBinder(binder).bindThriftCodec(HiveMetadataUpdateHandle.class);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
         smileCodecBinder(binder).bindSmileCodec(PartitionUpdate.class);
@@ -259,14 +249,6 @@ public class HiveClientModule
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
-    }
-
-    @ForUpdatingHiveMetadata
-    @Singleton
-    @Provides
-    public ExecutorService createUpdatingHiveMetadataExecutor(HiveConnectorId hiveClientId)
-    {
-        return newCachedThreadPool(daemonThreadsNamed("hive-metadata-updater-" + hiveClientId + "-%s"));
     }
 
     @ForFileRename

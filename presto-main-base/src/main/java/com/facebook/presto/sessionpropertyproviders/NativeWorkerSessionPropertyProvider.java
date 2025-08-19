@@ -61,7 +61,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_MAX_OUTPUT_BUFFER_SIZE = "native_max_output_buffer_size";
     public static final String NATIVE_QUERY_TRACE_ENABLED = "native_query_trace_enabled";
     public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
-    public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
+    public static final String NATIVE_QUERY_TRACE_NODE_ID = "native_query_trace_node_id";
     public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
     public static final String NATIVE_QUERY_TRACE_FRAGMENT_ID = "native_query_trace_fragment_id";
     public static final String NATIVE_QUERY_TRACE_SHARD_ID = "native_query_trace_shard_id";
@@ -243,8 +243,8 @@ public class NativeWorkerSessionPropertyProvider
                         "Base dir of a query to store tracing data.",
                         "",
                         !nativeExecution),
-                stringProperty(NATIVE_QUERY_TRACE_NODE_IDS,
-                        "A comma-separated list of plan node ids whose input data will be traced. Empty string if only want to trace the query metadata.",
+                stringProperty(NATIVE_QUERY_TRACE_NODE_ID,
+                        "The plan node id whose input data will be traced.",
                         "",
                         !nativeExecution),
                 longProperty(NATIVE_QUERY_TRACE_MAX_BYTES,

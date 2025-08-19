@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
@@ -245,14 +246,14 @@ public class ExtendedVerification
     private QualifiedName formPartitionTableName(QualifiedName tableName)
     {
         int nameSizes = tableName.getParts().size();
-        ImmutableList.Builder<String> nameBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Identifier> nameBuilder = ImmutableList.builder();
         for (int index = 0; index < nameSizes; index++) {
-            String part = null;
+            Identifier part = null;
             if (index != nameSizes - 1) {
-                part = tableName.getParts().get(index);
+                part = new Identifier(tableName.getParts().get(index));
             }
             else {
-                part = tableName.getParts().get(index) + "$partitions";
+                part = new Identifier(tableName.getParts().get(index) + "$partitions");
             }
             nameBuilder.add(part);
         }

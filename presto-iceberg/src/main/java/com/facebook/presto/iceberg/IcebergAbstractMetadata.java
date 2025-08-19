@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
@@ -27,6 +28,7 @@ import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
@@ -291,12 +293,14 @@ public abstract class IcebergAbstractMetadata
             partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
         }
         else {
+            RuntimeStats runtimeStats = session.getRuntimeStats();
             partitions = getPartitions(
                     typeManager,
                     handle,
                     icebergTable,
                     constraint,
-                    partitionColumns);
+                    partitionColumns,
+                    runtimeStats);
         }
 
         ConnectorTableLayout layout = getTableLayout(

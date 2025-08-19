@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+@ThriftStruct
 public class RemoteTransactionHandle
         implements ConnectorTransactionHandle
 {
     @JsonCreator
+    @ThriftConstructor
     public RemoteTransactionHandle()
     {
     }

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
@@ -48,7 +49,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -67,7 +67,6 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewNotFoundException;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -391,6 +390,7 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 public class HiveMetadata
         implements TransactionalMetadata
 {
+    private static final Logger log = Logger.get(HiveMetadata.class);
     public static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
     public static final String REFERENCED_MATERIALIZED_VIEWS = "referenced_materialized_views";
 
@@ -437,7 +437,6 @@ public class HiveMetadata
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
-    private final HiveFileRenamer hiveFileRenamer;
     private final TableWritabilityChecker tableWritabilityChecker;
 
     public HiveMetadata(
@@ -464,7 +463,6 @@ public class HiveMetadata
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer,
             TableWritabilityChecker tableWritabilityChecker)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
@@ -491,7 +489,6 @@ public class HiveMetadata
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
-        this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.tableWritabilityChecker = requireNonNull(tableWritabilityChecker, "tableWritabilityChecker is null");
     }
 
@@ -679,7 +676,7 @@ public class HiveMetadata
         }
 
         if (isIcebergTable(table.get()) || isDeltaLakeTable(table.get())) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Not a Hive table '%s'", tableName));
+            throw new UnknownTableTypeException("Not a Hive table: " + tableName);
         }
 
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
@@ -866,6 +863,9 @@ public class HiveMetadata
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
+            }
+            catch (UnknownTableTypeException e) {
+                log.warn(String.format("%s: Unknown table type of table %s", e.getMessage(), tableName));
             }
         }
         return columns.build();
@@ -2272,8 +2272,8 @@ public class HiveMetadata
      * This is required when we are overwriting the partitions by directly writing the new
      * files to the existing directory, where files written by older queries may be present too.
      *
-     * @param  session  the ConnectorSession object
-     * @param  partitionPath the path of the partition from where the older files are to be deleted
+     * @param session the ConnectorSession object
+     * @param partitionPath the path of the partition from where the older files are to be deleted
      */
     private void removeNonCurrentQueryFiles(ConnectorSession session, Path partitionPath)
     {
@@ -3032,6 +3032,7 @@ public class HiveMetadata
                 .setBucketHandle(Optional.of(updatedBucketHandle))
                 .build();
     }
+
     @Override
     public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
     {
@@ -3371,18 +3372,6 @@ public class HiveMetadata
                 handle.getLocationHandle().getTargetPath().toString(),
                 false,
                 getPartitionUpdates(session, fragments)));
-    }
-
-    @Override
-    public List<ConnectorMetadataUpdateHandle> getMetadataUpdateResults(List<ConnectorMetadataUpdateHandle> metadataUpdateRequests, QueryId queryId)
-    {
-        return hiveFileRenamer.getMetadataUpdateResults(metadataUpdateRequests, queryId);
-    }
-
-    @Override
-    public void doMetadataUpdateCleanup(QueryId queryId)
-    {
-        hiveFileRenamer.cleanup(queryId);
     }
 
     private List<GrantInfo> buildGrants(ConnectorSession session, SchemaTableName tableName, PrestoPrincipal principal)

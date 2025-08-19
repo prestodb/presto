@@ -15,6 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
@@ -27,14 +29,15 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCros
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.TOP_DOWN;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -47,9 +50,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -194,6 +194,7 @@ public class TestFeaturesConfig
                 .setMaxStageCountForEagerScheduling(25)
                 .setHyperloglogStandardErrorWarningThreshold(0.004)
                 .setPreferMergeJoinForSortedInputs(false)
+                .setPreferSortMergeJoin(false)
                 .setSegmentedAggregationEnabled(false)
                 .setQueryAnalyzerTimeout(new Duration(3, MINUTES))
                 .setQuickDistinctLimitEnabled(false)
@@ -265,7 +266,8 @@ public class TestFeaturesConfig
                 .setBroadcastSemiJoinForDelete(true)
                 .setInEqualityJoinPushdownEnabled(false)
                 .setRewriteMinMaxByToTopNEnabled(false)
-                .setPrestoSparkExecutionEnvironment(false));
+                .setPrestoSparkExecutionEnvironment(false)
+                .setMaxSerializableObjectSize(1000));
     }
 
     @Test
@@ -407,6 +409,7 @@ public class TestFeaturesConfig
                 .put("execution-policy.max-stage-count-for-eager-scheduling", "123")
                 .put("hyperloglog-standard-error-warning-threshold", "0.02")
                 .put("optimizer.prefer-merge-join-for-sorted-inputs", "true")
+                .put("experimental.optimizer.prefer-sort-merge-join", "true")
                 .put("optimizer.segmented-aggregation-enabled", "true")
                 .put("planner.query-analyzer-timeout", "10s")
                 .put("optimizer.quick-distinct-limit-enabled", "true")
@@ -478,6 +481,7 @@ public class TestFeaturesConfig
                 .put("optimizer.add-distinct-below-semi-join-build", "true")
                 .put("optimizer.pushdown-subfield-for-map-functions", "false")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
+                .put("max_serializable_object_size", "50")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -617,6 +621,7 @@ public class TestFeaturesConfig
                 .setMaxStageCountForEagerScheduling(123)
                 .setHyperloglogStandardErrorWarningThreshold(0.02)
                 .setPreferMergeJoinForSortedInputs(true)
+                .setPreferSortMergeJoin(true)
                 .setSegmentedAggregationEnabled(true)
                 .setQueryAnalyzerTimeout(new Duration(10, SECONDS))
                 .setQuickDistinctLimitEnabled(true)
@@ -688,7 +693,8 @@ public class TestFeaturesConfig
                 .setBroadcastSemiJoinForDelete(false)
                 .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
-                .setPrestoSparkExecutionEnvironment(true);
+                .setPrestoSparkExecutionEnvironment(true)
+                .setMaxSerializableObjectSize(50);
         assertFullMapping(properties, expected);
     }
 

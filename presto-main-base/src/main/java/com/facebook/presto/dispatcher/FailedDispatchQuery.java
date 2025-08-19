@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.dispatcher;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.Optional;
@@ -154,6 +154,12 @@ public class FailedDispatchQuery
     public long getCreateTimeInMillis()
     {
         return basicQueryInfo.getQueryStats().getCreateTimeInMillis();
+    }
+
+    @Override
+    public Duration getQueuedTime()
+    {
+        return basicQueryInfo.getQueryStats().getQueuedTime();
     }
 
     @Override

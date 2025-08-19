@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -20,11 +21,13 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+
+import static com.facebook.airlift.units.Duration.succinctDuration;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MockQueryExecution
         implements QueryExecution
@@ -177,6 +180,12 @@ public class MockQueryExecution
     public long getCreateTimeInMillis()
     {
         return 0L;
+    }
+
+    @Override
+    public Duration getQueuedTime()
+    {
+        return succinctDuration(0, MILLISECONDS);
     }
 
     @Override

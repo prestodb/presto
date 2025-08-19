@@ -13,6 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
@@ -49,10 +51,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Comparator;
 import java.util.List;
@@ -115,6 +114,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_BROADCAST_MEMORY = "query_max_broadcast_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
+    public static final String QUERY_MAX_QUEUED_TIME = "query_max_queued_time";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
@@ -255,6 +255,7 @@ public final class SystemSessionProperties
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN_FOR_SORTED_INPUTS = "prefer_merge_join_for_sorted_inputs";
+    public static final String PREFER_SORT_MERGE_JOIN = "prefer_sort_merge_join";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
@@ -336,8 +337,8 @@ public final class SystemSessionProperties
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
     public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
-    public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET = "pushdown_subfields_for_map_subset";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
+    public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -566,6 +567,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_QUEUED_TIME,
+                        "Maximum Queued time of a query",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getQueryMaxQueuedTime(),
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
@@ -1378,6 +1388,11 @@ public final class SystemSessionProperties
                         featuresConfig.isPreferMergeJoinForSortedInputs(),
                         true),
                 booleanProperty(
+                        PREFER_SORT_MERGE_JOIN,
+                        "Prefer sort merge join for all joins. A SortNode is added if input is not already sorted.",
+                        featuresConfig.isPreferSortMergeJoin(),
+                        true),
+                booleanProperty(
                         SEGMENTED_AGGREGATION_ENABLED,
                         "Enable segmented aggregation.",
                         featuresConfig.isSegmentedAggregationEnabled(),
@@ -1918,13 +1933,13 @@ public final class SystemSessionProperties
                         "Optimize out APPROX_DISTINCT operations over constant conditionals",
                         featuresConfig.isOptimizeConditionalApproxDistinct(),
                         false),
-                booleanProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET,
-                        "Enable subfield pruning for map_subset function",
-                        featuresConfig.isPushdownSubfieldForMapFunctions(),
-                        false),
                 booleanProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS,
                         "Enable subfield pruning for map functions, currently include map_subset and map_filter",
                         featuresConfig.isPushdownSubfieldForMapFunctions(),
+                        false),
+                longProperty(MAX_SERIALIZABLE_OBJECT_SIZE,
+                        "Configure the maximum byte size of a serializable object in expression interpreters",
+                        featuresConfig.getMaxSerializableObjectSize(),
                         false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
@@ -2186,6 +2201,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_RUN_TIME, Duration.class);
+    }
+
+    public static Duration getQueryMaxQueuedTime(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_QUEUED_TIME, Duration.class);
     }
 
     public static Duration getQueryMaxExecutionTime(Session session)
@@ -2867,6 +2887,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PREFER_MERGE_JOIN_FOR_SORTED_INPUTS, Boolean.class);
     }
 
+    public static boolean preferSortMergeJoin(Session session)
+    {
+        return session.getSystemProperty(PREFER_SORT_MERGE_JOIN, Boolean.class);
+    }
+
     public static boolean isSegmentedAggregationEnabled(Session session)
     {
         return session.getSystemProperty(SEGMENTED_AGGREGATION_ENABLED, Boolean.class);
@@ -3280,11 +3305,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID, Boolean.class);
     }
 
-    public static boolean isPushSubfieldsForMapSubsetEnabled(Session session)
-    {
-        return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_SUBSET, Boolean.class);
-    }
-
     public static boolean isPushSubfieldsForMapFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, Boolean.class);
@@ -3308,5 +3328,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeConditionalApproxDistinctEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT, Boolean.class);
+    }
+
+    public static long getMaxSerializableObjectSize(Session session)
+    {
+        return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
     }
 }

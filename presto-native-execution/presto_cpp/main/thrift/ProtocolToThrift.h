@@ -115,43 +115,72 @@ void fromThrift(
     facebook::presto::protocol::BufferType& proto);
 
 void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper);
-void toThrift(
-    const facebook::presto::protocol::MetadataUpdates& metadataUpdates,
-    std::string& thriftMetadataUpdates);
-void fromThrift(
-    const MetadataUpdatesWrapper& thriftMetadataUpdatesWrapper,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
-void fromThrift(
-    const std::string& thriftMetadataUpdates,
-    facebook::presto::protocol::MetadataUpdates& metadataUpdates);
-void toThrift(
-    const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
-    TableWriteInfoWrapper& thriftTableWriteInfoWrapper);
-void toThrift(
-    const facebook::presto::protocol::TableWriteInfo& tableWriteInfo,
-    std::string& thriftTableWriteInfo);
-void fromThrift(
-    const TableWriteInfoWrapper& thriftTableWriteInfoWrapper,
-    facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
-void fromThrift(
-    const std::string& thriftTableWriteInfo,
-    facebook::presto::protocol::TableWriteInfo& tableWriteInfo);
-void toThrift(
     const std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto,
-    ConnectorSplitWrapper& thrift);
+    ConnectorSplit& thrift);
 void fromThrift(
-    const ConnectorSplitWrapper& thrift,
+    const ConnectorSplit& thrift,
     std::shared_ptr<facebook::presto::protocol::ConnectorSplit>& proto);
+
 void toThrift(
     const std::shared_ptr<
         facebook::presto::protocol::ConnectorTransactionHandle>& proto,
-    ConnectorTransactionHandleWrapper& thrift);
+    ConnectorTransactionHandle& thrift);
 void fromThrift(
-    const ConnectorTransactionHandleWrapper& thrift,
+    const ConnectorTransactionHandle& thrift,
     std::shared_ptr<facebook::presto::protocol::ConnectorTransactionHandle>&
         proto);
+
+void toThrift(
+    const std::shared_ptr<
+        facebook::presto::protocol::ConnectorOutputTableHandle>& proto,
+    ConnectorOutputTableHandle& thrift);
+void fromThrift(
+    const ConnectorOutputTableHandle& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorOutputTableHandle>&
+        proto);
+
+void toThrift(
+    const std::shared_ptr<
+        facebook::presto::protocol::ConnectorDeleteTableHandle>& proto,
+    ConnectorDeleteTableHandle& thrift);
+void fromThrift(
+    const ConnectorDeleteTableHandle& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorDeleteTableHandle>&
+        proto);
+
+void toThrift(
+    const std::shared_ptr<
+        facebook::presto::protocol::ConnectorInsertTableHandle>& proto,
+    ConnectorInsertTableHandle& thrift);
+void fromThrift(
+    const ConnectorInsertTableHandle& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorInsertTableHandle>&
+        proto);
+
+void toThrift(
+    const std::shared_ptr<facebook::presto::protocol::ConnectorTableHandle>&
+        proto,
+    ConnectorTableHandle& thrift);
+void fromThrift(
+    const ConnectorTableHandle& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorTableHandle>& proto);
+
+void toThrift(
+    const std::shared_ptr<
+        facebook::presto::protocol::ConnectorTableLayoutHandle>& proto,
+    ConnectorTableLayoutHandle& thrift);
+void fromThrift(
+    const ConnectorTableLayoutHandle& thrift,
+    std::shared_ptr<facebook::presto::protocol::ConnectorTableLayoutHandle>&
+        proto);
+
+void toThrift(
+    const facebook::presto::protocol::RemoteTransactionHandle& proto,
+    RemoteTransactionHandle& thrift);
+void fromThrift(
+    const RemoteTransactionHandle& thrift,
+    facebook::presto::protocol::RemoteTransactionHandle& proto);
+
 void toThrift(
     const facebook::presto::protocol::Lifespan& proto,
     Lifespan& thrift);
@@ -307,6 +336,62 @@ void fromThrift(
     facebook::presto::protocol::SplitContext& proto);
 
 void toThrift(
+    const facebook::presto::protocol::OutputTableHandle& proto,
+    OutputTableHandle& thrift);
+void fromThrift(
+    const OutputTableHandle& thrift,
+    facebook::presto::protocol::OutputTableHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::SchemaTableName& proto,
+    SchemaTableName& thrift);
+void fromThrift(
+    const SchemaTableName& thrift,
+    facebook::presto::protocol::SchemaTableName& proto);
+
+void toThrift(
+    const facebook::presto::protocol::InsertTableHandle& proto,
+    InsertTableHandle& thrift);
+void fromThrift(
+    const InsertTableHandle& thrift,
+    facebook::presto::protocol::InsertTableHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::DeleteTableHandle& proto,
+    DeleteTableHandle& thrift);
+void fromThrift(
+    const DeleteTableHandle& thrift,
+    facebook::presto::protocol::DeleteTableHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::RefreshMaterializedViewHandle& proto,
+    RefreshMaterializedViewHandle& thrift);
+void fromThrift(
+    const RefreshMaterializedViewHandle& thrift,
+    facebook::presto::protocol::InsertHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::TableHandle& proto,
+    TableHandle& thrift);
+void fromThrift(
+    const TableHandle& thrift,
+    facebook::presto::protocol::TableHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::AnalyzeTableHandle& proto,
+    AnalyzeTableHandle& thrift);
+void fromThrift(
+    const AnalyzeTableHandle& thrift,
+    facebook::presto::protocol::AnalyzeTableHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::Location& proto,
+    Location& thrift);
+void fromThrift(
+    const Location& thrift,
+    facebook::presto::protocol::Location& proto);
+
+void toThrift(
     const facebook::presto::protocol::TaskStatus& proto,
     TaskStatus& thrift);
 void fromThrift(
@@ -401,11 +486,32 @@ void fromThrift(
     facebook::presto::protocol::OutputBuffers& proto);
 
 void toThrift(
-    const facebook::presto::protocol::TaskUpdateRequest& proto,
-    TaskUpdateRequest& thrift);
+    const facebook::presto::protocol::CreateHandle& proto,
+    CreateHandle& thrift);
 void fromThrift(
-    const TaskUpdateRequest& thrift,
-    facebook::presto::protocol::TaskUpdateRequest& proto);
+    const CreateHandle& thrift,
+    facebook::presto::protocol::CreateHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::InsertHandle& proto,
+    InsertHandle& thrift);
+void fromThrift(
+    const InsertHandle& thrift,
+    facebook::presto::protocol::InsertHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::DeleteHandle& proto,
+    DeleteHandle& thrift);
+void fromThrift(
+    const DeleteHandle& thrift,
+    facebook::presto::protocol::DeleteHandle& proto);
+
+void toThrift(
+    const facebook::presto::protocol::UpdateHandle& proto,
+    UpdateHandle& thrift);
+void fromThrift(
+    const UpdateHandle& thrift,
+    facebook::presto::protocol::UpdateHandle& proto);
 
 void toThrift(
     const facebook::presto::protocol::ExecutionFailureInfo& proto,
@@ -440,6 +546,21 @@ void fromThrift(
     facebook::presto::protocol::ScheduledSplit& proto);
 
 void toThrift(
+    const std::shared_ptr<facebook::presto::protocol::ExecutionWriterTarget>&
+        proto,
+    apache::thrift::optional_field_ref<ExecutionWriterTargetUnion&> thrift);
+void toThrift(
+    const std::shared_ptr<facebook::presto::protocol::ExecutionWriterTarget>&
+        proto,
+    ExecutionWriterTargetUnion& thrift);
+void fromThrift(
+    apache::thrift::optional_field_ref<const ExecutionWriterTargetUnion&>
+        thrift,
+    std::shared_ptr<facebook::presto::protocol::ExecutionWriterTarget>& proto);
+void fromThrift(
+    const ExecutionWriterTargetUnion& thrift,
+    std::shared_ptr<facebook::presto::protocol::ExecutionWriterTarget>& proto);
+void toThrift(
     const facebook::presto::protocol::TaskInfo& proto,
     TaskInfo& thrift);
 void fromThrift(
@@ -447,10 +568,31 @@ void fromThrift(
     facebook::presto::protocol::TaskInfo& proto);
 
 void toThrift(
+    const facebook::presto::protocol::RemoteSplit& proto,
+    RemoteSplit& thrift);
+void fromThrift(
+    const RemoteSplit& thrift,
+    facebook::presto::protocol::RemoteSplit& proto);
+
+void toThrift(
     const facebook::presto::protocol::OperatorStats& proto,
     OperatorStats& thrift);
 void fromThrift(
     const OperatorStats& thrift,
     facebook::presto::protocol::OperatorStats& proto);
+
+void toThrift(
+    const facebook::presto::protocol::TableWriteInfo& proto,
+    TableWriteInfo& thrift);
+void fromThrift(
+    const TableWriteInfo& thrift,
+    facebook::presto::protocol::TableWriteInfo& proto);
+
+void toThrift(
+    const facebook::presto::protocol::TaskUpdateRequest& proto,
+    TaskUpdateRequest& thrift);
+void fromThrift(
+    const TaskUpdateRequest& thrift,
+    facebook::presto::protocol::TaskUpdateRequest& proto);
 
 } // namespace facebook::presto::thrift

@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.testing.Assertions;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -32,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
-import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -44,6 +44,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
@@ -79,7 +80,6 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Collections.nCopies;
@@ -893,6 +893,35 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW test_view");
+    }
+
+    @Test
+    public void testViewWithReservedKeywords()
+    {
+        skipTestUnless(supportsViews());
+
+        assertUpdate("CREATE TABLE \"group\" AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+        @Language("SQL") String groupQuery = "SELECT orderkey, orderstatus, totalprice / 2 half FROM \"group\"";
+
+        assertUpdate("CREATE OR REPLACE VIEW test_view_with_reserved_keywords AS " + groupQuery);
+
+        assertQuery("SELECT * FROM test_view_with_reserved_keywords", query);
+
+        String expectedSql = formatSqlText(format(
+                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_view_with_reserved_keywords",
+                "DEFINER",
+                groupQuery)).trim();
+
+        MaterializedResult actual = computeActual("SHOW CREATE VIEW test_view_with_reserved_keywords");
+
+        assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
+
+        assertUpdate("DROP VIEW test_view_with_reserved_keywords");
     }
 
     @Test

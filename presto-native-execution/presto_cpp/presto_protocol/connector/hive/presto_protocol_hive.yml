@@ -21,7 +21,7 @@ AbstractClasses:
   ConnectorPartitioningHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: HivePartitioningHandle,   key: hive}
+      - { name: HivePartitioningHandle,   key: hive }
 
   ConnectorTableHandle:
     super: JsonEncodedSubclass
@@ -47,11 +47,6 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
       - { name: HiveTableLayoutHandle,    key: hive }
-
-  ConnectorMetadataUpdateHandle:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: HiveMetadataUpdateHandle, key: hive}
 
   ConnectorSplit:
     super: JsonEncodedSubclass
@@ -91,5 +86,4 @@ JavaClasses:
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Storage.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/StorageFormat.java
   - presto-hive/src/main/java/com/facebook/presto/hive/TableToPartitionMapping.java
-  - presto-hive/src/main/java/com/facebook/presto/hive/HiveMetadataUpdateHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitioningHandle.java

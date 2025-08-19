@@ -26,15 +26,16 @@ import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
-import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class NativeExecutionModule
         implements Module
@@ -84,12 +85,26 @@ public class NativeExecutionModule
 
     protected void bindHttpClient(Binder binder)
     {
-        httpClientBinder(binder)
-                .bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
-                .withConfigDefaults(config -> {
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
-                });
+        // Bind OkHttpClient for native execution
+        binder.bind(OkHttpClient.class).toInstance(createOkHttpClient());
+    }
+
+    @Provides
+    @Singleton
+    @ForNativeExecutionTask
+    public OkHttpClient provideForNativeExecutionTaskOkHttpClient()
+    {
+        return createOkHttpClient();
+    }
+
+    private static OkHttpClient createOkHttpClient()
+    {
+        // TODO: Make these configurable
+        return new OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .build();
     }
 
     protected void bindNativeExecutionTaskFactory(Binder binder)

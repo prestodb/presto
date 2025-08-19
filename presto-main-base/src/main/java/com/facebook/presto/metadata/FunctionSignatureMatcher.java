@@ -203,9 +203,10 @@ public final class FunctionSignatureMatcher
             for (int i = 0; i < representatives.size(); i++) {
                 ApplicableFunction representative = representatives.get(i);
                 if (isMoreSpecificThan(current, representative)) {
+                    found = true;
                     representatives.set(i, current);
                 }
-                if (isMoreSpecificThan(current, representative) || isMoreSpecificThan(representative, current)) {
+                if (isMoreSpecificThan(representative, current)) {
                     found = true;
                     break;
                 }
@@ -216,7 +217,9 @@ public final class FunctionSignatureMatcher
             }
         }
 
-        return representatives;
+        return representatives.stream()
+                .distinct()
+                .collect(toImmutableList());
     }
 
     private List<ApplicableFunction> getUnknownOnlyCastFunctions(List<ApplicableFunction> applicableFunction, List<Type> actualParameters)

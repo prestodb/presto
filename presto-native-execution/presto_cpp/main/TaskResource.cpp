@@ -215,7 +215,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
   protocol::TaskId taskId = pathMatch[1];
   bool summarize = message->hasQueryParam("summarize");
 
-  auto& headers = message->getHeaders();
+  const auto& headers = message->getHeaders();
   const auto& acceptHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_ACCEPT);
   const auto sendThrift =
       acceptHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
@@ -392,7 +392,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
         message->getQueryParam(protocol::PRESTO_ABORT_TASK_URL_PARAM) == "true";
   }
   bool summarize = message->hasQueryParam("summarize");
-  auto& headers = message->getHeaders();
+  const auto& headers = message->getHeaders();
   const auto& acceptHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_ACCEPT);
   const auto sendThrift =
       acceptHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
@@ -415,6 +415,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
               if (!handlerState->requestExpired()) {
                 if (taskInfo == nullptr) {
                   sendTaskNotFound(downstream, taskId);
+                  return;
                 }
                 if (sendThrift) {
                   thrift::TaskInfo thriftTaskInfo;
@@ -544,7 +545,7 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
   auto currentState = getCurrentState(message);
   auto maxWait = getMaxWait(message);
 
-  auto& headers = message->getHeaders();
+  const auto& headers = message->getHeaders();
   const auto& acceptHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_ACCEPT);
   const auto sendThrift =
       acceptHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
@@ -615,7 +616,7 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
   auto maxWait = getMaxWait(message);
   bool summarize = message->hasQueryParam("summarize");
 
-  auto& headers = message->getHeaders();
+  const auto& headers = message->getHeaders();
   const auto& acceptHeader = headers.getSingleOrEmpty(proxygen::HTTP_HEADER_ACCEPT);
   const auto sendThrift =
       acceptHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;

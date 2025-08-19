@@ -14,9 +14,8 @@
 package com.facebook.presto.cache;
 
 import com.facebook.presto.hive.CacheQuota;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
 public interface CacheManager

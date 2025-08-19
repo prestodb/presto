@@ -28,7 +28,6 @@ import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -41,17 +40,16 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
-import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -71,11 +69,10 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -105,8 +102,6 @@ public class ConnectorManager
     private final IndexManager indexManager;
     private final PartitioningProviderManager partitioningProviderManager;
     private final ConnectorPlanOptimizerManager connectorPlanOptimizerManager;
-    private final ConnectorMetadataUpdaterManager connectorMetadataUpdaterManager;
-    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
@@ -123,6 +118,7 @@ public class ConnectorManager
     private final FilterStatsCalculator filterStatsCalculator;
     private final BlockEncodingSerde blockEncodingSerde;
     private final ConnectorSystemConfig connectorSystemConfig;
+    private final ConnectorCodecManager connectorCodecManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -142,8 +138,6 @@ public class ConnectorManager
             IndexManager indexManager,
             PartitioningProviderManager partitioningProviderManager,
             ConnectorPlanOptimizerManager connectorPlanOptimizerManager,
-            ConnectorMetadataUpdaterManager connectorMetadataUpdaterManager,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
@@ -158,7 +152,8 @@ public class ConnectorManager
             DeterminismEvaluator determinismEvaluator,
             FilterStatsCalculator filterStatsCalculator,
             BlockEncodingSerde blockEncodingSerde,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ConnectorCodecManager connectorCodecManager)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
@@ -168,8 +163,6 @@ public class ConnectorManager
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.connectorPlanOptimizerManager = requireNonNull(connectorPlanOptimizerManager, "connectorPlanOptimizerManager is null");
-        this.connectorMetadataUpdaterManager = requireNonNull(connectorMetadataUpdaterManager, "connectorMetadataUpdaterManager is null");
-        this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorMetadataUpdateHandleSerdeManager is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -185,6 +178,7 @@ public class ConnectorManager
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.connectorSystemConfig = () -> featuresConfig.isNativeExecutionEnabled();
+        this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
     }
 
     @PreDestroy
@@ -312,15 +306,7 @@ public class ConnectorManager
             connector.getPlanOptimizerProvider()
                     .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
         }
-
-        connector.getMetadataUpdaterProvider()
-                .ifPresent(metadataUpdaterProvider -> connectorMetadataUpdaterManager.addMetadataUpdaterProvider(connectorId, metadataUpdaterProvider));
-
-        connector.getConnectorTypeSerdeProvider()
-                        .ifPresent(
-                                connectorTypeSerdeProvider ->
-                                connectorTypeSerdeManager.addConnectorTypeSerdeProvider(connectorId, connectorTypeSerdeProvider));
-
+        connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorId, connectorCodecProvider));
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
 
         connector.getAccessControl()
@@ -360,7 +346,6 @@ public class ConnectorManager
         metadataManager.getAnalyzePropertyManager().removeProperties(connectorId);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
         connectorPlanOptimizerManager.removePlanOptimizerProvider(connectorId);
-        connectorMetadataUpdaterManager.removeMetadataUpdaterProvider(connectorId);
 
         MaterializedConnector materializedConnector = connectors.remove(connectorId);
         if (materializedConnector != null) {
@@ -410,8 +395,7 @@ public class ConnectorManager
         private final Optional<ConnectorIndexProvider> indexProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
         private final Optional<ConnectorPlanOptimizerProvider> planOptimizerProvider;
-        private final Optional<ConnectorMetadataUpdaterProvider> metadataUpdaterProvider;
-        private final Optional<ConnectorTypeSerdeProvider> connectorTypeSerdeProvider;
+        private final Optional<ConnectorCodecProvider> connectorCodecProvider;
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
@@ -492,23 +476,14 @@ public class ConnectorManager
             }
             this.planOptimizerProvider = Optional.ofNullable(planOptimizerProvider);
 
-            ConnectorMetadataUpdaterProvider metadataUpdaterProvider = null;
+            ConnectorCodecProvider connectorCodecProvider = null;
             try {
-                metadataUpdaterProvider = connector.getConnectorMetadataUpdaterProvider();
-                requireNonNull(metadataUpdaterProvider, format("Connector %s returned null metadata updater provider", connectorId));
+                connectorCodecProvider = connector.getConnectorCodecProvider();
+                requireNonNull(connectorCodecProvider, format("Connector %s returned null connector specific codec provider", connectorId));
             }
             catch (UnsupportedOperationException ignored) {
             }
-            this.metadataUpdaterProvider = Optional.ofNullable(metadataUpdaterProvider);
-
-            ConnectorTypeSerdeProvider connectorTypeSerdeProvider = null;
-            try {
-                connectorTypeSerdeProvider = connector.getConnectorTypeSerdeProvider();
-                requireNonNull(connectorTypeSerdeProvider, format("Connector %s returned null connector type serde provider", connectorId));
-            }
-            catch (UnsupportedOperationException ignored) {
-            }
-            this.connectorTypeSerdeProvider = Optional.ofNullable(connectorTypeSerdeProvider);
+            this.connectorCodecProvider = Optional.ofNullable(connectorCodecProvider);
 
             ConnectorAccessControl accessControl = null;
             try {
@@ -589,16 +564,6 @@ public class ConnectorManager
             return planOptimizerProvider;
         }
 
-        public Optional<ConnectorMetadataUpdaterProvider> getMetadataUpdaterProvider()
-        {
-            return metadataUpdaterProvider;
-        }
-
-        public Optional<ConnectorTypeSerdeProvider> getConnectorTypeSerdeProvider()
-        {
-            return connectorTypeSerdeProvider;
-        }
-
         public Optional<ConnectorAccessControl> getAccessControl()
         {
             return accessControl;
@@ -627,6 +592,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getAnalyzeProperties()
         {
             return analyzeProperties;
+        }
+
+        public Optional<ConnectorCodecProvider> getConnectorCodecProvider()
+        {
+            return connectorCodecProvider;
         }
     }
 }

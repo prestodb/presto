@@ -41,12 +41,11 @@ import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.security.Principal;
 import java.util.List;
@@ -410,6 +409,11 @@ public class DispatchManager
                     dispatchQuery.recordHeartbeat();
                     return dispatchQuery.getDispatchInfo();
                 });
+    }
+
+    public long getDurationUntilExpirationInMillis(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getDurationUntilExpirationInMillis();
     }
 
     /**

@@ -127,6 +127,10 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
       queryConfig.spillWriteBufferSize(), defaultQC->spillWriteBufferSize());
   EXPECT_EQ(
       queryConfig.requestDataSizesMaxWaitSec(), defaultQC->requestDataSizesMaxWaitSec());
+  EXPECT_EQ(
+      queryConfig.maxSplitPreloadPerDriver(), defaultQC->maxSplitPreloadPerDriver());
+  EXPECT_EQ(
+      queryConfig.maxLocalExchangePartitionBufferSize(), defaultQC->maxLocalExchangePartitionBufferSize());
 }
 
 TEST_F(QueryContextManagerTest, overridingSessionProperties) {

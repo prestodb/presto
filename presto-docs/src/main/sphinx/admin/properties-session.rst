@@ -125,6 +125,16 @@ To avoid these problems:
 
 The corresponding configuration property is :ref:`admin/properties:\`\`check-access-control-on-utilized-columns-only\`\``.
 
+``max_serializable_object_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``long``
+* **Default value:** ``1000``
+
+Maximum object size in bytes that can be considered serializable in a function call by the coordinator.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`max-serializable-object-size\`\``.
+
 Spilling Properties
 -------------------
 
@@ -485,3 +495,13 @@ The corresponding configuration property is :ref:`admin/properties:\`\`query.cli
 
 This property defines the priority of queries for execution and plays an important role in query admission.
 Queries with higher priority are scheduled first than the ones with lower priority. Higher number indicates higher priority.
+
+``query_max_queued_time``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``100d``
+
+Use to configure how long a query can be queued before it is terminated.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`query.max-queued-time\`\``.

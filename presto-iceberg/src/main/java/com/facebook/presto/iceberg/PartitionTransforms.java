@@ -21,10 +21,9 @@ import com.facebook.presto.common.type.VarcharType;
 import io.airlift.slice.Murmur3Hash32;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.PartitionField;
 import org.joda.time.DateTimeField;
-
-import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

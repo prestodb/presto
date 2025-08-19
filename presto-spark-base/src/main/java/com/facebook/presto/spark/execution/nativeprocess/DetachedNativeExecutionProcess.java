@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
-import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -42,7 +42,7 @@ public class DetachedNativeExecutionProcess
             String executablePath,
             String programArguments,
             Session session,
-            HttpClient httpClient,
+            OkHttpClient httpClient,
             ExecutorService executorService,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,

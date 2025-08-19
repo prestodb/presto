@@ -16,10 +16,9 @@ package com.facebook.presto.bytecode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.Immutable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.EnumSet;

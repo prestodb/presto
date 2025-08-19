@@ -42,23 +42,38 @@ Mathematical Functions
 
 .. function:: cosine_similarity(x, y) -> double
 
-    Returns the cosine similarity between the arrays ``x`` and ``y``::
+    Returns the cosine similarity between the arrays ``x`` and ``y``.
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
 
         SELECT cosine_similarity(ARRAY[1.2], ARRAY[2.0]); -- 1.0
 
 .. function:: l2_squared(array(real), array(real)) -> real
 
     Returns the squared `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array(real).
-    If the input arrays have different sizes, the function throws user error::
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
 
         SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
 
 .. function:: l2_squared(array(double), array(double)) -> double
 
     Returns the squared `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array(double).
-    If the input arrays have different sizes, the function throws user error::
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
 
         SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
+
+.. function:: dot_product(array(real), array(real)) -> real
+
+    Returns the dot product of two vectors represented as array(real).
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
+
+.. function:: dot_product(array(double), array(double)) -> double
+
+    Returns the dot product of two vectors represented as array(double).
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]); -- 11.0
 
 .. function:: degrees(x) -> double
 

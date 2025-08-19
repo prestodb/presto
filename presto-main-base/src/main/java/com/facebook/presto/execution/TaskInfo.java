@@ -18,15 +18,13 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
-import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
@@ -34,7 +32,6 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
-import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.System.currentTimeMillis;
@@ -50,9 +47,7 @@ public class TaskInfo
     private final OutputBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
-
     private final boolean needsPlan;
-    private final MetadataUpdates metadataUpdates;
     private final String nodeId;
 
     @JsonCreator
@@ -65,7 +60,6 @@ public class TaskInfo
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
             @JsonProperty("needsPlan") boolean needsPlan,
-            @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates,
             @JsonProperty("nodeId") String nodeId)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -77,7 +71,6 @@ public class TaskInfo
         this.stats = requireNonNull(stats, "stats is null");
 
         this.needsPlan = needsPlan;
-        this.metadataUpdates = metadataUpdates;
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
     }
 
@@ -137,13 +130,6 @@ public class TaskInfo
 
     @JsonProperty
     @ThriftField(8)
-    public MetadataUpdates getMetadataUpdates()
-    {
-        return metadataUpdates;
-    }
-
-    @JsonProperty
-    @ThriftField(9)
     public String getNodeId()
     {
         return nodeId;
@@ -160,7 +146,6 @@ public class TaskInfo
                     noMoreSplits,
                     stats.summarizeFinal(),
                     needsPlan,
-                    metadataUpdates,
                     nodeId);
         }
         return new TaskInfo(
@@ -171,7 +156,6 @@ public class TaskInfo
                 noMoreSplits,
                 stats.summarize(),
                 needsPlan,
-                metadataUpdates,
                 nodeId);
     }
 
@@ -194,12 +178,11 @@ public class TaskInfo
                 ImmutableSet.of(),
                 taskStats,
                 true,
-                DEFAULT_METADATA_UPDATES,
                 nodeId);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(taskId, newTaskStatus, lastHeartbeatInMillis, outputBuffers, noMoreSplits, stats, needsPlan, metadataUpdates, nodeId);
+        return new TaskInfo(taskId, newTaskStatus, lastHeartbeatInMillis, outputBuffers, noMoreSplits, stats, needsPlan, nodeId);
     }
 }

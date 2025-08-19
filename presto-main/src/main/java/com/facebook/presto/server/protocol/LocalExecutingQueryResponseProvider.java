@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.server.protocol;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.inject.Inject;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.util.Optional;
 
+import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +53,8 @@ public class LocalExecutingQueryResponseProvider
             DataSize targetResultSize,
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
-            boolean binaryResults)
+            boolean binaryResults,
+            long durationUntilExpirationMs)
     {
         Query query;
         try {
@@ -64,7 +65,7 @@ public class LocalExecutingQueryResponseProvider
         }
         return Optional.of(transform(
                 query.waitForResults(0, uriInfo, scheme, maxWait, targetResultSize, binaryResults),
-                results -> QueryResourceUtil.toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled),
+                results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled, durationUntilExpirationMs),
                 directExecutor()));
     }
 }

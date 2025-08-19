@@ -1144,8 +1144,7 @@ public class PrestoDatabaseMetaData
     public boolean supportsBatchUpdates()
             throws SQLException
     {
-        // TODO: support batch updates
-        return false;
+        return true;
     }
 
     @Override

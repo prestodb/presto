@@ -119,8 +119,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -470,7 +469,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
         {
-            QualifiedName name = QualifiedName.of(node.getValue());
+            QualifiedName name = QualifiedName.of(ImmutableList.of(new Identifier(node.getValue(), node.isDelimited())));
             Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, name);
             if (!resolvedField.isPresent() && outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
                 return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
@@ -1513,7 +1512,8 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.putAll(context.getContext().getFieldToLambdaArgumentDeclaration());
             }
             for (LambdaArgumentDeclaration lambdaArgument : lambdaArguments) {
-                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, QualifiedName.of(lambdaArgument.getName().getValue()));
+                QualifiedName name = QualifiedName.of(ImmutableList.of(new Identifier(lambdaArgument.getName().getValue(), lambdaArgument.getName().isDelimited())));
+                ResolvedField resolvedField = lambdaScope.resolveField(lambdaArgument, name);
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 

@@ -26,9 +26,8 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import jakarta.inject.Inject;
 import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import java.util.function.Supplier;
 
@@ -68,7 +67,6 @@ public class HiveMetadataFactory
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
-    private final HiveFileRenamer hiveFileRenamer;
     private final ColumnConverterProvider columnConverterProvider;
     private final QuickStatsProvider quickStatsProvider;
     private final TableWritabilityChecker tableWritabilityChecker;
@@ -97,7 +95,6 @@ public class HiveMetadataFactory
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer,
             ColumnConverterProvider columnConverterProvider,
             QuickStatsProvider quickStatsProvider,
             TableWritabilityChecker tableWritabilityChecker)
@@ -132,7 +129,6 @@ public class HiveMetadataFactory
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
-                hiveFileRenamer,
                 columnConverterProvider,
                 quickStatsProvider,
                 tableWritabilityChecker);
@@ -168,7 +164,6 @@ public class HiveMetadataFactory
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer,
             ColumnConverterProvider columnConverterProvider,
             QuickStatsProvider quickStatsProvider,
             TableWritabilityChecker tableWritabilityChecker)
@@ -202,7 +197,6 @@ public class HiveMetadataFactory
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
-        this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.quickStatsProvider = requireNonNull(quickStatsProvider, "quickStatsProvider is null");
         this.tableWritabilityChecker = requireNonNull(tableWritabilityChecker, "tableWritabilityChecker is null");
@@ -251,7 +245,6 @@ public class HiveMetadataFactory
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
-                hiveFileRenamer,
                 tableWritabilityChecker);
     }
 }

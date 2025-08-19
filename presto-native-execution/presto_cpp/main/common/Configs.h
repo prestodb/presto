@@ -95,7 +95,7 @@ class ConfigBase {
   template <typename T>
   folly::Optional<T> optionalProperty(const std::string& propertyName) const {
     auto valOpt = config_->get<T>(propertyName);
-    if (valOpt.hasValue()) {
+    if (valOpt.has_value()) {
       return valOpt.value();
     }
     const auto it = registeredProps_.find(propertyName);
@@ -115,8 +115,8 @@ class ConfigBase {
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
     auto val = config_->get<std::string>(propertyName);
-    if (val.hasValue()) {
-      return val;
+    if (val.has_value()) {
+      return val.value();
     }
     const auto it = registeredProps_.find(propertyName);
     if (it != registeredProps_.end()) {
@@ -130,10 +130,6 @@ class ConfigBase {
       std::string_view propertyName) const {
     return optionalProperty(std::string{propertyName});
   }
-
-  /// Returns "N<capacity_unit>" as string containing capacity in bytes.
-  std::string capacityPropertyAsBytesString(
-      std::string_view propertyName) const;
 
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {
@@ -202,6 +198,8 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  static constexpr std::string_view kHttpServerHttp2Enabled{
+      "http-server.http2.enabled"};
   /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
@@ -229,6 +227,11 @@ class SystemConfig : public ConfigBase {
   /// 0.0 is default.
   static constexpr std::string_view kConnectorNumIoThreadsHwMultiplier{
       "connector.num-io-threads-hw-multiplier"};
+
+  /// Maximum number of splits to preload per driver.
+  /// Set to 0 to disable preloading.
+  static constexpr std::string_view kDriverMaxSplitPreload{
+      "driver.max-split-preload"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for Driver CPU executor: hw_concurrency x multiplier. 4.0 is default.
@@ -745,6 +748,7 @@ class SystemConfig : public ConfigBase {
       "aggregation-spill-enabled"};
   static constexpr std::string_view kOrderBySpillEnabled{
       "order-by-spill-enabled"};
+  static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
@@ -754,6 +758,14 @@ class SystemConfig : public ConfigBase {
       "exchange.io-evb-violation-threshold-ms"};
   static constexpr std::string_view kHttpSrvIoEvbViolationThresholdMs{
       "http-server.io-evb-violation-threshold-ms"};
+
+  static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
+      "local-exchange.max-partition-buffer-size"};
+
+  // Add to temporarily help with gradual rollout for text writer
+  // TODO: remove once text writer is fully rolled out
+  static constexpr std::string_view kTextWriterEnabled{
+    "text-writer-enabled"};
 
   SystemConfig();
 
@@ -770,6 +782,8 @@ class SystemConfig : public ConfigBase {
   bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
+
+  bool httpServerHttp2Enabled() const;
 
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
@@ -811,6 +825,8 @@ class SystemConfig : public ConfigBase {
   std::string remoteFunctionServerSerde() const;
 
   int32_t maxDriversPerTask() const;
+
+  int32_t driverMaxSplitPreload() const;
 
   folly::Optional<int32_t> taskWriterCount() const;
 
@@ -1028,6 +1044,8 @@ class SystemConfig : public ConfigBase {
 
   bool orderBySpillEnabled() const;
 
+  uint64_t maxSpillBytes() const;
+
   int requestDataSizesMaxWaitSec() const;
 
   std::string pluginDir() const;
@@ -1035,6 +1053,10 @@ class SystemConfig : public ConfigBase {
   int32_t exchangeIoEvbViolationThresholdMs() const;
 
   int32_t httpSrvIoEvbViolationThresholdMs() const;
+
+  uint64_t maxLocalExchangePartitionBufferSize() const;
+
+  bool textWriterEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

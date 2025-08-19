@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneKey;
@@ -39,12 +40,13 @@ import java.util.Set;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TestingConnectorSession
-        implements ConnectorSession
+        extends FullConnectorSession
 {
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
     public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
@@ -105,6 +107,7 @@ public class TestingConnectorSession
             Optional<String> schema,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
+        super(testSessionBuilder().build(), identity);
         this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");

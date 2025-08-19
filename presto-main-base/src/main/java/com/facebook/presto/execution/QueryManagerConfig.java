@@ -17,21 +17,20 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDataSize;
+import com.facebook.airlift.units.MinDuration;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.spi.api.Experimental;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDataSize;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.units.DataSize.Unit.PETABYTE;
-import static io.airlift.units.DataSize.Unit.TERABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.PETABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.TERABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -74,6 +73,7 @@ public class QueryManagerConfig
 
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
+    private Duration queryMaxQueuedTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
@@ -428,6 +428,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxRunTime(Duration queryMaxRunTime)
     {
         this.queryMaxRunTime = queryMaxRunTime;
+        return this;
+    }
+
+    @NotNull
+    public Duration getQueryMaxQueuedTime()
+    {
+        return queryMaxQueuedTime;
+    }
+
+    @Config("query.max-queued-time")
+    public QueryManagerConfig setQueryMaxQueuedTime(Duration queryMaxQueuedTime)
+    {
+        this.queryMaxQueuedTime = queryMaxQueuedTime;
         return this;
     }
 

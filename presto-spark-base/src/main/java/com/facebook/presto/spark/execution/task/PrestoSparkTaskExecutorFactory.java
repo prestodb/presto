@@ -17,6 +17,7 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.common.RuntimeStats;
@@ -108,14 +109,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 import scala.collection.AbstractIterator;
 import scala.collection.Iterator;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -139,6 +138,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.CRC32;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
@@ -155,7 +156,6 @@ import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemor
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
-import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getAttemptNumberToApplyDynamicMemoryPoolTuning;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getDynamicPrestoMemoryPoolTuningFraction;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingTarget;
@@ -176,8 +176,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Iterables.getFirst;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -402,10 +400,10 @@ public class PrestoSparkTaskExecutorFactory
                 .put(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, maxRevocableMemory.toString());
 
         session = createSessionWithExtraSessionProperties(
-                 sessionRepresentation,
-                 taskDescriptor.getExtraCredentials(),
-                 extraAuthenticators.build(),
-                 extraSessionProperties.build());
+                sessionRepresentation,
+                taskDescriptor.getExtraCredentials(),
+                extraAuthenticators.build(),
+                extraSessionProperties.build());
 
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
@@ -1047,7 +1045,6 @@ public class PrestoSparkTaskExecutorFactory
                     ImmutableSet.of(),
                     taskStats,
                     false,
-                    DEFAULT_METADATA_UPDATES,
                     "");
         }
     }

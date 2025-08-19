@@ -29,10 +29,9 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Inject;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -169,7 +168,7 @@ public class ArrowMetadata
             tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tables = listTables(session, Optional.of(prefix.getSchemaName()));
+            tables = listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
 
         for (SchemaTableName tableName : tables) {

@@ -15,11 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -39,11 +40,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +53,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,8 +62,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.currentTimeMillis;
@@ -127,8 +125,6 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
-
-    private final TaskMetadataContext taskMetadataContext;
 
     private final Optional<PlanNode> taskPlan;
 
@@ -199,7 +195,6 @@ public class TaskContext
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
-        this.taskMetadataContext = new TaskMetadataContext();
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -285,11 +280,6 @@ public class TaskContext
     public TaskState getState()
     {
         return taskStateMachine.getState();
-    }
-
-    public TaskMetadataContext getTaskMetadataContext()
-    {
-        return taskMetadataContext;
     }
 
     public DataSize getMemoryReservation()

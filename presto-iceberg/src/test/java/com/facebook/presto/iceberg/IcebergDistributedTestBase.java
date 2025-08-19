@@ -2440,6 +2440,18 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testUpdateWithDuplicateValues()
+    {
+        String tableName = "test_update_duplicate_values_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, column1 varchar(10), column2 varchar(10), column3 int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a', 'a', 1), (2, 'b', 'b', 1), (3, 'c', 'c', 1)", 3);
+
+        // update single row with duplicate values
+        assertUpdate("UPDATE " + tableName + " SET column1 = CAST(1 as varchar), column2 = CAST(1 as varchar), column3 = 11 WHERE id = 1", 1);
+        assertQuery("SELECT id, column1, column2, column3 FROM " + tableName, "VALUES (1, '1', '1', 11), (2, 'b', 'b', 1), (3, 'c', 'c', 1)");
+    }
+
+    @Test
     public void testUpdateWithPredicates()
     {
         String tableName = "test_update_predicates_" + randomTableSuffix();

@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.294-SNAPSHOT</version>
+        <version>0.295-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -12,13 +12,63 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>http-client</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>http-server</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>event</artifactId>
+                <version>0.216</version>
+            </dependency>
+            <dependency>
+                <groupId>com.facebook.airlift</groupId>
+                <artifactId>discovery</artifactId>
+                <version>0.216</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-base</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-server</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>event</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>com.facebook.drift.*</ignoredClassPattern>
+                        <ignoredClassPattern>io.jsonwebtoken.*</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

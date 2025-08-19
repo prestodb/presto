@@ -15,8 +15,8 @@ package com.facebook.presto.hive.metastore.glue;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.aws.AbstractSdkMetricsCollector;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

@@ -24,7 +24,6 @@ import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessControl;
@@ -60,9 +59,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -101,7 +99,7 @@ public class Analysis
     @Nullable
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
-    private UpdateInfo updateInfo;
+    private String updateType;
 
     private final Map<NodeRef<Table>, NamedQuery> namedQueries = new LinkedHashMap<>();
 
@@ -213,14 +211,14 @@ public class Analysis
         return root;
     }
 
-    public UpdateInfo getUpdateInfo()
+    public String getUpdateType()
     {
-        return updateInfo;
+        return updateType;
     }
 
-    public void setUpdateInfo(UpdateInfo updateInfo)
+    public void setUpdateType(String updateType)
     {
-        this.updateInfo = updateInfo;
+        this.updateType = updateType;
     }
 
     public boolean isCreateTableAsSelectWithData()

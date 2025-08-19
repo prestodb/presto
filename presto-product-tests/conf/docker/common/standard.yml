@@ -53,6 +53,7 @@ services:
       - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
       - ../../../target/test-reports:/docker/volumes/test-reports
       - /tmp/presto_history_docker:/root/.presto_history
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
     environment:
       - PRESTO_JDBC_DRIVER_CLASS
       - TEMPTO_EXTRA_CONFIG_FILE

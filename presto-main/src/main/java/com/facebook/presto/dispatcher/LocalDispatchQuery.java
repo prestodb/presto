@@ -14,6 +14,7 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.event.QueryMonitor;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -253,7 +253,7 @@ public class LocalDispatchQuery
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getWaitingForPrerequisitesTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         if (dispatched) {
-            return DispatchInfo.dispatched(new LocalCoordinatorLocation(), queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getWaitingForPrerequisitesTime(), queryInfo.getQueryStats().getQueuedTime());
+            return DispatchInfo.dispatched(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getWaitingForPrerequisitesTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         if (queryInfo.getState() == QUEUED) {
             return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getWaitingForPrerequisitesTime(), queryInfo.getQueryStats().getQueuedTime());
@@ -277,6 +277,12 @@ public class LocalDispatchQuery
     public long getCreateTimeInMillis()
     {
         return stateMachine.getCreateTimeInMillis();
+    }
+
+    @Override
+    public Duration getQueuedTime()
+    {
+        return stateMachine.getQueuedTime();
     }
 
     @Override

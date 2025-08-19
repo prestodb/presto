@@ -16,6 +16,8 @@ package com.facebook.presto.spark.execution;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
@@ -70,7 +72,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -90,8 +91,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.Partitioner;
 import org.apache.spark.ShuffleDependency;
@@ -104,8 +104,6 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.ShuffledRDD;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -120,6 +118,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -158,7 +157,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.min;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -416,7 +414,7 @@ public abstract class AbstractPrestoSparkQueryExecution
 
         // Based on com.facebook.presto.server.protocol.Query#getNextResult
         OptionalLong updateCount = OptionalLong.empty();
-        if (planAndMore.getUpdateInfo().isPresent() &&
+        if (planAndMore.getUpdateType().isPresent() &&
                 types.size() == 1 &&
                 types.get(0).equals(BIGINT) &&
                 results.size() == 1 &&
@@ -449,9 +447,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         return subPlanOptional.get().getFragment().getTypes();
     }
 
-    public Optional<UpdateInfo> getUpdateType()
+    public Optional<String> getUpdateType()
     {
-        return planAndMore.getUpdateInfo();
+        return planAndMore.getUpdateType();
     }
 
     protected abstract List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> doExecute()

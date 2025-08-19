@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.name.Named;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
+import jakarta.inject.Inject;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 

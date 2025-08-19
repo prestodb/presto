@@ -25,6 +25,7 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import jakarta.inject.Inject;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.Table;
@@ -33,8 +34,6 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.util.SnapshotUtil;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -91,6 +90,7 @@ public class IcebergSplitManager
             long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot()
                     .orElseGet(icebergTable.currentSnapshot()::snapshotId);
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
+                    .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
             return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
@@ -100,12 +100,14 @@ public class IcebergSplitManager
                     table.getIcebergTableName().getSnapshotId().get(),
                     predicate,
                     table.getPartitionSpecId(),
-                    table.getEqualityFieldIds());
+                    table.getEqualityFieldIds(),
+                    session.getRuntimeStats());
 
             return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }
         else {
             TableScan tableScan = icebergTable.newScan()
+                    .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .filter(toIcebergExpression(predicate))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);

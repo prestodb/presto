@@ -230,10 +230,9 @@ class SessionProperties {
   /// Base dir of a query to store tracing data.
   static constexpr const char* kQueryTraceDir = "native_query_trace_dir";
 
-  /// A comma-separated list of plan node ids whose input data will be traced.
-  /// Empty string if only want to trace the query metadata.
-  static constexpr const char* kQueryTraceNodeIds =
-      "native_query_trace_node_ids";
+  /// The plan node id whose input data will be traced.
+  static constexpr const char* kQueryTraceNodeId =
+      "native_query_trace_node_id";
 
   /// The max trace bytes limit. Tracing is disabled if zero.
   static constexpr const char* kQueryTraceMaxBytes =
@@ -310,7 +309,7 @@ class SessionProperties {
       "native_streaming_aggregation_min_output_batch_rows";
 
   /// Maximum wait time for exchange long poll requests in seconds.
-  static constexpr const char* kRequestDataSizesMaxWaitSec = 
+  static constexpr const char* kRequestDataSizesMaxWaitSec =
       "native_request_data_sizes_max_wait_sec";
 
   /// Priority of memory pool reclaimer when deciding on memory pool to abort.
@@ -323,20 +322,20 @@ class SessionProperties {
   static constexpr const char* kMaxNumSplitsListenedTo =
       "native_max_num_splits_listened_to";
 
+  static SessionProperties* instance();
+
   SessionProperties();
-
-  const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-  getSessionProperties();
-
+  
   /// Utility function to translate a config name in Presto to its equivalent in
   /// Velox. Returns 'name' as is if there is no mapping.
-  const std::string toVeloxConfig(const std::string& name);
+  const std::string toVeloxConfig(const std::string& name) const;
 
-  void updateVeloxConfig(const std::string& name, const std::string& value);
+  json serialize() const;
 
-  json serialize();
+  const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
+  testingSessionProperties() const;
 
- protected:
+ private:
   void addSessionProperty(
       const std::string& name,
       const std::string& description,

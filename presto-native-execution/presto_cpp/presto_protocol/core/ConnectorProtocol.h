@@ -37,6 +37,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorTableHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorTableHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorTableHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -44,6 +50,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorTableLayoutHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorTableLayoutHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorTableLayoutHandle>& proto) const = 0;
 
   virtual void to_json(json& j, const std::shared_ptr<ColumnHandle>& p)
       const = 0;
@@ -56,6 +68,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorInsertTableHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorInsertTableHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorInsertTableHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -63,11 +81,23 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorOutputTableHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorOutputTableHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorOutputTableHandle>& proto) const = 0;
 
   virtual void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p)
       const = 0;
   virtual void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p)
       const = 0;
+  virtual void serialize(
+    const std::shared_ptr<ConnectorSplit>& proto,
+    std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorSplit>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -82,13 +112,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorTransactionHandle>& p) const = 0;
-
-  virtual void to_json(
-      json& j,
-      const std::shared_ptr<ConnectorMetadataUpdateHandle>& p) const = 0;
-  virtual void from_json(
-      const json& j,
-      std::shared_ptr<ConnectorMetadataUpdateHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorTransactionHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorTransactionHandle>& proto) const = 0;    
 
   virtual void to_json(
       json& j,
@@ -96,6 +125,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorDeleteTableHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorDeleteTableHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorDeleteTableHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -103,20 +138,6 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
-  
-  virtual void serialize(
-      const std::shared_ptr<ConnectorTransactionHandle>& proto,
-      std::string& thrift) const = 0;
-  virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorTransactionHandle>& proto) const = 0;
-  
-  virtual void serialize(
-    const std::shared_ptr<ConnectorSplit>& proto,
-    std::string& thrift) const = 0;
-  virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorSplit>& proto) const = 0;
 };
 
 namespace {
@@ -132,7 +153,6 @@ template <
     typename ConnectorSplitType = NotImplemented,
     typename ConnectorPartitioningHandleType = NotImplemented,
     typename ConnectorTransactionHandleType = NotImplemented,
-    typename ConnectorMetadataUpdateHandleType = NotImplemented,
     typename ConnectorDeleteTableHandleType = NotImplemented,
     typename ConnectorIndexHandleType = NotImplemented>
 class ConnectorProtocolTemplate final : public ConnectorProtocol {
@@ -145,6 +165,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     from_json_template<ConnectorTableHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ConnectorTableHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorTableHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorTableHandle>& proto) const final {
+    deserializeTemplate<ConnectorTableHandleType>(thrift, proto);
+  }
 
   void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p)
       const final {
@@ -153,6 +183,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p)
       const final {
     from_json_template<ConnectorTableLayoutHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ConnectorTableLayoutHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorTableLayoutHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorTableLayoutHandle>& proto) const final {
+    deserializeTemplate<ConnectorTableLayoutHandleType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) const final {
@@ -170,6 +210,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     from_json_template<ConnectorInsertTableHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ConnectorInsertTableHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorInsertTableHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorInsertTableHandle>& proto) const final {
+    deserializeTemplate<ConnectorInsertTableHandleType>(thrift, proto);
+  }
 
   void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p)
       const final {
@@ -179,6 +229,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     from_json_template<ConnectorOutputTableHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ConnectorOutputTableHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorOutputTableHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorOutputTableHandle>& proto) const final {
+    deserializeTemplate<ConnectorOutputTableHandleType>(thrift, proto);
+  }
 
   void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) const final {
     to_json_template<ConnectorSplitType>(j, p);
@@ -186,6 +246,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p)
       const final {
     from_json_template<ConnectorSplitType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ConnectorSplit>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorSplitType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorSplit>& proto) const final {
+    deserializeTemplate<ConnectorSplitType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p)
@@ -205,15 +275,15 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     from_json_template<ConnectorTransactionHandleType>(j, p);
   }
-
-  void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p)
-      const final {
-    to_json_template<ConnectorMetadataUpdateHandleType>(j, p);
+  void serialize(
+      const std::shared_ptr<ConnectorTransactionHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorTransactionHandleType>(proto, thrift);
   }
-  void from_json(
-      const json& j,
-      std::shared_ptr<ConnectorMetadataUpdateHandle>& p) const final {
-    from_json_template<ConnectorMetadataUpdateHandleType>(j, p);
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorTransactionHandle>& proto) const final {
+    deserializeTemplate<ConnectorTransactionHandleType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p)
@@ -225,6 +295,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       std::shared_ptr<ConnectorDeleteTableHandle>& p) const final {
     from_json_template<ConnectorDeleteTableHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ConnectorDeleteTableHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorDeleteTableHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorDeleteTableHandle>& proto) const final {
+    deserializeTemplate<ConnectorDeleteTableHandleType>(thrift, proto);
+  }
 
   void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p)
       const final {
@@ -234,29 +314,6 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const json& j,
       std::shared_ptr<ConnectorIndexHandle>& p) const final {
     from_json_template<ConnectorIndexHandleType>(j, p);
-  }
-
-  void serialize(
-      const std::shared_ptr<ConnectorTransactionHandle>& proto,
-      std::string& thrift) const final {
-    serializeTemplate<ConnectorTransactionHandleType>(proto, thrift);
-  }
-
-  void deserialize(
-      const std::string& thrift,
-      std::shared_ptr<ConnectorTransactionHandle>& proto) const final {
-    deserializeTemplate<ConnectorTransactionHandleType>(thrift, proto);
-  }
-
-  void serialize(
-      const std::shared_ptr<ConnectorSplit>& proto,
-      std::string& thrift) const final {
-    serializeTemplate<ConnectorSplitType>(proto, thrift);
-  }
-  void deserialize(
-      const std::string& thrift,
-      std::shared_ptr<ConnectorSplit>& proto) const final {
-    deserializeTemplate<ConnectorSplitType>(thrift, proto);
   }
 
  private:
@@ -298,6 +355,25 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
     VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+  }
+
+  template <typename DERIVED, typename BASE>
+  static void serializeTemplate(
+    const std::shared_ptr<BASE>&,
+    std::string&,
+    typename std::enable_if<
+        std::is_same<DERIVED, NotImplemented>::value,
+        BASE>::type* = 0) {
+  VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+  }
+  template <typename DERIVED, typename BASE>
+  static void deserializeTemplate(
+    const std::string&,
+    std::shared_ptr<BASE>&,
+    typename std::enable_if<
+        std::is_same<DERIVED, NotImplemented>::value,
+        BASE>::type* = 0) {
+  VELOX_NYI("Not implemented: {}", typeid(BASE).name());
   }
 
   template <typename DERIVED, typename BASE>

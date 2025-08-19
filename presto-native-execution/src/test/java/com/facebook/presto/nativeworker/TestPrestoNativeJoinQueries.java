@@ -25,6 +25,7 @@ public class TestPrestoNativeJoinQueries
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
+                .setUseReactorNettyHttpClient(true)
                 .build();
     }
 

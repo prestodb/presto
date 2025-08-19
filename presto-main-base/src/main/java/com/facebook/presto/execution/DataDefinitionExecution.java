@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -28,9 +29,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -122,6 +121,12 @@ public abstract class DataDefinitionExecution<T extends Statement>
     public long getCreateTimeInMillis()
     {
         return stateMachine.getCreateTimeInMillis();
+    }
+
+    @Override
+    public Duration getQueuedTime()
+    {
+        return stateMachine.getQueuedTime();
     }
 
     @Override

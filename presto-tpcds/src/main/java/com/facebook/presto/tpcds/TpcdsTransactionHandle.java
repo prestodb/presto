@@ -13,10 +13,26 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
+@ThriftEnum
 public enum TpcdsTransactionHandle
         implements ConnectorTransactionHandle
 {
-    INSTANCE
+    INSTANCE(1);
+
+    private final int value;
+
+    TpcdsTransactionHandle(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -72,12 +71,6 @@ public class Analyze
     public int hashCode()
     {
         return Objects.hash(tableName, properties);
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("ANALYZE", tableName.toString());
     }
 
     @Override

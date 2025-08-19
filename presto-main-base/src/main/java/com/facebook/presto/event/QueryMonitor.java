@@ -48,7 +48,6 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
@@ -75,8 +74,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -85,6 +83,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -94,7 +93,6 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistri
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -278,7 +276,6 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                Optional.empty(),
                 Optional.empty()));
 
         logQueryTimeline(queryInfo);
@@ -322,8 +319,7 @@ public class QueryMonitor
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
                         getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
-                        Optional.of(queryInfo.getPlanIdNodeMap()),
-                        Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateObject)));
+                        Optional.of(queryInfo.getPlanIdNodeMap())));
 
         logQueryTimeline(queryInfo);
     }
@@ -366,7 +362,7 @@ public class QueryMonitor
                         .map(stageId -> String.valueOf(stageId.getId()))
                         .collect(toImmutableList()),
                 queryInfo.getSession().getTraceToken(),
-                Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateType));
+                Optional.ofNullable(queryInfo.getUpdateType()));
     }
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)

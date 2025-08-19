@@ -86,7 +86,6 @@ jobs:
             -DTREAT_WARNINGS_AS_ERRORS=1 \
             -DENABLE_ALL_WARNINGS=1 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DPRESTO_ENABLE_PARQUET=ON \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
             -DPRESTO_ENABLE_JWT=ON \
             -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
@@ -116,7 +115,7 @@ jobs:
           # Ensure transitive dependency libboost-iostreams is found.
           ldconfig /usr/local/lib
           cd presto-native-execution/_build/release
-          ctest -j 4 -VV --output-on-failure --exclude-regex velox.*
+          ctest -j 4 -VV --output-on-failure --exclude-regex ^velox.*
 
       - name: Upload artifacts
         if: |
@@ -173,7 +172,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8.0.452
+          java-version: 17.0.15
           cache: 'maven'
       - name: Download nodejs to maven cache
         if: |
@@ -269,7 +268,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8.0.452'
+          java-version: 17.0.15
           cache: 'maven'
       - name: Download nodejs to maven cache
         if: |
@@ -357,7 +356,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8.0.452'
+          java-version: 17.0.15
           cache: 'maven'
       - name: Download nodejs to maven cache
         if: |
@@ -442,7 +441,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8.0.452'
+          java-version: 17.0.15
           cache: 'maven'
       - name: Download nodejs to maven cache
         if: |

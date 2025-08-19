@@ -23,6 +23,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.Array;
+import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -42,6 +43,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -72,9 +74,11 @@ public class PrestoPreparedStatement
         implements PreparedStatement
 {
     private final Map<Integer, String> parameters = new HashMap<>();
+    private final List<List<String>> batchValues = new ArrayList<>();
     private final String statementName;
     private final String originalSql;
     private boolean isClosed;
+    private boolean isBatch;
 
     PrestoPreparedStatement(PrestoConnection connection, String statementName, String sql)
             throws SQLException
@@ -101,7 +105,8 @@ public class PrestoPreparedStatement
     public ResultSet executeQuery()
             throws SQLException
     {
-        if (!super.execute(getExecuteSql())) {
+        requireNonBatchStatement();
+        if (!super.execute(getExecuteSql(statementName, toValues(parameters)))) {
             throw new SQLException("Prepared SQL statement is not a query: " + originalSql);
         }
         return getResultSet();
@@ -111,6 +116,7 @@ public class PrestoPreparedStatement
     public int executeUpdate()
             throws SQLException
     {
+        requireNonBatchStatement();
         return Ints.saturatedCast(executeLargeUpdate());
     }
 
@@ -118,7 +124,8 @@ public class PrestoPreparedStatement
     public long executeLargeUpdate()
             throws SQLException
     {
-        if (super.execute(getExecuteSql())) {
+        requireNonBatchStatement();
+        if (super.execute(getExecuteSql(statementName, toValues(parameters)))) {
             throw new SQLException("Prepared SQL is not an update statement: " + originalSql);
         }
         return getLargeUpdateCount();
@@ -128,7 +135,8 @@ public class PrestoPreparedStatement
     public boolean execute()
             throws SQLException
     {
-        return super.execute(getExecuteSql());
+        requireNonBatchStatement();
+        return super.execute(getExecuteSql(statementName, toValues(parameters)));
     }
 
     @Override
@@ -430,7 +438,41 @@ public class PrestoPreparedStatement
     public void addBatch()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "addBatch");
+        checkOpen();
+        batchValues.add(toValues(parameters));
+        isBatch = true;
+    }
+
+    @Override
+    public void clearBatch()
+            throws SQLException
+    {
+        checkOpen();
+        batchValues.clear();
+        isBatch = false;
+    }
+
+    @Override
+    public int[] executeBatch()
+            throws SQLException
+    {
+        try {
+            int[] batchUpdateCounts = new int[batchValues.size()];
+            for (int i = 0; i < batchValues.size(); i++) {
+                try {
+                    super.execute(getExecuteSql(statementName, batchValues.get(i)));
+                    batchUpdateCounts[i] = getUpdateCount();
+                }
+                catch (SQLException e) {
+                    long[] updateCounts = Arrays.stream(batchUpdateCounts).mapToLong(j -> j).toArray();
+                    throw new BatchUpdateException(e.getMessage(), e.getSQLState(), e.getErrorCode(), updateCounts, e.getCause());
+                }
+            }
+            return batchUpdateCounts;
+        }
+        finally {
+            clearBatch();
+        }
     }
 
     @Override
@@ -759,27 +801,34 @@ public class PrestoPreparedStatement
         parameters.put(parameterIndex - 1, value);
     }
 
-    private void formatParametersTo(StringBuilder builder)
+    private static List<String> toValues(Map<Integer, String> parameters)
             throws SQLException
     {
-        List<String> values = new ArrayList<>();
+        ImmutableList.Builder<String> values = ImmutableList.builder();
         for (int index = 0; index < parameters.size(); index++) {
             if (!parameters.containsKey(index)) {
                 throw new SQLException("No value specified for parameter " + (index + 1));
             }
             values.add(parameters.get(index));
         }
-        Joiner.on(", ").appendTo(builder, values);
+        return values.build();
     }
 
-    private String getExecuteSql()
+    private void requireNonBatchStatement()
             throws SQLException
+    {
+        if (isBatch) {
+            throw new SQLException("Batch prepared statement must be executed using executeBatch method");
+        }
+    }
+
+    private static String getExecuteSql(String statementName, List<String> values)
     {
         StringBuilder sql = new StringBuilder();
         sql.append("EXECUTE ").append(statementName);
-        if (!parameters.isEmpty()) {
+        if (!values.isEmpty()) {
             sql.append(" USING ");
-            formatParametersTo(sql);
+            Joiner.on(", ").appendTo(sql, values);
         }
         return sql.toString();
     }
