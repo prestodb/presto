@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.spark.execution.http.server;
 
-import com.facebook.airlift.http.client.Request.Builder;
+import okhttp3.Request.Builder;
 
-import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
-import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -31,54 +29,15 @@ public class RequestHelpers
      * Sets the request Content-Type/Accept headers for JSON or SMILE encoding based on the
      * given isBinaryTransportEnabled argument.
      */
-    public static Builder setContentTypeHeaders(boolean isBinaryTransportEnabled, Builder requestBuilder)
+    public static Builder setContentTypeHeaders(Builder requestBuilder)
     {
-        if (isBinaryTransportEnabled) {
-            return getBinaryTransportBuilder(requestBuilder);
-        }
         return getJsonTransportBuilder(requestBuilder);
-    }
-
-    public static Builder setTaskUpdateRequestContentTypeHeaders(boolean isTaskUpdateRequestThriftTransportEnabled, boolean isBinaryTransportEnabled, Builder requestBuilder)
-    {
-        if (isTaskUpdateRequestThriftTransportEnabled) {
-            requestBuilder.setHeader(CONTENT_TYPE, APPLICATION_THRIFT_BINARY);
-        }
-        else if (isBinaryTransportEnabled) {
-            requestBuilder.setHeader(CONTENT_TYPE, APPLICATION_JACKSON_SMILE);
-        }
-        else {
-            requestBuilder.setHeader(CONTENT_TYPE, JSON_UTF_8.toString());
-        }
-
-        return requestBuilder;
-    }
-
-    public static Builder setTaskInfoAcceptTypeHeaders(boolean isTaskInfoThriftTransportEnabled, boolean isBinaryTransportEnabled, Builder requestBuilder)
-    {
-        if (isTaskInfoThriftTransportEnabled) {
-            requestBuilder.setHeader(ACCEPT, APPLICATION_THRIFT_BINARY);
-        }
-        else if (isBinaryTransportEnabled) {
-            requestBuilder.setHeader(ACCEPT, APPLICATION_JACKSON_SMILE);
-        }
-        else {
-            requestBuilder.setHeader(ACCEPT, JSON_UTF_8.toString());
-        }
-        return requestBuilder;
-    }
-
-    public static Builder getBinaryTransportBuilder(Builder requestBuilder)
-    {
-        return requestBuilder
-                .setHeader(CONTENT_TYPE, APPLICATION_JACKSON_SMILE)
-                .setHeader(ACCEPT, APPLICATION_JACKSON_SMILE);
     }
 
     public static Builder getJsonTransportBuilder(Builder requestBuilder)
     {
         return requestBuilder
-                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(ACCEPT, JSON_UTF_8.toString());
+                .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .addHeader(ACCEPT, JSON_UTF_8.toString());
     }
 }
