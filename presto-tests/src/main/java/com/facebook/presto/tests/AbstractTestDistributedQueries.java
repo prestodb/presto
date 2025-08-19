@@ -1663,4 +1663,38 @@ public abstract class AbstractTestDistributedQueries
         // Drop the view after the test
         assertQuerySucceeds("DROP VIEW test_hive_view");
     }
+
+    @Test
+    public void testExplainAnalyzeWithCTEMaterialization()
+    {
+        // Test EXPLAIN ANALYZE with CTE materialization enabled
+        // This test verifies the fix for issue #23798 where EXPLAIN ANALYZE
+        // failed on queries with CTE materialization due to multiple sub stages
+        Session materializedSession = Session.builder(getSession())
+                .setSystemProperty("cte_materialization_strategy", "ALL")
+                .setSystemProperty("cte_partitioning_provider_catalog", "memory")
+                .build();
+
+        // Test simple CTE with materialization - should not fail
+        assertExplainAnalyze(materializedSession, "EXPLAIN ANALYZE WITH t as (VALUES 1, 2, 3) SELECT * FROM t");
+        
+        // Test more complex CTE with materialization
+        assertExplainAnalyze(materializedSession, "EXPLAIN ANALYZE WITH t as (SELECT * FROM orders LIMIT 10) SELECT count(*) FROM t");
+        
+        // Test JSON format as well
+        MaterializedResult result = computeActual(materializedSession, "EXPLAIN ANALYZE (format JSON) WITH t as (VALUES 1, 2, 3) SELECT * FROM t");
+        assertNotNull(result.getOnlyValue());
+        
+        // Verify the result is valid JSON (should not throw exception)
+        String jsonResult = (String) result.getOnlyValue();
+        assertTrue(jsonResult.startsWith("[") || jsonResult.startsWith("{"), "Result should be valid JSON");
+    }
+
+    private void assertExplainAnalyze(Session session, String sql)
+    {
+        MaterializedResult result = computeActual(session, sql);
+        assertNotNull(result.getOnlyValue());
+        String plan = (String) result.getOnlyValue();
+        assertFalse(plan.isEmpty(), "Explain analyze result should not be empty");
+    }
 }

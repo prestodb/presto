@@ -32,7 +32,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -200,6 +202,9 @@ public class HiveClientConfig
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
 
     private boolean copyOnFirstWriteConfigurationEnabled;
+
+    private boolean catalogAwareKerberosEnabled;
+    private Map<String, String> catalogAuthToLocalRules = new HashMap<>();
 
     private boolean partitionFilteringFromMetastoreEnabled = true;
 
@@ -1753,6 +1758,51 @@ public class HiveClientConfig
     public boolean isCopyOnFirstWriteConfigurationEnabled()
     {
         return copyOnFirstWriteConfigurationEnabled;
+    }
+
+    @Config("hive.catalog-aware-kerberos-enabled")
+    @ConfigDescription("Enable catalog-aware Kerberos authentication with per-catalog auth_to_local rules")
+    public HiveClientConfig setCatalogAwareKerberosEnabled(boolean catalogAwareKerberosEnabled)
+    {
+        this.catalogAwareKerberosEnabled = catalogAwareKerberosEnabled;
+        return this;
+    }
+
+    public boolean isCatalogAwareKerberosEnabled()
+    {
+        return catalogAwareKerberosEnabled;
+    }
+
+    @Config("hive.catalog-auth-to-local-rules")
+    @ConfigDescription("Comma-separated list of catalog:auth_to_local_rule pairs for catalog-aware Kerberos authentication")
+    public HiveClientConfig setCatalogAuthToLocalRules(String catalogAuthToLocalRules)
+    {
+        this.catalogAuthToLocalRules.clear();
+        if (catalogAuthToLocalRules != null && !catalogAuthToLocalRules.trim().isEmpty()) {
+            for (String pair : SPLITTER.split(catalogAuthToLocalRules)) {
+                String[] parts = pair.split(":", 2);
+                if (parts.length == 2) {
+                    this.catalogAuthToLocalRules.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+        }
+        return this;
+    }
+
+    public Map<String, String> getCatalogAuthToLocalRules()
+    {
+        return new HashMap<>(catalogAuthToLocalRules);
+    }
+
+    public HiveClientConfig addCatalogAuthToLocalRule(String catalogName, String authToLocalRule)
+    {
+        this.catalogAuthToLocalRules.put(catalogName, authToLocalRule);
+        return this;
+    }
+
+    public String getCatalogAuthToLocalRule(String catalogName)
+    {
+        return catalogAuthToLocalRules.get(catalogName);
     }
 
     public boolean isPartitionFilteringFromMetastoreEnabled()
