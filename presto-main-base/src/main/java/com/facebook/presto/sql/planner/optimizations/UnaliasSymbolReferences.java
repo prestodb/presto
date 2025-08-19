@@ -34,6 +34,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -452,6 +453,12 @@ public class UnaliasSymbolReferences
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
             return new DeleteNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalize(node.getRowId()), node.getOutputVariables(), node.getInputDistribution());
+        }
+
+        @Override
+        public PlanNode visitMetadataDelete(MetadataDeleteNode node, RewriteContext<Void> context)
+        {
+            return new MetadataDeleteNode(node.getSourceLocation(), node.getId(), node.getTableHandle(), canonicalize(node.getOutput()));
         }
 
         @Override
