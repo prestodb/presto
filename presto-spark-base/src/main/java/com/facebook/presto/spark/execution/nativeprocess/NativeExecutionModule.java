@@ -23,6 +23,7 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTransla
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -73,9 +74,13 @@ public class NativeExecutionModule
 
     protected void bindWorkerProperties(Binder binder)
     {
-        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {
+        }).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         if (connectorConfig.isPresent()) {
-            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig()));
+            binder.bind(PrestoSparkWorkerProperty.class).toInstance(
+                    new PrestoSparkWorkerProperty(connectorConfig.get(),
+                            new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(
+                            ImmutableMap.of())));
         }
         else {
             binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);

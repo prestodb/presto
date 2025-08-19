@@ -27,6 +27,7 @@ import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -89,7 +90,7 @@ public class TestNativeExecutionProcess
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
                 new NativeExecutionConnectorConfig(),
                 new NativeExecutionNodeConfig(),
-                new NativeExecutionSystemConfig());
+                new NativeExecutionSystemConfig(ImmutableMap.of()));
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestPrestoSparkHttpClient.TestingOkHttpClient(
                         errorScheduler,
