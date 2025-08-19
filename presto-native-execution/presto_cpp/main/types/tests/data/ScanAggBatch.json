@@ -185,7 +185,8 @@
                 "bigint"
               ],
               "variableArity":false
-            }
+            },
+            "builtInFunctionKind": "ENGINE"
           },
           "returnType":"bigint",
           "arguments":[
@@ -220,7 +221,8 @@
               "bigint"
             ],
             "variableArity":false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         }
       }
     },

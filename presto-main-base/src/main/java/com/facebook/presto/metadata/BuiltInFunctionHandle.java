@@ -33,13 +33,13 @@ public class BuiltInFunctionHandle
     private final Signature signature;
     private final BuiltInFunctionKind builtInFunctionKind;
 
-    @JsonCreator
-    public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature)
+    public BuiltInFunctionHandle(Signature signature)
     {
         this(signature, ENGINE);
     }
 
-    public BuiltInFunctionHandle(Signature signature, BuiltInFunctionKind builtInFunctionKind)
+    @JsonCreator
+    public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature, @JsonProperty("builtInFunctionKind") BuiltInFunctionKind builtInFunctionKind)
     {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
