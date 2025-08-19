@@ -21,7 +21,6 @@
 #include "velox/dwio/common/DecoderUtil.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/common/TypeUtil.h"
-
 namespace facebook::velox::dwio::common {
 
 // structs for extractValues in ColumnVisitor.
@@ -724,7 +723,15 @@ inline xsimd::batch<int64_t> cvtU32toI64(
     xsimd::batch<int32_t, xsimd::sse2> values) {
   return _mm256_cvtepu32_epi64(values);
 }
-#elif XSIMD_WITH_SSE2 || XSIMD_WITH_NEON
+#elif (XSIMD_WITH_SVE && SVE_BITS == 256)
+inline xsimd::batch<int64_t> cvtU32toI64(simd::Batch128<int32_t> values) {
+  int64_t element_1 = static_cast<uint32_t>(values.data[0]);
+  int64_t element_2 = static_cast<uint32_t>(values.data[1]);
+  int64_t element_3 = static_cast<uint32_t>(values.data[2]);
+  int64_t element_4 = static_cast<uint32_t>(values.data[3]);
+  return xsimd::batch<int64_t>(element_1, element_2, element_3, element_4);
+}
+#elif XSIMD_WITH_SSE2 || XSIMD_WITH_NEON || (XSIMD_WITH_SVE && SVE_BITS == 128)
 inline xsimd::batch<int64_t> cvtU32toI64(simd::Batch64<int32_t> values) {
   int64_t lo = static_cast<uint32_t>(values.data[0]);
   int64_t hi = static_cast<uint32_t>(values.data[1]);
@@ -913,10 +920,19 @@ class DictionaryColumnVisitor
           dictMask,
           reinterpret_cast<const int32_t*>(filterCache() - 3),
           indices);
+#ifdef SVE_BITS
+      auto unknowns = simd::toBitMask(
+          simd::reinterpretBatch<uint32_t>((cache & (kUnknown << 24)) << 1) !=
+          xsimd::batch<uint32_t>(0));
+      auto passed = simd::toBitMask(
+          (simd::reinterpretBatch<uint32_t>(cache) &
+           xsimd::batch<uint32_t>(1)) != xsimd::batch<uint32_t>(0));
+#else
       auto unknowns = simd::toBitMask(xsimd::batch_bool<int32_t>(
           simd::reinterpretBatch<uint32_t>((cache & (kUnknown << 24)) << 1)));
       auto passed = simd::toBitMask(
           xsimd::batch_bool<int32_t>(simd::reinterpretBatch<uint32_t>(cache)));
+#endif
       if (UNLIKELY(unknowns)) {
         uint16_t bits = unknowns;
         // Ranges only over inputs that are in dictionary, the not in dictionary
@@ -1305,10 +1321,19 @@ class StringDictionaryColumnVisitor
       } else {
         cache = simd::gather<int32_t, int32_t, 1>(base, indices);
       }
+#ifdef SVE_BITS
+      auto unknowns = simd::toBitMask(
+          simd::reinterpretBatch<uint32_t>((cache & (kUnknown << 24)) << 1) !=
+          xsimd::batch<uint32_t>(0));
+      auto passed = simd::toBitMask(
+          (simd::reinterpretBatch<uint32_t>(cache) &
+           xsimd::batch<uint32_t>(1)) != xsimd::batch<uint32_t>(0));
+#else
       auto unknowns = simd::toBitMask(xsimd::batch_bool<int32_t>(
           simd::reinterpretBatch<uint32_t>((cache & (kUnknown << 24)) << 1)));
       auto passed = simd::toBitMask(
           xsimd::batch_bool<int32_t>(simd::reinterpretBatch<uint32_t>(cache)));
+#endif
       if (UNLIKELY(unknowns)) {
         uint16_t bits = unknowns;
         while (bits) {

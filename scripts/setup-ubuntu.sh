@@ -46,6 +46,10 @@ if [[ ${VERSION} =~ "20.04" ]]; then
   export CXX=/usr/bin/g++-11
 fi
 
+if lscpu | grep -q "sve"; then
+  $SUDO apt install -y gcc-12 g++-12
+fi
+
 function install_clang15 {
   if [[ ! ${VERSION} =~ "22.04" && ! ${VERSION} =~ "24.04" ]]; then
     echo "Warning: using the Clang configuration is for Ubuntu 22.04 and 24.04. Errors might occur."

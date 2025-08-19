@@ -131,6 +131,50 @@ struct Batch64 {
   }
 };
 
+template <typename T>
+struct Batch128 {
+  static constexpr size_t size = [] {
+    static_assert(16 % sizeof(T) == 0);
+    return 16 / sizeof(T);
+  }();
+
+  T data[size];
+
+  static Batch128 from(std::initializer_list<T> values) {
+    VELOX_DCHECK_EQ(values.size(), size);
+    Batch128 ans;
+    for (int i = 0; i < size; ++i) {
+      ans.data[i] = *(values.begin() + i);
+    }
+    return ans;
+  }
+
+  void store_unaligned(T* out) const {
+    std::copy(std::begin(data), std::end(data), out);
+  }
+
+  static Batch128 load_aligned(const T* mem) {
+    return load_unaligned(mem);
+  }
+
+  static Batch128 load_unaligned(const T* mem) {
+    Batch128 ans;
+    std::copy(mem, mem + size, ans.data);
+    return ans;
+  }
+
+  friend Batch128 operator+(Batch128 x, T y) {
+    for (int i = 0; i < size; ++i) {
+      x.data[i] += y;
+    }
+    return x;
+  }
+
+  friend Batch128 operator-(Batch128 x, T y) {
+    return x + (-y);
+  }
+};
+
 namespace detail {
 template <typename T, typename IndexType, typename A, int kSizeT = sizeof(T)>
 struct Gather;
@@ -178,6 +222,17 @@ gather(const T* base, Batch64<IndexType> vindex, const A& arch = {}) {
   return Impl::template apply<kScale>(base, vindex.data, arch);
 }
 
+template <
+    typename T,
+    typename IndexType,
+    int kScale = sizeof(T),
+    typename A = xsimd::default_arch>
+xsimd::batch<T, A>
+gather(const T* base, Batch128<IndexType> vindex, const A& arch = {}) {
+  using Impl = detail::Gather<T, IndexType, A>;
+  return Impl::template apply<kScale>(base, vindex.data, arch);
+}
+
 // Same as 'gather' above except the indices are read from memory.
 template <
     typename T,
@@ -218,6 +273,21 @@ xsimd::batch<T, A> maskGather(
     xsimd::batch_bool<T, A> mask,
     const T* base,
     Batch64<IndexType> vindex,
+    const A& arch = {}) {
+  using Impl = detail::Gather<T, IndexType, A>;
+  return Impl::template maskApply<kScale>(src, mask, base, vindex.data, arch);
+}
+
+template <
+    typename T,
+    typename IndexType,
+    int kScale = sizeof(T),
+    typename A = xsimd::default_arch>
+xsimd::batch<T, A> maskGather(
+    xsimd::batch<T, A> src,
+    xsimd::batch_bool<T, A> mask,
+    const T* base,
+    Batch128<IndexType> vindex,
     const A& arch = {}) {
   using Impl = detail::Gather<T, IndexType, A>;
   return Impl::template maskApply<kScale>(src, mask, base, vindex.data, arch);

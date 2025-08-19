@@ -186,6 +186,33 @@ function get_cxx_flags {
 
 }
 
+detect_sve_flags() {
+  if grep -q "sve" /proc/cpuinfo; then
+    ARCH_FLAGS="-march=armv8-a+sve"
+    SVE_VECTOR_BITS=$(
+      gcc $ARCH_FLAGS -o detect_sve_vector -xc++ - -lstdc++ <<EOF
+      #include <arm_sve.h>
+      #include <iostream>
+      int main() {
+          std::cout << svcntb() * 8 << std::endl;
+          return 0;
+      }
+EOF
+      ./detect_sve_vector 2>/dev/null
+    )
+
+    if [ "$SVE_VECTOR_BITS" ]; then
+      echo "-msve-vector-bits=$SVE_VECTOR_BITS -DSVE_BITS=$SVE_VECTOR_BITS"
+    fi
+
+    rm -f detect_sve_vector
+  fi
+}
+
+if [[ ${BASH_SOURCE[0]} == "${0}" && $1 == "detect_sve_flags" ]]; then
+  detect_sve_flags
+fi
+
 function wget_and_untar {
   local URL=$1
   local DIR=$2

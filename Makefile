@@ -161,6 +161,15 @@ dwio_debug:			#: Minimal build with dwio debugging symbols.
 			-DVELOX_BUILD_MINIMAL_WITH_DWIO=ON"
 	$(MAKE) build BUILD_DIR=debug
 
+sve_build:		#: Build with SVE-specific configuration
+# Check for SVE support and set appropriate compilers
+	@SVE_CC=$$(if [ "$$(lscpu | grep -q "sve" && grep -qi "ubuntu" /etc/os-release && echo 1)" = "1" ]; then echo "/usr/bin/gcc-12"; else echo "gcc"; fi); \
+	SVE_CXX=$$(if [ "$$(lscpu | grep -q "sve" && grep -qi "ubuntu" /etc/os-release && echo 1)" = "1" ]; then echo "/usr/bin/g++-12"; else echo "g++"; fi); \
+	echo "Using CC=$$SVE_CC, CXX=$$SVE_CXX"; \
+	export CC=$$SVE_CC; export CXX=$$SVE_CXX; \
+	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=release EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER=$$SVE_CC -DCMAKE_CXX_COMPILER=$$SVE_CXX -DCMAKE_CXX_FLAGS='$(COMPILER_FLAGS) -Wno-error=stringop-overflow $(shell ./scripts/setup-helper-functions.sh detect_sve_flags)'" && \
+	$(MAKE) build BUILD_DIR=release
+
 benchmarks-basic-build:
 	$(MAKE) release \
 		EXTRA_CMAKE_FLAGS=" ${EXTRA_CMAKE_FLAGS} \
