@@ -34,14 +34,14 @@ import static java.util.Objects.requireNonNull;
 public class SpatialJoinNode
         extends PlanNode
 {
-    public enum Type
+    public enum SpatialJoinType
     {
         INNER("SpatialInnerJoin"),
         LEFT("SpatialLeftJoin");
 
         private final String joinLabel;
 
-        Type(String joinLabel)
+        SpatialJoinType(String joinLabel)
         {
             this.joinLabel = joinLabel;
         }
@@ -51,20 +51,20 @@ public class SpatialJoinNode
             return joinLabel;
         }
 
-        public static Type fromJoinNodeType(JoinType joinNodeType)
+        public static SpatialJoinType fromJoinNodeType(JoinType joinNodeType)
         {
             switch (joinNodeType) {
                 case INNER:
-                    return Type.INNER;
+                    return SpatialJoinType.INNER;
                 case LEFT:
-                    return Type.LEFT;
+                    return SpatialJoinType.LEFT;
                 default:
                     throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
             }
         }
     }
 
-    private final Type type;
+    private final SpatialJoinType type;
     private final PlanNode left;
     private final PlanNode right;
     private final List<VariableReferenceExpression> outputVariables;
@@ -84,7 +84,7 @@ public class SpatialJoinNode
     public SpatialJoinNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("type") Type type,
+            @JsonProperty("type") SpatialJoinType type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
@@ -100,7 +100,7 @@ public class SpatialJoinNode
             Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
-            Type type,
+            SpatialJoinType type,
             PlanNode left,
             PlanNode right,
             List<VariableReferenceExpression> outputVariables,
@@ -140,7 +140,7 @@ public class SpatialJoinNode
     }
 
     @JsonProperty
-    public Type getType()
+    public SpatialJoinType getType()
     {
         return type;
     }
