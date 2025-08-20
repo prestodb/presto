@@ -87,6 +87,7 @@ maintainers of that component.
 
 ### Builds and CI
 
+* Christian Zentgraf - [czentgr](https://github.com/czentgr) / czentgr@us.ibm.com
 * Deepak Majeti - [majetideepak](https://github.com/majetideepak) / deepak.majeti@ibm.com
 * Jacob Wujciak-Jens - [assignUser](https://github.com/assignUser) / jacob@wujciak.de
 * Krishna Pai - [kgpai](https://github.com/kgpai) / kpai@meta.com
