@@ -149,14 +149,14 @@ public class ExplainAnalyzeOperator
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
         checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
-        
+
         List<StageInfo> subStages = queryInfo.getOutputStage().get().getSubStages();
         checkState(!subStages.isEmpty(), "Expected at least one sub stage of explain node");
 
         if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
             return null;
         }
-        
+
         String plan;
         switch (format) {
             case TEXT:
@@ -224,7 +224,7 @@ public class ExplainAnalyzeOperator
             // Single sub stage - use existing logic
             return textDistributedPlan(subStages.get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
         }
-        
+
         // Multiple sub stages - generate plan for each and combine
         StringBuilder combinedPlan = new StringBuilder();
         for (int i = 0; i < subStages.size(); i++) {
@@ -243,7 +243,7 @@ public class ExplainAnalyzeOperator
             // Single sub stage - use existing logic
             return jsonDistributedPlan(subStages.get(0), functionAndTypeManager, operatorContext.getSession());
         }
-        
+
         // Multiple sub stages - generate JSON array containing all plans
         StringBuilder jsonArray = new StringBuilder();
         jsonArray.append("[");
