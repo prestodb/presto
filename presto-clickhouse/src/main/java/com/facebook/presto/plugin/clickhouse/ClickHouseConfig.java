@@ -35,6 +35,7 @@ public class ClickHouseConfig
     private boolean mapStringAsVarchar;
     private boolean allowDropTable;
     private int commitBatchSize;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public String getConnectionUrl()
@@ -165,6 +166,20 @@ public class ClickHouseConfig
     public ClickHouseConfig setCommitBatchSize(int commitBatchSize)
     {
         this.commitBatchSize = commitBatchSize;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public ClickHouseConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }
