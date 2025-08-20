@@ -22,7 +22,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.Route;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.URI;
