@@ -633,4 +633,35 @@ public class TestAddExchangesPlansWithFunctions
                                                                 "nationkey", "nationkey",
                                                                 "name", "name"))))))));
     }
+
+    @Test
+    public void testSystemTableFilterWithOutputVariableMismatch()
+    {
+        assertNativeDistributedPlan(
+                "SELECT table_name FROM information_schema.columns WHERE cpp_foo(ordinal_position) > 5",
+                output(
+                        project(ImmutableMap.of("table_name", expression("table_name")),
+                                filter("cpp_foo(ordinal_position) > BIGINT'5'",
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                tableScan("columns", ImmutableMap.of(
+                                                        "ordinal_position", "ordinal_position",
+                                                        "table_name", "table_name")))))));
+    }
+
+    @Test
+    public void testSystemTableFilterWithMultipleColumnsAndPartialSelection()
+    {
+        assertNativeDistributedPlan(
+                "SELECT table_schema, table_name FROM information_schema.columns " +
+                        "WHERE cpp_foo(ordinal_position) > 0 AND cpp_baz(ordinal_position) < 100",
+                output(
+                        project(ImmutableMap.of("table_schema", expression("table_schema"),
+                                               "table_name", expression("table_name")),
+                                filter("cpp_foo(ordinal_position) > BIGINT'0' AND cpp_baz(ordinal_position) < BIGINT'100'",
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                tableScan("columns", ImmutableMap.of(
+                                                        "ordinal_position", "ordinal_position",
+                                                        "table_schema", "table_schema",
+                                                        "table_name", "table_name")))))));
+    }
 }

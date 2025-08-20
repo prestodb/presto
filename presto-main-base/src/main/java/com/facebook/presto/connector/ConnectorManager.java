@@ -15,6 +15,7 @@ package com.facebook.presto.connector;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
@@ -82,6 +83,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -308,6 +310,10 @@ public class ConnectorManager
         }
         connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorId, connectorCodecProvider));
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
+        Set<Class<?>> systemFunctions = connector.getSystemFunctions();
+        if (!systemFunctions.isEmpty()) {
+            metadataManager.registerConnectorFunctions(connectorId.getCatalogName(), extractFunctions(systemFunctions, new CatalogSchemaName(connectorId.getCatalogName(), "system")));
+        }
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, accessControl));
@@ -390,6 +396,8 @@ public class ConnectorManager
         private final ConnectorSplitManager splitManager;
         private final Set<SystemTable> systemTables;
         private final Set<Procedure> procedures;
+
+        private final Set<Class<?>> functions;
         private final ConnectorPageSourceProvider pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
         private final Optional<ConnectorIndexProvider> indexProvider;
@@ -512,6 +520,10 @@ public class ConnectorManager
             List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
             requireNonNull(analyzeProperties, "Connector %s returned a null analyze properties set");
             this.analyzeProperties = ImmutableList.copyOf(analyzeProperties);
+
+            Set<Class<?>> systemFunctions = connector.getSystemFunctions();
+            requireNonNull(systemFunctions, "Connector %s returned a null system function set");
+            this.functions = ImmutableSet.copyOf(systemFunctions);
         }
 
         public ConnectorId getConnectorId()
@@ -537,6 +549,11 @@ public class ConnectorManager
         public Set<Procedure> getProcedures()
         {
             return procedures;
+        }
+
+        public Set<Class<?>> getSystemFunctions()
+        {
+            return functions;
         }
 
         public ConnectorPageSourceProvider getPageSourceProvider()

@@ -14,6 +14,8 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
+        <dep.okhttp.version>4.12.0</dep.okhttp.version>
+        <dep.okio-jvm.version>3.9.1</dep.okio-jvm.version>
     </properties>
 
     <dependencyManagement>
@@ -28,16 +30,6 @@
             </dependency>
             <dependency>
                 <groupId>com.facebook.airlift</groupId>
-                <artifactId>http-client</artifactId>
-                <version>0.216</version>
-            </dependency>
-            <dependency>
-                <groupId>com.facebook.airlift</groupId>
-                <artifactId>http-server</artifactId>
-                <version>0.216</version>
-            </dependency>
-            <dependency>
-                <groupId>com.facebook.airlift</groupId>
                 <artifactId>event</artifactId>
                 <version>0.216</version>
             </dependency>
@@ -49,16 +41,6 @@
             <dependency>
                 <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-codec</artifactId>
-                <version>1.46</version>
-            </dependency>
-            <dependency>
-                <groupId>com.facebook.drift</groupId>
-                <artifactId>drift-client</artifactId>
-                <version>1.46</version>
-            </dependency>
-            <dependency>
-                <groupId>com.facebook.drift</groupId>
-                <artifactId>drift-transport-spi</artifactId>
                 <version>1.46</version>
             </dependency>
         </dependencies>
@@ -133,15 +115,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-transport-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.drift</groupId>
-            <artifactId>drift-client</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-expressions</artifactId>
         </dependency>
@@ -177,20 +150,15 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>http-client</artifactId>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>${dep.okhttp.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>http-server</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>event</artifactId>
-            <scope>provided</scope>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
+            <version>${dep.okio-jvm.version}</version>
         </dependency>
 
         <dependency>
@@ -295,6 +263,10 @@
             <artifactId>commons-text</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+        </dependency>
         <!-- needed by tests at runtime -->
         <dependency>
             <groupId>javax.ws.rs</groupId>
@@ -351,6 +323,10 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.xerial.snappy</groupId>
                     <artifactId>snappy-java</artifactId>
                 </exclusion>
@@ -383,6 +359,14 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-server</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>javax.inject</groupId>
                     <artifactId>javax.inject</artifactId>
                 </exclusion>
@@ -410,6 +394,10 @@
             <artifactId>presto-function-namespace-managers</artifactId>
             <scope>test</scope>
             <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
                     <artifactId>protobuf-java</artifactId>
@@ -466,6 +454,7 @@
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-expressions</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>it.unimi.dsi:fastutil</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.squareup.okio:okio-jvm</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                     <ignoredUnusedDeclaredDependencies>
                         <ignoredUnusedDeclaredDependency>javax.ws.rs:javax.ws.rs-api</ignoredUnusedDeclaredDependency>

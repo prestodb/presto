@@ -61,6 +61,7 @@ public interface Plugin
         return emptyList();
     }
 
+    // getFunctions will be deprecated soon. Use Connector->getSystemFunctions() to implement connector level functions
     default Set<Class<?>> getFunctions()
     {
         return emptySet();
