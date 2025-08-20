@@ -46,3 +46,6 @@ velox/connectors/ @majetideepak
 
 # Caching
 velox/common/caching/ @majetideepak
+
+# Spark Functions
+velox/functions/sparksql/ @jinchengchenghh @rui-mo @zhli1142015
