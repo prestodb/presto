@@ -20,7 +20,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/tests/utils/CustomTypesForTesting.h"
 
-using namespace facebook::velox;
+namespace facebook::velox {
 
 namespace {
 void testSerDe(const Variant& value) {
@@ -29,7 +29,6 @@ void testSerDe(const Variant& value) {
 
   ASSERT_EQ(value, copy);
 }
-} // namespace
 
 TEST(VariantTest, arrayInferType) {
   EXPECT_EQ(*ARRAY(UNKNOWN()), *Variant(TypeKind::ARRAY).inferType());
@@ -433,7 +432,7 @@ TEST_F(VariantSerializationTest, opaqueToJson) {
   const auto type = value_.inferType();
 
   const auto expected =
-      R"(Opaque<type:OPAQUE<SerializableClass>,value:"{"name":"test_class","value":false}">)";
+      R"(Opaque<type:OPAQUE<facebook::velox::(anonymous namespace)::SerializableClass>,value:"{"name":"test_class","value":false}">)";
   EXPECT_EQ(value_.toJson(type), expected);
   EXPECT_EQ(value_.toString(type), expected);
 }
@@ -651,3 +650,89 @@ TEST(VariantTest, toString) {
       Variant::row({1, 2, 3}).toString(ROW({INTEGER(), INTEGER(), INTEGER()})),
       "[1,2,3]");
 }
+
+template <typename T>
+void testPrimitiveGetter(T v) {
+  auto value = Variant(v);
+  EXPECT_FALSE(value.isNull());
+  EXPECT_EQ(value.value<T>(), value);
+}
+
+TEST(VariantTest, primitiveGetters) {
+  testPrimitiveGetter<bool>(true);
+  testPrimitiveGetter<int32_t>(10);
+  testPrimitiveGetter<int64_t>(10);
+  testPrimitiveGetter<float>(1.2);
+  testPrimitiveGetter<double>(1.2);
+}
+
+template <typename T>
+void testArrayGetter(const std::vector<T>& inputs) {
+  std::vector<Variant> variants;
+  variants.reserve(inputs.size());
+  for (const auto& v : inputs) {
+    variants.emplace_back(v);
+  }
+
+  auto value = Variant::array(variants);
+
+  EXPECT_FALSE(value.isNull());
+
+  auto variantItems = value.array();
+  EXPECT_EQ(variantItems.size(), inputs.size());
+  for (auto i = 0; i < inputs.size(); ++i) {
+    EXPECT_FALSE(variantItems.at(i).isNull());
+    EXPECT_EQ(variantItems.at(i).template value<T>(), inputs.at(i));
+  }
+
+  auto primitiveItems = value.template array<T>();
+  EXPECT_EQ(primitiveItems.size(), inputs.size());
+  for (auto i = 0; i < inputs.size(); ++i) {
+    EXPECT_EQ(primitiveItems.at(i), inputs.at(i));
+  }
+}
+
+TEST(VariantTest, arrayGetter) {
+  testArrayGetter<bool>({true, false, true});
+  testArrayGetter<int32_t>({1, 2, 3});
+  testArrayGetter<int64_t>({1, 2, 3});
+  testArrayGetter<float>({1.2, 2.3, 3.4});
+  testArrayGetter<double>({1.2, 2.3, 3.4});
+}
+
+template <typename K, typename V>
+void testMapGetter(const std::map<K, V>& inputs) {
+  std::map<Variant, Variant> variants;
+  for (const auto& [k, v] : inputs) {
+    variants.emplace(k, v);
+  }
+
+  auto value = Variant::map(variants);
+
+  EXPECT_FALSE(value.isNull());
+
+  auto variantItems = value.map();
+  EXPECT_EQ(variantItems.size(), inputs.size());
+
+  auto expectedIt = inputs.begin();
+  for (auto it = variantItems.begin(); it != variantItems.end(); it++) {
+    auto [k, v] = *it;
+
+    EXPECT_FALSE(k.isNull());
+    EXPECT_FALSE(v.isNull());
+    EXPECT_EQ(k.template value<K>(), (*expectedIt).first);
+    EXPECT_EQ(v.template value<V>(), (*expectedIt).second);
+    expectedIt++;
+  }
+
+  auto primitiveItems = value.template map<K, V>();
+  EXPECT_EQ(primitiveItems, inputs);
+}
+
+TEST(VariantTest, mapGetter) {
+  testMapGetter<int32_t, float>({{1, 1.2}, {2, 2.3}, {3, 3.4}});
+  testMapGetter<int8_t, double>({{1, 1.2}, {2, 2.3}, {3, 3.4}});
+}
+
+} // namespace
+} // namespace facebook::velox

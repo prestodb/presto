@@ -523,12 +523,44 @@ class Variant {
     return value<TypeKind::ROW>();
   }
 
+  /// Returns a map of Variants.
   const std::map<Variant, Variant>& map() const {
     return value<TypeKind::MAP>();
   }
 
+  /// Returns a map of primitive values. Assumes all keys and values are not
+  /// null.
+  template <typename K, typename V>
+  std::map<K, V> map() const {
+    const auto& variants = value<TypeKind::MAP>();
+
+    std::map<K, V> values;
+    for (const auto& [k, v] : variants) {
+      values.emplace(k.template value<K>(), v.template value<V>());
+    }
+
+    return values;
+  }
+
+  /// Returns a std::vector of Variants.
   const std::vector<Variant>& array() const {
     return value<TypeKind::ARRAY>();
+  }
+
+  /// Returns a std::vector of primitive values. Assumes that all values are not
+  /// null.
+  template <typename T>
+  std::vector<T> array() const {
+    const auto& variants = value<TypeKind::ARRAY>();
+
+    std::vector<T> values;
+    values.reserve(variants.size());
+
+    for (const auto& v : variants) {
+      values.emplace_back(v.template value<T>());
+    }
+
+    return values;
   }
 
   template <class T>
