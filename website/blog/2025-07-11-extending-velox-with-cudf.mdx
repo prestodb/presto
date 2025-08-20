@@ -7,7 +7,7 @@ tags: [tech-blog]
 
 ## TL;DR
 
-This post describes the design principles and software components for extending Velox with hardware acceleration libraries like NVIDIA's [cuDF](https://github.com/rapidsai/cudf). Velox provides a flexible execution model for hardware accelerators, and cuDF's data structures and algorithms align well with core components in Velox. 
+This post describes the design principles and software components for extending Velox with hardware acceleration libraries like NVIDIA's [cuDF](https://github.com/rapidsai/cudf). Velox provides a flexible execution model for hardware accelerators, and cuDF's data structures and algorithms align well with core components in Velox.
 
 ## How Velox and cuDF Fit Together
 
@@ -25,7 +25,7 @@ The first set of GPU operators in the experimental cuDF backend include [TableSc
 
 ## GPU execution: fewer drivers and larger batches
 
-Compared to the typical settings for CPU execution, GPU execution with cuDF benefits from a lower driver count and larger batch size. Whereas Velox CPU performs best with ~1K rows per batch and driver count equal to the number of physical CPU cores, we have found Velox's cuDF backend to perform best with ~1 GiB batch size and 2-8 drivers for a single GPU. cuDF GPU operators launch one or more device-wide kernels and a single driver may not fully utilize GPU compute. Additional drivers improve throughput by queuing up more GPU work and avoiding stalling during host-to-device copies. Adding more drivers increases memory pressure linearly, and query processing throughput saturates once GPU compute is fully utilized. Please check out our talk, “[Accelerating Velox with RAPIDS cuDF](https://www.youtube.com/watch?v=l1JEo-mTNlw)” from VeloxCon 2025 to learn more. 
+Compared to the typical settings for CPU execution, GPU execution with cuDF benefits from a lower driver count and larger batch size. Whereas Velox CPU performs best with ~1K rows per batch and driver count equal to the number of physical CPU cores, we have found Velox's cuDF backend to perform best with ~1 GiB batch size and 2-8 drivers for a single GPU. cuDF GPU operators launch one or more device-wide kernels and a single driver may not fully utilize GPU compute. Additional drivers improve throughput by queuing up more GPU work and avoiding stalling during host-to-device copies. Adding more drivers increases memory pressure linearly, and query processing throughput saturates once GPU compute is fully utilized. Please check out our talk, “[Accelerating Velox with RAPIDS cuDF](https://www.youtube.com/watch?v=l1JEo-mTNlw)” from VeloxCon 2025 to learn more.
 
 ## Call to Action
 
