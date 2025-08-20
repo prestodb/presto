@@ -251,11 +251,12 @@ class TestPyVeloxRunner(unittest.TestCase):
         input_batch = to_velox(pyarrow.record_batch([array], names=["c0"]))
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_file = f"{temp_dir}/output_file"
+            output_file_name = "output_file"
+            output_file_path = f"{temp_dir}/{output_file_name}"
 
             plan_builder = PlanBuilder()
             plan_builder.values([input_batch]).table_write(
-                output_file=DWRF(output_file),
+                output_file=DWRF(output_file_path),
                 connector_id="hive",
             )
 
@@ -267,14 +268,14 @@ class TestPyVeloxRunner(unittest.TestCase):
             self.assertNotEqual(runner.print_plan_with_stats(), "")
 
             output_file_from_table_writer = self.extract_file(output)
-            self.assertEqual(output_file, output_file_from_table_writer)
+            self.assertEqual(output_file_path, output_file_from_table_writer)
 
             # Now scan it back.
             scan_plan_builder = PlanBuilder()
             scan_plan_builder.table_scan(
                 output_schema=ROW(["c0"], [BIGINT()]),
                 connector_id="hive",
-                input_files=[DWRF(output_file)],
+                input_files=[DWRF(output_file_path)],
             )
 
             runner = LocalRunner(scan_plan_builder.get_plan_node())
@@ -284,6 +285,28 @@ class TestPyVeloxRunner(unittest.TestCase):
 
             # Ensure the read batch is the same as the one written.
             self.assertEqual(input_batch, result)
+
+            # Test special columns ($row_group_id and $row_number).
+            special_column_plan_builder = PlanBuilder().table_scan(
+                output_schema=ROW(
+                    ["$row_group_id", "row_number"],
+                    [VARCHAR(), BIGINT()],
+                ),
+                row_index="row_number",
+                connector_id="hive",
+                input_files=[DWRF(output_file_path)],
+            )
+
+            runner = LocalRunner(special_column_plan_builder.get_plan_node())
+            iterator = runner.execute()
+            result = next(iterator)
+            self.assertRaises(StopIteration, next, iterator)
+
+            # First column is always the output file name; the second is a
+            # monotonically increasing row id.
+            for i in range(batch_size):
+                self.assertEqual(result.child_at(0)[i], output_file_name)
+                self.assertEqual(result.child_at(1)[i], str(i))
 
     def test_tpch_gen(self):
         register_tpch("tpch")

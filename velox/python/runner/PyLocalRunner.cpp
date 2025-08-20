@@ -38,6 +38,18 @@ std::mutex& taskRegistryLock() {
   return lock;
 }
 
+exec::Split preparedSplit(
+    std::shared_ptr<connector::ConnectorSplit> connectorSplit) {
+  // Adds special $row_group_id column to the split.
+  if (auto* hiveConnectorSplit =
+          dynamic_cast<connector::hive::HiveConnectorSplit*>(
+              connectorSplit.get())) {
+    hiveConnectorSplit->infoColumns["$row_group_id"] =
+        hiveConnectorSplit->getFileName();
+  }
+  return exec::Split{std::move(connectorSplit)};
+}
+
 } // namespace
 
 namespace py = pybind11;
@@ -104,7 +116,7 @@ py::iterator PyLocalRunner::execute(int32_t maxDrivers) {
   // Add any files passed by the client during plan building.
   for (auto& [scanId, splits] : scanFiles_) {
     for (auto& split : splits) {
-      cursor_->task()->addSplit(scanId, exec::Split(std::move(split)));
+      cursor_->task()->addSplit(scanId, preparedSplit(std::move(split)));
     }
     cursor_->task()->noMoreSplits(scanId);
   }

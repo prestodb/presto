@@ -52,6 +52,15 @@ class PlanBuilder:
         num_parts: int = 1,
         connector_id: str = "tpch",
     ) -> PlanBuilder: ...
+    def hash_join(
+        self,
+        left_keys: list[str],
+        right_keys: list[str],
+        build_plan_node: PlanNode,
+        output: list[str] = [],
+        filter: str = "",
+        join_type: JoinType = JoinType.INNER
+    ) -> PlanBuilder: ...
     def aggregate(
         self,
         grouping_keys: list[str],
@@ -76,6 +85,6 @@ class PlanBuilder:
         ordinal_column: Optional[str] = None,
         empty_unnest_value_name: Optional[str] = None,
     ) -> PlanBuilder: ...
-    def get_plan_node(self) -> PlanBuilder: ...
+    def get_plan_node(self) -> PlanNode: ...
     def new_builder(self) -> PlanBuilder: ...
     def id(self) -> str: ...

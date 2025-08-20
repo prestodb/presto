@@ -39,14 +39,13 @@ PyPlanNode::PyPlanNode(
   }
 }
 
-PyPlanBuilder::PyPlanBuilder(const std::shared_ptr<PyPlanContext>& planContext)
-    : planContext_(
-          planContext ? planContext : std::make_shared<PyPlanContext>()) {
-  rootPool_ = memory::memoryManager()->addRootPool();
-  leafPool_ = rootPool_->addLeafChild("py_plan_builder_pool");
-  planBuilder_ = exec::test::PlanBuilder(
-      planContext_->planNodeIdGenerator, leafPool_.get());
-}
+PyPlanBuilder::PyPlanBuilder(
+    const std::shared_ptr<memory::MemoryPool>& pool,
+    const std::shared_ptr<PyPlanContext>& planContext)
+    : pool_(pool),
+      planContext_(
+          planContext ? planContext : std::make_shared<PyPlanContext>()),
+      planBuilder_{planContext_->planNodeIdGenerator, pool_.get()} {}
 
 std::optional<PyPlanNode> PyPlanBuilder::planNode() const {
   if (planBuilder_.planNode() != nullptr) {

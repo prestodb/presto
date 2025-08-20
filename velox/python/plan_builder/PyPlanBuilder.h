@@ -108,7 +108,9 @@ class PyPlanBuilder {
  public:
   /// Constructs a new PyPlanBuilder. If provided, the planContext is used;
   /// otherwise a new one is created.
-  PyPlanBuilder(const std::shared_ptr<PyPlanContext>& planContext = nullptr);
+  PyPlanBuilder(
+      const std::shared_ptr<memory::MemoryPool>& pool,
+      const std::shared_ptr<PyPlanContext>& planContext = nullptr);
 
   /// Returns the plan node at the head of the internal plan builder. If there
   /// is no plan node (plan builder is empty), then std::nullopt will signal
@@ -120,7 +122,7 @@ class PyPlanBuilder {
   /// plan.
   PyPlanBuilder newBuilder() {
     DCHECK(planContext_ != nullptr);
-    return PyPlanBuilder{planContext_};
+    return PyPlanBuilder{pool_, planContext_};
   }
 
   /// Add table scan node with basic functionality. This API is Hive-connector
@@ -366,11 +368,10 @@ class PyPlanBuilder {
   // TODO: Add other nodes.
 
  private:
-  std::shared_ptr<memory::MemoryPool> rootPool_;
-  std::shared_ptr<memory::MemoryPool> leafPool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 
-  exec::test::PlanBuilder planBuilder_;
   std::shared_ptr<PyPlanContext> planContext_;
+  exec::test::PlanBuilder planBuilder_;
 };
 
 } // namespace facebook::velox::py

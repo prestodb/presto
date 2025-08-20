@@ -30,6 +30,9 @@ PYBIND11_MODULE(plan_builder, m) {
   velox::py::initializeVeloxMemory();
   velox::py::registerAllResources();
 
+  static auto rootPool = velox::memory::memoryManager()->addRootPool();
+  static auto leafPool = rootPool->addLeafChild("py_velox_plan_builder_pool");
+
   // Need types to specify table scan schema output.
   py::module::import("pyvelox.type");
 
@@ -79,7 +82,7 @@ PYBIND11_MODULE(plan_builder, m) {
       .value("FULL", velox::core::JoinType::kFull);
 
   py::class_<velox::py::PyPlanBuilder>(m, "PlanBuilder", py::module_local())
-      .def(py::init<>())
+      .def(py::init([]() { return velox::py::PyPlanBuilder{leafPool}; }))
       .def("get_plan_node", &velox::py::PyPlanBuilder::planNode, py::doc(R"(
         Returns the current plan node.
       )"))
