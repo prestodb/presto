@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
@@ -81,6 +82,19 @@ public final class StructuralTestUtil
             appendToBlockBuilder(elementType, value, blockBuilder);
         }
         return blockBuilder.build();
+    }
+
+    public static Block mapBlockOf(Type keyType, Type valueType, Map<?, ?> value)
+    {
+        MapType mapType = mapType(keyType, valueType);
+        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(null, 1);
+        BlockBuilder singleMapWriter = mapArrayBuilder.beginBlockEntry();
+        for (Map.Entry<?, ?> entry : value.entrySet()) {
+            appendToBlockBuilder(keyType, entry.getKey(), singleMapWriter);
+            appendToBlockBuilder(valueType, entry.getValue(), singleMapWriter);
+        }
+        mapArrayBuilder.closeEntry();
+        return mapType.getObject(mapArrayBuilder, 0);
     }
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
