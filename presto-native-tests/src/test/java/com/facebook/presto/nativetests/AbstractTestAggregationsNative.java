@@ -24,13 +24,15 @@ public abstract class AbstractTestAggregationsNative
     private static final String QDIGEST_TYPE = "qdigest";
 
     private String storageFormat;
+    private boolean implicitCastCharNToVarchar;
     private String approxDistinctUnsupportedSignatureError;
     private String charTypeUnsupportedError;
     private String timeTypeUnsupportedError;
 
-    public void init(String storageFormat, boolean sidecarEnabled)
+    public void init(String storageFormat, boolean charNToVarcharImplicitCast, boolean sidecarEnabled)
     {
         this.storageFormat = storageFormat;
+        this.implicitCastCharNToVarchar = charNToVarcharImplicitCast;
         if (sidecarEnabled) {
             charTypeUnsupportedError = ".*Unknown type: char.*";
             timeTypeUnsupportedError = ".*Unknown type: time.*";
@@ -117,8 +119,16 @@ public abstract class AbstractTestAggregationsNative
         assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR), 0.023) FROM orders", "SELECT 1036");
 
         // test char
-        assertQueryFails("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20))) FROM orders", charTypeUnsupportedError, true);
-        assertQueryFails("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20)), 0.023) FROM orders", charTypeUnsupportedError, true);
+        String charQuery = "SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20))) FROM orders";
+        String charWithErrorQuery = "SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20)), 0.023) FROM orders";
+        if (implicitCastCharNToVarchar) {
+            assertQuery(charQuery, "SELECT 1036");
+            assertQuery(charWithErrorQuery, "SELECT 1036");
+        }
+        else {
+            assertQueryFails(charQuery, charTypeUnsupportedError, true);
+            assertQueryFails(charWithErrorQuery, charTypeUnsupportedError, true);
+        }
 
         // test varbinary
         assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR))) FROM orders", "SELECT 1036");
@@ -136,10 +146,13 @@ public abstract class AbstractTestAggregationsNative
         assertQuery("SELECT \"sum_data_size_for_stats\"(comment) FROM orders", "SELECT 787364");
 
         // char
-        // Presto removes trailing whitespaces when casting to CHAR.
-        // Hard code the expected data size since there is no easy to way to compute it in H2.
-        assertQueryFails("SELECT \"sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders",
-                charTypeUnsupportedError, true);
+        String charQuery = "SELECT \"sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders";
+        if (implicitCastCharNToVarchar) {
+            assertQuery(charQuery, "SELECT 787364");
+        }
+        else {
+            assertQueryFails(charQuery, charTypeUnsupportedError, true);
+        }
 
         // varbinary
         assertQuery("SELECT \"sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT 787364");
@@ -168,8 +181,13 @@ public abstract class AbstractTestAggregationsNative
         assertQuery("SELECT \"max_data_size_for_stats\"(comment) FROM orders", "select 82");
 
         // char
-        assertQueryFails("SELECT \"max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders",
-                charTypeUnsupportedError, true);
+        String charQuery = "SELECT \"max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders";
+        if (implicitCastCharNToVarchar) {
+            assertQuery(charQuery, "SELECT 82");
+        }
+        else {
+            assertQueryFails(charQuery, charTypeUnsupportedError, true);
+        }
 
         // varbinary
         assertQuery("SELECT \"max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "select 82");

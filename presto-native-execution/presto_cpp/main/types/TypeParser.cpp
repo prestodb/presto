@@ -17,9 +17,17 @@
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/type/parser/TypeParser.h"
 
+#include "presto_cpp/main/common/Configs.h"
+
 namespace facebook::presto {
 
 velox::TypePtr TypeParser::parse(const std::string& text) const {
+  if (SystemConfig::instance()->charNToVarcharImplicitCast()) {
+    if (text.find("char(") == 0 || text.find("CHAR(") == 0) {
+      return velox::VARCHAR();
+    }
+  }
+
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;
