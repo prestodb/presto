@@ -218,6 +218,7 @@
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
         <module>presto-plan-checker-router-plugin</module>
+        <module>presto-feature-toggle</module>
     </modules>
 
     <dependencyManagement>
@@ -422,6 +423,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-iceberg</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-feature-toggle</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
