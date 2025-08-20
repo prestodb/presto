@@ -31,6 +31,7 @@ public enum HudiErrorCode
     HUDI_CANNOT_OPEN_SPLIT(0x41, EXTERNAL),
     HUDI_CURSOR_ERROR(0x42, EXTERNAL),
     HUDI_CANNOT_GENERATE_SPLIT(0x43, EXTERNAL),
+    HUDI_PARTITION_NOT_FOUND(0x44, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

@@ -15,6 +15,7 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.hudi.split.HudiBackgroundSplitLoader;
 import com.facebook.presto.spi.ConnectorSession;
@@ -24,7 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.util.concurrent.Futures;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,7 +47,7 @@ public class HudiSplitSource
             ExtendedHiveMetastore metastore,
             HudiTableLayoutHandle layout,
             HoodieTableFileSystemView fsView,
-            List<String> partitions,
+            Map<String, Partition> partitionMap,
             String latestInstant,
             ExecutorService asyncQueueExecutor,
             ScheduledExecutorService splitLoaderExecutorService,
@@ -61,7 +62,7 @@ public class HudiSplitSource
                 layout,
                 fsView,
                 queue,
-                partitions,
+                partitionMap,
                 latestInstant);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(
                 this.splitLoader, 0, TimeUnit.MILLISECONDS);
