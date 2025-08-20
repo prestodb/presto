@@ -24,8 +24,9 @@
 
 # Build & CI
 CMake/ @assignUser @majetideepak
-*.cmake @assignUser @majetideepak
-**/CMakeLists.txt @assignUser @majetideepak
+/CMakeLists.txt @assignUser
+*.cmake @majetideepak
+**/CMakeLists.txt @majetideepak
 scripts/ @assignUser @majetideepak
 .github/ @assignUser @majetideepak
 
