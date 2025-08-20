@@ -126,6 +126,7 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableRuntimeMetricsCollection;
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
+        private boolean implicitCastCharNToVarchar;
         // External worker launcher is applicable only for the native hive query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -239,6 +240,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setImplicitCastCharNToVarchar(boolean implicitCastCharNToVarchar)
+        {
+            this.implicitCastCharNToVarchar = implicitCastCharNToVarchar;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setExtraProperties(Map<String, String> extraProperties)
         {
             this.extraProperties.putAll(extraProperties);
@@ -263,7 +270,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache);
+                        failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -352,7 +359,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false, false);
+                        false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -449,7 +456,8 @@ public class PrestoNativeQueryRunnerUtils
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
             boolean enableRuntimeMetricsCollection,
-            boolean enableSsdCache)
+            boolean enableSsdCache,
+            boolean implicitCastCharNToVarchar)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -495,6 +503,10 @@ public class PrestoNativeQueryRunnerUtils
 
                         if (failOnNestedLoopJoin) {
                             configProperties = format("%s%n" + "velox-plan-validator-fail-on-nested-loop-join=true%n", configProperties);
+                        }
+
+                        if (implicitCastCharNToVarchar) {
+                            configProperties = format("%s%n" + "char-n-to-varchar-implicit-cast=true%n", configProperties);
                         }
 
                         Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());

@@ -14,10 +14,12 @@
 #include <gtest/gtest.h>
 #include <array>
 
+#include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/core/Expressions.h"
-#include "velox/type/Type.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
 
 using namespace facebook::presto;
@@ -32,6 +34,8 @@ class RowExpressionTest : public ::testing::Test {
 
   void SetUp() override {
     registerJsonType();
+    filesystems::registerLocalFileSystem();
+    test::setupMutableSystemConfig();
     pool_ = memory::MemoryManager::getInstance()->addLeafPool();
     converter_ =
         std::make_unique<VeloxExprConverter>(pool_.get(), &typeParser_);
@@ -412,6 +416,18 @@ TEST_F(RowExpressionTest, varbinary5) {
           encoding::Base64::encode(
               "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789") +
           '"');
+}
+
+TEST_F(RowExpressionTest, char) {
+  SystemConfig::instance()->setValue(std::string(SystemConfig::kCharNToVarcharImplicitCast), "true");
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "type": "char(3)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGFiYw=="
+        }
+    )##";
+  testConstantExpression(str, "VARCHAR", "\"abc\"");
 }
 
 TEST_F(RowExpressionTest, timestamp) {

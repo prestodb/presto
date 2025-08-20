@@ -24,19 +24,26 @@ public class NativeTestsUtils
 {
     private NativeTestsUtils() {}
 
-    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean sidecarEnabled)
+    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean charNToVarcharImplicitCast, boolean sidecarEnabled)
             throws Exception
     {
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
+                .setImplicitCastCharNToVarchar(charNToVarcharImplicitCast)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
         }
         return queryRunner;
+    }
+
+    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean sidecarEnabled)
+            throws Exception
+    {
+        return createNativeQueryRunner(storageFormat, false, sidecarEnabled);
     }
 
     public static void createTables(String storageFormat)
@@ -57,5 +64,12 @@ public class NativeTestsUtils
         catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    // TODO: remove and directly return charNToVarcharImplicitCast after addressing Issue #25894 and adding support for Char(n) type
+    // to class NativeTypeManager for Sidecar.
+    public static boolean getCharNToVarcharImplicitCastForTest(boolean sidecarEnabled, boolean charNToVarcharImplicitCast)
+    {
+        return sidecarEnabled ? false : charNToVarcharImplicitCast;
     }
 }

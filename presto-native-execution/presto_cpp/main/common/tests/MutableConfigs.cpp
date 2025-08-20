@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/tests/MultableConfigs.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
