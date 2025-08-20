@@ -1609,6 +1609,15 @@ TEST_F(VectorTest, rowPrepareForReuse) {
   }
 }
 
+TEST_F(VectorTest, makeFlatVectorWithInitializerList) {
+  auto vector = makeFlatVector<int64_t>({803});
+
+  ASSERT_NE(vector, nullptr);
+  EXPECT_EQ(vector->size(), 1);
+
+  EXPECT_EQ(vector->asFlatVector<int64_t>()->valueAt(0), 803);
+}
+
 TEST_F(VectorTest, wrapConstantInDictionary) {
   // Wrap Constant in Dictionary with no extra nulls. Expect Constant.
   auto indices = makeIndices(10, [](auto row) { return row % 2; });

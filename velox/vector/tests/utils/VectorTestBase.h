@@ -196,6 +196,13 @@ class VectorTestBase {
   }
 
   template <typename T>
+  FlatVectorPtr<EvalType<T>> makeFlatVector(
+      const std::initializer_list<T>& data,
+      const TypePtr& type = CppToType<T>::create()) {
+    return vectorMaker_.flatVector<T>(data, type);
+  }
+
+  template <typename T>
   FlatVectorPtr<EvalType<T>> makeNullableFlatVector(
       const std::vector<std::optional<T>>& data,
       const TypePtr& type = CppToType<T>::create()) {
