@@ -74,7 +74,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -191,7 +190,7 @@ public class TestTableWriterOperator
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
             assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
-            assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
+            assertEquals((long) (info.getValidationCpuTimeInNanos()), validationCpuNanos);
         }
         tableWriterOperator.finish();
         while (!tableWriterOperator.isFinished()) {
@@ -257,8 +256,8 @@ public class TestTableWriterOperator
         assertMemoryIsReleased(operator);
 
         TableWriterInfo info = operator.getInfo();
-        assertThat(info.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
-        assertThat(info.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(info.getStatisticsWallTimeInNanos()).isGreaterThan(0);
+        assertThat(info.getStatisticsCpuTimeInNanos()).isGreaterThan(0);
     }
 
     private static Slice getTableCommitContext(boolean lastPage)
