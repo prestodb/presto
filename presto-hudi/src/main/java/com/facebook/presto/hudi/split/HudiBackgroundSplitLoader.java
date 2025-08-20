@@ -63,6 +63,7 @@ public class HudiBackgroundSplitLoader
             List<String> partitions,
             String latestInstant)
     {
+        log.info("initialzing hudi background split loader");
         this.session = requireNonNull(session, "session is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.layout = requireNonNull(layout, "layout is null");
