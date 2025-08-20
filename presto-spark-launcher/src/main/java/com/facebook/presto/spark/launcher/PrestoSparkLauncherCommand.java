@@ -23,7 +23,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 
 import java.io.File;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_KEY;
@@ -54,23 +53,19 @@ public class PrestoSparkLauncherCommand
         TargzBasedPackageSupplier packageSupplier = new TargzBasedPackageSupplier(new File(clientOptions.packagePath));
         packageSupplier.deploy(sparkContext);
 
-        Optional<Map<String, String>> sessionPropertyConfigurationProperties;
-        if (clientOptions.sessionPropertyConfig == null) {
-            sessionPropertyConfigurationProperties = Optional.empty();
-        }
-        else {
-            sessionPropertyConfigurationProperties = Optional.of(loadProperties(checkFile(new File(clientOptions.sessionPropertyConfig))));
-        }
         PrestoSparkDistribution distribution = new PrestoSparkDistribution(
                 sparkContext,
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
                 loadCatalogProperties(new File(clientOptions.catalogs)),
                 ImmutableMap.of(METADATA_STORAGE_TYPE_KEY, METADATA_STORAGE_TYPE_LOCAL),
-                Optional.empty(),
-                Optional.empty(),
-                sessionPropertyConfigurationProperties,
-                Optional.empty(),
+                clientOptions.nativeWorkerConfig == null ? Optional.empty() : Optional.of(
+                        loadProperties(checkFile(new File(clientOptions.nativeWorkerConfig)))),
+                    Optional.empty(),
+                    Optional.empty(),
+                clientOptions.sessionPropertyConfig == null ? Optional.empty() : Optional.of(
+                        loadProperties(checkFile(new File(clientOptions.sessionPropertyConfig)))),
+                    Optional.empty(),
                 Optional.empty());
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
