@@ -19,6 +19,13 @@ if(VELOX_ENABLE_ARROW)
   else()
     set(THRIFT_SOURCE "BUNDLED")
   endif()
+  # Apache Arrow 21.0.0 uses archive.apache.org as the default mirror, which
+  # tends to timeout in CI. We don't need to explicitly set this alternate
+  # mirror after the 22.0.0 release because this will be used by default. See
+  # also: https://github.com/apache/arrow/issues/47111
+  set(THRIFT_URL
+      "https://packages.apache.org/artifactory/arrow/thirdparty/thrift-0.22.0.tar.gz"
+  )
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep")
   set(ARROW_CMAKE_ARGS
@@ -30,38 +37,39 @@ if(VELOX_ENABLE_ARROW)
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
       -DARROW_JEMALLOC=OFF
+      -DARROW_MIMALLOC=OFF
       -DARROW_SIMD_LEVEL=NONE
       -DARROW_RUNTIME_SIMD_LEVEL=NONE
       -DARROW_WITH_UTF8PROC=OFF
       -DARROW_TESTING=ON
       -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_DEBUG_POSTFIX=
       -DARROW_BUILD_STATIC=ON
       -DThrift_SOURCE=${THRIFT_SOURCE}
-      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
-      -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-      # Remove with Arrow upgrade to Arrow 20.
-      -DARROW_CXXFLAGS=-Wno-documentation)
+      -DARROW_THRIFT_BUILD_SHA256_CHECKSUM=${THRIFT_BUILD_SHA256_CHECKSUM}
+      -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH})
   set(ARROW_LIBDIR ${ARROW_PREFIX}/install/${CMAKE_INSTALL_LIBDIR})
 
   add_library(thrift STATIC IMPORTED GLOBAL)
   if(NOT Thrift_FOUND)
-    set(THRIFT_ROOT ${ARROW_PREFIX}/src/arrow_ep-build/thrift_ep-install)
-    set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthrift.a)
-
-    file(MAKE_DIRECTORY ${THRIFT_ROOT}/include)
-    set(THRIFT_INCLUDE_DIR ${THRIFT_ROOT}/include)
+    set(THRIFT_SOURCE_ROOT ${ARROW_PREFIX}/src/arrow_ep-build/_deps/thrift-src)
+    set(THRIFT_BUILD_ROOT ${ARROW_PREFIX}/src/arrow_ep-build/_deps/thrift-build)
+    set(THRIFT_INCLUDE_DIR ${THRIFT_BUILD_ROOT}
+                           ${THRIFT_SOURCE_ROOT}/lib/cpp/src)
+    foreach(dir ${THRIFT_INCLUDE_DIR})
+      file(MAKE_DIRECTORY ${dir})
+    endforeach()
+    set(THRIFT_LIB ${ARROW_PREFIX}/src/arrow_ep-build/lib/libthrift.a)
   endif()
-
-  set_property(TARGET thrift PROPERTY INTERFACE_INCLUDE_DIRECTORIES
-                                      ${THRIFT_INCLUDE_DIR})
+  target_include_directories(thrift INTERFACE ${THRIFT_INCLUDE_DIR})
   set_property(TARGET thrift PROPERTY IMPORTED_LOCATION ${THRIFT_LIB})
 
-  set(VELOX_ARROW_BUILD_VERSION 15.0.0)
+  set(VELOX_ARROW_BUILD_VERSION 21.0.0)
   set(VELOX_ARROW_BUILD_SHA256_CHECKSUM
-      ab74c60c46938505c8cd7599b1d2826c68450645d5860d0ff40f67e371a5d0b5)
+      5d3f8db7e72fb9f65f4785b7a1634522e8d8e9657a445af53d4a34a3849857b5)
   set(VELOX_ARROW_SOURCE_URL
-      "https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
+      "https://github.com/apache/arrow/releases/download/apache-arrow-${VELOX_ARROW_BUILD_VERSION}/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
   )
 
   velox_resolve_dependency_url(ARROW)
@@ -72,11 +80,19 @@ if(VELOX_ENABLE_ARROW)
     URL ${VELOX_ARROW_SOURCE_URL}
     URL_HASH ${VELOX_ARROW_BUILD_SHA256_CHECKSUM}
     SOURCE_SUBDIR cpp
+    # We can't change ARROW_THRIFT_URL by CMake variable. We need to use
+    # environment variable. So we use "cmake -E env ARROW_THRIFT_URL=..." here.
+    # We can remove this when we use Apache Arrow C++ 22.0.0 or later. See also
+    # the above comment THRIFT_URL.
+    CMAKE_COMMAND ${CMAKE_COMMAND}
+    -E
+    env
+    ARROW_THRIFT_URL=${THRIFT_URL}
+    --
+    ${CMAKE_COMMAND}
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
     BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a
-                     ${ARROW_LIBDIR}/libarrow_testing.a ${THRIFT_LIB}
-    PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/thrift-download.patch &&
-                  git apply ${CMAKE_CURRENT_LIST_DIR}/cmake-compatibility.patch)
+                     ${ARROW_LIBDIR}/libarrow_testing.a ${THRIFT_LIB})
 
   add_library(arrow STATIC IMPORTED GLOBAL)
   add_library(arrow_testing STATIC IMPORTED GLOBAL)
@@ -92,5 +108,4 @@ if(VELOX_ENABLE_ARROW)
   set_target_properties(
     arrow_testing PROPERTIES IMPORTED_LOCATION
                              ${ARROW_LIBDIR}/libarrow_testing.a)
-
 endif()

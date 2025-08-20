@@ -25,9 +25,10 @@
 #include <cstring>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/dwio/parquet/common/BitPacking.h"
 
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bpacking.h"
+#include "arrow/util/endian.h"
 
 namespace facebook::velox::parquet {
 

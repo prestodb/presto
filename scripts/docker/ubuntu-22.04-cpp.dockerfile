@@ -22,10 +22,8 @@ RUN apt update && \
 
 
 COPY scripts /velox/scripts/
-COPY CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /
 
-ENV VELOX_ARROW_CMAKE_PATCH=/cmake-compatibility.patch \
-    UV_TOOL_BIN_DIR=/usr/local/bin \
+ENV UV_TOOL_BIN_DIR=/usr/local/bin \
     UV_INSTALL_DIR=/usr/local/bin
 
 # TZ and DEBIAN_FRONTEND="noninteractive"

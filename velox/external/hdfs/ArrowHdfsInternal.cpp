@@ -459,7 +459,7 @@ tSize LibHdfsShim::Pread(
     void* buffer,
     tSize length) {
   GET_SYMBOL(this, hdfsPread);
-  DCHECK(this->hdfsPread);
+  ARROW_DCHECK(this->hdfsPread);
   return this->hdfsPread(fs, file, position, buffer, length);
 }
 

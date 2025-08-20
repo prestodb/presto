@@ -23,8 +23,13 @@
 #include <string>
 #include <utility>
 
+#include "arrow/config.h"
 #include "arrow/type_fwd.h"
+#if ARROW_VERSION_MAJOR >= 21
+#include "arrow/util/string_util.h"
+#else
 #include "arrow/util/string_builder.h"
+#endif
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 
 // PARQUET-1085
@@ -60,6 +65,22 @@
 
 // Arrow Status to Parquet exception
 
+#if ARROW_VERSION_MAJOR >= 21
+#define PARQUET_IGNORE_NOT_OK(s)               \
+  do {                                         \
+    ::arrow::Status _s = ::arrow::ToStatus(s); \
+    ARROW_UNUSED(_s);                          \
+  } while (0)
+
+#define PARQUET_THROW_NOT_OK(s)                                        \
+  do {                                                                 \
+    ::arrow::Status _s = ::arrow::ToStatus(s);                         \
+    if (!_s.ok()) {                                                    \
+      throw ::facebook::velox::parquet::arrow::ParquetStatusException( \
+          std::move(_s));                                              \
+    }                                                                  \
+  } while (0)
+#else
 #define PARQUET_IGNORE_NOT_OK(s)                                \
   do {                                                          \
     ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
@@ -74,6 +95,7 @@
           std::move(_s));                                              \
     }                                                                  \
   } while (0)
+#endif
 
 #define PARQUET_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
   auto status_name = (rexpr);                                 \
@@ -102,7 +124,14 @@ class ParquetException : public std::exception {
 
   template <typename... Args>
   explicit ParquetException(Args&&... args)
-      : msg_(::arrow::util::StringBuilder(std::forward<Args>(args)...)) {}
+      : msg_(
+#if ARROW_VERSION_MAJOR >= 21
+            ::arrow::internal::JoinToString(std::forward<Args>(args)...)
+#else
+            ::arrow::util::StringBuilder(std::forward<Args>(args)...)
+#endif
+        ) {
+  }
 
   explicit ParquetException(std::string msg) : msg_(std::move(msg)) {}
 

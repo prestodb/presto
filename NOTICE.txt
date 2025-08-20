@@ -13,6 +13,9 @@ This product includes software from HowardHinnant's date library (MIT License).
 This product includes software from the Arrow project.
 * https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/arrow/io/hdfs_internal.h
 * https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/arrow/io/hdfs_internal.cc
+* https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/arrow/util/bpacking.h
+* https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/arrow/util/spaced.h
+
 Which contain the following NOTICE file:
 -------
   Apache Arrow

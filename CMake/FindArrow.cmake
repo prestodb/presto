@@ -14,30 +14,30 @@
 
 include(FindPackageHandleStandardArgs)
 
-find_library(ARROW_LIB libarrow.a)
-find_library(ARROW_TESTING_LIB libarrow_testing.a)
-find_path(ARROW_INCLUDE_PATH arrow/api.h)
-find_package(Thrift)
-
-find_package_handle_standard_args(
-  Arrow
-  DEFAULT_MSG
-  ARROW_LIB
-  ARROW_TESTING_LIB
-  ARROW_INCLUDE_PATH
-  Thrift_FOUND)
+set(find_package_args)
+if(Arrow_FIND_VERSION)
+  list(APPEND find_package_args ${Arrow_FIND_VERSION})
+endif()
+if(Arrow_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(Arrow ${find_package_args} CONFIG)
+if(Arrow_VERSION VERSION_LESS_EQUAL 21.0.0)
+  # Workaround for https://github.com/apache/arrow/issues/46386 .
+  # ArrowTestingConfig.cmake may call this file via find_dependency(Arrow). It
+  # causes an infinite loop.
+  set(CMAKE_FIND_PACKAGE_PREFER_CONFIG_KEEP ${CMAKE_FIND_PACKAGE_PREFER_CONFIG})
+  set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
+endif()
+find_package(ArrowTesting ${find_package_args} CONFIG)
+if(Arrow_VERSION VERSION_LESS_EQUAL 21.0.0)
+  set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ${CMAKE_FIND_PACKAGE_PREFER_CONFIG_KEEP})
+endif()
 
 # Only add the libraries once.
-if(Arrow_FOUND AND NOT TARGET arrow)
-  add_library(arrow STATIC IMPORTED GLOBAL)
-  add_library(arrow_testing STATIC IMPORTED GLOBAL)
-  add_library(thrift ALIAS thrift::thrift)
-
-  set_target_properties(
-    arrow arrow_testing PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   ${ARROW_INCLUDE_PATH})
-  set_target_properties(arrow PROPERTIES IMPORTED_LOCATION ${ARROW_LIB}
-                                         INTERFACE_LINK_LIBRARIES thrift)
-  set_target_properties(arrow_testing PROPERTIES IMPORTED_LOCATION
-                                                 ${ARROW_TESTING_LIB})
+if(Arrow_FOUND
+   AND ArrowTesting_FOUND
+   AND NOT TARGET arrow)
+  add_library(arrow ALIAS Arrow::arrow_static)
+  add_library(arrow_testing ALIAS ArrowTesting::arrow_testing_static)
 endif()
