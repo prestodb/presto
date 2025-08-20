@@ -190,9 +190,9 @@ class HiveConfig {
   /// Whether to preserve flat maps in memory as FlatMapVectors instead of
   /// converting them to MapVectors.
   static constexpr const char* kPreserveFlatMapsInMemory =
-      "preserve-flat-maps-in-memory";
+      "hive.preserve-flat-maps-in-memory";
   static constexpr const char* kPreserveFlatMapsInMemorySession =
-      "preserve_flat_maps_in_memory";
+      "hive.preserve_flat_maps_in_memory";
 
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const config::ConfigBase* session) const;
