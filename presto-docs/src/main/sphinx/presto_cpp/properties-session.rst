@@ -487,3 +487,19 @@ This is used in global arbitration victim selection.
 
 Maximum number of splits to listen to by the SplitListener per table scan node per
 native worker.
+
+
+Sidecar Session Properties
+--------------------------
+
+The following session properties apply for Presto C++ deployed with native sidecar.
+
+``expression_optimizer_name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``default``
+
+The default expression optimizer uses Presto Java function implementations. Set
+this to ``native`` to use the native expression optimizer, which uses Presto C++
+function implementations.

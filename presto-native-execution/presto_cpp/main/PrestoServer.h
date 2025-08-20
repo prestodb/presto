@@ -214,6 +214,11 @@ class PrestoServer {
 
   protocol::NodeStatus fetchNodeStatus();
 
+  void optimizeExpressions(
+      const proxygen::HTTPHeaders& httpHeaders,
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
+
   void populateMemAndCPUInfo();
 
   // Periodically yield tasks if there are tasks queued.
