@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -46,7 +47,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
@@ -246,6 +246,7 @@ public class AggregationImplementation
         private final AggregationHeader header;
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
+        private final CatalogSchemaName functionNamespace;
 
         private Parser(
                 Class<?> aggregationDefinition,
@@ -254,7 +255,8 @@ public class AggregationImplementation
                 Method inputFunction,
                 Method outputFunction,
                 Method combineFunction,
-                Optional<Method> stateSerializerFactoryFunction)
+                Optional<Method> stateSerializerFactoryFunction,
+                CatalogSchemaName functionNamespace)
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
@@ -301,12 +303,13 @@ public class AggregationImplementation
             inputHandle = methodHandle(inputFunction);
             combineHandle = methodHandle(combineFunction);
             outputHandle = methodHandle(outputFunction);
+            this.functionNamespace = requireNonNull(functionNamespace, "functionNamespace is null");
         }
 
         private AggregationImplementation get()
         {
             Signature signature = new Signature(
-                    QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, header.getName()),
+                    QualifiedObjectName.valueOf(functionNamespace, header.getName()),
                     FunctionKind.AGGREGATE,
                     typeVariableConstraints,
                     longVariableConstraints,
@@ -336,9 +339,10 @@ public class AggregationImplementation
                 Method inputFunction,
                 Method outputFunction,
                 Method combineFunction,
-                Optional<Method> stateSerializerFactoryFunction)
+                Optional<Method> stateSerializerFactoryFunction,
+                CatalogSchemaName functionNamespace)
         {
-            return new Parser(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
+            return new Parser(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction, functionNamespace).get();
         }
 
         private static List<ParameterType> parseParameterMetadataTypes(Method method)

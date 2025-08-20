@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark.execution.http.server.smile;
 
-import com.facebook.airlift.http.client.HeaderName;
+import com.facebook.presto.spark.execution.http.OkHttpHeaderName;
 import com.google.common.collect.ListMultimap;
 
 import java.util.List;
@@ -30,7 +30,7 @@ public interface BaseResponse<T>
 
     List<String> getHeaders(String name);
 
-    ListMultimap<HeaderName, String> getHeaders();
+    ListMultimap<OkHttpHeaderName, String> getHeaders();
 
     boolean hasValue();
 

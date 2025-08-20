@@ -87,6 +87,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        delegate.registerConnectorFunctions(catalogName, functionInfos);
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         return delegate.listSchemaNames(session, catalogName);

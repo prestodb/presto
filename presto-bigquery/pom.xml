@@ -244,9 +244,11 @@
             </exclusions>
         </dependency>
 
+        <!-- Pin protobuf-java to 3.25.8 because BigQuery v1beta1 relies on makeExtensionsImmutable(), removed in 4.x -->
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
+            <version>3.25.8</version>
         </dependency>
 
         <dependency>
@@ -400,6 +402,8 @@
                                 <exclude>jakarta.annotation:jakarta.annotation-api</exclude>
                                 <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
                                 <exclude>com.google.api.grpc:proto-google-common-protos</exclude>
+                                <!-- Exclude protobuf-java so enforcer doesn’t force upgrade to 4.x -->
+                                <exclude>com.google.protobuf:protobuf-java</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>

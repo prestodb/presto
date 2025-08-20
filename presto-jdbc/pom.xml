@@ -433,6 +433,7 @@
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>META-INF.versions.9.module-info</exclude>
                                         <exclude>LICENSE</exclude>
+                                        <exclude>ValidationMessages.properties</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

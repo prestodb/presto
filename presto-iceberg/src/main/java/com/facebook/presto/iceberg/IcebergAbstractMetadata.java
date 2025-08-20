@@ -718,6 +718,7 @@ public abstract class IcebergAbstractMetadata
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
                         .setType(toPrestoType(column.type(), typeManager))
+                        .setNullable(column.isOptional())
                         .setComment(column.doc())
                         .setHidden(false)
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?

@@ -741,7 +741,17 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testInsertIntoNotNullColumn()
     {
-        // TODO: To support non-null column. (NOT_NULL_COLUMN_CONSTRAINT)
+        assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
+        assertUpdate("INSERT INTO test_not_null_table (c2) VALUES (2)", 1);
+        assertQuery("SELECT * FROM test_not_null_table", "VALUES (NULL, 2)");
+        assertQueryFails("INSERT INTO test_not_null_table (c1) VALUES (1)", "NULL value not allowed for NOT NULL column: c2");
+        assertUpdate("DROP TABLE IF EXISTS test_not_null_table");
+
+        assertUpdate("CREATE TABLE test_commuted_not_null_table (a BIGINT, b BIGINT NOT NULL)");
+        assertUpdate("INSERT INTO test_commuted_not_null_table (b) VALUES (2)", 1);
+        assertQuery("SELECT * FROM test_commuted_not_null_table", "VALUES (NULL, 2)");
+        assertQueryFails("INSERT INTO test_commuted_not_null_table (b, a) VALUES (NULL, 3),(4, NULL),(NULL, NULL)", "NULL value not allowed for NOT NULL column: b");
+        assertUpdate("DROP TABLE IF EXISTS test_commuted_not_null_table");
     }
 
     @Test

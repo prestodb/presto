@@ -588,6 +588,10 @@ public class PlanPrinter
 
             nodeOutput.appendDetailsLine("TableHandle: %s", node.getTableHandle().getConnectorHandle().toString());
 
+            Optional<ConnectorTableLayoutHandle> tableLayoutHandle = node.getTableHandle().getLayout();
+            tableLayoutHandle.ifPresent(
+                    connectorTableLayoutHandle -> nodeOutput.appendDetailsLine("TableHandleLayout: %s", connectorTableLayoutHandle.toString()));
+
             for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputVariables().contains(entry.getKey())) {
                     nodeOutput.appendDetailsLine("%s := %s%s", entry.getKey(), entry.getValue(), formatSourceLocation(entry.getKey().getSourceLocation()));
