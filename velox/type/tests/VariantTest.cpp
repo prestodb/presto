@@ -678,18 +678,47 @@ void testArrayGetter(const std::vector<T>& inputs) {
 
   EXPECT_FALSE(value.isNull());
 
-  auto variantItems = value.array();
-  EXPECT_EQ(variantItems.size(), inputs.size());
-  for (auto i = 0; i < inputs.size(); ++i) {
-    EXPECT_FALSE(variantItems.at(i).isNull());
-    EXPECT_EQ(variantItems.at(i).template value<T>(), inputs.at(i));
+  {
+    auto variantItems = value.array();
+    EXPECT_EQ(variantItems.size(), inputs.size());
+    for (auto i = 0; i < inputs.size(); ++i) {
+      EXPECT_FALSE(variantItems.at(i).isNull());
+      EXPECT_EQ(variantItems.at(i).template value<T>(), inputs.at(i));
+    }
   }
 
-  auto primitiveItems = value.template array<T>();
-  EXPECT_EQ(primitiveItems.size(), inputs.size());
-  for (auto i = 0; i < inputs.size(); ++i) {
-    EXPECT_EQ(primitiveItems.at(i), inputs.at(i));
+  {
+    auto primitiveItems = value.template array<T>();
+    EXPECT_EQ(primitiveItems, inputs);
   }
+
+  {
+    auto primitiveItems = value.template nullableArray<T>();
+    EXPECT_EQ(primitiveItems.size(), inputs.size());
+    for (auto i = 0; i < inputs.size(); ++i) {
+      EXPECT_TRUE(primitiveItems.at(i).has_value());
+      EXPECT_EQ(primitiveItems.at(i).value(), inputs.at(i));
+    }
+  }
+}
+
+template <typename T>
+void testNullableArrayGetter(const std::vector<std::optional<T>>& inputs) {
+  std::vector<Variant> variants;
+  variants.reserve(inputs.size());
+  for (const auto& v : inputs) {
+    if (v.has_value()) {
+      variants.emplace_back(v.value());
+    } else {
+      variants.emplace_back(Variant::null(CppToType<T>::typeKind));
+    }
+  }
+
+  auto value = Variant::array(variants);
+  EXPECT_FALSE(value.isNull());
+
+  auto primitiveItems = value.template nullableArray<T>();
+  EXPECT_EQ(primitiveItems, inputs);
 }
 
 TEST(VariantTest, arrayGetter) {
@@ -698,6 +727,12 @@ TEST(VariantTest, arrayGetter) {
   testArrayGetter<int64_t>({1, 2, 3});
   testArrayGetter<float>({1.2, 2.3, 3.4});
   testArrayGetter<double>({1.2, 2.3, 3.4});
+
+  testNullableArrayGetter<bool>({true, false, std::nullopt});
+  testNullableArrayGetter<int32_t>({1, 2, std::nullopt, 4});
+  testNullableArrayGetter<int64_t>({1, 2, std::nullopt, 4});
+  testNullableArrayGetter<float>({1.1, 2.2, std::nullopt});
+  testNullableArrayGetter<double>({1.1, 2.2, std::nullopt});
 }
 
 template <typename K, typename V>
@@ -711,27 +746,69 @@ void testMapGetter(const std::map<K, V>& inputs) {
 
   EXPECT_FALSE(value.isNull());
 
-  auto variantItems = value.map();
-  EXPECT_EQ(variantItems.size(), inputs.size());
+  {
+    auto variantItems = value.map();
+    EXPECT_EQ(variantItems.size(), inputs.size());
 
-  auto expectedIt = inputs.begin();
-  for (auto it = variantItems.begin(); it != variantItems.end(); it++) {
-    auto [k, v] = *it;
+    auto expectedIt = inputs.begin();
+    for (auto it = variantItems.begin(); it != variantItems.end(); it++) {
+      auto [k, v] = *it;
 
-    EXPECT_FALSE(k.isNull());
-    EXPECT_FALSE(v.isNull());
-    EXPECT_EQ(k.template value<K>(), (*expectedIt).first);
-    EXPECT_EQ(v.template value<V>(), (*expectedIt).second);
-    expectedIt++;
+      EXPECT_FALSE(k.isNull());
+      EXPECT_FALSE(v.isNull());
+      EXPECT_EQ(k.template value<K>(), (*expectedIt).first);
+      EXPECT_EQ(v.template value<V>(), (*expectedIt).second);
+      expectedIt++;
+    }
   }
 
-  auto primitiveItems = value.template map<K, V>();
+  {
+    auto primitiveItems = value.template map<K, V>();
+    EXPECT_EQ(primitiveItems, inputs);
+  }
+
+  {
+    auto primitiveItems = value.template nullableMap<K, V>();
+    EXPECT_EQ(primitiveItems.size(), inputs.size());
+
+    auto expectedIt = inputs.begin();
+    for (auto it = primitiveItems.begin(); it != primitiveItems.end(); it++) {
+      auto [k, v] = *it;
+
+      EXPECT_TRUE(v.has_value());
+      EXPECT_EQ(k, (*expectedIt).first);
+      EXPECT_EQ(v.value(), (*expectedIt).second);
+      expectedIt++;
+    }
+  }
+}
+
+template <typename K, typename V>
+void testNullableMapGetter(const std::map<K, std::optional<V>>& inputs) {
+  std::map<Variant, Variant> variants;
+  for (const auto& [k, v] : inputs) {
+    if (v.has_value()) {
+      variants.emplace(k, v.value());
+    } else {
+      variants.emplace(k, Variant::null(CppToType<V>::typeKind));
+    }
+  }
+
+  auto value = Variant::map(variants);
+  EXPECT_FALSE(value.isNull());
+
+  auto primitiveItems = value.template nullableMap<K, V>();
   EXPECT_EQ(primitiveItems, inputs);
 }
 
 TEST(VariantTest, mapGetter) {
   testMapGetter<int32_t, float>({{1, 1.2}, {2, 2.3}, {3, 3.4}});
   testMapGetter<int8_t, double>({{1, 1.2}, {2, 2.3}, {3, 3.4}});
+
+  testNullableMapGetter<int32_t, float>(
+      {{1, 1.2}, {2, std::nullopt}, {3, 3.4}});
+  testNullableMapGetter<int8_t, double>(
+      {{1, 1.2}, {2, 2.3}, {3, std::nullopt}});
 }
 
 } // namespace
