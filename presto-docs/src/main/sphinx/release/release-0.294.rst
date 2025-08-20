@@ -36,11 +36,11 @@ _______________
 * Add ``history_based_optimizer_estimate_size_using_variables`` session property to have HBO estimate plan node output size using individual variables. `#25400 <https://github.com/prestodb/presto/pull/25400>`_
 * Add changes to populate data source metadata to support combined lineage tracking. `#25127 <https://github.com/prestodb/presto/pull/25127>`_
 * Add mixed case support for schema and table names. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
-* Add session property ``native_query_memory_reclaimer_priority`` which controls which queries are killed first when a worker is running low on memory. Higher value means lower priority to be consistent with velox memory reclaimer's convention. See :doc:`/presto_cpp/properties-session` `#25325 <https://github.com/prestodb/presto/pull/25325>`_
+* Add session property ``native_query_memory_reclaimer_priority`` which controls which queries are killed first when a worker is running low on memory. Higher value means lower priority to be consistent with Velox memory reclaimer's convention. See :doc:`/presto_cpp/properties-session`. `#25325 <https://github.com/prestodb/presto/pull/25325>`_
 * Add xxhash64 override with seed argument. `#25521 <https://github.com/prestodb/presto/pull/25521>`_
 * Add the :func:`l2_squared(array(real), array(real)) -> real()` function to Java workers. `#25409 <https://github.com/prestodb/presto/pull/25409>`_
 * Update QueryPlanner to only include the optional ``$row_id`` column in :ref:`sql/delete:DELETE` query output variables when it is actually used by the connector. `#25284 <https://github.com/prestodb/presto/pull/25284>`_
-* Update the default value of ``check_access_control_on_utilized_columns_only`` session property to ``true``. The ``false`` value makes the access check apply to all columns. See :ref:`admin/properties-session:\`\`check_access_control_on_utilized_columns_only\`\`` . `#25469 <https://github.com/prestodb/presto/pull/25469>`_
+* Update the default value of ``check_access_control_on_utilized_columns_only`` session property to ``true``. The ``false`` value makes the access check apply to all columns. See :ref:`admin/properties-session:\`\`check_access_control_on_utilized_columns_only\`\``. `#25469 <https://github.com/prestodb/presto/pull/25469>`_
 
 Prestissimo (Native Execution) Changes
 ______________________________________
