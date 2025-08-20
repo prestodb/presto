@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -71,6 +72,19 @@ public class MongoMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return mongoSession.getAllSchemas();
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
+        mongoSession.createSchema(schemaName);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        mongoSession.dropSchema(schemaName);
     }
 
     @Override
