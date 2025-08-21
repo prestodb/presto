@@ -107,7 +107,7 @@ class QuantileDigest {
       CdfEntry,
       typename std::allocator_traits<Allocator>::template rebind_alloc<
           CdfEntry>>
-  getDistributionFunction(double rangeStart, double rangeEnd) const;
+  getDistributionFunction(T rangeStart, T rangeEnd) const;
 
  private:
   using U = std::conditional_t<sizeof(T) == sizeof(int64_t), int64_t, int32_t>;
@@ -1322,9 +1322,8 @@ const std::vector<
     typename QuantileDigest<T, Allocator>::CdfEntry,
     typename QuantileDigest<T, Allocator>::template RebindAlloc<
         typename QuantileDigest<T, Allocator>::CdfEntry>>
-QuantileDigest<T, Allocator>::getDistributionFunction(
-    double rangeStart,
-    double rangeEnd) const {
+QuantileDigest<T, Allocator>::getDistributionFunction(T rangeStart, T rangeEnd)
+    const {
   std::vector<CdfEntry, RebindAlloc<CdfEntry>> cdf(
       RebindAlloc<CdfEntry>(counts_.get_allocator()));
 
@@ -1338,7 +1337,7 @@ QuantileDigest<T, Allocator>::getDistributionFunction(
       "rangeStart must be less than or equal to rangeEnd");
 
   // Always start with (rangeStart, 0) as the starting point.
-  cdf.push_back({static_cast<T>(rangeStart), 0.0});
+  cdf.push_back({rangeStart, 0.0});
 
   // Build CDF during post-order traversal.
   double cumulativeProbability = 0.0;
@@ -1366,7 +1365,7 @@ QuantileDigest<T, Allocator>::getDistributionFunction(
       rights_);
 
   // Always end with (rangeEnd, 1) as the endpoint.
-  cdf.push_back({static_cast<T>(rangeEnd), 1.0});
+  cdf.push_back({rangeEnd, 1.0});
 
   return cdf;
 }

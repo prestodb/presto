@@ -895,7 +895,7 @@ void testGetDistributionFunction() {
   for (T i = 1; i <= 10; i++) {
     digest1.add(i, 1);
   }
-  auto cdf1 = digest1.getDistributionFunction(0.0, 100.0);
+  auto cdf1 = digest1.getDistributionFunction(0, 100);
   std::vector<T> expectedCdfUpperBound = {
       0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100};
   std::vector<double> expectedCdfCumulativeProbability = {
@@ -914,7 +914,7 @@ void testGetDistributionFunction() {
   for (T i = 1; i <= 10; i++) {
     digest2.add(i, 1);
   }
-  auto cdf2 = digest2.getDistributionFunction(5.0, 100.0);
+  auto cdf2 = digest2.getDistributionFunction(5, 100);
   std::vector<T> expectedCdfUpperBound2 = {5, 6, 7, 8, 9, 10, 100};
   std::vector<double> expectedCdfCumulativeProbability2 = {
       0.5, 0.6, 0.7, 0.8, 0.9, 1, 1};
@@ -932,7 +932,7 @@ void testGetDistributionFunction() {
   for (T i = 1; i <= 10; i++) {
     digest3.add(i, 1);
   }
-  auto cdf3 = digest3.getDistributionFunction(0.0, 5.0);
+  auto cdf3 = digest3.getDistributionFunction(0, 5);
   std::vector<T> expectedCdfUpperBound3 = {0, 1, 2, 3, 4, 5};
   std::vector<double> expectedCdfCumulativeProbability3 = {
       0, 0.1, 0.2, 0.3, 0.4, 1.0};
