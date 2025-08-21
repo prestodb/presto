@@ -26,6 +26,8 @@ namespace facebook::velox::functions {
 
 class QuantileDigestTest : public QuantileDigestTestBase {
  protected:
+  static constexpr double kTruncatedMeanTolerance = 1e-2;
+
   memory::MemoryPool* pool() {
     return pool_.get();
   }
@@ -119,6 +121,42 @@ class QuantileDigestTest : public QuantileDigestTestBase {
         EXPECT_FALSE(digest.quantileAtValue(testData[i]).has_value());
       }
     }
+  }
+
+  // A helper function to verify ValueCountPair vectors match.
+  template <typename VectorType, typename T>
+  void verifyValueCountPairs(
+      const VectorType& actual,
+      const std::vector<std::pair<T, double>>& expected) {
+    EXPECT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+      EXPECT_EQ(actual[i].value, expected[i].first);
+      EXPECT_EQ(actual[i].count, expected[i].second);
+    }
+  }
+
+  // A helper function to compute truncated mean for testing.
+  template <typename T>
+  std::optional<double> getTruncatedMean(
+      const QuantileDigest<T>& digest,
+      double lowerQuantileBound,
+      double upperQuantileBound) {
+    auto valuesAndCounts =
+        digest.getValuesInQuantileRange(lowerQuantileBound, upperQuantileBound);
+
+    if (valuesAndCounts.empty()) {
+      return std::nullopt;
+    }
+
+    double totalValue = 0.0;
+    double totalCount = 0.0;
+
+    for (const auto& pair : valuesAndCounts) {
+      totalValue += pair.value * pair.count;
+      totalCount += pair.count;
+    }
+
+    return totalValue / totalCount;
   }
 
   // A helper function to get the expected quantile at value for
@@ -950,6 +988,436 @@ TEST_F(QuantileDigestTest, getDistributionFunction) {
   testGetDistributionFunction<int64_t>();
   testGetDistributionFunction<double>();
   testGetDistributionFunction<float>();
+}
+
+TEST_F(QuantileDigestTest, getValuesInQuantileRangeBigInt) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+
+  digest.add(1, 2.0);
+  digest.add(5, 3.0);
+  digest.add(10, 1.0);
+  digest.add(15, 4.0);
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.1, 0.7),
+      std::vector<std::pair<int64_t, double>>{
+          {1, 1.0}, {5, 3.0}, {10, 1.0}, {15, 1.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.2, 0.6),
+      std::vector<std::pair<int64_t, double>>{{5, 3.0}, {10, 1.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.5, 0.8),
+      std::vector<std::pair<int64_t, double>>{{10, 1.0}, {15, 2.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.3, 0.3),
+      std::vector<std::pair<int64_t, double>>{});
+
+  QuantileDigest<int64_t> singleDigest{
+      StlAllocator<int64_t>(allocator()), 0.01};
+  singleDigest.add(42, 5.0);
+
+  verifyValueCountPairs(
+      singleDigest.getValuesInQuantileRange(0.0, 1.0),
+      std::vector<std::pair<int64_t, double>>{{42, 5.0}});
+
+  // Test with fractional bounds that create non-integer
+  // lower/upperQuantileBound * weightedCount_
+  QuantileDigest<int64_t> nonIntegerDigest{
+      StlAllocator<int64_t>(allocator()), 0.01};
+  for (int i = 1; i <= 101; ++i) {
+    nonIntegerDigest.add(i, 1.0);
+  }
+
+  auto result6 = nonIntegerDigest.getValuesInQuantileRange(0.33, 0.67);
+  EXPECT_GT(result6.size(), 0);
+
+  double totalWeight = 0.0;
+  for (const auto& pair : result6) {
+    totalWeight += pair.count;
+  }
+  EXPECT_NEAR(totalWeight, 34.34, 0.1);
+
+  QuantileDigest<int64_t> fractionalDigest{
+      StlAllocator<int64_t>(allocator()), 0.01};
+  for (int i = 1; i <= 100; ++i) {
+    fractionalDigest.add(i, 1.0);
+  }
+
+  // These bounds will result in non-integer values when multiplied by
+  // weightedCount_
+  verifyValueCountPairs(
+      fractionalDigest.getValuesInQuantileRange(0.015, 0.085),
+      std::vector<std::pair<int64_t, double>>{
+          {2, 0.5},
+          {3, 1.0},
+          {4, 1.0},
+          {5, 1.0},
+          {6, 1.0},
+          {7, 1.0},
+          {8, 1.0},
+          {9, 0.5}});
+
+  verifyValueCountPairs(
+      fractionalDigest.getValuesInQuantileRange(0.01, 0.05),
+      std::vector<std::pair<int64_t, double>>{
+          {2, 1.0}, {3, 1.0}, {4, 1.0}, {5, 1.0}});
+}
+
+TEST_F(QuantileDigestTest, getValuesInQuantileRangeDouble) {
+  QuantileDigest<double> digest{StlAllocator<double>(allocator()), 0.01};
+
+  digest.add(1.5, 2.0);
+  digest.add(5.5, 3.0);
+  digest.add(10.5, 1.0);
+  digest.add(15.5, 4.0);
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.1, 0.7),
+      std::vector<std::pair<double, double>>{
+          {1.5, 1.0}, {5.5, 3.0}, {10.5, 1.0}, {15.5, 1.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.2, 0.6),
+      std::vector<std::pair<double, double>>{{5.5, 3.0}, {10.5, 1.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.5, 0.8),
+      std::vector<std::pair<double, double>>{{10.5, 1.0}, {15.5, 2.0}});
+
+  // Test with fractional bounds that create non-integer
+  // lower/upperQuantileBound * weightedCount_
+  QuantileDigest<double> fractionalDigest{
+      StlAllocator<double>(allocator()), 0.01};
+  for (int i = 1; i <= 100; ++i) {
+    fractionalDigest.add(static_cast<double>(i), 1.0);
+  }
+
+  // These bounds will result in non-integer values when multiplied by
+  // weightedCount_
+  verifyValueCountPairs(
+      fractionalDigest.getValuesInQuantileRange(0.015, 0.085),
+      std::vector<std::pair<double, double>>{
+          {2.0, 0.5},
+          {3.0, 1.0},
+          {4.0, 1.0},
+          {5.0, 1.0},
+          {6.0, 1.0},
+          {7.0, 1.0},
+          {8.0, 1.0},
+          {9.0, 0.5}});
+
+  verifyValueCountPairs(
+      fractionalDigest.getValuesInQuantileRange(0.01, 0.05),
+      std::vector<std::pair<double, double>>{
+          {2.0, 1.0}, {3.0, 1.0}, {4.0, 1.0}, {5.0, 1.0}});
+}
+
+TEST_F(QuantileDigestTest, getValuesInQuantileRangeFloat) {
+  // Test with fractional bounds that create non-integer
+  // lower/upperQuantileBound * weightedCount_
+  QuantileDigest<float> digest{StlAllocator<float>(allocator()), 0.01};
+
+  digest.add(1.0f, 2.0);
+  digest.add(5.0f, 3.0);
+  digest.add(10.0f, 1.0);
+  digest.add(15.0f, 4.0);
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.1, 0.7),
+      std::vector<std::pair<float, double>>{
+          {1.0f, 1.0}, {5.0f, 3.0}, {10.0f, 1.0}, {15.0f, 1.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.2, 0.6),
+      std::vector<std::pair<float, double>>{{5.0f, 3.0}, {10.0f, 1.0}});
+
+  verifyValueCountPairs(
+      digest.getValuesInQuantileRange(0.5, 0.8),
+      std::vector<std::pair<float, double>>{{10.0f, 1.0}, {15.0f, 2.0}});
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanBaseCases) {
+  // Empty digest
+  QuantileDigest<int64_t> emptyDigest{
+      StlAllocator<int64_t>(allocator()), 0.001};
+  EXPECT_FALSE(getTruncatedMean(emptyDigest, 0.0, 1.0).has_value());
+
+  // Single element
+  QuantileDigest<int64_t> singleDigest{
+      StlAllocator<int64_t>(allocator()), 0.001};
+  singleDigest.add(1, 1.0);
+  EXPECT_NEAR(
+      getTruncatedMean(singleDigest, 0.0, 1.0).value(),
+      1.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(singleDigest, 0.4999, 0.5).value(),
+      1.0,
+      kTruncatedMeanTolerance);
+  EXPECT_FALSE(getTruncatedMean(singleDigest, 0.5, 0.5).has_value());
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanShortList) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.001};
+  digest.add(1, 1.0);
+  digest.add(2, 1.0);
+  digest.add(3, 1.0);
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 1.0).value(), 2.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.5, 1.0).value(),
+      4.0 / 1.5,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.5).value(),
+      2.0 / 1.5,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.1).value(), 1.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.9, 0.99).value(),
+      3.0,
+      kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanSkewed) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  digest.add(1, 1.0);
+  digest.add(5, 1.0);
+  digest.add(10, 1.0);
+  digest.add(20, 1.0);
+  digest.add(50, 1.0);
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.25, 0.75).value(),
+      11.5,
+      kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanRepeated) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  digest.add(1, 1.0);
+  for (int i = 0; i < 8; i++) {
+    digest.add(2, 1.0);
+  }
+  digest.add(5, 1.0);
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.5).value(), 1.8, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.4, 0.6).value(), 2.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.8, 1.0).value(), 3.5, kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanSigned) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  digest.add(-2, 1.0);
+  digest.add(-1, 1.0);
+  digest.add(0, 1.0);
+  digest.add(1, 1.0);
+  digest.add(2, 1.0);
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.4).value(),
+      -1.5,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.4, 0.6).value(), 0.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.2, 0.8).value(), 0.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.4, 1.0).value(), 1.0, kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanDoubles) {
+  QuantileDigest<double> digest{StlAllocator<double>(allocator()), 0.01};
+  digest.add(0.2, 1.0);
+  digest.add(0.8, 1.0);
+  digest.add(1.4, 1.0);
+  digest.add(2.0, 1.0);
+  digest.add(2.6, 1.0);
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 1.0).value(), 1.4, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.6, 1.0).value(), 2.3, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.4).value(), 0.5, kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanWeighted) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  digest.add(2, 1.0);
+  digest.add(4, 2.0);
+  digest.add(5, 3.0);
+  digest.add(6, 3.0);
+  digest.add(10, 1.0);
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.1).value(), 2.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.2, 0.8).value(),
+      31.0 / 6.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.6, 1.0).value(),
+      28.0 / 4.0,
+      kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanBoundaries) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  for (int64_t i = 1; i <= 10; i++) {
+    digest.add(i, 1.0);
+  }
+
+  // Test exact boundaries
+  EXPECT_NEAR(getTruncatedMean(digest, 0.0, 1.0).value(), 5.5, 0.1);
+  EXPECT_FALSE(getTruncatedMean(digest, 0.0, 0.0).has_value());
+  EXPECT_FALSE(getTruncatedMean(digest, 1.0, 1.0).has_value());
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.01, 0.99).value(),
+      5.5,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.99).value(),
+      5.45,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.01, 1.0).value(),
+      5.55,
+      kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanInvalidInputs) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  for (int i = 1; i <= 5; i++) {
+    digest.add(i, 1.0);
+  }
+
+  // Test invalid quantile ranges
+  VELOX_ASSERT_THROW(
+      getTruncatedMean(digest, -0.1, 0.5),
+      "lowerQuantileBound must be between 0 and 1");
+  VELOX_ASSERT_THROW(
+      getTruncatedMean(digest, 0.5, 1.1),
+      "upperQuantileBound must be between 0 and 1");
+
+  // Test equal bounds - should return null
+  EXPECT_FALSE(getTruncatedMean(digest, 0.6, 0.6).has_value());
+  EXPECT_FALSE(getTruncatedMean(digest, 0.6, 0.4).has_value());
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanFloatingPointPrecision) {
+  QuantileDigest<double> digest{StlAllocator<double>(allocator()), 0.01};
+
+  // Add some very small and very large values
+  digest.add(1e-10, 1.0);
+  digest.add(1e-5, 1.0);
+  digest.add(1.0, 1.0);
+  digest.add(1e5, 1.0);
+  digest.add(1e10, 1.0);
+
+  // Test that truncated mean handles large ranges correctly
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.6).value(),
+      (1e-10 + 1e-5 + 1.0) / 3.0,
+      1e-10);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.4, 1.0).value(),
+      (1.0 + 1e5 + 1e10) / 3.0,
+      1e5);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanSkew) {
+  QuantileDigest<int64_t> digest{StlAllocator<int64_t>(allocator()), 0.01};
+  std::vector<int64_t> vals = {1, 1, 1, 1, 1, 2,  2,   2,   2,   2,
+                               3, 3, 3, 3, 3, 50, 100, 200, 400, 1000};
+  for (auto val : vals) {
+    digest.add(val, 1.0);
+  }
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.75).value(),
+      2.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.8).value(),
+      80.0 / 16.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.85).value(),
+      180.0 / 17.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.9).value(),
+      380.0 / 18.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.95).value(),
+      780.0 / 19.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.99).value(),
+      1580.0 / 19.8,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 1.0).value(),
+      1780.0 / 20.0,
+      kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanDoubleSkew) {
+  QuantileDigest<double> digest{StlAllocator<double>(allocator()), 0.01};
+  std::vector<double> vals = {
+      0.2, 0.2, 0.2, 0.2, 0.2, 5.0, 10.5, 50.5, 99.5, 9999.5};
+  for (auto val : vals) {
+    digest.add(val, 1.0);
+  }
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.6).value(),
+      6.0 / 6,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.8).value(),
+      67.0 / 8,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.9).value(),
+      166.5 / 9,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 1.0).value(),
+      10166.0 / 10,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.5, 1.0).value(),
+      10165.0 / 5,
+      kTruncatedMeanTolerance);
+}
+
+TEST_F(QuantileDigestTest, truncatedMeanDoubleSigned) {
+  QuantileDigest<double> digest{StlAllocator<double>(allocator()), 0.01};
+  std::vector<double> vals = {-2.5, -0.5, 0.0, 0.5, 2.5};
+  for (auto val : vals) {
+    digest.add(val, 1.0);
+  }
+
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.0, 0.6).value(),
+      -1.0,
+      kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.2, 0.8).value(), 0.0, kTruncatedMeanTolerance);
+  EXPECT_NEAR(
+      getTruncatedMean(digest, 0.4, 1.0).value(), 1.0, kTruncatedMeanTolerance);
 }
 
 } // namespace facebook::velox::functions
