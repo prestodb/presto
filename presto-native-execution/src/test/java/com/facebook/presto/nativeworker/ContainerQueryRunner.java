@@ -151,7 +151,6 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
-        ContainerQueryRunnerUtils.createNativeWorkerVeloxProperties(nodeId);
         return new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
                 .withNetwork(network)
