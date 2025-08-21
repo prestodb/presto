@@ -114,6 +114,19 @@ group "ubuntu-arm64" {
   targets = []
 }
 
+group "fedora-arm64" {
+  # We don't actually want to build the fedora arm image, this is a trick to simplify CI
+  # Empty targets don't fail the build.
+  targets = []
+}
+
+target "fedora-amd64" {
+  inherits   = ["base", "fedora"]
+  dockerfile = "scripts/docker/fedora.dockerfile"
+  cache-to   = cache-to-arch("fedora", "amd64")
+  cache-from = cache-from-arch("fedora", "amd64")
+}
+
 group "java" {
   # The main work is in the well cached download steps and the shared base stage,
   # so these can easily be run on the same node in ci

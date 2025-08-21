@@ -50,7 +50,7 @@ jobs:
         os:
           - {runner: ubuntu-24.04-arm, platform: arm64}
           - {runner: ubuntu-24.04, platform: amd64}
-        target: [ci, pyvelox, ubuntu]
+        target: [ci, pyvelox, ubuntu, fedora]
 
     steps:
       - name: Free Disk Space
@@ -107,7 +107,7 @@ jobs:
           cd "$DIGEST_DIR" || exit 1
           # Add the target for any images that shouldn't be build as multi-platform
           # into the skip list
-          echo "$METADATA" | jq -r 'def skip: ["ubuntu"];
+          echo "$METADATA" | jq -r 'def skip: ["ubuntu", "fedora"];
             . | to_entries[] | .key | split("-")[0] |
             if . as $name | skip | index($name) != null then empty else . end' | \
             while read -r image_name; do

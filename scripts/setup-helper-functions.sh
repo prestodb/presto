@@ -232,7 +232,7 @@ function wget_and_untar {
   # Use ${VAR:+"$VAR"} pattern to only include CURL_OPTIONS if it's not empty
   # as curl >=8.6.0 rejects empty arguments
   curl ${CURL_OPTIONS:+${CURL_OPTIONS}} -L "${URL}" -o "$2".tar.gz
-  tar -xz --strip-components=1 -f "$2".tar.gz
+  tar -xz --strip-components=1 --no-same-owner -f "$2".tar.gz
   popd || exit
   popd || exit
 }

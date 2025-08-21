@@ -422,11 +422,15 @@ TEST_F(FlatMapVectorTest, sortedKeyIndices) {
 
 TEST_F(FlatMapVectorTest, toString) {
   auto vector = maker_.flatMapVectorNullable<int64_t, int64_t>({
-      {{}},
-      {std::nullopt},
-      {{{1, 0}}},
-      {{{1, 1}, {2, std::nullopt}}},
-      {{{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}}},
+      std::optional{std::vector<std::pair<int64_t, std::optional<int64_t>>>{}},
+      std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>>{
+          std::nullopt},
+      std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>>{
+          {{1, {0}}}},
+      std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>>{
+          {{1, {1}}, {2, {std::nullopt}}}},
+      std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>>{
+          {{0, {0}}, {1, {1}}, {2, {2}}, {3, {3}}, {4, {4}}, {5, {5}}}},
   });
 
   EXPECT_EQ(

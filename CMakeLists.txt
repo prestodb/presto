@@ -408,6 +408,10 @@ if(ENABLE_ALL_WARNINGS)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "12.2.1")
       string(APPEND KNOWN_COMPILER_SPECIFIC_WARNINGS " -Wno-restrict")
     endif()
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.0.0")
+      string(APPEND KNOWN_COMPILER_SPECIFIC_WARNINGS
+             " -Wno-error=template-id-cdtor")
+    endif()
   endif()
 
   set(KNOWN_WARNINGS
