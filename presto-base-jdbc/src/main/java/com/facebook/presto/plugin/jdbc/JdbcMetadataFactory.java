@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import jakarta.inject.Inject;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

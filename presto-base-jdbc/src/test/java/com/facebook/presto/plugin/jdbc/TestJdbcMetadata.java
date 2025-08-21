@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -299,7 +299,7 @@ public class TestJdbcMetadata
         };
 
         // Create JdbcMetadata with the custom provider
-        JdbcMetadata customMetadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, customProvider);
+        JdbcMetadata customMetadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, customProvider, FUNCTION_AND_TYPE_MANAGER);
 
         // Verify that the metadata can be created and basic operations work
         JdbcTableHandle customTableHandle = customMetadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
