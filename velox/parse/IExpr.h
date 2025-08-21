@@ -20,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::core {
@@ -30,7 +31,7 @@ using ExprPtr = std::shared_ptr<const IExpr>;
 /// An implicitly-typed expression, such as function call, literal, etc.
 class IExpr {
  public:
-  enum class Kind : int32_t {
+  enum class Kind : int8_t {
     kInput = 0,
     kFieldAccess = 1,
     kCall = 2,
@@ -83,7 +84,28 @@ class IExpr {
 
   virtual ExprPtr replaceInputs(std::vector<ExprPtr> newInputs) const = 0;
 
+  size_t hash() const {
+    size_t hash = localHash();
+    for (size_t i = 0; i < inputs_.size(); ++i) {
+      hash = bits::hashMix(hash, inputs_[i]->hash());
+    }
+
+    if (alias_.has_value()) {
+      hash = bits::hashMix(hash, std::hash<std::string>{}(alias_.value()));
+    }
+
+    hash = bits::hashMix(hash, std::hash<int8_t>{}(static_cast<int8_t>(kind_)));
+
+    return hash;
+  }
+
+  virtual bool operator==(const IExpr& other) const = 0;
+
  protected:
+  // Returns a hash that include values specific to the expression. Doesn't
+  // include inputs, kind or alias.
+  virtual size_t localHash() const = 0;
+
   std::string appendAliasIfExists(std::string name) const {
     if (!alias_.has_value()) {
       return name;
@@ -92,9 +114,38 @@ class IExpr {
     return fmt::format("{} AS {}", std::move(name), alias_.value());
   }
 
+  bool compareAliasAndInputs(const IExpr& other) const {
+    if (alias() != other.alias() || inputs().size() != other.inputs().size()) {
+      return false;
+    }
+
+    for (size_t i = 0; i < inputs().size(); ++i) {
+      if (!(*inputs()[i] == *other.inputs()[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   const Kind kind_;
   const std::vector<ExprPtr> inputs_;
   const std::optional<std::string> alias_;
+};
+
+/// Hash functor for IExpr to use with folly::F14HashMap and other hash
+/// containers. This functor can be used with ExprPtr keys.
+struct IExprHash {
+  size_t operator()(const ExprPtr& expr) const {
+    return expr->hash();
+  }
+};
+
+/// Equal functor for IExpr to use with folly::F14HashMap and other hash
+/// containers. This functor can be used with ExprPtr keys.
+struct IExprEqual {
+  bool operator()(const ExprPtr& lhs, const ExprPtr& rhs) const {
+    return *lhs == *rhs;
+  }
 };
 
 } // namespace facebook::velox::core

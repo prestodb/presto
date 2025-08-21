@@ -17,8 +17,20 @@
 
 namespace facebook::velox::core {
 
-namespace {
+bool FieldAccessExpr::operator==(const IExpr& other) const {
+  if (!other.is(Kind::kFieldAccess)) {
+    return false;
+  }
 
+  auto* otherField = other.as<FieldAccessExpr>();
+  return name_ == otherField->name_ && compareAliasAndInputs(other);
+}
+
+size_t FieldAccessExpr::localHash() const {
+  return std::hash<std::string>{}(name_);
+}
+
+namespace {
 std::string escapeName(const std::string& name) {
   return folly::cEscape<std::string>(name);
 }
@@ -31,6 +43,19 @@ std::string FieldAccessExpr::toString() const {
 
   return appendAliasIfExists(
       fmt::format("dot({},\"{}\")", input()->toString(), escapeName(name_)));
+}
+
+bool CallExpr::operator==(const IExpr& other) const {
+  if (!other.is(Kind::kCall)) {
+    return false;
+  }
+
+  auto* otherCall = other.as<CallExpr>();
+  return name_ == otherCall->name_ && compareAliasAndInputs(other);
+}
+
+size_t CallExpr::localHash() const {
+  return std::hash<std::string>{}(name_);
 }
 
 std::string CallExpr::toString() const {
@@ -47,13 +72,58 @@ std::string CallExpr::toString() const {
   return appendAliasIfExists(buf);
 }
 
+bool CastExpr::operator==(const IExpr& other) const {
+  if (!other.is(Kind::kCast)) {
+    return false;
+  }
+
+  auto* otherCast = other.as<CastExpr>();
+  return *type_ == (*otherCast->type_) && isTryCast_ == otherCast->isTryCast_ &&
+      compareAliasAndInputs(other);
+}
+
+size_t CastExpr::localHash() const {
+  return bits::hashMix(type_->hashKind(), std::hash<bool>{}(isTryCast_));
+}
+
 std::string CastExpr::toString() const {
   return appendAliasIfExists(
       "cast(" + input()->toString() + " as " + type_->toString() + ")");
 }
 
+bool ConstantExpr::operator==(const IExpr& other) const {
+  if (!other.is(Kind::kConstant)) {
+    return false;
+  }
+
+  auto* otherConstant = other.as<ConstantExpr>();
+  return *type_ == (*otherConstant->type_) && value_ == otherConstant->value_ &&
+      compareAliasAndInputs(other);
+}
+
+size_t ConstantExpr::localHash() const {
+  return bits::hashMix(type_->hashKind(), value_.hash());
+}
+
 std::string ConstantExpr::toString() const {
   return appendAliasIfExists(value_.toStringAsVector(type_));
+}
+
+bool LambdaExpr::operator==(const IExpr& other) const {
+  if (!other.is(Kind::kLambda)) {
+    return false;
+  }
+
+  auto* otherLambda = other.as<LambdaExpr>();
+  return arguments_ == otherLambda->arguments_ && *body_ == *otherLambda->body_;
+}
+
+size_t LambdaExpr::localHash() const {
+  size_t hash = 0;
+  for (const auto& arg : arguments_) {
+    hash = bits::hashMix(hash, std::hash<std::string>{}(arg));
+  }
+  return bits::hashMix(hash, body_->hash());
 }
 
 std::string LambdaExpr::toString() const {

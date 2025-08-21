@@ -33,18 +33,26 @@ class InputExpr : public IExpr {
     return std::make_shared<InputExpr>();
   }
 
+  bool operator==(const IExpr& other) const override {
+    return other.is(Kind::kInput);
+  }
+
+  size_t localHash() const override {
+    return 0;
+  }
+
   VELOX_DEFINE_CLASS_NAME(InputExpr)
 };
 
 class FieldAccessExpr : public IExpr {
  public:
   FieldAccessExpr(
-      const std::string& name,
+      std::string name,
       std::optional<std::string> alias,
       std::vector<ExprPtr>&& inputs =
           std::vector<ExprPtr>{std::make_shared<const InputExpr>()})
       : IExpr{IExpr::Kind::kFieldAccess, std::move(inputs), std::move(alias)},
-        name_{name} {
+        name_{std::move(name)} {
     VELOX_USER_CHECK_EQ(IExpr::inputs().size(), 1);
   }
 
@@ -53,7 +61,7 @@ class FieldAccessExpr : public IExpr {
   }
 
   bool isRootColumn() const {
-    return dynamic_cast<const InputExpr*>(input().get()) != nullptr;
+    return input()->is(Kind::kInput);
   }
 
   std::string toString() const override;
@@ -63,6 +71,10 @@ class FieldAccessExpr : public IExpr {
     return std::make_shared<FieldAccessExpr>(
         name_, alias(), std::move(newInputs));
   }
+
+  bool operator==(const IExpr& other) const override;
+
+  size_t localHash() const override;
 
   VELOX_DEFINE_CLASS_NAME(FieldAccessExpr)
 
@@ -93,6 +105,10 @@ class CallExpr : public IExpr {
         folly::copy(name()), std::move(newInputs), alias());
   }
 
+  bool operator==(const IExpr& other) const override;
+
+  size_t localHash() const override;
+
   VELOX_DEFINE_CLASS_NAME(CallExpr)
 
  private:
@@ -121,6 +137,10 @@ class ConstantExpr : public IExpr,
     VELOX_CHECK_EQ(newInputs.size(), 0);
     return std::make_shared<ConstantExpr>(type(), value(), alias());
   }
+
+  bool operator==(const IExpr& other) const override;
+
+  size_t localHash() const override;
 
   VELOX_DEFINE_CLASS_NAME(ConstantExpr)
 
@@ -155,6 +175,10 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
     return std::make_shared<CastExpr>(
         type(), newInputs[0], isTryCast_, alias());
   }
+
+  bool operator==(const IExpr& other) const override;
+
+  size_t localHash() const override;
 
   VELOX_DEFINE_CLASS_NAME(CastExpr)
 
@@ -191,6 +215,12 @@ class LambdaExpr : public IExpr,
   }
 
   std::string toString() const override;
+
+  bool operator==(const IExpr& other) const override;
+
+  size_t localHash() const override;
+
+  VELOX_DEFINE_CLASS_NAME(LambdaExpr)
 
  private:
   const std::vector<std::string> arguments_;
