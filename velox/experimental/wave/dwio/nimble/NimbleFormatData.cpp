@@ -115,9 +115,6 @@ void NimbleFormatData::startOp(
       auto offset = encoding == &rootEncoding ? offsets_[i] : 0;
       int32_t numBlocks =
           bits::roundUp(encoding->numValues(), rowsPerBlock) / rowsPerBlock;
-      if (numBlocks > program.programs.size()) {
-        program.programs.resize(numBlocks);
-      }
       if (numBlocks > 1) {
         VELOX_CHECK(griddized_);
       }
@@ -133,13 +130,22 @@ void NimbleFormatData::startOp(
             rootEncoding,
             blockIdx,
             offset);
-        if (step) {
+        if (!step) {
+          continue;
+        }
+        newSteps = true;
+        bool processFilter = step->filterKind != WaveFilterKind::kAlwaysTrue;
+        // To process filters in a cascading way, we must make sure the same
+        // thread block always process the same set of rows.
+        bool serialDispatch = processFilter && previousFilter;
+        if (serialDispatch) {
           program.programs[blockIdx].push_back(std::move(step));
-          newSteps = true;
+        } else {
+          program.programs.emplace_back();
+          program.programs.back().push_back(std::move(step));
         }
       }
     }
-
     op.isFinal &= pipeline.finished();
   }
 
@@ -182,6 +188,10 @@ void NimbleFormatData::startOp(
           filterEncoding,
           blockIdx,
           0);
+      // Multiple filters may be processed together in a cascading way, so we
+      // must make sure the same physical thread block always process the same
+      // set of rows across all columns that bear a filter in order to avoid
+      // dependency between thread blocks.
       program.programs[blockIdx].push_back(std::move(step));
     }
   }
