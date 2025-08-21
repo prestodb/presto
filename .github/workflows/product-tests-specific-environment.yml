@@ -82,7 +82,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         env:
           OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
-        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g create_table,storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
       - name: Product Tests Specific 1.5
         if: needs.changes.outputs.codechange == 'true'
         env:
