@@ -29,7 +29,7 @@ import {
     truncateString
 } from "../utils";
 
-function getHumanReadableStateFromInfo(query) {
+const getHumanReadableStateFromInfo = (query) => {
     const progress = query.progress;
     return getHumanReadableState(
         query.queryState,
@@ -40,10 +40,10 @@ function getHumanReadableStateFromInfo(query) {
         query.errorCode ? query.errorCode.type : null,
         query.errorCode ? query.errorCode.name : null
     );
-}
+};
 
 
-function ResourceGroupLinks({groupId, length=35}) {
+const ResourceGroupLinks = ({groupId, length=35}) => {
     if (!groupId?.length) return ('n/a');
 
     let previousLen = 0;
@@ -68,249 +68,246 @@ function ResourceGroupLinks({groupId, length=35}) {
     return (
         <>{links}</>
     );
-}
+};
 
-export class QueryListItem extends React.Component {
-    static stripQueryTextWhitespace(queryText, isTruncated) {
-        const lines = queryText.split("\n");
-        let minLeadingWhitespace = -1;
-        for (let i = 0; i < lines.length; i++) {
-            if (minLeadingWhitespace === 0) {
+// Helper function moved outside component
+const stripQueryTextWhitespace = (queryText, isTruncated) => {
+    const lines = queryText.split("\n");
+    let minLeadingWhitespace = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (minLeadingWhitespace === 0) {
+            break;
+        }
+
+        if (lines[i].trim().length === 0) {
+            continue;
+        }
+
+        const leadingWhitespace = lines[i].search(/\S/);
+
+        if (leadingWhitespace > -1 && ((leadingWhitespace < minLeadingWhitespace) || minLeadingWhitespace === -1)) {
+            minLeadingWhitespace = leadingWhitespace;
+        }
+    }
+
+    const maxLines = 7;
+    const maxQueryLength = 300;
+    const maxWidthPerLine = 75;
+    let lineCount = 0;
+    let formattedQueryText = "";
+
+    for (let i = 0; i < lines.length; i++) {
+        const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '');
+        lineCount += Math.ceil(trimmedLine.length / maxWidthPerLine);
+
+        if (trimmedLine.length > 0) {
+            formattedQueryText += trimmedLine;
+
+            if (formattedQueryText.length > maxQueryLength) {
                 break;
             }
 
-            if (lines[i].trim().length === 0) {
-                continue;
+            if (lineCount >= maxLines) {
+                return formattedQueryText + "...";
             }
 
-            const leadingWhitespace = lines[i].search(/\S/);
-
-            if (leadingWhitespace > -1 && ((leadingWhitespace < minLeadingWhitespace) || minLeadingWhitespace === -1)) {
-                minLeadingWhitespace = leadingWhitespace;
+            if (i < (lines.length - 1)) {
+                formattedQueryText += "\n";
             }
         }
-
-        const maxLines = 7;
-        const maxQueryLength = 300;
-        const maxWidthPerLine = 75;
-        let lineCount = 0;
-        let formattedQueryText = "";
-
-        for (let i = 0; i < lines.length; i++) {
-            const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '');
-            lineCount += Math.ceil(trimmedLine.length / maxWidthPerLine);
-
-            if (trimmedLine.length > 0) {
-                formattedQueryText += trimmedLine;
-
-                if (formattedQueryText.length > maxQueryLength) {
-                    break;
-                }
-
-                if (lineCount >= maxLines) {
-                    return formattedQueryText + "...";
-                }
-
-                if (i < (lines.length - 1)) {
-                    formattedQueryText += "\n";
-                }
-            }
-        }
-
-        return isTruncated ? formattedQueryText + "..." : truncateString(formattedQueryText, maxQueryLength);
     }
 
-    renderWarning() {
-        const query = this.props.query;
+    return isTruncated ? formattedQueryText + "..." : truncateString(formattedQueryText, maxQueryLength);
+};
+
+export const QueryListItem = ({ query }) => {
+    const renderWarning = () => {
         if (query.warningCodes && query.warningCodes.length) {
             return (
                 <span className="bi bi-exclamation-triangle" data-bs-toggle="tooltip" title={query.warningCodes.join(', ')}/>
             );
         }
+    };
+
+    const queryStateColor = getQueryStateColor(
+        query.queryState,
+        query.progress && query.progress.blocked,
+        query.errorCode ? query.errorCode.type : null,
+        query.errorCode ? query.errorCode.name : null
+    );
+    const progressPercentage = getProgressBarPercentage(query.progress.progressPercentage, query.queryState);
+    const progressBarStyle = {width: progressPercentage + "%", backgroundColor: queryStateColor};
+    const humanReadableState = getHumanReadableStateFromInfo(query);
+    const progressBarTitle = getProgressBarTitle(query.progress.progressPercentage, query.queryState, humanReadableState);
+
+    const driverDetails = (
+        <div className="col-12 tinystat-row">
+             <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
+                 <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                 {formatCount(query.progress.completedDrivers)}
+             </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
+                 <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
+             </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
+                 <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
+                 </span>
+        </div>);
+
+    const newDriverDetails = (
+        <div className="col-12 tinystat-row">
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed drivers">
+                <span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatCount(query.progress.completedNewDrivers)}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running drivers">
+                <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningNewDrivers}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued drivers">
+                <span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedNewDrivers}
+                </span>
+        </div>);
+
+    const splitDetails = (
+        <div className="col-12 tinystat-row">
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
+                <span className="bi bi-check-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatCount(query.progress.completedSplits)}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
+                <span className="bi bi-play-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningSplits}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
+                <span className="bi bi-pause-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedSplits}
+                </span>
+        </div>);
+
+    const timingDetails = (
+        <div className="col-12 tinystat-row">
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Wall time spent executing the query (not including queued time)">
+                <span className="bi bi-hourglass-split" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatDuration(query.progress.executionTimeMillis)}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Total query wall time">
+                <span className="bi bi-clock" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatDuration(query.progress.elapsedTimeMillis)}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="CPU time spent by this query">
+                <span className="bi bi-speedometer2" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatDuration(query.progress.cpuTimeMillis)}
+            </span>
+        </div>);
+
+    const memoryDetails = (
+        <div className="col-12 tinystat-row">
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Current reserved memory">
+                <span className="bi bi-calendar2-event" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatDataSize(query.progress.currentMemoryBytes)}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Peak memory">
+                <span className="bi bi-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatDataSize(query.progress.peakMemoryBytes)}
+            </span>
+            <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Cumulative user memory">
+                <span className="bi bi-reception-3" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                {formatDataSizeBytes(query.progress.cumulativeUserMemory / 1000.0)}
+            </span>
+        </div>);
+
+    let user = (<span>{truncateString(query.user, 35)}</span>);
+    if (query.authenticated) {
+        user = (
+            <span>{truncateString(query.user, 35)}</span>
+        );
     }
 
-    render() {
-        const query = this.props.query;
-        const queryStateColor = getQueryStateColor(
-            query.queryState,
-            query.progress && query.progress.blocked,
-            query.errorCode ? query.errorCode.type : null,
-            query.errorCode ? query.errorCode.name : null
-        );
-        const progressPercentage = getProgressBarPercentage(query.progress.progressPercentage, query.queryState);
-        const progressBarStyle = {width: progressPercentage + "%", backgroundColor: queryStateColor};
-        const humanReadableState = getHumanReadableStateFromInfo(query);
-        const progressBarTitle = getProgressBarTitle(query.progress.progressPercentage, query.queryState, humanReadableState);
-
-        const driverDetails = (
-            <div className="col-12 tinystat-row">
-                 <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
-                     <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                     {formatCount(query.progress.completedDrivers)}
-                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
-                     <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
-                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
-                     <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
-                     </span>
-            </div>);
-
-        const newDriverDetails = (
-            <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed drivers">
-                    <span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatCount(query.progress.completedNewDrivers)}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running drivers">
-                    <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningNewDrivers}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued drivers">
-                    <span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedNewDrivers}
-                    </span>
-            </div>);
-
-        const splitDetails = (
-            <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
-                    <span className="bi bi-check-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatCount(query.progress.completedSplits)}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
-                    <span className="bi bi-play-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningSplits}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
-                    <span className="bi bi-pause-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedSplits}
-                    </span>
-            </div>);
-
-        const timingDetails = (
-            <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Wall time spent executing the query (not including queued time)">
-                    <span className="bi bi-hourglass-split" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDuration(query.progress.executionTimeMillis)}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Total query wall time">
-                    <span className="bi bi-clock" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDuration(query.progress.elapsedTimeMillis)}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="CPU time spent by this query">
-                    <span className="bi bi-speedometer2" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDuration(query.progress.cpuTimeMillis)}
-                </span>
-            </div>);
-
-        const memoryDetails = (
-            <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Current reserved memory">
-                    <span className="bi bi-calendar2-event" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSize(query.progress.currentMemoryBytes)}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Peak memory">
-                    <span className="bi bi-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSize(query.progress.peakMemoryBytes)}
-                </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Cumulative user memory">
-                    <span className="bi bi-reception-3" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSizeBytes(query.progress.cumulativeUserMemory / 1000.0)}
-                </span>
-            </div>);
-
-        let user = (<span>{truncateString(query.user, 35)}</span>);
-        if (query.authenticated) {
-            user = (
-                <span>{truncateString(query.user, 35)}</span>
-            );
-        }
-
-        return (
-            <div className="query">
-                <div className="row">
-                    <div className="col-4">
-                        <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-9" data-bs-placement="bottom">
-                                <a href={"query.html?" + query.queryId} target="_blank" data-bs-toggle="tooltip" data-trigger="hover" title="Query ID">{query.queryId}</a>
-                                {this.renderWarning()}
-                            </div>
-                            <div className="col-3 query-header-timestamp" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Submit time">
-                                <span>{formatShortTime(new Date(Date.parse(query.createTime)))}</span>
-                            </div>
+    return (
+        <div className="query">
+            <div className="row">
+                <div className="col-4">
+                    <div className="row stat-row query-header query-header-queryid">
+                        <div className="col-9" data-bs-placement="bottom">
+                            <a href={"query.html?" + query.queryId} target="_blank" data-bs-toggle="tooltip" data-trigger="hover" title="Query ID">{query.queryId}</a>
+                            {renderWarning()}
                         </div>
-                        <div className="row stat-row">
-                            <div className="col-12">
-                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="User">
-                                    <span className="bi bi-person-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{user}</span>
-                                </span>
-                            </div>
-                        </div>
-                        <div className="row stat-row">
-                            <div className="col-12">
-                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Source">
-                                    <span className="bi bi-arrow-right-square-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{truncateString(query.source, 35)}</span>
-                                </span>
-                            </div>
-                        </div>
-                        <div className="row stat-row">
-                            <div className="col-12">
-                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Resource Group">
-                                    <span className="bi bi-sign-merge-left-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>
-                                        <ResourceGroupLinks groupId={query.resourceGroupId} length="35"/>
-                                    </span>
-                                </span>
-                            </div>
-                        </div>
-
-                        { query.progress.completedSplits ?
-                            <>
-                                <div className="row stat-row">
-                                    {newDriverDetails}
-                                </div>
-                                <div className="row stat-row">
-                                    {splitDetails}
-                                </div>
-                            </> :
-                            <div className="row stat-row">
-                                {driverDetails}
-                            </div>
-                        }
-                        <div className="row stat-row">
-                            {timingDetails}
-                        </div>
-                        <div className="row stat-row">
-                            {memoryDetails}
+                        <div className="col-3 query-header-timestamp" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Submit time">
+                            <span>{formatShortTime(new Date(Date.parse(query.createTime)))}</span>
                         </div>
                     </div>
-                    <div className="col-8">
-                        <div className="row query-header">
-                            <div className="col-12 query-progress-container">
-                                <div className="progress rounded-0">
-                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin="0"
-                                         aria-valuemax="100" style={progressBarStyle}>
-                                        {progressBarTitle}
-                                    </div>
+                    <div className="row stat-row">
+                        <div className="col-12">
+                            <span data-bs-toggle="tooltip" data-bs-placement="right" title="User">
+                                <span className="bi bi-person-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                <span>{user}</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div className="row stat-row">
+                        <div className="col-12">
+                            <span data-bs-toggle="tooltip" data-bs-placement="right" title="Source">
+                                <span className="bi bi-arrow-right-square-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                <span>{truncateString(query.source, 35)}</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div className="row stat-row">
+                        <div className="col-12">
+                            <span data-bs-toggle="tooltip" data-bs-placement="right" title="Resource Group">
+                                <span className="bi bi-sign-merge-left-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                <span>
+                                    <ResourceGroupLinks groupId={query.resourceGroupId} length="35"/>
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+
+                    { query.progress.completedSplits ?
+                        <>
+                            <div className="row stat-row">
+                                {newDriverDetails}
+                            </div>
+                            <div className="row stat-row">
+                                {splitDetails}
+                            </div>
+                        </> :
+                        <div className="row stat-row">
+                            {driverDetails}
+                        </div>
+                    }
+                    <div className="row stat-row">
+                        {timingDetails}
+                    </div>
+                    <div className="row stat-row">
+                        {memoryDetails}
+                    </div>
+                </div>
+                <div className="col-8">
+                    <div className="row query-header">
+                        <div className="col-12 query-progress-container">
+                            <div className="progress rounded-0">
+                                <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin="0"
+                                     aria-valuemax="100" style={progressBarStyle}>
+                                    {progressBarTitle}
                                 </div>
                             </div>
                         </div>
-                        <div className="row query-row-bottom">
-                            <div className="col-12">
-                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query, query.queryTruncated)}</code></pre>
-                            </div>
+                    </div>
+                    <div className="row query-row-bottom">
+                        <div className="col-12">
+                            <pre className="query-snippet"><code className="sql">{stripQueryTextWhitespace(query.query, query.queryTruncated)}</code></pre>
                         </div>
                     </div>
                 </div>
             </div>
-        );
-    }
-}
+        </div>
+    );
+};
 
 class DisplayedQueriesList extends React.Component {
     render() {
