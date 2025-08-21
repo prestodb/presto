@@ -30,12 +30,36 @@ using ExprPtr = std::shared_ptr<const IExpr>;
 /// An implicitly-typed expression, such as function call, literal, etc.
 class IExpr {
  public:
+  enum class Kind : int32_t {
+    kInput = 0,
+    kFieldAccess = 1,
+    kCall = 2,
+    kCast = 3,
+    kConstant = 4,
+    kLambda = 5,
+    kSubquery = 6,
+  };
+
   explicit IExpr(
+      Kind kind,
       std::vector<ExprPtr> inputs,
       std::optional<std::string> alias = std::nullopt)
-      : inputs_{std::move(inputs)}, alias_{std::move(alias)} {}
+      : kind_{kind}, inputs_{std::move(inputs)}, alias_{std::move(alias)} {}
 
   virtual ~IExpr() = default;
+
+  Kind kind() const {
+    return kind_;
+  }
+
+  bool is(Kind kind) const {
+    return kind_ == kind;
+  }
+
+  template <typename T>
+  const T* as() const {
+    return dynamic_cast<const T*>(this);
+  }
 
   const std::vector<ExprPtr>& inputs() const {
     return inputs_;
@@ -57,6 +81,8 @@ class IExpr {
 
   virtual std::string toString() const = 0;
 
+  virtual ExprPtr replaceInputs(std::vector<ExprPtr> newInputs) const = 0;
+
  protected:
   std::string appendAliasIfExists(std::string name) const {
     if (!alias_.has_value()) {
@@ -66,6 +92,7 @@ class IExpr {
     return fmt::format("{} AS {}", std::move(name), alias_.value());
   }
 
+  const Kind kind_;
   const std::vector<ExprPtr> inputs_;
   const std::optional<std::string> alias_;
 };
