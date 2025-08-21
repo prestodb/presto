@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
@@ -37,73 +37,69 @@ function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall)
 }
 
-class OperatorSummary extends React.Component {
-    render() {
-        const operator = this.props.operator;
+const OperatorSummary = ({ operator }) => {
+    const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
 
-        const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
+    const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
-        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
-        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
-
-        return (
-            <div className="header-data">
-                <div className="highlight-row">
-                    <div className="header-row">
-                        {operator.operatorType}
-                    </div>
-                    <div>
-                        {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
-                    </div>
+    return (
+        <div className="header-data">
+            <div className="highlight-row">
+                <div className="header-row">
+                    {operator.operatorType}
                 </div>
-                <table className="table">
-                    <tbody>
-                    <tr>
-                        <td>
-                            Output
-                        </td>
-                        <td>
-                            {formatCount(operator.outputPositions) + " rows (" + formatDataSize(operator.outputDataSizeInBytes) + ")"}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Drivers
-                        </td>
-                        <td>
-                            {operator.totalDrivers}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Wall Time
-                        </td>
-                        <td>
-                            {formatDuration(totalWallTime)}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Blocked
-                        </td>
-                        <td>
-                            {formatDuration(parseDuration(operator.blockedWall))}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Input
-                        </td>
-                        <td>
-                            {formatCount(operator.inputPositions) + " rows (" + formatDataSize(operator.inputDataSizeInBytes) + ")"}
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+                <div>
+                    {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
+                </div>
             </div>
-        );
-    }
-}
+            <table className="table">
+                <tbody>
+                <tr>
+                    <td>
+                        Output
+                    </td>
+                    <td>
+                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Drivers
+                    </td>
+                    <td>
+                        {operator.totalDrivers}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Wall Time
+                    </td>
+                    <td>
+                        {formatDuration(totalWallTime)}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Blocked
+                    </td>
+                    <td>
+                        {formatDuration(parseDuration(operator.blockedWall))}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Input
+                    </td>
+                    <td>
+                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    );
+};
 
 const BAR_CHART_PROPERTIES = {
     type: 'bar',
@@ -117,9 +113,9 @@ const BAR_CHART_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-function OperatorStatistic({ id, name, operators, supplier, renderer }) {
+const OperatorStatistic = ({ id, name, operators, supplier, renderer }) => {
 
-    React.useEffect(() => {
+    useEffect(() => {
         const statistic = operators.map(supplier);
         const numTasks = operators.length;
 
@@ -143,9 +139,9 @@ function OperatorStatistic({ id, name, operators, supplier, renderer }) {
             </div>
         </div>
     );
-}
+};
 
-function OperatorDetail({ index, operator, tasks }) {
+const OperatorDetail = ({ index, operator, tasks }) => {
     const selectedStatistics = [
         {
             name: "Total Wall Time",
@@ -331,24 +327,15 @@ function OperatorDetail({ index, operator, tasks }) {
             </div>
         </div>
     );
-}
+};
 
-class StageOperatorGraph extends React.Component {
-    componentDidMount() {
-        this.updateD3Graph();
-    }
-
-    componentDidUpdate() {
-        this.updateD3Graph();
-    }
-
-    handleOperatorClick(event) {
+const StageOperatorGraph = ({ stage }) => {
+    const handleOperatorClick = useCallback((event) => {
         if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
             $('#operator-detail-modal').modal("show")
 
             const pipelineId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[1] || '0') : 0;
             const operatorId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[2] || '0') : 0;
-            const stage = this.props.stage;
 
             let operatorStageSummary = null;
             const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
@@ -360,14 +347,12 @@ class StageOperatorGraph extends React.Component {
             const container = document.getElementById('operator-detail');
             const root = createRoot(container);
             root.render(<OperatorDetail key={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
-        } else {
-            return;
         }
-    }
+    }, [stage]);
 
-    computeOperatorGraphs() {
+    const computeOperatorGraphs = useCallback(() => {
         const pipelineOperators = new Map();
-        this.props.stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
+        stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
             if (!pipelineOperators.has(operator.pipelineId)) {
                 pipelineOperators.set(operator.pipelineId, []);
             }
@@ -392,17 +377,15 @@ class StageOperatorGraph extends React.Component {
         });
 
         return result;
-    }
+    }, [stage]);
 
-    computeD3StageOperatorGraph(graph, operator, sink, pipelineNode) {
+    const computeD3StageOperatorGraph = useCallback((graph, operator, sink, pipelineNode) => {
         const operatorNodeId = "operator-" + operator.pipelineId + "-" + operator.operatorId;
-
-        // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
         const html = ReactDOMServer.renderToString(<OperatorSummary key={operator.pipelineId + "-" + operator.operatorId} operator={operator}/>);
         graph.setNode(operatorNodeId, {class: "operator-stats", label: html, labelType: "html"});
 
         if (operator.hasOwnProperty("child")) {
-            this.computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode);
+            computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode);
         }
 
         if (sink !== null) {
@@ -410,20 +393,20 @@ class StageOperatorGraph extends React.Component {
         }
 
         graph.setParent(operatorNodeId, pipelineNode);
-    }
+    }, [/* static */]);
 
-    updateD3Graph() {
-        if (!this.props.stage) {
+    const updateD3Graph = useCallback(() => {
+        if (!stage) {
             return;
         }
 
-        const operatorGraphs = this.computeOperatorGraphs();
+        const operatorGraphs = computeOperatorGraphs();
 
         const graph = initializeGraph();
         operatorGraphs.forEach((operator, pipelineId) => {
             const pipelineNodeId = "pipeline-" + pipelineId;
             graph.setNode(pipelineNodeId, {label: "Pipeline " + pipelineId + " ", clusterLabelPos: 'top', style: 'fill: #2b2b2b', labelStyle: 'fill: #fff'});
-            this.computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
+            computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
         });
 
         $("#operator-canvas").html("");
@@ -434,40 +417,40 @@ class StageOperatorGraph extends React.Component {
             const render = new dagreD3.render();
             render(d3.select("#operator-canvas g"), graph);
 
-            svg.selectAll("g.operator-stats").on("click", this.handleOperatorClick.bind(this));
+            svg.selectAll("g.operator-stats").on("click", handleOperatorClick);
             svg.attr("height", graph.graph().height);
             svg.attr("width", graph.graph().width);
         }
         else {
             $(".graph-container").css("display", "none");
         }
+    }, [stage, computeOperatorGraphs, computeD3StageOperatorGraph, handleOperatorClick]);
+
+    if (!stage.hasOwnProperty('plan')) {
+        return (
+            <div className="row error-message">
+                <div className="col-12"><h4>Stage does not have a plan</h4></div>
+            </div>
+        );
     }
 
-    render() {
-        const stage = this.props.stage;
-
-        if (!stage.hasOwnProperty('plan')) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>Stage does not have a plan</h4></div>
+    const latestAttemptExecutionInfo = stage.latestAttemptExecutionInfo;
+    if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
+        return (
+            <div className="row error-message">
+                <div className="col-12">
+                    <h4>Operator data not available for {stage.stageId}</h4>
                 </div>
-            );
-        }
-
-        const latestAttemptExecutionInfo = stage.latestAttemptExecutionInfo;
-        if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12">
-                        <h4>Operator data not available for {stage.stageId}</h4>
-                    </div>
-                </div>
-            );
-        }
-
-        return null;
+            </div>
+        );
     }
-}
+
+    useEffect(() => {
+        updateD3Graph();
+    }, [updateD3Graph]);
+
+    return null;
+};
 
 const findStage = (stageId, currentStage) => {
     if (stageId === null) {
@@ -517,7 +500,7 @@ export const StageDetail = () => {
     useEffect(() => { endedRef.current = ended; }, [ended]);
     useEffect(() => { selectedStageIdRef.current = selectedStageId; }, [selectedStageId]);
 
-    const refreshLoop = React.useCallback(() => {
+    const refreshLoop = useCallback(() => {
         clearTimeout(timerId.current);
         const queryString = getFirstParameter(window.location.search).split('.');
         const rawQueryId = queryString.length > 0 ? queryString[0] : "";
