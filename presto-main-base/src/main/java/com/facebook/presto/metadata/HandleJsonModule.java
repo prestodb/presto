@@ -33,6 +33,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(InsertTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(DeleteTableHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(MergeHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
