@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
@@ -470,7 +470,187 @@ class StageOperatorGraph extends React.Component {
     }
 }
 
-export class StageDetail extends React.Component {
+const findStage = (stageId, currentStage) => {
+    if (stageId === null) {
+        return null;
+    }
+
+    if (currentStage.stageId === stageId) {
+        return currentStage;
+    }
+
+    for (let i = 0; i < currentStage.subStages.length; i++) {
+        const stage = findStage(stageId, currentStage.subStages[i]);
+        if (stage !== null) {
+            return stage;
+        }
+    }
+
+    return null;
+};
+
+const getAllStageIds = (result, currentStage) => {
+    result.push(currentStage.plan.id);
+    currentStage.subStages.forEach(stage => {
+        getAllStageIds(result, stage);
+    });
+};
+
+export const StageDetail = () => {
+    const [initialized, setInitialized] = useState(false);
+    const [ended, setEnded] = useState(false);
+    const [selectedStageId, setSelectedStageId] = useState(null);
+    const [query, setQuery] = useState(null);
+
+    const timerId = useRef(null);
+    const endedRef = useRef(false);
+    const selectedStageIdRef = useRef(null);
+
+     const getQueryURL = (id) => {
+        if (!id || typeof id !== 'string' || id.length === 0) {
+            return "/v1/query/undefined";
+        }
+        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+     }
+
+    // Keep refs in sync to avoid stale closures in the polling loop
+    useEffect(() => { endedRef.current = ended; }, [ended]);
+    useEffect(() => { selectedStageIdRef.current = selectedStageId; }, [selectedStageId]);
+
+    const refreshLoop = React.useCallback(() => {
+        clearTimeout(timerId.current);
+        const queryString = getFirstParameter(window.location.search).split('.');
+        const rawQueryId = queryString.length > 0 ? queryString[0] : "";
+
+        // Initialize selected stage from URL only once when not yet set
+        if (selectedStageIdRef.current === null) {
+            const initialStageId = queryString.length > 1 ? parseInt(queryString[1]) : 0;
+            setSelectedStageId(initialStageId);
+            selectedStageIdRef.current = initialStageId;
+        }
+
+        fetch(getQueryURL(rawQueryId))
+            .then(response => response.json())
+            .then(q => {
+                setQuery(q);
+                setInitialized(true);
+                setEnded(q.finalQueryInfo);
+
+                if (!endedRef.current) {
+                    timerId.current = setTimeout(refreshLoop, 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching query:', error);
+                if (!endedRef.current) {
+                    timerId.current = setTimeout(refreshLoop, 1000);
+                }
+            });
+    }, []);
+
+    useEffect(() => {
+        refreshLoop();
+        return () => {
+            clearTimeout(timerId.current);
+        };
+    }, [refreshLoop]);
+
+    if (!query) {
+        let label = (<div className="loader">Loading...</div>);
+        if (initialized) {
+            label = "Query not found";
+        }
+        return (
+            <div className="row error-message">
+                <div className="col-12"><h4>{label}</h4></div>
+            </div>
+        );
+    }
+
+    if (!query.outputStage) {
+        return (
+            <div className="row error-message">
+                <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
+            </div>
+        );
+    }
+
+    const allStages = [];
+    getAllStageIds(allStages, query.outputStage);
+
+    // Avoid stale/null selection: fall back to the first available stage id
+    const effectiveSelectedStageId = (selectedStageId === null || selectedStageId === undefined)
+        ? (allStages.length > 0 ? allStages[0] : 0)
+        : selectedStageId;
+
+    const stage = findStage(query.queryId + "." + effectiveSelectedStageId, query.outputStage);
+    if (stage === null) {
+        return (
+            <div className="row error-message">
+                <div className="col-12"><h4>Stage not found</h4></div>
+            </div>
+        );
+    }
+
+    let stageOperatorGraph = null;
+    if (!isQueryEnded(query.state)) {
+        stageOperatorGraph = (
+            <div className="row error-message">
+                <div className="col-12">
+                    <h4>Operator graph will appear automatically when query completes.</h4>
+                    <div className="loader">Loading...</div>
+                </div>
+            </div>
+        )
+    }
+    else {
+        stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage}/>;
+    }
+
+    return (
+        <div>
+            <QueryHeader query={query}/>
+            <div className="row">
+                <div className="col-12">
+                    <div className="row justify-content-between">
+                        <div className="col-2 align-self-end">
+                            <h3>Stage {stage.plan.id}</h3>
+                        </div>
+                        <div className="col-2 align-self-end">
+                            <div className="stage-dropdown" role="group">
+                                <div className="btn-group">
+                                    <button type="button" className="btn bg-white btn-secondary text-dark dropdown-toggle"
+                                        data-bs-toggle="dropdown" aria-haspopup="true"
+                                        aria-expanded="false">Select Stage<span className="caret"/>
+                                    </button>
+                                    <ul className="dropdown-menu bg-white">
+                                        {
+                                            allStages.map(stageId => (
+                                                <li key={stageId}>
+                                                    <a className={clsx('dropdown-item text-dark', effectiveSelectedStageId === stageId && 'selected')}
+                                                        onClick={() => setSelectedStageId(stageId)}>{stageId}</a>
+                                                </li>
+                                            ))
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr className="h3-hr"/>
+            <div className="row">
+                <div className="col-12">
+                    {stageOperatorGraph}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export class StageDetail2 extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
