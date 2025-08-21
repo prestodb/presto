@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DataTable, {createTheme} from 'react-data-table-component';
 
 import {
@@ -845,260 +845,231 @@ const TASK_FILTER = {
     },
 };
 
-// Static helper functions moved outside the component
-const formatStackTrace = (info) => {
-    return formatStackTraceHelper(info, [], "", "");
-};
+export class QueryDetail extends React.Component {
 
-const formatStackTraceHelper = (info, parentStack, prefix, linePrefix) => {
-    let s = linePrefix + prefix + failureInfoToString(info) + "\n";
+    constructor(props) {
+        super(props);
+        this.state = {
+            query: null,
+            lastSnapshotStages: null,
 
-    if (info.stack) {
-        let sharedStackFrames = 0;
-        if (parentStack !== null) {
-            sharedStackFrames = countSharedStackFrames(info.stack, parentStack);
-        }
+            lastScheduledTime: 0,
+            lastCpuTime: 0,
+            lastRowInput: 0,
+            lastByteInput: 0,
 
-        for (let i = 0; i < info.stack.length - sharedStackFrames; i++) {
-            s += linePrefix + "\tat " + info.stack[i] + "\n";
-        }
-        if (sharedStackFrames !== 0) {
-            s += linePrefix + "\t... " + sharedStackFrames + " more" + "\n";
-        }
+            scheduledTimeRate: [],
+            cpuTimeRate: [],
+            rowInputRate: [],
+            byteInputRate: [],
+
+            reservedMemory: [],
+
+            initialized: false,
+            ended: false,
+
+            lastRefresh: null,
+            lastRender: null,
+
+            stageRefresh: true,
+        };
+
+        this.refreshLoop = this.refreshLoop.bind(this);
     }
 
-    if (info.suppressed) {
-        for (let i = 0; i < info.suppressed.length; i++) {
-            s += formatStackTraceHelper(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
-        }
+    static formatStackTrace(info) {
+        return QueryDetail.formatStackTraceHelper(info, [], "", "");
     }
 
-    if (info.cause) {
-        s += formatStackTraceHelper(info.cause, info.stack, "Caused by: ", linePrefix);
-    }
+    static formatStackTraceHelper(info, parentStack, prefix, linePrefix) {
+        let s = linePrefix + prefix + QueryDetail.failureInfoToString(info) + "\n";
 
-    return s;
-}
-
-const countSharedStackFrames = (stack, parentStack) => {
-    let n = 0;
-    const minStackLength = Math.min(stack.length, parentStack.length);
-    while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
-        n++;
-    }
-    return n;
-}
-
-const failureInfoToString = (t) => {
-    return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
-}
-
-const getQueryURL = (id) => {
-    if (!id || typeof id !== 'string' || id.length === 0) {
-        return "/v1/query/undefined";
-    }
-    const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
-    return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
-}
-
-const isSparklineDataLoaded = (data) => {
-    return data.every((d) => d.length > 0);
-}
-
-export const QueryDetail = () => {
-    const [query, setQuery] = useState(null);
-    const [lastSnapshotStages, setLastSnapshotStages] = useState(null);
-    const [lastScheduledTime, setLastScheduledTime] = useState(0);
-    const [lastCpuTime, setLastCpuTime] = useState(0);
-    const [lastRowInput, setLastRowInput] = useState(0);
-    const [lastByteInput, setLastByteInput] = useState(0);
-    const [scheduledTimeRate, setScheduledTimeRate] = useState([]);
-    const [cpuTimeRate, setCpuTimeRate] = useState([]);
-    const [rowInputRate, setRowInputRate] = useState([]);
-    const [byteInputRate, setByteInputRate] = useState([]);
-    const [reservedMemory, setReservedMemory] = useState([]);
-    const [initialized, setInitialized] = useState(false);
-    const [ended, setEnded] = useState(false);
-    const [lastRefresh, setLastRefresh] = useState(null);
-    const [lastRender, setLastRender] = useState(null);
-    const [stageRefresh, setStageRefresh] = useState(true);
-    
-    const timeoutIdRef = useRef(null);
-    const endedRef = useRef(false);
-    const queryRef = useRef(null);
-
-    const resetTimer = () => {
-        clearTimeout(timeoutIdRef.current);
-        // console.log("QUERY", query, "ENDED", ended);
-        // stop refreshing when query finishes or fails
-        if (queryRef.current === null || !endedRef.current || !isSparklineDataLoaded([cpuTimeRate, rowInputRate, byteInputRate, reservedMemory])) {
-            // task.info-update-interval is set to 3 seconds by default
-            timeoutIdRef.current = setTimeout(() => {
-                if (queryRef.current === null || !endedRef.current) {
-                    return;
-                }
-                refreshLoop();
-            }, 3000);
-        }
-    };
-
-    // if the query is not ended, keep polling for updates
-
-    const refreshLoop = useCallback(() => {
-        clearTimeout(timeoutIdRef.current); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryId = getFirstParameter(window.location.search);
-        if (ended) {
-            return;
-        }
-
-        $.get(getQueryURL(queryId), function (queryData) {
-            let currentLastSnapshotStages = lastSnapshotStages;
-            if (stageRefresh) {
-                currentLastSnapshotStages = queryData.outputStage;
+        if (info.stack) {
+            let sharedStackFrames = 0;
+            if (parentStack !== null) {
+                sharedStackFrames = QueryDetail.countSharedStackFrames(info.stack, parentStack);
             }
 
-            let currentLastRefresh = lastRefresh;
-            const currentLastScheduledTime = lastScheduledTime;
-            const currentLastCpuTime = lastCpuTime;
-            const currentLastRowInput = lastRowInput;
-            const currentLastByteInput = lastByteInput;
-            const nowMillis = Date.now();
-            const newEnded = queryData.finalQueryInfo;
-            console.log("refresh loop, checking ended and queryEnded", ended, newEnded);
+            for (let i = 0; i < info.stack.length - sharedStackFrames; i++) {
+                s += linePrefix + "\tat " + info.stack[i] + "\n";
+            }
+            if (sharedStackFrames !== 0) {
+                s += linePrefix + "\t... " + sharedStackFrames + " more" + "\n";
+            }
+        }
 
-            setQuery(queryData);
-            setLastSnapshotStages(currentLastSnapshotStages);
-            setLastScheduledTime(parseDuration(queryData.queryStats.totalScheduledTime));
-            setLastCpuTime(parseDuration(queryData.queryStats.totalCpuTime));
-            setLastRowInput(queryData.queryStats.processedInputPositions);
-            setLastByteInput(parseDataSize(queryData.queryStats.processedInputDataSize));
-            setInitialized(true);
-            setEnded(newEnded);
-            setLastRefresh(nowMillis);
+        if (info.suppressed) {
+            for (let i = 0; i < info.suppressed.length; i++) {
+                s += QueryDetail.formatStackTraceHelper(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
+            }
+        }
+
+        if (info.cause) {
+            s += QueryDetail.formatStackTraceHelper(info.cause, info.stack, "Caused by: ", linePrefix);
+        }
+
+        return s;
+    }
+
+    static countSharedStackFrames(stack, parentStack) {
+        let n = 0;
+        const minStackLength = Math.min(stack.length, parentStack.length);
+        while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
+            n++;
+        }
+        return n;
+    }
+
+    static failureInfoToString(t) {
+        return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
+    }
+
+    resetTimer() {
+        clearTimeout(this.timeoutId);
+        // stop refreshing when query finishes or fails
+        if (this.state.query === null || !this.state.ended) {
+            // task.info-update-interval is set to 3 seconds by default
+            this.timeoutId = setTimeout(this.refreshLoop, 3000);
+        }
+    }
+
+    static getQueryURL(id) {
+        if (!id || typeof id !== 'string' || id.length === 0) {
+            return "/v1/query/undefined";
+        }
+        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+    }
+
+
+    refreshLoop() {
+        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
+        const queryId = getFirstParameter(window.location.search);
+
+        $.get(QueryDetail.getQueryURL(queryId), function (query) {
+            let lastSnapshotStages = this.state.lastSnapshotStage;
+            if (this.state.stageRefresh) {
+                lastSnapshotStages = query.outputStage;
+            }
+
+            let lastRefresh = this.state.lastRefresh;
+            const lastScheduledTime = this.state.lastScheduledTime;
+            const lastCpuTime = this.state.lastCpuTime;
+            const lastRowInput = this.state.lastRowInput;
+            const lastByteInput = this.state.lastByteInput;
+            const alreadyEnded = this.state.ended;
+            const nowMillis = Date.now();
+
+            this.setState({
+                query: query,
+                lastSnapshotStage: lastSnapshotStages,
+
+                lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
+                lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
+                lastRowInput: query.queryStats.processedInputPositions,
+                lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
+
+                initialized: true,
+                ended: query.finalQueryInfo,
+
+                lastRefresh: nowMillis,
+            });
 
             // i.e. don't show sparklines if we've already decided not to update or if we don't have one previous measurement
-            if (ended || (currentLastRefresh === null && queryData.state === "RUNNING")) {
-                // Pass the new `queryData` and `newEnded` to `resetTimer` to avoid the stale closure
-                resetTimer();
+            if (alreadyEnded || (lastRefresh === null && query.state === "RUNNING")) {
+                this.resetTimer();
                 return;
             }
 
-            if (currentLastRefresh === null) {
-                currentLastRefresh = nowMillis - parseDuration(queryData.queryStats.elapsedTime);
+            if (lastRefresh === null) {
+                lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
             }
 
-            const elapsedSecsSinceLastRefresh = (nowMillis - currentLastRefresh) / 1000.0;
+            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0;
             if (elapsedSecsSinceLastRefresh >= 0) {
-                const currentScheduledTimeRate = (parseDuration(queryData.queryStats.totalScheduledTime) - currentLastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
-                const currentCpuTimeRate = (parseDuration(queryData.queryStats.totalCpuTime) - currentLastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
-                const currentRowInputRate = (queryData.queryStats.processedInputPositions - currentLastRowInput) / elapsedSecsSinceLastRefresh;
-                const currentByteInputRate = (parseDataSize(queryData.queryStats.processedInputDataSize) - currentLastByteInput) / elapsedSecsSinceLastRefresh;
-                console.log("updating time and input rates", currentScheduledTimeRate, currentCpuTimeRate, currentRowInputRate, currentByteInputRate);
-                
-                setScheduledTimeRate(prev => addToHistory(currentScheduledTimeRate, prev));
-                setCpuTimeRate(prev => addToHistory(currentCpuTimeRate, prev));
-                setRowInputRate(prev => addToHistory(currentRowInputRate, prev));
-                setByteInputRate(prev => addToHistory(currentByteInputRate, prev));
-                setReservedMemory(prev => addToHistory(parseDataSize(queryData.queryStats.userMemoryReservation), prev));
+                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
+                const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
+                const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
+                const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                this.setState({
+                    scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
+                    cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
+                    rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
+                    byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
+                });
             }
-            // Pass the new `queryData` and `newEnded` to `resetTimer` to avoid the stale closure
-            resetTimer();
-        })
+            this.resetTimer();
+        }.bind(this))
             .fail(() => {
-                setInitialized(true);
-                // Pass the new `query` (null) and the old `ended` value
-                resetTimer();
+                this.setState({
+                    initialized: true,
+                });
+                this.resetTimer();
             });
-    }, [query, ended, lastSnapshotStages, stageRefresh, lastRefresh, lastScheduledTime, lastCpuTime, lastRowInput, lastByteInput, resetTimer]);
+    }
 
-    useEffect(() => {
-        refreshLoop();
-        
-        return () => {
-            clearTimeout(timeoutIdRef.current);
-        };
-    }, []);
-
-    useEffect(() => {
-        console.log("useEffect for ended", ended);
-    }, [ended]);
-
-    useEffect(() => {
-        endedRef.current = ended;
-        queryRef.current = query;
-    }, [query]);
-
-    // Syntax highlighting effect - runs when query data is available
-    useEffect(() => {
-        if (query && query.query) {
-            $('#query').each((i, block) => {
-                hljs.highlightBlock(block);
+    handleStageRefreshClick() {
+        if (this.state.stageRefresh) {
+            this.setState({
+                stageRefresh: false,
+                lastSnapshotStages: this.state.query.outputStage,
             });
         }
-        
-        if (query && query.preparedQuery) {
-            $('#prepared-query').each((i, block) => {
-                hljs.highlightBlock(block);
+        else {
+            this.setState({
+                stageRefresh: true,
             });
         }
-    }, [query?.query, query?.preparedQuery]);
+    }
 
-    // ComponentDidUpdate equivalent for sparklines and tooltips
-    useEffect(() => {
+    renderStageRefreshButton() {
+        if (this.state.stageRefresh) {
+            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: On</button>
+        }
+        else {
+            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
+        }
+    }
 
-        //   console.log("ABOUT TO UPDATE SPARKLINE")
+    componentDidMount() {
+        this.refreshLoop();
+    }
+
+    componentDidUpdate() {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-    //   console.log("LAST RENDER", lastRender)
-    //   console.log("RENDER TIME", Date.now() - lastRender)
-        console.log("trying to update sparkline");
-        // if (lastRender === null || (Date.now() - lastRender) >= 1000) {
-                const renderTimestamp = Date.now();
-                $('#scheduled-time-rate-sparkline').sparkline(scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {
-                    chartRangeMin: 0,
-                    numberFormatter: precisionRound
-                }));
-                console.log("updating sparkline - data", cpuTimeRate, rowInputRate, byteInputRate, reservedMemory)
-                const ids = [
-                '#scheduled-time-rate-sparkline',
-                '#cpu-time-rate-sparkline',
-                '#row-input-rate-sparkline',
-                '#byte-input-rate-sparkline',
-                '#reserved-memory-sparkline',
-                ];
-                console.log(ids.map(sel => document.querySelector(sel)));
-                $('#cpu-time-rate-sparkline').sparkline(cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-                $('#row-input-rate-sparkline').sparkline(rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
-                $('#byte-input-rate-sparkline').sparkline(byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
-                $('#reserved-memory-sparkline').sparkline(reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+            const renderTimestamp = Date.now();
+            $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {
+                chartRangeMin: 0,
+                numberFormatter: precisionRound
+            }));
+            $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
+            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
+            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
-                setLastRender(renderTimestamp);
-        // }
+            if (this.state.lastRender === null) {
+                $('#query').each((i, block) => {
+                    hljs.highlightBlock(block);
+                });
+
+                $('#prepared-query').each((i, block) => {
+                    hljs.highlightBlock(block);
+                });
+            }
+
+            this.setState({
+                lastRender: renderTimestamp,
+            });
+        }
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
         new Clipboard('.copy-button');
-    }, [initialized, scheduledTimeRate, cpuTimeRate, rowInputRate, byteInputRate, reservedMemory, ended]);
+    }
 
-    const handleStageRefreshClick = () => {
-        if (stageRefresh) {
-            setStageRefresh(false);
-            setLastSnapshotStages(query.outputStage);
-        }
-        else {
-            setStageRefresh(true);
-        }
-    };
-
-    const renderStageRefreshButton = () => {
-        if (stageRefresh) {
-            return <button className="btn btn-info live-button rounded-0" onClick={handleStageRefreshClick}>Auto-Refresh: On</button>
-        }
-        else {
-            return <button className="btn btn-info live-button rounded-0" onClick={handleStageRefreshClick}>Auto-Refresh: Off</button>
-        }
-    };
-
-    const renderStages = () => {
-        if (lastSnapshotStages === null) {
+    renderStages() {
+        if (this.state.lastSnapshotStage === null) {
             return;
         }
 
@@ -1113,7 +1084,7 @@ export const QueryDetail = () => {
                             <tbody>
                             <tr>
                                 <td>
-                                    {renderStageRefreshButton()}
+                                    {this.renderStageRefreshButton()}
                                 </td>
                             </tr>
                             </tbody>
@@ -1122,14 +1093,15 @@ export const QueryDetail = () => {
                 </div>
                 <div className="row">
                     <div className="col-12">
-                        <StageList key={query.queryId} outputStage={lastSnapshotStages}/>
+                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
                     </div>
                 </div>
             </div>
         );
-    };
+    }
 
-    const renderPreparedQuery = () => {
+    renderPreparedQuery() {
+        const query = this.state.query;
         if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
             return;
         }
@@ -1149,14 +1121,16 @@ export const QueryDetail = () => {
                 </pre>
             </div>
         );
-    };
+    }
 
-    const renderSessionProperties = () => {
+    renderSessionProperties() {
+        const query = this.state.query;
+
         const properties = [];
         for (let property in query.session.systemProperties) {
             if (query.session.systemProperties.hasOwnProperty(property)) {
                 properties.push(
-                    <span key={property}>- {property + "=" + query.session.systemProperties[property]} <br/></span>
+                    <span>- {property + "=" + query.session.systemProperties[property]} <br/></span>
                 );
             }
         }
@@ -1166,7 +1140,7 @@ export const QueryDetail = () => {
                 for (let property in query.session.catalogProperties[catalog]) {
                     if (query.session.catalogProperties[catalog].hasOwnProperty(property)) {
                         properties.push(
-                            <span key={catalog + "." + property}>- {catalog + "." + property + "=" + query.session.catalogProperties[catalog][property]} <br/></span>
+                            <span>- {catalog + "." + property + "=" + query.session.catalogProperties[catalog][property]} <br/></span>
                         );
                     }
                 }
@@ -1174,9 +1148,10 @@ export const QueryDetail = () => {
         }
 
         return properties;
-    };
+    }
 
-    const renderResourceEstimates = () => {
+    renderResourceEstimates() {
+        const query = this.state.query;
         const estimates = query.session.resourceEstimates;
         const renderedEstimates = [];
 
@@ -1189,15 +1164,16 @@ export const QueryDetail = () => {
                 }
 
                 renderedEstimates.push(
-                    <span key={resource}>- {snakeCased + "=" + query.session.resourceEstimates[resource]} <br/></span>
+                    <span>- {snakeCased + "=" + query.session.resourceEstimates[resource]} <br/></span>
                 )
             }
         }
 
         return renderedEstimates;
-    };
+    }
 
-    const renderWarningInfo = () => {
+    renderWarningInfo() {
+        const query = this.state.query;
         if (query.warnings.length > 0) {
             return (
                 <div className="row">
@@ -1205,8 +1181,8 @@ export const QueryDetail = () => {
                         <h3>Warnings</h3>
                         <hr className="h3-hr"/>
                         <table className="table" id="warnings-table">
-                            {query.warnings.map((warning, index) =>
-                                <tr key={index}>
+                            {query.warnings.map((warning) =>
+                                <tr>
                                     <td>
                                         {warning.warningCode.name}
                                     </td>
@@ -1223,9 +1199,10 @@ export const QueryDetail = () => {
         else {
             return null;
         }
-    };
+    }
 
-    const renderRuntimeStats = () => {
+    renderRuntimeStats() {
+        const query = this.state.query;
         if (query.queryStats.runtimeStats === undefined) {
             return null;
         }
@@ -1241,9 +1218,10 @@ export const QueryDetail = () => {
                 </div>
             </div>
         );
-    };
+    }
 
-    const renderFailureInfo = () => {
+    renderFailureInfo() {
+        const query = this.state.query;
         if (query.failureInfo) {
             return (
                 <div className="row">
@@ -1265,7 +1243,7 @@ export const QueryDetail = () => {
                                     Error Code
                                 </td>
                                 <td className="info-text">
-                                    {query.errorCode.name + " (" + query.errorCode.code + ")"}
+                                    {query.errorCode.name + " (" + this.state.query.errorCode.code + ")"}
                                 </td>
                             </tr>
                             <tr>
@@ -1278,7 +1256,7 @@ export const QueryDetail = () => {
                                 </td>
                                 <td className="info-text">
                                         <pre id="stack-trace">
-                                            {formatStackTrace(query.failureInfo)}
+                                            {QueryDetail.formatStackTrace(query.failureInfo)}
                                         </pre>
                                 </td>
                             </tr>
@@ -1291,478 +1269,482 @@ export const QueryDetail = () => {
         else {
             return "";
         }
-    };
-
-    if (query === null || initialized === false) {
-        let label = (<div className="loader">Loading...</div>);
-        if (initialized) {
-            label = "Query not found";
-        }
-        return (
-            <div className="row error-message">
-                <div className="col-12"><h4>{label}</h4></div>
-            </div>
-        );
     }
 
-    return (
-        <div>
-            <QueryHeader query={query}/>
-            <div className="row mt-3">
-                <div className="col-6">
-                    <h3>Session</h3>
-                    <hr className="h3-hr"/>
-                    <table className="table">
-                        <tbody>
-                        <tr>
-                            <td className="info-title">
-                                User
-                            </td>
-                            <td className="info-text wrap-text">
-                                <span id="query-user">{query.session.user}</span>
-                                &nbsp;&nbsp;
-                                <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right"
-                                   title="Copy to clipboard">
-                                    <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                                </a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Principal
-                            </td>
-                            <td className="info-text wrap-text">
-                                {query.session.principal}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Source
-                            </td>
-                            <td className="info-text wrap-text">
-                                {query.session.source}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Catalog
-                            </td>
-                            <td className="info-text">
-                                {query.session.catalog}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Schema
-                            </td>
-                            <td className="info-text">
-                                {query.session.schema}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Client Address
-                            </td>
-                            <td className="info-text">
-                                {query.session.remoteUserAddress}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Client Tags
-                            </td>
-                            <td className="info-text">
-                                {query.session.clientTags.join(", ")}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Session Properties
-                            </td>
-                            <td className="info-text wrap-text">
-                                {renderSessionProperties()}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Resource Estimates
-                            </td>
-                            <td className="info-text wrap-text">
-                                {renderResourceEstimates()}
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
+    render() {
+        const query = this.state.query;
+
+        if (query === null || this.state.initialized === false) {
+            let label = (<div className="loader">Loading...</div>);
+            if (this.state.initialized) {
+                label = "Query not found";
+            }
+            return (
+                <div className="row error-message">
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
-                <div className="col-6">
-                    <h3>Execution</h3>
-                    <hr className="h3-hr"/>
-                    <table className="table">
-                        <tbody>
-                        <tr>
-                            <td className="info-title">
-                                Resource Group
-                            </td>
-                            <td className="info-text wrap-text">
-                                {query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a"}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Submission Time
-                            </td>
-                            <td className="info-text">
-                                {formatShortDateTime(new Date(query.queryStats.createTime))}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Completion Time
-                            </td>
-                            <td className="info-text">
-                                {new Date(query.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(query.queryStats.endTime)) : ""}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Elapsed Time
-                            </td>
-                            <td className="info-text">
-                                {query.queryStats.elapsedTime}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Prerequisites Wait Time
-                            </td>
-                            <td className="info-text">
-                                {query.queryStats.waitingForPrerequisitesTime}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Queued Time
-                            </td>
-                            <td className="info-text">
-                                {query.queryStats.queuedTime}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Planning Time
-                            </td>
-                            <td className="info-text">
-                                {query.queryStats.totalPlanningTime}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Execution Time
-                            </td>
-                            <td className="info-text">
-                                {query.queryStats.executionTime}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="info-title">
-                                Coordinator
-                            </td>
-                            <td className="info-text">
-                                {getHostname(query.self)}
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
+            );
+        }
+
+        return (
+            <div>
+                <QueryHeader query={query}/>
+                <div className="row mt-3">
+                    <div className="col-6">
+                        <h3>Session</h3>
+                        <hr className="h3-hr"/>
+                        <table className="table">
+                            <tbody>
+                            <tr>
+                                <td className="info-title">
+                                    User
+                                </td>
+                                <td className="info-text wrap-text">
+                                    <span id="query-user">{query.session.user}</span>
+                                    &nbsp;&nbsp;
+                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right"
+                                       title="Copy to clipboard">
+                                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Principal
+                                </td>
+                                <td className="info-text wrap-text">
+                                    {query.session.principal}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Source
+                                </td>
+                                <td className="info-text wrap-text">
+                                    {query.session.source}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Catalog
+                                </td>
+                                <td className="info-text">
+                                    {query.session.catalog}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Schema
+                                </td>
+                                <td className="info-text">
+                                    {query.session.schema}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Client Address
+                                </td>
+                                <td className="info-text">
+                                    {query.session.remoteUserAddress}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Client Tags
+                                </td>
+                                <td className="info-text">
+                                    {query.session.clientTags.join(", ")}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Session Properties
+                                </td>
+                                <td className="info-text wrap-text">
+                                    {this.renderSessionProperties()}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Resource Estimates
+                                </td>
+                                <td className="info-text wrap-text">
+                                    {this.renderResourceEstimates()}
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="col-6">
+                        <h3>Execution</h3>
+                        <hr className="h3-hr"/>
+                        <table className="table">
+                            <tbody>
+                            <tr>
+                                <td className="info-title">
+                                    Resource Group
+                                </td>
+                                <td className="info-text wrap-text">
+                                    {query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a"}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Submission Time
+                                </td>
+                                <td className="info-text">
+                                    {formatShortDateTime(new Date(query.queryStats.createTime))}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Completion Time
+                                </td>
+                                <td className="info-text">
+                                    {new Date(query.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(query.queryStats.endTime)) : ""}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Elapsed Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.elapsedTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Prerequisites Wait Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.waitingForPrerequisitesTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Queued Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.queuedTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Planning Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.totalPlanningTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Execution Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.executionTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Coordinator
+                                </td>
+                                <td className="info-text">
+                                    {getHostname(query.self)}
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            <div className="row">
-                <div className="col-12">
-                    <div className="row">
-                        <div className="col-6">
-                            <h3>Resource Utilization Summary</h3>
-                            <hr className="h3-hr"/>
-                            <table className="table">
-                                <tbody>
-                                <tr>
-                                    <td className="info-title">
-                                        CPU Time
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.totalCpuTime}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Scheduled Time
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.totalScheduledTime}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Blocked Time
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.totalBlockedTime}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Input Rows
-                                    </td>
-                                    <td className="info-text">
-                                        {formatCount(query.queryStats.processedInputPositions)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Input Data
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.processedInputDataSize}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Raw Input Rows
-                                    </td>
-                                    <td className="info-text">
-                                        {formatCount(query.queryStats.rawInputPositions)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Raw Input Data
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.rawInputDataSize}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
-                                              title="The total number of rows shuffled across all query stages">
-                                            Shuffled Rows
-                                        </span>
-                                    </td>
-                                    <td className="info-text">
-                                        {formatCount(query.queryStats.shuffledPositions)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
-                                              title="The total number of bytes shuffled across all query stages">
-                                            Shuffled Data
-                                        </span>
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.shuffledDataSize}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Peak User Memory
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.peakUserMemoryReservation}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Peak Total Memory
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.peakTotalMemoryReservation}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Memory Pool
-                                    </td>
-                                    <td className="info-text">
-                                        {query.memoryPool}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Cumulative User Memory
-                                    </td>
-                                    <td className="info-text">
-                                        {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Cumulative Total
-                                    </td>
-                                    <td className="info-text">
-                                        {formatDataSize(query.queryStats.cumulativeTotalMemory / 1000.0)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Output Rows
-                                    </td>
-                                    <td className="info-text">
-                                        {formatCount(query.queryStats.outputPositions)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Output Data
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.outputDataSize}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Written Output Rows
-                                    </td>
-                                    <td className="info-text">
-                                        {formatCount(query.queryStats.writtenOutputPositions)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Written Output Logical Data Size
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.writtenOutputLogicalDataSize}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Written Output Physical Data Size
-                                    </td>
-                                    <td className="info-text">
-                                        {query.queryStats.writtenOutputPhysicalDataSize}
-                                    </td>
-                                </tr>
-                                {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
+                <div className="row">
+                    <div className="col-12">
+                        <div className="row">
+                            <div className="col-6">
+                                <h3>Resource Utilization Summary</h3>
+                                <hr className="h3-hr"/>
+                                <table className="table">
+                                    <tbody>
                                     <tr>
                                         <td className="info-title">
-                                            Spilled Data
+                                            CPU Time
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.spilledDataSize}
+                                            {query.queryStats.totalCpuTime}
                                         </td>
                                     </tr>
-                                }
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="col-6">
-                            <h3>Timeline</h3>
-                            <hr className="h3-hr"/>
-                            <table className="table">
-                                <tbody>
-                                <tr>
-                                    <td className="info-title">
-                                        Parallelism
-                                    </td>
-                                    <td rowSpan="2">
-                                        <div className="query-stats-sparkline-container">
-                                            <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr className="tr-noborder">
-                                    <td className="info-sparkline-text">
-                                        {formatCount(cpuTimeRate[cpuTimeRate.length - 1])}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Scheduled Time/s
-                                    </td>
-                                    <td rowSpan="2">
-                                        <div className="query-stats-sparkline-container">
-                                            <span className="sparkline" id="scheduled-time-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr className="tr-noborder">
-                                    <td className="info-sparkline-text">
-                                        {formatCount(scheduledTimeRate[scheduledTimeRate.length - 1])}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Input Rows/s
-                                    </td>
-                                    <td rowSpan="2">
-                                        <div className="query-stats-sparkline-container">
-                                            <span className="sparkline" id="row-input-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr className="tr-noborder">
-                                    <td className="info-sparkline-text">
-                                        {formatCount(rowInputRate[rowInputRate.length - 1])}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Input Bytes/s
-                                    </td>
-                                    <td rowSpan="2">
-                                        <div className="query-stats-sparkline-container">
-                                            <span className="sparkline" id="byte-input-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr className="tr-noborder">
-                                    <td className="info-sparkline-text">
-                                        {formatDataSize(byteInputRate[byteInputRate.length - 1])}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Memory Utilization
-                                    </td>
-                                    <td rowSpan="2">
-                                        <div className="query-stats-sparkline-container">
-                                            <span className="sparkline" id="reserved-memory-sparkline"><div className="loader">Loading ...</div></span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr className="tr-noborder">
-                                    <td className="info-sparkline-text">
-                                        {formatDataSize(reservedMemory[reservedMemory.length - 1])}
-                                    </td>
-                                </tr>
-                                </tbody>
-                            </table>
+                                    <tr>
+                                        <td className="info-title">
+                                            Scheduled Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.totalScheduledTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Blocked Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.totalBlockedTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Input Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.processedInputPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Input Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.processedInputDataSize}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Raw Input Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.rawInputPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Raw Input Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.rawInputDataSize}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
+                                                  title="The total number of rows shuffled across all query stages">
+                                                Shuffled Rows
+                                            </span>
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.shuffledPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
+                                                  title="The total number of bytes shuffled across all query stages">
+                                                Shuffled Data
+                                            </span>
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.shuffledDataSize}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Peak User Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.peakUserMemoryReservation}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Peak Total Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.peakTotalMemoryReservation}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Memory Pool
+                                        </td>
+                                        <td className="info-text">
+                                            {query.memoryPool}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative User Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative Total
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSize(query.queryStats.cumulativeTotalMemory / 1000.0)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Output Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.outputPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Output Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.outputDataSize}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Written Output Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.writtenOutputPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Written Output Logical Data Size
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.writtenOutputLogicalDataSize}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Written Output Physical Data Size
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.writtenOutputPhysicalDataSize}
+                                        </td>
+                                    </tr>
+                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
+                                        <tr>
+                                            <td className="info-title">
+                                                Spilled Data
+                                            </td>
+                                            <td className="info-text">
+                                                {query.queryStats.spilledDataSize}
+                                            </td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="col-6">
+                                <h3>Timeline</h3>
+                                <hr className="h3-hr"/>
+                                <table className="table">
+                                    <tbody>
+                                    <tr>
+                                        <td className="info-title">
+                                            Parallelism
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatCount(this.state.cpuTimeRate[this.state.cpuTimeRate.length - 1])}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Scheduled Time/s
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="scheduled-time-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatCount(this.state.scheduledTimeRate[this.state.scheduledTimeRate.length - 1])}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Input Rows/s
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="row-input-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1])}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Input Bytes/s
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="byte-input-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatDataSize(this.state.byteInputRate[this.state.byteInputRate.length - 1])}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Memory Utilization
+                                        </td>
+                                        <td rowSpan="2">
+                                            <div className="query-stats-sparkline-container">
+                                                <span className="sparkline" id="reserved-memory-sparkline"><div className="loader">Loading ...</div></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="tr-noborder">
+                                        <td className="info-sparkline-text">
+                                            {formatDataSize(this.state.reservedMemory[this.state.reservedMemory.length - 1])}
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            {renderRuntimeStats()}
-            {renderWarningInfo()}
-            {renderFailureInfo()}
-            <div className="row">
-                <div className="col-12">
-                    <h3>
-                        Query
-                        <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
-                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                        </a>
-                    </h3>
-                    <pre id="query">
-                        <code className="lang-sql" id="query-text">
-                            {query.query}
-                        </code>
-                    </pre>
+                {this.renderRuntimeStats()}
+                {this.renderWarningInfo()}
+                {this.renderFailureInfo()}
+                <div className="row">
+                    <div className="col-12">
+                        <h3>
+                            Query
+                            <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                                <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                            </a>
+                        </h3>
+                        <pre id="query">
+                            <code className="lang-sql" id="query-text">
+                                {query.query}
+                            </code>
+                        </pre>
+                    </div>
+                    {this.renderPreparedQuery()}
                 </div>
-                {renderPreparedQuery()}
+                {this.renderStages()}
             </div>
-            {renderStages()}
-        </div>
-    );
-};
+        );
+    }
+}
 
 export default QueryDetail;
 
