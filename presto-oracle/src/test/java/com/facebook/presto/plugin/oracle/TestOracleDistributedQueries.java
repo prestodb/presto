@@ -40,9 +40,8 @@ public class TestOracleDistributedQueries
     protected TestOracleDistributedQueries()
             throws Exception
     {
-        OracleServerTester oracleServerTester = new OracleServerTester();
-        this.queryRunner = createOracleQueryRunner(oracleServerTester, TpchTable.getTables());
-        this.oracleServer = oracleServerTester;
+        this.oracleServer = new OracleServerTester();
+        this.queryRunner = createOracleQueryRunner(oracleServer, TpchTable.getTables());
     }
 
     @Override

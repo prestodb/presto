@@ -33,9 +33,8 @@ public class TestOracleIntegrationSmokeTest
     protected TestOracleIntegrationSmokeTest()
             throws Exception
     {
-        OracleServerTester oracleServerTester = new OracleServerTester();
-        this.queryRunner = createOracleQueryRunner(oracleServerTester, ORDERS);
-        this.oracleServer = oracleServerTester;
+        this.oracleServer = new OracleServerTester();
+        this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
     }
 
     @Override
