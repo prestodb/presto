@@ -70,6 +70,13 @@ void updateFromSessionConfigs(
     }
   }
 
+  if (session.source) {
+    queryConfigs[velox::core::QueryConfig::kSource] = *session.source;
+  }
+  if (!session.clientTags.empty()) {
+    queryConfigs[velox::core::QueryConfig::kClientTags] = folly::join(',', session.clientTags);
+  }
+
   // If there's a timeZoneKey, convert to timezone name and add to the
   // configs. Throws if timeZoneKey can't be resolved.
   if (session.timeZoneKey != 0) {
