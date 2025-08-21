@@ -159,11 +159,13 @@ class MergerTest : public OperatorTestBase {
         pool());
   }
 
-  static std::vector<std::shared_ptr<MergeSource>> createMergeSources(int num) {
+  static std::vector<std::shared_ptr<MergeSource>> createMergeSources(
+      size_t numSources,
+      size_t queueSize) {
     std::vector<std::shared_ptr<MergeSource>> sources;
-    sources.reserve(num);
-    for (auto i = 0; i < num; ++i) {
-      sources.push_back(MergeSource::createLocalMergeSource());
+    sources.reserve(numSources);
+    for (auto i = 0; i < numSources; ++i) {
+      sources.push_back(MergeSource::createLocalMergeSource(queueSize));
     }
     for (const auto& source : sources) {
       source->start();
@@ -230,13 +232,15 @@ class MergerTest : public OperatorTestBase {
   std::shared_ptr<SpillMerger> createSpillMerger(
       std::vector<std::vector<std::unique_ptr<SpillReadFile>>>
           spillReadFilesGroups,
-      vector_size_t outputBatchRows) const {
+      vector_size_t outputBatchRows,
+      int queueSize) const {
     return std::make_shared<SpillMerger>(
         sortingKeys_,
         inputType_,
         std::move(spillReadFilesGroups),
         outputBatchRows,
         std::numeric_limits<int64_t>::max(),
+        queueSize,
         &spillConfig_,
         spillStats_,
         pool());
@@ -321,37 +325,40 @@ class MergerTest : public OperatorTestBase {
 } // namespace facebook::velox::exec::test
 
 TEST_F(MergerTest, sourceMerger) {
-  struct {
+  struct TestSetting {
     size_t maxOutputRows;
     size_t maxOutputBytes;
     size_t numSources;
+    size_t queueSize;
 
     std::string debugString() const {
       return fmt::format(
-          "maxOutputRows:{}, maxOutputBytes:{}, numStreams:{}",
+          "maxOutputRows:{}, maxOutputBytes:{}, numStreams:{}, queueSize:{}",
           maxOutputRows,
           succinctBytes(maxOutputBytes),
-          numSources);
+          numSources,
+          queueSize);
     }
-  } testSettings[] = {
-      {1, 1000'000'000, 1},
-      {1, 1000'000'000, 3},
-      {1, 1000'000'000, 8},
-      {7, 1000'000'000, 1},
-      {7, 1000'000'000, 3},
-      {7, 1000'000'000, 8},
-      {16, 1000'000'000, 1},
-      {16, 1000'000'000, 3},
-      {16, 1000'000'000, 8},
-      {32, 1000'000'000, 3},
-      {1024, 1000'000'000, 8}};
+  };
+  std::vector<TestSetting> testSettings;
+  for (size_t maxOutputRows : {1, 7, 16}) {
+    for (size_t numSources : {1, 3, 8}) {
+      for (size_t queueSize : {1, 2}) {
+        testSettings.push_back(
+            {maxOutputRows, 1'000'000'000, numSources, queueSize});
+      }
+    }
+  }
+  testSettings.push_back({32, 1'000'000'000, 3, 2});
+  testSettings.push_back({1024, 1'000'000'000, 8, 2});
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     std::vector<std::vector<RowVectorPtr>> inputs;
     for (auto i = 1; i <= testData.numSources; ++i) {
       inputs.emplace_back(generateSortedVectors(i, 16));
     }
-    const auto sources = createMergeSources(testData.numSources);
+    const auto sources =
+        createMergeSources(testData.numSources, testData.queueSize);
     const auto sourceMerger = createSourceMerger(
         sources, testData.maxOutputRows, testData.maxOutputBytes);
     createProducers(testData.numSources, inputs, sources);
@@ -367,7 +374,7 @@ TEST_F(MergerTest, sourceMergerWithEmptySources) {
     const auto numVectors = (i % 2 == 0) ? 0 : i;
     inputs.emplace_back(generateSortedVectors(numVectors, 16));
   }
-  const auto sources = createMergeSources(10);
+  const auto sources = createMergeSources(10, 2);
   const auto sourceMerger = createSourceMerger(sources, 32, 1000'000'000);
   createProducers(10, inputs, sources);
   const auto results = getOutputFromSourceMerger(sourceMerger.get());
@@ -376,33 +383,37 @@ TEST_F(MergerTest, sourceMergerWithEmptySources) {
 }
 
 TEST_F(MergerTest, spillMerger) {
-  struct {
+  struct TestSetting {
     size_t maxOutputRows;
     size_t numSources;
+    size_t queueSize;
 
     std::string debugString() const {
       return fmt::format(
-          "maxOutputRows:{}, numStreams:{}", maxOutputRows, numSources);
+          "maxOutputRows:{}, numStreams:{}, queueSize:{}",
+          maxOutputRows,
+          numSources,
+          queueSize);
     }
-  } testSettings[] = {
-      {1, 1},
-      {1, 3},
-      {1, 8},
-      {7, 1},
-      {7, 3},
-      {7, 8},
-      {16, 1},
-      {16, 3},
-      {16, 8},
-      {32, 3},
-      {1024, 8}};
+  };
+  std::vector<TestSetting> testSettings;
+  for (size_t maxOutputRows : {1, 7, 16}) {
+    for (size_t numSources : {1, 3, 8}) {
+      for (size_t queueSize : {1, 2}) {
+        testSettings.push_back({maxOutputRows, numSources, queueSize});
+      }
+    }
+  }
+  testSettings.push_back({32, 3, 2});
+  testSettings.push_back({1024, 8, 2});
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    const auto sources = createMergeSources(testData.numSources);
+    const auto sources =
+        createMergeSources(testData.numSources, testData.queueSize);
     auto [inputs, filesGroup] = generateInputs(testData.numSources, 16);
     ASSERT_EQ(filesGroup.size(), testData.numSources);
-    const auto spillMerger =
-        createSpillMerger(std::move(filesGroup), testData.maxOutputRows);
+    const auto spillMerger = createSpillMerger(
+        std::move(filesGroup), testData.maxOutputRows, testData.queueSize);
     spillMerger->start();
     const auto results = getOutputFromSpillMerger(spillMerger.get());
     const auto expectedResults = makeExpectedResults(inputs, 16);

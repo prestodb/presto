@@ -291,11 +291,9 @@ class MergeExchangeSource : public MergeSource {
 };
 } // namespace
 
-std::shared_ptr<MergeSource> MergeSource::createLocalMergeSource() {
-  // Buffer up to 2 vectors from each source before blocking to wait
-  // for consumers.
-  static const int kDefaultQueueSize = 2;
-  return std::make_shared<LocalMergeSource>(kDefaultQueueSize);
+std::shared_ptr<MergeSource> MergeSource::createLocalMergeSource(
+    int queueSize) {
+  return std::make_shared<LocalMergeSource>(queueSize);
 }
 
 std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(

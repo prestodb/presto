@@ -106,6 +106,10 @@ Generic Configuration
        client. Enforced approximately, not strictly. A larger size can increase network throughput
        for larger clusters and thus decrease query processing time at the expense of reducing the
        amount of memory available for other usage.
+   * - local_merge_source_queue_size
+     - integer
+     - 2
+     - Maximum number of vectors buffered in each local merge source before blocking to wait for consumers.
    * - max_page_partitioning_buffer_size
      - integer
      - 32MB

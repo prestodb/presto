@@ -2929,8 +2929,9 @@ folly::dynamic Task::toJson() const {
 std::shared_ptr<MergeSource> Task::addLocalMergeSource(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId,
-    const RowTypePtr& rowType) {
-  auto source = MergeSource::createLocalMergeSource();
+    const RowTypePtr& rowType,
+    int queueSize) {
+  auto source = MergeSource::createLocalMergeSource(queueSize);
   splitGroupStates_[splitGroupId].localMergeSources[planNodeId].push_back(
       source);
   return source;

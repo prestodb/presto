@@ -46,7 +46,7 @@ class MergeSource {
   virtual void close() = 0;
 
   // Factory methods to create MergeSources.
-  static std::shared_ptr<MergeSource> createLocalMergeSource();
+  static std::shared_ptr<MergeSource> createLocalMergeSource(int queueSize);
 
   static std::shared_ptr<MergeSource> createMergeExchangeSource(
       MergeExchange* mergeExchange,

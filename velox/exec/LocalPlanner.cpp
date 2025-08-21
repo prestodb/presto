@@ -122,7 +122,10 @@ OperatorSupplier makeOperatorSupplier(
           std::dynamic_pointer_cast<const core::LocalMergeNode>(planNode)) {
     return [localMerge](int32_t operatorId, DriverCtx* ctx) {
       auto mergeSource = ctx->task->addLocalMergeSource(
-          ctx->splitGroupId, localMerge->id(), localMerge->outputType());
+          ctx->splitGroupId,
+          localMerge->id(),
+          localMerge->outputType(),
+          ctx->queryConfig().localMergeSourceQueueSize());
       auto consumerCb =
           [mergeSource](
               RowVectorPtr input, bool drained, ContinueFuture* future) {

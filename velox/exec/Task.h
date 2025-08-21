@@ -464,7 +464,8 @@ class Task : public std::enable_shared_from_this<Task> {
   std::shared_ptr<MergeSource> addLocalMergeSource(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId,
-      const RowTypePtr& rowType);
+      const RowTypePtr& rowType,
+      int queueSize);
 
   /// Returns all MergeSource's for the specified splitGroupId and planNodeId.
   const std::vector<std::shared_ptr<MergeSource>>& getLocalMergeSources(

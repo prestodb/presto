@@ -182,6 +182,7 @@ void Merge::setupSpillMerger() {
       std::move(spillReadFilesGroups),
       maxOutputBatchRows_,
       maxOutputBatchBytes_,
+      operatorCtx_->driverCtx()->queryConfig().localMergeSourceQueueSize(),
       &spillConfig_.value(),
       spillStats_,
       pool());
@@ -525,13 +526,15 @@ SpillMerger::SpillMerger(
         spillReadFilesGroup,
     vector_size_t maxOutputBatchRows,
     uint64_t maxOutputBatchBytes,
+    int mergeSourceQueueSize,
     const common::SpillConfig* spillConfig,
     const std::shared_ptr<folly::Synchronized<common::SpillStats>>& spillStats,
     velox::memory::MemoryPool* pool)
     : executor_(spillConfig->executor),
       spillStats_(spillStats),
       pool_(pool->shared_from_this()),
-      sources_(createMergeSources(spillReadFilesGroup.size())),
+      sources_(
+          createMergeSources(spillReadFilesGroup.size(), mergeSourceQueueSize)),
       batchStreams_(createBatchStreams(std::move(spillReadFilesGroup))),
       // TODO: consider to provide a config other than the regular operator
       // batch size to tune the batch size of the spilled source merge output as
@@ -570,11 +573,12 @@ RowVectorPtr SpillMerger::getOutput(
 }
 
 std::vector<std::shared_ptr<MergeSource>> SpillMerger::createMergeSources(
-    size_t numSpillSources) {
+    size_t numSpillSources,
+    int queueSize) {
   std::vector<std::shared_ptr<MergeSource>> sources;
   sources.reserve(numSpillSources);
   for (auto i = 0; i < numSpillSources; ++i) {
-    sources.push_back(MergeSource::createLocalMergeSource());
+    sources.push_back(MergeSource::createLocalMergeSource(queueSize));
   }
   for (const auto& source : sources) {
     source->start();
