@@ -256,18 +256,6 @@ public class QueryBuilder
                 validType instanceof CharType;
     }
 
-    private WriteFunction getWriteFunction(JdbcTypeHandle typeHandle, JdbcClient client, ConnectorSession session, Type type)
-    {
-        if (typeHandle != null) {
-            return client.toPrestoType(session, typeHandle)
-                    .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, typeHandle)))
-                    .getWriteFunction();
-        }
-        return getColumnMappingFromPrestoType(type)
-                .orElseThrow(() -> new VerifyException(format("Unsupported type %s for adding in accumulators", type)))
-                .getWriteFunction();
-    }
-
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
@@ -362,7 +350,7 @@ public class QueryBuilder
     private static void bindValue(Object value, JdbcColumnHandle columnHandle, ImmutableList.Builder<TypeAndValue> accumulatorBuilder)
     {
         Type type = columnHandle.getColumnType();
-        accumulatorBuilder.add(new TypeAndValue(type, value, columnHandle.getJdbcTypeHandle()));
+        accumulatorBuilder.add(new TypeAndValue(type, value));
     }
 
     private void buildFromClause(StringBuilder sql, List<ConnectorTableHandle> joinTables)

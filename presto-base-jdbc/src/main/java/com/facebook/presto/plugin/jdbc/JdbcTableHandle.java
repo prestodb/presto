@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
