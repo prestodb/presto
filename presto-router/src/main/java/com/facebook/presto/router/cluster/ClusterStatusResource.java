@@ -14,6 +14,7 @@
 package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.client.ExecutionType;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -55,7 +56,7 @@ public class ClusterStatusResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        return new ServerInfo(UNKNOWN, environment, true, false, Optional.empty());
+        return new ServerInfo(UNKNOWN, environment, true, false, Optional.empty(), Optional.of(ExecutionType.JAVA));
     }
 
     @GET

@@ -36,10 +36,11 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
-    NodeSelectionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
-        {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
-        {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
+    NodeSelectionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
+            {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
+            {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
 void to_json(json& j, const NodeSelectionStrategy& e) {
   static_assert(
       std::is_enum<NodeSelectionStrategy>::value,
@@ -558,11 +559,12 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<AggregationNodeStep, json>
-    AggregationNodeStep_enum_table[] = { // NOLINT: cert-err58-cpp
-        {AggregationNodeStep::PARTIAL, "PARTIAL"},
-        {AggregationNodeStep::FINAL, "FINAL"},
-        {AggregationNodeStep::INTERMEDIATE, "INTERMEDIATE"},
-        {AggregationNodeStep::SINGLE, "SINGLE"}};
+    AggregationNodeStep_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {AggregationNodeStep::PARTIAL, "PARTIAL"},
+            {AggregationNodeStep::FINAL, "FINAL"},
+            {AggregationNodeStep::INTERMEDIATE, "INTERMEDIATE"},
+            {AggregationNodeStep::SINGLE, "SINGLE"}};
 void to_json(json& j, const AggregationNodeStep& e) {
   static_assert(
       std::is_enum<AggregationNodeStep>::value,
@@ -6144,9 +6146,10 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinDistributionType, json>
-    JoinDistributionType_enum_table[] = { // NOLINT: cert-err58-cpp
-        {JoinDistributionType::PARTITIONED, "PARTITIONED"},
-        {JoinDistributionType::REPLICATED, "REPLICATED"}};
+    JoinDistributionType_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {JoinDistributionType::PARTITIONED, "PARTITIONED"},
+            {JoinDistributionType::REPLICATED, "REPLICATED"}};
 void to_json(json& j, const JoinDistributionType& e) {
   static_assert(
       std::is_enum<JoinDistributionType>::value,
@@ -8211,14 +8214,17 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<StageExecutionStrategy, json>
-    StageExecutionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {StageExecutionStrategy::UNGROUPED_EXECUTION, "UNGROUPED_EXECUTION"},
-        {StageExecutionStrategy::FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-         "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
-        {StageExecutionStrategy::DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-         "DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
-        {StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION,
-         "RECOVERABLE_GROUPED_EXECUTION"}};
+    StageExecutionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {StageExecutionStrategy::UNGROUPED_EXECUTION,
+             "UNGROUPED_EXECUTION"},
+            {StageExecutionStrategy::FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+             "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
+            {StageExecutionStrategy::
+                 DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+             "DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
+            {StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION,
+             "RECOVERABLE_GROUPED_EXECUTION"}};
 void to_json(json& j, const StageExecutionStrategy& e) {
   static_assert(
       std::is_enum<StageExecutionStrategy>::value,
@@ -9391,6 +9397,73 @@ void from_json(const json& j, SemiJoinNode& p) {
       "dynamicFilters");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace facebook::presto::protocol {
+
+static const std::pair<ExecutionType, json> ExecutionType_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {ExecutionType::JAVA, "JAVA"},
+        {ExecutionType::NATIVE, "NATIVE"},
+        {ExecutionType::NATIVE_CUDF, "NATIVE_CUDF"}};
+
+void to_json(json& j, const ExecutionType& e) {
+  static_assert(
+      std::is_enum<ExecutionType>::value, "ExecutionType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExecutionType_enum_table),
+      std::end(ExecutionType_enum_table),
+      [e](const std::pair<ExecutionType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(ExecutionType_enum_table))
+           ? it
+           : std::begin(ExecutionType_enum_table))
+          ->second;
+}
+
+void from_json(const json& j, ExecutionType& e) {
+  static_assert(
+      std::is_enum<ExecutionType>::value, "ExecutionType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExecutionType_enum_table),
+      std::end(ExecutionType_enum_table),
+      [&j](const std::pair<ExecutionType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(ExecutionType_enum_table))
+           ? it
+           : std::begin(ExecutionType_enum_table))
+          ->first;
+}
+
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const ServerInfo& p) {
@@ -9408,6 +9481,13 @@ void to_json(json& j, const ServerInfo& p) {
       j, "coordinator", p.coordinator, "ServerInfo", "bool", "coordinator");
   to_json_key(j, "starting", p.starting, "ServerInfo", "bool", "starting");
   to_json_key(j, "uptime", p.uptime, "ServerInfo", "Duration", "uptime");
+  to_json_key(
+      j,
+      "executionType",
+      p.executionType,
+      "ServerInfo",
+      "ExecutionType",
+      "executionType");
 }
 
 void from_json(const json& j, ServerInfo& p) {
@@ -9424,7 +9504,15 @@ void from_json(const json& j, ServerInfo& p) {
       j, "coordinator", p.coordinator, "ServerInfo", "bool", "coordinator");
   from_json_key(j, "starting", p.starting, "ServerInfo", "bool", "starting");
   from_json_key(j, "uptime", p.uptime, "ServerInfo", "Duration", "uptime");
+  from_json_key(
+      j,
+      "executionType",
+      p.executionType,
+      "ServerInfo",
+      "ExecutionType",
+      "executionType");
 }
+
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
@@ -9888,12 +9976,13 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitionFunction, json>
-    SystemPartitionFunction_enum_table[] = { // NOLINT: cert-err58-cpp
-        {SystemPartitionFunction::SINGLE, "SINGLE"},
-        {SystemPartitionFunction::HASH, "HASH"},
-        {SystemPartitionFunction::ROUND_ROBIN, "ROUND_ROBIN"},
-        {SystemPartitionFunction::BROADCAST, "BROADCAST"},
-        {SystemPartitionFunction::UNKNOWN, "UNKNOWN"}};
+    SystemPartitionFunction_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {SystemPartitionFunction::SINGLE, "SINGLE"},
+            {SystemPartitionFunction::HASH, "HASH"},
+            {SystemPartitionFunction::ROUND_ROBIN, "ROUND_ROBIN"},
+            {SystemPartitionFunction::BROADCAST, "BROADCAST"},
+            {SystemPartitionFunction::UNKNOWN, "UNKNOWN"}};
 void to_json(json& j, const SystemPartitionFunction& e) {
   static_assert(
       std::is_enum<SystemPartitionFunction>::value,
@@ -9930,13 +10019,14 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitioning, json>
-    SystemPartitioning_enum_table[] = { // NOLINT: cert-err58-cpp
-        {SystemPartitioning::SINGLE, "SINGLE"},
-        {SystemPartitioning::FIXED, "FIXED"},
-        {SystemPartitioning::SOURCE, "SOURCE"},
-        {SystemPartitioning::SCALED, "SCALED"},
-        {SystemPartitioning::COORDINATOR_ONLY, "COORDINATOR_ONLY"},
-        {SystemPartitioning::ARBITRARY, "ARBITRARY"}};
+    SystemPartitioning_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {SystemPartitioning::SINGLE, "SINGLE"},
+            {SystemPartitioning::FIXED, "FIXED"},
+            {SystemPartitioning::SOURCE, "SOURCE"},
+            {SystemPartitioning::SCALED, "SCALED"},
+            {SystemPartitioning::COORDINATOR_ONLY, "COORDINATOR_ONLY"},
+            {SystemPartitioning::ARBITRARY, "ARBITRARY"}};
 void to_json(json& j, const SystemPartitioning& e) {
   static_assert(
       std::is_enum<SystemPartitioning>::value,

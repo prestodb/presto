@@ -25,11 +25,12 @@ namespace facebook::presto::protocol::iceberg {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ChangelogOperation, json>
-    ChangelogOperation_enum_table[] = { // NOLINT: cert-err58-cpp
-        {ChangelogOperation::INSERT, "INSERT"},
-        {ChangelogOperation::DELETE, "DELETE"},
-        {ChangelogOperation::UPDATE_BEFORE, "UPDATE_BEFORE"},
-        {ChangelogOperation::UPDATE_AFTER, "UPDATE_AFTER"}};
+    ChangelogOperation_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {ChangelogOperation::INSERT, "INSERT"},
+            {ChangelogOperation::DELETE, "DELETE"},
+            {ChangelogOperation::UPDATE_BEFORE, "UPDATE_BEFORE"},
+            {ChangelogOperation::UPDATE_AFTER, "UPDATE_AFTER"}};
 void to_json(json& j, const ChangelogOperation& e) {
   static_assert(
       std::is_enum<ChangelogOperation>::value,

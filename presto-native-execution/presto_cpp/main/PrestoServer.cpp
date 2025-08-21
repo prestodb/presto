@@ -1617,12 +1617,20 @@ void PrestoServer::reportMemoryInfo(proxygen::ResponseHandler* downstream) {
 }
 
 void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
+  // Determine execution type based on GPU support
+#ifdef VELOX_ENABLE_GPU
+  auto executionType = std::make_shared<protocol::ExecutionType>(protocol::ExecutionType::NATIVE_CUDF);
+#else
+  auto executionType = std::make_shared<protocol::ExecutionType>(protocol::ExecutionType::NATIVE);
+#endif
+
   const protocol::ServerInfo serverInfo{
       {nodeVersion_},
       environment_,
       false,
       false,
-      std::make_shared<protocol::Duration>(getUptime(start_))};
+      std::make_shared<protocol::Duration>(getUptime(start_)),
+      executionType};
   http::sendOkResponse(downstream, json(serverInfo));
 }
 
