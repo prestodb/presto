@@ -19,7 +19,6 @@
 #include <boost/regex.hpp>
 #include <xxhash.h>
 #include <string_view>
-#include "velox/expression/ComplexViewTypes.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/TimeUtils.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"

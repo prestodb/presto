@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <boost/numeric/conversion/cast.hpp>
-#include <optional>
 #include "velox/common/base/Doubles.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/lib/DateTimeUtil.h"
@@ -223,15 +221,14 @@ valueOfTimeUnitToMillis(const double value, std::string_view unit) {
   } else {
     VELOX_USER_FAIL("Unknown time unit: {}", unit);
   }
-  try {
-    return boost::numeric_cast<int64_t>(std::round(convertedValue));
-  } catch (const boost::bad_numeric_cast&) {
-    VELOX_USER_FAIL(
-        "Value in {} unit is too large to be represented in ms unit as an int64_t",
-        unit,
-        value);
+
+  auto result = folly::tryTo<int64_t>(std::round(convertedValue));
+  if (result.hasValue()) {
+    return result.value();
   }
-  VELOX_UNREACHABLE();
+  VELOX_USER_FAIL(
+      "Value in {} unit is too large to be represented in ms unit as an int64_t",
+      unit);
 }
 
 } // namespace facebook::velox::functions
