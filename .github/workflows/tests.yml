@@ -62,6 +62,8 @@ jobs:
           - ":presto-mongodb -P test-mongo-distributed-queries"
           - ":presto-redis -P test-redis-integration-smoke-test"
           - ":presto-elasticsearch"
+          - ":presto-elasticsearch -P test-oracle-distributed-queries"
+          - ":presto-elasticsearch -P test-oracle-integration-smoke-test"
           - ":presto-orc"
           - ":presto-thrift-connector"
           - ":presto-spark-base -P presto-spark-tests-smoke"

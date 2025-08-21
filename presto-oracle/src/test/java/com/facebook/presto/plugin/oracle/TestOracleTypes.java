@@ -23,7 +23,6 @@ import com.facebook.presto.tests.datatype.DataSetup;
 import com.facebook.presto.tests.datatype.DataType;
 import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
-import org.testcontainers.containers.OracleContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -46,13 +45,8 @@ public class TestOracleTypes
     private TestOracleTypes()
             throws Exception
     {
-        OracleContainer oracleContainer = new OracleContainer("wnameless/oracle-xe-11g-r2");
-        oracleContainer.start();
-
-        OracleServerTester oracleServerTester = new OracleServerTester();
-
-        this.queryRunner = createOracleQueryRunner(oracleServerTester);
-        this.oracleServer = oracleServerTester;
+        this.oracleServer = new OracleServerTester();
+        this.queryRunner = createOracleQueryRunner(oracleServer);
     }
 
     @Override
