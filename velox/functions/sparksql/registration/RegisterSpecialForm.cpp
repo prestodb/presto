@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/expression/RegisterSpecialForm.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/RowConstructor.h"
 #include "velox/expression/SpecialFormRegistry.h"
 #include "velox/functions/sparksql/specialforms/AtLeastNNonNulls.h"
@@ -44,9 +45,9 @@ void registerSpecialFormGeneralFunctions(const std::string& prefix) {
       std::make_unique<AtLeastNNonNullsCallToSpecialForm>());
   registerSparkSpecialFormFunctions();
   registerFunctionCallToSpecialForm(
-      "cast", std::make_unique<SparkCastCallToSpecialForm>());
+      expression::kCast, std::make_unique<SparkCastCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      "try_cast", std::make_unique<SparkTryCastCallToSpecialForm>());
+      expression::kTryCast, std::make_unique<SparkTryCastCallToSpecialForm>());
   exec::registerFunctionCallToSpecialForm(
       FromJsonCallToSpecialForm::kFromJson,
       std::make_unique<FromJsonCallToSpecialForm>());

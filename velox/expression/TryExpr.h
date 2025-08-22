@@ -15,12 +15,11 @@
  */
 #pragma once
 
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SpecialForm.h"
 
 namespace facebook::velox::exec {
-
-constexpr const char* kTry = "try";
 
 class TryExpr : public SpecialForm {
  public:
@@ -30,7 +29,7 @@ class TryExpr : public SpecialForm {
             SpecialFormKind::kTry,
             std::move(type),
             {std::move(input)},
-            kTry,
+            expression::kTry,
             false /* supportsFlatNoNullsFastPath */,
             false /* trackCpuUsage */) {}
 

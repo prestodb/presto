@@ -20,8 +20,6 @@
 
 namespace facebook::velox::exec {
 
-const char* const kCoalesce = "coalesce";
-
 class CoalesceExpr : public SpecialForm {
  public:
   CoalesceExpr(

@@ -17,6 +17,7 @@
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/ConstantExpr.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/expression/LambdaExpr.h"
 #include "velox/expression/RowConstructor.h"
@@ -30,9 +31,6 @@ namespace {
 
 using core::ITypedExpr;
 using core::TypedExprPtr;
-
-const char* const kAnd = "and";
-const char* const kOr = "or";
 
 struct ITypedExprHasher {
   size_t operator()(const ITypedExpr* expr) const {
@@ -108,7 +106,7 @@ std::optional<std::string> shouldFlatten(
     const auto* call = expr->asUnchecked<core::CallTypedExpr>();
     // Currently only supports the most common case for flattening where all
     // inputs are of the same type.
-    if (call->name() == kAnd || call->name() == kOr ||
+    if (call->name() == expression::kAnd || call->name() == expression::kOr ||
         (flatteningCandidates.count(call->name()) &&
          allInputTypesEquivalent(expr))) {
       return call->name();
@@ -457,7 +455,7 @@ ExprPtr compileCast(
   const auto* cast = expr->asUnchecked<core::CastTypedExpr>();
   return getSpecialForm(
       config,
-      cast->isTryCast() ? "try_cast" : "cast",
+      cast->isTryCast() ? expression::kTryCast : expression::kCast,
       resultType,
       std::move(inputs),
       trackCpuUsage);

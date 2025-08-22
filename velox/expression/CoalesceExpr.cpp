@@ -15,6 +15,8 @@
  */
 #include "velox/expression/CoalesceExpr.h"
 
+#include "velox/expression/ExprConstants.h"
+
 namespace facebook::velox::exec {
 
 CoalesceExpr::CoalesceExpr(
@@ -25,7 +27,7 @@ CoalesceExpr::CoalesceExpr(
           SpecialFormKind::kCoalesce,
           std::move(type),
           std::move(inputs),
-          kCoalesce,
+          expression::kCoalesce,
           inputsSupportFlatNoNullsFastPath,
           false /* trackCpuUsage */) {
   std::vector<TypePtr> inputTypes;
