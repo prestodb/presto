@@ -1510,6 +1510,28 @@ folly::F14FastMap<JoinType, std::string> joinTypeNames() {
       {JoinType::kAnti, "ANTI"},
   };
 }
+
+// Check that each output of the join is in exactly one of the inputs.
+void checkJoinColumnNames(
+    const RowTypePtr& leftType,
+    const RowTypePtr& rightType,
+    const RowTypePtr& outputType,
+    uint32_t numColumnsToCheck) {
+  for (auto i = 0; i < numColumnsToCheck; ++i) {
+    const auto name = outputType->nameOf(i);
+    const bool leftContains = leftType->containsChild(name);
+    const bool rightContains = rightType->containsChild(name);
+    VELOX_USER_CHECK(
+        !(leftContains && rightContains),
+        "Duplicate column name found on join's left and right sides: {}",
+        name);
+    VELOX_USER_CHECK(
+        leftContains || rightContains,
+        "Join's output column not found in either left or right sides: {}",
+        name);
+  }
+}
+
 } // namespace
 
 VELOX_DEFINE_ENUM_NAME(JoinType, joinTypeNames)
@@ -1724,19 +1746,7 @@ IndexLookupJoinNode::IndexLookupJoinNode(
     VELOX_USER_CHECK(!rightType->containsChild(name));
   }
 
-  for (auto i = 0; i < numOutputColumns; ++i) {
-    const auto name = outputType_->nameOf(i);
-    if (leftType->containsChild(name)) {
-      VELOX_USER_CHECK(
-          !rightType->containsChild(name),
-          "Duplicate column name found on index lookup join's left and right sides: {}",
-          name);
-    } else if (!rightType->containsChild(name)) {
-      VELOX_USER_FAIL(
-          "Index lookup join's output column not found in either left or right sides: {}",
-          name);
-    }
-  }
+  checkJoinColumnNames(leftType, rightType, outputType_, numOutputColumns);
 }
 
 PlanNodePtr IndexLookupJoinNode::create(
@@ -1848,11 +1858,11 @@ NestedLoopJoinNode::NestedLoopJoinNode(
 
   auto leftType = sources_[0]->outputType();
   auto rightType = sources_[1]->outputType();
-  auto numOutputColumms = outputType_->size();
+  auto numOutputColumns = outputType_->size();
   if (isLeftSemiProjectJoin(joinType)) {
-    --numOutputColumms;
-    VELOX_CHECK_EQ(outputType_->childAt(numOutputColumms), BOOLEAN());
-    const auto& name = outputType_->nameOf(numOutputColumms);
+    --numOutputColumns;
+    VELOX_CHECK_EQ(outputType_->childAt(numOutputColumns), BOOLEAN());
+    const auto& name = outputType_->nameOf(numOutputColumns);
     VELOX_CHECK(
         !leftType->containsChild(name),
         "Match column '{}' cannot be present in left source.",
@@ -1863,19 +1873,7 @@ NestedLoopJoinNode::NestedLoopJoinNode(
         name);
   }
 
-  for (auto i = 0; i < numOutputColumms; ++i) {
-    const auto name = outputType_->nameOf(i);
-    const bool leftContains = leftType->containsChild(name);
-    const bool rightContains = rightType->containsChild(name);
-    VELOX_USER_CHECK(
-        !(leftContains && rightContains),
-        "Duplicate column name found on join's left and right sides: {}",
-        name);
-    VELOX_USER_CHECK(
-        leftContains || rightContains,
-        "Join's output column not found in either left or right sides: {}",
-        name);
-  }
+  checkJoinColumnNames(leftType, rightType, outputType_, numOutputColumns);
 }
 
 NestedLoopJoinNode::NestedLoopJoinNode(
@@ -2956,6 +2954,98 @@ PlanNodePtr PartitionedOutputNode::create(
       deserializeSingleSource(obj, context));
 }
 
+// static
+const JoinType SpatialJoinNode::kDefaultJoinType = JoinType::kInner;
+
+SpatialJoinNode::SpatialJoinNode(
+    const PlanNodeId& id,
+    JoinType joinType,
+    TypedExprPtr joinCondition,
+    PlanNodePtr left,
+    PlanNodePtr right,
+    RowTypePtr outputType)
+    : PlanNode(id),
+      joinType_(joinType),
+      joinCondition_(std::move(joinCondition)),
+      sources_({std::move(left), std::move(right)}),
+      outputType_(std::move(outputType)) {
+  VELOX_USER_CHECK(
+      isSupported(joinType_),
+      "The join type is not supported by spatial join: {}",
+      JoinTypeName::toName(joinType_));
+  VELOX_USER_CHECK(
+      joinCondition_ != nullptr,
+      "The join condition must not be null for spatial join");
+  VELOX_USER_CHECK_EQ(
+      sources_.size(), 2, "Must have 2 sources for spatial joins");
+  VELOX_USER_CHECK(
+      sources_[0] != nullptr, "Left source must not be null for spatial joins");
+  VELOX_USER_CHECK(
+      sources_[1] != nullptr,
+      "Right source must not be null for spatial joins");
+
+  checkJoinColumnNames(
+      sources_[0]->outputType(),
+      sources_[1]->outputType(),
+      outputType_,
+      outputType_->size());
+}
+
+bool SpatialJoinNode::isSupported(JoinType joinType) {
+  switch (joinType) {
+    case JoinType::kInner:
+      [[fallthrough]];
+    case JoinType::kLeft:
+      return true;
+    default:
+      return false;
+  }
+}
+
+void SpatialJoinNode::addDetails(std::stringstream& stream) const {
+  stream << JoinTypeName::toName(joinType_);
+  if (joinCondition_) {
+    stream << ", joinCondition: " << joinCondition_->toString();
+  }
+}
+
+folly::dynamic SpatialJoinNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["joinType"] = JoinTypeName::toName(joinType_);
+  if (joinCondition_) {
+    obj["joinCondition"] = joinCondition_->serialize();
+  }
+  obj["outputType"] = outputType_->serialize();
+  return obj;
+}
+
+void SpatialJoinNode::accept(
+    const PlanNodeVisitor& visitor,
+    PlanNodeVisitorContext& context) const {
+  visitor.visit(*this, context);
+}
+
+PlanNodePtr SpatialJoinNode::create(const folly::dynamic& obj, void* context) {
+  auto sources = deserializeSources(obj, context);
+  VELOX_CHECK_EQ(2, sources.size());
+
+  TypedExprPtr joinCondition;
+  if (obj.count("joinCondition")) {
+    joinCondition =
+        ISerializable::deserialize<ITypedExpr>(obj["joinCondition"], context);
+  }
+
+  auto outputType = deserializeRowType(obj["outputType"]);
+
+  return std::make_shared<SpatialJoinNode>(
+      deserializePlanNodeId(obj),
+      JoinTypeName::toJoinType(obj["joinType"].asString()),
+      joinCondition,
+      sources[0],
+      sources[1],
+      outputType);
+}
+
 TopNNode::TopNNode(
     const PlanNodeId& id,
     const std::vector<FieldAccessTypedExprPtr>& sortingKeys,
@@ -3271,6 +3361,7 @@ void PlanNode::registerSerDe() {
   registry.Register("ProjectNode", ProjectNode::create);
   registry.Register("ParallelProjectNode", ParallelProjectNode::create);
   registry.Register("RowNumberNode", RowNumberNode::create);
+  registry.Register("SpatialJoinNode", SpatialJoinNode::create);
   registry.Register("TableScanNode", TableScanNode::create);
   registry.Register("TableWriteNode", TableWriteNode::create);
   registry.Register("TableWriteMergeNode", TableWriteMergeNode::create);

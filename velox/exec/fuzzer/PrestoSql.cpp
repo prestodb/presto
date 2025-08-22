@@ -598,6 +598,12 @@ void PrestoSqlPlanNodeVisitor::visit(
   visitorContext.sql = sql.str();
 }
 
+void PrestoSqlPlanNodeVisitor::visit(
+    const core::SpatialJoinNode& node,
+    core::PlanNodeVisitorContext& ctx) const {
+  VELOX_NYI("SpatialJoinNode is not yet supported in SQL conversion");
+}
+
 std::optional<std::string> PrestoSqlPlanNodeVisitor::toSql(
     const core::PlanNodePtr& node) const {
   PrestoSqlPlanNodeVisitorContext sourceContext;

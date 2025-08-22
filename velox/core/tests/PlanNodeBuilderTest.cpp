@@ -793,6 +793,48 @@ TEST_F(PlanNodeBuilderTest, OrderByNode) {
   verify(node2);
 }
 
+TEST_F(PlanNodeBuilderTest, SpatialJoinNode) {
+  const PlanNodeId id = "spatial_join_node_id";
+  const auto joinType = JoinType::kInner;
+  const auto joinCondition =
+      std::make_shared<ConstantTypedExpr>(BOOLEAN(), variant(true));
+  const auto left =
+      ValuesNode::Builder()
+          .id("values_node_id_1")
+          .values({makeRowVector(
+              {"c0"}, {makeFlatVector<int64_t>(std::vector<int64_t>{1})})})
+          .build();
+  const auto right =
+      ValuesNode::Builder()
+          .id("values_node_id_2")
+          .values({makeRowVector(
+              {"c1"}, {makeFlatVector<int64_t>(std::vector<int64_t>{2})})})
+          .build();
+  const auto outputType = ROW({"c0"}, {BIGINT()});
+
+  const auto verify = [&](const std::shared_ptr<const SpatialJoinNode>& node) {
+    EXPECT_EQ(node->id(), id);
+    EXPECT_EQ(node->joinType(), joinType);
+    EXPECT_EQ(node->joinCondition(), joinCondition);
+    EXPECT_EQ(node->sources()[0], left);
+    EXPECT_EQ(node->sources()[1], right);
+    EXPECT_EQ(node->outputType(), outputType);
+  };
+
+  const auto node = SpatialJoinNode::Builder()
+                        .id(id)
+                        .joinType(joinType)
+                        .joinCondition(joinCondition)
+                        .left(left)
+                        .right(right)
+                        .outputType(outputType)
+                        .build();
+  verify(node);
+
+  const auto node2 = SpatialJoinNode::Builder(*node).build();
+  verify(node2);
+}
+
 TEST_F(PlanNodeBuilderTest, TopNNode) {
   const PlanNodeId id = "topn_node_id";
   const std::vector<FieldAccessTypedExprPtr> sortingKeys{

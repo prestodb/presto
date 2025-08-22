@@ -106,6 +106,11 @@ class DuckQueryRunnerToSqlPlanNodeVisitor : public PrestoSqlPlanNodeVisitor {
       const core::NestedLoopJoinNode& node,
       core::PlanNodeVisitorContext& ctx) const override;
 
+  void visit(const core::SpatialJoinNode&, core::PlanNodeVisitorContext&)
+      const override {
+    VELOX_NYI();
+  }
+
   void visit(const core::OrderByNode&, core::PlanNodeVisitorContext&)
       const override {
     VELOX_NYI();
