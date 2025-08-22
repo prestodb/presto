@@ -254,7 +254,6 @@
                             <excludes>
                                 <exclude>**/TestClickHouseIntegrationSmokeTest.java</exclude>
                                 <include>**/TestClickHouseDistributedQueries.java</include>
-                                <include>**/TestClickhouseIntegrationMixedCase.java</include>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -262,7 +261,7 @@
             </build>
         </profile>
         <profile>
-            <id>test-clickhouse-mixedcase-test</id>
+            <id>test-clickhouse-mixedcase-integration</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
