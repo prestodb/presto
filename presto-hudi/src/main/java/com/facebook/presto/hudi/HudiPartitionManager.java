@@ -73,6 +73,7 @@ public class HudiPartitionManager
         if (partitionColumns.isEmpty()) {
             return ImmutableMap.of(
                     "", Partition.builder()
+                            .setCatalogName(Optional.empty())
                             .setDatabaseName(tableHandle.getSchemaName())
                             .setTableName(tableHandle.getTableName())
                             .withStorage(storageBuilder ->
