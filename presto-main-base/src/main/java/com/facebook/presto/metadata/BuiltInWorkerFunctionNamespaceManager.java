@@ -19,14 +19,13 @@ import com.facebook.presto.spi.function.SqlFunction;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.metadata.BuiltInFunctionKind.PLUGIN;
-import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.metadata.BuiltInFunctionKind.WORKER;
+import static com.facebook.presto.spi.function.FunctionImplementationType.CPP;
 
-public class BuiltInPluginFunctionNamespaceManager
+public class BuiltInWorkerFunctionNamespaceManager
         extends BuiltInSpecialFunctionNamespaceManager
 {
-    public BuiltInPluginFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInWorkerFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
     {
         super(functionAndTypeManager);
     }
@@ -34,29 +33,27 @@ public class BuiltInPluginFunctionNamespaceManager
     @Override
     public synchronized void registerBuiltInSpecialFunctions(List<? extends SqlFunction> functions)
     {
-        checkForNamingConflicts(functions);
+        // only register functions once
+        if (!this.functions.list().isEmpty()) {
+            return;
+        }
         this.functions = new FunctionMap(this.functions, functions);
     }
 
     @Override
     protected synchronized void checkForNamingConflicts(Collection<? extends SqlFunction> functions)
     {
-        for (SqlFunction function : functions) {
-            for (SqlFunction existingFunction : this.functions.list()) {
-                checkArgument(!function.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", function.getSignature());
-            }
-        }
     }
 
     @Override
     protected BuiltInFunctionKind getBuiltInFunctionKind()
     {
-        return PLUGIN;
+        return WORKER;
     }
 
     @Override
     protected FunctionImplementationType getDefaultFunctionMetadataImplementationType()
     {
-        return SQL;
+        return CPP;
     }
 }
