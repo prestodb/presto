@@ -110,8 +110,9 @@ TEST_F(FromJsonTest, basicFloat) {
       {1.0,          2.0,          -3.4028235E38, 3.4028235E38, -kInfFloat,
        kInfFloat,    0.0,          0.0,           std::nullopt, std::nullopt,
        std::nullopt, std::nullopt, std::nullopt,  std::nullopt, std::nullopt,
-       std::nullopt, kNaNFloat,    -kInfFloat,    -kInfFloat,   kInfFloat,
-       kInfFloat,    kInfFloat});
+       std::nullopt, kNaNFloat,    kNaNFloat,     -kInfFloat,   -kInfFloat,
+       -kInfFloat,   -kInfFloat,   kInfFloat,     kInfFloat,    kInfFloat,
+       kInfFloat,    kInfFloat,    kInfFloat});
   auto input = makeFlatVector<std::string>(
       {R"({"a": 1})",
        R"({"a": 2.0})",
@@ -130,11 +131,17 @@ TEST_F(FromJsonTest, basicFloat) {
        R"({"a": .e10})", // Missing digits.
        R"({"a": -.})", // Missing digits entirely.
        R"({"a": "NaN"})",
+       R"({"a": NaN})",
        R"({"a": "-Infinity"})",
+       R"({"a": -Infinity})",
        R"({"a": "-INF"})",
+       R"({"a": -INF})",
        R"({"a": "+Infinity"})",
+       R"({"a": +Infinity})",
        R"({"a": "Infinity"})",
-       R"({"a": "+INF"})"});
+       R"({"a": Infinity})",
+       R"({"a": "+INF"})",
+       R"({"a": +INF})"});
   testFromJson(input, makeRowVector({"a"}, {expected}));
 }
 
@@ -157,8 +164,14 @@ TEST_F(FromJsonTest, basicDouble) {
        std::nullopt,
        std::nullopt,
        kNaNDouble,
+       kNaNDouble,
        -kInfDouble,
        -kInfDouble,
+       -kInfDouble,
+       -kInfDouble,
+       kInfDouble,
+       kInfDouble,
+       kInfDouble,
        kInfDouble,
        kInfDouble,
        kInfDouble});
@@ -180,11 +193,17 @@ TEST_F(FromJsonTest, basicDouble) {
        R"({"a": .e10})", // Missing digits.
        R"({"a": -.})", // Missing digits entirely.
        R"({"a": "NaN"})",
+       R"({"a": NaN})",
        R"({"a": "-Infinity"})",
+       R"({"a": -Infinity})",
        R"({"a": "-INF"})",
+       R"({"a": -INF})",
        R"({"a": "+Infinity"})",
+       R"({"a": +Infinity})",
        R"({"a": "Infinity"})",
-       R"({"a": "+INF"})"});
+       R"({"a": Infinity})",
+       R"({"a": "+INF"})",
+       R"({"a": +INF})"});
   testFromJson(input, makeRowVector({"a"}, {expected}));
 }
 
