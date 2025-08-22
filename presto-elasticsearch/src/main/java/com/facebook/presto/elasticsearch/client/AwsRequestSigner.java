@@ -75,6 +75,7 @@ class AwsRequestSigner
         catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+        checkState(uri != null);
         URIBuilder uriBuilder = new URIBuilder(uri);
 
         Map<String, List<String>> parameters = new TreeMap<>(CASE_INSENSITIVE_ORDER);
