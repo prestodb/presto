@@ -751,7 +751,7 @@ void PageReader::makeDecoder() {
             std::make_unique<DeltaByteArrayDecoder>(pageData_);
         break;
       }
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     default:
       VELOX_UNSUPPORTED("Encoding not supported yet: {}", encoding_);
   }

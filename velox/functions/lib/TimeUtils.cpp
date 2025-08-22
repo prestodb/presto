@@ -85,10 +85,10 @@ void adjustDateTime(std::tm& dateTime, const DateTimeUnit& unit) {
     case DateTimeUnit::kYear:
       dateTime.tm_mon = 0;
       dateTime.tm_yday = 0;
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case DateTimeUnit::kQuarter:
       dateTime.tm_mon = dateTime.tm_mon / 3 * 3;
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case DateTimeUnit::kMonth:
       dateTime.tm_mday = 1;
       dateTime.tm_hour = 0;
@@ -134,10 +134,10 @@ void adjustDateTime(std::tm& dateTime, const DateTimeUnit& unit) {
       break;
     case DateTimeUnit::kDay:
       dateTime.tm_hour = 0;
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case DateTimeUnit::kHour:
       dateTime.tm_min = 0;
-      FMT_FALLTHROUGH;
+      [[fallthrough]];
     case DateTimeUnit::kMinute:
       dateTime.tm_sec = 0;
       break;
