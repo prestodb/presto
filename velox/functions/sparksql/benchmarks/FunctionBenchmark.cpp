@@ -33,7 +33,7 @@ class FunctionBenchmark : public functions::test::FunctionBenchmarkBase {
     for (auto i = 0; i < 1000; i++) {
       auto functions = getFunctionSignatures();
       auto size = functions.size();
-      total += size;
+      total = total + size;
     }
     std::cout << total << std::endl;
   }
