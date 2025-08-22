@@ -14,11 +14,14 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -32,10 +35,18 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static java.util.Collections.singletonList;
 
 public class TestLeftJoinWithArrayContainsToEquiJoinCondition
         extends BaseRuleTest
 {
+    @BeforeClass
+    @Override
+    public void setUp()
+    {
+        tester = new RuleTester(singletonList(new SqlInvokedFunctionsPlugin()));
+    }
+
     @Test
     public void testTriggerForBigIntArrayRightSide()
     {

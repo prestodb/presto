@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -126,6 +127,7 @@ public class TestLambdaSubfieldPruning
 
                             "FROM lineitem  \n");
         }
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         return queryRunner;
     }
 
