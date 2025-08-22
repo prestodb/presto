@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -32,7 +33,7 @@ public class TestMongoDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMongoQueryRunner(TpchTable.getTables());
+        return createMongoQueryRunner(TpchTable.getTables(), ImmutableMap.of());
     }
 
     @BeforeClass

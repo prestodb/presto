@@ -43,7 +43,8 @@ public class TestMongoClientConfig
                 .setReadPreferenceTags("")
                 .setWriteConcern(WriteConcernType.ACKNOWLEDGED)
                 .setRequiredReplicaSetName(null)
-                .setImplicitRowFieldPrefix("_pos"));
+                .setImplicitRowFieldPrefix("_pos")
+                .setCaseSensitiveNameMatchingEnabled(false));
     }
 
     @Test
@@ -66,6 +67,7 @@ public class TestMongoClientConfig
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         MongoClientConfig expected = new MongoClientConfig()
@@ -84,7 +86,8 @@ public class TestMongoClientConfig
                 .setReadPreferenceTags("tag_name:tag_value")
                 .setWriteConcern(WriteConcernType.UNACKNOWLEDGED)
                 .setRequiredReplicaSetName("replica_set")
-                .setImplicitRowFieldPrefix("_prefix");
+                .setImplicitRowFieldPrefix("_prefix")
+                .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

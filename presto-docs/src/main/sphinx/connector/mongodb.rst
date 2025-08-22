@@ -51,6 +51,10 @@ Property Name                         Description
 ``mongodb.write-concern``             The write concern
 ``mongodb.required-replica-set``      The required replica set name
 ``mongodb.cursor-batch-size``         The number of elements to return in a batch
+``case-sensitive-name-matching``      Enable case-sensitive identifier support for schema,
+                                      table, and column names for the connector. When disabled,
+                                      names are matched case-insensitively using lowercase
+                                      normalization. Default is ``false``
 ===================================== ==============================================================
 
 ``mongodb.seeds``
