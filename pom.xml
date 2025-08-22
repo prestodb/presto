@@ -153,6 +153,7 @@
         <module>presto-parser</module>
         <module>presto-main-base</module>
         <module>presto-main</module>
+        <module>presto-built-in-worker-function-tools</module>
         <module>presto-ml</module>
         <module>presto-geospatial-toolkit</module>
         <module>presto-benchmark</module>
@@ -812,6 +813,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-main-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-built-in-worker-function-tools</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

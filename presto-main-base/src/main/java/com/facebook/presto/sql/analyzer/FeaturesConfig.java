@@ -310,6 +310,8 @@ public class FeaturesConfig
     private boolean pushdownSubfieldForMapFunctions = true;
     private long maxSerializableObjectSize = 1000;
 
+    private boolean builtInSidecarFunctionsEnabled;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -3110,5 +3112,18 @@ public class FeaturesConfig
     public long getMaxSerializableObjectSize()
     {
         return maxSerializableObjectSize;
+    }
+
+    @Config("built-in-sidecar-functions-enabled")
+    @ConfigDescription("Enable using CPP functions from sidecar over coordinator SQL implementations.")
+    public FeaturesConfig setBuiltInSidecarFunctionsEnabled(boolean builtInSidecarFunctionsEnabled)
+    {
+        this.builtInSidecarFunctionsEnabled = builtInSidecarFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isBuiltInSidecarFunctionsEnabled()
+    {
+        return this.builtInSidecarFunctionsEnabled;
     }
 }

@@ -33,6 +33,7 @@ import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
+import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -43,6 +44,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
@@ -54,6 +56,7 @@ import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -197,6 +200,11 @@ public class PrestoServer
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
             planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+
+            if (injector.getInstance(FeaturesConfig.class).isBuiltInSidecarFunctionsEnabled()) {
+                List<? extends SqlFunction> functions = injector.getInstance(WorkerFunctionRegistryTool.class).getWorkerFunctions();
+                injector.getInstance(FunctionAndTypeManager.class).registerWorkerFunctions(functions);
+            }
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
