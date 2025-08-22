@@ -308,4 +308,28 @@ public class TestIcebergTableChangelog
                 .mapToLong(Long.class::cast)
                 .skip(idx).findFirst().getAsLong();
     }
+
+    @Test
+    public void testApplyChangelogFunctionInSystemNamespace()
+    {
+        assertQuery(
+                "SELECT iceberg.system.apply_changelog(1, 'INSERT', 'test_value') IS NOT NULL",
+                "SELECT true");
+    }
+
+    @Test
+    public void testApplyChangelogFunctionNotInGlobalNamespace()
+    {
+        assertQueryFails(
+                "SELECT apply_changelog(1, 'INSERT', 'test_value')",
+                "line 1:8: Function apply_changelog not registered");
+    }
+
+    @Test
+    public void testApplyChangelogFunctionNotInPrestoDefaultNamespace()
+    {
+        assertQueryFails(
+                "SELECT presto.default.apply_changelog(1, 'INSERT', 'test_value')",
+                "line 1:8: Function apply_changelog not registered");
+    }
 }
