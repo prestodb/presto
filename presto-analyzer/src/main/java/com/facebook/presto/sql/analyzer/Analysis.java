@@ -19,6 +19,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
@@ -26,12 +27,14 @@ import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
@@ -179,6 +182,7 @@ public class Analysis
     private Optional<TableHandle> analyzeTarget = Optional.empty();
 
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
+    private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -198,6 +202,9 @@ public class Analysis
 
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
+
+    // Row id field used for MERGE INTO command.
+    private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
@@ -409,6 +416,16 @@ public class Analysis
     public Expression getJoinCriteria(Join join)
     {
         return joins.get(NodeRef.of(join));
+    }
+
+    public void setRowIdField(Table table, FieldReference field)
+    {
+        rowIdField.put(NodeRef.of(table), field);
+    }
+
+    public FieldReference getRowIdField(Table table)
+    {
+        return rowIdField.get(NodeRef.of(table));
     }
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
@@ -702,6 +719,16 @@ public class Analysis
     public Optional<List<ColumnMetadata>> getUpdatedColumns()
     {
         return updatedColumns;
+    }
+
+    public Optional<MergeAnalysis> getMergeAnalysis()
+    {
+        return mergeAnalysis;
+    }
+
+    public void setMergeAnalysis(MergeAnalysis mergeAnalysis)
+    {
+        this.mergeAnalysis = Optional.of(mergeAnalysis);
     }
 
     public void setRefreshMaterializedViewAnalysis(RefreshMaterializedViewAnalysis refreshMaterializedViewAnalysis)
@@ -1309,6 +1336,110 @@ public class Analysis
         public int hashCode()
         {
             return Objects.hash(table, column, identity);
+        }
+    }
+
+    public static class MergeAnalysis
+    {
+        private final Table targetTable;
+        private final List<ColumnMetadata> targetColumnsMetadata;
+        private final List<ColumnHandle> targetColumnHandles;
+        private final List<ColumnHandle> targetRedistributionColumnHandles;
+        private final List<List<ColumnHandle>> mergeCaseColumnHandles;
+        private final Set<ColumnHandle> nonNullableColumnHandles;
+        private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final List<Integer> insertPartitioningArgumentIndexes;
+        private final Optional<NewTableLayout> insertLayout;
+        private final Optional<PartitioningHandle> updateLayout;
+        private final Scope targetTableScope;
+        private final Scope joinScope;
+
+        public MergeAnalysis(
+                Table targetTable,
+                List<ColumnMetadata> targetColumnsMetadata,
+                List<ColumnHandle> targetColumnHandles,
+                List<ColumnHandle> targetRedistributionColumnHandles,
+                List<List<ColumnHandle>> mergeCaseColumnHandles,
+                Set<ColumnHandle> nonNullableTargetColumnHandles,
+                Map<ColumnHandle, Integer> targetColumnHandleFieldNumbers,
+                List<Integer> insertPartitioningArgumentIndexes,
+                Optional<NewTableLayout> insertLayout,
+                Optional<PartitioningHandle> updateLayout,
+                Scope targetTableScope,
+                Scope joinScope)
+        {
+            this.targetTable = requireNonNull(targetTable, "targetTable is null");
+            this.targetColumnsMetadata = requireNonNull(targetColumnsMetadata, "targetColumnsMetadata is null");
+            this.targetColumnHandles = requireNonNull(targetColumnHandles, "targetColumnHandles is null");
+            this.targetRedistributionColumnHandles = requireNonNull(targetRedistributionColumnHandles, "targetRedistributionColumnHandles is null");
+            this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.nonNullableColumnHandles = requireNonNull(nonNullableTargetColumnHandles, "nonNullableTargetColumnHandles is null");
+            this.columnHandleFieldNumbers = requireNonNull(targetColumnHandleFieldNumbers, "targetColumnHandleFieldNumbers is null");
+            this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
+            this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
+            this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
+            this.targetTableScope = requireNonNull(targetTableScope, "targetTableScope is null");
+            this.joinScope = requireNonNull(joinScope, "joinScope is null");
+        }
+
+        public Table getTargetTable()
+        {
+            return targetTable;
+        }
+
+        public List<ColumnMetadata> getTargetColumnsMetadata()
+        {
+            return targetColumnsMetadata;
+        }
+
+        public List<ColumnHandle> getTargetColumnHandles()
+        {
+            return targetColumnHandles;
+        }
+
+        public List<ColumnHandle> getTargetRedistributionColumnHandles()
+        {
+            return targetRedistributionColumnHandles;
+        }
+
+        public List<List<ColumnHandle>> getMergeCaseColumnHandles()
+        {
+            return mergeCaseColumnHandles;
+        }
+
+        public Set<ColumnHandle> getNonNullableColumnHandles()
+        {
+            return nonNullableColumnHandles;
+        }
+
+        public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
+        {
+            return columnHandleFieldNumbers;
+        }
+
+        public List<Integer> getInsertPartitioningArgumentIndexes()
+        {
+            return insertPartitioningArgumentIndexes;
+        }
+
+        public Optional<NewTableLayout> getInsertLayout()
+        {
+            return insertLayout;
+        }
+
+        public Optional<PartitioningHandle> getUpdateLayout()
+        {
+            return updateLayout;
+        }
+
+        public Scope getJoinScope()
+        {
+            return joinScope;
+        }
+
+        public Scope getTargetTableScope()
+        {
+            return targetTableScope;
         }
     }
 }

@@ -75,6 +75,16 @@ public final class TableHandle
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
+    public TableHandle cloneWithConnectorHandle(ConnectorTableHandle connectorHandle)
+    {
+        return new TableHandle(
+                connectorId,
+                connectorHandle,
+                transaction,
+                layout,
+                dynamicFilter);
+    }
+
     @JsonProperty
     @ThriftField(1)
     public ConnectorId getConnectorId()

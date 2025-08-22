@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
@@ -70,6 +71,8 @@ import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
 {
+    String MODIFYING_ROWS_MESSAGE = "This connector does not support modifying table rows";
+
     /**
      * Checks if a schema exists. The connector may have schemas that exist
      * but are not enumerable via {@link #listSchemaNames}.
@@ -561,6 +564,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Get the column handle that will generate row IDs for the merge operation.
+     * These IDs will be passed to the {@link com.facebook.presto.spi.ConnectorMergeSink#storeMergedRows}
+     * method of the {@link com.facebook.presto.spi.ConnectorMergeSink} that created them.
+     */
+    default ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    /**
      * Begin delete query
      */
     default ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -586,6 +599,46 @@ public interface ConnectorMetadata
     default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support update");
+    }
+
+    /**
+     * Return the row change paradigm supported by the connector on the table.
+     */
+    default RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    /**
+     * Get the physical layout for updated rows of a MERGE operation.
+     * Inserted rows are handled by {@link #getInsertLayout}.
+     * This layout always uses the {@link #getMergeRowIdColumnHandle merge row ID column}.
+     */
+    default Optional<ConnectorPartitioningHandle> getMergeUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
+     * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
+     */
+    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    /**
+     * Finish a merge query
+     *
+     * @param session The session
+     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
+     * @param fragments All fragments returned by the merge plan
+     * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     */
+    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
 
     /**

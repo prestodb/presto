@@ -17,6 +17,7 @@ import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
@@ -131,6 +132,17 @@ public final class TinyintType
     public long getLong(Block block, int position)
     {
         return (long) block.getByte(position);
+    }
+
+    @Override
+    public byte getByte(Block block, int position)
+    {
+        return readByte((ByteArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+    }
+
+    private static byte readByte(ByteArrayBlock block, int position)
+    {
+        return block.getByte(position);
     }
 
     @Override
