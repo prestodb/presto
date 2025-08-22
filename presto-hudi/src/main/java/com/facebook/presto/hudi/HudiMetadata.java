@@ -16,9 +16,11 @@ package com.facebook.presto.hudi;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -40,7 +42,14 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
+import org.apache.hudi.storage.StorageConfiguration;
+import org.apache.hudi.util.Lazy;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +60,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -100,12 +110,39 @@ public class HudiMetadata
             throw new PrestoException(HUDI_UNKNOWN_TABLE_TYPE, "Unknown table type " + inputFormat);
         }
 
+        String basePath = table.getStorage().getLocation();
+        ExtendedFileSystem fs = getFileSystem(session, tableName, basePath);
         return new HudiTableHandle(
-                Optional.of(table),
+                table,
+                Lazy.lazily(() -> buildTableMetaClient(fs, basePath)),
                 table.getDatabaseName(),
                 table.getTableName(),
-                table.getStorage().getLocation(),
+                basePath,
                 hudiTableType);
+    }
+
+    public static HoodieTableMetaClient buildTableMetaClient(
+            ExtendedFileSystem fs,
+            String basePath)
+    {
+        StorageConfiguration<Configuration> conf = HadoopFSUtils.getStorageConfWithCopy(fs.getConf());
+        return HoodieTableMetaClient.builder().setConf(conf).setBasePath(basePath).build();
+    }
+
+    private ExtendedFileSystem getFileSystem(ConnectorSession session, SchemaTableName table, String basePath)
+    {
+        HdfsContext hdfsContext = new HdfsContext(
+                session,
+                table.getSchemaName(),
+                table.getTableName(),
+                basePath,
+                false);
+        try {
+            return hdfsEnvironment.getFileSystem(hdfsContext, new Path(basePath));
+        }
+        catch (IOException e) {
+            throw new PrestoException(HUDI_FILESYSTEM_ERROR, "Could not open file system for " + table, e);
+        }
     }
 
     @Override

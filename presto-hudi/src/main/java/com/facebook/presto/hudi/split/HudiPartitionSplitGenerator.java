@@ -41,6 +41,7 @@ import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.storage.StoragePath;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -75,10 +76,9 @@ public class HudiPartitionSplitGenerator
     private final HudiTableLayoutHandle layout;
     private final HudiTableHandle table;
     private final Path tablePath;
-    private final HoodieTableFileSystemView fsView;
+    private final Lazy<HoodieTableFileSystemView> lazyFsView;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Queue<String> concurrentPartitionQueue;
-    private final String latestInstant;
     private final HudiSplitWeightProvider splitWeightProvider;
     private final Map<String, Partition> partitionMap;
 
@@ -86,22 +86,20 @@ public class HudiPartitionSplitGenerator
             ConnectorSession session,
             ExtendedHiveMetastore metastore,
             HudiTableLayoutHandle layout,
-            HoodieTableFileSystemView fsView,
+            Lazy<HoodieTableFileSystemView> lazyFsView,
             Map<String, Partition> partitionMap,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            Queue<String> concurrentPartitionQueue,
-            String latestInstant)
+            Queue<String> concurrentPartitionQueue)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.metastoreContext = toMetastoreContext(requireNonNull(session, "session is null"));
         this.layout = requireNonNull(layout, "layout is null");
         this.table = layout.getTable();
         this.tablePath = new Path(table.getPath());
-        this.fsView = requireNonNull(fsView, "fsView is null");
+        this.lazyFsView = requireNonNull(lazyFsView, "fsView is null");
         this.partitionMap = requireNonNull(partitionMap, "partitionMap is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
         this.concurrentPartitionQueue = requireNonNull(concurrentPartitionQueue, "concurrentPartitionQueue is null");
-        this.latestInstant = requireNonNull(latestInstant, "latestInstant is null");
         this.splitWeightProvider = createSplitWeightProvider(requireNonNull(session, "session is null"));
     }
 
@@ -124,9 +122,9 @@ public class HudiPartitionSplitGenerator
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
         String relativePartitionPath = FSUtils.getRelativePartitionPath(new StoragePath(tablePath.toUri()), new StoragePath(partitionPath.toUri()));
         Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
-                fsView.getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, latestInstant) :
-                fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false);
-        fileSlices.map(fileSlice -> createHudiSplit(table, fileSlice, latestInstant, hudiPartition, splitWeightProvider))
+                lazyFsView.get().getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, table.getLatestCommitTime()) :
+                lazyFsView.get().getLatestFileSlicesBeforeOrOn(relativePartitionPath, table.getLatestCommitTime(), false);
+        fileSlices.map(fileSlice -> createHudiSplit(table, fileSlice, table.getLatestCommitTime(), hudiPartition, splitWeightProvider))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(asyncQueue::offer);
