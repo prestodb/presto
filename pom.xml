@@ -222,6 +222,7 @@
         <module>presto-router-example-plugin-scheduler</module>
         <module>presto-plan-checker-router-plugin</module>
         <module>presto-sql-invoked-functions-plugin</module>
+        <module>presto-native-sql-invoked-functions-plugin</module>
         <module>presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</module>
     </modules>
 
