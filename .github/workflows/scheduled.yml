@@ -543,7 +543,7 @@ jobs:
                 --seed ${random_seed} \
                 --lazy_vector_generation_ratio 0.2 \
                 --common_dictionary_wraps_generation_ratio=0.3 \
-                --assign_function_tickets  $(cat /tmp/signatures/presto_bias_functions) \
+                --assign_function_tickets $(cat /tmp/signatures/presto_bias_functions) \
                 --duration_sec 3600 \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
@@ -559,7 +559,7 @@ jobs:
                 --repro_persist_path=/tmp/presto_bias_fuzzer_repro \
             && echo -e "\n\nPresto Fuzzer run finished successfully."
 
-      - name: Archive Spark expression production artifacts
+      - name: Archive Presto Bias expression production artifacts
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
