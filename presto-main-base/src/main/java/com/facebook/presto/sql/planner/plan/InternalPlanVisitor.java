@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode;
@@ -124,11 +123,6 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitSequence(SequenceNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitMetadataDelete(MetadataDeleteNode node, C context)
     {
         return visitPlan(node, context);
     }
