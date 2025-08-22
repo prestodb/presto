@@ -43,7 +43,7 @@ public class GenTimeZoneNames {
     System.out.println("//");
     System.out.println("// Use the version of Java with which you're running Presto to generate");
     System.out.println("// compatible names. This version was generated using openjdk version ");
-    System.out.println("// \"1.8.0_362\"");
+    System.out.println("// \"17.0.2\"");
     System.out.println("// @generated");
     System.out.println("");
     System.out.println("#include \"velox/type/tz/TimeZoneNames.h\"");
