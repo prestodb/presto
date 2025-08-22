@@ -37,6 +37,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ClickHouseMetadata
@@ -58,11 +60,14 @@ public class ClickHouseMetadata
     private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final ClickHouseConfig clickHouseConfig;
 
-    public ClickHouseMetadata(ClickHouseClient clickHouseClient, boolean allowDropTable)
+    @Inject
+    public ClickHouseMetadata(ClickHouseClient clickHouseClient, boolean allowDropTable, ClickHouseConfig clickHouseConfig)
     {
         this.clickHouseClient = requireNonNull(clickHouseClient, "client is null");
         this.allowDropTable = allowDropTable;
+        this.clickHouseConfig = clickHouseConfig;
     }
 
     @Override
@@ -271,5 +276,11 @@ public class ClickHouseMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         clickHouseClient.dropSchema(ClickHouseIdentity.from(session), schemaName);
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return clickHouseConfig.isCaseSensitiveNameMatching() ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
