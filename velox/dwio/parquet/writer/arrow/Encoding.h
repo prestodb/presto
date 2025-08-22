@@ -23,10 +23,11 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/spaced.h"
+
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
-#include "velox/dwio/parquet/writer/arrow/util/Spaced.h"
 
 namespace arrow {
 
@@ -306,7 +307,7 @@ class TypedDecoder : virtual public Decoder {
             "Number of values / definition_levels read did not match");
       }
 
-      return util::internal::SpacedExpand<T>(
+      return ::arrow::util::internal::SpacedExpand<T>(
           buffer, num_values, null_count, valid_bits, valid_bits_offset);
     } else {
       return Decode(buffer, num_values);

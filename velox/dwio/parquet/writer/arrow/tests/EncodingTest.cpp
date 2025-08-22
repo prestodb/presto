@@ -138,7 +138,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
           auto buffer,
           ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
       T* data = reinterpret_cast<T*>(buffer->mutable_data());
-      int num_valid_values = util::internal::SpacedCompress<T>(
+      int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
       Put(data, num_valid_values);
     } else {
@@ -359,7 +359,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl,
           auto buffer,
           ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
       T* data = reinterpret_cast<T*>(buffer->mutable_data());
-      int num_valid_values = util::internal::SpacedCompress<T>(
+      int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
       Put(data, num_valid_values);
     } else {
@@ -1040,7 +1040,7 @@ void ByteStreamSplitEncoder<DType>::PutSpaced(
         auto buffer,
         ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    int num_valid_values = util::internal::SpacedCompress<T>(
+    int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
         src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   } else {
@@ -2712,7 +2712,7 @@ void DeltaBitPackEncoder<DType>::PutSpaced(
         auto buffer,
         ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    int num_valid_values = util::internal::SpacedCompress<T>(
+    int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
         src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   } else {
@@ -3079,7 +3079,7 @@ void DeltaLengthByteArrayEncoder<DType>::PutSpaced(
         auto buffer,
         ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
     T* data = reinterpret_cast<T*>(buffer->mutable_data());
-    int num_valid_values = util::internal::SpacedCompress<T>(
+    int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
         src, num_values, valid_bits, valid_bits_offset, data);
     Put(data, num_valid_values);
   } else {
@@ -3315,7 +3315,7 @@ class RleBooleanEncoder final : public EncoderImpl,
           auto buffer,
           ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
       T* data = reinterpret_cast<T*>(buffer->mutable_data());
-      int num_valid_values = util::internal::SpacedCompress<T>(
+      int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
       Put(data, num_valid_values);
     } else {
