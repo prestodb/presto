@@ -100,11 +100,15 @@ struct ParsePrestoDataSizeFunction {
       const arg_type<Varchar>& input) {
     result = getDecimal(input);
   }
-  // Fail Non-ASCII characters in input.
   FOLLY_ALWAYS_INLINE void call(
       out_type<LongDecimal<P1, S1>>& result,
       const arg_type<Varchar>& input) {
-    VELOX_USER_FAIL("Invalid data size: '{}'", input);
+    // If ASCII input process else fail.
+    if (stringCore::isAscii(input.data(), input.size())) {
+      result = getDecimal(input);
+    } else {
+      VELOX_USER_FAIL("Invalid data size: '{}'", input);
+    }
   }
 };
 
