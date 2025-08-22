@@ -708,6 +708,10 @@ static void __parse_zone(
   } while (std::isdigit(__input.peek()) || __input.peek() == '-');
 
   std::filesystem::path __root = __libcpp_tzdb_directory();
+  if (!std::filesystem::exists(__root/ __p->__name())) {
+    // in case the zonefile does not exists
+    return;
+  }
   std::ifstream zone_file{__root / __p->__name()};
   date::populate_transitions(__p->transitions(), __p->ttinfos(), zone_file);
 
