@@ -16,6 +16,7 @@ package com.facebook.presto.spark.execution.http;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.client.ExecutionType;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskId;
@@ -304,7 +305,7 @@ public class TestPrestoSparkHttpClient
     public void testGetServerInfo()
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), Optional.of(ExecutionType.JAVA));
 
         PrestoSparkHttpServerClient workerClient = new PrestoSparkHttpServerClient(
                 new TestingOkHttpClient(scheduledExecutorService, new TestingResponseManager(taskId.toString())),
@@ -325,7 +326,7 @@ public class TestPrestoSparkHttpClient
     public void testGetServerInfoWithRetry()
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), Optional.of(ExecutionType.JAVA));
         Duration maxTimeout = new Duration(1, TimeUnit.MINUTES);
         NativeExecutionProcess process = createNativeExecutionProcess(
                 maxTimeout,
@@ -1171,7 +1172,7 @@ public class TestPrestoSparkHttpClient
             public Response createServerInfoResponse(Request request)
                     throws PrestoException
             {
-                ServerInfo serverInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+                ServerInfo serverInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), Optional.of(ExecutionType.JAVA));
                 byte[] responseBody = serverInfoCodec.toBytes(serverInfo);
 
                 return new Response.Builder()

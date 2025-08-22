@@ -16,9 +16,9 @@ namespace facebook::presto::protocol {
 
 static const std::pair<ExecutionType, json>
     ExecutionType_enum_table[] = { // NOLINT: cert-err58-cpp
-        {ExecutionType::JAVA, "JAVA"},
-        {ExecutionType::NATIVE, "NATIVE"},
-        {ExecutionType::NATIVE_CUDF, "NATIVE_CUDF"}};
+        {ExecutionType::JAVA, "java"},
+        {ExecutionType::NATIVE, "native"},
+        {ExecutionType::NATIVE_CUDF, "native_cudf"}};
 
 void to_json(json& j, const ExecutionType& e) {
   static_assert(
