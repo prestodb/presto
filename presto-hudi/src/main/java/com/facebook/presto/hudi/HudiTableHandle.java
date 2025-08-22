@@ -33,7 +33,7 @@ public class HudiTableHandle
     private final String tableName;
     private final String path;
     private final HudiTableType hudiTableType;
-    private Optional<Table> table;
+    private final transient Optional<Table> table;
 
     @JsonCreator
     public HudiTableHandle(
@@ -42,10 +42,7 @@ public class HudiTableHandle
             @JsonProperty("path") String path,
             @JsonProperty("tableType") HudiTableType hudiTableType)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.path = requireNonNull(path, "path is null");
-        this.hudiTableType = requireNonNull(hudiTableType, "tableType is null");
+        this(Optional.empty(), schemaName, tableName, path, hudiTableType);
     }
 
     public HudiTableHandle(

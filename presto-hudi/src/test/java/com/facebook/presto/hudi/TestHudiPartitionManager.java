@@ -127,7 +127,7 @@ public class TestHudiPartitionManager
                                 Optional.empty(),
                                 HudiColumnHandle.ColumnType.PARTITION_KEY),
                         Domain.singleValue(VARCHAR, utf8Slice("2019-07-23"))));
-        HudiTableHandle tableHandle = new HudiTableHandle(Optional.of(TABLE), SCHEMA_NAME, TABLE_NAME, LOCATION, HudiTableType.COW);
+        HudiTableHandle tableHandle = new HudiTableHandle(SCHEMA_NAME, TABLE_NAME, LOCATION, HudiTableType.COW);
         Map<String, Partition> actualPartitions = hudiPartitionManager.getEffectivePartitions(
                 session,
                 metastore,
