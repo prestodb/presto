@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoCollection;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -146,7 +147,8 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(7), LocalTime.of(11, 22, 33, 456_000_000));
-        assertEquals(row.getField(8), "{\"name\":\"alice\"}");
+        assertEquals(new ObjectId((byte[]) row.getField(8)), new ObjectId("ffffffffffffffffffffffff"));
+        assertEquals(row.getField(9).toString(), "{\"name\":\"alice\"}");
         assertUpdate("DROP TABLE test_insert_types_table");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
     }
@@ -218,13 +220,13 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("CREATE TABLE test.tmp_map9 (col VARCHAR)");
         mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
                 ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
-        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{ \"key1\" : \"value1\", \"key2\" : \"value2\" }'");
+        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{\"key1\": \"value1\", \"key2\": \"value2\"}'");
 
         assertUpdate("CREATE TABLE test.tmp_map10 (col VARCHAR)");
         mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
                 ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
-        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{ \"key1\" : \"value1\", \"key2\" : \"value2\" }, { \"key3\" : \"value3\", \"key4\" : \"value4\" }]'");
+        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
 
         assertUpdate("CREATE TABLE test.tmp_map11 (col VARCHAR)");
         mongoQueryRunner.getMongoClient().getDatabase("test").getCollection("tmp_map11").insertOne(new Document(

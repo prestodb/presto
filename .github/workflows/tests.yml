@@ -59,7 +59,7 @@ jobs:
           - ":presto-hive -P test-hive-parquet"
           - ":presto-main-base"
           - ":presto-main"
-          - ":presto-mongodb -P test-mongo-distributed-queries"
+          - ":presto-mongodb -P ci-full-tests"
           - ":presto-redis -P test-redis-integration-smoke-test"
           - ":presto-elasticsearch"
           - ":presto-orc"
