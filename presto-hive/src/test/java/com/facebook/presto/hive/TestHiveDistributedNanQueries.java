@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestNanQueries;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,9 @@ public class TestHiveDistributedNanQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableMap.of("use-new-nan-definition", "true"), ImmutableMap.of(), Optional.empty());
+        QueryRunner queryRunner =
+                HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableMap.of("use-new-nan-definition", "true"), ImmutableMap.of(), Optional.empty());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 }
