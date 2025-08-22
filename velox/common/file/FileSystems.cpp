@@ -229,7 +229,7 @@ class LocalFileSystem : public FileSystem {
     // Note: presto behavior is to prefix local paths with 'file:'.
     // Check for that prefix and prune to absolute regular paths as needed.
     return [](std::string_view filePath) {
-      return filePath.find("/") == 0 || filePath.find(kFileScheme) == 0;
+      return filePath.starts_with('/') || filePath.starts_with(kFileScheme);
     };
   }
 
