@@ -260,7 +260,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
-          BOOL_PROP(kTextWriterEnabled, false),
+          BOOL_PROP(kTextWriterEnabled, true),
       };
 }
 
