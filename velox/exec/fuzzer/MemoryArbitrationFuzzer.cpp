@@ -21,7 +21,6 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/common/fuzzer/Utils.h"
-#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h" // @manual
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h" // @manual
@@ -31,7 +30,6 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/functions/sparksql/aggregates/Register.h"
 #include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/serializers/UnsafeRowSerializer.h"
@@ -79,13 +77,18 @@ DEFINE_int32(
     "calling shrinking pools globally.");
 
 DEFINE_double(
+    spillable_query_ratio,
+    0.7,
+    "The ratio of queries that are spillable.");
+
+DEFINE_double(
     spill_faulty_fs_ratio,
-    0.1,
+    0.2,
     "Chance of spill filesystem being faulty(expressed as double from 0 to 1)");
 
-DEFINE_int32(
+DEFINE_double(
     spill_fs_fault_injection_ratio,
-    0.01,
+    0.02,
     "The chance of actually injecting fault in file operations for spill "
     "filesystem. This is only applicable when 'spill_faulty_fs_ratio' is "
     "larger than 0");
@@ -223,6 +226,9 @@ class MemoryArbitrationFuzzer {
     return opts;
   }
 
+  std::string extractQueryIdFromSpillPath(const std::string& spillPath);
+
+  const std::string kQueryIdPrefix = "query_id_";
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
   std::unordered_map<std::string, std::string> queryConfigsWithSpill_{
@@ -728,18 +734,25 @@ MemoryArbitrationFuzzer::allPlans(const std::string& tableDir) {
   return plans;
 }
 
-struct ThreadLocalStats {
-  uint64_t spillFsFaultCount{0};
-};
+std::string MemoryArbitrationFuzzer::extractQueryIdFromSpillPath(
+    const std::string& spillPath) {
+  std::vector<std::string> parts;
+  folly::split('/', spillPath, parts);
+  for (const auto& part : parts) {
+    if (part.starts_with(kQueryIdPrefix)) {
+      return part;
+    }
+  }
+  VELOX_FAIL("No query id found in spill path: {}", spillPath);
+}
 
 // Stats that keeps track of per thread execution status in verify()
-thread_local ThreadLocalStats threadLocalStats;
+folly::ConcurrentHashMap<std::string, folly::Unit> spillFsTaskSet;
 
 std::shared_ptr<test::TempDirectoryPath>
 MemoryArbitrationFuzzer::maybeGenerateFaultySpillDirectory() {
   FuzzerGenerator fsRng(rng_());
-  const auto injectFsFault =
-      coinToss(fsRng, FLAGS_spill_fs_fault_injection_ratio);
+  const auto injectFsFault = coinToss(fsRng, FLAGS_spill_faulty_fs_ratio);
   if (!injectFsFault) {
     return exec::test::TempDirectoryPath::create(false);
   }
@@ -763,10 +776,14 @@ MemoryArbitrationFuzzer::maybeGenerateFaultySpillDirectory() {
         }
         FuzzerGenerator fsRng(rng_());
         if (coinToss(fsRng, FLAGS_spill_fs_fault_injection_ratio)) {
-          ++threadLocalStats.spillFsFaultCount;
+          auto queryId = extractQueryIdFromSpillPath(op->path);
+          spillFsTaskSet.insert(queryId, folly::Unit());
           VELOX_FAIL(
-              "Fault file injection on {}",
-              FaultFileOperation::typeString(op->type));
+              "Fault file injection on {} of query {} path {}",
+              FaultFileOperation::typeString(op->type),
+              queryId,
+              op->path,
+              process::StackTrace().toString());
         }
       });
   return directory;
@@ -799,8 +816,7 @@ void MemoryArbitrationFuzzer::verify() {
     queryThreads.emplace_back([&, spillDirectory, i, seed]() {
       FuzzerGenerator rng(seed);
       while (!stop) {
-        const auto prevSpillFsFaultCount = threadLocalStats.spillFsFaultCount;
-        const auto queryId = fmt::format("query_id_{}", queryCount++);
+        const auto queryId = fmt::format("{}{}", kQueryIdPrefix, queryCount++);
         queryTaskAbortRequestMap.insert(queryId, false);
         try {
           const auto queryCtx = test::newQueryCtx(
@@ -816,19 +832,18 @@ void MemoryArbitrationFuzzer::verify() {
             builder.splits(planNodeId, nodeSplits);
           }
 
-          if (coinToss(rng, 0.3)) {
-            builder.queryCtx(queryCtx).copyResults(pool_.get());
+          if (coinToss(rng, FLAGS_spillable_query_ratio)) {
+            auto res = builder.configs(queryConfigsWithSpill_)
+                           .spillDirectory(
+                               spillDirectory->getPath() +
+                               fmt::format("/{}/{}", i, queryId))
+                           .queryCtx(queryCtx)
+                           .copyResults(pool_.get());
           } else {
-            auto res =
-                builder.configs(queryConfigsWithSpill_)
-                    .spillDirectory(
-                        spillDirectory->getPath() + fmt::format("/{}/", i))
-                    .queryCtx(queryCtx)
-                    .copyResults(pool_.get());
+            builder.queryCtx(queryCtx).copyResults(pool_.get());
           }
           ++stats_.wlock()->successCount;
-          VELOX_CHECK_EQ(
-              threadLocalStats.spillFsFaultCount, prevSpillFsFaultCount);
+          VELOX_CHECK(spillFsTaskSet.find(queryId) == spillFsTaskSet.end());
         } catch (const VeloxException& e) {
           auto lockedStats = stats_.wlock();
           if (e.errorCode() == error_code::kMemCapExceeded.c_str()) {
@@ -837,9 +852,28 @@ void MemoryArbitrationFuzzer::verify() {
             ++lockedStats->abortCount;
           } else if (e.errorCode() == error_code::kInvalidState.c_str()) {
             const auto injectedSpillFsFault =
-                threadLocalStats.spillFsFaultCount > prevSpillFsFaultCount;
+                spillFsTaskSet.find(queryId) != spillFsTaskSet.end();
+            if (injectedSpillFsFault) {
+              spillFsTaskSet.erase(queryId);
+            }
             const auto injectedTaskAbortRequest =
                 queryTaskAbortRequestMap.find(queryId)->second;
+
+            // Debug logging to understand the failure
+            if (!injectedSpillFsFault && !injectedTaskAbortRequest) {
+              LOG(ERROR) << "============== VELOX_CHECK failure debug info:";
+              LOG(ERROR) << "  queryId: " << queryId;
+              LOG(ERROR) << "  spillFsTaskSet size: " << spillFsTaskSet.size();
+              LOG(ERROR) << "  spillFsTaskSet contents:";
+              // Iterate through spillFsTaskSet to log contents
+              for (auto it = spillFsTaskSet.cbegin();
+                   it != spillFsTaskSet.cend();
+                   ++it) {
+                LOG(ERROR) << "    key: " << it->first;
+              }
+              LOG(ERROR) << "  error message: " << e.message();
+            }
+
             VELOX_CHECK(
                 injectedSpillFsFault || injectedTaskAbortRequest,
                 "injectedSpillFsFault: {}, injectedTaskAbortRequest: {}, error message: {}",
