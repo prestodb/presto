@@ -36,7 +36,7 @@ class VariantToVectorTest : public testing::Test, public test::VectorTestBase {
     EXPECT_EQ(vector->type()->toString(), type->toString());
     EXPECT_TRUE(vector->isNullAt(0));
 
-    auto copy = vectorToVariant(vector, 0);
+    auto copy = vector->variantAt(0);
     EXPECT_TRUE(copy.isNull());
     EXPECT_TRUE(copy.isTypeCompatible(type));
   }
@@ -53,7 +53,7 @@ class VariantToVectorTest : public testing::Test, public test::VectorTestBase {
         << "Expected: " << expected->toString(0)
         << ", but got: " << vector->toString(0);
 
-    auto copy = vectorToVariant(vector, 0);
+    auto copy = vector->variantAt(0);
     EXPECT_FALSE(copy.isNull());
     EXPECT_TRUE(copy.isTypeCompatible(type));
     EXPECT_EQ(copy, value);

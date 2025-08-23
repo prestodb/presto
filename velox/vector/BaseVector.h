@@ -848,6 +848,9 @@ class BaseVector {
 
   static constexpr std::string_view kNullValueString = "null";
 
+  /// Returns the value at specified index as a Variant.
+  Variant variantAt(vector_size_t index) const;
+
   /// Returns string representation of the value in the specified row.
   virtual std::string toString(vector_size_t index) const;
 

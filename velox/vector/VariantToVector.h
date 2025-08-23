@@ -32,7 +32,4 @@ VectorPtr variantToVector(
     const Variant& value,
     memory::MemoryPool* pool);
 
-// Convers a value at 'index' of 'vector' into a Variant.
-Variant vectorToVariant(const VectorPtr& vector, vector_size_t index);
-
 } // namespace facebook::velox
