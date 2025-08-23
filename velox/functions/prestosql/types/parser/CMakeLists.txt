@@ -23,18 +23,18 @@ bison_target(
 
 flex_target(
   TypeParserScanner TypeParser.ll ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp
-  COMPILE_FLAGS "-Cf --prefix=veloxtpdeprecated")
+  COMPILE_FLAGS "-Cf --prefix=veloxprestotp")
 
 add_flex_bison_dependency(TypeParserScanner TypeParser)
 
 if(VELOX_MONO_LIBRARY)
   add_custom_target(
-    velox_type_parser_gen_src DEPENDS ${BISON_TypeParser_OUTPUTS}
-                                      ${FLEX_TypeParserScanner_OUTPUTS})
-  add_dependencies(velox velox_type_parser_gen_src)
+    velox_presto_type_parser_gen_src DEPENDS ${BISON_TypeParser_OUTPUTS}
+                                             ${FLEX_TypeParserScanner_OUTPUTS})
+  add_dependencies(velox velox_presto_type_parser_gen_src)
 endif()
-velox_add_library(velox_type_parser ${BISON_TypeParser_OUTPUTS}
+velox_add_library(velox_presto_type_parser ${BISON_TypeParser_OUTPUTS}
                   ${FLEX_TypeParserScanner_OUTPUTS} ParserUtil.cpp)
-velox_include_directories(velox_type_parser PRIVATE ${PROJECT_BINARY_DIR}
-                                                    ${FLEX_INCLUDE_DIRS})
-velox_link_libraries(velox_type_parser velox_common_base)
+velox_include_directories(velox_presto_type_parser PRIVATE ${PROJECT_BINARY_DIR}
+                                                           ${FLEX_INCLUDE_DIRS})
+velox_link_libraries(velox_presto_type_parser velox_common_base)

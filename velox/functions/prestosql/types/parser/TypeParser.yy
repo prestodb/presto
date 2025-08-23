@@ -2,22 +2,22 @@
 #include <FlexLexer.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/Type.h"
-#include "velox/type/parser/ParserUtil.h"
+#include "velox/functions/prestosql/types/parser/ParserUtil.h"
 %}
 %require "3.0.4"
 %language "C++"
 
 %define parser_class_name {Parser}
-%define api.namespace {facebook::velox::type}
+%define api.namespace {facebook::velox::functions::prestosql}
 %define api.value.type variant
 %parse-param {Scanner* scanner}
 %define parse.error verbose
 
 %code requires
 {
-    namespace facebook::velox::type {
+    namespace facebook::velox::functions::prestosql {
         class Scanner;
-    } // namespace facebook::velox::type
+    } // namespace facebook::velox::functions::prestosql
     namespace facebook::velox {
         class Type;
     } // namespace facebook::velox
@@ -29,8 +29,7 @@
 
 %code
 {
-    #include "velox/type/parser/Scanner.h"
-
+    #include <velox/functions/prestosql/types/parser/Scanner.h>
     #define yylex(x) scanner->lex(x)
 }
 
@@ -57,10 +56,10 @@ type_spec : type                 { scanner->setType($1); }
           ;
 
 type : type_single_word  { $$ = $1; }
-     | type_with_spaces  { $$ = inferTypeWithSpaces($1, true).second; }
+     | type_with_spaces  { $$ = facebook::velox::functions::prestosql::inferTypeWithSpaces($1, true).second; }
      ;
 
-type_single_word : WORD         { $$ = typeFromString($1); } // Handles most primitive types (e.g. bigint, etc).
+type_single_word : WORD         { $$ = facebook::velox::functions::prestosql::typeFromString($1); } // Handles most primitive types (e.g. bigint, etc).
                  | special_type { $$ = $1; }
 
 special_type : array_type     { $$ = $1; }
@@ -95,8 +94,8 @@ field_name : WORD     { $$ = $1; }
  * Varchar and varbinary have an optional `(int)`
  * e.g. both `varchar` and `varchar(4)` are valid.
  */
-variable_type : VARIABLE LPAREN NUMBER RPAREN  { $$ = typeFromString($1); }
-              | VARIABLE                       { $$ = typeFromString($1); }
+variable_type : VARIABLE LPAREN NUMBER RPAREN  { $$ = facebook::velox::functions::prestosql::typeFromString($1); }
+              | VARIABLE                       { $$ = facebook::velox::functions::prestosql::typeFromString($1); }
               ;
 
 decimal_type : DECIMAL LPAREN NUMBER COMMA NUMBER RPAREN { $$ = DECIMAL($3, $5); }
@@ -114,7 +113,7 @@ function_type : FUNCTION LPAREN type_list RPAREN { auto returnType = $3.back(); 
 row_type : ROW LPAREN type_list_opt_names RPAREN  { $$ = ROW(std::move($3.names), std::move($3.types)); }
          ;
 
-custom_type_with_children : WORD LPAREN type_list RPAREN { $$ = customTypeWithChildren($1, $3); }
+custom_type_with_children : WORD LPAREN type_list RPAREN { $$ = facebook::velox::functions::prestosql::customTypeWithChildren($1, $3); }
 
 /* Consecutive list of types, separated by a comma. */
 type_list : type                   { $$.push_back($1); }
@@ -146,12 +145,12 @@ type_list_opt_names : type_list_opt_names COMMA named_type   { $1.names.push_bac
  */
 named_type : type_single_word        { $$ = std::make_pair("", $1); }
            | field_name special_type { $$ = std::make_pair($1, $2); }
-           | type_with_spaces        { $$ = inferTypeWithSpaces($1, false); }
+           | type_with_spaces        { $$ = facebook::velox::functions::prestosql::inferTypeWithSpaces($1, false); }
            | QUOTED_ID type          { $1.erase(0, 1); $1.pop_back(); $$ = std::make_pair($1, $2); }  // Remove the quotes.
            ;
 
 %%
 
-void facebook::velox::type::Parser::error(const std::string& msg) {
+void facebook::velox::functions::prestosql::Parser::error(const std::string& msg) {
   VELOX_UNSUPPORTED("Failed to parse type [{}]. {}", scanner->input(), msg);
 }

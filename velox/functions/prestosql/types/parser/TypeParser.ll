@@ -2,10 +2,9 @@
 #include <vector>
 #include <memory>
 
-#include "velox/type/parser/TypeParser.yy.h"  // @manual
-#include "velox/type/parser/Scanner.h"
-
-#define YY_DECL int facebook::velox::type::Scanner::lex(facebook::velox::type::Parser::semantic_type *yylval)
+#include "velox/functions/prestosql/types/parser/TypeParser.yy.h"  // @manual
+#include "velox/functions/prestosql/types/parser/Scanner.h"
+#define YY_DECL int facebook::velox::functions::prestosql::Scanner::lex(facebook::velox::functions::prestosql::Parser::semantic_type *yylval)
 %}
 
 %option c++ noyywrap noyylineno nodefault caseless
@@ -62,15 +61,15 @@ int yyFlexLexer::yylex() {
     throw std::runtime_error("Bad call to yyFlexLexer::yylex()");
 }
 
-#include "velox/type/parser/TypeParser.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
 
-facebook::velox::TypePtr facebook::velox::parseType(const std::string& typeText)
+facebook::velox::TypePtr facebook::velox::functions::prestosql::parseType(const std::string& typeText)
  {
     std::istringstream is(typeText);
     std::ostringstream os;
     facebook::velox::TypePtr type;
-    facebook::velox::type::Scanner scanner{is, os, type, typeText};
-    facebook::velox::type::Parser parser{ &scanner };
+    facebook::velox::functions::prestosql::Scanner scanner{is, os, type, typeText};
+    facebook::velox::functions::prestosql::Parser parser{ &scanner };
     parser.parse();
     VELOX_CHECK(type, "Failed to parse type [{}]", typeText);
     return type;

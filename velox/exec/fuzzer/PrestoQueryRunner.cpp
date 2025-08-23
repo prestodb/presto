@@ -43,8 +43,8 @@
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/UuidType.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
 #include "velox/serializers/PrestoSerializer.h"
-#include "velox/type/parser/TypeParser.h"
 
 using namespace facebook::velox;
 
@@ -132,7 +132,8 @@ class ServerResponse {
     std::vector<TypePtr> types;
     for (const auto& column : response_["columns"]) {
       names.push_back(column["name"].asString());
-      types.push_back(parseType(column["type"].asString()));
+      types.push_back(facebook::velox::functions::prestosql::parseType(
+          column["type"].asString()));
     }
 
     auto rowType = ROW(std::move(names), std::move(types));

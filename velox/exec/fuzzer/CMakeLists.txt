@@ -36,7 +36,7 @@ target_link_libraries(
   velox_presto_types
   cpr::cpr
   Boost::regex
-  velox_type_parser
+  velox_presto_type_parser
   Folly::folly
   velox_hive_connector
   velox_dwio_dwrf_writer

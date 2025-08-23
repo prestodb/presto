@@ -15,8 +15,8 @@
  */
 #include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/QDigestRegistration.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
-#include "velox/type/parser/TypeParser.h"
 
 namespace facebook::velox::test {
 namespace {
@@ -54,9 +54,15 @@ TEST_F(QDigestTypeTest, serde) {
 }
 
 TEST_F(QDigestTypeTest, parse) {
-  ASSERT_EQ(*parseType("qdigest(bigint)"), *QDIGEST(BIGINT()));
-  ASSERT_EQ(*parseType("qdigest(real)"), *QDIGEST(REAL()));
-  ASSERT_EQ(*parseType("qdigest(double)"), *QDIGEST(DOUBLE()));
+  ASSERT_EQ(
+      *facebook::velox::functions::prestosql::parseType("qdigest(bigint)"),
+      *QDIGEST(BIGINT()));
+  ASSERT_EQ(
+      *facebook::velox::functions::prestosql::parseType("qdigest(real)"),
+      *QDIGEST(REAL()));
+  ASSERT_EQ(
+      *facebook::velox::functions::prestosql::parseType("qdigest(double)"),
+      *QDIGEST(DOUBLE()));
 }
 
 } // namespace
