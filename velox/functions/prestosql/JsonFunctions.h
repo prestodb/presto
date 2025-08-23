@@ -25,6 +25,12 @@
 
 namespace facebook::velox::functions {
 
+/// Utility function that takes a padded string and determines whether
+/// the json is valid or not.
+/// @returns simdjson::SUCCESS if passed json is valid else returns a
+/// failure code.
+simdjson::error_code jsonParsingError(const simdjson::padded_string& json);
+
 template <typename T>
 struct IsJsonScalarFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -33,7 +39,7 @@ struct IsJsonScalarFunction {
     simdjson::ondemand::document jsonDoc;
 
     simdjson::padded_string paddedJson(json.data(), json.size());
-    if (auto errorCode = simdjsonParse(paddedJson).get(jsonDoc)) {
+    if (auto errorCode = jsonParsingError(paddedJson)) {
       if (threadSkipErrorDetails()) {
         return Status::UserError();
       }
@@ -41,6 +47,9 @@ struct IsJsonScalarFunction {
           "Failed to parse JSON: {}", simdjson::error_message(errorCode));
     }
 
+    if (simdjsonParse(paddedJson).get(jsonDoc)) {
+      return Status::UserError("Failed to parse JSON");
+    }
     result =
         (jsonDoc.type() == simdjson::ondemand::json_type::number ||
          jsonDoc.type() == simdjson::ondemand::json_type::string ||
@@ -68,9 +77,13 @@ struct JsonArrayContainsFunction {
     simdjson::ondemand::document jsonDoc;
 
     simdjson::padded_string paddedJson(json.data(), json.size());
+    if (jsonParsingError(paddedJson)) {
+      return false;
+    }
     if (simdjsonParse(paddedJson).get(jsonDoc)) {
       return false;
     }
+
     if (jsonDoc.type().error()) {
       return false;
     }
@@ -133,6 +146,9 @@ struct JsonArrayGetFunction {
     simdjson::ondemand::document jsonDoc;
 
     simdjson::padded_string paddedJson(jsonArray.data(), jsonArray.size());
+    if (jsonParsingError(paddedJson)) {
+      return false;
+    }
     if (simdjsonParse(paddedJson).get(jsonDoc)) {
       return false;
     }
@@ -229,12 +245,8 @@ struct JsonExtractScalarFunction {
 
     // Check for valid json
     simdjson::padded_string paddedJson(json.data(), json.size());
-    {
-      SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
-      simdjson::ondemand::document parsedDoc;
-      if (simdjsonParse(paddedJson).get(parsedDoc)) {
-        return simdjson::TAPE_ERROR;
-      }
+    if (auto val = jsonParsingError(paddedJson)) {
+      return val;
     }
 
     bool isDefinitePath = true;
@@ -328,6 +340,10 @@ struct JsonArrayLengthFunction {
     simdjson::ondemand::document jsonDoc;
 
     simdjson::padded_string paddedJson(json.data(), json.size());
+    // Check for valid json
+    if (jsonParsingError(paddedJson)) {
+      return false;
+    }
     if (simdjsonParse(paddedJson).get(jsonDoc)) {
       return false;
     }

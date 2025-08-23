@@ -175,6 +175,12 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
     return evaluateJsonVectorFunction("json_array_get", json, index, wrapInTry);
   }
 
+  const std::vector<std::string> badReplacements_ = {
+      "garbage",
+      "NaN",
+      "}",
+      "0/0"};
+
  private:
   // Utility function to evaluate a function both with and without constant
   // inputs. Ensures that the results are same in both cases. 'wrapInTry' is
@@ -684,6 +690,16 @@ TEST_F(JsonFunctionsTest, isJsonScalar) {
   EXPECT_EQ(isJsonScalar(R"({"k1":""})"), false);
 }
 
+TEST_F(JsonFunctionsTest, isJsonScalarBadJsons) {
+  for (const auto& badReplacement : badReplacements_) {
+    std::string js = fmt::format(
+        fmt::runtime(
+            "{{\"hands_v1\": {}, \"over_occlusion_rate\": 0.0358322490205352}}"),
+        badReplacement);
+    EXPECT_THROW(isJsonScalar(js), VeloxUserError);
+  }
+}
+
 TEST_F(JsonFunctionsTest, jsonArrayLength) {
   EXPECT_EQ(jsonArrayLength(R"([])"), 0);
   EXPECT_EQ(jsonArrayLength(R"([1])"), 1);
@@ -703,6 +719,14 @@ TEST_F(JsonFunctionsTest, jsonArrayLength) {
 
   // Malformed Json.
   EXPECT_EQ(jsonArrayLength(R"((})"), std::nullopt);
+
+  for (const auto& badReplacement : badReplacements_) {
+    std::string js = fmt::format(
+        fmt::runtime(
+            "{{\"hands_v1\": {}, \"over_occlusion_rate\": 0.0358322490205352}}"),
+        badReplacement);
+    EXPECT_EQ(jsonArrayLength(js), std::nullopt);
+  }
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayGet) {
@@ -753,6 +777,15 @@ TEST_F(JsonFunctionsTest, jsonArrayGet) {
     EXPECT_FALSE(arrayGet("[1, 2, ...", 1, type).has_value());
     EXPECT_FALSE(arrayGet("not json", 1, type).has_value());
   }
+
+  // Test it fails on bad jsons
+  for (const auto& badReplacement : badReplacements_) {
+    std::string js = fmt::format(
+        fmt::runtime(
+            "{{\"hands_v1\": {}, \"over_occlusion_rate\": 0.0358322490205352}}"),
+        badReplacement);
+    EXPECT_EQ(arrayGet(js.data(), 1, JSON()), std::nullopt);
+  }
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsBool) {
@@ -792,8 +825,9 @@ true, true, true, true, true, true, true, true, true, true, true])",
 
   // Test errors of getting the specified type of json value.
   // Error code is "INCORRECT_TYPE".
-  EXPECT_EQ(jsonArrayContains<bool>(R"([truet])", false), false);
-  EXPECT_EQ(jsonArrayContains<bool>(R"([truet, false])", false), true);
+  // Bad jsons will return null.
+  EXPECT_EQ(jsonArrayContains<bool>(R"([truet])", false), std::nullopt);
+  EXPECT_EQ(jsonArrayContains<bool>(R"([truet, false])", false), std::nullopt);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsBigint) {
@@ -841,8 +875,8 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsBigint) {
   EXPECT_EQ(
       jsonArrayContains<int64_t>(R"([-9223372036854775809,-9])", -9), true);
   // Error code is "NUMBER_ERROR".
-  EXPECT_EQ(jsonArrayContains<int64_t>(R"([01])", 4), false);
-  EXPECT_EQ(jsonArrayContains<int64_t>(R"([01, 4])", 4), true);
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([01])", 4), std::nullopt);
+  EXPECT_EQ(jsonArrayContains<int64_t>(R"([01, 4])", 4), std::nullopt);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsDouble) {
@@ -890,8 +924,8 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsDouble) {
 
   // Test errors of getting the specified type of json value.
   // Error code is "NUMBER_ERROR".
-  EXPECT_EQ(jsonArrayContains<double>(R"([9.6E400])", 4.2), false);
-  EXPECT_EQ(jsonArrayContains<double>(R"([9.6E400,4.2])", 4.2), true);
+  EXPECT_EQ(jsonArrayContains<double>(R"([9.6E400])", 4.2), std::nullopt);
+  EXPECT_EQ(jsonArrayContains<double>(R"([9.6E400,4.2])", 4.2), std::nullopt);
 }
 
 TEST_F(JsonFunctionsTest, jsonArrayContainsString) {
@@ -959,6 +993,14 @@ TEST_F(JsonFunctionsTest, jsonArrayContainsMalformed) {
       evaluateOnce<bool>(
           "json_array_contains(c0, 'a')", makeRowVector({jsonVector})),
       std::nullopt);
+
+  for (const auto& badReplacement : badReplacements_) {
+    std::string js = fmt::format(
+        fmt::runtime(
+            "{{\"hands_v1\": {}, \"over_occlusion_rate\": 0.0358322490205352}}"),
+        badReplacement);
+    EXPECT_EQ(jsonArrayContains<std::string>(js, {""}), std::nullopt);
+  }
 }
 
 TEST_F(JsonFunctionsTest, jsonSize) {
@@ -975,6 +1017,14 @@ TEST_F(JsonFunctionsTest, jsonSize) {
       jsonSize(
           R"({"k1":{"k2": 999, "k3": [{"k4": [1, 2, 3]}]}})", "$.k1.k3[0].k4"),
       3);
+
+  for (const auto& badReplacement : badReplacements_) {
+    std::string js = fmt::format(
+        fmt::runtime(
+            "{{\"hands_v1\": {}, \"over_occlusion_rate\": 0.0358322490205352}}"),
+        badReplacement);
+    EXPECT_EQ(jsonSize(js, "$.k1"), std::nullopt);
+  }
 }
 
 TEST_F(JsonFunctionsTest, invalidPath) {
