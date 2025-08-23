@@ -19,8 +19,8 @@
 namespace facebook::velox::core {
 
 namespace {
-folly::F14FastMap<ExprKind, std::string> exprKindNames() {
-  static const folly::F14FastMap<ExprKind, std::string> kNames = {
+const auto& exprKindNames() {
+  static const folly::F14FastMap<ExprKind, std::string_view> kNames = {
       {ExprKind::kInput, "INPUT"},
       {ExprKind::kFieldAccess, "FIELD"},
       {ExprKind::kDereference, "DEREFERENCE"},
@@ -30,7 +30,6 @@ folly::F14FastMap<ExprKind, std::string> exprKindNames() {
       {ExprKind::kConcat, "CONCAT"},
       {ExprKind::kLambda, "LAMBDA"},
   };
-
   return kNames;
 }
 } // namespace

@@ -22,14 +22,14 @@ namespace facebook::velox {
 
 struct Enums {
   /// Helper function to invert a mapping from enum type to name.
-  template <typename E>
-  static folly::F14FastMap<std::string, E> invertMap(
-      const folly::F14FastMap<E, std::string>& mapping) {
-    folly::F14FastMap<std::string, E> inverted;
+  template <typename EnumType, typename StringType>
+  static auto invertMap(
+      const folly::F14FastMap<EnumType, StringType>& mapping) {
+    folly::F14FastMap<StringType, EnumType> inverted;
     for (const auto& [key, value] : mapping) {
-      bool ok = inverted.emplace(value, key).second;
+      const bool emplaced = inverted.emplace(value, key).second;
       VELOX_USER_CHECK(
-          ok, "Cannot invert a map with duplicate values: {}", value);
+          emplaced, "Cannot invert a map with duplicate values: {}", value);
     }
     return inverted;
   }
@@ -53,12 +53,13 @@ struct Enums {
 /// In the cpp file, define the mapping:
 ///
 /// namespace {
-/// folly::F14FastMap<Foo, std::string> fooNames() {
-///   return {
+/// const auto& fooNames() {
+///   static const folly::F14FastMap<Foo, std::string_view> kNames = {
 ///       {Foo::kFirst, "FIRST"},
 ///       {Foo::kSecond, "SECOND"},
 ///        ...
 ///   };
+///   return kNames;
 /// }
 /// } // namespace
 ///
@@ -82,20 +83,12 @@ struct Enums {
 
 #define VELOX_DEFINE_ENUM_NAME(EnumType, Names)                             \
   std::string_view EnumType##Name::toName(EnumType value) {                 \
-    static const auto kNames = Names();                                     \
-    auto it = kNames.find(value);                                           \
+    const auto& names = Names();                                            \
+    auto it = names.find(value);                                            \
     VELOX_CHECK(                                                            \
-        it != kNames.end(),                                                 \
+        it != names.end(),                                                  \
         "Invalid enum value: {}",                                           \
-        static_cast<int>(value));                                           \
-    return it->second.c_str();                                              \
-  }                                                                         \
-                                                                            \
-  EnumType EnumType##Name::to##EnumType(std::string_view name) {            \
-    static const auto kValues = facebook::velox::Enums::invertMap(Names()); \
-                                                                            \
-    auto it = kValues.find(name);                                           \
-    VELOX_CHECK(it != kValues.end(), "Invalid enum name: {}", name);        \
+        static_cast<std::underlying_type_t<EnumType>>(value));              \
     return it->second;                                                      \
   }                                                                         \
                                                                             \
@@ -112,6 +105,12 @@ struct Enums {
   std::ostream& operator<<(std::ostream& os, const EnumType& value) {       \
     os << EnumType##Name::toName(value);                                    \
     return os;                                                              \
+  }                                                                         \
+                                                                            \
+  EnumType EnumType##Name::to##EnumType(std::string_view name) {            \
+    const auto maybeType = EnumType##Name::tryTo##EnumType(name);           \
+    VELOX_CHECK(maybeType, "Invalid enum name: {}", name);                  \
+    return *maybeType;                                                      \
   }
 
 #define VELOX_DECLARE_EMBEDDED_ENUM_NAME(EnumType)     \
@@ -121,20 +120,12 @@ struct Enums {
 
 #define VELOX_DEFINE_EMBEDDED_ENUM_NAME(Class, EnumType, Names)             \
   std::string_view Class::toName(Class::EnumType value) {                   \
-    static const auto kNames = Names();                                     \
-    auto it = kNames.find(value);                                           \
+    const auto& names = Names();                                            \
+    auto it = names.find(value);                                            \
     VELOX_CHECK(                                                            \
-        it != kNames.end(),                                                 \
+        it != names.end(),                                                  \
         "Invalid enum value: {}",                                           \
-        static_cast<int>(value));                                           \
-    return it->second.c_str();                                              \
-  }                                                                         \
-                                                                            \
-  Class::EnumType Class::to##EnumType(std::string_view name) {              \
-    static const auto kValues = facebook::velox::Enums::invertMap(Names()); \
-                                                                            \
-    auto it = kValues.find(name);                                           \
-    VELOX_CHECK(it != kValues.end(), "Invalid enum name: {}", name);        \
+        static_cast<std::underlying_type_t<Class::EnumType>>(value));       \
     return it->second;                                                      \
   }                                                                         \
                                                                             \
@@ -147,4 +138,10 @@ struct Enums {
       return std::nullopt;                                                  \
     }                                                                       \
     return it->second;                                                      \
+  }                                                                         \
+                                                                            \
+  Class::EnumType Class::to##EnumType(std::string_view name) {              \
+    const auto maybeType = Class::tryTo##EnumType(name);                    \
+    VELOX_CHECK(maybeType, "Invalid enum name: {}", name);                  \
+    return *maybeType;                                                      \
   }

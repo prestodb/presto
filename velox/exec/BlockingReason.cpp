@@ -19,8 +19,8 @@
 namespace facebook::velox::exec {
 
 namespace {
-folly::F14FastMap<BlockingReason, std::string> blockingReasonNames() {
-  return {
+const auto& blockingReasonNames() {
+  static const folly::F14FastMap<BlockingReason, std::string> kNames = {
       {BlockingReason::kNotBlocked, "kNotBlocked"},
       {BlockingReason::kWaitForConsumer, "kWaitForConsumer"},
       {BlockingReason::kWaitForSplit, "kWaitForSplit"},
@@ -36,6 +36,7 @@ folly::F14FastMap<BlockingReason, std::string> blockingReasonNames() {
       {BlockingReason::kWaitForScanScaleUp, "kWaitForScanScaleUp"},
       {BlockingReason::kWaitForIndexLookup, "kWaitForIndexLookup"},
   };
+  return kNames;
 }
 
 } // namespace

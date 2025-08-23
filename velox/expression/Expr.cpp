@@ -43,8 +43,8 @@ DECLARE_bool(velox_experimental_save_input_on_fatal_signal);
 namespace facebook::velox::exec {
 
 namespace {
-folly::F14FastMap<SpecialFormKind, std::string> specialFormNames() {
-  static const folly::F14FastMap<SpecialFormKind, std::string> kNames = {
+const auto& specialFormNames() {
+  static const folly::F14FastMap<SpecialFormKind, std::string_view> kNames = {
       {SpecialFormKind::kFieldAccess, "FIELD"},
       {SpecialFormKind::kConstant, "CONSTANT"},
       {SpecialFormKind::kCast, "CAST"},
@@ -56,7 +56,6 @@ folly::F14FastMap<SpecialFormKind, std::string> specialFormNames() {
       {SpecialFormKind::kOr, "OR"},
       {SpecialFormKind::kCustom, "CUSTOM"},
   };
-
   return kNames;
 }
 } // namespace
