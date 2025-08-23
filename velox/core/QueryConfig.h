@@ -528,6 +528,15 @@ class QueryConfig {
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "debug_memory_pool_name_regex";
 
+  /// Warning threshold in bytes for debug memory pools. When set to a
+  /// non-zero value, a warning will be logged once per memory pool when
+  /// allocations cause the pool to exceed this threshold. This is useful for
+  /// identifying memory usage patterns during debugging. Requires allocation
+  /// tracking to be enabled via `debug_memory_pool_name_regex` for the pool. A
+  /// value of 0 means no warning threshold is enforced.
+  static constexpr const char* kDebugMemoryPoolWarnThresholdBytes =
+      "debug_memory_pool_warn_threshold_bytes";
+
   /// Some lambda functions over arrays and maps are evaluated in batches of the
   /// underlying elements that comprise the arrays/maps. This is done to make
   /// the batch size manageable as array vectors can have thousands of elements
@@ -698,6 +707,12 @@ class QueryConfig {
 
   std::string debugMemoryPoolNameRegex() const {
     return get<std::string>(kDebugMemoryPoolNameRegex, "");
+  }
+
+  uint64_t debugMemoryPoolWarnThresholdBytes() const {
+    return config::toCapacity(
+        get<std::string>(kDebugMemoryPoolWarnThresholdBytes, "0B"),
+        config::CapacityUnit::BYTE);
   }
 
   std::optional<uint32_t> debugAggregationApproxPercentileFixedRandomSeed()

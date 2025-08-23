@@ -112,6 +112,12 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     /// memory pools whose name matches the specified regular expression. Empty
     /// string means no match for all.
     std::string debugPoolNameRegex;
+
+    /// Warning threshold in bytes for debug memory pools. When set to a
+    /// non-zero value, a warning will be logged once per memory pool when
+    /// allocations cause the pool to exceed this threshold. A value of
+    /// 0 means no warning threshold is enforced.
+    uint64_t debugPoolWarnThresholdBytes{0};
   };
 
   struct Options {
@@ -997,6 +1003,10 @@ class MemoryPoolImpl : public MemoryPool {
   // pool is enabled.
   void leakCheckDbg();
 
+  // Dump the recorded call sites of the memory allocations in
+  // 'debugAllocRecords_' to the string.
+  std::string dumpRecordsDbg();
+
   void handleAllocationFailure(const std::string& failureMessage);
 
   MemoryManager* const manager_;
@@ -1064,6 +1074,9 @@ class MemoryPoolImpl : public MemoryPool {
 
   // Map from address to 'AllocationRecord'.
   std::unordered_map<uint64_t, AllocationRecord> debugAllocRecords_;
+
+  // Flag to track if warning threshold has been exceeded once for this pool.
+  bool debugWarnThresholdExceeded_{false};
 };
 
 /// An Allocator backed by a memory pool for STL containers.

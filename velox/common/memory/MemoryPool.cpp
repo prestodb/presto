@@ -17,7 +17,6 @@
 #include "velox/common/memory/MemoryPool.h"
 
 #include <signal.h>
-#include <set>
 
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -805,9 +804,6 @@ void MemoryPoolImpl::reserve(uint64_t size, bool reserveOnly) {
       reserveNonThreadSafe(size, reserveOnly);
     }
   }
-  if (reserveOnly) {
-    return;
-  }
 }
 
 void MemoryPoolImpl::reserveThreadSafe(uint64_t size, bool reserveOnly) {
@@ -1203,10 +1199,34 @@ void MemoryPoolImpl::recordAllocDbg(const void* addr, uint64_t size) {
   if (!needRecordDbg(true)) {
     return;
   }
-  std::lock_guard<std::mutex> l(debugAllocMutex_);
-  debugAllocRecords_.emplace(
-      reinterpret_cast<uint64_t>(addr),
-      AllocationRecord{size, process::StackTrace()});
+  AllocationRecord allocationRecord{size, process::StackTrace()};
+  std::lock_guard<std::mutex> debugAllocLock(debugAllocMutex_);
+  auto [it, inserted] = debugAllocRecords_.try_emplace(
+      reinterpret_cast<uint64_t>(addr), std::move(allocationRecord));
+  VELOX_CHECK(inserted);
+  if (debugOptions_->debugPoolWarnThresholdBytes == 0 ||
+      debugWarnThresholdExceeded_) {
+    return;
+  }
+  const auto usedBytes = [this]() -> int64_t {
+    std::lock_guard<std::mutex> l(mutex_);
+    return reservedBytes();
+  }();
+  if (usedBytes >= debugOptions_->debugPoolWarnThresholdBytes) {
+    debugWarnThresholdExceeded_ = true;
+    VELOX_MEM_LOG(WARNING) << fmt::format(
+        "[MemoryPool] Memory pool '{}' exceeded warning threshold of {} with allocation of {}, resulting in total size of {}.\n"
+        "======== Allocation Stack ========\n"
+        "{}\n"
+        "======= Current Allocations ======\n"
+        "{}",
+        name_,
+        succinctBytes(debugOptions_->debugPoolWarnThresholdBytes),
+        succinctBytes(size),
+        succinctBytes(usedBytes),
+        it->second.callStack.toString(),
+        dumpRecordsDbg());
+  }
 }
 
 void MemoryPoolImpl::recordAllocDbg(const Allocation& allocation) {
@@ -1288,10 +1308,16 @@ void MemoryPoolImpl::leakCheckDbg() {
   if (debugAllocRecords_.empty()) {
     return;
   }
-  std::stringbuf buf;
-  std::ostream oss(&buf);
-  oss << "[MemoryPool] : " << name_ << " - Detected total of "
-      << debugAllocRecords_.size() << " leaked allocations:\n";
+  VELOX_FAIL(fmt::format(
+      "[MemoryPool] Leak check failed for '{}' pool - {}",
+      name_,
+      dumpRecordsDbg()));
+}
+
+std::string MemoryPoolImpl::dumpRecordsDbg() {
+  VELOX_CHECK(debugEnabled());
+  std::stringstream oss;
+  oss << fmt::format("Found {} allocations:\n", debugAllocRecords_.size());
   struct AllocationStats {
     uint64_t size{0};
     uint64_t numAllocations{0};
@@ -1316,12 +1342,13 @@ void MemoryPoolImpl::leakCheckDbg() {
         return a.second.size > b.second.size;
       });
   for (const auto& pair : sortedRecords) {
-    oss << "======== Leaked memory from " << pair.second.numAllocations
-        << " total allocations of " << succinctBytes(pair.second.size)
-        << " total size ========\n"
-        << pair.first << "\n";
+    oss << fmt::format(
+        "======== {} allocations of {} total size ========\n{}\n",
+        pair.second.numAllocations,
+        succinctBytes(pair.second.size),
+        pair.first);
   }
-  VELOX_FAIL(buf.str());
+  return oss.str();
 }
 
 void MemoryPoolImpl::handleAllocationFailure(
