@@ -1053,6 +1053,10 @@ const QueryDetail = () => {
     }
 
     const updateCharts = () => {
+        // don't attempt to highlight or throttle before query content is rendered
+        if (state.query === null) {
+            return;
+        }
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (state.lastRender === null || (Date.now() - state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
@@ -1089,11 +1093,7 @@ const QueryDetail = () => {
         // if (window.ClipboardJS) { new window.ClipboardJS('.copy-button'); }
 
     useEffect(() => {
-        if (!timerIdRef.current) {
-            timerIdRef.current = setTimeout(fetchData, 1000);
-        } else {
-            updateCharts();
-        }
+        fetchData();
 
         return () => {
             clearTimeout(timerIdRef.current);
