@@ -43,7 +43,8 @@ class GroupingSet {
       const std::optional<column_index_t>& groupIdChannel,
       const common::SpillConfig* spillConfig,
       tsan_atomic<bool>* nonReclaimableSection,
-      OperatorCtx* operatorCtx,
+      const core::QueryConfig* queryConfig,
+      memory::MemoryPool* pool,
       folly::Synchronized<common::SpillStats>* spillStats);
 
   ~GroupingSet();
@@ -148,7 +149,7 @@ class GroupingSet {
       RowContainerIterator& iterator,
       RowVectorPtr& result);
 
-  memory::MemoryPool& testingPool() const {
+  memory::MemoryPool* testingPool() const {
     return pool_;
   }
 
@@ -302,7 +303,8 @@ class GroupingSet {
   const bool isGlobal_;
   const bool isPartial_;
   const bool isRawInput_;
-  const core::QueryConfig& queryConfig_;
+  const core::QueryConfig* const queryConfig_;
+  memory::MemoryPool* const pool_;
 
   std::vector<AggregateInfo> aggregates_;
   AggregationMasks masks_;
@@ -390,9 +392,6 @@ class GroupingSet {
   // Indicates the element in mergeArgs_[0] that corresponds to the accumulator
   // to merge.
   SelectivityVector mergeSelection_;
-
-  // Pool of the OperatorCtx. Used for spilling.
-  memory::MemoryPool& pool_;
 
   // True if partial aggregation has been given up as non-productive.
   bool abandonedPartialAggregation_{false};

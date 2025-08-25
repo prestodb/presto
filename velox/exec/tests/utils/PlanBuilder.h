@@ -748,10 +748,10 @@ class PlanBuilder {
   /// Add an AggregationNode representing partial aggregation with the
   /// specified grouping keys, aggregates and optional masks.
   ///
-  /// Aggregates are specified as function calls over unmodified input columns,
-  /// e.g. sum(a), avg(b), min(c). SQL statement AS can be used to specify names
-  /// for the aggregation result columns. In the absence of AS statement, result
-  /// columns are named a0, a1, a2, etc.
+  /// Aggregates are specified as function calls over unmodified input
+  /// columns, e.g. sum(a), avg(b), min(c). SQL statement AS can be used to
+  /// specify names for the aggregation result columns. In the absence of AS
+  /// statement, result columns are named a0, a1, a2, etc.
   ///
   /// For example,
   ///
@@ -761,8 +761,8 @@ class PlanBuilder {
   ///
   ///     partialAggregation({"k1", "k2"}, {"min(a) AS min_a", "max(b)"})
   ///
-  /// will produce output columns k1, k2, min_a and a1, assuming the names of
-  /// the first two input columns are k1 and k2.
+  /// will produce output columns k1, k2, min_a and a1, assuming the names
+  /// of the first two input columns are k1 and k2.
   PlanBuilder& partialAggregation(
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,

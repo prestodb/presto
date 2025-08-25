@@ -42,7 +42,7 @@ CompressionKind TableWriterTestBase::TestParam::compressionKind() const {
 }
 
 bool TableWriterTestBase::TestParam::multiDrivers() const {
-  return (value >> 40) != 0;
+  return (value & (1L << 40)) != 0;
 }
 
 FileFormat TableWriterTestBase::TestParam::fileFormat() const {
@@ -71,7 +71,7 @@ bool TableWriterTestBase::TestParam::scaleWriter() const {
 
 std::string TableWriterTestBase::TestParam::toString() const {
   return fmt::format(
-      "FileFormat[{}] TestMode[{}] commitStrategy[{}] bucketKind[{}] bucketSort[{}] multiDrivers[{}] compression[{}] scaleWriter[{}]",
+      "FileFormat_{}_TestMode_{}_commitStrategy_{}_bucketKind_{}_bucketSort_{}_multiDrivers_{}_compression_{}_scaleWriter_{}",
       dwio::common::toString((fileFormat())),
       testModeString(testMode()),
       commitStrategyToString(commitStrategy()),
@@ -91,7 +91,7 @@ std::string TableWriterTestBase::testModeString(TestMode mode) {
     case TestMode::kBucketed:
       return "BUCKETED";
     case TestMode::kOnlyBucketed:
-      return "BUCKETED (NOT PARTITIONED)";
+      return "BUCKETED_WITHOUT_PARTITION";
   }
   VELOX_UNREACHABLE();
 }
@@ -118,7 +118,7 @@ TableWriterTestBase::generateAggregationNode(
       std::vector<core::FieldAccessTypedExprPtr>{},
       aggregateNames,
       aggregates,
-      false, // ignoreNullKeys
+      /*ignoreNullKeys=*/false,
       source);
 }
 
@@ -658,14 +658,6 @@ PlanNodePtr TableWriterTestBase::createInsertPlanWithSingleWriter(
           false,
           outputCommitStrategy))
       .capturePlanNodeId(tableWriteNodeId_);
-  if (addScaleWriterExchange) {
-    if (!partitionedBy.empty()) {
-      insertPlan.scaleWriterlocalPartition(
-          inputColumnNames(partitionedBy, tableRowType, inputRowType));
-    } else {
-      insertPlan.scaleWriterlocalPartitionRoundRobin();
-    }
-  }
   if (aggregateResult) {
     insertPlan.project({TableWriteTraits::rowCountColumnName()})
         .singleAggregation(
@@ -706,7 +698,7 @@ PlanNodePtr TableWriterTestBase::createInsertPlanForBucketTable(
           .addNode(addTableWriter(
               inputRowType,
               tableRowType->names(),
-              nullptr,
+              aggregationNode,
               createInsertTableHandle(
                   tableRowType,
                   outputTableType,
@@ -766,7 +758,7 @@ PlanNodePtr TableWriterTestBase::createInsertPlanWithForNonBucketedTable(
       .addNode(addTableWriter(
           inputRowType,
           tableRowType->names(),
-          nullptr,
+          aggregationNode,
           createInsertTableHandle(
               tableRowType,
               outputTableType,

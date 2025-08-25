@@ -1982,10 +1982,10 @@ DEBUG_ONLY_TEST_F(AggregationTest, minSpillableMemoryReservation) {
         "facebook::velox::exec::GroupingSet::addInputForActiveRows",
         std::function<void(exec::GroupingSet*)>(
             ([&](exec::GroupingSet* groupingSet) {
-              memory::MemoryPool& pool = groupingSet->testingPool();
+              memory::MemoryPool* pool = groupingSet->testingPool();
               const auto availableReservationBytes =
-                  pool.availableReservation();
-              const auto currentUsedBytes = pool.usedBytes();
+                  pool->availableReservation();
+              const auto currentUsedBytes = pool->usedBytes();
               // Verifies we always have min reservation after ensuring the
               // input.
               ASSERT_GE(
@@ -3029,7 +3029,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringNonReclaimableSection) {
           if (!testData.nonReclaimableInput) {
             return;
           }
-          if (groupSet->testingPool().usedBytes() == 0) {
+          if (groupSet->testingPool()->usedBytes() == 0) {
             return;
           }
           if (!injectNonReclaimableSectionOnce.exchange(false)) {

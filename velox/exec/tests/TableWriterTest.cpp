@@ -445,16 +445,6 @@ class BucketedTableOnlyWriteTest
               CompressionKind_ZSTD,
               /*scaleWriter=*/false}
                                    .value);
-          testParams.push_back(TestParam{
-              fileFormat,
-              bucketMode,
-              CommitStrategy::kNoCommit,
-              HiveBucketProperty::Kind::kPrestoNative,
-              true,
-              multiDrivers,
-              CompressionKind_ZSTD,
-              /*scaleWriter=*/false}
-                                   .value);
         }
       }
     }
@@ -539,7 +529,7 @@ class PartitionedWithoutBucketTableWriterTest
               CommitStrategy::kTaskCommit,
               HiveBucketProperty::Kind::kHiveCompatible,
               false,
-              true,
+              multiDrivers,
               CompressionKind_ZSTD,
               scaleWriter}
                                    .value);
@@ -939,7 +929,6 @@ TEST_P(AllTableWriterTest, commitStrategies) {
         commitStrategy_);
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
-
     if (partitionedBy_.size() > 0) {
       auto newOutputType =
           getNonPartitionsColumns(partitionedBy_, tableSchema_);
@@ -1911,6 +1900,7 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
   auto outputDirectory = TempDirectoryPath::create();
 
   std::vector<FieldAccessTypedExprPtr> groupingKeyFields;
+  groupingKeyFields.reserve(partitionedBy_.size());
   for (int i = 0; i < partitionedBy_.size(); ++i) {
     groupingKeyFields.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
         partitionTypes_.at(i), partitionedBy_.at(i)));
@@ -1994,7 +1984,7 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
     };
   };
 
-  std::vector<core::AggregationNode::Aggregate> aggregates = {
+  const std::vector<core::AggregationNode::Aggregate> aggregates = {
       makeAggregate(minCallExpr),
       makeAggregate(maxCallExpr),
       makeAggregate(distinctCountCallExpr),
@@ -2098,8 +2088,6 @@ TEST_P(AllTableWriterTest, columnStats) {
   output.emplace_back("min");
   types.emplace_back(BIGINT());
   const auto writerOutputType = ROW(std::move(output), std::move(types));
-
-  // aggregation node
   auto aggregationNode = generateAggregationNode(
       "c0",
       groupingKeys,
@@ -2230,7 +2218,6 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
                        .localPartition(std::vector<std::string>{})
                        .tableWriteMerge(std::move(mergeAggregationNode))
                        .planNode();
-
   auto result = AssertQueryBuilder(finalPlan).copyResults(pool());
   auto rowVector = result->childAt(0)->asFlatVector<int64_t>();
   auto fragmentVector = result->childAt(1)->asFlatVector<StringView>();
@@ -2685,38 +2672,78 @@ DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, yield) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     UnpartitionedTableWriterTest,
-    testing::ValuesIn(UnpartitionedTableWriterTest::getTestParams()));
+    testing::ValuesIn(UnpartitionedTableWriterTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format(
+          "UnpartitionedTableWriterTest_{}", testParams.toString());
+    });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     BucketedUnpartitionedTableWriterTest,
-    testing::ValuesIn(BucketedUnpartitionedTableWriterTest::getTestParams()));
+    testing::ValuesIn(BucketedUnpartitionedTableWriterTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format(
+          "BucketedUnpartitionedTableWriterTest_{}", testParams.toString());
+    });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     PartitionedTableWriterTest,
-    testing::ValuesIn(PartitionedTableWriterTest::getTestParams()));
+    testing::ValuesIn(PartitionedTableWriterTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format(
+          "PartitionedTableWriterTest_{}", testParams.toString());
+    });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     BucketedTableOnlyWriteTest,
-    testing::ValuesIn(BucketedTableOnlyWriteTest::getTestParams()));
+    testing::ValuesIn(BucketedTableOnlyWriteTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format(
+          "BucketedTableOnlyWriteTest_{}", testParams.toString());
+    });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     AllTableWriterTest,
-    testing::ValuesIn(AllTableWriterTest::getTestParams()));
+    testing::ValuesIn(AllTableWriterTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format("AllTableWriterTest_{}", testParams.toString());
+    });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     PartitionedWithoutBucketTableWriterTest,
-    testing::ValuesIn(
-        PartitionedWithoutBucketTableWriterTest::getTestParams()));
+    testing::ValuesIn(PartitionedWithoutBucketTableWriterTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format(
+          "PartitionedWithoutBucketTableWriterTest_{}", testParams.toString());
+    });
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     TableWriterTest,
     BucketSortOnlyTableWriterTest,
-    testing::ValuesIn(BucketSortOnlyTableWriterTest::getTestParams()));
+    testing::ValuesIn(BucketSortOnlyTableWriterTest::getTestParams()),
+    [](const testing::TestParamInfo<uint64_t>& info) {
+      const auto testParams =
+          static_cast<TableWriterTestBase::TestParam>(info.param);
+      return fmt::format(
+          "BucketSortOnlyTableWriterTest_{}", testParams.toString());
+    });
 
 class TableWriterArbitrationTest : public HiveConnectorTestBase {
  protected:

@@ -112,7 +112,8 @@ void HashAggregation::initialize() {
       groupIdChannel,
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
       &nonReclaimableSection_,
-      operatorCtx_.get(),
+      &operatorCtx_->driverCtx()->queryConfig(),
+      operatorCtx_->pool(),
       spillStats_.get());
 
   aggregationNode_.reset();
