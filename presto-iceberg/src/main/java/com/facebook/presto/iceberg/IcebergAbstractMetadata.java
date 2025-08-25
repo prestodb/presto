@@ -94,6 +94,7 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
@@ -871,9 +872,13 @@ public abstract class IcebergAbstractMetadata
         Transaction transaction = icebergTable.newTransaction();
         transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
-            String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
-            transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),
-                    getTransformTerm(column.getName(), transform)).commit();
+            List<String> partitioningTransform = (List<String>) column.getProperties().get(PARTITIONING_PROPERTY);
+            UpdatePartitionSpec updatePartitionSpec = transaction.updateSpec();
+            for (String transform : partitioningTransform) {
+                updatePartitionSpec = updatePartitionSpec.addField(getPartitionColumnName(column.getName(), transform),
+                        getTransformTerm(column.getName(), transform));
+            }
+            updatePartitionSpec.commit();
         }
         transaction.commitTransaction();
     }
