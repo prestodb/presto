@@ -52,7 +52,6 @@ function install_arrow_flight {
 }
 
 function install_datasketches {
-  # grpc
   github_checkout apache/datasketches-cpp 5.2.0 --depth 1
   cmake_install -DBUILD_TESTS=OFF
 }
