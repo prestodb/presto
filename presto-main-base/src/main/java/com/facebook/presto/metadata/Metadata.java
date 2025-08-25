@@ -507,6 +507,11 @@ public interface Metadata
 
     TablePropertyManager getTablePropertyManager();
 
+    default DeprecatedTablePropertyManager getTableDeprecatedPropertyManager()
+    {
+        return null;
+    }
+
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
