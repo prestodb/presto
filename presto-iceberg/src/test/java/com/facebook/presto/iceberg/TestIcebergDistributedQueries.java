@@ -116,7 +116,13 @@ public abstract class TestIcebergDistributedQueries
     }
 
     @Override
-    public void testClearTransactionId()
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // Catalog iceberg only supports writes using autocommit
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
     {
         // Catalog iceberg only supports writes using autocommit
     }

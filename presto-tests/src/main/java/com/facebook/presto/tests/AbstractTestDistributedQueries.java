@@ -77,7 +77,6 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -250,73 +249,71 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testClearTransactionId()
+    public void testNonAutoCommitTransactionWithRollback()
     {
-        assertUpdate("create table test_clear_transaction_id_table(a int, b varchar)");
-        assertUpdate("insert into test_clear_transaction_id_table values(1, '1001'), (2, '1002')", 2);
-        Session session = getQueryRunner().getDefaultSession();
-        String defaultCatalog = session.getCatalog().get();
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .execute(Session.builder(session)
-                                .setIdentity(new Identity("admin",
-                                        Optional.empty(),
-                                        ImmutableMap.of(defaultCatalog, new SelectedRole(ROLE, Optional.of("admin"))),
-                                        ImmutableMap.of(),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        Optional.empty()))
-                                .build(),
-                        txnSession -> {
-                            MaterializedResult result = computeActual(txnSession, "select * from test_clear_transaction_id_table");
-                            assertEquals(result.getRowCount(), 2);
-                            assertFalse(result.isClearTransactionId());
+        assertUpdate("create table multi_statements_transaction_rollback(a int, b varchar)");
+        assertUpdate("insert into multi_statements_transaction_rollback values(1, '1001'), (2, '1002')", 2);
 
-                            result = computeActual(txnSession, "insert into test_clear_transaction_id_table values(1, '1001'), (2, '1002')");
-                            assertEquals(result.getOnlyValue(), 2L);
-                            assertFalse(result.isClearTransactionId());
+        Session session = assertStartTransaction(getSession(), "start transaction");
 
-                            // `Rollback` executes successfully, and the client gets a flag `clearTransactionId = true`
-                            result = computeActual(txnSession, "rollback");
-                            assertTrue(result.isClearTransactionId());
-                        });
+        assertQuery(session, "select * from multi_statements_transaction_rollback", "values(1, '1001'), (2, '1002')");
+        assertUpdate(session, "insert into multi_statements_transaction_rollback values(3, '1003'), (4, '1004')", 2);
 
-        assertQuery("select * from test_clear_transaction_id_table", "values(1, '1001'), (2, '1002')");
-        assertUpdate("drop table if exists test_clear_transaction_id_table");
+        // `Rollback` executes successfully, and the client gets a flag `clearTransactionId = true`
+        session = assertEndTransaction(session, "rollback");
+
+        assertQuery(session, "select * from multi_statements_transaction_rollback", "values(1, '1001'), (2, '1002')");
+        assertUpdate(session, "drop table if exists multi_statements_transaction_rollback");
+    }
+
+    @Test
+    public void testNonAutoCommitTransactionWithCommit()
+    {
+        assertUpdate("create table multi_statements_transaction_commit(a int, b varchar)");
+        assertUpdate("insert into multi_statements_transaction_commit values(1, '1001'), (2, '1002')", 2);
+        Session session = assertStartTransaction(getSession(), "start transaction");
+
+        assertQuery(session, "select * from multi_statements_transaction_commit", "values(1, '1001'), (2, '1002')");
+        assertUpdate(session, "insert into multi_statements_transaction_commit values(3, '1003'), (4, '1004')", 2);
+
+        // `Commit` executes successfully, and the client gets a flag `clearTransactionId = true`
+        session = assertEndTransaction(session, "commit");
+
+        assertQuery(session, "select * from multi_statements_transaction_commit",
+                "values(1, '1001'), (2, '1002'), (3, '1003'), (4, '1004')");
+        assertUpdate(session, "drop table if exists multi_statements_transaction_commit");
     }
 
     @Test
     public void testNonAutoCommitTransactionWithFailAndRollback()
     {
         assertUpdate("create table test_non_autocommit_table(a int, b varchar)");
-        Session session = getQueryRunner().getDefaultSession();
-        String defaultCatalog = session.getCatalog().get();
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .execute(Session.builder(session)
-                                .setIdentity(new Identity("admin",
-                                        Optional.empty(),
-                                        ImmutableMap.of(defaultCatalog, new SelectedRole(ROLE, Optional.of("admin"))),
-                                        ImmutableMap.of(),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        Optional.empty()))
-                                .build(),
-                        txnSession -> {
-                            // simulate failure of SQL statement execution
-                            assertQueryFails(txnSession, "SELECT fail('forced failure')", "forced failure");
+        Session session = Session.builder(getSession())
+                .setIdentity(new Identity("admin",
+                        Optional.empty(),
+                        ImmutableMap.of(getSession().getCatalog().get(), new SelectedRole(ROLE, Optional.of("admin"))),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()))
+                .build();
 
-                            // cannot execute any SQLs except `rollback` in current session
-                            assertQueryFails(txnSession, "select count(*) from test_non_autocommit_table", "Current transaction is aborted, commands ignored until end of transaction block");
-                            assertQueryFails(txnSession, "show tables", "Current transaction is aborted, commands ignored until end of transaction block");
-                            assertQueryFails(txnSession, "insert into test_non_autocommit_table values(1, '1001')", "Current transaction is aborted, commands ignored until end of transaction block");
-                            assertQueryFails(txnSession, "create table test_table(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
+        session = assertStartTransaction(session, "start transaction");
 
-                            // execute `rollback` successfully
-                            MaterializedResult result = computeActual(txnSession, "rollback");
-                            assertTrue(result.isClearTransactionId());
-                        });
+        // simulate failure of SQL statement execution
+        assertQueryFails(session, "SELECT fail('forced failure')", "forced failure");
 
-        assertQuery("select count(*) from test_non_autocommit_table", "values(0)");
-        assertUpdate("drop table if exists test_non_autocommit_table");
+        // cannot execute any SQLs except `rollback` in current session
+        assertQueryFails(session, "select count(*) from test_non_autocommit_table", "Current transaction is aborted, commands ignored until end of transaction block");
+        assertQueryFails(session, "show tables", "Current transaction is aborted, commands ignored until end of transaction block");
+        assertQueryFails(session, "insert into test_non_autocommit_table values(1, '1001')", "Current transaction is aborted, commands ignored until end of transaction block");
+        assertQueryFails(session, "create table test_table(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
+
+        // execute `rollback` successfully
+        session = assertEndTransaction(session, "rollback");
+
+        assertQuery(session, "select count(*) from test_non_autocommit_table", "values(0)");
+        assertUpdate(session, "drop table if exists test_non_autocommit_table");
     }
 
     @Test
