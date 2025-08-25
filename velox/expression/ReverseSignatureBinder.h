@@ -53,6 +53,16 @@ class ReverseSignatureBinder : private SignatureBinderBase {
     return integerVariablesBindings_;
   }
 
+  /// Return the LongEnumParameter bindings produced by 'tryBind'. This
+  /// function should be called after 'tryBind' and only if 'tryBind' returns
+  /// true.
+  const std::unordered_map<std::string, LongEnumParameter>&
+  longEnumParameterBindings() const {
+    VELOX_CHECK(
+        tryBindSucceeded_, "tryBind() must be called first and succeed");
+    return longEnumVariablesBindings_;
+  }
+
  private:
   const TypePtr returnType_;
 

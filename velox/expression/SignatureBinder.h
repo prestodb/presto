@@ -58,10 +58,18 @@ class SignatureBinderBase {
   /// Record concrete values that are bound to integer variables.
   std::unordered_map<std::string, int> integerVariablesBindings_;
 
+  /// Record concrete values that are bound to LongEnumParameter variables.
+  std::unordered_map<std::string, LongEnumParameter> longEnumVariablesBindings_;
+
  private:
   /// If the integer parameter is set, then it must match with value.
   /// Returns false if values do not match or the parameter does not exist.
   bool checkOrSetIntegerParameter(const std::string& parameterName, int value);
+
+  /// Try to bind the LongEnumParameter from the actualType.
+  bool checkOrSetLongEnumParameter(
+      const std::string& parameterName,
+      const LongEnumParameter& params);
 
   /// Try to bind the integer parameter from the actualType.
   bool tryBindIntegerParameters(
@@ -113,7 +121,8 @@ class SignatureBinder : private SignatureBinderBase {
         typeSignature,
         variables(),
         typeVariablesBindings_,
-        integerVariablesBindings_);
+        integerVariablesBindings_,
+        longEnumVariablesBindings_);
   }
 
   // Try resolve types for all specified signatures. Return empty list if some
@@ -140,8 +149,13 @@ class SignatureBinder : private SignatureBinderBase {
       const std::unordered_map<std::string, SignatureVariable>& variables,
       const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables) {
     std::unordered_map<std::string, int> dummyEmpty;
+    std::unordered_map<std::string, LongEnumParameter> dummyEmpty2;
     return tryResolveType(
-        typeSignature, variables, resolvedTypeVariables, dummyEmpty);
+        typeSignature,
+        variables,
+        resolvedTypeVariables,
+        dummyEmpty,
+        dummyEmpty2);
   }
 
   // Given a pre-computed binding for type variables and integer variables,
@@ -151,7 +165,9 @@ class SignatureBinder : private SignatureBinderBase {
       const exec::TypeSignature& typeSignature,
       const std::unordered_map<std::string, SignatureVariable>& variables,
       const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
-      std::unordered_map<std::string, int>& integerVariablesBindings);
+      std::unordered_map<std::string, int>& integerVariablesBindings,
+      const std::unordered_map<std::string, LongEnumParameter>&
+          bigintEnumVariablesBindings);
 
  private:
   bool tryBind(bool allowCoercions, std::vector<Coercion>& coercions);

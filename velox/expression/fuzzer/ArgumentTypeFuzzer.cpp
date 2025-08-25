@@ -180,6 +180,7 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
 
     bindings_ = binder.bindings();
     integerBindings_ = binder.integerBindings();
+    longEnumParameterBindings_ = binder.longEnumParameterBindings();
   }
 
   const auto& formalArgs = signature_.argumentTypes();
@@ -195,7 +196,11 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
       actualArg = randType();
     } else {
       actualArg = sanitizeTryResolveType(
-          formalArgs[i], variables(), bindings_, integerBindings_);
+          formalArgs[i],
+          variables(),
+          bindings_,
+          integerBindings_,
+          longEnumParameterBindings_);
       VELOX_CHECK(actualArg != nullptr);
     }
     argumentTypes_.push_back(actualArg);
@@ -230,7 +235,11 @@ TypePtr ArgumentTypeFuzzer::fuzzReturnType() {
     returnType_ = randType();
   } else {
     returnType_ = sanitizeTryResolveType(
-        returnType, variables(), bindings_, integerBindings_);
+        returnType,
+        variables(),
+        bindings_,
+        integerBindings_,
+        longEnumParameterBindings_);
   }
 
   VELOX_CHECK_NOT_NULL(returnType_);

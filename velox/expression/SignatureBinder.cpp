@@ -72,6 +72,17 @@ std::optional<int> tryResolveLongLiteral(
   return integerVariablesBindings.at(variable);
 }
 
+std::optional<LongEnumParameter> tryResolveLongEnumLiteral(
+    const TypeSignature& parameter,
+    const std::unordered_map<std::string, LongEnumParameter>&
+        longEnumParameterVariableBindings) {
+  auto it = longEnumParameterVariableBindings.find(parameter.baseName());
+  if (it != longEnumParameterVariableBindings.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
 // If the parameter is a named field from a row, ensure the names are
 // compatible. For example:
 //
@@ -149,6 +160,19 @@ bool SignatureBinder::tryBind(
     }
   }
 
+  return true;
+}
+
+bool SignatureBinderBase::checkOrSetLongEnumParameter(
+    const std::string& parameterName,
+    const LongEnumParameter& params) {
+  auto it = longEnumVariablesBindings_.find(parameterName);
+  if (it != longEnumVariablesBindings_.end()) {
+    if (longEnumVariablesBindings_[parameterName] != params) {
+      return false;
+    }
+  }
+  longEnumVariablesBindings_[parameterName] = params;
   return true;
 }
 
@@ -267,6 +291,15 @@ bool SignatureBinderBase::tryBind(
           return false;
         }
         break;
+      case TypeParameterKind::kLongEnumLiteral:
+        if (!checkOrSetLongEnumParameter(
+                params[i].baseName(),
+                actualParameter.longEnumLiteral.value())) {
+          return false;
+        }
+        break;
+      case TypeParameterKind::kVarcharEnumLiteral:
+        break;
       case TypeParameterKind::kType:
         if (!checkNamedRowField(params[i], actualType, i)) {
           return false;
@@ -277,9 +310,6 @@ bool SignatureBinderBase::tryBind(
           return false;
         }
         break;
-      default:
-        // TODO: Add support for kLongEnumLiteral and kVarcharEnumLiteral.
-        break;
     }
   }
   return true;
@@ -289,7 +319,9 @@ TypePtr SignatureBinder::tryResolveType(
     const exec::TypeSignature& typeSignature,
     const std::unordered_map<std::string, SignatureVariable>& variables,
     const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
-    std::unordered_map<std::string, int>& integerVariablesBindings) {
+    std::unordered_map<std::string, int>& integerVariablesBindings,
+    const std::unordered_map<std::string, LongEnumParameter>&
+        longEnumParameterVariableBindings) {
   const auto& baseName = typeSignature.baseName();
 
   if (variables.count(baseName)) {
@@ -313,9 +345,19 @@ TypePtr SignatureBinder::tryResolveType(
       typeParameters.emplace_back(literal.value());
       continue;
     }
+    auto longEnumParameterliteral =
+        tryResolveLongEnumLiteral(param, longEnumParameterVariableBindings);
+    if (longEnumParameterliteral.has_value()) {
+      typeParameters.emplace_back(longEnumParameterliteral.value());
+      continue;
+    }
 
     auto type = tryResolveType(
-        param, variables, typeVariablesBindings, integerVariablesBindings);
+        param,
+        variables,
+        typeVariablesBindings,
+        integerVariablesBindings,
+        longEnumParameterVariableBindings);
     if (!type) {
       return nullptr;
     }

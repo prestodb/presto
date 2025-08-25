@@ -117,7 +117,9 @@ TypePtr sanitizeTryResolveType(
     const exec::TypeSignature& typeSignature,
     const std::unordered_map<std::string, SignatureVariable>& variables,
     const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
-    std::unordered_map<std::string, int>& integerVariablesBindings);
+    std::unordered_map<std::string, int>& integerVariablesBindings,
+    const std::unordered_map<std::string, LongEnumParameter>&
+        longEnumParameterVariablesBindings);
 
 // Invoked to set up memory system with arbitration.
 void setupMemory(

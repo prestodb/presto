@@ -598,11 +598,12 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
         ...);
 
     for (const auto& constraint : constraints) {
-      VELOX_CHECK(
-          !constraint.constraint().empty(),
-          "Constraint must be set for variable {}",
-          constraint.name());
-
+      if (constraint.isIntegerParameter()) {
+        VELOX_CHECK(
+            !constraint.constraint().empty(),
+            "Constraint must be set for variable {}",
+            constraint.name());
+      }
       results.variablesInformation.erase(constraint.name());
       results.variablesInformation.emplace(constraint.name(), constraint);
     }

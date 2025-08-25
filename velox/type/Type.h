@@ -393,6 +393,8 @@ using TypePtr = std::shared_ptr<const Type>;
 /// Represents the parameters for a BigintEnumType.
 /// Consists of the name of the enum and a map of string keys to bigint values.
 struct LongEnumParameter {
+  LongEnumParameter() = default;
+
   LongEnumParameter(
       std::string enumName,
       std::unordered_map<std::string, int64_t> enumValuesMap)
