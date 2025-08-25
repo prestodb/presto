@@ -896,7 +896,7 @@ const TASK_FILTER = {
     },
 };
 
-const QueryDetail2 = () => {
+const QueryDetail = () => {
     const [state, setState] = useState({
         query: null,
         lastSnapshotStages: null,
@@ -1010,7 +1010,7 @@ const QueryDetail2 = () => {
     const scheduleNext = () => {
         clearTimeout(timerIdRef.current);
         if (!endedRef.current) {
-            timerIdRef.current = setTimeout(fetchData, 1000);
+            timerIdRef.current = setTimeout(fetchData, 3000);
         }
     };
 
@@ -1136,6 +1136,9 @@ const QueryDetail2 = () => {
         new Clipboard('.copy-button');
     }
 
+        // $('[data-bs-toggle="tooltip"]').tooltip?.();
+        // if (window.ClipboardJS) { new window.ClipboardJS('.copy-button'); }
+
     useEffect(() => {
         if (!timerIdRef.current) {
             timerIdRef.current = setTimeout(fetchData, 1000);
@@ -1146,29 +1149,40 @@ const QueryDetail2 = () => {
         return () => {
             clearTimeout(timerIdRef.current);
         };
+    }, [])
+
+    useEffect(() => {
+        updateCharts();
     })
 
 
     const handleStageRefreshClick = () => {
         if (state.stageRefresh) {
-            setState({
+            setState(prev => ({
+                ...prev,
                 stageRefresh: false,
-                lastSnapshotStages: state.query.outputStage,
-            });
+                lastSnapshotStages: prev.query ? prev.query.outputStage : prev.lastSnapshotStages,
+            }));
+            dataSet.current.stageRefresh = false;
+            if (state.query && state.query.outputStage) {
+                dataSet.current.lastSnapshotStages = state.query.outputStage;
+            }
         }
         else {
-            setState({
+            setState(prev => ({
+                ...prev,
                 stageRefresh: true,
-            });
+            }));
+            dataSet.current.stageRefresh = true;
         }
     }
 
     const renderStageRefreshButton = () => {
         if (state.stageRefresh) {
-            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: On</button>
+            return <button className="btn btn-info live-button rounded-0" onClick={handleStageRefreshClick}>Auto-Refresh: On</button>
         }
         else {
-            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
+            return <button className="btn btn-info live-button rounded-0" onClick={handleStageRefreshClick}>Auto-Refresh: Off</button>
         }
     }
 
@@ -1347,7 +1361,7 @@ const QueryDetail2 = () => {
                                     Error Code
                                 </td>
                                 <td className="info-text">
-                                    {query.errorCode.name + " (" + this.state.query.errorCode.code + ")"}
+                                    {query.errorCode.name + " (" + query.errorCode.code + ")"}
                                 </td>
                             </tr>
                             <tr>
@@ -1360,7 +1374,7 @@ const QueryDetail2 = () => {
                                 </td>
                                 <td className="info-text">
                                         <pre id="stack-trace">
-                                            {QueryDetail.formatStackTrace(query.failureInfo)}
+                                            {formatStackTrace(query.failureInfo)}
                                         </pre>
                                 </td>
                             </tr>
@@ -1849,7 +1863,7 @@ const QueryDetail2 = () => {
     );
 };
 
-export class QueryDetail extends React.Component {
+export class QueryDetail2 extends React.Component {
 
     constructor(props) {
         super(props);
