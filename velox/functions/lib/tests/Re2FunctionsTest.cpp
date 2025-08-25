@@ -326,6 +326,32 @@ void testRe2Search(F&& regexSearch) {
   EXPECT_EQ(std::nullopt, regexSearch("", std::nullopt));
 }
 
+TEST_F(Re2FunctionsTest, regexSearchUnknown) {
+  // varchar, unknown
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateOnce<bool>(
+          "re2_search(c0, c1)",
+          std::optional<std::string>("hello123"),
+          std::vector<std::optional<UnknownValue>>{std::nullopt}[0]));
+
+  // unknown, varchar
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateOnce<bool>(
+          "re2_search(c0, c1)",
+          std::optional<std::string>(std::nullopt),
+          std::optional<std::string>("hello123")));
+
+  // unknown, unknown
+  EXPECT_EQ(
+      std::nullopt,
+      evaluateOnce<bool>(
+          "re2_search(c0, c1)",
+          std::vector<std::optional<UnknownValue>>{std::nullopt}[0],
+          std::vector<std::optional<UnknownValue>>{std::nullopt}[0]));
+}
+
 TEST_F(Re2FunctionsTest, regexSearchConstantPattern) {
   testRe2Search([&](std::optional<std::string> str,
                     std::optional<std::string> pattern) {
@@ -1558,5 +1584,6 @@ TEST_F(Re2FunctionsTest, parseSubstrings) {
   test("%aa%bb%%", {"aa", "bb"});
   test("%aa%bb%%%cc%", {"aa", "bb", "cc"});
 }
+
 } // namespace
 } // namespace facebook::velox::functions

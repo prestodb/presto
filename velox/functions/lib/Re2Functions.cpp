@@ -1258,10 +1258,13 @@ std::shared_ptr<exec::VectorFunction> makeRe2MatchImpl(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config) {
-  if (inputArgs.size() != 2 || !inputArgs[0].type->isVarchar() ||
-      !inputArgs[1].type->isVarchar()) {
+  if (inputArgs.size() != 2 ||
+      (!inputArgs[0].type->isVarchar() &&
+       inputArgs[0].type->kind() != TypeKind::UNKNOWN) ||
+      (!inputArgs[1].type->isVarchar() &&
+       inputArgs[1].type->kind() != TypeKind::UNKNOWN)) {
     VELOX_UNSUPPORTED(
-        "{} expected (VARCHAR, VARCHAR) but got ({})",
+        "{} expected (VARCHAR, VARCHAR) or (VARCHAR, UNKNOWN) but got ({})",
         name,
         printTypesCsv(inputArgs));
   }
@@ -1670,11 +1673,27 @@ std::shared_ptr<exec::VectorFunction> makeRe2Search(
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2SearchSignatures() {
   // varchar, varchar -> boolean
-  return {exec::FunctionSignatureBuilder()
-              .returnType("boolean")
-              .argumentType("varchar")
-              .argumentType("varchar")
-              .build()};
+  return {
+      exec::FunctionSignatureBuilder()
+          .returnType("boolean")
+          .argumentType("varchar")
+          .argumentType("varchar")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("boolean")
+          .argumentType("varchar")
+          .argumentType("unknown")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("boolean")
+          .argumentType("unknown")
+          .argumentType("varchar")
+          .build(),
+      exec::FunctionSignatureBuilder()
+          .returnType("boolean")
+          .argumentType("unknown")
+          .argumentType("unknown")
+          .build()};
 }
 
 std::shared_ptr<exec::VectorFunction> makeRe2Extract(
