@@ -29,6 +29,7 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -69,6 +70,7 @@ public class PrestoSparkInjectorFactory
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
     private final boolean isForTesting;
+    private final PrestoSparkConfiguration prestoSparkConfiguration;
 
     public PrestoSparkInjectorFactory(
             SparkProcessType sparkProcessType,
@@ -81,7 +83,8 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             Optional<Map<String, Map<String, String>>> tempStorageProperties,
             SqlParserOptions sqlParserOptions,
-            List<Module> additionalModules)
+            List<Module> additionalModules,
+            PrestoSparkConfiguration prestoSparkConfiguration)
     {
         this(
                 sparkProcessType,
@@ -95,7 +98,8 @@ public class PrestoSparkInjectorFactory
                 tempStorageProperties,
                 sqlParserOptions,
                 additionalModules,
-                false);
+                false,
+                prestoSparkConfiguration);
     }
 
     public PrestoSparkInjectorFactory(
@@ -110,7 +114,8 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, Map<String, String>>> tempStorageProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
-            boolean isForTesting)
+            boolean isForTesting,
+            PrestoSparkConfiguration prestoSparkConfiguration)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
@@ -129,6 +134,7 @@ public class PrestoSparkInjectorFactory
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
         this.isForTesting = isForTesting;
+        this.prestoSparkConfiguration = requireNonNull(prestoSparkConfiguration, "prestoSparkConfiguration is null");
     }
 
     public Injector create(PrestoSparkBootstrapTimer bootstrapTimer)
@@ -144,7 +150,7 @@ public class PrestoSparkInjectorFactory
                 new JsonModule(),
                 new SmileModule(),
                 new EventListenerModule(),
-                new PrestoSparkModule(sparkProcessType, sqlParserOptions),
+                new PrestoSparkModule(sparkProcessType, sqlParserOptions, prestoSparkConfiguration),
                 new WarningCollectorModule());
 
         if (isForTesting) {

@@ -18,6 +18,7 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.TestPrestoSparkHttpClient;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
@@ -27,8 +28,11 @@ import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -98,7 +102,23 @@ public class TestNativeExecutionProcess
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
                 workerProperty,
+                createTestPrestoSparkConfiguration(),
                 new FeaturesConfig().setNativeExecutionExecutablePath("/bin/echo"));
         return factory;
+    }
+
+    private PrestoSparkConfiguration createTestPrestoSparkConfiguration()
+    {
+        return new PrestoSparkConfiguration(
+                ImmutableMap.of(), // configProperties
+                "", // pluginsDirectoryPath
+                ImmutableMap.<String, Map<String, String>>of(), // catalogProperties - empty for test
+                ImmutableMap.of("metadata_storage_type", "LOCAL"), // prestoSparkProperties
+                Optional.empty(), // nativeWorkerConfigProperties
+                Optional.empty(), // eventListenerProperties
+                Optional.empty(), // accessControlProperties
+                Optional.empty(), // sessionPropertyConfigurationProperties
+                Optional.empty(), // functionNamespaceProperties
+                Optional.empty()); // tempStorageProperties
     }
 }

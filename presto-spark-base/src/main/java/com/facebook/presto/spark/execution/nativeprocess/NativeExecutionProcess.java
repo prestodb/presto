@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
 import com.facebook.presto.spark.execution.http.server.RequestErrorTracker;
@@ -53,6 +54,7 @@ import java.net.URI;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -93,6 +95,7 @@ public class NativeExecutionProcess
     private final RequestErrorTracker errorTracker;
     private final OkHttpClient httpClient;
     private final WorkerProperty<?, ?, ?> workerProperty;
+    private final PrestoSparkConfiguration prestoSparkConfiguration;
 
     private volatile Process process;
     private volatile ProcessOutputPipe processOutputPipe;
@@ -106,7 +109,8 @@ public class NativeExecutionProcess
             ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?> workerProperty,
+            PrestoSparkConfiguration prestoSparkConfiguration)
             throws IOException
     {
         this.executablePath = requireNonNull(executablePath, "executablePath is null");
@@ -130,6 +134,7 @@ public class NativeExecutionProcess
                 scheduledExecutorService,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.prestoSparkConfiguration = requireNonNull(prestoSparkConfiguration, "prestoSparkConfiguration is null");
     }
 
     /**
@@ -338,10 +343,28 @@ public class NativeExecutionProcess
         // to pick unique port per worker to avoid port collision. This config will be passed down to
         // the native execution process eventually for process initialization.
         workerProperty.getSystemConfig().setHttpServerPort(port);
-        workerProperty.populateAllProperties(
-                Paths.get(configBasePath, WORKER_CONFIG_FILE),
-                Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
-                Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
+
+        Map<String, Map<String, String>> catalogProperties = prestoSparkConfiguration.getCatalogProperties();
+        if (catalogProperties != null && !catalogProperties.isEmpty()) {
+            log.info("NATIVE EXECUTION: Writing individual catalog properties files for %d catalogs: %s",
+                    catalogProperties.size(), catalogProperties.keySet());
+            for (String catalogName : catalogProperties.keySet()) {
+                String catalogFilePath = Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE, catalogName + ".properties").toString();
+                log.info("NATIVE EXECUTION: Creating catalog file: %s", catalogFilePath);
+            }
+            workerProperty.populateAllProperties(
+                    Paths.get(configBasePath, WORKER_CONFIG_FILE),
+                    Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
+                    Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE),
+                    catalogProperties);
+            log.info("NATIVE EXECUTION: Finished writing all catalog properties files");
+        }
+        else {
+            workerProperty.populateAllProperties(
+                    Paths.get(configBasePath, WORKER_CONFIG_FILE),
+                    Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
+                    Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
+        }
     }
 
     private void doGetServerInfo(SettableFuture<ServerInfo> future)
