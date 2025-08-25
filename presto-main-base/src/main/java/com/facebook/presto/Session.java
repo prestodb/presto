@@ -495,17 +495,26 @@ public final class Session
                 .build();
     }
 
-    public ConnectorSession toConnectorSession(ConnectorId connectorId)
+    public ConnectorSession toConnectorSession(ConnectorId connectorId, RuntimeStats runtimeStats)
     {
         requireNonNull(connectorId, "connectorId is null");
 
-        return new FullConnectorSession(
-                this,
-                identity.toConnectorIdentity(connectorId.getCatalogName()),
-                connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
-                connectorId,
-                connectorId.getCatalogName(),
-                sessionPropertyManager);
+        FullConnectorSession.Builder connectorSessionBuilder = FullConnectorSession
+                .builder(
+                        this,
+                        identity.toConnectorIdentity(connectorId.getCatalogName()),
+                        connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
+                        connectorId,
+                        connectorId.getCatalogName(),
+                        sessionPropertyManager)
+                .setRuntimeStats(runtimeStats);
+
+        return connectorSessionBuilder.build();
+    }
+
+    public ConnectorSession toConnectorSession(ConnectorId connectorId)
+    {
+        return toConnectorSession(connectorId, runtimeStats);
     }
 
     public SessionRepresentation toSessionRepresentation()
