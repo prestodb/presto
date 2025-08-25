@@ -48,17 +48,11 @@ public class FullConnectorSession
     private final SessionPropertyManager sessionPropertyManager;
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+    private final RuntimeStats runtimeStats;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.identity = requireNonNull(identity, "identity is null");
-        this.properties = null;
-        this.connectorId = null;
-        this.catalog = null;
-        this.sessionPropertyManager = null;
-        this.sqlFunctionProperties = session.getSqlFunctionProperties();
-        this.sessionFunctions = ImmutableMap.copyOf(session.getSessionFunctions());
+        this(builder(session, identity, null, null, null, null));
     }
 
     public FullConnectorSession(
@@ -69,14 +63,123 @@ public class FullConnectorSession
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.identity = requireNonNull(identity, "identity is null");
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.sqlFunctionProperties = session.getSqlFunctionProperties();
-        this.sessionFunctions = ImmutableMap.copyOf(session.getSessionFunctions());
+        this(builder(session, identity, properties, connectorId, catalog, sessionPropertyManager));
+    }
+
+    private FullConnectorSession(Builder builder)
+    {
+        this.session = builder.getSession();
+        this.identity = builder.getIdentity();
+        this.properties = builder.getProperties();
+        this.connectorId = builder.getConnectorId();
+        this.catalog = builder.getCatalog();
+        this.sessionPropertyManager = builder.getSessionPropertyManager();
+        this.sqlFunctionProperties = builder.getSqlFunctionProperties() != null ? builder.getSqlFunctionProperties() : builder.getSession().getSqlFunctionProperties();
+        this.sessionFunctions = builder.getSessionFunctions() != null ? builder.getSessionFunctions() : ImmutableMap.copyOf(builder.getSession().getSessionFunctions());
+        this.runtimeStats = builder.getRuntimeStats() != null ? builder.getRuntimeStats() : builder.getSession().getRuntimeStats();
+    }
+
+    public static Builder builder(
+            Session session,
+            ConnectorIdentity identity,
+            Map<String, String> properties,
+            ConnectorId connectorId,
+            String catalog,
+            SessionPropertyManager sessionPropertyManager)
+    {
+        return new Builder(session, identity, properties, connectorId, catalog, sessionPropertyManager);
+    }
+
+    public static class Builder
+    {
+        private final Session session;
+        private final ConnectorIdentity identity;
+        private final Map<String, String> properties;
+        private final ConnectorId connectorId;
+        private final String catalog;
+        private final SessionPropertyManager sessionPropertyManager;
+
+        private SqlFunctionProperties sqlFunctionProperties;
+        private Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+        private RuntimeStats runtimeStats;
+
+        private Builder(Session session, ConnectorIdentity identity, Map<String, String> properties, ConnectorId connectorId, String catalog, SessionPropertyManager sessionPropertyManager)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.identity = requireNonNull(identity, "identity is null");
+            this.properties = properties;
+            this.connectorId = connectorId;
+            this.catalog = catalog;
+            this.sessionPropertyManager = sessionPropertyManager;
+        }
+
+        public Session getSession()
+        {
+            return session;
+        }
+
+        public ConnectorIdentity getIdentity()
+        {
+            return identity;
+        }
+
+        public Map<String, String> getProperties()
+        {
+            return properties;
+        }
+
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
+        }
+
+        public String getCatalog()
+        {
+            return catalog;
+        }
+
+        public SessionPropertyManager getSessionPropertyManager()
+        {
+            return sessionPropertyManager;
+        }
+
+        public SqlFunctionProperties getSqlFunctionProperties()
+        {
+            return sqlFunctionProperties;
+        }
+
+        public Builder setSqlFunctionProperties(SqlFunctionProperties sqlFunctionProperties)
+        {
+            this.sqlFunctionProperties = sqlFunctionProperties;
+            return this;
+        }
+
+        public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+        {
+            return sessionFunctions;
+        }
+
+        public Builder setSessionFunctions(Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+        {
+            this.sessionFunctions = sessionFunctions;
+            return this;
+        }
+
+        public RuntimeStats getRuntimeStats()
+        {
+            return runtimeStats;
+        }
+
+        public Builder setRuntimeStats(RuntimeStats runtimeStats)
+        {
+            this.runtimeStats = runtimeStats;
+            return this;
+        }
+
+        public FullConnectorSession build()
+        {
+            return new FullConnectorSession(this);
+        }
     }
 
     public Session getSession()
@@ -197,7 +300,7 @@ public class FullConnectorSession
     @Override
     public RuntimeStats getRuntimeStats()
     {
-        return session.getRuntimeStats();
+        return runtimeStats;
     }
 
     @Override
