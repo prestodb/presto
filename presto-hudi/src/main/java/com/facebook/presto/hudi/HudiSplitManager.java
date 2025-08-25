@@ -119,7 +119,6 @@ public class HudiSplitManager
 
         return new HudiSplitSource(
                 session,
-                metastore,
                 layout,
                 fsView,
                 partitions,
