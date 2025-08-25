@@ -1,13 +1,14 @@
 %{
 #include <vector>
 #include <memory>
+#include <map>
 
 #include "velox/functions/prestosql/types/parser/TypeParser.yy.h"  // @manual
 #include "velox/functions/prestosql/types/parser/Scanner.h"
 #define YY_DECL int facebook::velox::functions::prestosql::Scanner::lex(facebook::velox::functions::prestosql::Parser::semantic_type *yylval)
 %}
 
-%option c++ noyywrap noyylineno nodefault caseless
+%option c++ noyywrap noyylineno nodefault caseless ecs
 
 A   [A|a]
 B   [B|b]
@@ -36,13 +37,19 @@ Z   [Z|z]
 WORD              ([[:alpha:][:alnum:]_]*)
 QUOTED_ID         (['"']([^"\n]|"")*['"'])
 NUMBER            ([[:digit:]]+)
+SIGNED_INT        (-?[[:digit:]]+)
 VARIABLE          (VARCHAR|VARBINARY)
+WORD_WITH_PERIODS ([[:alpha:]_][[:alnum:]_]*)(\.([[:alpha:]_][[:alnum:]_]*))*
 
 %%
 
 "("                return Parser::token::LPAREN;
 ")"                return Parser::token::RPAREN;
+"{"                return Parser::token::LBRACE;
+"}"                return Parser::token::RBRACE;
 ","                return Parser::token::COMMA;
+"."                return Parser::token::PERIOD;
+":"                return Parser::token::COLON;
 (ARRAY)            return Parser::token::ARRAY;
 (MAP)              return Parser::token::MAP;
 (FUNCTION)         return Parser::token::FUNCTION;
@@ -50,7 +57,9 @@ VARIABLE          (VARCHAR|VARBINARY)
 (ROW)              return Parser::token::ROW;
 {VARIABLE}         yylval->build<std::string>(YYText()); return Parser::token::VARIABLE;
 {NUMBER}           yylval->build<long long>(folly::to<int>(YYText())); return Parser::token::NUMBER;
+{SIGNED_INT}       yylval->build<long long>(folly::to<int>(YYText())); return Parser::token::SIGNED_INT;
 {WORD}             yylval->build<std::string>(YYText()); return Parser::token::WORD;
+{WORD_WITH_PERIODS}             yylval->build<std::string>(YYText()); return Parser::token::WORD_WITH_PERIODS;
 {QUOTED_ID}        yylval->build<std::string>(YYText()); return Parser::token::QUOTED_ID;
 <<EOF>>            return Parser::token::YYEOF;
 .               /* no action on unmatched input */

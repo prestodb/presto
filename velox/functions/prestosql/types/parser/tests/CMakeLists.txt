@@ -20,6 +20,7 @@ add_test(NAME velox_presto_type_parser_test
 target_link_libraries(
   velox_presto_type_parser_test
   velox_presto_type_parser
+  velox_presto_types
   velox_type
   GTest::gtest
   GTest::gtest_main

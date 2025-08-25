@@ -34,7 +34,7 @@
     #define yylex(x) scanner->lex(x)
 }
 
-%token               LPAREN RPAREN COMMA ARRAY MAP ROW FUNCTION DECIMAL
+%token               LPAREN RPAREN COMMA ARRAY MAP ROW FUNCTION DECIMAL LBRACE RBRACE
 %token <std::string> WORD VARIABLE QUOTED_ID
 %token <long long>   NUMBER
 %token YYEOF         0
@@ -149,7 +149,6 @@ named_type : type_single_word        { $$ = std::make_pair("", $1); }
            | type_with_spaces        { $$ = inferTypeWithSpaces($1, false); }
            | QUOTED_ID type          { $1.erase(0, 1); $1.pop_back(); $$ = std::make_pair($1, $2); }  // Remove the quotes.
            ;
-
 %%
 
 void facebook::velox::type::Parser::error(const std::string& msg) {

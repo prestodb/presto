@@ -17,6 +17,8 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/prestosql/types/BigintEnumRegistration.h"
+#include "velox/functions/prestosql/types/BigintEnumType.h"
 #include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 namespace facebook::velox::functions::prestosql {
@@ -365,6 +367,97 @@ TEST_F(TypeParserTest, fieldNames) {
            BIGINT(),
            MAP(BIGINT(), TINYINT()),
            ARRAY(BIGINT())}));
+}
+
+TEST_F(TypeParserTest, enumBasic) {
+  registerBigintEnumType();
+  LongEnumParameter moodInfo("test.enum.mood", {{"CURIOUS", 2}, {"HAPPY", 0}});
+  ASSERT_EQ(
+      *parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":2, \"HAPPY\":0})"),
+      *BIGINT_ENUM(moodInfo));
+
+  // Parse negative integers.
+  LongEnumParameter moodWithNegativeValue(
+      "test.enum.mood", {{"CURIOUS", -2}, {"HAPPY", 0}});
+  ASSERT_EQ(
+      *parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":0})"),
+      *BIGINT_ENUM(moodWithNegativeValue));
+
+  // Enum name that is not in the form catalog.namespace.enum_name.
+  LongEnumParameter otherEnumInfo(
+      "someEnumType", {{"CURIOUS", 2}, {"HAPPY", 0}});
+  auto otherEnumString =
+      "someEnumType:BigintEnum(someEnumType{\"CURIOUS\": 2, \"HAPPY\": 0})";
+  ASSERT_EQ(*parseType(otherEnumString), *BIGINT_ENUM(otherEnumInfo));
+
+  // Array type with enum values.
+  ASSERT_EQ(
+      *parseType(
+          "array(test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":2, \"HAPPY\":0}))"),
+      *ARRAY(BIGINT_ENUM(moodInfo)));
+
+  // Map type with enum values.
+  ASSERT_EQ(
+      *parseType(
+          "map(test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":0}), bigint)"),
+      *MAP(BIGINT_ENUM(moodWithNegativeValue), BIGINT()));
+  ASSERT_EQ(
+      *parseType(
+          "map(bigint,test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":0}))"),
+      *MAP(BIGINT(), BIGINT_ENUM(moodWithNegativeValue)));
+
+  // Row type with enum values.
+  ASSERT_EQ(
+      *parseType(
+          "row(test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":0}))"),
+      *ROW({BIGINT_ENUM(moodWithNegativeValue)}));
+  ASSERT_EQ(
+      *parseType(
+          "row(c0 test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2,\"HAPPY\":0}))"),
+      *ROW({"c0"}, {BIGINT_ENUM(moodWithNegativeValue)}));
+}
+
+TEST_F(TypeParserTest, invalidEnums) {
+  // Duplicate keys.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"CURIOUS\":0})"),
+      "Failed to parse map: [[\"CURIOUS\",-2], [\"CURIOUS\",0]], duplicate key found: CURIOUS");
+
+  // Duplicate values.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":-2})"),
+      "Failed to parse map: [[\"CURIOUS\",-2], [\"HAPPY\",-2]], duplicate value found: -2");
+
+  // Invalid enum type SmallintEnum.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:SmallintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":0})"),
+      "Failed to parse type [test.enum.mood:SmallintEnum(test.enum.mood{\"CURIOUS\":-2, \"HAPPY\":0})]. Invalid type SmallintEnum, expected BigintEnum or VarcharEnum");
+
+  // Invalid format: missing ":"
+  VELOX_ASSERT_THROW(
+      parseType("testNoColon(test.enum.mood{“CURIOUS”:-2, “HAPPY”:0})"),
+      "Failed to parse type [testNoColon(test.enum.mood{“CURIOUS”:-2, “HAPPY”:0})]. syntax error, unexpected LBRACE, expecting COLON");
+
+  // Invalid format: missing "("
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:BigintEnum(test.enum.moodCURIOUS”:-2, “HAPPY”:0})"),
+      "Failed to parse type [test.enum.mood:BigintEnum(test.enum.moodCURIOUS”:-2, “HAPPY”:0})]. syntax error, unexpected COLON, expecting LBRACE");
+
+  // Invalid enum type with non integral values.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": \"varchar value\", \"HAPPY\": \"0\"})"),
+      "Failed to parse type [test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": \"varchar value\", \"HAPPY\": \"0\"})]. syntax error, unexpected QUOTED_ID, expecting NUMBER or SIGNED_INT");
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": 1.1, \"HAPPY\": -1.0})"),
+      "Failed to parse type [test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": 1.1, \"HAPPY\": -1.0})]. syntax error, unexpected PERIOD, expecting COMMA or RBRACE");
 }
 
 } // namespace
