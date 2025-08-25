@@ -184,7 +184,13 @@ public class TestSingleStoreDistributedQueries
     }
 
     @Override
-    public void testClearTransactionId()
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // Catalog singlestore only supports writes using autocommit
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
     {
         // Catalog singlestore only supports writes using autocommit
     }

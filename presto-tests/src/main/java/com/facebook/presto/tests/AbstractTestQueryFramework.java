@@ -268,6 +268,16 @@ public abstract class AbstractTestQueryFramework
         assertUpdate(getSession(), sql);
     }
 
+    protected Session assertStartTransaction(Session session, @Language("SQL") String sql)
+    {
+        return QueryAssertions.assertStartTransaction(queryRunner, session, sql);
+    }
+
+    protected Session assertEndTransaction(Session session, @Language("SQL") String sql)
+    {
+        return QueryAssertions.assertEndTransaction(queryRunner, session, sql);
+    }
+
     protected void assertUpdate(Session session, @Language("SQL") String sql)
     {
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.empty());
