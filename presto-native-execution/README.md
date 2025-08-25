@@ -95,7 +95,9 @@ S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the target platform build script
 from the `presto/presto-native-execution` directory.
 
-`./velox/scripts/setup-centos9.sh install_aws`
+`./velox/scripts/setup-centos9.sh install_aws_deps`
+    Or
+`./velox/scripts/setup-ubuntu.sh install_aws_deps`
 
 #### JWT Authentication
 To enable JWT authentication support, add `-DPRESTO_ENABLE_JWT=ON` to the
@@ -229,7 +231,7 @@ Run CLion:
 * To enable clang format you need
   * Open any h or cpp file in the editor and select `Enable ClangFormat` by clicking `4 spaces` rectangle in the status bar (bottom right) which is next to `UTF-8` bar.
 
-    ![ScreenShot](cl_clangformat_switcherenable.png)
+    ![ScreenShot](docs/images/cl_clangformat_switcherenable.png)
 
 ### Run Presto Coordinator + Worker
 * Note that everything below can be done without using IDEs by running command line commands (not in this readme).
