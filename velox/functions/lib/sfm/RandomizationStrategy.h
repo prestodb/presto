@@ -16,7 +16,7 @@
 
 #pragma once
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 
 /// Interface for randomization strategy. We will implement different
 /// randomization strategies in merging, enable-privacy and testing.
@@ -27,4 +27,4 @@ class RandomizationStrategy {
   virtual ~RandomizationStrategy() = default;
 };
 
-} // namespace facebook::velox::functions::aggregate
+} // namespace facebook::velox::functions::sfm

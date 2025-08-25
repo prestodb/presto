@@ -63,7 +63,7 @@ velox_link_libraries(
   velox_functions_prestosql
   velox_functions_prestosql_impl
   velox_is_null_functions
-  velox_functions_prestosql_aggregates_sfm
+  velox_functions_sfm
   simdjson::simdjson)
 
 if(NOT VELOX_MONO_LIBRARY)

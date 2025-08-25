@@ -17,14 +17,14 @@
 #pragma once
 
 #include "velox/common/fuzzer/Utils.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
 namespace facebook::velox::fuzzer {
 
 using facebook::velox::UnknownValue;
-using facebook::velox::functions::aggregate::SfmSketch;
+using facebook::velox::functions::sfm::SfmSketch;
 
 class SfmSketchInputGenerator : public AbstractInputGenerator {
  public:

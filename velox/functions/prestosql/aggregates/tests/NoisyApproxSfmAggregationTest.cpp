@@ -16,12 +16,12 @@
 
 #include <gtest/gtest.h>
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::aggregate::test {
 
-using SfmSketch = functions::aggregate::SfmSketch;
+using SfmSketch = functions::sfm::SfmSketch;
 using namespace facebook::velox::exec::test;
 
 class NoisyApproxSfmAggregationTest

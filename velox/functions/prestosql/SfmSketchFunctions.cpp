@@ -15,7 +15,7 @@
  */
 
 #include "velox/functions/prestosql/SfmSketchFunctions.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 
 namespace facebook::velox::functions {
 
@@ -24,7 +24,7 @@ std::string createEmptySfmSketch(
     double epsilon,
     std::optional<int64_t> buckets,
     std::optional<int64_t> precison) {
-  using SfmSketch = facebook::velox::functions::aggregate::SfmSketch;
+  using SfmSketch = facebook::velox::functions::sfm::SfmSketch;
 
   constexpr int64_t kDefaultBuckets = 4096;
   constexpr int64_t kDefaultPrecision = 24;

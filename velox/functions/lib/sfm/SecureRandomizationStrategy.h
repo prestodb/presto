@@ -16,28 +16,19 @@
 
 #pragma once
 
-#include <optional>
-#include <random>
-#include "velox/functions/prestosql/aggregates/sfm/RandomizationStrategy.h"
+#include <folly/Random.h>
+#include "velox/functions/lib/sfm/RandomizationStrategy.h"
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 
-/// A pseudorandomness strategy used to merge SfmSketches.
-class MersenneTwisterRandomizationStrategy : public RandomizationStrategy {
+/// A secure randomization strategy used to enable differential privacy for
+/// SfmSketch.
+class SecureRandomizationStrategy : public RandomizationStrategy {
  public:
-  explicit MersenneTwisterRandomizationStrategy(
-      std::optional<int32_t> seed = {}) {
-    if (seed.has_value()) {
-      rng_.seed(seed.value());
-    }
-  }
-
   bool nextBoolean(double probability) override {
-    std::uniform_real_distribution<double> dist(0.0, 1.0);
-    return dist(rng_) < probability;
+    // folly random generate random number in [0, 1)
+    return folly::Random::secureRandDouble01() < probability;
   }
-
- private:
-  std::mt19937_64 rng_;
 };
-} // namespace facebook::velox::functions::aggregate
+
+} // namespace facebook::velox::functions::sfm

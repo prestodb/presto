@@ -18,7 +18,7 @@
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/functions/Macros.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include "velox/functions/prestosql/types/SfmSketchType.h"
 
 namespace facebook::velox::functions {
@@ -45,7 +45,7 @@ struct SfmSketchCardinality {
   FOLLY_ALWAYS_INLINE void call(
       int64_t& result,
       const arg_type<SfmSketch>& input) {
-    using SfmSketch = facebook::velox::functions::aggregate::SfmSketch;
+    using SfmSketch = facebook::velox::functions::sfm::SfmSketch;
     result = SfmSketch::deserialize(
                  reinterpret_cast<const char*>(input.data()), allocator_.get())
                  .cardinality();
@@ -123,7 +123,7 @@ struct mergeSfmSketchArray {
       return false;
     }
 
-    using SfmSketch = facebook::velox::functions::aggregate::SfmSketch;
+    using SfmSketch = facebook::velox::functions::sfm::SfmSketch;
 
     // Collect all non-null sketches.
     std::vector<const char*> validSketches;

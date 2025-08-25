@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include <cmath>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/IOUtils.h"
 #include "velox/common/memory/HashStringAllocator.h"
-#include "velox/functions/prestosql/aggregates/sfm/MersenneTwisterRandomizationStrategy.h"
-#include "velox/functions/prestosql/aggregates/sfm/SecureRandomizationStrategy.h"
+#include "velox/functions/lib/sfm/MersenneTwisterRandomizationStrategy.h"
+#include "velox/functions/lib/sfm/SecureRandomizationStrategy.h"
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 
 namespace {
 void validateNumIndexBits(int32_t numIndexBits) {
@@ -359,4 +359,4 @@ void SfmSketch::setBitTrue(int32_t bucketIndex, int32_t zeros) {
   bits::setBit(bits_.data(), bitPosition, true);
 }
 
-} // namespace facebook::velox::functions::aggregate
+} // namespace facebook::velox::functions::sfm

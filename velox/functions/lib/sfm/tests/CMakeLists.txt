@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(velox_functions_prestosql_aggregates_sfm SfmSketch.cpp
-                  SfmSketchAccumulator.cpp)
+add_executable(velox_functions_sfm_test SfmSketchTest.cpp)
 
-velox_link_libraries(velox_functions_prestosql_aggregates_sfm velox_common_base
-                     velox_memory Folly::folly)
+add_test(velox_functions_sfm_test velox_functions_sfm_test)
 
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
+target_link_libraries(
+  velox_functions_sfm_test
+  velox_functions_sfm
+  velox_memory
+  GTest::gtest
+  GTest::gtest_main)

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketchAccumulator.h"
+#include "velox/functions/lib/sfm/SfmSketchAccumulator.h"
 #include "velox/common/base/IOUtils.h"
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 SfmSketchAccumulator::SfmSketchAccumulator(HashStringAllocator* allocator)
     : sketch_(allocator) {}
 
@@ -103,4 +103,4 @@ int64_t SfmSketchAccumulator::cardinality() {
   }
   return sketch_.cardinality();
 }
-} // namespace facebook::velox::functions::aggregate
+} // namespace facebook::velox::functions::sfm

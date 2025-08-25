@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include "gtest/gtest.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/common/memory/Memory.h"
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 
 class SfmSketchTest : public ::testing::Test {
  public:
@@ -319,4 +319,4 @@ TEST_F(SfmSketchTest, javaSerializationCompatibility) {
   // Test that the deserialized sketch is the same as the original.
   ASSERT_EQ(sketch.cardinality(), 927499);
 }
-} // namespace facebook::velox::functions::aggregate
+} // namespace facebook::velox::functions::sfm

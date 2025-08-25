@@ -16,8 +16,8 @@
 #pragma once
 
 #include "velox/exec/Aggregate.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketchAccumulator.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketchAccumulator.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -30,9 +30,9 @@ class SfmSketchAggregate : public exec::Aggregate {
   // SfmSketchAccumulator as the accumulator type.
   using Accumulator = typename std::conditional<
       sketchAsInput,
-      facebook::velox::functions::aggregate::SfmSketch,
-      facebook::velox::functions::aggregate::SfmSketchAccumulator>::type;
-  using SfmSketch = facebook::velox::functions::aggregate::SfmSketch;
+      facebook::velox::functions::sfm::SfmSketch,
+      facebook::velox::functions::sfm::SfmSketchAccumulator>::type;
+  using SfmSketch = facebook::velox::functions::sfm::SfmSketch;
 
  public:
   explicit SfmSketchAggregate(TypePtr resultType)

@@ -22,9 +22,9 @@
 #include <folly/Range.h>
 #include <cstdint>
 #include "velox/common/memory/HashStringAllocator.h"
-#include "velox/functions/prestosql/aggregates/sfm/MersenneTwisterRandomizationStrategy.h"
+#include "velox/functions/lib/sfm/MersenneTwisterRandomizationStrategy.h"
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 
 /// SFM sketch is used for estimating distinct count, very similar to
 /// HyperLogLog. This sketch is introduced in the paper Sketch-Flip-Merge:
@@ -233,4 +233,4 @@ class SfmSketch {
   // merging private sketches.
   std::optional<MersenneTwisterRandomizationStrategy> randomizationStrategy_;
 };
-} // namespace facebook::velox::functions::aggregate
+} // namespace facebook::velox::functions::sfm

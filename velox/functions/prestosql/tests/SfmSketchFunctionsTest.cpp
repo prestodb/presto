@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/SfmSketchType.h"
 
 namespace facebook::velox::functions::test {
-using SfmSketch = facebook::velox::functions::aggregate::SfmSketch;
+using SfmSketch = facebook::velox::functions::sfm::SfmSketch;
 
 class SfmSketchFunctionsTest : public functions::test::FunctionBaseTest {
  protected:

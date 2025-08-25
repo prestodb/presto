@@ -17,9 +17,9 @@
 #pragma once
 
 #include "velox/common/memory/HashStringAllocator.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 
-namespace facebook::velox::functions::aggregate {
+namespace facebook::velox::functions::sfm {
 
 class SfmSketchAccumulator {
   static constexpr int32_t kDefaultBuckets = 4096;
@@ -95,4 +95,4 @@ class SfmSketchAccumulator {
   SfmSketch sketch_;
 };
 
-} // namespace facebook::velox::functions::aggregate
+} // namespace facebook::velox::functions::sfm

@@ -19,7 +19,7 @@
 #include "velox/functions/lib/QuantileDigest.h"
 #include "velox/functions/lib/TDigest.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
-#include "velox/functions/prestosql/aggregates/sfm/SfmSketch.h"
+#include "velox/functions/lib/sfm/SfmSketch.h"
 #include "velox/functions/prestosql/types/QDigestRegistration.h"
 #include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/SfmSketchRegistration.h"
@@ -31,7 +31,7 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::functions::aggregate::test;
 using namespace facebook::velox::functions::qdigest;
-using SfmSketchIn = facebook::velox::functions::aggregate::SfmSketch;
+using SfmSketchIn = facebook::velox::functions::sfm::SfmSketch;
 
 namespace facebook::velox::aggregate::test {
 namespace {
@@ -341,7 +341,7 @@ TEST_F(MergeAggregateTest, mergeQDigestOneNullMatchJava) {
 
 TEST_F(MergeAggregateTest, mergeSfmSketch) {
   registerSfmSketchType();
-  using SfmSketch = functions::aggregate::SfmSketch;
+  using SfmSketch = functions::sfm::SfmSketch;
   HashStringAllocator allocator_{pool_.get()};
 
   // non-private sketch1: values [1, 2, 3]

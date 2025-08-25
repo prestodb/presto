@@ -51,6 +51,7 @@ velox_link_libraries(
   Folly::folly)
 
 add_subdirectory(aggregates)
+add_subdirectory(sfm)
 add_subdirectory(string)
 add_subdirectory(window)
 if(${VELOX_BUILD_TESTING})
