@@ -15,7 +15,6 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.hudi.split.HudiBackgroundSplitLoader;
@@ -56,7 +55,6 @@ public class HudiSplitSource
 
     public HudiSplitSource(
             ConnectorSession session,
-            ExtendedHiveMetastore metastore,
             HudiTableLayoutHandle layout,
             Lazy<Map<String, Partition>> lazyPartitionMap,
             ExecutorService asyncQueueExecutor,
@@ -80,7 +78,6 @@ public class HudiSplitSource
 
         this.splitLoader = new HudiBackgroundSplitLoader(
                 session,
-                metastore,
                 splitGeneratorExecutorService,
                 layout,
                 lazyFsView,

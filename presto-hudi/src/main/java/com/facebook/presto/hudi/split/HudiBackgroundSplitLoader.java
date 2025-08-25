@@ -15,7 +15,6 @@
 package com.facebook.presto.hudi.split;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.hudi.HudiTableLayoutHandle;
@@ -47,7 +46,6 @@ public class HudiBackgroundSplitLoader
     private static final Logger log = Logger.get(HudiBackgroundSplitLoader.class);
 
     private final ConnectorSession session;
-    private final ExtendedHiveMetastore metastore;
     private final HudiTableLayoutHandle layout;
     private final Lazy<HoodieTableFileSystemView> lazyFsView;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
@@ -57,7 +55,6 @@ public class HudiBackgroundSplitLoader
 
     public HudiBackgroundSplitLoader(
             ConnectorSession session,
-            ExtendedHiveMetastore metastore,
             ExecutorService splitGeneratorExecutorService,
             HudiTableLayoutHandle layout,
             Lazy<HoodieTableFileSystemView> lazyFsView,
@@ -65,7 +62,6 @@ public class HudiBackgroundSplitLoader
             Lazy<Map<String, Partition>> lazyPartitionMap)
     {
         this.session = requireNonNull(session, "session is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
         this.layout = requireNonNull(layout, "layout is null");
         this.lazyFsView = requireNonNull(lazyFsView, "fsView is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
@@ -86,7 +82,7 @@ public class HudiBackgroundSplitLoader
         // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
             HudiPartitionSplitGenerator generator = new HudiPartitionSplitGenerator(
-                    session, metastore, layout, lazyFsView, lazyPartitionMap.get(), asyncQueue, concurrentPartitionQueue);
+                    session, layout, lazyFsView, lazyPartitionMap.get(), asyncQueue, concurrentPartitionQueue);
             splitGeneratorList.add(generator);
             splitGeneratorFutures.add(splitGeneratorExecutorService.submit(generator));
         }

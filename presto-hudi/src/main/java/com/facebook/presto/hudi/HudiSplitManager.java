@@ -87,7 +87,6 @@ public class HudiSplitManager
 
         return new HudiSplitSource(
                 session,
-                metastore,
                 layout,
                 lazyPartitionMap,
                 asyncQueueExecutor,

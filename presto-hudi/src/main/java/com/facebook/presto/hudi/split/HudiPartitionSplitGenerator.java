@@ -16,8 +16,6 @@ package com.facebook.presto.hudi.split;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.AsyncQueue;
@@ -52,7 +50,6 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_METADATA;
 import static com.facebook.presto.hudi.HudiMetadata.fromDataColumns;
-import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
 import static com.facebook.presto.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static com.facebook.presto.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
@@ -71,8 +68,6 @@ public class HudiPartitionSplitGenerator
 {
     private static final Logger log = Logger.get(HudiPartitionSplitGenerator.class);
 
-    private final ExtendedHiveMetastore metastore;
-    private final MetastoreContext metastoreContext;
     private final HudiTableLayoutHandle layout;
     private final HudiTableHandle table;
     private final Path tablePath;
@@ -84,15 +79,12 @@ public class HudiPartitionSplitGenerator
 
     public HudiPartitionSplitGenerator(
             ConnectorSession session,
-            ExtendedHiveMetastore metastore,
             HudiTableLayoutHandle layout,
             Lazy<HoodieTableFileSystemView> lazyFsView,
             Map<String, Partition> partitionMap,
             AsyncQueue<ConnectorSplit> asyncQueue,
             Queue<String> concurrentPartitionQueue)
     {
-        this.metastore = requireNonNull(metastore, "metastore is null");
-        this.metastoreContext = toMetastoreContext(requireNonNull(session, "session is null"));
         this.layout = requireNonNull(layout, "layout is null");
         this.table = layout.getTable();
         this.tablePath = new Path(table.getPath());
@@ -118,7 +110,7 @@ public class HudiPartitionSplitGenerator
 
     private void generateSplitsFromPartition(String partitionName)
     {
-        HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
+        HudiPartition hudiPartition = getHudiPartition(layout, partitionName);
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
         String relativePartitionPath = FSUtils.getRelativePartitionPath(new StoragePath(tablePath.toUri()), new StoragePath(partitionPath.toUri()));
         Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
@@ -130,7 +122,7 @@ public class HudiPartitionSplitGenerator
                 .forEach(asyncQueue::offer);
     }
 
-    private HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
+    private HudiPartition getHudiPartition(HudiTableLayoutHandle tableLayout, String partitionName)
     {
         String databaseName = tableLayout.getTable().getSchemaName();
         String tableName = tableLayout.getTable().getTableName();
