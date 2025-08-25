@@ -16,6 +16,7 @@
 #include <string>
 #include "velox/functions/prestosql/IPAddressFunctions.h"
 #include "velox/functions/prestosql/UuidFunctions.h"
+#include "velox/functions/prestosql/types/BigintEnumRegistration.h"
 
 namespace facebook::velox::functions {
 
@@ -135,6 +136,9 @@ void registerBitwiseFunctions(const std::string& prefix) {
 }
 
 void registerAllScalarFunctions(const std::string& prefix) {
+  // TODO: move registerBigintEnumType to registerEnumTypeFunctions once the
+  // enum functions are implemented
+  registerBigintEnumType();
   registerArithmeticFunctions(prefix);
   registerCheckedArithmeticFunctions(prefix);
   registerComparisonFunctions(prefix);

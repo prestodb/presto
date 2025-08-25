@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/prestosql/types/BigintEnumType.h"
 #include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/GeometryType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
@@ -59,7 +60,11 @@ std::string typeName(const TypePtr& type) {
       if (isBingTileType(type)) {
         return "bingtile";
       }
+      if (isBigintEnumType(*type)) {
+        return asBigintEnum(type)->enumName();
+      }
       return "bigint";
+
     case TypeKind::HUGEINT: {
       if (isUuidType(type)) {
         return "uuid";

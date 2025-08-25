@@ -16,6 +16,7 @@
 #pragma once
 
 #include <folly/CPortability.h>
+#include <folly/Hash.h>
 #include <folly/Random.h>
 #include <folly/Range.h>
 #include <folly/dynamic.h>
@@ -33,6 +34,7 @@
 #include <vector>
 
 #include <velox/common/Enums.h>
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/ClassName.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Macros.h"
@@ -388,14 +390,29 @@ struct TypeFactory;
 class Type;
 using TypePtr = std::shared_ptr<const Type>;
 
-/// A struct which represents the parameters for a BigintEnumType.
+/// Represents the parameters for a BigintEnumType.
 /// Consists of the name of the enum and a map of string keys to bigint values.
 struct LongEnumParameter {
+  LongEnumParameter(
+      std::string enumName,
+      std::unordered_map<std::string, int64_t> enumValuesMap)
+      : name(std::move(enumName)), valuesMap(std::move(enumValuesMap)) {}
+
+  bool operator==(const LongEnumParameter& other) const {
+    return name == other.name && valuesMap == other.valuesMap;
+  }
+
+  folly::dynamic serializeEnumParameter() const;
+
+  struct Hash {
+    size_t operator()(const LongEnumParameter& param) const;
+  };
+
   std::string name;
   std::unordered_map<std::string, int64_t> valuesMap;
 };
 
-/// A struct which represents the parameters for a VarcharEnumType.
+/// Represents the parameters for a VarcharEnumType.
 /// Consists of the name of the enum and a map of string keys to string values.
 struct VarcharEnumParameter {
   std::string name;
@@ -457,21 +474,21 @@ struct TypeParameter {
         rowFieldName{std::nullopt} {}
 
   /// Creates kLongEnumLiteral parameter.
-  explicit TypeParameter(const LongEnumParameter& _longEnumParameter)
+  explicit TypeParameter(LongEnumParameter _longEnumParameter)
       : kind{TypeParameterKind::kLongEnumLiteral},
         type{nullptr},
         longLiteral{std::nullopt},
-        longEnumLiteral{_longEnumParameter},
+        longEnumLiteral{std::move(_longEnumParameter)},
         varcharEnumLiteral(std::nullopt),
         rowFieldName{std::nullopt} {}
 
   /// Creates kVarcharEnumLiteral parameter.
-  explicit TypeParameter(const VarcharEnumParameter& _varcharEnumParameter)
+  explicit TypeParameter(VarcharEnumParameter _varcharEnumParameter)
       : kind{TypeParameterKind::kVarcharEnumLiteral},
         type{nullptr},
         longLiteral{std::nullopt},
         longEnumLiteral{std::nullopt},
-        varcharEnumLiteral{_varcharEnumParameter},
+        varcharEnumLiteral{std::move(_varcharEnumParameter)},
         rowFieldName{std::nullopt} {}
 };
 

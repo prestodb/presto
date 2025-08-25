@@ -15,6 +15,8 @@
 add_subdirectory(parser)
 velox_add_library(
   velox_presto_types
+  BigintEnumRegistration.cpp
+  BigintEnumType.cpp
   BingTileRegistration.cpp
   BingTileType.cpp
   HyperLogLogRegistration.cpp

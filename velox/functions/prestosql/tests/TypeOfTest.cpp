@@ -15,6 +15,7 @@
  */
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/BigintEnumType.h"
 #include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/GeometryType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
@@ -26,16 +27,17 @@
 namespace facebook::velox::functions {
 namespace {
 
-class TypeOfTest : public functions::test::FunctionBaseTest {};
-
-TEST_F(TypeOfTest, basic) {
-  const auto typeOf = [&](const TypePtr& type) {
+class TypeOfTest : public functions::test::FunctionBaseTest {
+ public:
+  std::string typeOf(const TypePtr& type) {
     auto data = makeRowVector({
         BaseVector::createNullConstant(type, 1, pool()),
     });
     return evaluateOnce<std::string>("typeof(c0)", data).value();
-  };
+  }
+};
 
+TEST_F(TypeOfTest, basic) {
   EXPECT_EQ("boolean", typeOf(BOOLEAN()));
 
   EXPECT_EQ("tinyint", typeOf(TINYINT()));
@@ -53,21 +55,7 @@ TEST_F(TypeOfTest, basic) {
   EXPECT_EQ("varbinary", typeOf(VARBINARY()));
 
   EXPECT_EQ("timestamp", typeOf(TIMESTAMP()));
-  EXPECT_EQ("timestamp with time zone", typeOf(TIMESTAMP_WITH_TIME_ZONE()));
   EXPECT_EQ("date", typeOf(DATE()));
-
-  EXPECT_EQ("bingtile", typeOf(BINGTILE()));
-  EXPECT_EQ("geometry", typeOf(GEOMETRY()));
-
-  EXPECT_EQ("json", typeOf(JSON()));
-
-  EXPECT_EQ("HyperLogLog", typeOf(HYPERLOGLOG()));
-
-  EXPECT_EQ("tdigest(double)", typeOf(TDIGEST(DOUBLE())));
-
-  EXPECT_EQ("qdigest(bigint)", typeOf(QDIGEST(BIGINT())));
-  EXPECT_EQ("qdigest(real)", typeOf(QDIGEST(REAL())));
-  EXPECT_EQ("qdigest(double)", typeOf(QDIGEST(DOUBLE())));
 
   EXPECT_EQ("unknown", typeOf(UNKNOWN()));
 
@@ -83,5 +71,27 @@ TEST_F(TypeOfTest, basic) {
   VELOX_ASSERT_THROW(typeOf(OPAQUE<int>()), "Unsupported type: OPAQUE<int>");
 }
 
+TEST_F(TypeOfTest, customTypes) {
+  EXPECT_EQ("timestamp with time zone", typeOf(TIMESTAMP_WITH_TIME_ZONE()));
+  EXPECT_EQ("bingtile", typeOf(BINGTILE()));
+  EXPECT_EQ("geometry", typeOf(GEOMETRY()));
+
+  EXPECT_EQ("json", typeOf(JSON()));
+
+  EXPECT_EQ("HyperLogLog", typeOf(HYPERLOGLOG()));
+
+  EXPECT_EQ("tdigest(double)", typeOf(TDIGEST(DOUBLE())));
+
+  EXPECT_EQ("qdigest(bigint)", typeOf(QDIGEST(BIGINT())));
+  EXPECT_EQ("qdigest(real)", typeOf(QDIGEST(REAL())));
+  EXPECT_EQ("qdigest(double)", typeOf(QDIGEST(DOUBLE())));
+
+  std::unordered_map<std::string, int64_t> enumMap = {
+      {"CURIOUS", -2}, {"HAPPY", 0}};
+  LongEnumParameter moodInfo("test.enum.mood", enumMap);
+  LongEnumParameter otherInfo("someEnumType", enumMap);
+  EXPECT_EQ("test.enum.mood", typeOf(BIGINT_ENUM(moodInfo)));
+  EXPECT_EQ("someEnumType", typeOf(BIGINT_ENUM(otherInfo)));
+}
 } // namespace
 } // namespace facebook::velox::functions

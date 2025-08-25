@@ -68,6 +68,34 @@ const auto& typeKindNames() {
 }
 } // namespace
 
+folly::dynamic LongEnumParameter::serializeEnumParameter() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["enumName"] = name;
+  folly::dynamic follyMap = folly::dynamic::object;
+  for (const auto& [key, value] : valuesMap) {
+    follyMap[key] = value;
+  }
+  obj["valuesMap"] = follyMap;
+  return obj;
+}
+
+size_t LongEnumParameter::Hash::operator()(
+    const LongEnumParameter& param) const {
+  uint64_t nameHash = folly::Hash{}(param.name);
+
+  // Hash each key-value pair and combine using commutativeHashMix
+  // to ensure order independence.
+  uint64_t mapHash = facebook::velox::bits::kNullHash;
+  for (const auto& [key, value] : param.valuesMap) {
+    const auto elementHash = facebook::velox::bits::hashMix(
+        folly::Hash{}(key), folly::Hash{}(value));
+    mapHash = facebook::velox::bits::commutativeHashMix(mapHash, elementHash);
+  }
+
+  // Combine name hash with map hash.
+  return facebook::velox::bits::hashMix(nameHash, mapHash);
+}
+
 VELOX_DEFINE_ENUM_NAME(TypeKind, typeKindNames);
 
 std::pair<uint8_t, uint8_t> getDecimalPrecisionScale(const Type& type) {
@@ -103,6 +131,32 @@ namespace {
 std::vector<TypePtr> deserializeChildTypes(const folly::dynamic& obj) {
   return velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);
 }
+
+template <typename ValueType>
+TypeParameter deserializeEnumParam(const folly::dynamic& obj) {
+  auto enumName = obj["enumName"].asString();
+  VELOX_CHECK(obj["valuesMap"].isObject());
+  auto valuesMap = obj["valuesMap"];
+
+  // Construct the values map
+  std::unordered_map<std::string, ValueType> map;
+  for (const auto& item : valuesMap.items()) {
+    std::string key = item.first.asString();
+    if constexpr (std::is_same_v<ValueType, int64_t>) {
+      int64_t value = item.second.asInt();
+      map.emplace(std::move(key), value);
+    } else {
+      VELOX_UNREACHABLE("Only int64_t value type is supported for enum types.");
+    }
+  }
+
+  // Construct the corresponding TypeParameter
+  if constexpr (std::is_same_v<ValueType, int64_t>) {
+    return TypeParameter(LongEnumParameter(enumName, map));
+  }
+  // TODO: Add the same deserialize logic for VarcharEnumType
+  VELOX_UNREACHABLE("Only int64_t value type is supported for enum types.");
+}
 } // namespace
 
 TypePtr Type::create(const folly::dynamic& obj) {
@@ -123,9 +177,14 @@ TypePtr Type::create(const folly::dynamic& obj) {
   // Checks if 'typeName' specifies a custom type.
   if (customTypeExists(typeName)) {
     std::vector<TypeParameter> params;
-    params.reserve(childTypes.size());
-    for (auto& child : childTypes) {
-      params.emplace_back(child);
+    if (obj.find("cTypes") != obj.items().end()) {
+      params.reserve(childTypes.size());
+      for (auto& child : childTypes) {
+        params.emplace_back(child);
+      }
+    }
+    if (obj.find("kLongEnumParam") != obj.items().end()) {
+      params.emplace_back(deserializeEnumParam<int64_t>(obj["kLongEnumParam"]));
     }
     return getCustomType(typeName, params);
   }
