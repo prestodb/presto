@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.clp;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.plugin.clp.split.filter.ClpSplitFilterProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
@@ -28,13 +29,17 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.plugin.clp.ClpConnectorFactory.CONNECTOR_NAME;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ClpPlanOptimizer
@@ -43,29 +48,49 @@ public class ClpPlanOptimizer
     private static final Logger log = Logger.get(ClpPlanOptimizer.class);
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
-    private final ClpMetadataFilterProvider metadataFilterProvider;
+    private final ClpSplitFilterProvider splitFilterProvider;
 
-    public ClpPlanOptimizer(FunctionMetadataManager functionManager, StandardFunctionResolution functionResolution, ClpMetadataFilterProvider metadataFilterProvider)
+    public ClpPlanOptimizer(FunctionMetadataManager functionManager, StandardFunctionResolution functionResolution, ClpSplitFilterProvider splitFilterProvider)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.metadataFilterProvider = requireNonNull(metadataFilterProvider, "metadataFilterProvider is null");
+        this.splitFilterProvider = requireNonNull(splitFilterProvider, "splitFilterProvider is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return rewriteWith(new Rewriter(idAllocator), maxSubplan);
+        Rewriter rewriter = new Rewriter(idAllocator);
+        PlanNode optimizedPlanNode = rewriteWith(rewriter, maxSubplan);
+
+        // Throw exception if any required split filters are missing
+        if (!rewriter.tableScopeSet.isEmpty() && !rewriter.hasVisitedFilter) {
+            splitFilterProvider.checkContainsRequiredFilters(rewriter.tableScopeSet, "");
+        }
+        return optimizedPlanNode;
     }
 
     private class Rewriter
             extends ConnectorPlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final Set<String> tableScopeSet;
+        private boolean hasVisitedFilter;
 
         public Rewriter(PlanNodeIdAllocator idAllocator)
         {
             this.idAllocator = idAllocator;
+            hasVisitedFilter = false;
+            tableScopeSet = new HashSet<>();
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        {
+            TableHandle tableHandle = node.getTable();
+            ClpTableHandle clpTableHandle = (ClpTableHandle) tableHandle.getConnectorHandle();
+            tableScopeSet.add(format("%s.%s", CONNECTOR_NAME, clpTableHandle.getSchemaTableName()));
+            return super.visitTableScan(node, context);
         }
 
         @Override
@@ -74,17 +99,18 @@ public class ClpPlanOptimizer
             if (!(node.getSource() instanceof TableScanNode)) {
                 return node;
             }
+            hasVisitedFilter = true;
 
             TableScanNode tableScanNode = (TableScanNode) node.getSource();
             Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>(tableScanNode.getAssignments());
             TableHandle tableHandle = tableScanNode.getTable();
             ClpTableHandle clpTableHandle = (ClpTableHandle) tableHandle.getConnectorHandle();
-            String scope = CONNECTOR_NAME + "." + clpTableHandle.getSchemaTableName().toString();
+            String tableScope = CONNECTOR_NAME + "." + clpTableHandle.getSchemaTableName().toString();
             ClpExpression clpExpression = node.getPredicate().accept(
                     new ClpFilterToKqlConverter(
                             functionResolution,
                             functionManager,
-                            metadataFilterProvider.getColumnNames(scope)),
+                            splitFilterProvider.getColumnNames(tableScope)),
                     assignments);
             Optional<String> kqlQuery = clpExpression.getPushDownExpression();
             Optional<String> metadataSqlQuery = clpExpression.getMetadataSqlQuery();
@@ -92,9 +118,9 @@ public class ClpPlanOptimizer
 
             // Perform required metadata filter checks before handling the KQL query (if kqlQuery
             // isn't present, we'll return early, skipping subsequent checks).
-            metadataFilterProvider.checkContainsRequiredFilters(clpTableHandle.getSchemaTableName(), metadataSqlQuery.orElse(""));
+            splitFilterProvider.checkContainsRequiredFilters(ImmutableSet.of(tableScope), metadataSqlQuery.orElse(""));
             if (metadataSqlQuery.isPresent()) {
-                metadataSqlQuery = Optional.of(metadataFilterProvider.remapFilterSql(scope, metadataSqlQuery.get()));
+                metadataSqlQuery = Optional.of(splitFilterProvider.remapSplitFilterPushDownExpression(tableScope, metadataSqlQuery.get()));
                 log.debug("Metadata SQL query: %s", metadataSqlQuery);
             }
 

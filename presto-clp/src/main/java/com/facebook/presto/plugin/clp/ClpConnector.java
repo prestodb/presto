@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.clp;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.plugin.clp.split.filter.ClpSplitFilterProvider;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
@@ -40,7 +41,7 @@ public class ClpConnector
     private final ClpSplitManager splitManager;
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
-    private final ClpMetadataFilterProvider metadataFilterProvider;
+    private final ClpSplitFilterProvider splitFilterProvider;
 
     @Inject
     public ClpConnector(
@@ -50,7 +51,7 @@ public class ClpConnector
             ClpSplitManager splitManager,
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
-            ClpMetadataFilterProvider metadataFilterProvider)
+            ClpSplitFilterProvider splitFilterProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -58,13 +59,13 @@ public class ClpConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.metadataFilterProvider = requireNonNull(metadataFilterProvider, "metadataFilterProvider is null");
+        this.splitFilterProvider = requireNonNull(splitFilterProvider, "splitFilterProvider is null");
     }
 
     @Override
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
-        return new ClpPlanOptimizerProvider(functionManager, functionResolution, metadataFilterProvider);
+        return new ClpPlanOptimizerProvider(functionManager, functionResolution, splitFilterProvider);
     }
 
     @Override

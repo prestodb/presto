@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.clp;
+package com.facebook.presto.plugin.clp.split.filter;
 
+import com.facebook.presto.plugin.clp.ClpConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableSet;
@@ -26,22 +27,24 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Set;
 
+import static com.facebook.presto.plugin.clp.ClpConnectorFactory.CONNECTOR_NAME;
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestClpMetadataFilterConfig
+public class TestClpSplitFilterConfigCommon
 {
     private String filterConfigPath;
 
     @BeforeMethod
     public void setUp() throws IOException, URISyntaxException
     {
-        URL resource = getClass().getClassLoader().getResource("test-metadata-filter.json");
+        URL resource = getClass().getClassLoader().getResource("test-mysql-split-filter.json");
         if (resource == null) {
-            throw new FileNotFoundException("test-metadata-filter.json not found in resources");
+            throw new FileNotFoundException("test-mysql-split-filter.json not found in resources");
         }
 
         filterConfigPath = Paths.get(resource.toURI()).toAbsolutePath().toString();
@@ -51,14 +54,14 @@ public class TestClpMetadataFilterConfig
     public void checkRequiredFilters()
     {
         ClpConfig config = new ClpConfig();
-        config.setMetadataFilterConfig(filterConfigPath);
-        ClpMetadataFilterProvider filterProvider = new ClpMetadataFilterProvider(config);
-        SchemaTableName testTableSchemaTableName = new SchemaTableName("default", "table_1");
+        config.setSplitFilterConfig(filterConfigPath);
+        ClpMySqlSplitFilterProvider filterProvider = new ClpMySqlSplitFilterProvider(config);
+        Set<String> testTableScopeSet = ImmutableSet.of(format("%s.%s", CONNECTOR_NAME, new SchemaTableName("default", "table_1")));
         assertThrows(PrestoException.class, () -> filterProvider.checkContainsRequiredFilters(
-                testTableSchemaTableName,
+                testTableScopeSet,
                 "(\"level\" >= 1 AND \"level\" <= 3)"));
         filterProvider.checkContainsRequiredFilters(
-                testTableSchemaTableName,
+                testTableScopeSet,
                 "(\"msg.timestamp\" > 1234 AND \"msg.timestamp\" < 5678)");
     }
 
@@ -66,8 +69,8 @@ public class TestClpMetadataFilterConfig
     public void getFilterNames()
     {
         ClpConfig config = new ClpConfig();
-        config.setMetadataFilterConfig(filterConfigPath);
-        ClpMetadataFilterProvider filterProvider = new ClpMetadataFilterProvider(config);
+        config.setSplitFilterConfig(filterConfigPath);
+        ClpMySqlSplitFilterProvider filterProvider = new ClpMySqlSplitFilterProvider(config);
         Set<String> catalogFilterNames = filterProvider.getColumnNames("clp");
         assertEquals(ImmutableSet.of("level"), catalogFilterNames);
         Set<String> schemaFilterNames = filterProvider.getColumnNames("clp.default");
@@ -77,46 +80,18 @@ public class TestClpMetadataFilterConfig
     }
 
     @Test
-    public void handleEmptyAndInvalidMetadataFilterConfig()
+    public void handleEmptyAndInvalidSplitFilterConfig()
     {
         ClpConfig config = new ClpConfig();
 
         // Empty config
-        ClpMetadataFilterProvider filterProvider = new ClpMetadataFilterProvider(config);
+        ClpMySqlSplitFilterProvider filterProvider = new ClpMySqlSplitFilterProvider(config);
         assertTrue(filterProvider.getColumnNames("clp").isEmpty());
         assertTrue(filterProvider.getColumnNames("abc.xyz").isEmpty());
         assertTrue(filterProvider.getColumnNames("abc.opq.xyz").isEmpty());
 
         // Invalid config
-        config.setMetadataFilterConfig(randomUUID().toString());
-        assertThrows(PrestoException.class, () -> new ClpMetadataFilterProvider(config));
-    }
-
-    @Test
-    public void remapSql()
-    {
-        ClpConfig config = new ClpConfig();
-        config.setMetadataFilterConfig(filterConfigPath);
-        ClpMetadataFilterProvider filterProvider = new ClpMetadataFilterProvider(config);
-
-        String metadataFilterSql1 = "(\"msg.timestamp\" > 1234 AND \"msg.timestamp\" < 5678)";
-        String remappedSql1 = filterProvider.remapFilterSql("clp.default.table_1", metadataFilterSql1);
-        assertEquals(remappedSql1, "(end_timestamp > 1234 AND begin_timestamp < 5678)");
-
-        String metadataFilterSql2 = "(\"msg.timestamp\" >= 1234 AND \"msg.timestamp\" <= 5678)";
-        String remappedSql2 = filterProvider.remapFilterSql("clp.default.table_1", metadataFilterSql2);
-        assertEquals(remappedSql2, "(end_timestamp >= 1234 AND begin_timestamp <= 5678)");
-
-        String metadataFilterSql3 = "(\"msg.timestamp\" > 1234 AND \"msg.timestamp\" <= 5678)";
-        String remappedSql3 = filterProvider.remapFilterSql("clp.default.table_1", metadataFilterSql3);
-        assertEquals(remappedSql3, "(end_timestamp > 1234 AND begin_timestamp <= 5678)");
-
-        String metadataFilterSql4 = "(\"msg.timestamp\" >= 1234 AND \"msg.timestamp\" < 5678)";
-        String remappedSql4 = filterProvider.remapFilterSql("clp.default.table_1", metadataFilterSql4);
-        assertEquals(remappedSql4, "(end_timestamp >= 1234 AND begin_timestamp < 5678)");
-
-        String metadataFilterSql5 = "(\"msg.timestamp\" = 1234)";
-        String remappedSql5 = filterProvider.remapFilterSql("clp.default.table_1", metadataFilterSql5);
-        assertEquals(remappedSql5, "((begin_timestamp <= 1234 AND end_timestamp >= 1234))");
+        config.setSplitFilterConfig(randomUUID().toString());
+        assertThrows(PrestoException.class, () -> new ClpMySqlSplitFilterProvider(config));
     }
 }

@@ -12,9 +12,11 @@
   "clp.default.table_1": [
       {
         "columnName": "msg.timestamp",
-        "rangeMapping": {
-          "lowerBound": "begin_timestamp",
-          "upperBound": "end_timestamp"
+        "customOptions": {
+          "rangeMapping": {
+            "lowerBound": "begin_timestamp",
+            "upperBound": "end_timestamp"
+          }
         },
         "required": true
       },
