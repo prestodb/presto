@@ -409,7 +409,6 @@
             <artifactId>json-smart</artifactId>
         </dependency>
 
-        <!-- Testing dependencies -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-urlconnection</artifactId>
@@ -420,6 +419,7 @@
             <artifactId>okhttp</artifactId>
         </dependency>
 
+        <!-- Testing dependencies -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
