@@ -811,5 +811,62 @@ TEST(VariantTest, mapGetter) {
       {{1, 1.2}, {2, 2.3}, {3, std::nullopt}});
 }
 
+template <typename T>
+void testArrayOfArraysGetter(const std::vector<std::vector<T>>& inputs) {
+  std::vector<Variant> variants;
+  variants.reserve(inputs.size());
+
+  for (const auto& input : inputs) {
+    std::vector<Variant> innerVariants;
+    innerVariants.reserve(input.size());
+    for (const auto& v : input) {
+      innerVariants.emplace_back(v);
+    }
+    variants.emplace_back(Variant::array(innerVariants));
+  }
+
+  auto value = Variant::array(variants);
+  EXPECT_FALSE(value.isNull());
+
+  {
+    auto primitiveItems = value.template arrayOfArrays<T>();
+    EXPECT_EQ(primitiveItems, inputs);
+  }
+}
+
+TEST(VariantTest, arrayOfArraysGetter) {
+  testArrayOfArraysGetter<int32_t>({{1, 2}, {3, 4, 5}, {}});
+  testArrayOfArraysGetter<double>({{1.1, 2.2}, {}, {3.3}});
+}
+
+template <typename K, typename V>
+void testMapOfArraysGetter(const std::map<K, std::vector<V>>& inputs) {
+  std::map<Variant, Variant> variants;
+
+  for (const auto& [k, input] : inputs) {
+    std::vector<Variant> innerVariants;
+    innerVariants.reserve(input.size());
+    for (const auto& v : input) {
+      innerVariants.emplace_back(v);
+    }
+    variants.emplace(k, Variant::array(innerVariants));
+  }
+
+  auto value = Variant::map(variants);
+  EXPECT_FALSE(value.isNull());
+
+  {
+    auto primitiveItems = value.template mapOfArrays<K, V>();
+    EXPECT_EQ(primitiveItems, inputs);
+  }
+}
+
+TEST(VariantTest, mapOfArraysGetter) {
+  testMapOfArraysGetter<int32_t, float>(
+      {{1, {1.1f, 2.2f}}, {2, {3.3f}}, {3, {}}});
+  testMapOfArraysGetter<std::string, int64_t>(
+      {{"a", {1, 2}}, {"b", {}}, {"c", {3}}});
+}
+
 } // namespace
 } // namespace facebook::velox
