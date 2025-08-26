@@ -137,7 +137,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download digests
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
@@ -182,7 +182,7 @@ jobs:
 
       - name: Download Base Image
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           pattern: centos9-amd64
           path: /tmp
@@ -190,9 +190,9 @@ jobs:
       - name: Load Base Image
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          docker load -i /tmp/centos9-amd64/centos9.tar
+          docker load -i /tmp/centos9.tar
           docker images
-          rm /tmp/centos9-amd64/centos9.tar
+          rm /tmp/centos9.tar
 
       - name: Build and Push
         uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c # v6.9.0
