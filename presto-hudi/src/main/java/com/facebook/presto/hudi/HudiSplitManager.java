@@ -45,7 +45,6 @@ import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
-import org.apache.hudi.hadoop.fs.HadoopFSUtils;
 import org.apache.hudi.storage.StorageConfiguration;
 
 import java.io.IOException;
@@ -64,6 +63,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMemoryFileSystemViewWithTimeline;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.getStorageConfWithCopy;
 
 public class HudiSplitManager
         implements ConnectorSplitManager
@@ -116,7 +116,7 @@ public class HudiSplitManager
         // Load Hudi metadata
         ExtendedFileSystem fs = getFileSystem(session, table);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(isHudiMetadataTableEnabled(session)).build();
-        StorageConfiguration<Configuration> conf = HadoopFSUtils.getStorageConfWithCopy(fs.getConf());
+        StorageConfiguration<Configuration> conf = getStorageConfWithCopy(fs.getConf());
         HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder().setConf(conf).setBasePath(table.getPath()).build();
         HoodieTimeline timeline = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants();
         String timestamp = timeline.lastInstant().map(HoodieInstant::requestedTime).orElse(null);
