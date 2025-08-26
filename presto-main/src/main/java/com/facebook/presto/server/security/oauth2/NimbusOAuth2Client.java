@@ -14,6 +14,7 @@
 package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -58,7 +59,6 @@ import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import com.nimbusds.openid.connect.sdk.validators.AccessTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
-import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 

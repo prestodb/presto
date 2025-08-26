@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
+import com.facebook.airlift.units.Duration;
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWEAlgorithm;
@@ -22,7 +23,6 @@ import com.nimbusds.jose.KeyLengthException;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.AESDecrypter;
 import com.nimbusds.jose.crypto.AESEncrypter;
-import io.airlift.units.Duration;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.CompressionCodec;
 import io.jsonwebtoken.CompressionException;
