@@ -25,18 +25,19 @@ velox_resolve_dependency_url(DUCKDB)
 
 message(STATUS "Building DuckDB from source")
 # We need remove-ccache.patch to remove adding ccache to the build command
-# twice. Velox already does this. We need fix-duckdbversion.patch as DuckDB
-# tries to infer the version via a git commit hash or git tag. This inference
-# can lead to errors when building in another git project such as Prestissimo.
+# twice. Velox already does this.
 FetchContent_Declare(
   duckdb
   URL ${VELOX_DUCKDB_SOURCE_URL}
   URL_HASH ${VELOX_DUCKDB_BUILD_SHA256_CHECKSUM}
-  PATCH_COMMAND
-    git apply ${CMAKE_CURRENT_LIST_DIR}/duckdb/remove-ccache.patch && git apply
-    ${CMAKE_CURRENT_LIST_DIR}/duckdb/fix-duckdbversion.patch && git apply
-    ${CMAKE_CURRENT_LIST_DIR}/duckdb/re2.patch)
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/duckdb/remove-ccache.patch
+                && git apply ${CMAKE_CURRENT_LIST_DIR}/duckdb/re2.patch)
 
+# DuckDB uses git commands to retrieve version information during the build,
+# which works with git clone. To prevent incorrectly using the parent project's
+# git version when building from a tarball, we define GIT_COMMIT_HASH to skip
+# that.
+set(GIT_COMMIT_HASH "6536a77")
 set(BUILD_UNITTESTS OFF)
 set(ENABLE_SANITIZER OFF)
 set(ENABLE_UBSAN OFF)
