@@ -58,7 +58,7 @@ function install_clang15 {
   if [[ ${VERSION} =~ "22.04" ]]; then
     CLANG_PACKAGE_LIST="${CLANG_PACKAGE_LIST} gcc-12 g++-12 libc++-12-dev"
   fi
-  ${SUDO} apt install "${CLANG_PACKAGE_LIST}" -y
+  ${SUDO} apt install ${CLANG_PACKAGE_LIST} -y
 }
 
 # For Ubuntu 20.04 we need add the toolchain PPA to get access to gcc11.
