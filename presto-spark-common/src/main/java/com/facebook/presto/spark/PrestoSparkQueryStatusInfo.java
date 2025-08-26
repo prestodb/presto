@@ -53,7 +53,7 @@ public class PrestoSparkQueryStatusInfo
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") Optional<QueryError> error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
-            @JsonProperty("updateType") Optional<UpdateInfo> updateInfo,
+            @JsonProperty("updateInfo") Optional<UpdateInfo> updateInfo,
             @JsonProperty("updateCount") OptionalLong updateCount)
     {
         this.id = requireNonNull(id, "id is null");
@@ -61,7 +61,7 @@ public class PrestoSparkQueryStatusInfo
         this.stats = requireNonNull(stats, "stats is null");
         this.error = requireNonNull(error, "error is null");
         this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
-        this.updateInfo = requireNonNull(updateInfo, "updateType is null");
+        this.updateInfo = requireNonNull(updateInfo, "updateInfo is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
     }
 

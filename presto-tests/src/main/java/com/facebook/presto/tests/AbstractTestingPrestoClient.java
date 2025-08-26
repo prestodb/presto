@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -108,8 +109,8 @@ public abstract class AbstractTestingPrestoClient<T>
 
             if (error == null) {
                 QueryStatusInfo results = client.finalStatusInfo();
-                if (results.getUpdateInfo() != null) {
-                    resultsSession.setUpdateInfo(results.getUpdateInfo());
+                if (results.getUpdateType() != null) {
+                    resultsSession.setUpdateInfo(new UpdateInfo(results.getUpdateType(), ""));
                 }
                 if (results.getUpdateCount() != null) {
                     resultsSession.setUpdateCount(results.getUpdateCount());

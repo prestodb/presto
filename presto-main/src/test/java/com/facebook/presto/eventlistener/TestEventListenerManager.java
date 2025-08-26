@@ -187,7 +187,7 @@ public class TestEventListenerManager
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         Map<PlanCanonicalizationStrategy, String> hboPlanHash = new HashMap<>();
         Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap = Optional.ofNullable(new HashMap<>());
-        UpdateInfo updateInfo = new UpdateInfo("CREATE TABLE", "ctlog.schema.tbl");
+        UpdateInfo updateInfo = new UpdateInfo("dummy-type", "dummy-object");
         return new QueryCompletedEvent(
                 metadata,
                 statistics,
@@ -306,7 +306,7 @@ public class TestEventListenerManager
         Optional<String> payload = Optional.of("dummy-payload");
         List<String> runtimeOptimizedStages = new ArrayList<>(Arrays.asList("stage1", "stage2"));
         Optional<String> tracingId = Optional.of("dummy-tracing-id");
-        Optional<String> updateType = Optional.of("CREATE TABLE");
+        Optional<String> updateType = Optional.of("dummy-type");
 
         return new QueryMetadata(
                 queryId,
