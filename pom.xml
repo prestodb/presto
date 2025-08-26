@@ -62,7 +62,6 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
-        <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
@@ -104,6 +103,7 @@
         <air.test.jvmsize>4g</air.test.jvmsize>
         <grpc.version>1.70.0</grpc.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <release.autoPublish>true</release.autoPublish>
     </properties>
 
     <modules>
@@ -2722,18 +2722,6 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.sonatype.plugins</groupId>
-                    <artifactId>nexus-staging-maven-plugin</artifactId>
-                    <version>${dep.nexus-staging-plugin.version}</version>
-                    <!-- This plugin is not registered as an extension because it will fail to activate
-                         concurrently with the Maven Provisio plugin, as that has its own deployment lifecycle -->
-                    <configuration>
-                        <serverId>ossrh</serverId>
-                        <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                    </configuration>
-                </plugin>
-
-                <plugin>
                     <groupId>com.facebook.presto</groupId>
                     <artifactId>presto-maven-plugin</artifactId>
                     <version>0.7</version>
@@ -2944,7 +2932,7 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>ossrh</publishingServerId>
-                            <autoPublish>true</autoPublish>
+                            <autoPublish>${release.autoPublish}</autoPublish>
                             <waitUntil>validated</waitUntil>
                         </configuration>
                     </plugin>
