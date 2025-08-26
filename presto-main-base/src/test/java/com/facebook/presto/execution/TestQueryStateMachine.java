@@ -87,6 +87,7 @@ public class TestQueryStateMachine
     private static final Optional<Output> OUTPUT = Optional.empty();
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
     private static final List<Type> OUTPUT_FIELD_TYPES = ImmutableList.of(BIGINT, BIGINT, BIGINT);
+    private static final String UPDATE_TYPE = "update type";
     private static final VersionedMemoryPoolId MEMORY_POOL = new VersionedMemoryPoolId(new MemoryPoolId("pool"), 42);
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("fruit", "apple")
@@ -558,7 +559,7 @@ public class TestQueryStateMachine
         assertEquals(queryInfo.getInputs(), INPUTS);
         assertEquals(queryInfo.getOutput(), OUTPUT);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
-        assertEquals(queryInfo.getUpdateInfo(), new UpdateInfo("UPDATE TYPE", ""));
+        assertEquals(queryInfo.getUpdateInfo(), new UpdateInfo(UPDATE_TYPE, ""));
         assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
         assertEquals(queryInfo.getQueryType(), QUERY_TYPE);
 
@@ -644,7 +645,7 @@ public class TestQueryStateMachine
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
-        stateMachine.setUpdateInfo(new UpdateInfo("UPDATE TYPE", ""));
+        stateMachine.setUpdateInfo(new UpdateInfo(UPDATE_TYPE, ""));
         stateMachine.setMemoryPool(MEMORY_POOL);
         for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
             stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
