@@ -231,9 +231,13 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
         folly::via(
             httpSrvCpuExecutor_,
-            [this, &body, taskId, summarize, createOrUpdateFunc, receiveThrift]() {
+            [this,
+             requestBody = util::extractMessageBody(body),
+             taskId,
+             summarize,
+             createOrUpdateFunc,
+             receiveThrift]() {
               const auto startProcessCpuTimeNs = util::getProcessCpuTimeNs();
-              std::string requestBody = util::extractMessageBody(body);
 
               std::unique_ptr<protocol::TaskInfo> taskInfo;
               try {
