@@ -25,7 +25,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.Duration.succinctDuration;
+import static com.facebook.airlift.units.Duration.succinctDuration;
 import static io.jsonwebtoken.io.Encoders.BASE64;
 import static java.util.concurrent.TimeUnit.HOURS;
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.security.oauth2.TokenPairSerializer.TokenPair;
 import com.nimbusds.jose.KeyLengthException;
-import io.airlift.units.Duration;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import org.testng.annotations.Test;
@@ -31,8 +31,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.units.Duration.succinctDuration;
 import static com.facebook.presto.server.security.oauth2.TokenPairSerializer.TokenPair.accessAndRefreshTokens;
-import static io.airlift.units.Duration.succinctDuration;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
