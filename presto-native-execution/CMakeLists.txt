@@ -33,6 +33,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 set(DISABLED_WARNINGS
     "-Wno-nullability-completeness -Wno-deprecated-declarations")
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.0.0")
+    string(APPEND DISABLED_WARNINGS " -Wno-error=template-id-cdtor")
+  endif()
+endif()
+
 # Important warnings that must be explicitly enabled.
 set(ENABLE_WARNINGS "-Wreorder")
 
@@ -221,7 +227,7 @@ include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ}
                        ${MVFST_EXCEPTION})
 find_path(PROXYGEN_DIR NAMES include/proxygen)
-set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/proxygen")
+set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/")
 
 include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR} ${PROXYGEN_INCLUDE_DIR})
 include_directories(.)
