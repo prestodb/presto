@@ -278,8 +278,8 @@ public class TestCassandraIntegrationSmokeTest
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_1"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("table_1")
                 .build(), new Duration(1, MINUTES));
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_1.table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_1", "bigint", "", "")
+        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_1.table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), BIGINT, BIGINT, BIGINT)
+                .row("column_1", "bigint", "", "", 19L, null, null)
                 .build());
 
         execute("INSERT INTO keyspace_1.table_1 (column_1) VALUES (1)");
@@ -308,8 +308,8 @@ public class TestCassandraIntegrationSmokeTest
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("table_2")
                 .build(), new Duration(1, MINUTES));
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_2", "bigint", "", "")
+        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), BIGINT, BIGINT, BIGINT)
+                .row("column_2", "bigint", "", "", 19L, null, null)
                 .build());
 
         execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");

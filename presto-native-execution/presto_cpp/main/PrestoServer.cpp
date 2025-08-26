@@ -271,8 +271,8 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  registerFileSinks();
   registerFileSystems();
+  registerFileSinks();
   registerFileReadersAndWriters();
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
@@ -434,8 +434,7 @@ void PrestoServer::run() {
   nativeWorkerPool_ = velox::memory::MemoryManager::getInstance()->addLeafPool(
       "PrestoNativeWorker");
 
-  taskManager_ = std::make_unique<TaskManager>(
-      driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
+  createTaskManager();
 
   if (systemConfig->prestoNativeSidecar()) {
     registerSidecarEndpoints();
@@ -1737,6 +1736,11 @@ void PrestoServer::registerDynamicFunctions() {
         << "Plugin directory path: " << pluginDir << " is invalid.";
     return;
   }
+}
+
+void PrestoServer::createTaskManager() {
+  taskManager_ = std::make_unique<TaskManager>(
+      driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 }
 
 } // namespace facebook::presto

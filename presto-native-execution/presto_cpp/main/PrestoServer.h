@@ -227,6 +227,8 @@ class PrestoServer {
 
   void checkOverload();
 
+  virtual void createTaskManager();
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;

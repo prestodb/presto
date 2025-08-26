@@ -37,13 +37,13 @@ std::string bool2String(bool value) {
   return value ? "true" : "false";
 }
 
-int getThreadCount() {
-  auto numThreads = std::thread::hardware_concurrency();
+uint32_t hardwareConcurrency() {
+  const auto numLogicalCores = std::thread::hardware_concurrency();
   // The spec says std::thread::hardware_concurrency() might return 0.
   // But we depend on std::thread::hardware_concurrency() to create executors.
   // Check to ensure numThreads is > 0.
-  VELOX_CHECK_GT(numThreads, 0);
-  return numThreads;
+  VELOX_CHECK_GT(numLogicalCores, 0);
+  return numLogicalCores;
 }
 
 #define STR_PROP(_key_, _val_) \
@@ -140,7 +140,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kHttpServerReusePort, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
-          NUM_PROP(kMaxDriversPerTask, getThreadCount()),
+          NUM_PROP(kMaxDriversPerTask, hardwareConcurrency()),
           NONE_PROP(kTaskWriterCount),
           NONE_PROP(kTaskPartitionedWriterCount),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
@@ -166,7 +166,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(
               kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
-          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, 8),
+          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, 0.5 * hardwareConcurrency()),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
@@ -260,7 +260,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
-          BOOL_PROP(kTextWriterEnabled, false),
+          BOOL_PROP(kTextWriterEnabled, true),
       };
 }
 

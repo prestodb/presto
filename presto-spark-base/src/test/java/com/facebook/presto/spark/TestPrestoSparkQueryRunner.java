@@ -1309,7 +1309,7 @@ public class TestPrestoSparkQueryRunner
         assertQuerySucceeds("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA'), ('b', 'bigint', '', 'test comment BBB')");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19L, null, null), ('b', 'bigint', '', 'test comment BBB', 19L, null, null)");
         assertQuerySucceeds("DROP TABLE test_add_column");
     }
 

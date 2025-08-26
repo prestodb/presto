@@ -766,7 +766,7 @@ public class PlanOptimizers
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
 
-        builder.add(new MetadataQueryOptimizer(metadata));
+        builder.add(new MetadataQueryOptimizer(metadata, expressionOptimizerManager));
 
         // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
         builder.add(

@@ -260,6 +260,7 @@ class SystemConfig : public ConfigBase {
   /// The number of stuck operators (effectively stuck driver threads) when we
   /// detach the worker from the cluster in an attempt to keep the cluster
   /// operational.
+  /// 1/2 of the hardware concurrency is the default.
   static constexpr std::string_view kDriverNumStuckOperatorsToDetachWorker{
       "driver.num-stuck-operators-to-detach-worker"};
 

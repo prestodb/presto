@@ -179,6 +179,8 @@ public class PrestoNativeQueryRunnerUtils
         {
             this.extraProperties.put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift));
             this.extraProperties.put("experimental.internal-communication.task-info-thrift-transport-enabled", String.valueOf(useThrift));
+            this.extraProperties.put("experimental.internal-communication.task-update-request-thrift-serde-enabled", String.valueOf(useThrift));
+            this.extraProperties.put("experimental.internal-communication.task-info-response-thrift-serde-enabled", String.valueOf(useThrift));
             return this;
         }
 

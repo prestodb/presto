@@ -13,18 +13,22 @@
  */
 package com.facebook.presto.iceberg.container;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.facebook.presto.testing.containers.MinIOContainer;
 import com.facebook.presto.util.AutoCloseableCloser;
 import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.Network;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
@@ -39,7 +43,6 @@ public class IcebergMinIODataLake
     private final String bucketName;
     private final String warehouseDir;
     private final MinIOContainer minIOContainer;
-
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
@@ -63,19 +66,39 @@ public class IcebergMinIODataLake
         if (isStarted()) {
             return;
         }
+
         try {
             this.minIOContainer.start();
-            AmazonS3 s3Client = AmazonS3ClientBuilder
-                    .standard()
-                    .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                            "http://localhost:" + minIOContainer.getMinioApiEndpoint().getPort(),
-                            "us-east-1"))
-                    .withPathStyleAccessEnabled(true)
-                    .withCredentials(new AWSStaticCredentialsProvider(
-                            new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
+
+            S3Client s3Client = S3Client.builder()
+                    .endpointOverride(URI.create("http://localhost:" + minIOContainer.getMinioApiEndpoint().getPort()))
+                    .region(Region.US_EAST_1)
+                    .forcePathStyle(true)
+                    .serviceConfiguration(S3Configuration.builder()
+                            // Disable checksum validation and chunked encoding for MinIO compatibility
+                            // MinIO checksum handling differs from AWS S3
+                            // Prevents chunked transfer encoding issues with MinIO
+                            .checksumValidationEnabled(false)
+                            .chunkedEncodingEnabled(false)
+                            .build())
+                    .credentialsProvider(StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
                     .build();
-            s3Client.createBucket(this.bucketName);
-            s3Client.putObject(this.bucketName, this.warehouseDir, "");
+
+            s3Client.createBucket(CreateBucketRequest.builder()
+                    .bucket(this.bucketName)
+                    .build());
+            String objectKey = this.warehouseDir.endsWith("/")
+                    ? this.warehouseDir + ".keep"
+                    : this.warehouseDir + "/.keep";
+
+            s3Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(this.bucketName)
+                            .key(objectKey)
+                            .build(),
+                    RequestBody.fromString("placeholder"));
+            closer.register(s3Client);
         }
         finally {
             isStarted.set(true);

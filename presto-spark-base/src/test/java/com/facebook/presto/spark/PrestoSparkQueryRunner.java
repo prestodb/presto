@@ -324,6 +324,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new SqlParserOptions(),
                 moduleBuilder.build(),
                 true);

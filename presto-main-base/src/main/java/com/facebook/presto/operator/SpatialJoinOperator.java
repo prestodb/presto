@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
-import static com.facebook.presto.spi.plan.SpatialJoinNode.Type.INNER;
-import static com.facebook.presto.spi.plan.SpatialJoinNode.Type.LEFT;
+import static com.facebook.presto.spi.plan.SpatialJoinNode.SpatialJoinType.INNER;
+import static com.facebook.presto.spi.plan.SpatialJoinNode.SpatialJoinType.LEFT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -44,7 +44,7 @@ public class SpatialJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final SpatialJoinNode.Type joinType;
+        private final SpatialJoinNode.SpatialJoinType joinType;
         private final List<Type> probeTypes;
         private final List<Integer> probeOutputChannels;
         private final int probeGeometryChannel;
@@ -56,7 +56,7 @@ public class SpatialJoinOperator
         public SpatialJoinOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                SpatialJoinNode.Type joinType,
+                SpatialJoinNode.SpatialJoinType joinType,
                 List<Type> probeTypes,
                 List<Integer> probeOutputChannels,
                 int probeGeometryChannel,
@@ -114,7 +114,7 @@ public class SpatialJoinOperator
 
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
-    private final SpatialJoinNode.Type joinType;
+    private final SpatialJoinNode.SpatialJoinType joinType;
     private final List<Type> probeTypes;
     private final List<Integer> probeOutputChannels;
     private final int probeGeometryChannel;
@@ -139,7 +139,7 @@ public class SpatialJoinOperator
 
     public SpatialJoinOperator(
             OperatorContext operatorContext,
-            SpatialJoinNode.Type joinType,
+            SpatialJoinNode.SpatialJoinType joinType,
             List<Type> probeTypes,
             List<Integer> probeOutputChannels,
             int probeGeometryChannel,
