@@ -411,6 +411,21 @@ TEST_F(DecimalArithmeticTest, multiply) {
            1,
            DECIMAL(38, 0)),
        makeConstant<int64_t>(100, 1, DECIMAL(2, 1))});
+
+  testArithmeticFunction(
+      "multiply",
+      makeConstant<int128_t>(
+          HugeInt::parse("9999542798541987451780195064133346831"),
+          1,
+          DECIMAL(38, 23)),
+      {makeConstant<int128_t>(
+           HugeInt::parse("99997713966580193276534859500386083931"),
+           1,
+           DECIMAL(38, 31)),
+       makeConstant<int128_t>(
+           HugeInt::parse("99997713966580193276534859500386083931"),
+           1,
+           DECIMAL(38, 31))});
 }
 
 TEST_F(DecimalArithmeticTest, divide) {
@@ -519,6 +534,17 @@ TEST_F(DecimalArithmeticTest, divide) {
       makeConstant<int128_t>(std::nullopt, 1, DECIMAL(38, 6)),
       {makeConstant<int128_t>(DecimalUtil::kLongDecimalMax, 1, DECIMAL(38, 0)),
        makeConstant<int64_t>(1, 1, DECIMAL(3, 2))});
+
+  testArithmeticFunction(
+      "divide",
+      makeConstant<int128_t>(
+          HugeInt::parse("106277793246728545582603"), 1, DECIMAL(38, 6)),
+      {makeConstant<int128_t>(
+           HugeInt::parse("104352831492914033"), 1, DECIMAL(19, 0)),
+       makeConstant<int128_t>(
+           HugeInt::parse("98188745084925098440983457564770612914"),
+           1,
+           DECIMAL(38, 38))});
 }
 
 TEST_F(DecimalArithmeticTest, denyPrecisionLoss) {

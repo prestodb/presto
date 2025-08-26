@@ -186,8 +186,7 @@ class DecimalUtil {
         return R(-1);
       }
       int256_t aLarge = a;
-      int256_t aLargeScaledUp =
-          aLarge * velox::DecimalUtil::kPowersOfTen[aRescale];
+      int256_t aLargeScaledUp = aLarge * getPowersOfTen(aRescale);
       int256_t bLarge = b;
       int256_t resultLarge = aLargeScaledUp / bLarge;
       int256_t remainderLarge = aLargeScaledUp % bLarge;
@@ -221,6 +220,15 @@ class DecimalUtil {
         std::min(rScale, DecimalType<TypeKind::HUGEINT>::kMaxPrecision)};
   }
 
+  /// Returns 10^scale as int256_t. The input scale should be in range
+  /// [0, 76].
+  static int256_t getPowersOfTen(int32_t scale) {
+    VELOX_CHECK_GE(scale, 0);
+    VELOX_CHECK_LE(scale, kMaxLargeScale);
+
+    return kLargeScalePowersOfTen[scale];
+  }
+
  private:
   /// Maintains the max bits that need to be increased for rescaling a value by
   /// certain scale. The calculation relies on the following formula:
@@ -241,5 +249,21 @@ class DecimalUtil {
     int32_t numOccupied = sizeof(A) * 8 - bits::countLeadingZeros(valueAbs);
     return numOccupied + kMaxBitsRequiredIncreaseAfterScaling[aRescale];
   }
+
+  static constexpr int32_t kMaxLargeScale = 2 * LongDecimalType::kMaxPrecision;
+
+  // Pre-compute the powers of ten for large scales. The maximum scale is
+  // 2 * LongDecimalType::kMaxPrecision, which is 76. The
+  // DecimalUtil::kPowersOfTen array is not large enough to hold these values.
+  static constexpr std::array<int256_t, kMaxLargeScale + 1>
+      kLargeScalePowersOfTen =
+          ([]() -> std::array<int256_t, kMaxLargeScale + 1> {
+            std::array<int256_t, kMaxLargeScale + 1> values;
+            values[0] = 1;
+            for (int32_t idx = 1; idx <= kMaxLargeScale; idx++) {
+              values[idx] = values[idx - 1] * 10;
+            }
+            return values;
+          })();
 };
 } // namespace facebook::velox::functions::sparksql

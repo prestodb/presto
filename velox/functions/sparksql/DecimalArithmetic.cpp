@@ -427,7 +427,7 @@ struct DecimalMultiplyFunction {
       return in;
     }
 
-    int256_t divisor = velox::DecimalUtil::kPowersOfTen[reduceBy];
+    int256_t divisor = DecimalUtil::getPowersOfTen(reduceBy);
     auto result = in / divisor;
     auto remainder = in % divisor;
     // Round up.
