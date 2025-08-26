@@ -412,7 +412,7 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT " +
                 "ST_DISTANCE(ST_POINT(a.nationkey, a.regionkey), ST_POINT(b.nationkey, b.regionkey)) " +
                 "FROM nation a JOIN nation b ON a.nationkey < b.nationkey");
-        assertQueryFails(
+        assertQuery(
                 "WITH regions(name, geom) AS (VALUES" +
                         "        ('A', ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))'))," +
                         "        ('B', ST_GeometryFromText('POLYGON ((5 0, 5 5, 10 5, 10 0, 5 0))')))," +
@@ -420,8 +420,7 @@ public class TestNativeSidecarPlugin
                         "        ('P1', ST_Point(1, 1))," +
                         "        ('P2', ST_Point(6, 1))," +
                         "        ('P3', ST_Point(8, 4)))" +
-                        "SELECT p.id, r.name FROM points p LEFT JOIN regions r ON ST_Within(p.geom, r.geom)",
-                "Error from native plan checker: .SpatialJoinNode no abstract type PlanNode ");
+                        "SELECT p.id, r.name FROM points p LEFT JOIN regions r ON ST_Within(p.geom, r.geom)");
     }
 
     @Test
