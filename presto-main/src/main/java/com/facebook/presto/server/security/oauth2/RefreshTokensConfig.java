@@ -20,8 +20,8 @@ import io.airlift.units.Duration;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
+import jakarta.validation.constraints.NotEmpty;
 import javax.crypto.SecretKey;
-import javax.validation.constraints.NotEmpty;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.HOURS;
