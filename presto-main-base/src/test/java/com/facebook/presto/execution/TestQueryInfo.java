@@ -179,7 +179,7 @@ public class TestQueryInfo
                 ImmutableSet.of("deallocated_prepared_statement", "statement"),
                 Optional.of(TransactionId.create()),
                 true,
-                new UpdateInfo("UPDATE TYPE", ""),
+                new UpdateInfo("update_type", ""),
                 Optional.empty(),
                 null,
                 null,

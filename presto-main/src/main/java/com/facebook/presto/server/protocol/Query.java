@@ -476,7 +476,7 @@ class Query
                         .build(),
                 null,
                 ImmutableList.of(),
-                queryResults.getUpdateInfo(),
+                queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
     }
 
@@ -632,7 +632,7 @@ class Query
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
                 queryInfo.getWarnings(),
-                queryInfo.getUpdateInfo(),
+                queryInfo.getUpdateInfo() != null ? queryInfo.getUpdateInfo().getUpdateType() : null,
                 updateCount);
 
         // cache the new result
