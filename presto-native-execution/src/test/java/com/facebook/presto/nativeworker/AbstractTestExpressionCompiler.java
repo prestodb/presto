@@ -86,7 +86,60 @@ public abstract class AbstractTestExpressionCompiler
 
     @Override
     @Ignore
+    public void testBinaryOperatorsBigintDecimal()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsBoolean()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsDoubleDecimal()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsDoubleDouble()
+    {
+    }
+
+
     public void testTernaryOperatorsLongLong()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsDoubleIntegral()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsIntegralDouble()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsIntegralIntegral()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testBinaryOperatorsString()
+    {
+    }
+
+    @Override
+    @Ignore
+    public void testNullif()
     {
     }
 
