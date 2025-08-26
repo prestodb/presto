@@ -177,7 +177,7 @@ public final class QueryResourceUtil
                 queryResults.getStats(),
                 queryResults.getError(),
                 queryResults.getWarnings(),
-                queryResults.getUpdateInfo(),
+                queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
 
         return toResponse(query, resultsClone, compressionEnabled, durationUntilExpirationMs);
