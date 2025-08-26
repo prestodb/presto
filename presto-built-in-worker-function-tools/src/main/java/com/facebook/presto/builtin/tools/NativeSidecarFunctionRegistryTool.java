@@ -26,38 +26,39 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.SqlFunction;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 
 import java.net.URI;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class NativeSidecarFunctionRegistryTool
         implements WorkerFunctionRegistryTool
 {
-    private static final int MAX_RETRIES = 8;
-    private static final long RETRY_DELAY_MS = Duration.ofMinutes(1).toMillis();
+    private final int maxRetries;
+    private final long retryDelayMs;
     private static final Logger log = Logger.get(NativeSidecarFunctionRegistryTool.class);
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec;
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
     private static final String FUNCTION_SIGNATURES_ENDPOINT = "/v1/functions";
 
-    @Inject
     public NativeSidecarFunctionRegistryTool(
-            @ForNativeFunctionRegistryInfo HttpClient httpClient,
+            HttpClient httpClient,
             JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            int nativeSidecarRegistryToolNumRetries,
+            long nativeSidecarRegistryToolRetryDelayMs)
     {
         this.nativeFunctionSignatureMapJsonCodec =
                 requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.httpClient = requireNonNull(httpClient, "typeManager is null");
+        this.maxRetries = nativeSidecarRegistryToolNumRetries;
+        this.retryDelayMs = nativeSidecarRegistryToolRetryDelayMs;
     }
 
     @Override
@@ -69,7 +70,7 @@ public class NativeSidecarFunctionRegistryTool
                 .stream()
                 .flatMap(entry -> entry.getValue().stream()
                         .map(metaInfo -> WorkerFunctionUtil.createSqlInvokedFunction(entry.getKey(), metaInfo, "presto")))
-                .collect(ImmutableList.toImmutableList());
+                .collect(toImmutableList());
     }
 
     private UdfFunctionSignatureMap getNativeFunctionSignatureMap()
@@ -87,26 +88,26 @@ public class NativeSidecarFunctionRegistryTool
     private URI getSidecarLocationOnStartup()
     {
         Node sidecarNode = null;
-        int retryCount = 0;
-        while (sidecarNode == null && retryCount < MAX_RETRIES) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 sidecarNode = nodeManager.getSidecarNode();
-                break;
+                if (sidecarNode != null) {
+                    break;
+                }
             }
             catch (Exception e) {
-                retryCount++;
-                log.error("Error getting sidecar node (attempt " + retryCount + "): " + e.getMessage());
-                if (retryCount < MAX_RETRIES) {
+                log.error("Error getting sidecar node (attempt " + attempt + "): " + e.getMessage());
+                if (attempt == maxRetries) {
+                    throw new RuntimeException("Failed to get sidecar node", e);
+                }
+                else {
                     try {
-                        Thread.sleep(RETRY_DELAY_MS);
+                        Thread.sleep(retryDelayMs);
                     }
                     catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Retry fetching sidecar function registry interrupted", ie);
                     }
-                }
-                else {
-                    throw new RuntimeException("Failed to get sidecar node", e);
                 }
             }
         }

@@ -49,5 +49,9 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
     </dependencies>
 </project>

@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
+import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
@@ -36,6 +37,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.builtin.tools.ForNativeFunctionRegistryInfo;
 import com.facebook.presto.builtin.tools.NativeSidecarFunctionRegistryTool;
+import com.facebook.presto.builtin.tools.NativeSidecarRegistryToolConfig;
 import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
 import com.facebook.presto.catalogserver.CatalogServerClient;
 import com.facebook.presto.catalogserver.RandomCatalogServerAddressSelector;
@@ -403,10 +405,10 @@ public class ServerMainModule
                 .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
 
-        binder.bind(WorkerFunctionRegistryTool.class).to(NativeSidecarFunctionRegistryTool.class).in(Scopes.SINGLETON);
         binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
                 .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
         httpClientBinder(binder).bindHttpClient("native-function-registry", ForNativeFunctionRegistryInfo.class);
+        configBinder(binder).bindConfig(NativeSidecarRegistryToolConfig.class);
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
@@ -903,6 +905,22 @@ public class ServerMainModule
                     newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
         }
         return new NoOpFragmentResultCacheManager();
+    }
+
+    @Provides
+    @Singleton
+    public WorkerFunctionRegistryTool provideWorkerFunctionRegistryTool(
+            NativeSidecarRegistryToolConfig config,
+            @ForNativeFunctionRegistryInfo HttpClient httpClient,
+            JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
+            NodeManager nodeManager)
+    {
+        return new NativeSidecarFunctionRegistryTool(
+                httpClient,
+                nativeFunctionSignatureMapJsonCodec,
+                nodeManager,
+                config.getNativeSidecarRegistryToolNumRetries(),
+                config.getNativeSidecarRegistryToolRetryDelayMs());
     }
 
     public static class ExecutorCleanup
