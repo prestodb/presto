@@ -55,6 +55,19 @@ public class TestArraySortByKeyFunction
                 "array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))",
                 new ArrayType(createVarcharType(6)),
                 asList("pear", "apple", "banana"));
+
+        assertFunction(
+                "array_sort(ARRAY['apple', NULL, 'banana', 'pear', NULL], x -> length(x))",
+                new ArrayType(createVarcharType(6)),
+                asList("pear", "apple", "banana", null, null));
+    }
+    @Test
+    public void testSpecialDoubleValues()
+    {
+        assertFunction(
+                "array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x)",
+                new ArrayType(DOUBLE),
+                asList(Double.NEGATIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY, Double.NaN));
     }
 
     @Test

@@ -28,7 +28,6 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -133,7 +132,7 @@ public final class ArraySortByKeyFunction
             elementsWithPositions.add(new ElementWithPosition(position, element, false));
         }
 
-        Collections.sort(elementsWithPositions, new Comparator<ElementWithPosition>() {
+        elementsWithPositions.sort(new Comparator<ElementWithPosition>() {
             @Override
             public int compare(ElementWithPosition e1, ElementWithPosition e2)
             {
@@ -155,24 +154,7 @@ public final class ArraySortByKeyFunction
                         return -1;
                     }
 
-                    if (key1 instanceof Long && key2 instanceof Long) {
-                        return Long.compare((Long) key1, (Long) key2);
-                    }
-                    else if (key1 instanceof Number && key2 instanceof Number) {
-                        return Double.compare(((Number) key1).doubleValue(), ((Number) key2).doubleValue());
-                    }
-                    else if (key1 instanceof Boolean && key2 instanceof Boolean) {
-                        return Boolean.compare((Boolean) key1, (Boolean) key2);
-                    }
-                    else if (key1 instanceof Slice && key2 instanceof Slice) {
-                        return ((Slice) key1).compareTo((Slice) key2);
-                    }
-                    else if (key1 instanceof String && key2 instanceof String) {
-                        return ((String) key1).compareTo((String) key2);
-                    }
-                    else {
-                        return key1.toString().compareTo(key2.toString());
-                    }
+                    return compareKeys(key1, key2);
                 }
                 catch (Throwable throwable) {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key function failed with exception", throwable);
@@ -191,6 +173,28 @@ public final class ArraySortByKeyFunction
         }
 
         return blockBuilder.build();
+    }
+
+    private static int compareKeys(Object key1, Object key2)
+    {
+        if (key1 instanceof Long && key2 instanceof Long) {
+            return Long.compare((Long) key1, (Long) key2);
+        }
+        else if (key1 instanceof Number && key2 instanceof Number) {
+            return Double.compare(((Number) key1).doubleValue(), ((Number) key2).doubleValue());
+        }
+        else if (key1 instanceof Boolean && key2 instanceof Boolean) {
+            return Boolean.compare((Boolean) key1, (Boolean) key2);
+        }
+        else if (key1 instanceof Slice && key2 instanceof Slice) {
+            return ((Slice) key1).compareTo((Slice) key2);
+        }
+        else if (key1 instanceof String && key2 instanceof String) {
+            return ((String) key1).compareTo((String) key2);
+        }
+        else {
+            return key1.toString().compareTo(key2.toString());
+        }
     }
 
     private static Object getElementAtPosition(Type elementType, Block array, int position)
