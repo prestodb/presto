@@ -1547,26 +1547,26 @@ TEST_F(GeometryFunctionsTest, testStGeometryType) {
         }
       };
 
-  testStGeometryTypeFunc("POINT EMPTY", "Point");
-  testStGeometryTypeFunc("POINT (3 5)", "Point");
-  testStGeometryTypeFunc("LINESTRING EMPTY", "LineString");
-  testStGeometryTypeFunc("LINESTRING (1 1, 2 2, 3 3)", "LineString");
-  testStGeometryTypeFunc("LINEARRING EMPTY", "LineString");
-  testStGeometryTypeFunc("POLYGON EMPTY", "Polygon");
-  testStGeometryTypeFunc("POLYGON ((1 1, 4 1, 1 4, 1 1))", "Polygon");
-  testStGeometryTypeFunc("MULTIPOINT EMPTY", "MultiPoint");
-  testStGeometryTypeFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", "MultiPoint");
-  testStGeometryTypeFunc("MULTILINESTRING EMPTY", "MultiLineString");
+  testStGeometryTypeFunc("POINT EMPTY", "ST_Point");
+  testStGeometryTypeFunc("POINT (3 5)", "ST_Point");
+  testStGeometryTypeFunc("LINESTRING EMPTY", "ST_LineString");
+  testStGeometryTypeFunc("LINESTRING (1 1, 2 2, 3 3)", "ST_LineString");
+  testStGeometryTypeFunc("LINEARRING EMPTY", "ST_LineString");
+  testStGeometryTypeFunc("POLYGON EMPTY", "ST_Polygon");
+  testStGeometryTypeFunc("POLYGON ((1 1, 4 1, 1 4, 1 1))", "ST_Polygon");
+  testStGeometryTypeFunc("MULTIPOINT EMPTY", "ST_MultiPoint");
+  testStGeometryTypeFunc("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", "ST_MultiPoint");
+  testStGeometryTypeFunc("MULTILINESTRING EMPTY", "ST_MultiLineString");
   testStGeometryTypeFunc(
-      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", "MultiLineString");
-  testStGeometryTypeFunc("MULTIPOLYGON EMPTY", "MultiPolygon");
+      "MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", "ST_MultiLineString");
+  testStGeometryTypeFunc("MULTIPOLYGON EMPTY", "ST_MultiPolygon");
   testStGeometryTypeFunc(
       "MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))",
-      "MultiPolygon");
-  testStGeometryTypeFunc("GEOMETRYCOLLECTION EMPTY", "GeometryCollection");
+      "ST_MultiPolygon");
+  testStGeometryTypeFunc("GEOMETRYCOLLECTION EMPTY", "ST_GeomCollection");
   testStGeometryTypeFunc(
       "GEOMETRYCOLLECTION (POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)), GEOMETRYCOLLECTION (POINT (8 8), LINESTRING (5 5, 6 6), POLYGON ((1 1, 3 1, 3 4, 1 4, 1 1))))",
-      "GeometryCollection");
+      "ST_GeomCollection");
 }
 
 TEST_F(GeometryFunctionsTest, testStDistance) {

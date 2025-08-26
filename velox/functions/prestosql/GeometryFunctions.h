@@ -751,7 +751,12 @@ struct StGeometryTypeFunction {
     std::unique_ptr<geos::geom::Geometry> geosGeometry =
         geospatial::GeometryDeserializer::deserialize(input);
 
-    result = geosGeometry->getGeometryType();
+    if (geosGeometry->getGeometryTypeId() ==
+        geos::geom::GeometryTypeId::GEOS_GEOMETRYCOLLECTION) {
+      result = "ST_GeomCollection";
+    } else {
+      result = "ST_" + geosGeometry->getGeometryType();
+    }
 
     return Status::OK();
   }
