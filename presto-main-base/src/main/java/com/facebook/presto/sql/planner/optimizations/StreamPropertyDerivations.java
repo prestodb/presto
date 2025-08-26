@@ -226,9 +226,7 @@ public final class StreamPropertyDerivations
                 case INNER:
                     return probeProperties;
                 case SOURCE_OUTER:
-                    // the probe can contain nulls in any stream so we can't say anything about the
-                    // partitioning but the other properties of the probe will be maintained.
-                    return probeProperties.withUnspecifiedPartitioning();
+                    return probeProperties;
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
