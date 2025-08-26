@@ -281,6 +281,19 @@ SessionProperties::SessionProperties() {
       c.debugMemoryPoolNameRegex());
 
   addSessionProperty(
+      kDebugMemoryPoolWarnThresholdBytes,
+      "Warning threshold in bytes for debug memory pools. When set to a "
+      "non-zero value, a warning will be logged once per memory pool when "
+      "allocations cause the pool to exceed this threshold. This is useful for "
+      "identifying memory usage patterns during debugging. Requires allocation "
+      "tracking to be enabled with `native_debug_memory_pool_name_regex` "
+      "for the pool. A value of 0 means no warning threshold is enforced.",
+      BIGINT(),
+      false,
+      QueryConfig::kDebugMemoryPoolWarnThresholdBytes,
+      std::to_string(c.debugMemoryPoolWarnThresholdBytes()));
+
+  addSessionProperty(
       kSelectiveNimbleReaderEnabled,
       "Temporary flag to control whether selective Nimble reader should be "
       "used in this query or not.  Will be removed after the selective Nimble "

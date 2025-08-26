@@ -97,6 +97,29 @@ If set to ``true``, disables the optimization in expression evaluation to delay 
 
 This should only be used for debugging purposes.
 
+``native_debug_memory_pool_name_regex``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Regular expression pattern to match memory pool names for allocation callsite tracking.
+Matched pools will also perform leak checks at destruction. Empty string disables tracking.
+
+This should only be used for debugging purposes.
+
+``native_debug_memory_pool_warn_threshold_bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``0``
+
+Native Execution only. Warning threshold for memory pool allocations. Logs callsites when exceeded.
+Requires allocation tracking to be enabled with ``native_debug_memory_pool_name_regex``.
+Accepts B/KB/MB/GB units. Set to 0B to disable.
+
+This should only be used for debugging purposes.
+
 ``native_execution_type_rewrite_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

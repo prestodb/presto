@@ -53,6 +53,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
     public static final String NATIVE_DEBUG_MEMORY_POOL_NAME_REGEX = "native_debug_memory_pool_name_regex";
+    public static final String NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES = "native_debug_memory_pool_warn_threshold_bytes";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
@@ -212,6 +213,15 @@ public class NativeWorkerSessionPropertyProvider
                                 " memory pools whose name matches the specified regular expression. Empty" +
                                 " string means no match for all.",
                         "",
+                        true),
+                stringProperty(
+                        NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES,
+                        "Warning threshold in bytes for debug memory pools. When set to a " +
+                                "non-zero value, a warning will be logged once per memory pool when " +
+                                "allocations cause the pool to exceed this threshold. This is useful for " +
+                                "identifying memory usage patterns during debugging. A value of " +
+                                "0 means no warning threshold is enforced.",
+                        "0B",
                         true),
                 booleanProperty(
                         NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
