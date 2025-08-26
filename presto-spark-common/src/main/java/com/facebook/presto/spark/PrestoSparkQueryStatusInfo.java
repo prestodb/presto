@@ -53,7 +53,7 @@ public class PrestoSparkQueryStatusInfo
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") Optional<QueryError> error,
             @JsonProperty("warnings") List<PrestoWarning> warnings,
-            @JsonProperty("updateType") Optional<UpdateInfo> updateInfo,
+            @JsonProperty("updateInfo") Optional<UpdateInfo> updateInfo,
             @JsonProperty("updateCount") OptionalLong updateCount)
     {
         this.id = requireNonNull(id, "id is null");

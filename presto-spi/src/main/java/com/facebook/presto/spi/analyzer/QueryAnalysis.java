@@ -27,7 +27,7 @@ import java.util.Set;
 public interface QueryAnalysis
 {
     /**
-     * Returns information about the type of Update
+     * Returns information about the type of update operation
      *
      * @return a String representing the type of update (e.g., "INSERT", "CREATE TABLE", "DELETE", etc)
      */
