@@ -442,7 +442,7 @@ ExceptionContext& getExceptionContext();
 /// exception context with the previous context held by the thread_local
 /// variable to allow retrieving the top-level context when there is an
 /// exception context hierarchy.
-class ExceptionContextSetter {
+class [[nodiscard]] ExceptionContextSetter {
  public:
   explicit ExceptionContextSetter(ExceptionContext value)
       : prev_{getExceptionContext()} {
