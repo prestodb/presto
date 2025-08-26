@@ -24,8 +24,8 @@ import com.nimbusds.jose.util.Resource;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
-
 import jakarta.ws.rs.core.UriBuilder;
+
 import javax.inject.Inject;
 
 import java.io.IOException;

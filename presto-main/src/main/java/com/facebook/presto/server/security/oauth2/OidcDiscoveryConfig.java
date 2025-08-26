@@ -16,7 +16,6 @@ package com.facebook.presto.server.security.oauth2;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.Duration;
-
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;

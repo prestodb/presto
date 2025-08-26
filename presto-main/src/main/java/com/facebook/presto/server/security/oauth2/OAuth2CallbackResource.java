@@ -14,7 +14,7 @@
 package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.airlift.log.Logger;
-
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.GET;
@@ -22,16 +22,16 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
+
 import javax.inject.Inject;
 
 import static com.facebook.presto.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getSchemeUriBuilder;
-import static java.util.Objects.requireNonNull;
 import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static java.util.Objects.requireNonNull;
 
 @Path(OAuth2CallbackResource.CALLBACK_ENDPOINT)
 public class OAuth2CallbackResource

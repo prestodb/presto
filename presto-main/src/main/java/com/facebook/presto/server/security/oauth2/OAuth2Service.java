@@ -17,12 +17,12 @@ import com.facebook.airlift.log.Logger;
 import com.google.common.io.Resources;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
+
 import javax.inject.Inject;
 
 import java.io.IOException;
@@ -44,12 +44,12 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
-import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
-import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
 
 public class OAuth2Service
 {

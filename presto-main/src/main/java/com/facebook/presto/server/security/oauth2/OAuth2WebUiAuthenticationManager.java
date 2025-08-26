@@ -17,13 +17,13 @@ import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.server.security.WebUiAuthenticationManager;
 import com.facebook.presto.server.security.oauth2.TokenPairSerializer.TokenPair;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.core.UriBuilder;
+
 import javax.inject.Inject;
 
 import java.io.IOException;
