@@ -30,8 +30,7 @@ import com.facebook.presto.server.security.oauth2.OAuth2WebUiAuthenticationManag
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-
-import javax.servlet.Filter;
+import jakarta.servlet.Filter;
 
 import java.util.List;
 
