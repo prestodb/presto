@@ -17,8 +17,8 @@ import com.facebook.presto.server.MockHttpServletRequest;
 import com.google.common.collect.ImmutableListMultimap;
 import org.testng.annotations.Test;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.core.UriBuilder;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.core.UriBuilder;
 
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getSchemeUriBuilder;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;

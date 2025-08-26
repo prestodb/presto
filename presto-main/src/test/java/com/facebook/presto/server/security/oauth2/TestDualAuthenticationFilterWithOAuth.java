@@ -43,11 +43,11 @@ import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static io.airlift.units.Duration.nanosSince;
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.io.File.createTempFile;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.ws.rs.core.Response.Status.OK;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDualAuthenticationFilterWithOAuth

@@ -27,9 +27,9 @@ import com.google.inject.TypeLiteral;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.net.URI;
@@ -41,11 +41,11 @@ import java.util.Optional;
 import static com.facebook.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
 import static com.facebook.presto.server.security.oauth2.BaseOAuth2AuthenticationFilterTest.PRESTO_CLIENT_ID;
 import static com.facebook.presto.server.security.oauth2.BaseOAuth2AuthenticationFilterTest.PRESTO_CLIENT_SECRET;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

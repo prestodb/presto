@@ -19,9 +19,9 @@ import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
 import org.apache.commons.lang3.StringUtils;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import javax.inject.Inject;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.security.Principal;
