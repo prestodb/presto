@@ -14,19 +14,20 @@ add_library(presto_type_converter OBJECT TypeParser.cpp)
 target_link_libraries(presto_type_converter velox_type_parser)
 
 add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
-target_link_libraries(presto_velox_expr_conversion velox_presto_types
-                      velox_vector velox_exception)
+target_link_libraries(presto_velox_expr_conversion
+                      PRIVATE velox_presto_types velox_vector velox_exception)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  target_link_libraries(presto_velox_expr_conversion
+                        PRIVATE presto_functions_remote)
+endif()
 
 add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp
                          PrestoToVeloxSplit.cpp)
 target_link_libraries(
   presto_types
-  presto_velox_expr_conversion
-  presto_connectors
-  presto_operators
-  presto_type_converter
-  velox_type
-  velox_type_fbhive)
+  PRIVATE presto_velox_expr_conversion presto_connectors presto_operators
+          presto_type_converter velox_type velox_type_fbhive)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
