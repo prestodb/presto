@@ -20,7 +20,7 @@ namespace facebook::velox::exec {
 
 namespace {
 const auto& blockingReasonNames() {
-  static const folly::F14FastMap<BlockingReason, std::string> kNames = {
+  static const folly::F14FastMap<BlockingReason, std::string_view> kNames = {
       {BlockingReason::kNotBlocked, "kNotBlocked"},
       {BlockingReason::kWaitForConsumer, "kWaitForConsumer"},
       {BlockingReason::kWaitForSplit, "kWaitForSplit"},
