@@ -19,8 +19,8 @@ import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.units.Duration;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-
 import jakarta.validation.constraints.NotEmpty;
+
 import javax.crypto.SecretKey;
 
 import static com.google.common.base.Strings.isNullOrEmpty;

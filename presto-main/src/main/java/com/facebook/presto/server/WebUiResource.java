@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.server.security.oauth2.OAuthWebUiCookie;
-
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -29,7 +28,6 @@ import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getLastURLParameter;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
-import static jakarta.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
 
 @Path("/")
 @RolesAllowed(ADMIN)
