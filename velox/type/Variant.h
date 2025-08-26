@@ -574,6 +574,25 @@ class Variant {
     return values;
   }
 
+  /// Returns a std::map of primitive keys to optional std::vector of optional
+  /// primitive values. Null values are returned as unset optional.
+  template <typename K, typename V>
+  std::map<K, std::optional<std::vector<std::optional<V>>>>
+  nullableMapOfArrays() const {
+    const auto& variants = value<TypeKind::MAP>();
+
+    std::map<K, std::optional<std::vector<std::optional<V>>>> values;
+    for (const auto& [k, v] : variants) {
+      if (v.isNull()) {
+        values.emplace(k.template value<K>(), std::nullopt);
+      } else {
+        values.emplace(k.template value<K>(), v.template nullableArray<V>());
+      }
+    }
+
+    return values;
+  }
+
   /// Returns a std::vector of Variants.
   const std::vector<Variant>& array() const {
     return value<TypeKind::ARRAY>();
@@ -626,6 +645,27 @@ class Variant {
 
     for (const auto& v : variants) {
       values.emplace_back(v.template array<T>());
+    }
+
+    return values;
+  }
+
+  /// Returns a std::vector of std::vector of primitive values.Null values are
+  /// returned as unset optional.
+  template <typename T>
+  std::vector<std::optional<std::vector<std::optional<T>>>>
+  nullableArrayOfArrays() const {
+    const auto& variants = value<TypeKind::ARRAY>();
+
+    std::vector<std::optional<std::vector<std::optional<T>>>> values;
+    values.reserve(variants.size());
+
+    for (const auto& v : variants) {
+      if (v.isNull()) {
+        values.emplace_back(std::nullopt);
+      } else {
+        values.emplace_back(v.template nullableArray<T>());
+      }
     }
 
     return values;

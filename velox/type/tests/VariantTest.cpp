@@ -868,5 +868,81 @@ TEST(VariantTest, mapOfArraysGetter) {
       {{"a", {1, 2}}, {"b", {}}, {"c", {3}}});
 }
 
+template <typename T>
+void testNullableArrayOfArraysGetter(
+    const std::vector<std::optional<std::vector<std::optional<T>>>>& inputs) {
+  std::vector<Variant> variants;
+  variants.reserve(inputs.size());
+  for (const auto& arrOpt : inputs) {
+    if (!arrOpt.has_value()) {
+      variants.emplace_back(Variant::null(TypeKind::ARRAY));
+    } else {
+      std::vector<Variant> innerVariants;
+      innerVariants.reserve(arrOpt->size());
+      for (const auto& vOpt : *arrOpt) {
+        if (vOpt.has_value()) {
+          innerVariants.emplace_back(*vOpt);
+        } else {
+          innerVariants.emplace_back(Variant::null(CppToType<T>::typeKind));
+        }
+      }
+      variants.emplace_back(Variant::array(innerVariants));
+    }
+  }
+  auto value = Variant::array(variants);
+  EXPECT_FALSE(value.isNull());
+  auto primitiveItems = value.template nullableArrayOfArrays<T>();
+  EXPECT_EQ(primitiveItems, inputs);
+}
+
+TEST(VariantTest, nullableArrayOfArraysGetter) {
+  testNullableArrayOfArraysGetter<int32_t>(
+      {std::nullopt,
+       std::vector<std::optional<int32_t>>{1, std::nullopt, 3},
+       std::vector<std::optional<int32_t>>{},
+       std::vector<std::optional<int32_t>>{std::nullopt, 2}});
+  testNullableArrayOfArraysGetter<double>(
+      {std::vector<std::optional<double>>{1.1, std::nullopt},
+       std::nullopt,
+       std::vector<std::optional<double>>{3.3}});
+}
+
+template <typename K, typename V>
+void testNullableMapOfArraysGetter(
+    const std::map<K, std::optional<std::vector<std::optional<V>>>>& inputs) {
+  std::map<Variant, Variant> variants;
+  for (const auto& [k, arrOpt] : inputs) {
+    if (!arrOpt.has_value()) {
+      variants.emplace(k, Variant::null(TypeKind::ARRAY));
+    } else {
+      std::vector<Variant> innerVariants;
+      innerVariants.reserve(arrOpt->size());
+      for (const auto& vOpt : *arrOpt) {
+        if (vOpt.has_value()) {
+          innerVariants.emplace_back(*vOpt);
+        } else {
+          innerVariants.emplace_back(Variant::null(CppToType<V>::typeKind));
+        }
+      }
+      variants.emplace(k, Variant::array(innerVariants));
+    }
+  }
+  auto value = Variant::map(variants);
+  EXPECT_FALSE(value.isNull());
+  auto primitiveItems = value.template nullableMapOfArrays<K, V>();
+  EXPECT_EQ(primitiveItems, inputs);
+}
+
+TEST(VariantTest, nullableMapOfArraysGetter) {
+  testNullableMapOfArraysGetter<int32_t, float>(
+      {{1, std::nullopt},
+       {2, std::vector<std::optional<float>>{1.1f, std::nullopt}},
+       {3, std::vector<std::optional<float>>{}}});
+  testNullableMapOfArraysGetter<std::string, int64_t>(
+      {{"a", std::vector<std::optional<int64_t>>{1, std::nullopt}},
+       {"b", std::nullopt},
+       {"c", std::vector<std::optional<int64_t>>{3}}});
+}
+
 } // namespace
 } // namespace facebook::velox
