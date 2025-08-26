@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.spi.PrestoWarning;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -40,5 +41,5 @@ public interface ResultsSession<T>
 
     void addResults(QueryStatusInfo statusInfo, QueryData data);
 
-    T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties);
+    T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties, @Nullable String startTransactionId, boolean clearTransactionId);
 }

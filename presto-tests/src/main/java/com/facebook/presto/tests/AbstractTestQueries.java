@@ -3223,7 +3223,8 @@ public abstract class AbstractTestQueries
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+                        "resetSessionProperties=[], updateType=SET SESSION, " +
+                        "clearTransactionId=false}");
     }
 
     @Test

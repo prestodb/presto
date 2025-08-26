@@ -184,6 +184,12 @@ public class TestSingleStoreDistributedQueries
     }
 
     @Override
+    public void testClearTransactionId()
+    {
+        // Catalog singlestore only supports writes using autocommit
+    }
+
+    @Override
     public void testInsert()
     {
         // no op -- test not supported due to lack of support for array types.  See

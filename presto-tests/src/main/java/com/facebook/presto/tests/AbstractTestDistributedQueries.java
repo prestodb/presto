@@ -250,6 +250,41 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testClearTransactionId()
+    {
+        assertUpdate("create table test_clear_transaction_id_table(a int, b varchar)");
+        assertUpdate("insert into test_clear_transaction_id_table values(1, '1001'), (2, '1002')", 2);
+        Session session = getQueryRunner().getDefaultSession();
+        String defaultCatalog = session.getCatalog().get();
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(Session.builder(session)
+                                .setIdentity(new Identity("admin",
+                                        Optional.empty(),
+                                        ImmutableMap.of(defaultCatalog, new SelectedRole(ROLE, Optional.of("admin"))),
+                                        ImmutableMap.of(),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                                .build(),
+                        txnSession -> {
+                            MaterializedResult result = computeActual(txnSession, "select * from test_clear_transaction_id_table");
+                            assertEquals(result.getRowCount(), 2);
+                            assertFalse(result.isClearTransactionId());
+
+                            result = computeActual(txnSession, "insert into test_clear_transaction_id_table values(1, '1001'), (2, '1002')");
+                            assertEquals(result.getOnlyValue(), 2L);
+                            assertFalse(result.isClearTransactionId());
+
+                            // `Rollback` executes successfully, and the client gets a flag `clearTransactionId = true`
+                            result = computeActual(txnSession, "rollback");
+                            assertTrue(result.isClearTransactionId());
+                        });
+
+        assertQuery("select * from test_clear_transaction_id_table", "values(1, '1001'), (2, '1002')");
+        assertUpdate("drop table if exists test_clear_transaction_id_table");
+    }
+
+    @Test
     public void testNonAutoCommitTransactionWithFailAndRollback()
     {
         assertUpdate("create table test_non_autocommit_table(a int, b varchar)");
@@ -276,7 +311,8 @@ public abstract class AbstractTestDistributedQueries
                             assertQueryFails(txnSession, "create table test_table(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
 
                             // execute `rollback` successfully
-                            assertUpdate(txnSession, "rollback");
+                            MaterializedResult result = computeActual(txnSession, "rollback");
+                            assertTrue(result.isClearTransactionId());
                         });
 
         assertQuery("select count(*) from test_non_autocommit_table", "values(0)");
