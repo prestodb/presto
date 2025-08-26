@@ -219,6 +219,21 @@ TEST_F(S3FileSystemTest, logLocation) {
   checkLogPrefix(expected);
 }
 
+TEST_F(S3FileSystemTest, mkdir) {
+  const auto bucketName = "mkdir";
+  const auto file = "mkdir-test.txt";
+  const auto filename = localPath(bucketName) + "/" + file;
+  const auto s3File = s3URI(bucketName, file);
+  addBucket(bucketName);
+
+  auto hiveConfig = minioServer_->hiveConfig();
+  filesystems::S3FileSystem s3fs(bucketName, hiveConfig);
+
+  ASSERT_FALSE(s3fs.exists(s3File));
+  s3fs.mkdir(s3File);
+  ASSERT_TRUE(s3fs.exists(s3File));
+}
+
 TEST_F(S3FileSystemTest, writeFileAndRead) {
   const auto bucketName = "writedata";
   const auto file = "test.txt";

@@ -38,6 +38,7 @@
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/ListObjectsRequest.h>
+#include <aws/s3/model/PutObjectRequest.h>
 
 namespace facebook::velox::filesystems {
 namespace {
@@ -512,6 +513,24 @@ bool S3FileSystem::exists(std::string_view path) {
   request.SetKey(awsString(key));
 
   return impl_->s3Client()->HeadObject(request).IsSuccess();
+}
+
+void S3FileSystem::mkdir(
+    std::string_view path,
+    const DirectoryOptions& options) {
+  std::string bucket;
+  std::string key;
+  getBucketAndKeyFromPath(getPath(path), bucket, key);
+
+  Aws::S3::Model::PutObjectRequest request;
+  request.SetBucket(awsString(bucket));
+  request.SetKey(awsString(key));
+
+  VELOX_CHECK_AWS_OUTCOME(
+      impl_->s3Client()->PutObject(request),
+      "Failed to mkdir objects in S3 bucket",
+      bucket,
+      key);
 }
 
 } // namespace facebook::velox::filesystems
