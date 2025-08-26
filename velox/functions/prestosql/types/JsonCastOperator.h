@@ -57,8 +57,8 @@ class JsonCastOperator : public exec::CastOperator {
       const SelectivityVector& rows,
       BaseVector& result) const;
 
-  mutable folly::once_flag initializeErrors_;
-  mutable std::exception_ptr errors_[simdjson::NUM_ERROR_CODES];
+  inline static folly::once_flag initializeErrors_;
+  inline static std::exception_ptr errors_[simdjson::NUM_ERROR_CODES];
   mutable std::string paddedInput_;
 };
 } // namespace facebook::velox
