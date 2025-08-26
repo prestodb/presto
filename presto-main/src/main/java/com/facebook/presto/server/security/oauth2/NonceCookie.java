@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
-import org.apache.commons.lang3.StringUtils;
-
-import jakarta.ws.rs.core.Cookie;
+import jakarta.servlet.http.Cookie;
 import jakarta.ws.rs.core.NewCookie;
+import org.apache.commons.lang3.StringUtils;
 
 import java.time.Instant;
 import java.util.Date;
@@ -49,16 +48,15 @@ public final class NonceCookie
                 true);
     }
 
-    public static javax.servlet.http.Cookie createServletCookie(String nonce, Instant tokenExpiration)
+    public static Cookie createServletCookie(String nonce, Instant tokenExpiration)
     {
         return toServletCookie(create(nonce, tokenExpiration));
     }
 
-    public static javax.servlet.http.Cookie toServletCookie(NewCookie cookie)
+    public static Cookie toServletCookie(NewCookie cookie)
     {
-        javax.servlet.http.Cookie servletCookie = new javax.servlet.http.Cookie(cookie.getName(), cookie.getValue());
+        Cookie servletCookie = new Cookie(cookie.getName(), cookie.getValue());
         servletCookie.setPath(cookie.getPath());
-        servletCookie.setVersion(cookie.getVersion());
         servletCookie.setMaxAge(cookie.getMaxAge());
         servletCookie.setSecure(cookie.isSecure());
         servletCookie.setHttpOnly(cookie.isHttpOnly());

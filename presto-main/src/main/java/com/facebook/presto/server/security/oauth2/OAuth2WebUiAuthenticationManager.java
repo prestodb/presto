@@ -58,6 +58,7 @@ public class OAuth2WebUiAuthenticationManager
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
     }
 
+    @Override
     public void handleRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
             throws IOException, ServletException
     {
