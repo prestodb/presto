@@ -360,7 +360,8 @@ createSelectiveFlatMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     DwrfParams& params,
     common::ScanSpec& scanSpec) {
-  auto kind = fileType->childAt(0)->type()->kind();
+  VELOX_DCHECK(requestedType->isMap());
+  auto kind = requestedType->childAt(0)->kind();
   switch (kind) {
     case TypeKind::TINYINT:
       return createReader<int8_t>(
