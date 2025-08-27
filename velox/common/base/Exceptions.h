@@ -19,10 +19,10 @@
 #include <memory>
 #include <sstream>
 
-#include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <folly/Preprocessor.h>
 
+#include "velox/common/base/ExceptionHelper.h"
 #include "velox/common/base/FmtStdFormatters.h"
 #include "velox/common/base/VeloxException.h"
 
@@ -37,19 +37,6 @@ struct VeloxCheckFailArgs {
   const char* errorSource;
   const char* errorCode;
   bool isRetriable;
-};
-
-struct CompileTimeEmptyString {
-  CompileTimeEmptyString() = default;
-  constexpr operator const char*() const {
-    return "";
-  }
-  constexpr operator std::string_view() const {
-    return {};
-  }
-  operator std::string() const {
-    return {};
-  }
 };
 
 // veloxCheckFail is defined as a separate helper function rather than
@@ -131,46 +118,26 @@ struct VeloxCheckFailStringType<std::string> {
   template void veloxCheckFail<exception_type, const std::string&>(     \
       const VeloxCheckFailArgs& args, const std::string&);
 
-// When there is no message passed, we can statically detect this case
-// and avoid passing even a single unnecessary argument pointer,
-// minimizing size and thus maximizing eligibility for inlining.
-inline CompileTimeEmptyString errorMessage() {
-  return {};
-}
-
-inline const char* errorMessage(const char* s) {
-  return s;
-}
-
-inline std::string errorMessage(const std::string& str) {
-  return str;
-}
-
-template <typename... Args>
-std::string errorMessage(fmt::string_view fmt, const Args&... args) {
-  return fmt::vformat(fmt, fmt::make_format_args(args...));
-}
-
 } // namespace detail
 
-#define _VELOX_THROW_IMPL(                                               \
-    exception, exprStr, errorSource, errorCode, isRetriable, ...)        \
-  do {                                                                   \
-    /* GCC 9.2.1 doesn't accept this code with constexpr. */             \
-    static const ::facebook::velox::detail::VeloxCheckFailArgs           \
-        veloxCheckFailArgs = {                                           \
-            __FILE__,                                                    \
-            __LINE__,                                                    \
-            __FUNCTION__,                                                \
-            exprStr,                                                     \
-            errorSource,                                                 \
-            errorCode,                                                   \
-            isRetriable};                                                \
-    auto message = ::facebook::velox::detail::errorMessage(__VA_ARGS__); \
-    ::facebook::velox::detail::veloxCheckFail<                           \
-        exception,                                                       \
-        typename ::facebook::velox::detail::VeloxCheckFailStringType<    \
-            decltype(message)>::type>(veloxCheckFailArgs, message);      \
+#define _VELOX_THROW_IMPL(                                            \
+    exception, exprStr, errorSource, errorCode, isRetriable, ...)     \
+  do {                                                                \
+    /* GCC 9.2.1 doesn't accept this code with constexpr. */          \
+    static const ::facebook::velox::detail::VeloxCheckFailArgs        \
+        veloxCheckFailArgs = {                                        \
+            __FILE__,                                                 \
+            __LINE__,                                                 \
+            __FUNCTION__,                                             \
+            exprStr,                                                  \
+            errorSource,                                              \
+            errorCode,                                                \
+            isRetriable};                                             \
+    auto message = ::facebook::velox::errorMessage(__VA_ARGS__);      \
+    ::facebook::velox::detail::veloxCheckFail<                        \
+        exception,                                                    \
+        typename ::facebook::velox::detail::VeloxCheckFailStringType< \
+            decltype(message)>::type>(veloxCheckFailArgs, message);   \
   } while (0)
 
 #define _VELOX_CHECK_AND_THROW_IMPL(                                    \

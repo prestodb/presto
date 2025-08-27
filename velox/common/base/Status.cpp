@@ -115,4 +115,19 @@ void Status::warn(const std::string_view& message) const {
   LOG(WARNING) << message << ": " << toString();
 }
 
+std::string internal::generateError(std::string message, std::string exprStr) {
+  std::string elaborateMessage;
+  if (!message.empty()) {
+    elaborateMessage += "Reason: ";
+    elaborateMessage += message;
+    elaborateMessage += '\n';
+  }
+  if (!exprStr.empty()) {
+    elaborateMessage += "Expression: ";
+    elaborateMessage += exprStr;
+    elaborateMessage += '\n';
+  }
+  return elaborateMessage;
+}
+
 } // namespace facebook::velox
