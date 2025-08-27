@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -20,9 +21,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -43,6 +42,8 @@ public class HiveCommonSessionProperties
     public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     @VisibleForTesting
     public static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
+    @VisibleForTesting
+    public static final String ORC_USE_COLUMN_NAMES = "orc_use_column_names";
 
     public static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -155,6 +156,11 @@ public class HiveCommonSessionProperties
                         hiveCommonClientConfig.isZstdJniDecompressionEnabled(),
                         true),
                 booleanProperty(
+                        ORC_USE_COLUMN_NAMES,
+                        "Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data",
+                        hiveCommonClientConfig.isUseOrcColumnNames(),
+                        false),
+                booleanProperty(
                         PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
                         "Is Parquet batch read optimization enabled",
                         hiveCommonClientConfig.isParquetBatchReadOptimizationEnabled(),
@@ -261,6 +267,11 @@ public class HiveCommonSessionProperties
     public static boolean isOrcZstdJniDecompressionEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseOrcColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(ORC_USE_COLUMN_NAMES, Boolean.class);
     }
 
     public static boolean isParquetBatchReadsEnabled(ConnectorSession session)

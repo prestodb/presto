@@ -18,6 +18,7 @@ import com.facebook.presto.client.IntervalDayTime;
 import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.DecimalType;
@@ -35,13 +36,13 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.SqlIntervalDayTime;
 import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -112,14 +113,14 @@ public class TestingPrestoClient
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
-        private final AtomicReference<Optional<UpdateInfo>> updateInfo = new AtomicReference<>(Optional.empty());
+        private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(ImmutableList.of());
 
         @Override
-        public void setUpdateInfo(UpdateInfo type)
+        public void setUpdateType(String type)
         {
-            updateInfo.set(Optional.of(type));
+            updateType.set(Optional.of(type));
         }
 
         @Override
@@ -148,7 +149,7 @@ public class TestingPrestoClient
         }
 
         @Override
-        public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
+        public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties, @Nullable String startTransactionId, boolean clearTransactionId)
         {
             checkState(types.get() != null, "never received types for the query");
             return new MaterializedResult(
@@ -156,8 +157,10 @@ public class TestingPrestoClient
                     types.get(),
                     setSessionProperties,
                     resetSessionProperties,
-                    updateInfo.get(),
+                    updateType.get(),
                     updateCount.get(),
+                    Optional.ofNullable(startTransactionId).map(TransactionId::new),
+                    clearTransactionId,
                     warnings.get());
         }
     }

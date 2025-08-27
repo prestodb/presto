@@ -27,6 +27,22 @@ StructMap:
     fields:
       infoUnion: { field_name: info }
 
+  TableWriteInfo:
+    class_name: TableWriteInfo
+    fields:
+      writerTargetUnion: { field_name: writerTarget }
+
+  Type:
+    class_name: SelectedRoleType
+
+  RefreshMaterializedViewHandle:
+    class_name: InsertHandle
+
+  ExecutionWriterTargetUnion:
+    class_name: ExecutionWriterTargetUnion
+    fields:
+      refreshMaterializedViewHandle: { field_type: InsertHandle }
+
 SkipStruct:
   ExchangeClientStatus:
   PageBufferClientStatus:
@@ -52,15 +68,22 @@ WrapperStruct:
   HostAddress:
   TimeZoneKey:
 
+ConnectorStruct:
+  ConnectorTransactionHandle:
+  ConnectorOutputTableHandle:
+  ConnectorInsertTableHandle:
+  ConnectorDeleteTableHandle:
+  ConnectorTableHandle:
+  ConnectorTableLayoutHandle:
+  ConnectorSplit:
+
 Special:
-  ConnectorTransactionHandleWrapper:
-  ConnectorSplitWrapper:
+  ConnectorTransactionHandle:
+  ConnectorSplit:
   QualifiedObjectName:
   OperatorInfoUnion:
   OutputBufferId:
-  TableWriteInfoWrapper:
   TaskId:
-  Type:
   TypeSignature:
 
 StructInProtocolCore:

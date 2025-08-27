@@ -122,6 +122,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
   }
+  if (type == "rest") {
+    j = *std::static_pointer_cast<RestFunctionHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type FunctionHandle ");
 }
@@ -158,6 +162,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
   if (type == "sql_function_handle") {
     std::shared_ptr<SqlFunctionHandle> k =
         std::make_shared<SqlFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "rest") {
+    std::shared_ptr<RestFunctionHandle> k =
+        std::make_shared<RestFunctionHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<FunctionHandle>(k);
     return;
@@ -2263,6 +2274,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<DeleteHandle>(p);
     return;
   }
+  if (type == "UpdateHandle") {
+    j = *std::static_pointer_cast<UpdateHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type ExecutionWriterTarget ");
 }
@@ -2297,6 +2312,12 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
   }
   if (type == "DeleteHandle") {
     std::shared_ptr<DeleteHandle> k = std::make_shared<DeleteHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "UpdateHandle") {
+    std::shared_ptr<UpdateHandle> k = std::make_shared<UpdateHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -2773,6 +2794,45 @@ void from_json(const json& j, BufferInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<BuiltInFunctionKind, json>
+    BuiltInFunctionKind_enum_table[] = { // NOLINT: cert-err58-cpp
+        {BuiltInFunctionKind::ENGINE, "ENGINE"},
+        {BuiltInFunctionKind::PLUGIN, "PLUGIN"}};
+void to_json(json& j, const BuiltInFunctionKind& e) {
+  static_assert(
+      std::is_enum<BuiltInFunctionKind>::value,
+      "BuiltInFunctionKind must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(BuiltInFunctionKind_enum_table),
+      std::end(BuiltInFunctionKind_enum_table),
+      [e](const std::pair<BuiltInFunctionKind, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(BuiltInFunctionKind_enum_table))
+           ? it
+           : std::begin(BuiltInFunctionKind_enum_table))
+          ->second;
+}
+void from_json(const json& j, BuiltInFunctionKind& e) {
+  static_assert(
+      std::is_enum<BuiltInFunctionKind>::value,
+      "BuiltInFunctionKind must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(BuiltInFunctionKind_enum_table),
+      std::end(BuiltInFunctionKind_enum_table),
+      [&j](const std::pair<BuiltInFunctionKind, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(BuiltInFunctionKind_enum_table))
+           ? it
+           : std::begin(BuiltInFunctionKind_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 BuiltInFunctionHandle::BuiltInFunctionHandle() noexcept {
   _type = "$static";
 }
@@ -2787,6 +2847,13 @@ void to_json(json& j, const BuiltInFunctionHandle& p) {
       "BuiltInFunctionHandle",
       "Signature",
       "signature");
+  to_json_key(
+      j,
+      "builtInFunctionKind",
+      p.builtInFunctionKind,
+      "BuiltInFunctionHandle",
+      "BuiltInFunctionKind",
+      "builtInFunctionKind");
 }
 
 void from_json(const json& j, BuiltInFunctionHandle& p) {
@@ -2798,6 +2865,13 @@ void from_json(const json& j, BuiltInFunctionHandle& p) {
       "BuiltInFunctionHandle",
       "Signature",
       "signature");
+  from_json_key(
+      j,
+      "builtInFunctionKind",
+      p.builtInFunctionKind,
+      "BuiltInFunctionHandle",
+      "BuiltInFunctionKind",
+      "builtInFunctionKind");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -5681,6 +5755,13 @@ void to_json(json& j, const IndexJoinNode& p) {
       "IndexJoinNode",
       "VariableReferenceExpression",
       "indexHashVariable");
+  to_json_key(
+      j,
+      "lookupVariables",
+      p.lookupVariables,
+      "IndexJoinNode",
+      "List<VariableReferenceExpression>",
+      "lookupVariables");
 }
 
 void from_json(const json& j, IndexJoinNode& p) {
@@ -5729,6 +5810,13 @@ void from_json(const json& j, IndexJoinNode& p) {
       "IndexJoinNode",
       "VariableReferenceExpression",
       "indexHashVariable");
+  from_json_key(
+      j,
+      "lookupVariables",
+      p.lookupVariables,
+      "IndexJoinNode",
+      "List<VariableReferenceExpression>",
+      "lookupVariables");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -6945,6 +7033,7 @@ void from_json(const json& j, MergeJoinNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
 void to_json(json& j, const NodeVersion& p) {
   j = json::object();
   to_json_key(j, "version", p.version, "NodeVersion", "String", "version");
@@ -8710,6 +8799,66 @@ void from_json(const json& j, RemoteTransactionHandle& p) {
   p._type = j["@type"];
   from_json_key(
       j, "dummy", p.dummy, "RemoteTransactionHandle", "String", "dummy");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+RestFunctionHandle::RestFunctionHandle() noexcept {
+  _type = "rest";
+}
+
+void to_json(json& j, const RestFunctionHandle& p) {
+  j = json::object();
+  j["@type"] = "rest";
+  to_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "RestFunctionHandle",
+      "SqlFunctionId",
+      "functionId");
+  to_json_key(
+      j, "version", p.version, "RestFunctionHandle", "String", "version");
+  to_json_key(
+      j,
+      "signature",
+      p.signature,
+      "RestFunctionHandle",
+      "Signature",
+      "signature");
+  to_json_key(
+      j,
+      "executionEndpoint",
+      p.executionEndpoint,
+      "RestFunctionHandle",
+      "URI",
+      "executionEndpoint");
+}
+
+void from_json(const json& j, RestFunctionHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "functionId",
+      p.functionId,
+      "RestFunctionHandle",
+      "SqlFunctionId",
+      "functionId");
+  from_json_key(
+      j, "version", p.version, "RestFunctionHandle", "String", "version");
+  from_json_key(
+      j,
+      "signature",
+      p.signature,
+      "RestFunctionHandle",
+      "Signature",
+      "signature");
+  from_json_key(
+      j,
+      "executionEndpoint",
+      p.executionEndpoint,
+      "RestFunctionHandle",
+      "URI",
+      "executionEndpoint");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -11227,9 +11376,13 @@ void from_json(const json& j, UnnestNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+UpdateHandle::UpdateHandle() noexcept {
+  _type = "UpdateHandle";
+}
 
 void to_json(json& j, const UpdateHandle& p) {
   j = json::object();
+  j["@type"] = "UpdateHandle";
   to_json_key(j, "handle", p.handle, "UpdateHandle", "TableHandle", "handle");
   to_json_key(
       j,
@@ -11241,6 +11394,7 @@ void to_json(json& j, const UpdateHandle& p) {
 }
 
 void from_json(const json& j, UpdateHandle& p) {
+  p._type = j["@type"];
   from_json_key(j, "handle", p.handle, "UpdateHandle", "TableHandle", "handle");
   from_json_key(
       j,

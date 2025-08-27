@@ -15,16 +15,15 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
-import io.airlift.units.DataSize;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.NotNull;
-
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HiveCommonClientConfig
 {
@@ -38,6 +37,7 @@ public class HiveCommonClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
     private double orcWriterValidationPercentage;
+    private boolean useOrcColumnNames;
     private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private boolean parquetBatchReadOptimizationEnabled;
     private boolean parquetEnableBatchReaderVerification;
@@ -181,6 +181,19 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
     {
         this.orcWriterValidationPercentage = orcWriterValidationPercentage;
+        return this;
+    }
+
+    public boolean isUseOrcColumnNames()
+    {
+        return useOrcColumnNames;
+    }
+
+    @Config("hive.orc.use-column-names")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
+    public HiveCommonClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    {
+        this.useOrcColumnNames = useOrcColumnNames;
         return this;
     }
 

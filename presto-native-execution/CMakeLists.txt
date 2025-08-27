@@ -54,7 +54,7 @@ option(PRESTO_ENABLE_GCS "Build GCS support" OFF)
 option(PRESTO_ENABLE_ABFS "Build ABFS support" OFF)
 
 # Forwards user input to VELOX_ENABLE_PARQUET.
-option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
+option(PRESTO_ENABLE_PARQUET "Enable Parquet support" ON)
 
 # Forwards user input to VELOX_ENABLE_CUDF.
 option(PRESTO_ENABLE_CUDF "Enable cuDF support" OFF)
@@ -69,6 +69,8 @@ option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
+
+option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 
 # Set all Velox options below and make sure that if we include folly headers or
 # other dependency headers that include folly headers we turn off the coroutines
@@ -120,6 +122,12 @@ if(PRESTO_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
+endif()
+
+if(PRESTO_ENABLE_SPATIAL)
+  set(VELOX_ENABLE_GEO
+      ON
+      CACHE BOOL "Enable Velox Geometry (aka spatial) support")
 endif()
 
 set(VELOX_BUILD_TESTING

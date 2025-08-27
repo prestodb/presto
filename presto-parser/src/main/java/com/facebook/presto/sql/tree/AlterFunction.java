@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -79,12 +78,6 @@ public class AlterFunction
     public int hashCode()
     {
         return Objects.hash(functionName, parameterTypes, characteristics);
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("ALTER FUNCTION", functionName.toString());
     }
 
     @Override

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
 {
@@ -33,6 +33,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitExpression(Expression node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitEmptyTableTreatment(EmptyTableTreatment node, C context)
     {
         return visitNode(node, context);
     }
@@ -857,6 +862,36 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitExternalBodyReference(ExternalBodyReference node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitTableFunctionArgument(TableFunctionArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableArgument(TableFunctionTableArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptorArgument(TableFunctionDescriptorArgument node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptor(Descriptor node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitDescriptorField(DescriptorField node, C context)
     {
         return visitNode(node, context);
     }

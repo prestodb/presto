@@ -36,9 +36,28 @@ void fromThrift(const double& thrift, facebook::presto::protocol::DataSize& data
 {{&hinc}}
 {{/hinc}}
 {{^hinc}}
+{{#connector}}
+void toThrift(const std::shared_ptr<facebook::presto::protocol::{{class_name}}>& proto, {{class_name}}& thrift);
+void fromThrift(const {{class_name}}& thrift, std::shared_ptr<facebook::presto::protocol::{{class_name}}>& proto);
+
+{{/connector}}
+{{#union}}
+void toThrift(
+    const std::shared_ptr<facebook::presto::protocol::{{proto_name}}>& proto,
+    apache::thrift::optional_field_ref<{{class_name}}&> thrift);
+void toThrift(
+    const std::shared_ptr<facebook::presto::protocol::{{proto_name}}>& proto,
+    {{class_name}}& thrift);
+void fromThrift(
+    apache::thrift::optional_field_ref<const {{class_name}}&> thrift,
+    std::shared_ptr<facebook::presto::protocol::{{proto_name}}>& proto);
+void fromThrift(
+    const {{class_name}}& thrift,
+    std::shared_ptr<facebook::presto::protocol::{{proto_name}}>& proto);
+{{/union}}
 {{#struct}}
-void toThrift(const facebook::presto::protocol::{{class_name}}& proto, {{class_name}}& thrift);
-void fromThrift(const {{&class_name}}& thrift, facebook::presto::protocol::{{class_name}}& proto);
+void toThrift(const facebook::presto::protocol::{{class_name}}& proto, {{&class_name}}& thrift);
+void fromThrift(const {{&class_name}}& thrift, facebook::presto::protocol::{{#proto_name}}{{proto_name}}{{/proto_name}}{{^proto_name}}{{class_name}}{{/proto_name}}& proto);
 
 {{/struct}}
 {{#wrapper}}

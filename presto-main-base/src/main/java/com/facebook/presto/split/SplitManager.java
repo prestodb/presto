@@ -29,8 +29,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;

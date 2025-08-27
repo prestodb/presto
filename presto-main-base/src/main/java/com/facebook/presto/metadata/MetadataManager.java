@@ -88,8 +88,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -244,7 +243,7 @@ public class MetadataManager
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, new TableFunctionRegistry(), blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
@@ -301,6 +300,12 @@ public class MetadataManager
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         functionAndTypeManager.registerBuiltInFunctions(functionInfos);
+    }
+
+    @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        functionAndTypeManager.registerConnectorFunctions(catalogName, functionInfos);
     }
 
     @Override
@@ -571,9 +576,11 @@ public class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                        .map(name -> new QualifiedObjectName(
+                                name.getCatalogName(),
                                 normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName()),
-                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName()))))
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName())))
+                        .filter(prefix::matches)
                         .forEach(tables::add);
             }
         }
@@ -996,9 +1003,11 @@ public class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                        .map(name -> new QualifiedObjectName(
+                                name.getCatalogName(),
                                 normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName()),
-                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName()))))
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName())))
+                        .filter(prefix::matches)
                         .forEach(views::add);
             }
         }

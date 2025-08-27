@@ -14,8 +14,10 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.ExpectedQueryRunner;
@@ -29,7 +31,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.tpch.TpchTable;
-import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
@@ -39,14 +40,16 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public final class QueryAssertions
@@ -55,6 +58,37 @@ public final class QueryAssertions
 
     private QueryAssertions()
     {
+    }
+
+    public static Session assertStartTransaction(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    {
+        MaterializedResult results = queryRunner.execute(session, sql);
+        if (!results.getUpdateType().isPresent()) {
+            fail("update type is not set");
+        }
+        if (!results.getUpdateType().get().equals("START TRANSACTION")) {
+            fail("not a start transaction statement");
+        }
+        assertTrue(results.getStartedTransactionId().isPresent());
+        assertFalse(results.isClearTransactionId());
+
+        TransactionId transactionId = results.getStartedTransactionId().get();
+        return session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+    }
+
+    public static Session assertEndTransaction(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    {
+        MaterializedResult results = queryRunner.execute(session, sql);
+        if (!results.getUpdateType().isPresent()) {
+            fail("update type is not set");
+        }
+        if (!results.getUpdateType().get().equals("ROLLBACK") && !results.getUpdateType().get().equals("COMMIT")) {
+            fail("not a end transaction statement");
+        }
+        assertTrue(results.isClearTransactionId());
+        assertFalse(results.getStartedTransactionId().isPresent());
+
+        return session.clearTransaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl());
     }
 
     public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
@@ -80,7 +114,7 @@ public final class QueryAssertions
             planAssertion.get().accept(queryPlan);
         }
 
-        if (!results.getUpdateInfo().isPresent()) {
+        if (!results.getUpdateType().isPresent()) {
             fail("update type is not set");
         }
 
@@ -197,8 +231,8 @@ public final class QueryAssertions
             log.info("FINISHED in presto: %s, expected: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
         }
 
-        if (actualResults.getUpdateInfo().isPresent() || actualResults.getUpdateCount().isPresent()) {
-            if (!actualResults.getUpdateInfo().isPresent()) {
+        if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
+            if (!actualResults.getUpdateType().isPresent()) {
                 fail("update count present without update type for query: \n" + actual);
             }
             if (!compareUpdate) {
@@ -210,7 +244,7 @@ public final class QueryAssertions
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
         if (compareUpdate) {
-            if (!actualResults.getUpdateInfo().isPresent()) {
+            if (!actualResults.getUpdateType().isPresent()) {
                 fail("update type not present for query: \n" + actual);
             }
             if (!actualResults.getUpdateCount().isPresent()) {

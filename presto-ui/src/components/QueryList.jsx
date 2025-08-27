@@ -505,7 +505,7 @@ export const QueryList = () => {
 
     useEffect(() => {
         refreshLoop();
-        $('[data-bs-toggle="tooltip"]')?.tooltip?.()
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
 
         return () => {
             clearTimeout(timeoutId.current);

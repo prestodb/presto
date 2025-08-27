@@ -17,11 +17,11 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.TypeLiteral;
+import jakarta.inject.Inject;
 import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.sql.DriverManager;
@@ -36,9 +36,11 @@ public class MySqlConnectionModule
     {
         configBinder(binder).bindConfig(MySqlConnectionConfig.class);
 
-        String databaseUrl = buildConfigObject(MySqlConnectionConfig.class).getDatabaseUrl();
+        MySqlConnectionConfig mySqlConnectionConfig = buildConfigObject(MySqlConnectionConfig.class);
+        String databaseUrl = mySqlConnectionConfig.getDatabaseUrl();
+        String jdbcDriverName = mySqlConnectionConfig.getJdbcDriverName();
         try {
-            Class.forName("com.mysql.jdbc.Driver");
+            Class.forName(jdbcDriverName);
         }
         catch (ClassNotFoundException e) {
             throw new RuntimeException(e);

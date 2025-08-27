@@ -29,8 +29,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -160,7 +159,7 @@ public class SheetsMetadata
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, Optional.of(prefix.getSchemaName()))) {
+        for (SchemaTableName tableName : listTables(session, Optional.ofNullable(prefix.getSchemaName()))) {
             Optional<ConnectorTableMetadata> tableMetadata = getTableMetadata(session, tableName);
             // table can disappear during listing operation
             if (tableMetadata.isPresent()) {

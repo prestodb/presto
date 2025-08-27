@@ -14,11 +14,12 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class MySqlConnectionConfig
 {
+    private String jdbcDriverName = "com.mysql.jdbc.Driver";
+
     private String databaseUrl;
 
     @NotNull
@@ -31,6 +32,18 @@ public class MySqlConnectionConfig
     public MySqlConnectionConfig setDatabaseUrl(String databaseUrl)
     {
         this.databaseUrl = databaseUrl;
+        return this;
+    }
+
+    public String getJdbcDriverName()
+    {
+        return jdbcDriverName;
+    }
+
+    @Config("database-driver-name")
+    public MySqlConnectionConfig setJdbcDriverName(String jdbcDriverName)
+    {
+        this.jdbcDriverName = jdbcDriverName;
         return this;
     }
 }

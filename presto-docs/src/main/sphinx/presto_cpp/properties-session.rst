@@ -345,7 +345,7 @@ underlying file system.
 * **Default value:** ``false``
 
 Enable query tracing. After enabled, trace data will be generated with query execution, and
-can be used by TraceReplayer. It needs to be used together with native_query_trace_node_ids,
+can be used by TraceReplayer. It needs to be used together with native_query_trace_node_id,
 native_query_trace_max_bytes, native_query_trace_fragment_id, and native_query_trace_shard_id
 to match the task to be traced.
 
@@ -358,14 +358,13 @@ to match the task to be traced.
 
 The location to store the trace files.
 
-``native_query_trace_node_ids``
+``native_query_trace_node_id``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``varchar``
 * **Default value:** ``""``
 
-A comma-separated list of plan node ids whose input data will be traced.
-Empty string if only want to trace the query metadata.
+The plan node id whose input data will be traced.
 
 ``native_query_trace_max_bytes``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -488,3 +487,32 @@ This is used in global arbitration victim selection.
 
 Maximum number of splits to listen to by the SplitListener per table scan node per
 native worker.
+
+``native_index_lookup_join_max_prefetch_batches``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Specifies the max number of input batches to prefetch to do index lookup ahead.
+If it is zero, then process one input batch at a time.
+
+``native_index_lookup_join_split_output``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+If this is true, then the index join operator might split output for each input
+batch based on the output batch size control. Otherwise, it tries to produce a
+single output for each input batch.
+
+``native_unnest_split_output``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+If this is true, then the unnest operator might split output for each input
+batch based on the output batch size control. Otherwise, it produces a single
+output for each input batch.

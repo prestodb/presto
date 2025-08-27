@@ -292,13 +292,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -557,6 +553,15 @@ public class BuiltInTypeAndFunctionNamespaceManager
             Set<Type> types,
             FunctionAndTypeManager functionAndTypeManager)
     {
+        this(blockEncodingSerde, functionsConfig, types, functionAndTypeManager, true);
+    }
+    public BuiltInTypeAndFunctionNamespaceManager(
+            BlockEncodingSerde blockEncodingSerde,
+            FunctionsConfig functionsConfig,
+            Set<Type> types,
+            FunctionAndTypeManager functionAndTypeManager,
+            boolean registerFunctions)
+    {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
 
@@ -609,7 +614,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::instantiateParametricType));
 
-        registerBuiltInFunctions(getBuiltInFunctions(functionsConfig));
+        if (registerFunctions) {
+            registerBuiltInFunctions(getBuiltInFunctions(functionsConfig));
+        }
         registerBuiltInTypes(functionsConfig);
 
         for (Type type : requireNonNull(types, "types is null")) {
@@ -1394,44 +1401,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
     private static class EmptyTransactionHandle
             implements FunctionNamespaceTransactionHandle
     {
-    }
-
-    private static class FunctionMap
-    {
-        private final Multimap<QualifiedObjectName, SqlFunction> functions;
-
-        public FunctionMap()
-        {
-            functions = ImmutableListMultimap.of();
-        }
-
-        public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
-        {
-            this.functions = ImmutableListMultimap.<QualifiedObjectName, SqlFunction>builder()
-                    .putAll(map.functions)
-                    .putAll(Multimaps.index(functions, function -> function.getSignature().getName()))
-                    .build();
-
-            // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedObjectName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
-                Collection<SqlFunction> values = entry.getValue();
-                long aggregations = values.stream()
-                        .map(function -> function.getSignature().getKind())
-                        .filter(kind -> kind == AGGREGATE)
-                        .count();
-                checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
-            }
-        }
-
-        public List<SqlFunction> list()
-        {
-            return ImmutableList.copyOf(functions.values());
-        }
-
-        public Collection<SqlFunction> get(QualifiedObjectName name)
-        {
-            return functions.get(name);
-        }
     }
 
     /**

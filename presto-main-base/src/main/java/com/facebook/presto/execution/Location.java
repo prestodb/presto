@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -20,17 +23,20 @@ import java.net.URI;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class Location
 {
     private final String location;
 
     @JsonCreator
+    @ThriftConstructor
     public Location(@JsonProperty("location") String location)
     {
         this.location = requireNonNull(location, "location is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getLocation()
     {
         return location;

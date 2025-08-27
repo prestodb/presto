@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.writer;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 
 import static java.lang.Math.toIntExact;

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -29,6 +32,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TpcdsSplit
         implements ConnectorSplit
 {
@@ -39,6 +43,7 @@ public class TpcdsSplit
     private final boolean noSexism;
 
     @JsonCreator
+    @ThriftConstructor
     public TpcdsSplit(
             @JsonProperty("tableHandle") TpcdsTableHandle tableHandle,
             @JsonProperty("partNumber") int partNumber,
@@ -60,18 +65,21 @@ public class TpcdsSplit
     }
 
     @JsonProperty
+    @ThriftField(1)
     public TpcdsTableHandle getTableHandle()
     {
         return tableHandle;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public int getTotalParts()
     {
         return totalParts;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public int getPartNumber()
     {
         return partNumber;
@@ -90,6 +98,7 @@ public class TpcdsSplit
     }
 
     @JsonProperty
+    @ThriftField(4)
     public List<HostAddress> getAddresses()
     {
         return addresses;
@@ -102,6 +111,7 @@ public class TpcdsSplit
     }
 
     @JsonProperty
+    @ThriftField(5)
     public boolean isNoSexism()
     {
         return noSexism;

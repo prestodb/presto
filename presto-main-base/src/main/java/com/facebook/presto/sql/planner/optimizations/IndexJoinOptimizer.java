@@ -37,9 +37,9 @@ import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -64,6 +64,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
@@ -623,14 +624,18 @@ public class IndexJoinOptimizer
             if (SystemSessionProperties.isNativeExecutionEnabled(session)) {
                 // Preserve the lookup variables for native execution.
                 ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node, context.get());
-                if (!node.getAssignments().getVariables().containsAll(context.get().getLookupVariables())) {
-                    Assignments.Builder newAssignments = Assignments.builder(node.getAssignments().getMap());
+                Set<VariableReferenceExpression> directVariables = Maps.filterValues(node.getAssignments().getMap(), IndexJoinOptimizer::isVariable).keySet();
+                if (!directVariables.containsAll(context.get().getLookupVariables())) {
+                    Assignments.Builder newAssignments = Assignments.builder();
                     for (VariableReferenceExpression variable : context.get().getLookupVariables()) {
-                        if (!node.getAssignments().getVariables().contains(variable)) {
-                            newAssignments.put(variable, variable);
+                        newAssignments.put(variable, variable);
+                    }
+                    for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
+                        if (!context.get().lookupVariables.contains(entry.getKey())) {
+                            newAssignments.put(entry);
                         }
                     }
-                    rewrittenNode = new ProjectNode(rewrittenNode.getSourceLocation(),
+                    return new ProjectNode(rewrittenNode.getSourceLocation(),
                             rewrittenNode.getId(),
                             rewrittenNode.getStatsEquivalentPlanNode(),
                             rewrittenNode.getSource(),
@@ -643,7 +648,7 @@ public class IndexJoinOptimizer
             ImmutableSet.Builder<VariableReferenceExpression> newLookupVariablesBuilder = ImmutableSet.builder();
             for (VariableReferenceExpression variable : context.get().getLookupVariables()) {
                 RowExpression expression = node.getAssignments().get(variable);
-                if (expression instanceof VariableReferenceExpression) {
+                if (isVariable(expression)) {
                     newLookupVariablesBuilder.add((VariableReferenceExpression) expression);
                 }
             }
@@ -836,37 +841,43 @@ public class IndexJoinOptimizer
         // Traverse the non-equal join condition and extract the lookup variables.
         private static void extractFromFilter(RowExpression expression, Context context)
         {
-            if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == SpecialFormExpression.Form.AND) {
-                for (RowExpression operand : LogicalRowExpressions.extractConjuncts(expression)) {
-                    extractFromFilter(operand, context);
-                    if (!context.isEligible()) {
-                        return;
+            List<RowExpression> conjuncts = extractConjuncts(expression);
+            for (RowExpression conjunct : conjuncts) {
+                // Index lookup condition only supports Equal, BETWEEN and CONTAINS.
+                if (!(conjunct instanceof CallExpression)) {
+                    continue;
+                }
+
+                CallExpression callExpression = (CallExpression) conjunct;
+                if (context.getStandardFunctionResolution().isEqualsFunction(callExpression.getFunctionHandle())
+                        && callExpression.getArguments().size() == 2) {
+                    RowExpression leftArg = callExpression.getArguments().get(0);
+                    RowExpression rightArg = callExpression.getArguments().get(1);
+
+                    VariableReferenceExpression variable = null;
+                    // Check for pattern: constant = variable or variable = constant.
+                    if (isConstant(leftArg) && isVariable(rightArg)) {
+                        variable = (VariableReferenceExpression) rightArg;
+                    }
+                    else if (isVariable(leftArg) && isConstant(rightArg)) {
+                        variable = (VariableReferenceExpression) leftArg;
+                    }
+
+                    if (variable != null) {
+                        // It is a lookup equal condition only when it's variable=constant.
+                        context.getLookupVariables().add(variable);
                     }
                 }
-                return;
+                else if (context.getStandardFunctionResolution().isBetweenFunction(callExpression.getFunctionHandle())
+                        && isVariable(callExpression.getArguments().get(0))) {
+                    context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(0));
+                }
+                else if (callExpression.getDisplayName().equalsIgnoreCase("CONTAINS")
+                        && callExpression.getArguments().size() == 2
+                        && isVariable(callExpression.getArguments().get(1))) {
+                    context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(1));
+                }
             }
-
-            // Index lookup only supports BETWEEN and CONTAINS/IN.
-            if (!(expression instanceof CallExpression)) {
-                context.markIneligible();
-                return;
-            }
-
-            CallExpression callExpression = (CallExpression) expression;
-            if (context.getStandardFunctionResolution().isBetweenFunction(callExpression.getFunctionHandle())
-                    && callExpression.getArguments().get(0) instanceof VariableReferenceExpression) {
-                context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(0));
-                return;
-            }
-
-            if (callExpression.getDisplayName().equalsIgnoreCase("CONTAINS")
-                    && callExpression.getArguments().size() == 2
-                    && (callExpression.getArguments().get(1) instanceof VariableReferenceExpression)) {
-                context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(1));
-                return;
-            }
-
-            context.markIneligible();
         }
 
         public static void extractFromSubPlan(PlanNode node, Context context)
@@ -933,7 +944,7 @@ public class IndexJoinOptimizer
             {
                 // Map from output Variables to source Variables
                 Map<VariableReferenceExpression, VariableReferenceExpression> directVariableTranslationOutputMap = Maps.transformValues(
-                        Maps.filterValues(node.getAssignments().getMap(), IndexKeyTracer::isVariable),
+                        Maps.filterValues(node.getAssignments().getMap(), IndexJoinOptimizer::isVariable),
                         VariableReferenceExpression.class::cast);
                 Map<VariableReferenceExpression, VariableReferenceExpression> outputToSourceMap = lookupVariables.stream()
                         .filter(directVariableTranslationOutputMap.keySet()::contains)
@@ -999,10 +1010,15 @@ public class IndexJoinOptimizer
                 return lookupVariables.stream().collect(toImmutableMap(identity(), identity()));
             }
         }
+    }
 
-        private static boolean isVariable(RowExpression expression)
-        {
-            return expression instanceof VariableReferenceExpression;
-        }
+    private static boolean isVariable(RowExpression expression)
+    {
+        return expression instanceof VariableReferenceExpression;
+    }
+
+    private static boolean isConstant(RowExpression expression)
+    {
+        return expression instanceof ConstantExpression;
     }
 }

@@ -159,14 +159,6 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/node.properties", properties);
     }
 
-    public static void createNativeWorkerVeloxProperties(String nodeId)
-            throws IOException
-    {
-        Properties properties = new Properties();
-        properties.setProperty("mutable-config", "true");
-        createPropertiesFile("testcontainers/" + nodeId + "/etc/velox.properties", properties);
-    }
-
     public static void createCoordinatorEntryPointScript()
             throws IOException
     {

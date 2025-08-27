@@ -36,8 +36,7 @@ import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Optional;
 import java.util.function.Consumer;

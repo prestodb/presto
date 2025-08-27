@@ -16,9 +16,8 @@ package com.facebook.presto.cache.alluxio;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.DynamicConfigurationProvider;
 import com.facebook.presto.hive.HdfsContext;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 

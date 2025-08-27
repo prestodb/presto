@@ -111,9 +111,9 @@ CODEOWNERS @prestodb/team-tsc
 
 #####################################################################
 # Prestissimo module
-/presto-native-execution @prestodb/team-velox
-/presto-native-sidecar-plugin @prestodb/team-velox
-/presto-native-tests @prestodb/team-velox
+/presto-native-execution @prestodb/team-velox @prestodb/committers
+/presto-native-sidecar-plugin @pdabre12 @prestodb/team-velox @prestodb/committers
+/presto-native-tests @prestodb/team-velox @prestodb/committers
 /.github/workflows/prestocpp-* @prestodb/team-velox @prestodb/committers
 
 #####################################################################

@@ -14,10 +14,10 @@ add_executable(
   AnnouncerTest.cpp
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
-  MutableConfigs.cpp
   PeriodicMemoryCheckerTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
+  PrestoToVeloxQueryConfigTest.cpp
   QueryContextCacheTest.cpp
   ServerOperationTest.cpp
   SessionPropertiesTest.cpp
@@ -51,6 +51,7 @@ target_link_libraries(
   velox_functions_prestosql
   velox_aggregates
   velox_hive_partition_function
+  presto_mutable_configs
   ${RE2}
   GTest::gmock
   GTest::gtest

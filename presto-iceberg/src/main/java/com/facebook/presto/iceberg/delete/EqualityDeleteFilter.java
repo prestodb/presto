@@ -17,12 +17,11 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.util.StructLikeSet;
 import org.apache.iceberg.util.StructProjection;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

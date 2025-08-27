@@ -17,6 +17,8 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
@@ -36,13 +38,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import jakarta.ws.rs.core.Response.Status;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
 import java.util.Map;
@@ -72,10 +71,10 @@ import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPT
 import static com.facebook.presto.spi.StandardErrorCode.MISSING_RESOURCE_GROUP_SELECTOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
+import static jakarta.ws.rs.core.Response.Status.fromStatusCode;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.fromStatusCode;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

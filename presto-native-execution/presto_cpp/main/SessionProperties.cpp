@@ -34,6 +34,12 @@ json SessionProperty::serialize() {
   return j;
 }
 
+SessionProperties* SessionProperties::instance() {
+  static std::unique_ptr<SessionProperties> instance =
+      std::make_unique<SessionProperties>();
+  return instance.get();
+}
+
 void SessionProperties::addSessionProperty(
     const std::string& name,
     const std::string& description,
@@ -301,13 +307,12 @@ SessionProperties::SessionProperties() {
       c.queryTraceDir());
 
   addSessionProperty(
-      kQueryTraceNodeIds,
-      "A comma-separated list of plan node ids whose input data will be traced."
-      " Empty string if only want to trace the query metadata.",
+      kQueryTraceNodeId,
+      "The plan node id whose input data will be traced.",
       VARCHAR(),
       false,
-      QueryConfig::kQueryTraceNodeIds,
-      c.queryTraceNodeIds());
+      QueryConfig::kQueryTraceNodeId,
+      c.queryTraceNodeId());
 
   addSessionProperty(
       kQueryTraceMaxBytes,
@@ -316,7 +321,6 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kQueryTraceMaxBytes,
       std::to_string(c.queryTraceMaxBytes()));
-
 
   addSessionProperty(
       kOpTraceDirectoryCreateConfig,
@@ -505,34 +509,52 @@ SessionProperties::SessionProperties() {
       0,
       QueryConfig::kMaxNumSplitsListenedTo,
       std::to_string(c.maxNumSplitsListenedTo()));
+
+  addSessionProperty(
+      kIndexLookupJoinMaxPrefetchBatches,
+      "Specifies the max number of input batches to prefetch to do index"
+      "lookup ahead. If it is zero, then process one input batch at a time.",
+      INTEGER(),
+      false,
+      QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
+      std::to_string(c.indexLookupJoinMaxPrefetchBatches()));
+
+  addSessionProperty(
+      kIndexLookupJoinSplitOutput,
+      "If this is true, then the index join operator might split output for"
+      "each input batch based on the output batch size control. Otherwise, it tries to"
+      "produce a single output for each input batch.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kIndexLookupJoinSplitOutput,
+      std::to_string(c.indexLookupJoinSplitOutput()));
+
+  addSessionProperty(
+      kUnnestSplitOutput,
+      "In streaming aggregation, wait until we have enough number of output"
+      "rows to produce a batch of size specified by this. If set to 0, then"
+      "Operator::outputBatchRows will be used as the min output batch rows.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kUnnestSplitOutput,
+      std::to_string(c.unnestSplitOutput()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-SessionProperties::getSessionProperties() {
+SessionProperties::testingSessionProperties() const {
   return sessionProperties_;
 }
 
-const std::string SessionProperties::toVeloxConfig(const std::string& name) {
+const std::string SessionProperties::toVeloxConfig(
+    const std::string& name) const {
   auto it = sessionProperties_.find(name);
   return it == sessionProperties_.end() ? name
                                         : it->second->getVeloxConfigName();
 }
 
-void SessionProperties::updateVeloxConfig(
-    const std::string& name,
-    const std::string& value) {
-  auto it = sessionProperties_.find(name);
-  // Velox config value is updated only for presto session properties.
-  if (it == sessionProperties_.end()) {
-    return;
-  }
-  it->second->updateValue(value);
-}
-
-json SessionProperties::serialize() {
+json SessionProperties::serialize() const {
   json j = json::array();
-  const auto sessionProperties = getSessionProperties();
-  for (const auto& entry : sessionProperties) {
+  for (const auto& entry : sessionProperties_) {
     j.push_back(entry.second->serialize());
   }
   return j;

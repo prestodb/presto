@@ -19,7 +19,6 @@
 #include <memory>
 #include <unordered_map>
 
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryCtx.h"
 
@@ -124,6 +123,8 @@ class QueryContextManager {
       folly::Executor* driverExecutor,
       folly::Executor* spillerExecutor);
 
+  virtual ~QueryContextManager() = default;
+
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& taskUpdateRequest);
@@ -135,34 +136,33 @@ class QueryContextManager {
   void setQueryHasStartedTasks(const protocol::TaskId& taskId);
 
   /// Calls the given functor for every present query context.
-  void visitAllContexts(std::function<void(
+  void visitAllContexts(const std::function<void(
                             const protocol::QueryId&,
-                            const velox::core::QueryCtx*)> visitor) const;
+                            const velox::core::QueryCtx*)>& visitor) const;
 
   /// Test method to clear the query context cache.
   void testingClearCache();
 
-  const SessionProperties& getSessionProperties() const {
-    return sessionProperties_;
-  }
-
- private:
-  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
-      const protocol::TaskId& taskId,
-      std::unordered_map<std::string, std::string>&& configStrings,
-      std::unordered_map<
-          std::string,
-          std::unordered_map<std::string, std::string>>&&
-          connectorConfigStrings);
-
-  std::unordered_map<std::string, std::string> toVeloxConfigs(
-      const protocol::SessionRepresentation& session);
-
+ protected:
   folly::Executor* const driverExecutor_{nullptr};
   folly::Executor* const spillerExecutor_{nullptr};
 
+ private:
+  virtual std::shared_ptr<velox::core::QueryCtx> createAndCacheQueryCtx(
+    QueryContextCache& cache,
+    const protocol::QueryId& queryId,
+    velox::core::QueryConfig&& queryConfig,
+    std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigs,
+    std::shared_ptr<velox::memory::MemoryPool>&& pool);
+
+  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
+      const protocol::TaskId& taskId,
+      velox::core::QueryConfig&& queryConfig,
+      std::unordered_map<
+          std::string,
+          std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);
+
   folly::Synchronized<QueryContextCache> queryContextCache_;
-  SessionProperties sessionProperties_;
 };
 
 } // namespace facebook::presto
