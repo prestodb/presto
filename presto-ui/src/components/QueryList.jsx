@@ -351,32 +351,36 @@ const SORT_ORDER = {
 };
 
 export const QueryList = () => {
-    const [allQueries, setAllQueries] = useState([]);
-    const [displayedQueries, setDisplayedQueries] = useState([]);
-    const [reorderInterval, setReorderInterval] = useState(5000);
-    const [currentSortType, setCurrentSortType] = useState(() => SORT_TYPE.CREATED);
-    const [currentSortOrder, setCurrentSortOrder] = useState(() => SORT_ORDER.DESCENDING);
-    const [stateFilters, setStateFilters] = useState([FILTER_TYPE.RUNNING, FILTER_TYPE.QUEUED]);
-    const [errorTypeFilters, setErrorTypeFilters] = useState([ERROR_TYPE.INTERNAL_ERROR, ERROR_TYPE.INSUFFICIENT_RESOURCES, ERROR_TYPE.EXTERNAL]);
-    const [searchString, setSearchString] = useState('');
-    const [maxQueries, setMaxQueries] = useState(100);
-    const [lastRefresh, setLastRefresh] = useState(() => Date.now());
-    const [lastReorder, setLastReorder] = useState(() => Date.now());
-    const [initialized, setInitialized] = useState(false);
+    const [state, setState] = useState({
+        allQueries: [],
+        displayedQueries: [],
+        reorderInterval: 5000,
+        currentSortType: SORT_TYPE.CREATED,
+        currentSortOrder: SORT_ORDER.DESCENDING,
+        stateFilters: [FILTER_TYPE.RUNNING, FILTER_TYPE.QUEUED],
+        errorTypeFilters: [ERROR_TYPE.INTERNAL_ERROR, ERROR_TYPE.INSUFFICIENT_RESOURCES, ERROR_TYPE.EXTERNAL],
+        searchString: '',
+        maxQueries: 100,
+        lastRefresh: Date.now(),
+        lastReorder: Date.now(),
+        initialized: false,
+    });
 
     const timeoutId = useRef(null);
     const searchTimeoutId = useRef(null);
-    // Refs to avoid stale closures in the polling loop
-    const displayedQueriesRef = useRef(displayedQueries);
-    const stateFiltersRef = useRef(stateFilters);
-    const errorTypeFiltersRef = useRef(errorTypeFilters);
-    const searchStringRef = useRef(searchString);
-    const reorderIntervalRef = useRef(reorderInterval);
-    const lastReorderRef = useRef(lastReorder);
-    const currentSortTypeRef = useRef(currentSortType);
-    const currentSortOrderRef = useRef(currentSortOrder);
-    const maxQueriesRef = useRef(maxQueries);
-    const allQueriesRef = useRef(allQueries);
+    // Single ref object to avoid stale closures in loops/debounces
+    const dataSet = useRef({
+        allQueries: [],
+        displayedQueries: [],
+        reorderInterval: 5000,
+        currentSortType: SORT_TYPE.CREATED,
+        currentSortOrder: SORT_ORDER.DESCENDING,
+        stateFilters: [FILTER_TYPE.RUNNING, FILTER_TYPE.QUEUED],
+        errorTypeFilters: [ERROR_TYPE.INTERNAL_ERROR, ERROR_TYPE.INSUFFICIENT_RESOURCES, ERROR_TYPE.EXTERNAL],
+        searchString: '',
+        maxQueries: 100,
+        lastReorder: Date.now(),
+    });
 
     const sortAndLimitQueries = (queries, sortType, sortOrder, maxQueriesValue) => {
         queries.sort((queryA, queryB) => {
@@ -447,7 +451,7 @@ export const QueryList = () => {
             }, {});
 
             let updatedQueries = [];
-            displayedQueriesRef.current.forEach(function (oldQuery) {
+            (dataSet.current.displayedQueries || []).forEach(function (oldQuery) {
                 if (oldQuery.queryId in queryMap) {
                     updatedQueries.push(queryMap[oldQuery.queryId]);
                     queryMap[oldQuery.queryId] = false;
@@ -460,36 +464,43 @@ export const QueryList = () => {
                     newQueries.push(queryMap[queryId]);
                 }
             }
-            newQueries = filterQueries(newQueries, stateFiltersRef.current, errorTypeFiltersRef.current, searchStringRef.current);
+            newQueries = filterQueries(newQueries, dataSet.current.stateFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
 
             const newLastRefresh = Date.now();
-            let newLastReorder = lastReorderRef.current;
+            let newLastReorder = dataSet.current.lastReorder;
 
-            if (reorderIntervalRef.current !== 0 && ((newLastRefresh - newLastReorder) >= reorderIntervalRef.current)) {
-                updatedQueries = filterQueries(updatedQueries, stateFiltersRef.current, errorTypeFiltersRef.current, searchStringRef.current);
+            if (dataSet.current.reorderInterval !== 0 && ((newLastRefresh - newLastReorder) >= dataSet.current.reorderInterval)) {
+                updatedQueries = filterQueries(updatedQueries, dataSet.current.stateFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
                 updatedQueries = updatedQueries.concat(newQueries);
-                sortAndLimitQueries(updatedQueries, currentSortTypeRef.current, currentSortOrderRef.current, 0);
+                sortAndLimitQueries(updatedQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, 0);
                 newLastReorder = Date.now();
             }
             else {
-                sortAndLimitQueries(newQueries, currentSortTypeRef.current, currentSortOrderRef.current, 0);
+                sortAndLimitQueries(newQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, 0);
                 updatedQueries = updatedQueries.concat(newQueries);
             }
 
-            if (maxQueriesRef.current !== 0 && (updatedQueries.length > maxQueriesRef.current)) {
-                updatedQueries.splice(maxQueriesRef.current, (updatedQueries.length - maxQueriesRef.current));
+            if (dataSet.current.maxQueries !== 0 && (updatedQueries.length > dataSet.current.maxQueries)) {
+                updatedQueries.splice(dataSet.current.maxQueries, (updatedQueries.length - dataSet.current.maxQueries));
             }
 
-            setAllQueries(queryList);
-            setDisplayedQueries(updatedQueries);
-            setLastRefresh(newLastRefresh);
-            setLastReorder(newLastReorder);
-            setInitialized(true);
+            dataSet.current.allQueries = queryList;
+            dataSet.current.displayedQueries = updatedQueries;
+            dataSet.current.lastReorder = newLastReorder;
+
+            setState(prev => ({
+                ...prev,
+                allQueries: queryList,
+                displayedQueries: updatedQueries,
+                lastRefresh: newLastRefresh,
+                lastReorder: newLastReorder,
+                initialized: true,
+            }));
 
             timeoutId.current = setTimeout(refreshLoop, 1000);
         })
         .fail(function () {
-            setInitialized(true);
+            setState(prev => ({ ...prev, initialized: true }));
             timeoutId.current = setTimeout(refreshLoop, 1000);
         });
     }, []);
@@ -502,65 +513,56 @@ export const QueryList = () => {
         };
     }, [refreshLoop]);
 
-    // Keep refs in sync with state to avoid stale closures in refreshLoop
-    useEffect(() => { displayedQueriesRef.current = displayedQueries; }, [displayedQueries]);
-    useEffect(() => { stateFiltersRef.current = stateFilters; }, [stateFilters]);
-    useEffect(() => { errorTypeFiltersRef.current = errorTypeFilters; }, [errorTypeFilters]);
-    useEffect(() => { searchStringRef.current = searchString; }, [searchString]);
-    useEffect(() => { reorderIntervalRef.current = reorderInterval; }, [reorderInterval]);
-    useEffect(() => { lastReorderRef.current = lastReorder; }, [lastReorder]);
-    useEffect(() => { currentSortTypeRef.current = currentSortType; }, [currentSortType]);
-    useEffect(() => { currentSortOrderRef.current = currentSortOrder; }, [currentSortOrder]);
-    useEffect(() => { maxQueriesRef.current = maxQueries; }, [maxQueries]);
-    useEffect(() => { allQueriesRef.current = allQueries; }, [allQueries]);
+    // No per-field ref sync effects needed; handlers update dataSet alongside state
 
     const executeSearch = useCallback(() => {
         clearTimeout(searchTimeoutId.current);
 
-        // Use latest refs to avoid closure over stale state during debounce window
-        const newDisplayedQueries = filterQueries(allQueriesRef.current, stateFiltersRef.current, errorTypeFiltersRef.current, searchStringRef.current);
-        sortAndLimitQueries(newDisplayedQueries, currentSortTypeRef.current, currentSortOrderRef.current, maxQueriesRef.current);
+        // Use latest values from dataSet to avoid stale closures during debounce
+        const newDisplayedQueries = filterQueries(dataSet.current.allQueries, dataSet.current.stateFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
+        sortAndLimitQueries(newDisplayedQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, dataSet.current.maxQueries);
 
-        setDisplayedQueries(newDisplayedQueries);
+        dataSet.current.displayedQueries = newDisplayedQueries;
+        setState(prev => ({ ...prev, displayedQueries: newDisplayedQueries }));
     }, []);
 
     const handleSearchStringChange = (event) => {
         const newSearchString = event.target.value;
         clearTimeout(searchTimeoutId.current);
 
-        setSearchString(newSearchString);
-        // keep ref in sync immediately for debounce to read latest
-        searchStringRef.current = newSearchString;
+        // Update state and ref immediately for debounce/readers
+        dataSet.current.searchString = newSearchString;
+        setState(prev => ({ ...prev, searchString: newSearchString }));
 
         searchTimeoutId.current = setTimeout(executeSearch, 200);
     };
 
     const handleMaxQueriesClick = (newMaxQueries) => {
-        const filteredQueries = filterQueries(allQueriesRef.current, stateFiltersRef.current, errorTypeFiltersRef.current, searchStringRef.current);
-        sortAndLimitQueries(filteredQueries, currentSortTypeRef.current, currentSortOrderRef.current, newMaxQueries);
+        const filteredQueries = filterQueries(dataSet.current.allQueries, dataSet.current.stateFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
+        sortAndLimitQueries(filteredQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, newMaxQueries);
 
-        setMaxQueries(newMaxQueries);
-        maxQueriesRef.current = newMaxQueries;
-        setDisplayedQueries(filteredQueries);
+        dataSet.current.maxQueries = newMaxQueries;
+        dataSet.current.displayedQueries = filteredQueries;
+        setState(prev => ({ ...prev, maxQueries: newMaxQueries, displayedQueries: filteredQueries }));
     };
 
     const renderMaxQueriesListItem = (maxQueriesValue, maxQueriesText) => {
         return (
-            <li><a href="#" className={`dropdown-item text-dark ${maxQueries === maxQueriesValue ? "active bg-info text-white" : "text-dark"}`} onClick={() => handleMaxQueriesClick(maxQueriesValue)}>{maxQueriesText}</a>
+            <li><a href="#" className={`dropdown-item text-dark ${state.maxQueries === maxQueriesValue ? "active bg-info text-white" : "text-dark"}`} onClick={() => handleMaxQueriesClick(maxQueriesValue)}>{maxQueriesText}</a>
             </li>
         );
     };
 
     const handleReorderClick = (interval) => {
-        if (reorderIntervalRef.current !== interval) {
-            setReorderInterval(interval);
-            reorderIntervalRef.current = interval;
+        if (dataSet.current.reorderInterval !== interval) {
+            dataSet.current.reorderInterval = interval;
+            setState(prev => ({ ...prev, reorderInterval: interval }));
         }
     };
 
     const renderReorderListItem = (interval, intervalText) => {
         return (
-            <li><a href="#" className={`dropdown-item text-dark ${reorderInterval === interval ? "active bg-info text-white" : "text-dark"}`} onClick={() => handleReorderClick(interval)}>{intervalText}</a></li>
+            <li><a href="#" className={`dropdown-item text-dark ${state.reorderInterval === interval ? "active bg-info text-white" : "text-dark"}`} onClick={() => handleReorderClick(interval)}>{intervalText}</a></li>
         );
     };
 
@@ -568,21 +570,22 @@ export const QueryList = () => {
         const newSortType = sortType;
         let newSortOrder = SORT_ORDER.DESCENDING;
 
-        if (currentSortType === sortType && currentSortOrder === SORT_ORDER.DESCENDING) {
+        if (state.currentSortType === sortType && state.currentSortOrder === SORT_ORDER.DESCENDING) {
             newSortOrder = SORT_ORDER.ASCENDING;
         }
 
-        const newDisplayedQueries = filterQueries(allQueriesRef.current, stateFiltersRef.current, errorTypeFiltersRef.current, searchStringRef.current);
-        sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, maxQueriesRef.current);
+        const newDisplayedQueries = filterQueries(dataSet.current.allQueries, dataSet.current.stateFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
+        sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, dataSet.current.maxQueries);
 
-        setDisplayedQueries(newDisplayedQueries);
-        setCurrentSortType(newSortType);
-        setCurrentSortOrder(newSortOrder);
+        dataSet.current.displayedQueries = newDisplayedQueries;
+        dataSet.current.currentSortType = newSortType;
+        dataSet.current.currentSortOrder = newSortOrder;
+        setState(prev => ({ ...prev, displayedQueries: newDisplayedQueries, currentSortType: newSortType, currentSortOrder: newSortOrder }));
     };
 
     const renderSortListItem = (sortType, sortText) => {
-        if (currentSortType === sortType) {
-            const directionArrow = currentSortOrder === SORT_ORDER.ASCENDING ? <span className="bi bi-caret-up-fill"/> :
+        if (state.currentSortType === sortType) {
+            const directionArrow = state.currentSortOrder === SORT_ORDER.ASCENDING ? <span className="bi bi-caret-up-fill"/> :
                 <span className="bi bi-caret-down-fill"/>;
             return (
                 <li>
@@ -602,25 +605,26 @@ export const QueryList = () => {
     };
 
     const handleStateFilterClick = (filter) => {
-        const newFilters = stateFilters.slice();
-        if (stateFilters.indexOf(filter) > -1) {
+        const newFilters = state.stateFilters.slice();
+        if (state.stateFilters.indexOf(filter) > -1) {
             newFilters.splice(newFilters.indexOf(filter), 1);
         }
         else {
             newFilters.push(filter);
         }
 
-        const filteredQueries = filterQueries(allQueriesRef.current, newFilters, errorTypeFiltersRef.current, searchStringRef.current);
-        sortAndLimitQueries(filteredQueries, currentSortTypeRef.current, currentSortOrderRef.current, maxQueriesRef.current);
+        const filteredQueries = filterQueries(dataSet.current.allQueries, newFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
+        sortAndLimitQueries(filteredQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, dataSet.current.maxQueries);
 
-        setStateFilters(newFilters);
-        setDisplayedQueries(filteredQueries);
+        dataSet.current.stateFilters = newFilters;
+        dataSet.current.displayedQueries = filteredQueries;
+        setState(prev => ({ ...prev, stateFilters: newFilters, displayedQueries: filteredQueries }));
     };
 
     const renderFilterButton = (filterType, filterText) => {
         let checkmarkStyle = {color: '#57aac7'};
         let classNames = "btn btn-sm btn-info style-check rounded-0";
-        if (stateFilters.indexOf(filterType) > -1) {
+        if (state.stateFilters.indexOf(filterType) > -1) {
             classNames += " active";
             checkmarkStyle = {color: '#ffffff'};
         }
@@ -633,24 +637,25 @@ export const QueryList = () => {
     };
 
     const handleErrorTypeFilterClick = (errorType) => {
-        const newFilters = errorTypeFilters.slice();
-        if (errorTypeFilters.indexOf(errorType) > -1) {
+        const newFilters = state.errorTypeFilters.slice();
+        if (state.errorTypeFilters.indexOf(errorType) > -1) {
             newFilters.splice(newFilters.indexOf(errorType), 1);
         }
         else {
             newFilters.push(errorType);
         }
 
-        const filteredQueries = filterQueries(allQueriesRef.current, stateFiltersRef.current, newFilters, searchStringRef.current);
-        sortAndLimitQueries(filteredQueries, currentSortTypeRef.current, currentSortOrderRef.current, maxQueriesRef.current);
+        const filteredQueries = filterQueries(dataSet.current.allQueries, dataSet.current.stateFilters, newFilters, dataSet.current.searchString);
+        sortAndLimitQueries(filteredQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, dataSet.current.maxQueries);
 
-        setErrorTypeFilters(newFilters);
-        setDisplayedQueries(filteredQueries);
+        dataSet.current.errorTypeFilters = newFilters;
+        dataSet.current.displayedQueries = filteredQueries;
+        setState(prev => ({ ...prev, errorTypeFilters: newFilters, displayedQueries: filteredQueries }));
     };
 
     const renderErrorTypeListItem = (errorType, errorTypeText) => {
         let checkmarkStyle = {color: '#ffffff'};
-        if (errorTypeFilters.indexOf(errorType) > -1) {
+        if (state.errorTypeFilters.indexOf(errorType) > -1) {
             checkmarkStyle = {color: 'black'};
         }
         return (
@@ -662,11 +667,11 @@ export const QueryList = () => {
             </li>);
     };
 
-    let queryList = <DisplayedQueriesList queries={displayedQueries}/>;
-    if (displayedQueries === null || displayedQueries.length === 0) {
+    let queryList = <DisplayedQueriesList queries={state.displayedQueries}/>;
+    if (state.displayedQueries === null || state.displayedQueries.length === 0) {
         let label = (<div className="loader">Loading...</div>);
-        if (initialized) {
-            if (allQueries === null || allQueries.length === 0) {
+        if (state.initialized) {
+            if (state.allQueries === null || state.allQueries.length === 0) {
                 label = "No queries";
             }
             else {
@@ -686,7 +691,7 @@ export const QueryList = () => {
                 <div className="col-12 input-group gap-1 toolbar-col d-flex">
                     <div className="input-group-prepend flex-grow-1">
                         <input type="text" className="form-control search-bar rounded-0" placeholder="User, source, query ID, resource group, or query text"
-                                onChange={handleSearchStringChange} value={searchString} style={{backgroundColor: "white" ,color: 'black', fontSize: '12px', borderColor:"#CCCCCC"}} />
+                                onChange={handleSearchStringChange} value={state.searchString} style={{backgroundColor: "white" ,color: 'black', fontSize: '12px', borderColor:"#CCCCCC"}} />
                     </div>
 
                         <div className="input-group-btn d-flex align-items-center ms-auto">
