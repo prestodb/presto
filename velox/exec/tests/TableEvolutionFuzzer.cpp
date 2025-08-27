@@ -835,7 +835,10 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeWriteTask(
         }
 
         if (!hasUnsupportedMapKey(setup.schema->childAt(i))) {
-          supportedMapColumnIndices.push_back(static_cast<uint32_t>(i));
+          // %50 chance to enable flatmap for this map column.
+          if (folly::Random::oneIn(2)) {
+            supportedMapColumnIndices.push_back(static_cast<uint32_t>(i));
+          }
         }
       }
     }
