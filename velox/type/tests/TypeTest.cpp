@@ -532,6 +532,26 @@ TEST(TypeTest, emptyRow) {
   testTypeSerde(row);
 }
 
+TEST(TypeTest, singleFieldRow) {
+  auto rowType = ROW("a", REAL());
+  testTypeSerde(rowType);
+
+  auto equivalentRowType = ROW({{"a", REAL()}});
+  ASSERT_EQ(*rowType, *equivalentRowType);
+  testTypeSerde(equivalentRowType);
+
+  equivalentRowType = ROW({"a"}, {REAL()});
+  ASSERT_EQ(*rowType, *equivalentRowType);
+  testTypeSerde(equivalentRowType);
+}
+
+TEST(TypeTest, homogenousRow) {
+  auto rowType = ROW({"a", "b", "c"}, REAL());
+  auto equivalentRowType = ROW({"a", "b", "c"}, {REAL(), REAL(), REAL()});
+  ASSERT_EQ(*rowType, *equivalentRowType);
+  testTypeSerde(rowType);
+}
+
 TEST(TypeTest, rowParametersMultiThreaded) {
   std::vector<std::string> names;
   std::vector<TypePtr> types;

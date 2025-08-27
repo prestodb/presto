@@ -1555,16 +1555,51 @@ struct TypeFactory<TypeKind::ROW> {
   }
 };
 
+/// Returns an array of 'elementType'.
+///
+/// Example: ARRAY(INTEGER()).
 ArrayTypePtr ARRAY(TypePtr elementType);
 
+/// Returns a map of 'keyType' and 'valueType'.
+///
+/// Example: MAP(INTEGER(), REAL()).
+MapTypePtr MAP(TypePtr keyType, TypePtr valueType);
+
+/// Returns a struct with specified field names and types. Number of 'names'
+/// must match number of 'types'. Empty 'names' and 'types' are allowed.
+///
+/// Example: ROW({"a", "b", "c"}, {INTEGER(), BIGINT(), VARCHAR()}).
 RowTypePtr ROW(std::vector<std::string> names, std::vector<TypePtr> types);
 
+/// Returns a homogenous struct where all fields have the same type.
+///
+/// Example:
+///
+///   ROW({"a", "b", "c"}, REAL()) is a shortcut for
+///     ROW({"a", "b", "c"}, {REAL(), REAL(), REAL()}).
+RowTypePtr ROW(std::vector<std::string> names, const TypePtr& childType);
+
+RowTypePtr ROW(
+    std::initializer_list<std::string> names,
+    const TypePtr& childType);
+
+/// Creates a RowType from list of (name, type) pairs.
+///
+/// Example: ROW({{"a", INTEGER()}, {"b", BIGINT()}, {"c", VARCHAR()}}).
 RowTypePtr ROW(
     std::initializer_list<std::pair<const std::string, TypePtr>>&& pairs);
 
-RowTypePtr ROW(std::vector<TypePtr>&& types);
+/// Returns a struct with a single field.
+///
+/// Example: ROW("a", BIGINT()) is a shortcut for ROW({{"a", BIGINT()}}).
+RowTypePtr ROW(std::string name, TypePtr type);
 
-MapTypePtr MAP(TypePtr keyType, TypePtr valType);
+/// Returns anonymoous struct where field names are empty.
+///
+/// Examples:
+///    ROW({INTEGER(), BIGINT(), VARCHAR()})
+///    ROW({}) // Struct with no fields.
+RowTypePtr ROW(std::vector<TypePtr>&& types);
 
 std::shared_ptr<const FunctionType> FUNCTION(
     std::vector<TypePtr>&& argumentTypes,
