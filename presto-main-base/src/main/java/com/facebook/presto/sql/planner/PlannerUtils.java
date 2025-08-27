@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -66,6 +67,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -471,7 +473,7 @@ public class PlannerUtils
         return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
     }
 
-    public static boolean isSupportedArrayContainsFilter(FunctionResolution functionResolution, RowExpression filterExpression, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right)
+    public static boolean isSupportedArrayContainsFilter(FunctionResolution functionResolution, RowExpression filterExpression, List<VariableReferenceExpression> left, List<VariableReferenceExpression> right, Session session)
     {
         List<Type> supportedTypes = ImmutableList.of(BIGINT, INTEGER, VARCHAR, DATE);
 
@@ -480,7 +482,16 @@ public class PlannerUtils
             if (functionResolution.isArrayContainsFunction(callExpression.getFunctionHandle())) {
                 RowExpression array = callExpression.getArguments().get(0);
                 RowExpression element = callExpression.getArguments().get(1);
-                checkState(array.getType() instanceof ArrayType && ((ArrayType) array.getType()).getElementType().equals(element.getType()));
+                // varchar(n) is not supported in Presto C++, compare base types of array and element for varchar to
+                // ensure varchar type is not compared with varchar(n).
+                boolean arrayTypeEqualsElementType;
+                if (isNativeExecutionEnabled(session) && element.getType().getTypeSignature().getBase().equals(StandardTypes.VARCHAR)) {
+                    arrayTypeEqualsElementType = ((ArrayType) array.getType()).getElementType().getTypeSignature().getBase().equals(element.getType().getTypeSignature().getBase());
+                }
+                else {
+                    arrayTypeEqualsElementType = ((ArrayType) array.getType()).getElementType().equals(element.getType());
+                }
+                checkState(array.getType() instanceof ArrayType && arrayTypeEqualsElementType);
                 List<VariableReferenceExpression> arrayExpressionColumns = VariablesExtractor.extractAll(array);
                 boolean isSupportedType = supportedTypes.contains(element.getType()) || element.getType() instanceof VarcharType;
                 return (isSupportedType &&
