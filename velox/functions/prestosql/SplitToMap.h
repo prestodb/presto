@@ -91,16 +91,12 @@ struct SplitToMapFunction {
       std::string_view entryDelimiter,
       std::string_view keyValueDelimiter,
       OnDuplicateKey onDuplicateKey) const {
-    VELOX_RETURN_IF(
-        entryDelimiter.empty(), Status::UserError("entryDelimiter is empty"));
-    VELOX_RETURN_IF(
-        keyValueDelimiter.empty(),
-        Status::UserError("keyValueDelimiter is empty"));
-    VELOX_RETURN_IF(
-        entryDelimiter == keyValueDelimiter,
-        Status::UserError(
-            "entryDelimiter and keyValueDelimiter must not be the same: {}",
-            entryDelimiter));
+    VELOX_USER_RETURN(entryDelimiter.empty(), "entryDelimiter is empty.");
+    VELOX_USER_RETURN(keyValueDelimiter.empty(), "keyValueDelimiter is empty");
+    VELOX_USER_RETURN_EQ(
+        entryDelimiter,
+        keyValueDelimiter,
+        "entryDelimiter and keyValueDelimiter must not be the same.");
 
     if (input.empty()) {
       return Status::OK();
@@ -149,19 +145,17 @@ struct SplitToMapFunction {
       folly::F14FastMap<std::string_view, std::string_view>& keyValuePairs)
       const {
     const auto delimiterPos = entry.find(keyValueDelimiter, 0);
-
-    VELOX_RETURN_IF(
-        delimiterPos == std::string::npos,
-        Status::UserError(
-            "No delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
-            entry));
-    VELOX_RETURN_IF(
+    VELOX_USER_RETURN_EQ(
+        delimiterPos,
+        std::string::npos,
+        "No delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
+        entry);
+    VELOX_USER_RETURN(
         entry.find(
             keyValueDelimiter, delimiterPos + keyValueDelimiter.size()) !=
             std::string::npos,
-        Status::UserError(
-            "More than one delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
-            entry));
+        "More than one delimiter found. Key-value delimiter must appear exactly once in each entry. Bad input: '{}'",
+        entry);
 
     const auto key = std::string_view(entry.data(), delimiterPos);
     const auto value = std::string_view(
