@@ -22,22 +22,32 @@ target_link_libraries(
   velox_vector_test_lib
   velox_vector_fuzzer
   Folly::folly
-  Folly::follybenchmark)
+  Folly::follybenchmark
+)
 
 add_executable(velox_sparksql_benchmarks_compare CompareBenchmark.cpp)
 target_link_libraries(
-  velox_sparksql_benchmarks_compare velox_functions_spark
-  velox_benchmark_builder velox_vector_test_lib)
+  velox_sparksql_benchmarks_compare
+  velox_functions_spark
+  velox_benchmark_builder
+  velox_vector_test_lib
+)
 
 add_executable(velox_sparksql_benchmarks_simd_compare SIMDCompareBenchmark.cpp)
 target_link_libraries(
-  velox_sparksql_benchmarks_simd_compare velox_functions_spark
-  velox_benchmark_builder velox_vector_test_lib)
+  velox_sparksql_benchmarks_simd_compare
+  velox_functions_spark
+  velox_benchmark_builder
+  velox_vector_test_lib
+)
 
 add_executable(velox_sparksql_benchmarks_hash HashBenchmark.cpp)
 target_link_libraries(
-  velox_sparksql_benchmarks_hash velox_functions_spark velox_benchmark_builder
-  velox_vector_test_lib)
+  velox_sparksql_benchmarks_hash
+  velox_functions_spark
+  velox_benchmark_builder
+  velox_vector_test_lib
+)
 
 add_executable(velox_sparksql_benchmarks_from_json FromJsonBenchmark.cpp)
 target_link_libraries(
@@ -46,7 +56,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_parse_utils
   Folly::folly
-  Folly::follybenchmark)
+  Folly::follybenchmark
+)
 
 add_executable(velox_sparksql_benchmarks_split SplitBenchmark.cpp)
 target_link_libraries(
@@ -55,7 +66,8 @@ target_link_libraries(
   velox_benchmark_builder
   velox_vector_test_lib
   velox_vector_fuzzer
-  velox_functions_lib)
+  velox_functions_lib
+)
 
 add_executable(velox_sparksql_benchmarks_get_funcs FunctionBenchmark.cpp)
 target_link_libraries(
@@ -64,4 +76,5 @@ target_link_libraries(
   velox_exec_test_lib
   velox_parse_utils
   Folly::folly
-  Folly::follybenchmark)
+  Folly::follybenchmark
+)

@@ -17,7 +17,8 @@ add_executable(velox_spark_query_runner_test SparkQueryRunnerTest.cpp)
 add_test(
   NAME velox_spark_query_runner_test
   COMMAND velox_spark_query_runner_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   velox_spark_query_runner_test
@@ -31,4 +32,5 @@ target_link_libraries(
     velox_vector_test_lib
     GTest::gtest
     GTest::gtest_main
-    Folly::folly)
+    Folly::folly
+)

@@ -19,34 +19,31 @@
 find_program(HIPCC_EXECUTABLE hipcc REQUIRED PATHS /opt/rocm/bin)
 
 function(breeze_add_hip_test target source)
-  cmake_parse_arguments(
-    arg
-    ""
-    ""
-    "DEPENDS"
-    ${ARGN})
+  cmake_parse_arguments(arg "" "" "DEPENDS" ${ARGN})
   add_custom_command(
     OUTPUT ${target}.o
     COMMAND
-      ${HIPCC_EXECUTABLE} ${HIP_HIPCC_FLAGS} ${NDEBUG_DEFINE} -DPLATFORM_HIP
-      -I${CMAKE_SOURCE_DIR} -I${googletest_SOURCE_DIR}/googletest/include
-      -I${CMAKE_BINARY_DIR} ${CMAKE_CXX_FLAGS} ${COMPILER_WARN_FLAGS}
-      ${OPT_FLAGS} -std=c++17 -c ${source} -MD -MF ${target}.o.d -o ${target}.o
+      ${HIPCC_EXECUTABLE} ${HIP_HIPCC_FLAGS} ${NDEBUG_DEFINE} -DPLATFORM_HIP -I${CMAKE_SOURCE_DIR}
+      -I${googletest_SOURCE_DIR}/googletest/include -I${CMAKE_BINARY_DIR} ${CMAKE_CXX_FLAGS}
+      ${COMPILER_WARN_FLAGS} ${OPT_FLAGS} -std=c++17 -c ${source} -MD -MF ${target}.o.d -o
+      ${target}.o
     DEPFILE ${target}.o.d
     DEPENDS ${arg_DEPENDS}
-    COMMENT "Building HIP object ${target}.o")
+    COMMENT "Building HIP object ${target}.o"
+  )
   add_custom_command(
     OUTPUT ${target}
     COMMAND
-      ${HIPCC_EXECUTABLE} -o ${target} ${target}.o
-      $<TARGET_FILE_DIR:GTest::gtest>/libgtest.a
+      ${HIPCC_EXECUTABLE} -o ${target} ${target}.o $<TARGET_FILE_DIR:GTest::gtest>/libgtest.a
       $<TARGET_FILE_DIR:test_main>/libtest_main.a
-      $<$<BOOL:${BUILD_TRACING}>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a>
-      ${ARCH_LINK_FLAGS}
+      $<$<BOOL:${BUILD_TRACING}>:$<TARGET_FILE_DIR:perfetto>/libperfetto.a> ${ARCH_LINK_FLAGS}
     DEPENDS ${target}.o test_main
-    COMMENT "Linking HIP executable ${target}")
+    COMMENT "Linking HIP executable ${target}"
+  )
   add_executable(${target}_TESTS IMPORTED)
-  set_property(TARGET ${target}_TESTS
-               PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/${target})
+  set_property(
+    TARGET ${target}_TESTS
+    PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/${target}
+  )
   gtest_discover_tests(${target}_TESTS TEST_PREFIX hip: DISCOVERY_MODE PRE_TEST)
 endfunction()

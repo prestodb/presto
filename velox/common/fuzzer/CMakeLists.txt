@@ -23,7 +23,8 @@ velox_link_libraries(
   Folly::folly
   velox_type
   velox_common_fuzzer_util
-  velox_functions_prestosql)
+  velox_functions_prestosql
+)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

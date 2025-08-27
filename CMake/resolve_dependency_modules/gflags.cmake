@@ -14,12 +14,16 @@
 include_guard(GLOBAL)
 
 set(VELOX_GFLAGS_VERSION 2.2.2)
-set(VELOX_GFLAGS_BUILD_SHA256_CHECKSUM
-    34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf)
+set(
+  VELOX_GFLAGS_BUILD_SHA256_CHECKSUM
+  34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf
+)
 string(
-  CONCAT VELOX_GFLAGS_SOURCE_URL
-         "https://github.com/gflags/gflags/archive/refs/tags/"
-         "v${VELOX_GFLAGS_VERSION}.tar.gz")
+  CONCAT
+  VELOX_GFLAGS_SOURCE_URL
+  "https://github.com/gflags/gflags/archive/refs/tags/"
+  "v${VELOX_GFLAGS_VERSION}.tar.gz"
+)
 
 velox_resolve_dependency_url(GFLAGS)
 
@@ -29,7 +33,10 @@ FetchContent_Declare(
   URL ${VELOX_GFLAGS_SOURCE_URL}
   URL_HASH ${VELOX_GFLAGS_BUILD_SHA256_CHECKSUM}
   PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/gflags/gflags-config.patch
-                OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL SYSTEM)
+  OVERRIDE_FIND_PACKAGE
+  EXCLUDE_FROM_ALL
+  SYSTEM
+)
 
 # glog relies on the old `google` namespace
 set(GFLAGS_NAMESPACE "google;gflags")
@@ -52,9 +59,13 @@ FetchContent_MakeAvailable(gflags)
 
 # Workaround for https://github.com/gflags/gflags/issues/277
 if(DEFINED CACHED_BUILD_SHARED_LIBS)
-  set(BUILD_SHARED_LIBS
-      ${CACHED_BUILD_SHARED_LIBS}
-      CACHE BOOL "Restored after setting up gflags" FORCE)
+  set(
+    BUILD_SHARED_LIBS
+    ${CACHED_BUILD_SHARED_LIBS}
+    CACHE BOOL
+    "Restored after setting up gflags"
+    FORCE
+  )
 endif()
 
 # This causes find_package(gflags) in other dependencies to search in the build

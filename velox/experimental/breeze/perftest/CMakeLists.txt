@@ -33,25 +33,10 @@ function(breeze_add_perftests dir type)
       list(APPEND _cuda_flags -I${CMAKE_SOURCE_DIR}/../../external/perfetto/sdk)
       list(APPEND _cuda_flags -DTRACING=1)
     endif()
-    breeze_add_tests(
-      ${dir}
-      ${type}
-      "_perftest"
-      ".cu"
-      ${ARGN})
+    breeze_add_tests(${dir} ${type} "_perftest" ".cu" ${ARGN})
   endif()
 endfunction()
 
-breeze_add_perftests(
-  "functions"
-  "function"
-  "reduce"
-  "scan"
-  "sort")
-breeze_add_perftests(
-  "algorithms"
-  "algorithm"
-  "reduce"
-  "scan"
-  "sort")
+breeze_add_perftests("functions" "function" "reduce" "scan" "sort")
+breeze_add_perftests("algorithms" "algorithm" "reduce" "scan" "sort")
 breeze_add_perftests("queries" "query" "order_by")

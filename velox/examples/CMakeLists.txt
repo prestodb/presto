@@ -20,7 +20,8 @@ target_link_libraries(
   velox_core
   velox_expression
   re2::re2
-  simdjson::simdjson)
+  simdjson::simdjson
+)
 
 add_executable(velox_example_expression_eval ExpressionEval.cpp)
 
@@ -30,7 +31,8 @@ target_link_libraries(
   velox_vector
   velox_caching
   velox_memory
-  velox_expression)
+  velox_expression
+)
 
 add_executable(velox_example_opaque_type OpaqueType.cpp)
 target_link_libraries(
@@ -39,7 +41,8 @@ target_link_libraries(
   velox_vector
   velox_caching
   velox_expression
-  velox_memory)
+  velox_memory
+)
 
 # This is disabled temporarily until we figure out why g++ is crashing linking
 # it on linux builds.
@@ -59,12 +62,12 @@ target_link_libraries(
   velox_exec
   velox_exec_test_lib
   velox_hive_connector
-  velox_memory)
+  velox_memory
+)
 
 add_executable(velox_example_vector_reader_writer VectorReaderWriter.cpp)
 
-target_link_libraries(
-  velox_example_vector_reader_writer velox_expression velox_type velox_vector)
+target_link_libraries(velox_example_vector_reader_writer velox_expression velox_type velox_vector)
 
 add_executable(velox_example_operator_extensibility OperatorExtensibility.cpp)
 target_link_libraries(
@@ -74,4 +77,5 @@ target_link_libraries(
   velox_exec
   velox_exec_test_lib
   velox_memory
-  velox_vector_test_lib)
+  velox_vector_test_lib
+)

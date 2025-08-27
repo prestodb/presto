@@ -36,9 +36,9 @@ target_link_libraries(
   velox_vector_test_lib
   Folly::follybenchmark
   Folly::folly
-  fmt::fmt)
+  fmt::fmt
+)
 
 add_executable(velox_tpch_benchmark TpchBenchmarkMain.cpp)
 
-target_link_libraries(
-  velox_tpch_benchmark velox_tpch_benchmark_lib)
+target_link_libraries(velox_tpch_benchmark velox_tpch_benchmark_lib)

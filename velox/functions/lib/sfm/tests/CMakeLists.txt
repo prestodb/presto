@@ -21,4 +21,5 @@ target_link_libraries(
   velox_functions_sfm
   velox_memory
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(
-  velox_functions_json_test JsonExtractorTest.cpp JsonPathTokenizerTest.cpp
-                            SIMDJsonExtractorTest.cpp)
+  velox_functions_json_test
+  JsonExtractorTest.cpp
+  JsonPathTokenizerTest.cpp
+  SIMDJsonExtractorTest.cpp
+)
 
 add_test(velox_functions_json_test velox_functions_json_test)
 
@@ -23,4 +26,5 @@ target_link_libraries(
   Folly::folly
   GTest::gtest
   GTest::gtest_main
-  glog::glog)
+  glog::glog
+)

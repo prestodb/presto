@@ -16,11 +16,13 @@ add_library(velox_functions_remote_server RemoteFunctionService.cpp)
 
 target_link_libraries(
   velox_functions_remote_server
-  PUBLIC remote_function_thrift velox_functions_remote_get_serde
-         velox_type_fbhive velox_memory)
+  PUBLIC remote_function_thrift velox_functions_remote_get_serde velox_type_fbhive velox_memory
+)
 
 add_executable(velox_functions_remote_server_main RemoteFunctionServiceMain.cpp)
 
 target_link_libraries(
-  velox_functions_remote_server_main velox_functions_remote_server
-  velox_functions_prestosql)
+  velox_functions_remote_server_main
+  velox_functions_remote_server
+  velox_functions_prestosql
+)

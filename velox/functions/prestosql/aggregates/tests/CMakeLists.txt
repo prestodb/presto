@@ -54,12 +54,10 @@ add_executable(
   SetUnionTest.cpp
   SumDataSizeForStatsTest.cpp
   SumTest.cpp
-  VarianceAggregationTest.cpp)
+  VarianceAggregationTest.cpp
+)
 
-add_test(
-  NAME velox_aggregates_test
-  COMMAND velox_aggregates_test
-  WORKING_DIRECTORY .)
+add_test(NAME velox_aggregates_test COMMAND velox_aggregates_test WORKING_DIRECTORY .)
 
 target_link_libraries(
   velox_aggregates_test
@@ -82,4 +80,5 @@ target_link_libraries(
   velox_temp_path
   gflags::gflags
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

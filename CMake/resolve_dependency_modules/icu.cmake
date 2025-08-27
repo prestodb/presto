@@ -14,13 +14,17 @@
 include_guard(GLOBAL)
 
 set(VELOX_ICU4C_BUILD_VERSION 72)
-set(VELOX_ICU4C_BUILD_SHA256_CHECKSUM
-    a2d2d38217092a7ed56635e34467f92f976b370e20182ad325edea6681a71d68)
+set(
+  VELOX_ICU4C_BUILD_SHA256_CHECKSUM
+  a2d2d38217092a7ed56635e34467f92f976b370e20182ad325edea6681a71d68
+)
 string(
-  CONCAT VELOX_ICU4C_SOURCE_URL
-         "https://github.com/unicode-org/icu/releases/download/"
-         "release-${VELOX_ICU4C_BUILD_VERSION}-1/"
-         "icu4c-${VELOX_ICU4C_BUILD_VERSION}_1-src.tgz")
+  CONCAT
+  VELOX_ICU4C_SOURCE_URL
+  "https://github.com/unicode-org/icu/releases/download/"
+  "release-${VELOX_ICU4C_BUILD_VERSION}-1/"
+  "icu4c-${VELOX_ICU4C_BUILD_VERSION}_1-src.tgz"
+)
 
 velox_resolve_dependency_url(ICU4C)
 
@@ -31,15 +35,17 @@ velox_set_with_default(NUM_JOBS NUM_THREADS ${NUM_JOBS})
 find_program(MAKE_PROGRAM make REQUIRED)
 
 set(ICU_CFG --disable-tests --disable-samples)
-set(HOST_ENV_CMAKE
-    ${CMAKE_COMMAND}
-    -E
-    env
-    CC="${CMAKE_C_COMPILER}"
-    CXX="${CMAKE_CXX_COMPILER}"
-    CFLAGS="${CMAKE_C_FLAGS}"
-    CXXFLAGS="${CMAKE_CXX_FLAGS} -w"
-    LDFLAGS="${CMAKE_MODULE_LINKER_FLAGS}")
+set(
+  HOST_ENV_CMAKE
+  ${CMAKE_COMMAND}
+  -E
+  env
+  CC="${CMAKE_C_COMPILER}"
+  CXX="${CMAKE_CXX_COMPILER}"
+  CFLAGS="${CMAKE_C_FLAGS}"
+  CXXFLAGS="${CMAKE_CXX_FLAGS} -w"
+  LDFLAGS="${CMAKE_MODULE_LINKER_FLAGS}"
+)
 set(ICU_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/icu)
 set(ICU_INCLUDE_DIRS ${ICU_DIR}/include)
 set(ICU_LIBRARIES ${ICU_DIR}/lib)
@@ -51,10 +57,11 @@ ExternalProject_Add(
   URL_HASH ${VELOX_ICU4C_BUILD_SHA256_CHECKSUM}
   SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-src
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-bld
-  CONFIGURE_COMMAND <SOURCE_DIR>/source/configure --prefix=${ICU_DIR}
-                    --libdir=${ICU_LIBRARIES} ${ICU_CFG}
+  CONFIGURE_COMMAND
+    <SOURCE_DIR>/source/configure --prefix=${ICU_DIR} --libdir=${ICU_LIBRARIES} ${ICU_CFG}
   BUILD_COMMAND ${MAKE_PROGRAM} -j ${NUM_JOBS}
-  INSTALL_COMMAND ${HOST_ENV_CMAKE} ${MAKE_PROGRAM} install)
+  INSTALL_COMMAND ${HOST_ENV_CMAKE} ${MAKE_PROGRAM} install
+)
 
 add_library(ICU::ICU UNKNOWN IMPORTED)
 add_dependencies(ICU::ICU ICU-build)
@@ -65,26 +72,25 @@ file(MAKE_DIRECTORY ${ICU_INCLUDE_DIRS})
 file(MAKE_DIRECTORY ${ICU_LIBRARIES})
 
 # Create a target for each component
-set(icu_components
-    data
-    i18n
-    io
-    uc
-    tu)
+set(
+  icu_components
+  data
+  i18n
+  io
+  uc
+  tu
+)
 
 foreach(component ${icu_components})
   add_library(ICU::${component} SHARED IMPORTED)
-  string(
-    CONCAT ICU_${component}_LIBRARY
-           ${ICU_LIBRARIES}
-           "/libicu"
-           ${component}
-           ".so")
+  string(CONCAT ICU_${component}_LIBRARY ${ICU_LIBRARIES} "/libicu" ${component} ".so")
   file(TOUCH ${ICU_${component}_LIBRARY})
   set_target_properties(
     ICU::${component}
-    PROPERTIES IMPORTED_LOCATION ${ICU_${component}_LIBRARY}
-               INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${ICU_INCLUDE_DIRS})
+    PROPERTIES
+      IMPORTED_LOCATION ${ICU_${component}_LIBRARY}
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${ICU_INCLUDE_DIRS}
+  )
   target_link_libraries(ICU::ICU INTERFACE ICU::${component})
 endforeach()
 

@@ -21,4 +21,5 @@ target_link_libraries(
   velox_type
   velox_vector
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

@@ -21,10 +21,10 @@ target_link_libraries(
   velox_exception
   GTest::gtest
   GTest::gtest_main
-  pthread)
+  pthread
+)
 
-add_executable(velox_type_tz_ext_invalid_test
-               TimeZoneMapExternalInvalidTest.cpp)
+add_executable(velox_type_tz_ext_invalid_test TimeZoneMapExternalInvalidTest.cpp)
 add_test(velox_type_tz_ext_invalid_test velox_type_tz_ext_invalid_test)
 
 target_link_libraries(
@@ -34,4 +34,5 @@ target_link_libraries(
   velox_exception
   GTest::gtest
   GTest::gtest_main
-  pthread)
+  pthread
+)

@@ -13,16 +13,19 @@
 # limitations under the License.
 add_subdirectory(utils)
 
-add_executable(velox_exec_prefixsort_test PrefixSortAlgorithmTest.cpp
-                                          PrefixEncoderTest.cpp)
+add_executable(velox_exec_prefixsort_test PrefixSortAlgorithmTest.cpp PrefixEncoderTest.cpp)
 
 add_test(
   NAME velox_exec_prefixsort_test
   COMMAND velox_exec_prefixsort_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 set_tests_properties(velox_exec_prefixsort_test PROPERTIES TIMEOUT 3000)
 
 target_link_libraries(
-  velox_exec_prefixsort_test velox_exec_prefixsort_test_lib velox_vector_fuzzer
-  velox_vector_test_lib)
+  velox_exec_prefixsort_test
+  velox_exec_prefixsort_test_lib
+  velox_vector_fuzzer
+  velox_vector_test_lib
+)

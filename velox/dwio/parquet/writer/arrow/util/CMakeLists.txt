@@ -20,7 +20,8 @@ velox_add_library(
   CompressionZlib.cpp
   CompressionLZ4.cpp
   Hashing.cpp
-  Crc32.cpp)
+  Crc32.cpp
+)
 
 velox_link_libraries(
   velox_dwio_arrow_parquet_writer_util_lib
@@ -29,4 +30,5 @@ velox_link_libraries(
   Snappy::snappy
   zstd::zstd
   ZLIB::ZLIB
-  lz4::lz4)
+  lz4::lz4
+)

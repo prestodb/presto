@@ -23,12 +23,16 @@ add_compile_options(-w)
 # officale releases for some reason)
 set(VELOX_BOOST_BUILD_VERSION 1.84.0)
 string(
-  CONCAT VELOX_BOOST_SOURCE_URL
-         "https://github.com/boostorg/boost/releases/download/"
-         "boost-${VELOX_BOOST_BUILD_VERSION}/"
-         "boost-${VELOX_BOOST_BUILD_VERSION}.tar.gz")
-set(VELOX_BOOST_BUILD_SHA256_CHECKSUM
-    4d27e9efed0f6f152dc28db6430b9d3dfb40c0345da7342eaa5a987dde57bd95)
+  CONCAT
+  VELOX_BOOST_SOURCE_URL
+  "https://github.com/boostorg/boost/releases/download/"
+  "boost-${VELOX_BOOST_BUILD_VERSION}/"
+  "boost-${VELOX_BOOST_BUILD_VERSION}.tar.gz"
+)
+set(
+  VELOX_BOOST_BUILD_SHA256_CHECKSUM
+  4d27e9efed0f6f152dc28db6430b9d3dfb40c0345da7342eaa5a987dde57bd95
+)
 
 velox_resolve_dependency_url(BOOST)
 message(STATUS "Building boost from source")
@@ -42,22 +46,28 @@ endif()
 FetchContent_Declare(
   Boost
   URL ${VELOX_BOOST_SOURCE_URL}
-  URL_HASH ${VELOX_BOOST_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_BOOST_BUILD_SHA256_CHECKSUM}
+)
 
 # Configure the file before adding the header only libs
-configure_file(${CMAKE_CURRENT_LIST_DIR}/FindBoost.cmake.in
-               ${CMAKE_CURRENT_LIST_DIR}/FindBoost.cmake @ONLY)
+configure_file(
+  ${CMAKE_CURRENT_LIST_DIR}/FindBoost.cmake.in
+  ${CMAKE_CURRENT_LIST_DIR}/FindBoost.cmake
+  @ONLY
+)
 
-set(BOOST_HEADER_ONLY
-    crc
-    circular_buffer
-    math
-    multi_index
-    multiprecision
-    numeric_conversion
-    random
-    uuid
-    variant)
+set(
+  BOOST_HEADER_ONLY
+  crc
+  circular_buffer
+  math
+  multi_index
+  multiprecision
+  numeric_conversion
+  random
+  uuid
+  variant
+)
 list(APPEND BOOST_INCLUDE_LIBRARIES ${BOOST_HEADER_ONLY})
 
 # The `headers` target is not created by Boost cmake and leads to a warning
@@ -66,7 +76,5 @@ set(BUILD_SHARED_LIBS OFF)
 FetchContent_MakeAvailable(Boost)
 
 list(TRANSFORM BOOST_HEADER_ONLY PREPEND Boost::)
-target_link_libraries(
-  boost_headers
-  INTERFACE ${BOOST_HEADER_ONLY})
+target_link_libraries(boost_headers INTERFACE ${BOOST_HEADER_ONLY})
 add_library(Boost::headers ALIAS boost_headers)

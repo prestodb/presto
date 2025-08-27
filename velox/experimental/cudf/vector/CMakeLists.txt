@@ -14,13 +14,6 @@
 
 add_library(velox_cudf_vector CudfVector.cpp)
 
-set_target_properties(
-  velox_cudf_vector
-  PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(velox_cudf_vector PROPERTIES CUDA_ARCHITECTURES native)
 
-target_link_libraries(
-  velox_cudf_vector
-  cudf::cudf
-  velox_exception
-  velox_common_base
-  velox_vector)
+target_link_libraries(velox_cudf_vector cudf::cudf velox_exception velox_common_base velox_vector)

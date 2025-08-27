@@ -30,7 +30,8 @@ add_executable(
   RawVectorTest.cpp
   ScratchTest.cpp
   SharedArbitratorTest.cpp
-  StreamArenaTest.cpp)
+  StreamArenaTest.cpp
+)
 
 target_link_libraries(
   velox_memory_test
@@ -51,7 +52,8 @@ target_link_libraries(
     GTest::gmock
     GTest::gtest
     GTest::gtest_main
-    re2::re2)
+    re2::re2
+)
 
 gtest_add_tests(velox_memory_test "" AUTO)
 
@@ -59,12 +61,11 @@ if(VELOX_ENABLE_BENCHMARKS)
   add_executable(velox_fragmentation_benchmark FragmentationBenchmark.cpp)
 
   target_link_libraries(
-    velox_fragmentation_benchmark PRIVATE velox_memory Folly::folly
-                                          gflags::gflags glog::glog)
+    velox_fragmentation_benchmark
+    PRIVATE velox_memory Folly::folly gflags::gflags glog::glog
+  )
 
-  add_executable(velox_concurrent_allocation_benchmark
-                 ConcurrentAllocationBenchmark.cpp)
+  add_executable(velox_concurrent_allocation_benchmark ConcurrentAllocationBenchmark.cpp)
 
-  target_link_libraries(velox_concurrent_allocation_benchmark
-                        PRIVATE velox_memory velox_time)
+  target_link_libraries(velox_concurrent_allocation_benchmark PRIVATE velox_memory velox_time)
 endif()

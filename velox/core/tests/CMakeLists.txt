@@ -22,7 +22,8 @@ add_executable(
   QueryCtxTest.cpp
   StringTest.cpp
   TypeAnalysisTest.cpp
-  TypedExprSerdeTest.cpp)
+  TypedExprSerdeTest.cpp
+)
 
 add_test(velox_core_test velox_core_test)
 
@@ -36,4 +37,5 @@ target_link_libraries(
     velox_type
     velox_vector_test_lib
     GTest::gtest
-    GTest::gtest_main)
+    GTest::gtest_main
+)

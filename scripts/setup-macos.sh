@@ -87,7 +87,7 @@ function install_build_prerequisites {
     python3 -m venv "${PYTHON_VENV}"
   fi
   source "${PYTHON_VENV}"/bin/activate
-  pip3 install cmake-format regex pyyaml
+  pip3 install regex pyyaml
 
   # Install ccache
   curl -L https://github.com/ccache/ccache/releases/download/v"${CCACHE_VERSION}"/ccache-"${CCACHE_VERSION}"-darwin.tar.gz -o ccache.tar.gz

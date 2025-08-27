@@ -24,7 +24,8 @@ add_library(
   TableWriterReplayer.cpp
   TraceReplayRunner.cpp
   TraceReplayTaskRunner.cpp
-  UnnestReplayer.cpp)
+  UnnestReplayer.cpp
+)
 
 target_link_libraries(
   velox_query_trace_replayer_base
@@ -45,7 +46,8 @@ target_link_libraries(
   velox_s3fs
   Folly::folly
   glog::glog
-  gflags::gflags)
+  gflags::gflags
+)
 
 add_executable(velox_query_replayer TraceReplayerMain.cpp)
 
@@ -54,7 +56,8 @@ target_link_libraries(
   velox_query_trace_replayer_base
   velox_exec
   velox_exec_test_lib
-  velox_tpch_connector)
+  velox_tpch_connector
+)
 
 add_library(velox_trace_file_tool_base TraceFileToolRunner.cpp)
 
@@ -67,11 +70,11 @@ target_link_libraries(
   velox_hive_connector
   Folly::folly
   glog::glog
-  gflags::gflags)
+  gflags::gflags
+)
 
 add_executable(velox_trace_file_tool TraceFileToolMain.cpp)
 
-target_link_libraries(
-  velox_trace_file_tool velox_trace_file_tool_base)
+target_link_libraries(velox_trace_file_tool velox_trace_file_tool_base)
 
 add_subdirectory(tests)

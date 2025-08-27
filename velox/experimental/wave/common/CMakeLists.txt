@@ -21,7 +21,8 @@ add_library(
   Exception.cpp
   KernelCache.cpp
   Type.cpp
-  ResultStaging.cpp)
+  ResultStaging.cpp
+)
 
 target_link_libraries(
   velox_wave_common
@@ -32,7 +33,8 @@ target_link_libraries(
   CUDA::cuda_driver
   CUDA::nvrtc
   CUDA::cudart
-  breeze_cuda)
+  breeze_cuda
+)
 
 target_compile_definitions(velox_wave_common PRIVATE VELOX_OSS_BUILD=1)
 

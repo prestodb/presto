@@ -13,6 +13,4 @@
 # limitations under the License.
 add_library(velox_type_test_lib INTERFACE)
 
-target_link_libraries(
-  velox_type_test_lib
-  INTERFACE velox_type)
+target_link_libraries(velox_type_test_lib INTERFACE velox_type)

@@ -14,9 +14,12 @@
 
 # Use breeze PTX specialization by default for CUDA.
 if(NOT DEFINED CUDA_PLATFORM_SPECIALIZATION_HEADER)
-  set(CUDA_PLATFORM_SPECIALIZATION_HEADER
-      breeze/platforms/specialization/cuda-ptx.cuh
-      CACHE STRING "CUDA platform specialization header")
+  set(
+    CUDA_PLATFORM_SPECIALIZATION_HEADER
+    breeze/platforms/specialization/cuda-ptx.cuh
+    CACHE STRING
+    "CUDA platform specialization header"
+  )
 endif()
 
 # Add header only library for breeze and CUDA platform.
@@ -24,9 +27,8 @@ add_library(breeze_cuda INTERFACE)
 target_include_directories(breeze_cuda INTERFACE ../breeze)
 target_compile_definitions(
   breeze_cuda
-  INTERFACE
-    PLATFORM_CUDA
-    CUDA_PLATFORM_SPECIALIZATION_HEADER=${CUDA_PLATFORM_SPECIALIZATION_HEADER})
+  INTERFACE PLATFORM_CUDA CUDA_PLATFORM_SPECIALIZATION_HEADER=${CUDA_PLATFORM_SPECIALIZATION_HEADER}
+)
 
 add_subdirectory(common)
 add_subdirectory(exec)

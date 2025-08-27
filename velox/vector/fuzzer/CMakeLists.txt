@@ -14,8 +14,7 @@
 
 add_library(velox_vector_fuzzer_util Utils.cpp)
 
-target_link_libraries(
-  velox_vector_fuzzer_util velox_vector velox_common_fuzzer_util)
+target_link_libraries(velox_vector_fuzzer_util velox_vector velox_common_fuzzer_util)
 
 add_library(velox_vector_fuzzer GeneratorSpec.cpp VectorFuzzer.cpp)
 
@@ -26,11 +25,11 @@ target_link_libraries(
   velox_vector_fuzzer_util
   velox_common_fuzzer_util
   velox_presto_types
-  velox_constrained_vector_generator)
+  velox_constrained_vector_generator
+)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options(velox_vector_fuzzer
-                         PRIVATE -Wno-deprecated-declarations)
+  target_compile_options(velox_vector_fuzzer PRIVATE -Wno-deprecated-declarations)
 endif()
 
 add_library(velox_constrained_vector_generator ConstrainedVectorGenerator.cpp)
@@ -40,7 +39,8 @@ target_link_libraries(
   velox_vector
   velox_expression
   velox_constrained_input_generators
-  velox_vector_fuzzer_util)
+  velox_vector_fuzzer_util
+)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

@@ -24,7 +24,8 @@ velox_add_library(
   Writer.cpp
   WriterBase.cpp
   WriterContext.cpp
-  WriterSink.cpp)
+  WriterSink.cpp
+)
 
 velox_link_libraries(
   velox_dwio_dwrf_writer
@@ -39,4 +40,5 @@ velox_link_libraries(
   Boost::headers
   lz4::lz4
   zstd::zstd
-  ZLIB::ZLIB)
+  ZLIB::ZLIB
+)

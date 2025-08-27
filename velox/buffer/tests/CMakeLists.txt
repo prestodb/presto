@@ -25,4 +25,5 @@ target_link_libraries(
   GTest::gmock
   glog::glog
   gflags::gflags
-  pthread)
+  pthread
+)

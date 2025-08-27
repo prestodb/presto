@@ -17,15 +17,8 @@
 velox_add_library(velox_gcs RegisterGcsFileSystem.cpp)
 
 if(VELOX_ENABLE_GCS)
-  velox_sources(
-    velox_gcs
-    PRIVATE
-    GcsFileSystem.cpp
-    GcsUtil.cpp
-    GcsWriteFile.cpp
-    GcsReadFile.cpp)
-  velox_link_libraries(velox_gcs velox_dwio_common Folly::folly
-                       google-cloud-cpp::storage)
+  velox_sources(velox_gcs PRIVATE GcsFileSystem.cpp GcsUtil.cpp GcsWriteFile.cpp GcsReadFile.cpp)
+  velox_link_libraries(velox_gcs velox_dwio_common Folly::folly google-cloud-cpp::storage)
 
   if(${VELOX_BUILD_TESTING})
     add_subdirectory(tests)

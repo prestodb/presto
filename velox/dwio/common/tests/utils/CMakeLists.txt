@@ -19,7 +19,8 @@ add_library(
   DataSetBuilder.cpp
   FilterGenerator.cpp
   UnitLoaderTestTools.cpp
-  E2EFilterTestBase.cpp)
+  E2EFilterTestBase.cpp
+)
 
 target_link_libraries(
   velox_dwio_common_test_utils
@@ -36,7 +37,8 @@ target_link_libraries(
   velox_type
   velox_type_fbhive
   velox_vector
-  velox_vector_test_lib)
+  velox_vector_test_lib
+)
 
 # older versions of GCC need it to allow std::filesystem
 if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)

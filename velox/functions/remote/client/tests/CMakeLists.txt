@@ -27,4 +27,5 @@ target_link_libraries(
   velox_functions_remote_utils
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

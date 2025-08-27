@@ -23,4 +23,5 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   GTest::gmock
-  GTest::gmock_main)
+  GTest::gmock_main
+)

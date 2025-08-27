@@ -18,4 +18,5 @@ target_link_libraries(
   velox_row_fast
   velox_vector
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

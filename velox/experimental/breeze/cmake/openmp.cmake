@@ -19,9 +19,7 @@
 set(OPENMP_GCC_NO_WARN_FLAGS "-Wno-unknown-pragmas;-Wno-maybe-uninitialized")
 
 if(NOT DEFINED OPENMP_UNROLL_THRESHOLD)
-  set(OPENMP_UNROLL_THRESHOLD
-      32
-      CACHE STRING "OpenMP loop unroll threshold")
+  set(OPENMP_UNROLL_THRESHOLD 32 CACHE STRING "OpenMP loop unroll threshold")
 endif()
 
 find_package(OpenMP REQUIRED)
@@ -44,7 +42,8 @@ function(breeze_add_openmp_test target source)
         -Xclang
         -mllvm
         -Xclang
-        -unroll-threshold=${OPENMP_UNROLL_THRESHOLD})
+        -unroll-threshold=${OPENMP_UNROLL_THRESHOLD}
+    )
   else()
     target_compile_options(
       ${target}
@@ -55,7 +54,8 @@ function(breeze_add_openmp_test target source)
         ${WARN_FLAGS}
         ${OPENMP_GCC_NO_WARN_FLAGS}
         ${OPT_FLAGS}
-        ${SANITIZE_COMPILE_FLAGS})
+        ${SANITIZE_COMPILE_FLAGS}
+    )
   endif()
   target_link_options(${target} PRIVATE ${SANITIZE_LINK_FLAGS})
   target_link_libraries(${target} OpenMP::OpenMP_CXX test_main)

@@ -23,14 +23,14 @@ add_executable(
   BlockTest.cu
   HashTableTest.cpp
   HashTestUtil.cpp
-  AtomicTest.cu)
+  AtomicTest.cu
+)
 
 add_test(velox_wave_common_test velox_wave_common_test)
 set_tests_properties(velox_wave_common_test PROPERTIES LABELS cuda_driver)
 
 if(VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST)
-  target_compile_definitions(velox_wave_common_test
-                             PRIVATE VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST=1)
+  target_compile_definitions(velox_wave_common_test PRIVATE VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST=1)
 endif()
 target_link_libraries(
   velox_wave_common_test
@@ -39,4 +39,5 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   CUDA::cudart
-  breeze_cuda)
+  breeze_cuda
+)

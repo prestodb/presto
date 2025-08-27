@@ -29,10 +29,10 @@ add_executable(
   ModeAggregateTest.cpp
   RegrReplacementAggregationTest.cpp
   SumAggregationTest.cpp
-  VarianceAggregationTest.cpp)
+  VarianceAggregationTest.cpp
+)
 
-add_test(velox_functions_spark_aggregates_test
-         velox_functions_spark_aggregates_test)
+add_test(velox_functions_spark_aggregates_test velox_functions_spark_aggregates_test)
 
 target_link_libraries(
   velox_functions_spark_aggregates_test
@@ -45,4 +45,5 @@ target_link_libraries(
   velox_vector_fuzzer
   gflags::gflags
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

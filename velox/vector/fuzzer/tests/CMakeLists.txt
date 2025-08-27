@@ -23,15 +23,16 @@ target_link_libraries(
   velox_memory
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)
 
-add_executable(velox_constrained_vector_generator_test
-               ConstrainedVectorGeneratorTest.cpp)
+add_executable(velox_constrained_vector_generator_test ConstrainedVectorGeneratorTest.cpp)
 
 add_test(
   NAME velox_constrained_vector_generator_test
   COMMAND velox_constrained_vector_generator_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   velox_constrained_vector_generator_test
@@ -39,4 +40,5 @@ target_link_libraries(
   velox_vector_test_lib
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)

@@ -17,7 +17,8 @@ velox_add_library(
   BloomFilter.cpp
   XxHasher.cpp
   LevelComparison.cpp
-  LevelConversion.cpp)
+  LevelConversion.cpp
+)
 
 velox_link_libraries(
   velox_dwio_parquet_common
@@ -30,4 +31,5 @@ velox_link_libraries(
   Folly::folly
   Snappy::snappy
   thrift
-  zstd::zstd)
+  zstd::zstd
+)

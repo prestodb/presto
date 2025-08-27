@@ -26,7 +26,8 @@ velox_add_library(
   RLEv2.cpp
   Statistics.cpp
   wrap/orc-proto-wrapper.cpp
-  wrap/dwrf-proto-wrapper.cpp)
+  wrap/dwrf-proto-wrapper.cpp
+)
 
 velox_link_libraries(
   velox_dwio_dwrf_common
@@ -38,7 +39,8 @@ velox_link_libraries(
   velox_caching
   Snappy::snappy
   zstd::zstd
-  protobuf::libprotobuf)
+  protobuf::libprotobuf
+)
 
 # required for the wrapped protobuf headers/sources
 velox_include_directories(velox_dwio_dwrf_common PUBLIC ${PROJECT_BINARY_DIR})

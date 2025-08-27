@@ -38,7 +38,8 @@ velox_add_library(
   Schema.cpp
   Statistics.cpp
   Types.cpp
-  Writer.cpp)
+  Writer.cpp
+)
 
 velox_link_libraries(
   velox_dwio_arrow_parquet_writer_lib
@@ -48,4 +49,5 @@ velox_link_libraries(
   velox_dwio_common
   velox_arrow_bridge
   arrow
-  fmt::fmt)
+  fmt::fmt
+)

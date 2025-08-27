@@ -14,10 +14,13 @@
 include_guard(GLOBAL)
 
 set(VELOX_SIMDJSON_VERSION 3.9.3)
-set(VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM
-    2e3d10abcde543d3dd8eba9297522cafdcebdd1db4f51b28f3bc95bf1d6ad23c)
-set(VELOX_SIMDJSON_SOURCE_URL
-    "https://github.com/simdjson/simdjson/archive/refs/tags/v${VELOX_SIMDJSON_VERSION}.tar.gz"
+set(
+  VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM
+  2e3d10abcde543d3dd8eba9297522cafdcebdd1db4f51b28f3bc95bf1d6ad23c
+)
+set(
+  VELOX_SIMDJSON_SOURCE_URL
+  "https://github.com/simdjson/simdjson/archive/refs/tags/v${VELOX_SIMDJSON_VERSION}.tar.gz"
 )
 
 velox_resolve_dependency_url(SIMDJSON)
@@ -27,7 +30,8 @@ message(STATUS "Building simdjson from source")
 FetchContent_Declare(
   simdjson
   URL ${VELOX_SIMDJSON_SOURCE_URL}
-  URL_HASH ${VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_SIMDJSON_BUILD_SHA256_CHECKSUM}
+)
 
 if(${VELOX_SIMDJSON_SKIPUTF8VALIDATION})
   set(SIMDJSON_SKIPUTF8VALIDATION ON)

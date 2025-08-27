@@ -14,12 +14,16 @@
 include_guard(GLOBAL)
 
 set(VELOX_PYBIND11_BUILD_VERSION 2.10.0)
-set(VELOX_PYBIND11_BUILD_SHA256_CHECKSUM
-    eacf582fa8f696227988d08cfc46121770823839fe9e301a20fbce67e7cd70ec)
+set(
+  VELOX_PYBIND11_BUILD_SHA256_CHECKSUM
+  eacf582fa8f696227988d08cfc46121770823839fe9e301a20fbce67e7cd70ec
+)
 string(
-  CONCAT VELOX_PYBIND11_SOURCE_URL
-         "https://github.com/pybind/pybind11/archive/refs/tags/"
-         "v${VELOX_PYBIND11_BUILD_VERSION}.tar.gz")
+  CONCAT
+  VELOX_PYBIND11_SOURCE_URL
+  "https://github.com/pybind/pybind11/archive/refs/tags/"
+  "v${VELOX_PYBIND11_BUILD_VERSION}.tar.gz"
+)
 
 velox_resolve_dependency_url(PYBIND11)
 
@@ -28,6 +32,7 @@ message(STATUS "Building Pybind11 from source")
 FetchContent_Declare(
   pybind11
   URL ${VELOX_PYBIND11_SOURCE_URL}
-  URL_HASH ${VELOX_PYBIND11_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_PYBIND11_BUILD_SHA256_CHECKSUM}
+)
 
 FetchContent_MakeAvailable(pybind11)

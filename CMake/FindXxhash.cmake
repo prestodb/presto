@@ -25,8 +25,7 @@ include(SelectLibraryConfigurations)
 select_library_configurations(Xxhash)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Xxhash DEFAULT_MSG Xxhash_LIBRARY
-                                  Xxhash_INCLUDE_DIR)
+find_package_handle_standard_args(Xxhash DEFAULT_MSG Xxhash_LIBRARY Xxhash_INCLUDE_DIR)
 
 if(Xxhash_FOUND)
   message(STATUS "Found xxhash: ${Xxhash_LIBRARY}")

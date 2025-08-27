@@ -17,5 +17,5 @@ add_test(velox_common_compression_test velox_common_compression_test)
 target_link_libraries(
   velox_common_compression_test
   PUBLIC velox_link_libs
-  PRIVATE velox_common_compression velox_exception GTest::gtest
-          GTest::gtest_main)
+  PRIVATE velox_common_compression velox_exception GTest::gtest GTest::gtest_main
+)

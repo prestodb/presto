@@ -14,11 +14,12 @@
 
 add_executable(
   velox_presto_types_fuzzer_utils_test
-  TimestampWithTimeZoneInputGeneratorTest.cpp HyperLogLogInputGeneratorTest.cpp
-  SfmSketchInputGeneratorTest.cpp)
+  TimestampWithTimeZoneInputGeneratorTest.cpp
+  HyperLogLogInputGeneratorTest.cpp
+  SfmSketchInputGeneratorTest.cpp
+)
 
-add_test(velox_presto_types_fuzzer_utils_test
-         velox_presto_types_fuzzer_utils_test)
+add_test(velox_presto_types_fuzzer_utils_test velox_presto_types_fuzzer_utils_test)
 
 target_link_libraries(
   velox_presto_types_fuzzer_utils_test
@@ -28,4 +29,5 @@ target_link_libraries(
   velox_type
   velox_type_tz
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

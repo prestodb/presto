@@ -17,7 +17,8 @@ cmake_policy(SET CMP0063 NEW)
 project(dbgen CXX C)
 
 add_library(
-  dbgen STATIC
+  dbgen
+  STATIC
   dbgen.cpp
   dbgen_gunk.cpp
   bm_utils.cpp
@@ -26,13 +27,12 @@ add_library(
   rnd.cpp
   rng64.cpp
   speed_seed.cpp
-  text.cpp)
+  text.cpp
+)
 
 target_compile_definitions(dbgen PRIVATE DBNAME=dss MAC ORACLE TPCH)
 target_include_directories(dbgen PRIVATE include)
-target_link_libraries(
-  dbgen
-  PRIVATE fmt::fmt Folly::folly)
+target_link_libraries(dbgen PRIVATE fmt::fmt Folly::folly)
 
 # Suppress warnings when compiling dbgen.
 target_compile_options(dbgen PRIVATE -w)

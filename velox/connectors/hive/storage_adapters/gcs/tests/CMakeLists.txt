@@ -26,7 +26,8 @@ target_link_libraries(
   velox_temp_path
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 add_executable(velox_gcs_insert_test GcsInsertTest.cpp)
 add_test(velox_gcs_insert_test velox_gcs_insert_test)
@@ -41,7 +42,8 @@ target_link_libraries(
   velox_exec
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 add_executable(velox_gcs_multiendpoints_test GcsMultipleEndpointsTest.cpp)
 add_test(velox_gcs_multiendpoints_test velox_gcs_multiendpoints_test)
@@ -58,4 +60,5 @@ target_link_libraries(
   velox_exec
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

@@ -14,6 +14,4 @@
 
 add_library(velox_functions_remote_utils RemoteFunctionServiceProvider.cpp)
 
-target_link_libraries(
-  velox_functions_remote_utils
-  PUBLIC velox_functions_remote_server)
+target_link_libraries(velox_functions_remote_utils PUBLIC velox_functions_remote_server)

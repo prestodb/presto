@@ -16,13 +16,20 @@ velox_add_library(velox_is_null_functions IsNull.cpp)
 
 velox_link_libraries(velox_is_null_functions velox_expression)
 
-velox_add_library(velox_functions_util Murmur3Hash32Base.cpp
-                  LambdaFunctionUtil.cpp RowsTranslationUtil.cpp)
+velox_add_library(
+  velox_functions_util
+  Murmur3Hash32Base.cpp
+  LambdaFunctionUtil.cpp
+  RowsTranslationUtil.cpp
+)
 
 velox_link_libraries(velox_functions_util velox_vector velox_common_base)
 
-velox_add_library(velox_functions_lib_date_time_formatter DateTimeFormatter.cpp
-                  DateTimeFormatterBuilder.cpp)
+velox_add_library(
+  velox_functions_lib_date_time_formatter
+  DateTimeFormatter.cpp
+  DateTimeFormatterBuilder.cpp
+)
 
 velox_link_libraries(velox_functions_lib_date_time_formatter velox_type_tz)
 
@@ -39,7 +46,8 @@ velox_add_library(
   StringEncodingUtils.cpp
   SubscriptUtil.cpp
   TimeUtils.cpp
-  Utf8Utils.cpp)
+  Utf8Utils.cpp
+)
 
 velox_link_libraries(
   velox_functions_lib
@@ -48,7 +56,8 @@ velox_link_libraries(
   velox_vector
   velox_type_tz
   re2::re2
-  Folly::folly)
+  Folly::folly
+)
 
 add_subdirectory(aggregates)
 add_subdirectory(sfm)

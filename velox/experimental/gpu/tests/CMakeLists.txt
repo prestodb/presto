@@ -23,4 +23,5 @@ target_link_libraries(
   glog::glog
   CUB::CUB
   Thrust::Thrust
-  CUDA::cudart)
+  CUDA::cudart
+)

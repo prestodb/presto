@@ -25,6 +25,8 @@ if(NOT TARGET stemmer::stemmer)
   find_path(STEMMER_INCLUDE_PATH libstemmer.h)
   set_target_properties(
     stemmer::stemmer
-    PROPERTIES IMPORTED_LOCATION ${STEMMER_LIB} INTERFACE_INCLUDE_DIRECTORIES
-                                                ${STEMMER_INCLUDE_PATH})
+    PROPERTIES
+      IMPORTED_LOCATION ${STEMMER_LIB}
+      INTERFACE_INCLUDE_DIRECTORIES ${STEMMER_INCLUDE_PATH}
+  )
 endif()

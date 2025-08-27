@@ -30,16 +30,16 @@
 function(EXTRACT_THRIFT_VERSION)
   if(THRIFT_INCLUDE_DIR)
     file(READ "${THRIFT_INCLUDE_DIR}/thrift/config.h" THRIFT_CONFIG_H_CONTENT)
-    string(REGEX MATCH "#define PACKAGE_VERSION \"[0-9.]+\""
-                 THRIFT_VERSION_DEFINITION "${THRIFT_CONFIG_H_CONTENT}")
+    string(
+      REGEX MATCH
+      "#define PACKAGE_VERSION \"[0-9.]+\""
+      THRIFT_VERSION_DEFINITION
+      "${THRIFT_CONFIG_H_CONTENT}"
+    )
     string(REGEX MATCH "[0-9.]+" Thrift_VERSION "${THRIFT_VERSION_DEFINITION}")
-    set(Thrift_VERSION
-        "${Thrift_VERSION}"
-        PARENT_SCOPE)
+    set(Thrift_VERSION "${Thrift_VERSION}" PARENT_SCOPE)
   else()
-    set(Thrift_VERSION
-        ""
-        PARENT_SCOPE)
+    set(Thrift_VERSION "" PARENT_SCOPE)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
@@ -77,8 +77,9 @@ if(ARROW_THRIFT_USE_SHARED)
     "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
   )
 else()
-  set(THRIFT_LIB_NAMES
-      "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  set(
+    THRIFT_LIB_NAMES
+    "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 endif()
 
@@ -87,16 +88,11 @@ if(Thrift_ROOT)
     THRIFT_LIB
     NAMES ${THRIFT_LIB_NAMES}
     PATHS ${Thrift_ROOT}
-    PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
-  find_path(
-    THRIFT_INCLUDE_DIR thrift/Thrift.h
-    PATHS ${Thrift_ROOT}
-    PATH_SUFFIXES "include")
-  find_program(
-    THRIFT_COMPILER thrift
-    PATHS ${Thrift_ROOT}
-    PATH_SUFFIXES "bin")
-  extract_thrift_version()
+    PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib"
+  )
+  find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATHS ${Thrift_ROOT} PATH_SUFFIXES "include")
+  find_program(THRIFT_COMPILER thrift PATHS ${Thrift_ROOT} PATH_SUFFIXES "bin")
+  EXTRACT_THRIFT_VERSION()
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using
   # autotools. Starting with 0.13, they are also installed for the CMake-based
@@ -112,21 +108,25 @@ else()
       THRIFT_LIB
       NAMES ${THRIFT_LIB_NAMES}
       PATHS ${THRIFT_PC_LIBRARY_DIRS}
-      NO_DEFAULT_PATH)
+      NO_DEFAULT_PATH
+    )
     find_program(
-      THRIFT_COMPILER thrift
+      THRIFT_COMPILER
+      thrift
       HINTS ${THRIFT_PC_PREFIX}
       NO_DEFAULT_PATH
-      PATH_SUFFIXES "bin")
+      PATH_SUFFIXES "bin"
+    )
     set(Thrift_VERSION ${THRIFT_PC_VERSION})
   else()
     find_library(
       THRIFT_LIB
       NAMES ${THRIFT_LIB_NAMES}
-      PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
+      PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib"
+    )
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
-    extract_thrift_version()
+    EXTRACT_THRIFT_VERSION()
   endif()
 endif()
 
@@ -140,7 +140,8 @@ find_package_handle_standard_args(
   Thrift
   REQUIRED_VARS THRIFT_LIB THRIFT_INCLUDE_DIR
   VERSION_VAR Thrift_VERSION
-  HANDLE_COMPONENTS)
+  HANDLE_COMPONENTS
+)
 
 if(Thrift_FOUND)
   if(ARROW_THRIFT_USE_SHARED)
@@ -150,18 +151,18 @@ if(Thrift_FOUND)
   endif()
   set_target_properties(
     thrift::thrift
-    PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                                                 "${THRIFT_INCLUDE_DIR}")
+    PROPERTIES
+      IMPORTED_LOCATION "${THRIFT_LIB}"
+      INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}"
+  )
   if(WIN32 AND NOT MSVC_TOOLCHAIN)
     # We don't need this for Visual C++ because Thrift uses "#pragma
     # comment(lib, "Ws2_32.lib")" in thrift/windows/config.h for Visual C++.
-    set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                    "ws2_32")
+    set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
   endif()
 
   if(Thrift_COMPILER_FOUND)
     add_executable(thrift::compiler IMPORTED)
-    set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
-                                                      "${THRIFT_COMPILER}")
+    set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION "${THRIFT_COMPILER}")
   endif()
 endif()

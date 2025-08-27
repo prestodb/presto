@@ -38,25 +38,26 @@ velox_add_library(
   StringFunctionsRegistration.cpp
   TDigestFunctionsRegistration.cpp
   QDigestFunctionsRegistration.cpp
-  URLFunctionsRegistration.cpp)
+  URLFunctionsRegistration.cpp
+)
 
 if(VELOX_ENABLE_GEO)
   velox_compile_definitions(velox_functions_prestosql PRIVATE VELOX_ENABLE_GEO)
-  velox_sources(velox_functions_prestosql PRIVATE
-                GeometryFunctionsRegistration.cpp)
+  velox_sources(velox_functions_prestosql PRIVATE GeometryFunctionsRegistration.cpp)
 endif()
 
 if(VELOX_ENABLE_FAISS)
-  set_source_files_properties(MathematicalFunctionsRegistration.cpp
-                              PROPERTIES COMPILE_DEFINITIONS VELOX_ENABLE_FAISS)
+  set_source_files_properties(
+    MathematicalFunctionsRegistration.cpp
+    PROPERTIES COMPILE_DEFINITIONS VELOX_ENABLE_FAISS
+  )
 endif()
 
 # GCC 12 has a bug where it does not respect "pragma ignore" directives and ends
 # up failing compilation in an openssl header included by a hash-related
 # function.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT VELOX_MONO_LIBRARY)
-  target_compile_options(velox_functions_prestosql
-                         PRIVATE -Wno-deprecated-declarations)
+  target_compile_options(velox_functions_prestosql PRIVATE -Wno-deprecated-declarations)
 endif()
 
 velox_link_libraries(
@@ -64,9 +65,9 @@ velox_link_libraries(
   velox_functions_prestosql_impl
   velox_is_null_functions
   velox_functions_sfm
-  simdjson::simdjson)
+  simdjson::simdjson
+)
 
 if(NOT VELOX_MONO_LIBRARY)
-  set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
-                                                         high_memory_pool)
+  set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE high_memory_pool)
 endif()

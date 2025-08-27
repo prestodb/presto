@@ -59,7 +59,7 @@ class PlanBuilder:
         build_plan_node: PlanNode,
         output: list[str] = [],
         filter: str = "",
-        join_type: JoinType = JoinType.INNER
+        join_type: JoinType = JoinType.INNER,
     ) -> PlanBuilder: ...
     def aggregate(
         self,

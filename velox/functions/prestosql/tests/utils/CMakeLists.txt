@@ -19,4 +19,5 @@ target_link_libraries(
   velox_exec
   velox_exec_test_lib
   velox_vector_test_lib
-  velox_parse_parser)
+  velox_parse_parser
+)

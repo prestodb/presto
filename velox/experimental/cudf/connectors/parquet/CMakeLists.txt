@@ -14,31 +14,24 @@
 
 add_library(velox_cudf_parquet_config ParquetConfig.cpp)
 
-set_target_properties(
-  velox_cudf_parquet_config
-  PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(velox_cudf_parquet_config PROPERTIES CUDA_ARCHITECTURES native)
 
-target_link_libraries(
-  velox_cudf_parquet_config velox_core velox_exception cudf::cudf)
+target_link_libraries(velox_cudf_parquet_config velox_core velox_exception cudf::cudf)
 
 add_library(
-  velox_cudf_parquet_connector OBJECT
+  velox_cudf_parquet_connector
+  OBJECT
   ParquetConfig.cpp
   ParquetConnector.cpp
   ParquetConnectorSplit.cpp
   ParquetDataSource.cpp
   ParquetDataSink.cpp
-  ParquetTableHandle.cpp)
+  ParquetTableHandle.cpp
+)
 
-set_target_properties(
-  velox_cudf_parquet_connector
-  PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(velox_cudf_parquet_connector PROPERTIES CUDA_ARCHITECTURES native)
 
 target_link_libraries(
   velox_cudf_parquet_connector
-  PRIVATE
-    cudf::cudf
-    velox_common_io
-    velox_connector
-    velox_type_tz
-    velox_gcs)
+  PRIVATE cudf::cudf velox_common_io velox_connector velox_type_tz velox_gcs
+)

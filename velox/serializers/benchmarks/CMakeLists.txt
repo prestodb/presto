@@ -19,4 +19,5 @@ target_link_libraries(
   velox_vector_fuzzer
   velox_memory
   Folly::folly
-  Folly::follybenchmark)
+  Folly::follybenchmark
+)

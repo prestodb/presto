@@ -19,22 +19,20 @@ if(c-ares_FOUND)
   endif()
 endif()
 
-find_path(
-  C_ARES_INCLUDE_DIR
-  NAMES ares.h
-  PATH_SUFFIXES c-ares)
+find_path(C_ARES_INCLUDE_DIR NAMES ares.h PATH_SUFFIXES c-ares)
 find_library(C_ARES_LIBRARY NAMES c-ares)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(c-ares DEFAULT_MSG C_ARES_LIBRARY
-                                  C_ARES_INCLUDE_DIR)
+find_package_handle_standard_args(c-ares DEFAULT_MSG C_ARES_LIBRARY C_ARES_INCLUDE_DIR)
 
 if(c-ares_FOUND AND NOT TARGET c-ares::cares)
   add_library(c-ares::cares UNKNOWN IMPORTED)
   set_target_properties(
     c-ares::cares
-    PROPERTIES IMPORTED_LOCATION "${C_ARES_LIBRARY}"
-               INTERFACE_INCLUDE_DIRECTORIES "${C_ARES_INCLUDE_DIR}")
+    PROPERTIES
+      IMPORTED_LOCATION "${C_ARES_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${C_ARES_INCLUDE_DIR}"
+  )
 endif()
 
 mark_as_advanced(C_ARES_INCLUDE_DIR C_ARES_LIBRARY)

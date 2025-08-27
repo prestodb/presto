@@ -20,4 +20,5 @@ target_link_libraries(
   velox_functions_spark_aggregates
   velox_functions_spark_window
   velox_row_fast
-  velox_coverage_util)
+  velox_coverage_util
+)

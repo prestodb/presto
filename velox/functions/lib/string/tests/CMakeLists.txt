@@ -22,4 +22,5 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   gflags::gflags
-  glog::glog)
+  glog::glog
+)

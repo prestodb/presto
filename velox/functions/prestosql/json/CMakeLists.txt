@@ -17,13 +17,12 @@ velox_add_library(
   JsonPathTokenizer.cpp
   JsonStringUtil.cpp
   SIMDJsonExtractor.cpp
-  SIMDJsonUtil.cpp)
+  SIMDJsonUtil.cpp
+)
 
-velox_link_libraries(velox_functions_json velox_functions_lib
-                     simdjson::simdjson)
+velox_link_libraries(velox_functions_json velox_functions_lib simdjson::simdjson)
 
-velox_compile_definitions(velox_functions_json
-                          PRIVATE SIMDJSON_EXPERIMENTAL_ALLOW_INCOMPLETE_JSON)
+velox_compile_definitions(velox_functions_json PRIVATE SIMDJSON_EXPERIMENTAL_ALLOW_INCOMPLETE_JSON)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

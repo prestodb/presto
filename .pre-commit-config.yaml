@@ -35,16 +35,6 @@ repos:
 
   - repo: local
     hooks:
-      - id: cmake-format
-        name: cmake-format
-        description: Format CMake files.
-        entry: cmake-format
-        language: python
-        files: (CMakeLists.*|.*\.cmake|.*\.cmake.in)$
-        args: [--in-place]
-        require_serial: false
-        additional_dependencies: [cmake-format==0.6.13, pyyaml]
-
       - id: clang-tidy
         name: clang-tidy
         description: Run clang-tidy on C/C++ files
@@ -75,6 +65,12 @@ repos:
           velox/tpch/gen/dbgen/.*|
           NOTICE.txt
           )$
+
+  - repo: https://github.com/BlankSpruce/gersemi
+    rev: 0.21.0
+    hooks:
+      - id: gersemi
+        name: CMake formatter
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.3

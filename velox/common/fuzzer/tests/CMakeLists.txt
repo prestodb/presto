@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_constrained_input_generators_test
-               ConstrainedGeneratorsTest.cpp)
+add_executable(velox_constrained_input_generators_test ConstrainedGeneratorsTest.cpp)
 
 add_test(
   NAME velox_constrained_input_generators_test
   COMMAND velox_constrained_input_generators_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   velox_constrained_input_generators_test
@@ -28,4 +28,5 @@ target_link_libraries(
   velox_type
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)

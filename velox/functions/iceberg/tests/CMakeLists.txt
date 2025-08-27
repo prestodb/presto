@@ -16,11 +16,13 @@ add_executable(velox_functions_iceberg_test Murmur3Hash32Test.cpp)
 add_test(
   NAME velox_functions_iceberg_test
   COMMAND velox_functions_iceberg_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   velox_functions_iceberg_test
   velox_functions_iceberg_hash
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)

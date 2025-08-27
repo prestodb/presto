@@ -42,9 +42,7 @@ option(BUILD_TRACING "Build tracing." ON)
 option(BUILD_GENERATE_TEST_FIXTURES "Generate test fixtures at build time." ON)
 
 if(NOT DEFINED PERFTEST_EXT_TYPES)
-  set(PERFTEST_EXT_TYPES
-      0
-      CACHE STRING "Extended test types for perf tests")
+  set(PERFTEST_EXT_TYPES 0 CACHE STRING "Extended test types for perf tests")
 endif()
 
 if(NOT DEFINED VELOX_PROJECT_SOURCE_DIR)
@@ -56,7 +54,8 @@ list(
   CMAKE_MODULE_PATH
   "${PROJECT_SOURCE_DIR}/cmake"
   "${VELOX_PROJECT_SOURCE_DIR}/CMake"
-  "${VELOX_PROJECT_SOURCE_DIR}/CMake/third-party")
+  "${VELOX_PROJECT_SOURCE_DIR}/CMake/third-party"
+)
 
 # Include Velox ThirdPartyToolchain dependencies macros
 include(ResolveDependency)

@@ -14,9 +14,9 @@
 
 add_executable(velox_common_hyperloglog_test DenseHllTest.cpp SparseHllTest.cpp)
 
-add_test(NAME velox_common_hyperloglog_test
-         COMMAND velox_common_hyperloglog_test)
+add_test(NAME velox_common_hyperloglog_test COMMAND velox_common_hyperloglog_test)
 
 target_link_libraries(
   velox_common_hyperloglog_test
-  PRIVATE velox_common_hyperloglog velox_encode GTest::gtest GTest::gtest_main)
+  PRIVATE velox_common_hyperloglog velox_encode GTest::gtest GTest::gtest_main
+)

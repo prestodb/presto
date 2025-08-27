@@ -25,7 +25,8 @@ find_package_handle_standard_args(
   ARROW_LIB
   ARROW_TESTING_LIB
   ARROW_INCLUDE_PATH
-  Thrift_FOUND)
+  Thrift_FOUND
+)
 
 # Only add the libraries once.
 if(Arrow_FOUND AND NOT TARGET arrow)
@@ -34,10 +35,13 @@ if(Arrow_FOUND AND NOT TARGET arrow)
   add_library(thrift ALIAS thrift::thrift)
 
   set_target_properties(
-    arrow arrow_testing PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   ${ARROW_INCLUDE_PATH})
-  set_target_properties(arrow PROPERTIES IMPORTED_LOCATION ${ARROW_LIB}
-                                         INTERFACE_LINK_LIBRARIES thrift)
-  set_target_properties(arrow_testing PROPERTIES IMPORTED_LOCATION
-                                                 ${ARROW_TESTING_LIB})
+    arrow
+    arrow_testing
+    PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${ARROW_INCLUDE_PATH}
+  )
+  set_target_properties(
+    arrow
+    PROPERTIES IMPORTED_LOCATION ${ARROW_LIB} INTERFACE_LINK_LIBRARIES thrift
+  )
+  set_target_properties(arrow_testing PROPERTIES IMPORTED_LOCATION ${ARROW_TESTING_LIB})
 endif()

@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_duckdb_conversion_test DuckConversionTest.cpp
-                                            DuckParserTest.cpp)
+add_executable(velox_duckdb_conversion_test DuckConversionTest.cpp DuckParserTest.cpp)
 
 add_test(velox_duckdb_conversion_test velox_duckdb_conversion_test)
 
@@ -27,4 +26,5 @@ target_link_libraries(
   velox_functions_test_lib
   GTest::gtest
   GTest::gtest_main
-  gflags::gflags)
+  gflags::gflags
+)

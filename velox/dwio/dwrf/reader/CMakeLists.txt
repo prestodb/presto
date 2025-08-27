@@ -33,7 +33,8 @@ velox_add_library(
   StreamLabels.cpp
   StripeDictionaryCache.cpp
   StripeReaderBase.cpp
-  StripeStream.cpp)
+  StripeStream.cpp
+)
 
 velox_link_libraries(
   velox_dwio_dwrf_reader
@@ -42,4 +43,5 @@ velox_link_libraries(
   velox_caching
   velox_dwio_dwrf_utils
   velox_test_util
-  fmt::fmt)
+  fmt::fmt
+)

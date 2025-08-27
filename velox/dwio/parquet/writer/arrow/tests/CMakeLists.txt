@@ -25,10 +25,10 @@ add_executable(
   PropertiesTest.cpp
   SchemaTest.cpp
   StatisticsTest.cpp
-  TypesTest.cpp)
+  TypesTest.cpp
+)
 
-add_test(velox_dwio_arrow_parquet_writer_test
-         velox_dwio_arrow_parquet_writer_test)
+add_test(velox_dwio_arrow_parquet_writer_test velox_dwio_arrow_parquet_writer_test)
 
 target_link_libraries(
   velox_dwio_arrow_parquet_writer_test
@@ -39,7 +39,8 @@ target_link_libraries(
   arrow
   arrow_testing
   velox_dwio_native_parquet_reader
-  velox_temp_path)
+  velox_temp_path
+)
 
 add_library(
   velox_dwio_arrow_parquet_writer_test_lib
@@ -49,8 +50,12 @@ add_library(
   ColumnScanner.cpp
   FileReader.cpp
   TestUtil.cpp
-  XxHasher.cpp)
+  XxHasher.cpp
+)
 
 target_link_libraries(
-  velox_dwio_arrow_parquet_writer_test_lib arrow
-  velox_dwio_arrow_parquet_writer_lib GTest::gtest)
+  velox_dwio_arrow_parquet_writer_test_lib
+  arrow
+  velox_dwio_arrow_parquet_writer_lib
+  GTest::gtest
+)

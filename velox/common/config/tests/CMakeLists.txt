@@ -17,4 +17,5 @@ add_test(velox_config_test velox_config_test)
 target_link_libraries(
   velox_config_test
   PUBLIC Folly::folly
-  PRIVATE velox_common_config GTest::gtest GTest::gtest_main)
+  PRIVATE velox_common_config GTest::gtest GTest::gtest_main
+)

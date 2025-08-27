@@ -20,12 +20,11 @@ velox_add_library(velox_common_compression Compression.cpp LzoDecompressor.cpp)
 velox_link_libraries(
   velox_common_compression
   PUBLIC velox_status Folly::folly
-  PRIVATE velox_exception)
+  PRIVATE velox_exception
+)
 
 if(VELOX_ENABLE_COMPRESSION_LZ4)
-  velox_sources(velox_common_compression PRIVATE Lz4Compression.cpp
-                HadoopCompressionFormat.cpp)
+  velox_sources(velox_common_compression PRIVATE Lz4Compression.cpp HadoopCompressionFormat.cpp)
   velox_link_libraries(velox_common_compression PUBLIC lz4::lz4)
-  velox_compile_definitions(velox_common_compression
-                            PRIVATE VELOX_ENABLE_COMPRESSION_LZ4)
+  velox_compile_definitions(velox_common_compression PRIVATE VELOX_ENABLE_COMPRESSION_LZ4)
 endif()

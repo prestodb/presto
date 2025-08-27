@@ -22,7 +22,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_aggregates
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 add_executable(velox_tpch_speed_test SpeedTest.cpp)
 
@@ -32,4 +33,5 @@ target_link_libraries(
   velox_exec
   velox_exec_test_lib
   velox_memory
-  fmt::fmt)
+  fmt::fmt
+)

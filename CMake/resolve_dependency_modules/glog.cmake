@@ -14,10 +14,13 @@
 include_guard(GLOBAL)
 
 set(VELOX_GLOG_VERSION 0.6.0)
-set(VELOX_GLOG_BUILD_SHA256_CHECKSUM
-    8a83bf982f37bb70825df71a9709fa90ea9f4447fb3c099e1d720a439d88bad6)
-set(VELOX_GLOG_SOURCE_URL
-    "https://github.com/google/glog/archive/refs/tags/v${VELOX_GLOG_VERSION}.tar.gz"
+set(
+  VELOX_GLOG_BUILD_SHA256_CHECKSUM
+  8a83bf982f37bb70825df71a9709fa90ea9f4447fb3c099e1d720a439d88bad6
+)
+set(
+  VELOX_GLOG_SOURCE_URL
+  "https://github.com/google/glog/archive/refs/tags/v${VELOX_GLOG_VERSION}.tar.gz"
 )
 
 velox_resolve_dependency_url(GLOG)
@@ -29,8 +32,11 @@ FetchContent_Declare(
   URL_HASH ${VELOX_GLOG_BUILD_SHA256_CHECKSUM}
   PATCH_COMMAND
     git apply ${CMAKE_CURRENT_LIST_DIR}/glog/glog-no-export.patch && git apply
-    ${CMAKE_CURRENT_LIST_DIR}/glog/glog-config.patch SYSTEM
-    OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL)
+    ${CMAKE_CURRENT_LIST_DIR}/glog/glog-config.patch
+  SYSTEM
+  OVERRIDE_FIND_PACKAGE
+  EXCLUDE_FROM_ALL
+)
 
 set(BUILD_SHARED_LIBS ${VELOX_BUILD_SHARED})
 set(WITH_UNWIND OFF)
@@ -47,17 +53,13 @@ add_dependencies(glog gflags::gflags)
 
 # The default target has the glog-src as an include dir but this causes issues
 # with folly due to an internal glog 'demangle.h' being mistaken for a system
-# header so we remove glog_SOURCE_DIR by overwriting
-# INTERFACE_INCLUDE_DIRECTORIES
-get_target_property(
-  _glog_target glog::glog ALIASED_TARGET) # Can't set properties on ALIAS
-                                          # targets
-set_target_properties(
-  ${_glog_target}
-  PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${glog_BINARY_DIR})
+# header so we remove glog_SOURCE_DIR by overwriting INTERFACE_INCLUDE_DIRECTORIES
+
+# Can't set properties on ALIAS targets
+get_target_property(_glog_target glog::glog ALIASED_TARGET)
+
+set_target_properties(${_glog_target} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${glog_BINARY_DIR})
 
 # These headers are missing from glog_BINARY_DIR
-file(COPY ${glog_SOURCE_DIR}/src/glog/platform.h
-     DESTINATION ${glog_BINARY_DIR}/glog)
-file(COPY ${glog_SOURCE_DIR}/src/glog/log_severity.h
-     DESTINATION ${glog_BINARY_DIR}/glog)
+file(COPY ${glog_SOURCE_DIR}/src/glog/platform.h DESTINATION ${glog_BINARY_DIR}/glog)
+file(COPY ${glog_SOURCE_DIR}/src/glog/log_severity.h DESTINATION ${glog_BINARY_DIR}/glog)

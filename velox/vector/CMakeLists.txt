@@ -31,7 +31,8 @@ velox_add_library(
   VectorPool.cpp
   VectorPrinter.cpp
   VectorSaver.cpp
-  VectorStream.cpp)
+  VectorStream.cpp
+)
 
 velox_link_libraries(
   velox_vector
@@ -40,7 +41,8 @@ velox_link_libraries(
   velox_row_fast
   velox_time
   velox_type
-  velox_buffer)
+  velox_buffer
+)
 
 add_subdirectory(arrow)
 add_subdirectory(fuzzer)

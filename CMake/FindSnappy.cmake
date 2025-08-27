@@ -17,8 +17,7 @@ find_path(SNAPPY_INCLUDE_DIR snappy.h PATHS ${SNAPPY_INCLUDEDIR})
 
 select_library_configurations(SNAPPY)
 
-find_package_handle_standard_args(Snappy DEFAULT_MSG SNAPPY_LIBRARY
-                                  SNAPPY_INCLUDE_DIR)
+find_package_handle_standard_args(Snappy DEFAULT_MSG SNAPPY_LIBRARY SNAPPY_INCLUDE_DIR)
 
 mark_as_advanced(SNAPPY_LIBRARY SNAPPY_INCLUDE_DIR)
 
@@ -31,9 +30,12 @@ endif()
 
 if(NOT TARGET Snappy::snappy)
   add_library(Snappy::snappy ${libsnappy_type} IMPORTED)
-  set_target_properties(Snappy::snappy PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                  "${SNAPPY_INCLUDE_DIR}")
   set_target_properties(
-    Snappy::snappy PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-                              IMPORTED_LOCATION "${SNAPPY_LIBRARIES}")
+    Snappy::snappy
+    PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${SNAPPY_INCLUDE_DIR}"
+  )
+  set_target_properties(
+    Snappy::snappy
+    PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES "C" IMPORTED_LOCATION "${SNAPPY_LIBRARIES}"
+  )
 endif()

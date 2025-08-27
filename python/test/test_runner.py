@@ -191,10 +191,7 @@ class TestPyVeloxRunner(unittest.TestCase):
         base = list(range(batch_size))
 
         input_vector = to_velox(
-            pyarrow.record_batch(
-                [pyarrow.array([base])],
-                names=["c0"]
-            )
+            pyarrow.record_batch([pyarrow.array([base])], names=["c0"])
         )
         # Single row containing an array column with `batch_size` elements.
         self.assertEqual(input_vector.size(), 1)
@@ -213,9 +210,7 @@ class TestPyVeloxRunner(unittest.TestCase):
         # Unnest then stream aggregate it back to ensure we get the input
         # vector back.
         plan_builder = PlanBuilder()
-        plan_builder.values(
-            [input_vector]
-        ).unnest(
+        plan_builder.values([input_vector]).unnest(
             unnest_columns=["c0"],
         ).streaming_aggregate(
             grouping_keys=[],

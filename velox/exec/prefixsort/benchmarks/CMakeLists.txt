@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_executable(velox_prefix_sort_algorithm_benchmark
-               PrefixSortAlgorithmBenchmark.cpp)
+add_executable(velox_prefix_sort_algorithm_benchmark PrefixSortAlgorithmBenchmark.cpp)
 target_link_libraries(
-  velox_prefix_sort_algorithm_benchmark velox_exec_prefixsort_test_lib
-  velox_vector_test_lib Folly::follybenchmark)
+  velox_prefix_sort_algorithm_benchmark
+  velox_exec_prefixsort_test_lib
+  velox_vector_test_lib
+  Folly::follybenchmark
+)

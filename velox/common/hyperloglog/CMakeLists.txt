@@ -16,12 +16,10 @@ velox_add_library(
   BiasCorrection.cpp
   DenseHll.cpp
   SparseHll.cpp
-  Murmur3Hash128.cpp)
+  Murmur3Hash128.cpp
+)
 
-velox_link_libraries(
-  velox_common_hyperloglog
-  PUBLIC velox_memory
-  PRIVATE velox_exception)
+velox_link_libraries(velox_common_hyperloglog PUBLIC velox_memory PRIVATE velox_exception)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

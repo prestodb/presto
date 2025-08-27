@@ -17,12 +17,16 @@ velox_set_source(gRPC)
 velox_resolve_dependency(gRPC CONFIG 1.48.1 REQUIRED)
 
 set(VELOX_GOOGLE_CLOUD_CPP_BUILD_VERSION 2.22.0)
-set(VELOX_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM
-    0c68782e57959c82e0c81def805c01460a042c1aae0c2feee905acaa2a2dc9bf)
+set(
+  VELOX_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM
+  0c68782e57959c82e0c81def805c01460a042c1aae0c2feee905acaa2a2dc9bf
+)
 string(
-  CONCAT VELOX_GOOGLE_CLOUD_CPP_SOURCE_URL
-         "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/"
-         "v${VELOX_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz")
+  CONCAT
+  VELOX_GOOGLE_CLOUD_CPP_SOURCE_URL
+  "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/"
+  "v${VELOX_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
+)
 
 velox_resolve_dependency_url(GOOGLE_CLOUD_CPP)
 
@@ -32,10 +36,11 @@ FetchContent_Declare(
   google_cloud_cpp
   URL ${VELOX_GOOGLE_CLOUD_CPP_SOURCE_URL}
   URL_HASH ${VELOX_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}
-  OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL SYSTEM)
+  OVERRIDE_FIND_PACKAGE
+  EXCLUDE_FROM_ALL
+  SYSTEM
+)
 
 set(GOOGLE_CLOUD_CPP_ENABLE_EXAMPLES OFF)
-set(GOOGLE_CLOUD_CPP_ENABLE
-    "storage"
-    CACHE STRING "The list of libraries to build.")
+set(GOOGLE_CLOUD_CPP_ENABLE "storage" CACHE STRING "The list of libraries to build.")
 FetchContent_MakeAvailable(google_cloud_cpp)

@@ -20,7 +20,8 @@ add_executable(
   TableScanTest.cpp
   HashJoinTest.cpp
   BarrierTest.cpp
-  Main.cpp)
+  Main.cpp
+)
 
 target_link_libraries(
   velox_wave_exec_test
@@ -52,7 +53,8 @@ target_link_libraries(
   gflags::gflags
   glog::glog
   fmt::fmt
-  CUDA::cudart)
+  CUDA::cudart
+)
 
 add_test(velox_wave_exec_test velox_wave_exec_test)
 set_tests_properties(velox_wave_exec_test PROPERTIES LABELS cuda_driver)
@@ -92,5 +94,6 @@ if(${VELOX_ENABLE_BENCHMARKS})
     gflags::gflags
     glog::glog
     fmt::fmt
-    CUDA::cudart)
+    CUDA::cudart
+  )
 endif()

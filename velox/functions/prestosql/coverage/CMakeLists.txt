@@ -20,4 +20,5 @@ target_link_libraries(
   velox_aggregates
   velox_row_fast
   velox_window
-  velox_coverage_util)
+  velox_coverage_util
+)

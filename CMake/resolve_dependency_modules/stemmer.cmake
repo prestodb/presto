@@ -14,10 +14,13 @@
 include_guard(GLOBAL)
 
 set(VELOX_STEMMER_VERSION 2.2.0)
-set(VELOX_STEMMER_BUILD_SHA256_CHECKSUM
-    b941d9fe9cf36b4e2f8d3873cd4d8b8775bd94867a1df8d8c001bb8b688377c3)
-set(VELOX_STEMMER_SOURCE_URL
-    "https://snowballstem.org/dist/libstemmer_c-${VELOX_STEMMER_VERSION}.tar.gz"
+set(
+  VELOX_STEMMER_BUILD_SHA256_CHECKSUM
+  b941d9fe9cf36b4e2f8d3873cd4d8b8775bd94867a1df8d8c001bb8b688377c3
+)
+set(
+  VELOX_STEMMER_SOURCE_URL
+  "https://snowballstem.org/dist/libstemmer_c-${VELOX_STEMMER_VERSION}.tar.gz"
 )
 
 velox_resolve_dependency_url(STEMMER)
@@ -51,7 +54,8 @@ set_target_properties(
   stemmer
   PROPERTIES
     IMPORTED_LOCATION
-    ${STEMMER_PREFIX}/src/libstemmer/${CMAKE_STATIC_LIBRARY_PREFIX}stemmer${CMAKE_STATIC_LIBRARY_SUFFIX}
-    INTERFACE_INCLUDE_DIRECTORIES ${STEMMER_INCLUDE_PATH})
+      ${STEMMER_PREFIX}/src/libstemmer/${CMAKE_STATIC_LIBRARY_PREFIX}stemmer${CMAKE_STATIC_LIBRARY_SUFFIX}
+    INTERFACE_INCLUDE_DIRECTORIES ${STEMMER_INCLUDE_PATH}
+)
 
 add_dependencies(stemmer libstemmer)

@@ -23,7 +23,8 @@ add_executable(
   TypeTestBase.cpp
   UuidTypeTest.cpp
   IPAddressTypeTest.cpp
-  IPPrefixTypeTest.cpp)
+  IPPrefixTypeTest.cpp
+)
 
 if(VELOX_ENABLE_GEO)
   target_sources(velox_presto_types_test PRIVATE GeometryTypeTest.cpp)
@@ -40,4 +41,5 @@ target_link_libraries(
   GTest::gtest_main
   GTest::gmock
   gflags::gflags
-  glog::glog)
+  glog::glog
+)

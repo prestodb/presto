@@ -20,4 +20,5 @@ target_link_libraries(
   velox_exception
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)

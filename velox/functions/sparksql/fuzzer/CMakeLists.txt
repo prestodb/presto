@@ -16,7 +16,9 @@
 file(
   GLOB PROTO_FILES
   RELATIVE ${PROJECT_SOURCE_DIR}
-  CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/spark/connect/*.proto)
+  CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/spark/connect/*.proto
+)
 foreach(PROTO ${PROTO_FILES})
   get_filename_component(PROTO_DIR ${PROTO} DIRECTORY)
   get_filename_component(PROTO_NAME ${PROTO} NAME_WE)
@@ -40,8 +42,7 @@ foreach(PROTO ${PROTO_FILES})
     GRPC_HDRS
     "${PROJECT_BINARY_DIR}/velox/functions/sparksql/fuzzer/spark/connect/${PROTO_NAME}.grpc.pb.h"
   )
-  list(APPEND PROTO_FILES_FULL
-       "${PROJECT_SOURCE_DIR}/${PROTO_DIR}/${PROTO_NAME}.proto")
+  list(APPEND PROTO_FILES_FULL "${PROJECT_SOURCE_DIR}/${PROTO_DIR}/${PROTO_NAME}.proto")
 endforeach()
 
 set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
@@ -58,29 +59,32 @@ endforeach()
 # Generate Spark connect headers and sources.
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
-  COMMAND protobuf::protoc ${PROTO_PATH_ARGS} --cpp_out ${PROJECT_BINARY_DIR}
-          ${PROTO_FILES_FULL}
+  COMMAND protobuf::protoc ${PROTO_PATH_ARGS} --cpp_out ${PROJECT_BINARY_DIR} ${PROTO_FILES_FULL}
   DEPENDS protobuf::protoc
   COMMENT "Running PROTO compiler"
-  VERBATIM)
+  VERBATIM
+)
 
 # Generate grpc headers and sources.
 add_custom_command(
   OUTPUT ${GRPC_OUTPUT_FILES}
   COMMAND
     protobuf::protoc ${PROTO_PATH_ARGS} --grpc_out=${PROJECT_BINARY_DIR}
-    --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
-    ${PROTO_FILES_FULL}
+    --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin> ${PROTO_FILES_FULL}
   DEPENDS protobuf::protoc
   COMMENT "Running gRPC C++ protocol buffer compiler"
-  VERBATIM)
+  VERBATIM
+)
 
 add_library(
-  velox_spark_query_runner ${PROTO_SRCS} ${GRPC_SRCS} SparkQueryRunner.cpp
-                           SparkQueryRunnerToSqlPlanNodeVisitor.cpp)
+  velox_spark_query_runner
+  ${PROTO_SRCS}
+  ${GRPC_SRCS}
+  SparkQueryRunner.cpp
+  SparkQueryRunnerToSqlPlanNodeVisitor.cpp
+)
 
-target_include_directories(velox_spark_query_runner
-                           PUBLIC ${PROJECT_BINARY_DIR}/spark/connect/)
+target_include_directories(velox_spark_query_runner PUBLIC ${PROJECT_BINARY_DIR}/spark/connect/)
 
 target_link_libraries(
   velox_spark_query_runner
@@ -92,7 +96,8 @@ target_link_libraries(
   gRPC::grpc++
   gRPC::grpc
   protobuf::libprotobuf
-  arrow)
+  arrow
+)
 
 add_executable(spark_aggregation_fuzzer_test SparkAggregationFuzzerTest.cpp)
 
@@ -107,7 +112,8 @@ target_link_libraries(
   velox_window
   velox_vector_test_lib
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

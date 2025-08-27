@@ -32,8 +32,7 @@ include(FetchContent)
 include(ExternalProject)
 include(ProcessorCount)
 include(CheckCXXCompilerFlag)
-list(APPEND CMAKE_MODULE_PATH
-     ${CMAKE_CURRENT_LIST_DIR}/resolve_dependency_modules)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/resolve_dependency_modules)
 
 # Enable SSL certificate verification for file downloads
 set(CMAKE_TLS_VERIFY true)
@@ -83,9 +82,7 @@ macro(velox_resolve_dependency dependency_name)
   elseif(${dependency_name}_SOURCE STREQUAL "BUNDLED")
     velox_build_dependency(${dependency_name})
   else()
-    message(
-      FATAL_ERROR
-        "Invalid source for ${dependency_name}: ${${dependency_name}_SOURCE}")
+    message(FATAL_ERROR "Invalid source for ${dependency_name}: ${${dependency_name}_SOURCE}")
   endif()
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -93,10 +90,12 @@ endmacro()
 
 # By using a macro we don't need to propagate the value into the parent scope.
 macro(velox_set_source dependency_name)
-  velox_set_with_default(${dependency_name}_SOURCE ${dependency_name}_SOURCE
-                         ${VELOX_DEPENDENCY_SOURCE})
-  message(
-    STATUS "Setting ${dependency_name} source to ${${dependency_name}_SOURCE}")
+  velox_set_with_default(
+    ${dependency_name}_SOURCE
+    ${dependency_name}_SOURCE
+    ${VELOX_DEPENDENCY_SOURCE}
+  )
+  message(STATUS "Setting ${dependency_name} source to ${${dependency_name}_SOURCE}")
 endmacro()
 
 # Set var_name to the value of $ENV{envvar_name} if ENV is defined. If neither
@@ -105,13 +104,9 @@ endmacro()
 # automatically! Use PARENT_SCOPE.
 function(velox_set_with_default var_name envvar_name default)
   if(DEFINED ENV{${envvar_name}})
-    set(${var_name}
-        $ENV{${envvar_name}}
-        PARENT_SCOPE)
+    set(${var_name} $ENV{${envvar_name}} PARENT_SCOPE)
   elseif(NOT DEFINED ${var_name})
-    set(${var_name}
-        ${default}
-        PARENT_SCOPE)
+    set(${var_name} ${default} PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -121,13 +116,21 @@ macro(velox_resolve_dependency_url dependency_name)
   string(PREPEND VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM "SHA256=")
 
   velox_set_with_default(
-    VELOX_${dependency_name}_SOURCE_URL VELOX_${dependency_name}_URL
-    ${VELOX_${dependency_name}_SOURCE_URL})
-  message(VERBOSE "Set VELOX_${dependency_name}_SOURCE_URL to "
-          "${VELOX_${dependency_name}_SOURCE_URL}")
+    VELOX_${dependency_name}_SOURCE_URL
+    VELOX_${dependency_name}_URL
+    ${VELOX_${dependency_name}_SOURCE_URL}
+  )
+  message(
+    VERBOSE
+    "Set VELOX_${dependency_name}_SOURCE_URL to "
+    "${VELOX_${dependency_name}_SOURCE_URL}"
+  )
   if(DEFINED ENV{VELOX_${dependency_name}_URL})
-    velox_set_with_default(VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM
-                           VELOX_${dependency_name}_SHA256 "")
+    velox_set_with_default(
+      VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM
+      VELOX_${dependency_name}_SHA256
+      ""
+    )
     if(DEFINED ENV{VELOX_${dependency_name}_SHA256})
       string(PREPEND VELOX_${dependency_name}_BUILD_SHA256_CHECKSUM "SHA256=")
     endif()

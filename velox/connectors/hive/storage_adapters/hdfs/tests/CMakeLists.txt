@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_hdfs_file_test HdfsFileSystemTest.cpp HdfsMiniCluster.cpp
-                                    HdfsUtilTest.cpp)
+add_executable(velox_hdfs_file_test HdfsFileSystemTest.cpp HdfsMiniCluster.cpp HdfsUtilTest.cpp)
 
 add_test(velox_hdfs_file_test velox_hdfs_file_test)
 target_link_libraries(
@@ -27,13 +26,12 @@ target_link_libraries(
   velox_exec
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)
 
-target_compile_options(velox_hdfs_file_test
-                       PRIVATE -Wno-deprecated-declarations)
+target_compile_options(velox_hdfs_file_test PRIVATE -Wno-deprecated-declarations)
 
-add_executable(velox_hdfs_insert_test HdfsInsertTest.cpp HdfsMiniCluster.cpp
-                                      HdfsUtilTest.cpp)
+add_executable(velox_hdfs_insert_test HdfsInsertTest.cpp HdfsMiniCluster.cpp HdfsUtilTest.cpp)
 
 add_test(velox_hdfs_insert_test velox_hdfs_insert_test)
 
@@ -43,10 +41,10 @@ target_link_libraries(
   velox_exec
   GTest::gtest
   GTest::gtest_main
-  GTest::gmock)
+  GTest::gmock
+)
 
-target_compile_options(velox_hdfs_insert_test
-                       PRIVATE -Wno-deprecated-declarations)
+target_compile_options(velox_hdfs_insert_test PRIVATE -Wno-deprecated-declarations)
 
 # velox_hdfs_insert_test and velox_hdfs_file_test two tests can't run in
 # parallel due to the port conflict in Hadoop NameNode and DataNode. The
@@ -54,5 +52,4 @@ target_compile_options(velox_hdfs_insert_test
 # hadoop-mapreduce-client-jobclient-3.3.0-tests.jar. However the data node port
 # cannot be configured. Therefore, we need to make sure that
 # velox_hdfs_file_test runs only after velox_hdfs_insert_test has finished.
-set_tests_properties(velox_hdfs_insert_test PROPERTIES DEPENDS
-                                                       velox_hdfs_file_test)
+set_tests_properties(velox_hdfs_insert_test PROPERTIES DEPENDS velox_hdfs_file_test)

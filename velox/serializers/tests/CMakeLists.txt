@@ -13,8 +13,11 @@
 # limitations under the License.
 add_executable(
   velox_serializer_test
-  CompactRowSerializerTest.cpp PrestoOutputStreamListenerTest.cpp
-  PrestoSerializerTest.cpp UnsafeRowSerializerTest.cpp)
+  CompactRowSerializerTest.cpp
+  PrestoOutputStreamListenerTest.cpp
+  PrestoSerializerTest.cpp
+  UnsafeRowSerializerTest.cpp
+)
 
 add_test(velox_serializer_test velox_serializer_test)
 
@@ -26,7 +29,8 @@ target_link_libraries(
   velox_row_fast
   GTest::gtest
   GTest::gtest_main
-  glog::glog)
+  glog::glog
+)
 
 if(VELOX_ENABLE_BENCHMARKS)
   add_executable(velox_serializer_benchmark SerializerBenchmark.cpp)
@@ -38,5 +42,6 @@ if(VELOX_ENABLE_BENCHMARKS)
     velox_vector_fuzzer
     GTest::gtest
     GTest::gtest_main
-    glog::glog)
+    glog::glog
+  )
 endif()

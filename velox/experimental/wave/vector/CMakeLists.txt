@@ -13,5 +13,4 @@
 # limitations under the License.
 
 add_library(velox_wave_vector WaveVector.cpp)
-target_link_libraries(
-  velox_wave_vector velox_vector velox_common_base)
+target_link_libraries(velox_wave_vector velox_vector velox_common_base)

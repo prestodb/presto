@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_text_writer_test
-               TextWriterTest.cpp BufferedWriterSinkTest.cpp FileReaderUtil.cpp)
+add_executable(
+  velox_text_writer_test
+  TextWriterTest.cpp
+  BufferedWriterSinkTest.cpp
+  FileReaderUtil.cpp
+)
 
 add_test(
   NAME velox_text_writer_test
   COMMAND velox_text_writer_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   velox_text_writer_test
@@ -32,4 +37,5 @@ target_link_libraries(
   Folly::folly
   ${TEST_LINK_LIBS}
   GTest::gtest
-  fmt::fmt)
+  fmt::fmt
+)

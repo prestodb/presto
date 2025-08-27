@@ -30,8 +30,7 @@ find_path(ZSTD_INCLUDE_DIR zstd.h PATHS ${ZSTD_INCLUDEDIR})
 
 select_library_configurations(ZSTD)
 
-find_package_handle_standard_args(zstd DEFAULT_MSG ZSTD_LIBRARY
-                                  ZSTD_INCLUDE_DIR)
+find_package_handle_standard_args(zstd DEFAULT_MSG ZSTD_LIBRARY ZSTD_INCLUDE_DIR)
 
 mark_as_advanced(ZSTD_LIBRARY ZSTD_INCLUDE_DIR)
 
@@ -44,9 +43,9 @@ endif()
 
 if(NOT TARGET zstd::zstd)
   add_library(zstd::zstd ${libzstd_type} IMPORTED)
-  set_target_properties(zstd::zstd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                              "${ZSTD_INCLUDE_DIR}")
+  set_target_properties(zstd::zstd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
   set_target_properties(
-    zstd::zstd PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-                          IMPORTED_LOCATION "${ZSTD_LIBRARIES}")
+    zstd::zstd
+    PROPERTIES IMPORTED_LINK_INTERFACE_LANGUAGES "C" IMPORTED_LOCATION "${ZSTD_LIBRARIES}"
+  )
 endif()

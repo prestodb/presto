@@ -14,12 +14,16 @@
 include_guard(GLOBAL)
 
 set(VELOX_ABSL_BUILD_VERSION 20240116.2)
-set(VELOX_ABSL_BUILD_SHA256_CHECKSUM
-    733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc)
+set(
+  VELOX_ABSL_BUILD_SHA256_CHECKSUM
+  733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc
+)
 string(
-  CONCAT VELOX_ABSL_SOURCE_URL
-         "https://github.com/abseil/abseil-cpp/archive/refs/tags/"
-         "${VELOX_ABSL_BUILD_VERSION}.tar.gz")
+  CONCAT
+  VELOX_ABSL_SOURCE_URL
+  "https://github.com/abseil/abseil-cpp/archive/refs/tags/"
+  "${VELOX_ABSL_BUILD_VERSION}.tar.gz"
+)
 
 velox_resolve_dependency_url(ABSL)
 
@@ -29,8 +33,11 @@ FetchContent_Declare(
   absl
   URL ${VELOX_ABSL_SOURCE_URL}
   URL_HASH ${VELOX_ABSL_BUILD_SHA256_CHECKSUM}
-  OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL SYSTEM
-  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/absl/absl-macos.patch)
+  OVERRIDE_FIND_PACKAGE
+  EXCLUDE_FROM_ALL
+  SYSTEM
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/absl/absl-macos.patch
+)
 
 set(ABSL_BUILD_TESTING OFF)
 set(ABSL_PROPAGATE_CXX_STD ON)

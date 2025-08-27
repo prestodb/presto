@@ -20,11 +20,7 @@ velox_add_library(
   CumeDist.cpp
   FirstLastValue.cpp
   LeadLag.cpp
-  WindowFunctionsRegistration.cpp)
+  WindowFunctionsRegistration.cpp
+)
 
-velox_link_libraries(
-  velox_window
-  velox_buffer
-  velox_exec
-  velox_functions_window
-  Folly::folly)
+velox_link_libraries(velox_window velox_buffer velox_exec velox_functions_window Folly::folly)

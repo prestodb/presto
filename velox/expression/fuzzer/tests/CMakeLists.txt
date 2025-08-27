@@ -14,13 +14,18 @@
 
 add_library(velox_expression_fuzzer_test_utility ArgTypesGeneratorTestUtils.cpp)
 target_link_libraries(
-  velox_expression_fuzzer_test_utility velox_expression_functions
-  velox_function_registry GTest::gtest)
+  velox_expression_fuzzer_test_utility
+  velox_expression_functions
+  velox_function_registry
+  GTest::gtest
+)
 
 add_executable(
   velox_expression_fuzzer_unit_test
-  ArgumentTypeFuzzerTest.cpp DecimalArgTypesGeneratorTest.cpp
-  ExpressionFuzzerUnitTest.cpp)
+  ArgumentTypeFuzzerTest.cpp
+  DecimalArgTypesGeneratorTest.cpp
+  ExpressionFuzzerUnitTest.cpp
+)
 
 target_link_libraries(
   velox_expression_fuzzer_unit_test
@@ -31,4 +36,5 @@ target_link_libraries(
   velox_expression
   velox_expression_fuzzer_test_utility
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

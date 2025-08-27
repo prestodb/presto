@@ -13,22 +13,27 @@
 # limitations under the License.
 
 bison_target(
-  TypeCalculationParser TypeCalculation.yy
+  TypeCalculationParser
+  TypeCalculation.yy
   ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.cc
   DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.h
-  COMPILE_FLAGS "-Werror -Wno-deprecated")
+  COMPILE_FLAGS "-Werror -Wno-deprecated"
+)
 
 flex_target(
-  TypeCalculationScanner TypeCalculation.ll
-  ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp COMPILE_FLAGS "-Cf --prefix=veloxtc")
+  TypeCalculationScanner
+  TypeCalculation.ll
+  ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp
+  COMPILE_FLAGS "-Cf --prefix=veloxtc"
+)
 
 add_flex_bison_dependency(TypeCalculationScanner TypeCalculationParser)
 
 if(VELOX_MONO_LIBRARY)
   add_custom_target(
     velox_type_calculation_gen_src
-    DEPENDS ${BISON_TypeCalculationParser_OUTPUTS}
-            ${FLEX_TypeCalculationScanner_OUTPUTS})
+    DEPENDS ${BISON_TypeCalculationParser_OUTPUTS} ${FLEX_TypeCalculationScanner_OUTPUTS}
+  )
   add_dependencies(velox velox_type_calculation_gen_src)
 endif()
 
@@ -39,5 +44,6 @@ velox_add_library(
   ${BISON_TypeCalculationParser_OUTPUTS}
   ${FLEX_TypeCalculationScanner_OUTPUTS}
   Scanner.h
-  TypeCalculation.h)
+  TypeCalculation.h
+)
 velox_link_libraries(velox_type_calculation velox_common_base)

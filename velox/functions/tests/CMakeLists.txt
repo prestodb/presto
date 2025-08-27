@@ -21,4 +21,5 @@ target_link_libraries(
   velox_functions_test_lib
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

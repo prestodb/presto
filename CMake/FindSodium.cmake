@@ -40,9 +40,12 @@ if(NOT (sodium_USE_STATIC_LIBS EQUAL sodium_USE_STATIC_LIBS_LAST))
   unset(sodium_LIBRARY_RELEASE CACHE)
   unset(sodium_DLL_DEBUG CACHE)
   unset(sodium_DLL_RELEASE CACHE)
-  set(sodium_USE_STATIC_LIBS_LAST
-      ${sodium_USE_STATIC_LIBS}
-      CACHE INTERNAL "internal change tracking variable")
+  set(
+    sodium_USE_STATIC_LIBS_LAST
+    ${sodium_USE_STATIC_LIBS}
+    CACHE INTERNAL
+    "internal change tracking variable"
+  )
 endif()
 
 # ##############################################################################
@@ -57,7 +60,7 @@ if(UNIX)
   if(sodium_USE_STATIC_LIBS)
     foreach(_libname ${sodium_PKG_STATIC_LIBRARIES})
       if(NOT _libname MATCHES "^lib.*\\.a$") # ignore strings already ending
-                                             # with .a
+        # with .a
         list(INSERT sodium_PKG_STATIC_LIBRARIES 0 "lib${_libname}.a")
       endif()
     endforeach()
@@ -79,32 +82,26 @@ if(UNIX)
   endif()
 
   find_path(sodium_INCLUDE_DIR sodium.h HINTS ${${XPREFIX}_INCLUDE_DIRS})
-  find_library(
-    sodium_LIBRARY_DEBUG
-    NAMES ${${XPREFIX}_LIBRARIES}
-    HINTS ${${XPREFIX}_LIBRARY_DIRS})
+  find_library(sodium_LIBRARY_DEBUG NAMES ${${XPREFIX}_LIBRARIES} HINTS ${${XPREFIX}_LIBRARY_DIRS})
   find_library(
     sodium_LIBRARY_RELEASE
     NAMES ${${XPREFIX}_LIBRARIES}
-    HINTS ${${XPREFIX}_LIBRARY_DIRS})
+    HINTS ${${XPREFIX}_LIBRARY_DIRS}
+  )
 
   # ############################################################################
   # Windows
 elseif(WIN32)
-  set(sodium_DIR
-      "$ENV{sodium_DIR}"
-      CACHE FILEPATH "sodium install directory")
+  set(sodium_DIR "$ENV{sodium_DIR}" CACHE FILEPATH "sodium install directory")
   mark_as_advanced(sodium_DIR)
 
-  find_path(
-    sodium_INCLUDE_DIR sodium.h
-    HINTS ${sodium_DIR}
-    PATH_SUFFIXES include)
+  find_path(sodium_INCLUDE_DIR sodium.h HINTS ${sodium_DIR} PATH_SUFFIXES include)
 
   if(MSVC)
     # detect target architecture
     file(
-      WRITE "${CMAKE_CURRENT_BINARY_DIR}/arch.cpp"
+      WRITE
+      "${CMAKE_CURRENT_BINARY_DIR}/arch.cpp"
       [=[
             #if defined _M_IX86
             #error ARCH_VALUE x86_32
@@ -112,13 +109,15 @@ elseif(WIN32)
             #error ARCH_VALUE x86_64
             #endif
             #error ARCH_VALUE unknown
-        ]=])
+        ]=]
+    )
     try_compile(
-      _UNUSED_VAR "${CMAKE_CURRENT_BINARY_DIR}"
+      _UNUSED_VAR
+      "${CMAKE_CURRENT_BINARY_DIR}"
       "${CMAKE_CURRENT_BINARY_DIR}/arch.cpp"
-      OUTPUT_VARIABLE _COMPILATION_LOG)
-    string(REGEX REPLACE ".*ARCH_VALUE ([a-zA-Z0-9_]+).*" "\\1" _TARGET_ARCH
-                         "${_COMPILATION_LOG}")
+      OUTPUT_VARIABLE _COMPILATION_LOG
+    )
+    string(REGEX REPLACE ".*ARCH_VALUE ([a-zA-Z0-9_]+).*" "\\1" _TARGET_ARCH "${_COMPILATION_LOG}")
 
     # construct library path
     if(_TARGET_ARCH STREQUAL "x86_32")
@@ -126,10 +125,7 @@ elseif(WIN32)
     elseif(_TARGET_ARCH STREQUAL "x86_64")
       string(APPEND _PLATFORM_PATH "x64")
     else()
-      message(
-        FATAL_ERROR
-          "the ${_TARGET_ARCH} architecture is not supported by Findsodium.cmake."
-      )
+      message(FATAL_ERROR "the ${_TARGET_ARCH} architecture is not supported by Findsodium.cmake.")
     endif()
     string(APPEND _PLATFORM_PATH "/$$CONFIG$$")
 
@@ -147,64 +143,53 @@ elseif(WIN32)
     endif()
 
     string(REPLACE "$$CONFIG$$" "Debug" _DEBUG_PATH_SUFFIX "${_PLATFORM_PATH}")
-    string(REPLACE "$$CONFIG$$" "Release" _RELEASE_PATH_SUFFIX
-                   "${_PLATFORM_PATH}")
+    string(REPLACE "$$CONFIG$$" "Release" _RELEASE_PATH_SUFFIX "${_PLATFORM_PATH}")
 
     find_library(
-      sodium_LIBRARY_DEBUG libsodium.lib
+      sodium_LIBRARY_DEBUG
+      libsodium.lib
       HINTS ${sodium_DIR}
-      PATH_SUFFIXES ${_DEBUG_PATH_SUFFIX})
+      PATH_SUFFIXES ${_DEBUG_PATH_SUFFIX}
+    )
     find_library(
-      sodium_LIBRARY_RELEASE libsodium.lib
+      sodium_LIBRARY_RELEASE
+      libsodium.lib
       HINTS ${sodium_DIR}
-      PATH_SUFFIXES ${_RELEASE_PATH_SUFFIX})
+      PATH_SUFFIXES ${_RELEASE_PATH_SUFFIX}
+    )
     if(NOT sodium_USE_STATIC_LIBS)
       set(CMAKE_FIND_LIBRARY_SUFFIXES_BCK ${CMAKE_FIND_LIBRARY_SUFFIXES})
       set(CMAKE_FIND_LIBRARY_SUFFIXES ".dll")
       find_library(
-        sodium_DLL_DEBUG libsodium
+        sodium_DLL_DEBUG
+        libsodium
         HINTS ${sodium_DIR}
-        PATH_SUFFIXES ${_DEBUG_PATH_SUFFIX})
+        PATH_SUFFIXES ${_DEBUG_PATH_SUFFIX}
+      )
       find_library(
-        sodium_DLL_RELEASE libsodium
+        sodium_DLL_RELEASE
+        libsodium
         HINTS ${sodium_DIR}
-        PATH_SUFFIXES ${_RELEASE_PATH_SUFFIX})
+        PATH_SUFFIXES ${_RELEASE_PATH_SUFFIX}
+      )
       set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_BCK})
     endif()
-
   elseif(_GCC_COMPATIBLE)
     if(sodium_USE_STATIC_LIBS)
-      find_library(
-        sodium_LIBRARY_DEBUG libsodium.a
-        HINTS ${sodium_DIR}
-        PATH_SUFFIXES lib)
-      find_library(
-        sodium_LIBRARY_RELEASE libsodium.a
-        HINTS ${sodium_DIR}
-        PATH_SUFFIXES lib)
+      find_library(sodium_LIBRARY_DEBUG libsodium.a HINTS ${sodium_DIR} PATH_SUFFIXES lib)
+      find_library(sodium_LIBRARY_RELEASE libsodium.a HINTS ${sodium_DIR} PATH_SUFFIXES lib)
     else()
-      find_library(
-        sodium_LIBRARY_DEBUG libsodium.dll.a
-        HINTS ${sodium_DIR}
-        PATH_SUFFIXES lib)
-      find_library(
-        sodium_LIBRARY_RELEASE libsodium.dll.a
-        HINTS ${sodium_DIR}
-        PATH_SUFFIXES lib)
+      find_library(sodium_LIBRARY_DEBUG libsodium.dll.a HINTS ${sodium_DIR} PATH_SUFFIXES lib)
+      find_library(sodium_LIBRARY_RELEASE libsodium.dll.a HINTS ${sodium_DIR} PATH_SUFFIXES lib)
 
       file(
         GLOB _DLL
         LIST_DIRECTORIES false
         RELATIVE "${sodium_DIR}/bin"
-        "${sodium_DIR}/bin/libsodium*.dll")
-      find_library(
-        sodium_DLL_DEBUG ${_DLL} libsodium
-        HINTS ${sodium_DIR}
-        PATH_SUFFIXES bin)
-      find_library(
-        sodium_DLL_RELEASE ${_DLL} libsodium
-        HINTS ${sodium_DIR}
-        PATH_SUFFIXES bin)
+        "${sodium_DIR}/bin/libsodium*.dll"
+      )
+      find_library(sodium_DLL_DEBUG ${_DLL} libsodium HINTS ${sodium_DIR} PATH_SUFFIXES bin)
+      find_library(sodium_DLL_RELEASE ${_DLL} libsodium HINTS ${sodium_DIR} PATH_SUFFIXES bin)
     endif()
   else()
     message(FATAL_ERROR "this platform is not supported by FindSodium.cmake")
@@ -225,12 +210,13 @@ if(sodium_INCLUDE_DIR)
   if(EXISTS _VERSION_HEADER)
     file(READ "${_VERSION_HEADER}" _VERSION_HEADER_CONTENT)
     string(
-      REGEX
-      REPLACE ".*#[ \t]*define[ \t]*SODIUM_VERSION_STRING[ \t]*\"([^\n]*)\".*"
-              "\\1" sodium_VERSION "${_VERSION_HEADER_CONTENT}")
-    set(sodium_VERSION
-        "${sodium_VERSION}"
-        PARENT_SCOPE)
+      REGEX REPLACE
+      ".*#[ \t]*define[ \t]*SODIUM_VERSION_STRING[ \t]*\"([^\n]*)\".*"
+      "\\1"
+      sodium_VERSION
+      "${_VERSION_HEADER_CONTENT}"
+    )
+    set(sodium_VERSION "${sodium_VERSION}" PARENT_SCOPE)
   endif()
 endif()
 
@@ -239,11 +225,11 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(
   Sodium # The name must be either uppercase or match the filename case.
   REQUIRED_VARS sodium_LIBRARY_RELEASE sodium_LIBRARY_DEBUG sodium_INCLUDE_DIR
-  VERSION_VAR sodium_VERSION)
+  VERSION_VAR sodium_VERSION
+)
 
 if(Sodium_FOUND)
-  set(sodium_LIBRARIES optimized ${sodium_LIBRARY_RELEASE} debug
-                       ${sodium_LIBRARY_DEBUG})
+  set(sodium_LIBRARIES optimized ${sodium_LIBRARY_RELEASE} debug ${sodium_LIBRARY_DEBUG})
 endif()
 
 # mark file paths as advanced
@@ -268,8 +254,10 @@ endif()
 
 set_target_properties(
   sodium
-  PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${sodium_INCLUDE_DIR}"
-             IMPORTED_LINK_INTERFACE_LANGUAGES "C")
+  PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${sodium_INCLUDE_DIR}"
+    IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+)
 
 if(sodium_USE_STATIC_LIBS)
   set_target_properties(
@@ -277,19 +265,25 @@ if(sodium_USE_STATIC_LIBS)
     PROPERTIES
       INTERFACE_COMPILE_DEFINITIONS "SODIUM_STATIC"
       IMPORTED_LOCATION "${sodium_LIBRARY_RELEASE}"
-      IMPORTED_LOCATION_DEBUG "${sodium_LIBRARY_DEBUG}")
+      IMPORTED_LOCATION_DEBUG "${sodium_LIBRARY_DEBUG}"
+  )
 else()
   if(UNIX)
     set_target_properties(
-      sodium PROPERTIES IMPORTED_LOCATION "${sodium_LIBRARY_RELEASE}"
-                        IMPORTED_LOCATION_DEBUG "${sodium_LIBRARY_DEBUG}")
+      sodium
+      PROPERTIES
+        IMPORTED_LOCATION "${sodium_LIBRARY_RELEASE}"
+        IMPORTED_LOCATION_DEBUG "${sodium_LIBRARY_DEBUG}"
+    )
   elseif(WIN32)
     set_target_properties(
-      sodium PROPERTIES IMPORTED_IMPLIB "${sodium_LIBRARY_RELEASE}"
-                        IMPORTED_IMPLIB_DEBUG "${sodium_LIBRARY_DEBUG}")
+      sodium
+      PROPERTIES
+        IMPORTED_IMPLIB "${sodium_LIBRARY_RELEASE}"
+        IMPORTED_IMPLIB_DEBUG "${sodium_LIBRARY_DEBUG}"
+    )
     if(NOT (sodium_DLL_DEBUG MATCHES ".*-NOTFOUND"))
-      set_target_properties(sodium PROPERTIES IMPORTED_LOCATION_DEBUG
-                                              "${sodium_DLL_DEBUG}")
+      set_target_properties(sodium PROPERTIES IMPORTED_LOCATION_DEBUG "${sodium_DLL_DEBUG}")
     endif()
     if(NOT (sodium_DLL_RELEASE MATCHES ".*-NOTFOUND"))
       set_target_properties(
@@ -297,7 +291,8 @@ else()
         PROPERTIES
           IMPORTED_LOCATION_RELWITHDEBINFO "${sodium_DLL_RELEASE}"
           IMPORTED_LOCATION_MINSIZEREL "${sodium_DLL_RELEASE}"
-          IMPORTED_LOCATION_RELEASE "${sodium_DLL_RELEASE}")
+          IMPORTED_LOCATION_RELEASE "${sodium_DLL_RELEASE}"
+      )
     endif()
   endif()
 endif()

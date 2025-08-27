@@ -21,4 +21,5 @@ target_link_libraries(
   velox_core
   velox_hive_connector
   velox_dwio_common_exception
-  velox_exec)
+  velox_exec
+)

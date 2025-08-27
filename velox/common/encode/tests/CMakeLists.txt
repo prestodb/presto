@@ -17,10 +17,5 @@ add_test(velox_common_encode_test velox_common_encode_test)
 target_link_libraries(
   velox_common_encode_test
   PUBLIC Folly::folly
-  PRIVATE
-    velox_encode
-    velox_exception
-    velox_status
-    velox_common_base
-    GTest::gtest
-    GTest::gtest_main)
+  PRIVATE velox_encode velox_exception velox_status velox_common_base GTest::gtest GTest::gtest_main
+)

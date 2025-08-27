@@ -17,24 +17,34 @@ if(${VELOX_BUILD_TESTING})
 endif()
 
 bison_target(
-  TypeParser TypeParser.yy ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.cc
+  TypeParser
+  TypeParser.yy
+  ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.cc
   DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/TypeParser.yy.h
-  COMPILE_FLAGS "-Werror -Wno-deprecated")
+  COMPILE_FLAGS "-Werror -Wno-deprecated"
+)
 
 flex_target(
-  TypeParserScanner TypeParser.ll ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp
-  COMPILE_FLAGS "-Cf --prefix=veloxtpdeprecated")
+  TypeParserScanner
+  TypeParser.ll
+  ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp
+  COMPILE_FLAGS "-Cf --prefix=veloxtpdeprecated"
+)
 
 add_flex_bison_dependency(TypeParserScanner TypeParser)
 
 if(VELOX_MONO_LIBRARY)
   add_custom_target(
-    velox_type_parser_gen_src DEPENDS ${BISON_TypeParser_OUTPUTS}
-                                      ${FLEX_TypeParserScanner_OUTPUTS})
+    velox_type_parser_gen_src
+    DEPENDS ${BISON_TypeParser_OUTPUTS} ${FLEX_TypeParserScanner_OUTPUTS}
+  )
   add_dependencies(velox velox_type_parser_gen_src)
 endif()
-velox_add_library(velox_type_parser ${BISON_TypeParser_OUTPUTS}
-                  ${FLEX_TypeParserScanner_OUTPUTS} ParserUtil.cpp)
-velox_include_directories(velox_type_parser PRIVATE ${PROJECT_BINARY_DIR}
-                                                    ${FLEX_INCLUDE_DIRS})
+velox_add_library(
+  velox_type_parser
+  ${BISON_TypeParser_OUTPUTS}
+  ${FLEX_TypeParserScanner_OUTPUTS}
+  ParserUtil.cpp
+)
+velox_include_directories(velox_type_parser PRIVATE ${PROJECT_BINARY_DIR} ${FLEX_INCLUDE_DIRS})
 velox_link_libraries(velox_type_parser velox_common_base)
