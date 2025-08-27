@@ -343,8 +343,8 @@ public class NativeExecutionProcess
         // there is no port isolation among all the containers running on the same host, so we have
         // to pick unique port per worker to avoid port collision. This config will be passed down to
         // the native execution process eventually for process initialization.
-        workerProperty.getSystemConfig().setHttpServerPort(port);
-
+        workerProperty.getSystemConfig()
+                .update(NativeExecutionSystemConfig.HTTP_SERVER_HTTP_PORT, String.valueOf(port));
         Map<String, Map<String, String>> catalogProperties = prestoSparkConfiguration.getCatalogProperties();
         log.info("NATIVE EXECUTION: Writing individual catalog properties files for %d catalogs: %s",
                     catalogProperties.size(), catalogProperties.keySet());
