@@ -102,7 +102,7 @@ public class TestingArrowProducer
 
             try (ResultSet resultSet = stmt.executeQuery(query.toUpperCase())) {
                 JdbcToArrowConfig config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(2048)
-                        .setCalendar(Calendar.getInstance(TimeZone.getDefault())).build();
+                        .setCalendar(Calendar.getInstance(TimeZone.getTimeZone("UTC"))).build();
                 Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), config);
                 try (VectorSchemaRoot streamRoot = VectorSchemaRoot.create(schema, allocator)) {
                     VectorLoader loader = new VectorLoader(streamRoot);
