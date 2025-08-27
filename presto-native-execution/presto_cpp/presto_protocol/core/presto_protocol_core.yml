@@ -42,9 +42,6 @@ ExtraFields:
   RemoteTransactionHandle:
     Optional<String>: dummy
 
-AddToOutput:
-  - NodeState
-
 AbstractClasses:
   ColumnHandle:
     super: JsonEncodedSubclass
@@ -345,3 +342,5 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DeleteNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/BaseInputDistribution.java
   - presto-main-base/src/main/java/com/facebook/presto/metadata/BuiltInFunctionKind.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/NodeStats.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/NodeLoadMetrics.java

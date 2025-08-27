@@ -354,6 +354,14 @@ void PrestoServer::run() {
         json infoStateJson = convertNodeState(server->nodeState());
         http::sendOkResponse(downstream, infoStateJson);
       });
+  httpServer_->registerGet(
+      "/v1/info/stats",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportNodeStats(downstream);
+      });
   httpServer_->registerPut(
       "/v1/info/state",
       [server = this](
@@ -1743,4 +1751,16 @@ void PrestoServer::createTaskManager() {
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 }
 
+void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
+  protocol::NodeStats nodeStats;
+
+  auto loadMetrics = std::make_shared<protocol::NodeLoadMetrics>();
+  loadMetrics->cpuOverload = cpuOverloaded_;
+  loadMetrics->memoryOverload = memOverloaded_;
+
+  nodeStats.loadMetrics = loadMetrics;
+  nodeStats.nodeState = convertNodeState(this->nodeState());
+
+  http::sendOkResponse(downstream, json(nodeStats));
+}
 } // namespace facebook::presto
