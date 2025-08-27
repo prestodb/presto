@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -236,6 +235,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -1282,6 +1282,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
+        }
+    }
+
+    @Override
+    public boolean hasType(TypeSignature typeSignature)
+    {
+        try {
+            getType(typeSignature);
+            return true;
+        }
+        catch (UnknownTypeException e) {
+            return false;
         }
     }
 
