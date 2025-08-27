@@ -16,7 +16,10 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
+import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.server.TheServlet;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.JmxGcMonitor;
@@ -32,6 +35,10 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.builtin.tools.ForNativeFunctionRegistryInfo;
+import com.facebook.presto.builtin.tools.NativeSidecarFunctionRegistryTool;
+import com.facebook.presto.builtin.tools.NativeSidecarRegistryToolConfig;
+import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
 import com.facebook.presto.catalogserver.CatalogServerClient;
 import com.facebook.presto.catalogserver.RandomCatalogServerAddressSelector;
 import com.facebook.presto.catalogserver.RemoteMetadataManager;
@@ -79,6 +86,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
+import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -243,6 +251,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.slice.Slice;
 import jakarta.annotation.PreDestroy;
@@ -251,6 +260,7 @@ import jakarta.servlet.Filter;
 import jakarta.servlet.Servlet;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -266,6 +276,7 @@ import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBin
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
@@ -393,6 +404,11 @@ public class ServerMainModule
         driftClientBinder(binder).bindDriftClient(ThriftServerInfoClient.class, ForNodeManager.class)
                 .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
+
+        binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
+                .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
+        httpClientBinder(binder).bindHttpClient("native-function-registry", ForNativeFunctionRegistryInfo.class);
+        configBinder(binder).bindConfig(NativeSidecarRegistryToolConfig.class);
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
@@ -889,6 +905,22 @@ public class ServerMainModule
                     newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
         }
         return new NoOpFragmentResultCacheManager();
+    }
+
+    @Provides
+    @Singleton
+    public WorkerFunctionRegistryTool provideWorkerFunctionRegistryTool(
+            NativeSidecarRegistryToolConfig config,
+            @ForNativeFunctionRegistryInfo HttpClient httpClient,
+            JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
+            NodeManager nodeManager)
+    {
+        return new NativeSidecarFunctionRegistryTool(
+                httpClient,
+                nativeFunctionSignatureMapJsonCodec,
+                nodeManager,
+                config.getNativeSidecarRegistryToolNumRetries(),
+                config.getNativeSidecarRegistryToolRetryDelayMs());
     }
 
     public static class ExecutorCleanup
