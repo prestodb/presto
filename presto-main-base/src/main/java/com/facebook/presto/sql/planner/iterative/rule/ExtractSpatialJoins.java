@@ -469,6 +469,11 @@ public class ExtractSpatialJoins
 
     private static boolean isSphericalJoin(Metadata metadata, RowExpression firstArgument, RowExpression secondArgument)
     {
+        // In sidecar-enabled clusters, SphericalGeography isn't a supported type.
+        // If SphericalGeography is not supported, it can be assumed that this join isn't a spherical join, hence returning False.
+        if (!metadata.getFunctionAndTypeManager().hasType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE)) {
+            return false;
+        }
         Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
         return firstArgument.getType().equals(sphericalGeographyType) || secondArgument.getType().equals(sphericalGeographyType);
     }

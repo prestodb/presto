@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
@@ -25,6 +24,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;

@@ -279,6 +279,12 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public boolean hasType(TypeSignature signature)
+            {
+                return FunctionAndTypeManager.this.hasType(signature);
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -393,6 +399,12 @@ public class FunctionAndTypeManager
         }
 
         return getUserDefinedType(signature);
+    }
+
+    @Override
+    public boolean hasType(TypeSignature signature)
+    {
+        return servingTypeManager.get().hasType(signature);
     }
 
     @Override

@@ -44,4 +44,9 @@ public interface TypeManager
     {
         throw new UnsupportedOperationException();
     }
+
+    /**
+     * Checks for the existence of this type.
+     */
+    boolean hasType(TypeSignature signature);
 }
