@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -28,6 +29,8 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.PREFER_DISTRIBUTED_UNION;
+import static com.facebook.presto.SystemSessionProperties.PUSH_SEMI_JOIN_THROUGH_UNION;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
@@ -430,6 +433,32 @@ public class TestDynamicFilter
                                 node(ExchangeNode.class, // NO filter here
                                         project(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testPushSemiJoinThroughUnion()
+    {
+        // Test the PushSemiJoinThroughUnion optimization
+        // This verifies that the semi-join is pushed through the union, creating separate semi-joins
+        // for each branch of the union, which allows for better performance through earlier filtering
+        assertPlan(
+                "SELECT * FROM ( " +
+                        "SELECT * FROM (SELECT * FROM customer AS customer_1 UNION ALL SELECT * FROM customer AS customer_2 ) )" +
+                        "WHERE custkey IN ( SELECT custkey FROM orders ) ",
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, "true")
+                        .setSystemProperty(PREFER_DISTRIBUTED_UNION, "true")
+                        .build(),
+                anyTree(
+                        node(ExchangeNode.class,
+                                anyTree(
+                                        node(SemiJoinNode.class,
+                                                anyTree(tableScan("customer")),
+                                                anyTree(tableScan("orders")))),
+                                anyTree(
+                                        node(SemiJoinNode.class,
+                                                anyTree(tableScan("customer")),
+                                                anyTree(tableScan("orders")))))));
     }
 
     @Test
