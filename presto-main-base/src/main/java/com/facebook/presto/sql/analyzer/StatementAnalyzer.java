@@ -1395,101 +1395,71 @@ class StatementAnalyzer
                 throw new SemanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");
             }
 
-            ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
             if (argumentsPassedByName) {
-                Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
-                for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
-                    if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
-                        // this should never happen, because the argument names are validated at function registration time
-                        throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
-                    }
-                }
-                Set<String> uniqueArgumentNames = new HashSet<>();
-                for (TableFunctionArgument argument : arguments) {
-                    String argumentName = argument.getName().orElseThrow(() -> new IllegalStateException("Missing table function argument name")).getCanonicalValue();
-                    if (!uniqueArgumentNames.add(argumentName)) {
-                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: %s", argumentName);
-                    }
-                    ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
-                    if (argumentSpecification == null) {
-                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: %s", argumentName);
-                    }
-                    passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
-                }
-                // apply defaults for not specified arguments
-                for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
-                    ArgumentSpecification argumentSpecification = entry.getValue();
-                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
-                }
+                return mapTableFunctionsArgsByName(argumentSpecifications, arguments, errorLocation);
             }
             else {
-                for (int i = 0; i < arguments.size(); i++) {
-                    TableFunctionArgument argument = arguments.get(i);
-                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i); // TODO args passed positionally - can one only pass some prefix of args?
-                    passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
-                }
-                // apply defaults for not specified arguments
-                for (int i = arguments.size(); i < argumentSpecifications.size(); i++) {
-                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i);
-                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                return mapTableFunctionArgsByPosition(argumentSpecifications, arguments, errorLocation);
+            }
+        }
+
+        private Map<String, Argument> mapTableFunctionsArgsByName(List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments, Node errorLocation)
+        {
+            ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
+            Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
+            for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
+                if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                    // this should never happen, because the argument names are validated at function registration time
+                    throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
                 }
             }
+            Set<String> uniqueArgumentNames = new HashSet<>();
+            for (TableFunctionArgument argument : arguments) {
+                String argumentName = argument.getName().orElseThrow(() -> new IllegalStateException("Missing table function argument name")).getCanonicalValue();
+                if (!uniqueArgumentNames.add(argumentName)) {
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: %s", argumentName);
+                }
+                ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
+                if (argumentSpecification == null) {
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: %s", argumentName);
+                }
+                passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
+            }
+            // apply defaults for not specified arguments
+            for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
+                ArgumentSpecification argumentSpecification = entry.getValue();
+                passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+            }
+            return passedArguments.build();
+        }
 
-            return passedArguments.buildOrThrow();
+        private Map<String, Argument> mapTableFunctionArgsByPosition(List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments, Node errorLocation)
+        {
+            ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
+            for (int i = 0; i < arguments.size(); i++) {
+                TableFunctionArgument argument = arguments.get(i);
+                ArgumentSpecification argumentSpecification = argumentSpecifications.get(i); // TODO args passed positionally - can one only pass some prefix of args?
+                passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
+            }
+            // apply defaults for not specified arguments
+            for (int i = arguments.size(); i < argumentSpecifications.size(); i++) {
+                ArgumentSpecification argumentSpecification = argumentSpecifications.get(i);
+                passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+            }
+            return passedArguments.build();
         }
 
         private Argument analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument)
         {
-            String actualType;
-            if (argument.getValue() instanceof TableFunctionTableArgument) {
-                actualType = "table";
-            }
-            else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
-                actualType = "descriptor";
-            }
-            else if (argument.getValue() instanceof Expression) {
-                actualType = "expression";
-            }
-            else {
-                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: ", argument.getClass().getSimpleName());
-            }
-
+            String actualType = getArgumentTypeString(argument);
             if (argumentSpecification instanceof TableArgumentSpecification) {
-                if (!(argument.getValue() instanceof TableFunctionTableArgument)) {
-                    if (argument.getValue() instanceof FunctionCall) {
-                        // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
-                        throw new SemanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
-                    }
-                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected table, got %s", argumentSpecification.getName(), actualType);
-                }
-                // TODO analyze the argument
-                // 1. process the Relation
-                // 2. partitioning and ordering must only apply to tables with set semantics
-                // 3. validate partitioning and ordering using `validateAndGetInputField()`
-                // 4. validate the prune when empty property vs argument specification (forbidden for row semantics; override? -> check spec)
-                // 5. return Argument
-                throw new SemanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+                analyzeTableArgument(argument, argumentSpecification, actualType);
             }
             if (argumentSpecification instanceof DescriptorArgumentSpecification) {
-                if (!(argument.getValue() instanceof TableFunctionDescriptorArgument)) {
-                    if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
-                        // malformed descriptor which parsed as a function call
-                        throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", (Object) argumentSpecification.getName());
-                    }
-                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
-                }
-                throw new SemanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+                analyzeDescriptorArgument(argument, argumentSpecification, actualType);
             }
             if (argumentSpecification instanceof ScalarArgumentSpecification) {
-                if (!(argument.getValue() instanceof Expression)) {
-                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected expression, got %s", argumentSpecification.getName(), actualType);
-                }
-                Expression expression = (Expression) argument.getValue();
-                // 'descriptor' as a function name is not allowed in this context
-                if (expression instanceof FunctionCall && ((FunctionCall) expression).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
-                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
-                }
-                return analyzeScalarArgument(expression, ((ScalarArgumentSpecification) argumentSpecification).getType());
+                return analyzeScalarArgument(argument, argumentSpecification, actualType);
             }
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
@@ -1515,8 +1485,33 @@ class StatementAnalyzer
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
-        private Argument analyzeScalarArgument(Expression expression, Type type)
+        private String getArgumentTypeString(TableFunctionArgument argument)
         {
+            if (argument.getValue() instanceof TableFunctionTableArgument) {
+                return "table";
+            }
+            else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
+                return "descriptor";
+            }
+            else if (argument.getValue() instanceof Expression) {
+                return "expression";
+            }
+            else {
+                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: ", argument.getClass().getSimpleName());
+            }
+        }
+
+        private Argument analyzeScalarArgument(TableFunctionArgument argument, ArgumentSpecification argumentSpecification, String actualType)
+        {
+            Type type = ((ScalarArgumentSpecification) argumentSpecification).getType();
+            if (!(argument.getValue() instanceof Expression)) {
+                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected expression, got %s", argumentSpecification.getName(), actualType);
+            }
+            Expression expression = (Expression) argument.getValue();
+            // 'descriptor' as a function name is not allowed in this context
+            if (expression instanceof FunctionCall && ((FunctionCall) expression).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
+            }
             // inline parameters
             Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
             {
@@ -1539,6 +1534,36 @@ class StatementAnalyzer
                     .type(type)
                     .value(constantValue)
                     .build();
+        }
+
+        private void analyzeTableArgument(TableFunctionArgument argument, ArgumentSpecification argumentSpecification, String actualType)
+        {
+            if (!(argument.getValue() instanceof TableFunctionTableArgument)) {
+                if (argument.getValue() instanceof FunctionCall) {
+                    // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
+                    throw new SemanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
+                }
+                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected table, got %s", argumentSpecification.getName(), actualType);
+            }
+            // TODO analyze the argument
+            // 1. process the Relation
+            // 2. partitioning and ordering must only apply to tables with set semantics
+            // 3. validate partitioning and ordering using `validateAndGetInputField()`
+            // 4. validate the prune when empty property vs argument specification (forbidden for row semantics; override? -> check spec)
+            // 5. return Argument
+            throw new SemanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+        }
+
+        private void analyzeDescriptorArgument(TableFunctionArgument argument, ArgumentSpecification argumentSpecification, String actualType)
+        {
+            if (!(argument.getValue() instanceof TableFunctionDescriptorArgument)) {
+                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                    // malformed descriptor which parsed as a function call
+                    throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", (Object) argumentSpecification.getName());
+                }
+                throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
+            }
+            throw new SemanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
         }
 
         @Override
