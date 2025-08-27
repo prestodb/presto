@@ -19,6 +19,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.NodeStats;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -126,6 +127,16 @@ public class ServerInfoResource
         else {
             return nodeState;
         }
+    }
+
+    @GET
+    @Path("stats")
+    @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @RolesAllowed(ADMIN)
+    public NodeStats getServerStats()
+    {
+        NodeStats stats = new NodeStats(getServerState(), null);
+        return stats;
     }
 
     @GET
