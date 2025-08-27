@@ -38,8 +38,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -193,7 +192,7 @@ public class DruidMetadata
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getTableName() == null) {
-            return listTables(session, Optional.of(prefix.getSchemaName()));
+            return listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         return ImmutableList.of(prefix.toSchemaTableName());
     }

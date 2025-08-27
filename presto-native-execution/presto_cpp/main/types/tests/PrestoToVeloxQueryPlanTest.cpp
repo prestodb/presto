@@ -227,7 +227,8 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseIndexJoinNode) {
                 "returnType": "boolean",
                 "typeVariableConstraints": [],
                 "variableArity": false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType": "boolean"
           }
@@ -235,7 +236,8 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseIndexJoinNode) {
         "form": "AND",
         "returnType": "boolean"
       },
-      "type": "INNER"
+      "type": "INNER",
+      "lookupVariables": []
     }
   )";
 

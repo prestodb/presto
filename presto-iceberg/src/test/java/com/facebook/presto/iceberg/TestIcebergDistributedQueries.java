@@ -115,6 +115,18 @@ public abstract class TestIcebergDistributedQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Override
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // Catalog iceberg only supports writes using autocommit
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
+    {
+        // Catalog iceberg only supports writes using autocommit
+    }
+
     /**
      * Increased the optimizer timeout from 15000ms to 25000ms
      */

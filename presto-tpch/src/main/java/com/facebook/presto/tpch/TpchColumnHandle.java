@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -27,14 +30,24 @@ public class TpchColumnHandle
 {
     private final String columnName;
     private final Type type;
+    private final List<Subfield> requiredSubfields;
 
     @JsonCreator
     public TpchColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("type") Type type)
     {
+        this(columnName, type, ImmutableList.of());
+    }
+
+    public TpchColumnHandle(
+            String columnName,
+            Type type,
+            List<Subfield> requiredSubfields)
+    {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.type = requireNonNull(type, "type is null");
+        this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
     }
 
     @JsonProperty
@@ -53,6 +66,22 @@ public class TpchColumnHandle
     public String toString()
     {
         return "tpch:" + columnName;
+    }
+
+    public List<Subfield> getRequiredSubfields()
+    {
+        return requiredSubfields;
+    }
+
+    @Override
+    public ColumnHandle withRequiredSubfields(List<Subfield> subfields)
+    {
+        if (!requiredSubfields.isEmpty()) {
+            // This column is already a pushed down subfield column.
+            return this;
+        }
+
+        return new TpchColumnHandle(columnName, type, subfields);
     }
 
     @Override

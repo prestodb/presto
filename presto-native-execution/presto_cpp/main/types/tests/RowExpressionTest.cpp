@@ -14,10 +14,12 @@
 #include <gtest/gtest.h>
 #include <array>
 
+#include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/core/Expressions.h"
-#include "velox/type/Type.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
 
 using namespace facebook::presto;
@@ -32,6 +34,8 @@ class RowExpressionTest : public ::testing::Test {
 
   void SetUp() override {
     registerJsonType();
+    filesystems::registerLocalFileSystem();
+    test::setupMutableSystemConfig();
     pool_ = memory::MemoryManager::getInstance()->addLeafPool();
     converter_ =
         std::make_unique<VeloxExprConverter>(pool_.get(), &typeParser_);
@@ -89,7 +93,8 @@ class RowExpressionTest : public ::testing::Test {
         returnTypeField + R"##(,
             "typeVariableConstraints": [],
             "variableArity": false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
     )##" +
         returnTypeField + R"##(
@@ -413,6 +418,18 @@ TEST_F(RowExpressionTest, varbinary5) {
           '"');
 }
 
+TEST_F(RowExpressionTest, char) {
+  SystemConfig::instance()->setValue(std::string(SystemConfig::kCharNToVarcharImplicitCast), "true");
+  std::string str = R"##(
+        {
+            "@type": "constant",
+            "type": "char(3)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGFiYw=="
+        }
+    )##";
+  testConstantExpression(str, "VARCHAR", "\"abc\"");
+}
+
 TEST_F(RowExpressionTest, timestamp) {
   std::string str = R"(
         {
@@ -477,7 +494,8 @@ TEST_F(RowExpressionTest, call) {
             "returnType": "boolean",
             "typeVariableConstraints": [],
             "variableArity": false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
         "returnType": "boolean"
       }
@@ -686,7 +704,8 @@ TEST_F(RowExpressionTest, special) {
                 "returnType": "boolean",
                 "typeVariableConstraints": [],
                 "variableArity": false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType": "boolean"
           },
@@ -718,7 +737,8 @@ TEST_F(RowExpressionTest, special) {
                 "returnType": "boolean",
                 "typeVariableConstraints": [],
                 "variableArity": false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType": "boolean"
           }
@@ -821,7 +841,8 @@ TEST_F(RowExpressionTest, bind) {
                            "bigint"
                         ],
                         "variableArity":false
-                     }
+                     },
+                     "builtInFunctionKind": "ENGINE"
                   },
                   "returnType":"bigint",
                   "arguments":[
@@ -844,7 +865,8 @@ TEST_F(RowExpressionTest, bind) {
                                  "integer"
                               ],
                               "variableArity":false
-                           }
+                           },
+                           "builtInFunctionKind": "ENGINE"
                         },
                         "returnType":"bigint",
                         "arguments":[
@@ -894,7 +916,8 @@ TEST_F(RowExpressionTest, likeSimple) {
                 "returnType" : "boolean",
                 "argumentTypes" : [ "varchar", "LikePattern" ],
                 "variableArity" : false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType" : "boolean",
             "arguments" : [ {
@@ -914,7 +937,8 @@ TEST_F(RowExpressionTest, likeSimple) {
                   "returnType" : "LikePattern",
                   "argumentTypes" : [ "varchar" ],
                   "variableArity" : false
-                }
+                },
+                "builtInFunctionKind": "ENGINE"
               },
               "returnType" : "LikePattern",
               "arguments" : [ {
@@ -953,7 +977,8 @@ TEST_F(RowExpressionTest, likeWithEscape) {
                 "returnType" : "boolean",
                 "argumentTypes" : [ "varchar", "LikePattern" ],
                 "variableArity" : false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType" : "boolean",
             "arguments" : [ {
@@ -973,7 +998,8 @@ TEST_F(RowExpressionTest, likeWithEscape) {
                   "returnType" : "LikePattern",
                   "argumentTypes" : [ "varchar", "varchar" ],
                   "variableArity" : false
-                }
+                },
+                "builtInFunctionKind": "ENGINE"
               },
               "returnType" : "LikePattern",
               "arguments" : [ {
@@ -1029,7 +1055,8 @@ TEST_F(RowExpressionTest, dereference) {
                       "bigint"
                    ],
                    "variableArity":false
-                }
+                },
+                "builtInFunctionKind": "ENGINE"
              },
              "returnType":"row(partkey integer,suppkey integer,quantity integer,extendedprice double,discount double,tax double,returnflag varchar(1),linestatus varchar(1),shipdate varchar,commitdate varchar,receiptdate varchar,shipinstruct varchar(25),shipmode varchar(10))",
              "arguments":[
@@ -1053,7 +1080,8 @@ TEST_F(RowExpressionTest, dereference) {
                             "integer"
                          ],
                          "variableArity":false
-                      }
+                      },
+                      "builtInFunctionKind": "ENGINE"
                    },
                    "returnType":"array(row(partkey integer,suppkey integer,quantity integer,extendedprice double,discount double,tax double,returnflag varchar(1),linestatus varchar(1),shipdate varchar,commitdate varchar,receiptdate varchar,shipinstruct varchar(25),shipmode varchar(10)))",
                    "arguments":[

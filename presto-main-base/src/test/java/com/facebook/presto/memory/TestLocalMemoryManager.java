@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.memory;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

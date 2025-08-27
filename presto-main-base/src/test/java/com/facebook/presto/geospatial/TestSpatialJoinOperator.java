@@ -32,7 +32,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.plan.SpatialJoinNode.Type;
+import com.facebook.presto.spi.plan.SpatialJoinNode.SpatialJoinType;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -64,8 +64,8 @@ import static com.facebook.presto.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.geospatial.GeoFunctions.stPoint;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
-import static com.facebook.presto.spi.plan.SpatialJoinNode.Type.INNER;
-import static com.facebook.presto.spi.plan.SpatialJoinNode.Type.LEFT;
+import static com.facebook.presto.spi.plan.SpatialJoinNode.SpatialJoinType.INNER;
+import static com.facebook.presto.spi.plan.SpatialJoinNode.SpatialJoinType.LEFT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -227,7 +227,7 @@ public class TestSpatialJoinOperator
         assertSpatialJoin(taskContext, LEFT, buildPages, probePages, expected);
     }
 
-    private void assertSpatialJoin(TaskContext taskContext, Type joinType, RowPagesBuilder buildPages, RowPagesBuilder probePages, MaterializedResult expected)
+    private void assertSpatialJoin(TaskContext taskContext, SpatialJoinType joinType, RowPagesBuilder buildPages, RowPagesBuilder probePages, MaterializedResult expected)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.intersects(probe), Optional.empty(), Optional.empty(), buildPages);

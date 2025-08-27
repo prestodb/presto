@@ -40,6 +40,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.preferSortMergeJoin;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PLAN_ERROR;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
@@ -160,6 +161,10 @@ class GroupedExecutionTagger
                             .build(),
                     left.totalLifespans,
                     left.recoveryEligible && right.recoveryEligible);
+        }
+        if (preferSortMergeJoin(session)) {
+            // TODO: This will break the other use case for merge join operating on sorted tables, which requires grouped execution for correctness.
+            return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
         throw new PrestoException(
                 INVALID_PLAN_ERROR,

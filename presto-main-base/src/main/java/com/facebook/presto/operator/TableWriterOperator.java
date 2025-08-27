@@ -14,11 +14,13 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -44,7 +46,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
 
 import java.util.Collection;
 import java.util.List;
@@ -54,6 +55,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.WRITTEN_FILES_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -67,7 +69,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -130,7 +131,7 @@ public class TableWriterOperator
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
             return new TableWriterOperator(
                     context,
-                    createPageSink(),
+                    createPageSink(context),
                     columnChannels,
                     notNullChannelColumnNames,
                     statisticsAggregationOperator,
@@ -140,19 +141,21 @@ public class TableWriterOperator
                     pageSinkCommitStrategy);
         }
 
-        private ConnectorPageSink createPageSink()
+        private ConnectorPageSink createPageSink(OperatorContext operatorContext)
         {
             PageSinkContext.Builder pageSinkContextBuilder = PageSinkContext.builder()
                     .setCommitRequired(pageSinkCommitStrategy.isCommitRequired());
 
+            RuntimeStats runtimeStats = operatorContext.getRuntimeStats();
+
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkContextBuilder.build());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
             if (target instanceof RefreshMaterializedViewHandle) {
-                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build());
+                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

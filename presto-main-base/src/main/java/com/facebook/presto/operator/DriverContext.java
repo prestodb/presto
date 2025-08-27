@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
@@ -26,7 +27,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,11 +37,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.System.currentTimeMillis;
 import static java.lang.System.nanoTime;

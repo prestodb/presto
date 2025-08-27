@@ -46,8 +46,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -85,6 +84,12 @@ public abstract class DelegatingMetadataManager
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         delegate.registerBuiltInFunctions(functionInfos);
+    }
+
+    @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        delegate.registerConnectorFunctions(catalogName, functionInfos);
     }
 
     @Override

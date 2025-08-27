@@ -8,7 +8,7 @@ ARG JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
 ENV PRESTO_HOME="/opt/presto-server"
 
 RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
-    dnf install -y java-11-openjdk less procps python3 \
+    dnf install -y java-17-openjdk less procps python3 \
     && ln -s $(which python3) /usr/bin/python \
     # clean cache jobs
     && mv /etc/yum/protected.d/systemd.conf /etc/yum/protected.d/systemd.conf.bak

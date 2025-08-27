@@ -54,6 +54,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   presto_operators
+  presto_mutable_configs
   presto_type_test_utils
   velox_core
   velox_dwio_common_exception

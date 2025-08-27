@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.util;
 
 import com.facebook.airlift.json.Codec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.spark.PrestoSparkServiceWaitTimeMetrics;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
@@ -28,7 +29,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.Duration;
 import org.apache.spark.JavaFutureActionWrapper;
 import org.apache.spark.SimpleFutureAction;
 import org.apache.spark.SparkException;

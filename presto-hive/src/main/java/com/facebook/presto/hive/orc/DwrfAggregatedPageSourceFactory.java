@@ -19,7 +19,6 @@ import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveAggregatedPageSourceFactory;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
@@ -30,13 +29,13 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.orc.OrcAggregatedPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
@@ -48,7 +47,6 @@ public class DwrfAggregatedPageSourceFactory
 {
     private final TypeManager typeManager;
     private final StandardFunctionResolution functionResolution;
-    private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final OrcFileTailSource orcFileTailSource;
@@ -58,26 +56,6 @@ public class DwrfAggregatedPageSourceFactory
     public DwrfAggregatedPageSourceFactory(
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
-            HiveClientConfig config,
-            HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats,
-            OrcFileTailSource orcFileTailSource,
-            StripeMetadataSourceFactory stripeMetadataSourceFactory)
-    {
-        this(
-                typeManager,
-                functionResolution,
-                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
-                hdfsEnvironment,
-                stats,
-                orcFileTailSource,
-                stripeMetadataSourceFactory);
-    }
-
-    public DwrfAggregatedPageSourceFactory(
-            TypeManager typeManager,
-            StandardFunctionResolution functionResolution,
-            boolean useOrcColumnNames,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
@@ -85,7 +63,6 @@ public class DwrfAggregatedPageSourceFactory
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
@@ -117,7 +94,7 @@ public class DwrfAggregatedPageSourceFactory
                 configuration,
                 fileSplit,
                 columns,
-                useOrcColumnNames,
+                isUseOrcColumnNames(session),
                 typeManager,
                 functionResolution,
                 stats,

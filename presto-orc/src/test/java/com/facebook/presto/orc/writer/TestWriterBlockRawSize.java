@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -35,7 +36,6 @@ import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -45,6 +45,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -62,8 +64,6 @@ import static com.facebook.presto.orc.TestOrcMapNullKey.createMapType;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

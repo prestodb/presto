@@ -86,8 +86,8 @@ public class TestAvroSchemaEvolution
     {
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""));
+                        row("string_col", "varchar", "", "", null, null, 2147483647L),
+                        row("int_col", "integer", "", "", 10L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", 0));
 
@@ -101,39 +101,39 @@ public class TestAvroSchemaEvolution
     {
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""));
+                        row("string_col", "varchar", "", "", null, null, 2147483647L),
+                        row("int_col", "integer", "", "", 10L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", 0));
 
         alterTableSchemaTo(CHANGE_COLUMN_TYPE_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "bigint", "", ""));
+                        row("string_col", "varchar", "", "", null, null, 2147483647L),
+                        row("int_col", "bigint", "", "", 19L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", 0));
 
         alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""),
-                        row("int_col_added", "integer", "", ""));
+                        row("string_col", "varchar", "", "", null, null, 2147483647L),
+                        row("int_col", "integer", "", "", 10L, null, null),
+                        row("int_col_added", "integer", "", "", 10L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", 0, 100));
 
         alterTableSchemaTo(REMOVED_COLUMN_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(row("int_col", "integer", "", ""));
+                .containsExactly(row("int_col", "integer", "", "", 10L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row(0));
 
         alterTableSchemaTo(RENAMED_COLUMN_SCHEMA);
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col_renamed", "integer", "", ""));
+                        row("string_col", "varchar", "", "", null, null, 2147483647L),
+                        row("int_col_renamed", "integer", "", "", 10L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", null));
     }
@@ -143,15 +143,15 @@ public class TestAvroSchemaEvolution
     {
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""));
+                        row("string_col", "varchar", "", "", null, null, 2147483647L),
+                        row("int_col", "integer", "", "", 10L, null, null));
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", 0));
 
         executeHiveQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
-                        row("dummy_col", "varchar", "", ""));
+                        row("dummy_col", "varchar", "", "", null, null, 2147483647L));
     }
 
     @Test(groups = {AVRO})

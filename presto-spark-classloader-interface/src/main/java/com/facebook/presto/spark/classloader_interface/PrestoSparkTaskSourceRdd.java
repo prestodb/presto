@@ -27,9 +27,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkUtils.asScalaBuffer;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static scala.collection.JavaConversions.asScalaBuffer;
 
 public class PrestoSparkTaskSourceRdd
         extends RDD<SerializedPrestoSparkTaskSource>

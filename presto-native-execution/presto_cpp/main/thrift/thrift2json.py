@@ -86,9 +86,13 @@ def enum(n):
 
 def struct(n):
     v = {}
-    v["struct"] = True
     v["class_name"] = n.name.value
     v["fields"] = []
+    if n.union:
+        v["union"] = True
+    else:
+        v["struct"] = True
+
     for field in n.fields:
         v["fields"].append(
             dict(

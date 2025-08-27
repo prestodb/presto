@@ -61,6 +61,7 @@ public interface Plugin
         return emptyList();
     }
 
+    // getFunctions will be deprecated soon. Use Connector->getSystemFunctions() to implement connector level functions
     default Set<Class<?>> getFunctions()
     {
         return emptySet();
@@ -152,5 +153,10 @@ public interface Plugin
     default Iterable<ClientRequestFilterFactory> getClientRequestFilterFactories()
     {
         return emptyList();
+    }
+
+    default Set<Class<?>> getSqlInvokedFunctions()
+    {
+        return emptySet();
     }
 }

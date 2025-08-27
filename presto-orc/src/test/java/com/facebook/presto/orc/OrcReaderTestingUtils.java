@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class OrcReaderTestingUtils
 {

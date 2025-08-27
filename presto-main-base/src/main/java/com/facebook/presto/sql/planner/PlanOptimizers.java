@@ -45,6 +45,7 @@ import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
+import com.facebook.presto.sql.planner.iterative.rule.ExtractSystemTableFilterRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
@@ -186,6 +187,7 @@ import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ShardJoins;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
+import com.facebook.presto.sql.planner.optimizations.SortMergeJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -193,11 +195,10 @@ import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.MBeanExporter;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -765,7 +766,7 @@ public class PlanOptimizers
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
 
-        builder.add(new MetadataQueryOptimizer(metadata));
+        builder.add(new MetadataQueryOptimizer(metadata, expressionOptimizerManager));
 
         // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
         builder.add(
@@ -928,7 +929,8 @@ public class PlanOptimizers
         // MergeJoinForSortedInputOptimizer can avoid the local exchange for a join operation
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
-        builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()));
+        builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()),
+                new SortMergeJoinOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, featuresConfig.isNativeExecutionEnabled()));
@@ -936,13 +938,13 @@ public class PlanOptimizers
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
         builder.add(new IterativeOptimizer(
-                metadata,
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.of(
-                        new PushPartialAggregationThroughJoin(),
-                        new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()))),
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(
+                                new PushPartialAggregationThroughJoin(),
+                                new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()))),
                 // MergePartialAggregationsWithFilter should immediately follow PushPartialAggregationThroughExchange
                 new MergePartialAggregationsWithFilter(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
@@ -980,6 +982,14 @@ public class PlanOptimizers
 
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput());
+
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        new ExtractSystemTableFilterRuleSet(metadata.getFunctionAndTypeManager()).rules()));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 

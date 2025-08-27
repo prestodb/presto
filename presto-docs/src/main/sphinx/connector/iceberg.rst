@@ -1480,6 +1480,12 @@ The table is partitioned by the transformed value of the column::
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN ts timestamp WITH (partitioning = 'hour');
 
+Use ``ARRAY[...]`` instead of a string to specify multiple partition transforms when adding a column. For example::
+
+    ALTER TABLE iceberg.web.page_views ADD COLUMN location VARCHAR WITH (partitioning = ARRAY['truncate(2)', 'bucket(8)', 'identity']);
+
+    ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = ARRAY['year', 'bucket(16)', 'identity']);
+
 Table properties can be modified for an Iceberg table using an ALTER TABLE SET PROPERTIES statement. Only `commit_retries` can be modified at present.
 For example, to set `commit_retries` to 6 for the table `iceberg.web.page_views_v2`, use::
 
@@ -2208,7 +2214,7 @@ Sorting can be combined with partitioning on the same column. For example::
         sorted_by = ARRAY['join_date']
     )
 
-The Iceberg connector does not support sort order transforms. The following sort order transformations are not supported:
+Sort order does not support transforms. The following transforms are not supported:
 
 .. code-block:: text
 

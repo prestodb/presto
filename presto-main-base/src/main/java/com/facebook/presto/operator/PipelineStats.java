@@ -21,9 +21,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
@@ -178,16 +177,13 @@ public class PipelineStats
         this.totalAllocationInBytes = totalAllocationInBytes;
 
         this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
+        this.rawInputPositions = (rawInputPositions >= 0) ? rawInputPositions : Long.MAX_VALUE;
 
         this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
-        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
-        this.processedInputPositions = processedInputPositions;
+        this.processedInputPositions = (processedInputPositions >= 0) ? processedInputPositions : Long.MAX_VALUE;
 
         this.outputDataSizeInBytes = outputDataSizeInBytes;
-        checkArgument(outputPositions >= 0, "outputPositions is negative");
-        this.outputPositions = outputPositions;
+        this.outputPositions = (outputPositions >= 0) ? outputPositions : Long.MAX_VALUE;
 
         this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
 

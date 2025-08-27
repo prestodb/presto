@@ -163,6 +163,16 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        for (TableFunctionArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitGroupingOperation(GroupingOperation node, C context)
     {
         node.getGroupingColumns().forEach(columnArgument -> process(columnArgument, context));
@@ -593,18 +603,5 @@ public abstract class DefaultTraversalVisitor<R, C>
         process(node.getQuery(), context);
 
         return super.visitLateral(node, context);
-    }
-
-    @Override
-    protected R visitRevokeRoles(RevokeRoles node, C context)
-    {
-        node.getRoles().forEach(property -> process(property, context));
-        return null;
-    }
-
-    @Override
-    protected R visitCreateType(CreateType node, C context)
-    {
-        return null;
     }
 }

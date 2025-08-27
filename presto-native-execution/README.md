@@ -81,8 +81,15 @@ Compilers (and versions) not mentioned are known to not work or have not been tr
 
 ### Build Prestissimo
 #### Parquet and S3 Support
-To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
-`PRESTO_ENABLE_S3 = "ON"` in the environment.
+Parquet support is enabled by default. To disable it, add `-DPRESTO_ENABLE_PARQUET=OFF`
+to the `EXTRA_CMAKE_FLAGS` environment variable.
+
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS -DPRESTO_ENABLE_PARQUET=OFF"`
+
+To enable S3 support, add `-DPRESTO_ENABLE_S3=ON` to the `EXTRA_CMAKE_FLAGS`
+environment variable.
+
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_S3=ON"`
 
 S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the target platform build script
@@ -91,8 +98,10 @@ from the `presto/presto-native-execution` directory.
 `./velox/scripts/setup-centos9.sh install_aws`
 
 #### JWT Authentication
-To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in
-the environment.
+To enable JWT authentication support, add `-DPRESTO_ENABLE_JWT=ON` to the
+`EXTRA_CMAKE_FLAGS` environment variable.
+
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_JWT=ON"`
 
 JWT authentication support needs the [JWT CPP](https://github.com/Thalhammer/jwt-cpp) library.
 This dependency can be installed by running the script below from the
@@ -109,6 +118,8 @@ follow these steps:
 
 *CMake flags:* `PRESTO_STATS_REPORTER_TYPE=PROMETHEUS`
 
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS"`
+
 *Runtime configuration:* `runtime-metrics-collection-enabled=true`
 
 * After installing the above dependencies, from the
@@ -117,8 +128,8 @@ follow these steps:
 * Use `make unittest` to build and run tests.
 
 #### Arrow Flight Connector
-To enable Arrow Flight connector support, add to the extra cmake flags:
-`EXTRA_CMAKE_FLAGS = -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON`
+To enable Arrow Flight connector support, add to the `EXTRA_CMAKE_FLAGS` environment variable:
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON"`
 
 The Arrow Flight connector requires the Arrow Flight library. You can install this dependency
 by running the following script from the `presto/presto-native-execution` directory:
@@ -128,8 +139,8 @@ by running the following script from the `presto/presto-native-execution` direct
 #### Nvidia cuDF GPU Support
 
 To enable support with [cuDF](https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf),
-add to the extra cmake flags:
-`EXTRA_CMAKE_FLAGS = -DPRESTO_ENABLE_CUDF=ON`
+add to the `EXTRA_CMAKE_FLAGS` environment variable:
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_CUDF=ON"`
 
 In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER location must be explicitly set.
 The make command will look like:
@@ -137,6 +148,12 @@ The make command will look like:
 `CUDA_ARCHITECTURES=80 CUDA_COMPILER=/usr/local/cuda/bin/nvcc EXTRA_CMAKE_FLAGS=" -DPRESTO_ENABLE_CUDF=ON" make`
 
 The required dependencies are bundled from the Velox setup scripts.
+
+#### Spatial type and function support
+Spatial type and function support is enabled by default. To disable it, add to `EXTRA_CMAKE_FLAGS` environment variable:
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -PRESTO_ENABLE_SPATIAL=OFF"`
+
+The spatial support adds new types (OGC geometry types) and functionality for spatial calculations.
 
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`

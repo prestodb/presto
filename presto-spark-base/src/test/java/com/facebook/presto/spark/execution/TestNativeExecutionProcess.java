@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskId;
@@ -24,10 +25,9 @@ import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessF
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import io.airlift.units.Duration;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -90,10 +90,9 @@ public class TestNativeExecutionProcess
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
                 new NativeExecutionConnectorConfig(),
                 new NativeExecutionNodeConfig(),
-                new NativeExecutionSystemConfig(),
-                new NativeExecutionVeloxConfig());
+                new NativeExecutionSystemConfig(ImmutableMap.of()));
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
-                new TestPrestoSparkHttpClient.TestingHttpClient(
+                new TestPrestoSparkHttpClient.TestingOkHttpClient(
                         errorScheduler,
                         new TestPrestoSparkHttpClient.TestingResponseManager(taskId.toString(), new TestPrestoSparkHttpClient.FailureRetryResponseManager(5))),
                 newSingleThreadExecutor(),

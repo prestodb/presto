@@ -17,6 +17,9 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MaxDataSize;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -24,28 +27,24 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MaxDataSize;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.expressions.ExpressionOptimizerManager.DEFAULT_EXPRESSION_OPTIMIZER_NAME;
 import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -227,6 +226,7 @@ public class FeaturesConfig
 
     private boolean streamingForPartialAggregationEnabled;
     private boolean preferMergeJoinForSortedInputs;
+    private boolean preferSortMergeJoin;
     private boolean segmentedAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
@@ -2233,6 +2233,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isPreferSortMergeJoin()
+    {
+        return preferSortMergeJoin;
+    }
+
+    @Config("experimental.optimizer.prefer-sort-merge-join")
+    @ConfigDescription("Prefer sort merge join for all joins. A SortNode is added if input is not already sorted.")
+    public FeaturesConfig setPreferSortMergeJoin(boolean preferSortMergeJoin)
+    {
+        this.preferSortMergeJoin = preferSortMergeJoin;
+        return this;
+    }
+
     public boolean isSegmentedAggregationEnabled()
     {
         return segmentedAggregationEnabled;
@@ -2971,6 +2984,7 @@ public class FeaturesConfig
     {
         return inEqualityJoinPushdownEnabled;
     }
+
     public boolean isPrestoSparkExecutionEnvironment()
     {
         return prestoSparkExecutionEnvironment;

@@ -111,6 +111,7 @@ import java.util.stream.Collectors;
 import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.INFO;
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getQueryExecutionStrategies;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
@@ -133,7 +134,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -319,6 +319,7 @@ public class PrestoSparkQueryRunner
                 DRIVER,
                 configProperties.build(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -593,6 +594,8 @@ public class PrestoSparkQueryRunner
                         ImmutableSet.of(),
                         p.getUpdateType(),
                         getOnlyElement(getOnlyElement(rows).getFields()) == null ? OptionalLong.empty() : OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                        Optional.empty(),
+                        false,
                         ImmutableList.of());
             }
         }
@@ -605,6 +608,8 @@ public class PrestoSparkQueryRunner
                     ImmutableSet.of(),
                     Optional.empty(),
                     OptionalLong.empty(),
+                    Optional.empty(),
+                    false,
                     ImmutableList.of());
         }
         else {
@@ -615,6 +620,8 @@ public class PrestoSparkQueryRunner
                     ImmutableSet.of(),
                     Optional.empty(),
                     OptionalLong.empty(),
+                    Optional.empty(),
+                    false,
                     ImmutableList.of());
         }
     }

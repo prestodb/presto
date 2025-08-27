@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.nessie;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergPlugin;
@@ -24,7 +25,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -93,7 +93,9 @@ public class TestIcebergSystemTablesNessie
     protected void checkTableProperties(String tableName, String deleteMode)
     {
         assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
-                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+                "VALUES " +
+                        "('key', 'varchar', '', '', null, null, 2147483647)," +
+                        "('value', 'varchar', '', '', null, null, 2147483647)");
         assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 11");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
@@ -124,7 +126,10 @@ public class TestIcebergSystemTablesNessie
     protected void checkORCFormatTableProperties(String tableName, String deleteMode)
     {
         assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
-                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+                "VALUES " +
+                        "('key', 'varchar', '', '', null, null, 2147483647)," +
+                        "('value', 'varchar', '', '', null, null, 2147483647)");
+
         assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 12");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();

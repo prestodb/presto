@@ -23,12 +23,10 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -75,7 +73,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.LongStream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -130,6 +127,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.getHiveTableProperty;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -1905,7 +1903,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 getSession(),
                 "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
-                "VALUES ('part1', 'bigint', '', ''), ('part2', 'varchar', '', '')");
+                "VALUES ('part1', 'bigint', '', '', 19L, null, null), ('part2', 'varchar', '', '', null, null, 2147483647L)");
 
         assertQueryFails(
                 getSession(),
@@ -2083,31 +2081,14 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
-    private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
-    {
-        Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
-
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .readOnly()
-                .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
-                    assertTrue(tableHandle.isPresent());
-
-                    TableLayout layout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
-                            .getLayout();
-                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getNewTableHandle().getLayout().get());
-                });
-    }
-
     private List<?> getPartitions(String tableName)
     {
-        return (List<?>) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
+        return (List<?>) getHiveTableProperty(getQueryRunner(), getSession(), tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
     }
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
+        return (int) getHiveTableProperty(getQueryRunner(), getSession(), tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
     }
 
     @Test
@@ -2120,15 +2101,15 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         Type unboundedVarchar = canonicalizeType(VARCHAR);
-        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
-                .row("grape", canonicalizeTypeName("bigint"), "", "")
-                .row("orange", canonicalizeTypeName("bigint"), "", "")
-                .row("pear", canonicalizeTypeName("varchar(65535)"), "", "")
-                .row("mango", canonicalizeTypeName("integer"), "", "")
-                .row("lychee", canonicalizeTypeName("smallint"), "", "")
-                .row("kiwi", canonicalizeTypeName("tinyint"), "", "")
-                .row("apple", canonicalizeTypeName("varchar"), "partition key", "")
-                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "partition key", "")
+        MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar, BIGINT, BIGINT, BIGINT)
+                .row("grape", canonicalizeTypeName("bigint"), "", "", 19L, null, null)
+                .row("orange", canonicalizeTypeName("bigint"), "", "", 19L, null, null)
+                .row("pear", canonicalizeTypeName("varchar(65535)"), "", "", null, null, 65535L)
+                .row("mango", canonicalizeTypeName("integer"), "", "", 10L, null, null)
+                .row("lychee", canonicalizeTypeName("smallint"), "", "", 5L, null, null)
+                .row("kiwi", canonicalizeTypeName("tinyint"), "", "", 3L, null, null)
+                .row("apple", canonicalizeTypeName("varchar"), "partition key", "", null, null, 2147483647L)
+                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "partition key", "", null, null, 65535L)
                 .build();
         assertEquals(actual, expected);
     }
@@ -3129,7 +3110,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
-        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA'), ('b', 'bigint', '', 'test comment BBB')");
+        assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
     }
 
@@ -5800,7 +5781,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_view AS SELECT name FROM test_customer_base",
                 format(
-                        ".* Destination materialized view '%s.%s.test_customer_view' already exists",
+                        ".* Materialized view '%s.%s.test_customer_view' already exists",
                         getSession().getCatalog().get(),
                         getSession().getSchema().get()));
         assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_view AS SELECT name FROM test_customer_base");
