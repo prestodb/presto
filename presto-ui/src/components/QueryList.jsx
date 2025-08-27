@@ -70,7 +70,6 @@ const ResourceGroupLinks = ({groupId, length=35}) => {
     );
 };
 
-// Helper function moved outside component
 const stripQueryTextWhitespace = (queryText, isTruncated) => {
     const lines = queryText.split("\n");
     let minLeadingWhitespace = -1;
@@ -368,7 +367,6 @@ export const QueryList = () => {
 
     const timeoutId = useRef(null);
     const searchTimeoutId = useRef(null);
-    // Single ref object to avoid stale closures in loops/debounces
     const dataSet = useRef({
         allQueries: [],
         displayedQueries: [],
@@ -512,8 +510,6 @@ export const QueryList = () => {
             clearTimeout(searchTimeoutId.current);
         };
     }, [refreshLoop]);
-
-    // No per-field ref sync effects needed; handlers update dataSet alongside state
 
     const executeSearch = useCallback(() => {
         clearTimeout(searchTimeoutId.current);
