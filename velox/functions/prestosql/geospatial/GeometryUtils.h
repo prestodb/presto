@@ -204,6 +204,8 @@ FOLLY_ALWAYS_INLINE void canonicalizePolygonCoordinates(
   }
 }
 
+Status validateLatitudeLongitude(double latitude, double longitude);
+
 std::vector<const geos::geom::Geometry*> flattenCollection(
     const geos::geom::Geometry* geometry);
 

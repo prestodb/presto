@@ -173,6 +173,15 @@ class BingTileType final : public BigintType {
       double longitude,
       uint8_t zoomLevel,
       double radiusInKm);
+
+  // This isn't used in BingTiles, but since it relies on
+  // GreatCircleDistanceToPoint this is exposed here for use in Geometry
+  // functions.
+  static double greatCircleDistance(
+      double latitude1,
+      double longitude1,
+      double latitude2,
+      double longitude2);
 };
 
 inline bool isBingTileType(const TypePtr& type) {

@@ -3108,3 +3108,59 @@ TEST_F(GeometryFunctionsTest, testGeometryToFromGeoJson) {
           "{\"type\":\"MultiPoint\",\"crashMe\"}", std::nullopt),
       "Error parsing JSON");
 }
+
+TEST_F(GeometryFunctionsTest, testGreatCircleDistance) {
+  const auto testGreatCircleDistanceFunc =
+      [&](const std::optional<double>& lat1,
+          const std::optional<double>& long1,
+          const std::optional<double>& lat2,
+          const std::optional<double>& long2,
+          const std::optional<double>& expected) {
+        std::optional<double> result = evaluateOnce<double>(
+            "great_circle_distance(c0, c1, c2, c3)", lat1, long1, lat2, long2);
+
+        if (expected.has_value()) {
+          ASSERT_TRUE(result.has_value());
+          ASSERT_TRUE(std::abs(result.value() - expected.value()) < .0001);
+        } else {
+          ASSERT_FALSE(result.has_value());
+        }
+      };
+
+  testGreatCircleDistanceFunc(
+      36.12, -86.67, 33.94, -118.40, 2886.4489734366994);
+  testGreatCircleDistanceFunc(
+      33.94, -118.40, 36.12, -86.67, 2886.4489734366994);
+  testGreatCircleDistanceFunc(
+      42.3601, -71.0589, 42.4430, -71.2290, 16.734697434573437);
+  testGreatCircleDistanceFunc(36.12, -86.67, 36.12, -86.67, 0.0);
+
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(91, 20, 30, 40, std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: 91 and longitude: 20");
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(10, 20, 91, 40, std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: 91 and longitude: 40");
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(10, 181, 30, 40, std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: 10 and longitude: 181");
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(10, 20, 30, -181, std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: 30 and longitude: -181");
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(
+          std::numeric_limits<double>::infinity(), 20, 30, 40, std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: inf and longitude: 20");
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(
+          10, 20, 30, std::numeric_limits<double>::quiet_NaN(), std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: 30 and longitude: nan");
+  VELOX_ASSERT_USER_THROW(
+      testGreatCircleDistanceFunc(
+          10,
+          20,
+          30,
+          std::numeric_limits<double>::signaling_NaN(),
+          std::nullopt),
+      "Latitude must be in range [-90, 90] and longitude must be in range [-180, 180]. Got latitude: 30 and longitude: nan");
+}

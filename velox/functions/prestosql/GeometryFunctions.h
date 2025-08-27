@@ -1744,4 +1744,29 @@ struct GeometryFromGeoJsonFunction {
   }
 };
 
+template <typename T>
+struct GreatCircleDistanceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<double>& result,
+      const arg_type<double>& lat1,
+      const arg_type<double>& long1,
+      const arg_type<double>& lat2,
+      const arg_type<double>& long2) {
+    Status status = geospatial::validateLatitudeLongitude(lat1, long1);
+    if (FOLLY_UNLIKELY(!status.ok())) {
+      return status;
+    }
+
+    status = geospatial::validateLatitudeLongitude(lat2, long2);
+    if (FOLLY_UNLIKELY(!status.ok())) {
+      return status;
+    }
+
+    result = BingTileType::greatCircleDistance(lat1, long1, lat2, long2);
+    return status;
+  }
+};
+
 } // namespace facebook::velox::functions

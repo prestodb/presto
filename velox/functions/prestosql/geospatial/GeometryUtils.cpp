@@ -18,11 +18,15 @@
 #include <geos/operation/valid/IsSimpleOp.h>
 #include <geos/operation/valid/IsValidOp.h>
 #include "velox/common/base/Exceptions.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 
 using geos::operation::valid::IsSimpleOp;
 using geos::operation::valid::IsValidOp;
 
 namespace facebook::velox::functions::geospatial {
+
+static constexpr double kRealMinLatitude = -90;
+static constexpr double kRealMaxLatitude = 90;
 
 GeometryCollectionIterator::GeometryCollectionIterator(
     const geos::geom::Geometry* geometry) {
@@ -140,6 +144,24 @@ std::optional<std::string> geometryInvalidReason(
       description,
       nonSimpleLocation.x,
       nonSimpleLocation.y);
+}
+
+Status validateLatitudeLongitude(double latitude, double longitude) {
+  if (FOLLY_UNLIKELY(
+          latitude < kRealMinLatitude || latitude > kRealMaxLatitude ||
+          longitude < BingTileType::kMinLongitude ||
+          longitude > BingTileType::kMaxLongitude || std::isnan(latitude) ||
+          std::isnan(longitude))) {
+    return Status::UserError(fmt::format(
+        "Latitude must be in range [{}, {}] and longitude must be in range [{}, {}]. Got latitude: {} and longitude: {}",
+        kRealMinLatitude,
+        kRealMaxLatitude,
+        BingTileType::kMinLongitude,
+        BingTileType::kMaxLongitude,
+        latitude,
+        longitude));
+  }
+  return Status::OK();
 }
 
 } // namespace facebook::velox::functions::geospatial
