@@ -67,6 +67,18 @@ class S3TestReporter : public BaseStatsReporter {
     histogramPercentilesMap[key.str()] = pcts;
   }
 
+  void registerQuantileMetricExportType(
+      const char* /* key */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
+  void registerQuantileMetricExportType(
+      folly::StringPiece /* key */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
   void addMetricValue(const std::string& key, const size_t value)
       const override {
     std::lock_guard<std::mutex> l(m);
@@ -96,6 +108,15 @@ class S3TestReporter : public BaseStatsReporter {
       const override {
     counterMap[key.str()] = std::max(counterMap[key.str()], value);
   }
+
+  void addQuantileMetricValue(const std::string& /* key */, size_t /* value */)
+      const override {}
+
+  void addQuantileMetricValue(const char* /* key */, size_t /* value */)
+      const override {}
+
+  void addQuantileMetricValue(folly::StringPiece /* key */, size_t /* value */)
+      const override {}
 
   std::string fetchMetrics() override {
     std::stringstream ss;

@@ -38,11 +38,21 @@ class TestReporter : public BaseStatsReporter {
   mutable std::unordered_map<std::string, std::vector<int32_t>>
       histogramPercentilesMap;
 
+  mutable std::unordered_map<std::string, std::vector<StatType>>
+      quantileStatTypesMap;
+  mutable std::unordered_map<std::string, std::vector<double>>
+      quantilePercentilesMap;
+  mutable std::unordered_map<std::string, std::vector<size_t>>
+      quantileSlidingWindowsMap;
+
   void clear() {
     std::lock_guard<std::mutex> l(m);
     counterMap.clear();
     statTypeMap.clear();
     histogramPercentilesMap.clear();
+    quantileStatTypesMap.clear();
+    quantilePercentilesMap.clear();
+    quantileSlidingWindowsMap.clear();
   }
 
   void registerMetricExportType(const char* key, StatType statType)
@@ -52,7 +62,7 @@ class TestReporter : public BaseStatsReporter {
 
   void registerMetricExportType(folly::StringPiece key, StatType statType)
       const override {
-    statTypeMap[key.str()] = statType;
+    statTypeMap[std::string(key)] = statType;
   }
 
   void registerHistogramMetricExportType(
@@ -70,7 +80,29 @@ class TestReporter : public BaseStatsReporter {
       int64_t /* min */,
       int64_t /* max */,
       const std::vector<int32_t>& pcts) const override {
-    histogramPercentilesMap[key.str()] = pcts;
+    histogramPercentilesMap[std::string(key)] = pcts;
+  }
+
+  void registerQuantileMetricExportType(
+      const char* key,
+      const std::vector<StatType>& statTypes,
+      const std::vector<double>& pcts,
+      const std::vector<size_t>& slidingWindowsSeconds) const override {
+    std::lock_guard<std::mutex> l(m);
+    quantileStatTypesMap[key] = statTypes;
+    quantilePercentilesMap[key] = pcts;
+    quantileSlidingWindowsMap[key] = slidingWindowsSeconds;
+  }
+
+  void registerQuantileMetricExportType(
+      folly::StringPiece key,
+      const std::vector<StatType>& statTypes,
+      const std::vector<double>& pcts,
+      const std::vector<size_t>& slidingWindowsSeconds) const override {
+    std::lock_guard<std::mutex> l(m);
+    quantileStatTypesMap[std::string(key)] = statTypes;
+    quantilePercentilesMap[std::string(key)] = pcts;
+    quantileSlidingWindowsMap[std::string(key)] = slidingWindowsSeconds;
   }
 
   void addMetricValue(const std::string& key, const size_t value)
@@ -86,7 +118,7 @@ class TestReporter : public BaseStatsReporter {
 
   void addMetricValue(folly::StringPiece key, size_t value) const override {
     std::lock_guard<std::mutex> l(m);
-    counterMap[key.str()] += value;
+    counterMap[std::string(key)] += value;
   }
 
   void addHistogramMetricValue(const std::string& key, size_t value)
@@ -103,7 +135,25 @@ class TestReporter : public BaseStatsReporter {
   void addHistogramMetricValue(folly::StringPiece key, size_t value)
       const override {
     std::lock_guard<std::mutex> l(m);
-    counterMap[key.str()] = std::max(counterMap[key.str()], value);
+    counterMap[std::string(key)] =
+        std::max(counterMap[std::string(key)], value);
+  }
+
+  void addQuantileMetricValue(const std::string& key, size_t value)
+      const override {
+    std::lock_guard<std::mutex> l(m);
+    counterMap[key] += value;
+  }
+
+  void addQuantileMetricValue(const char* key, size_t value) const override {
+    std::lock_guard<std::mutex> l(m);
+    counterMap[key] += value;
+  }
+
+  void addQuantileMetricValue(folly::StringPiece key, size_t value)
+      const override {
+    std::lock_guard<std::mutex> l(m);
+    counterMap[std::string(key)] += value;
   }
 
   std::string fetchMetrics() override {
@@ -122,12 +172,16 @@ class TestReporter : public BaseStatsReporter {
 class StatsReporterTest : public testing::Test {
  protected:
   void SetUp() override {
+    // Set the registered flag to true so macros will work
+    BaseStatsReporter::registered = true;
     reporter_ = std::dynamic_pointer_cast<TestReporter>(
         folly::Singleton<BaseStatsReporter>::try_get());
     reporter_->clear();
   }
   void TearDown() override {
     reporter_->clear();
+    // Reset the registered flag
+    BaseStatsReporter::registered = false;
   }
 
   std::shared_ptr<TestReporter> reporter_;
@@ -610,6 +664,145 @@ TEST_F(PeriodicStatsReporterTest, allNullOption) {
       startPeriodicStatsReporter(options),
       "The periodic stats reporter has already started.");
   ASSERT_NO_THROW(stopPeriodicStatsReporter());
+}
+
+TEST_F(StatsReporterTest, registerQuantileMetricExportType) {
+  reporter_->registerQuantileMetricExportType(
+      "test_quantile_stat",
+      statTypes(StatType::AVG, StatType::SUM, StatType::COUNT),
+      percentiles(0.5, 0.95, 0.99),
+      slidingWindowsSeconds(60, 600));
+
+  EXPECT_TRUE(reporter_->quantileStatTypesMap.count("test_quantile_stat"));
+  std::vector<StatType> expectedStatTypes = {
+      StatType::AVG, StatType::SUM, StatType::COUNT};
+  std::vector<double> expectedPercentiles = {0.5, 0.95, 0.99};
+  std::vector<size_t> expectedSlidingWindows = {60, 600};
+  EXPECT_EQ(
+      expectedStatTypes, reporter_->quantileStatTypesMap["test_quantile_stat"]);
+  EXPECT_EQ(
+      expectedPercentiles,
+      reporter_->quantilePercentilesMap["test_quantile_stat"]);
+  EXPECT_EQ(
+      expectedSlidingWindows,
+      reporter_->quantileSlidingWindowsMap["test_quantile_stat"]);
+}
+
+TEST_F(StatsReporterTest, registerQuantileMetricExportTypeWithStringPiece) {
+  // Test registration with StringPiece key
+  folly::StringPiece key("stringpiece_quantile_stat");
+  reporter_->registerQuantileMetricExportType(
+      key,
+      statTypes(StatType::RATE),
+      percentiles(0.75, 0.90),
+      slidingWindowsSeconds(3600));
+
+  EXPECT_TRUE(reporter_->quantileStatTypesMap.count(std::string(key)));
+  std::vector<StatType> expectedStatTypes = {StatType::RATE};
+  std::vector<double> expectedPercentiles = {0.75, 0.90};
+  std::vector<size_t> expectedSlidingWindows = {3600};
+  EXPECT_EQ(
+      expectedStatTypes, reporter_->quantileStatTypesMap[std::string(key)]);
+  EXPECT_EQ(
+      expectedPercentiles, reporter_->quantilePercentilesMap[std::string(key)]);
+  EXPECT_EQ(
+      expectedSlidingWindows,
+      reporter_->quantileSlidingWindowsMap[std::string(key)]);
+}
+
+TEST_F(StatsReporterTest, addQuantileMetricValue) {
+  // Test adding values to quantile metrics with const char*
+  reporter_->addQuantileMetricValue("test_metric", 100);
+  reporter_->addQuantileMetricValue("test_metric", 50);
+
+  EXPECT_EQ(150, reporter_->counterMap["test_metric"]);
+
+  // Test with StringPiece
+  folly::StringPiece key("stringpiece_metric");
+  reporter_->addQuantileMetricValue(key, 25);
+  reporter_->addQuantileMetricValue(key, 75);
+
+  EXPECT_EQ(100, reporter_->counterMap[std::string(key)]);
+
+  // Test with const std::string&
+  std::string stringKey("string_metric");
+  reporter_->addQuantileMetricValue(stringKey, 200);
+  reporter_->addQuantileMetricValue(stringKey, 300);
+
+  EXPECT_EQ(500, reporter_->counterMap[stringKey]);
+}
+
+TEST_F(StatsReporterTest, multipleQuantileStats) {
+  reporter_->registerQuantileMetricExportType(
+      "metric1",
+      statTypes(StatType::AVG),
+      percentiles(0.5),
+      slidingWindowsSeconds(60));
+  reporter_->registerQuantileMetricExportType(
+      "metric2",
+      statTypes(StatType::COUNT, StatType::SUM),
+      percentiles(0.95, 0.99, 0.999),
+      slidingWindowsSeconds(300, 900));
+
+  std::vector<StatType> expectedStatTypes1 = {StatType::AVG};
+  std::vector<double> expectedPercentiles1 = {0.5};
+  std::vector<size_t> expectedSlidingWindows1 = {60};
+  std::vector<StatType> expectedStatTypes2 = {StatType::COUNT, StatType::SUM};
+  std::vector<double> expectedPercentiles2 = {0.95, 0.99, 0.999};
+  std::vector<size_t> expectedSlidingWindows2 = {300, 900};
+
+  EXPECT_EQ(expectedStatTypes1, reporter_->quantileStatTypesMap["metric1"]);
+  EXPECT_EQ(expectedPercentiles1, reporter_->quantilePercentilesMap["metric1"]);
+  EXPECT_EQ(
+      expectedSlidingWindows1, reporter_->quantileSlidingWindowsMap["metric1"]);
+
+  EXPECT_EQ(expectedStatTypes2, reporter_->quantileStatTypesMap["metric2"]);
+  EXPECT_EQ(expectedPercentiles2, reporter_->quantilePercentilesMap["metric2"]);
+  EXPECT_EQ(
+      expectedSlidingWindows2, reporter_->quantileSlidingWindowsMap["metric2"]);
+}
+
+TEST_F(StatsReporterTest, emptyVectors) {
+  // Test registration with empty vectors (should be allowed)
+  std::vector<StatType> emptyStatTypes;
+  std::vector<double> emptyPercentiles;
+  std::vector<size_t> emptySlidingWindows;
+
+  EXPECT_NO_THROW(reporter_->registerQuantileMetricExportType(
+      "empty_metric", emptyStatTypes, emptyPercentiles, emptySlidingWindows));
+
+  EXPECT_TRUE(reporter_->quantileStatTypesMap.count("empty_metric"));
+  EXPECT_TRUE(reporter_->quantileStatTypesMap["empty_metric"].empty());
+  EXPECT_TRUE(reporter_->quantilePercentilesMap["empty_metric"].empty());
+  EXPECT_TRUE(reporter_->quantileSlidingWindowsMap["empty_metric"].empty());
+}
+
+TEST_F(StatsReporterTest, quantileStatMacros) {
+  // Test the new DEFINE_QUANTILE_STAT and RECORD_QUANTILE_STAT_VALUE macros
+  DEFINE_QUANTILE_STAT(
+      "macro_test_stat",
+      statTypes(StatType::AVG, StatType::COUNT),
+      percentiles(0.5, 0.95, 0.99),
+      slidingWindowsSeconds(60, 600));
+
+  EXPECT_TRUE(reporter_->quantileStatTypesMap.count("macro_test_stat"));
+  std::vector<StatType> expectedStatTypes = {StatType::AVG, StatType::COUNT};
+  std::vector<double> expectedPercentiles = {0.5, 0.95, 0.99};
+  std::vector<size_t> expectedSlidingWindows = {60, 600};
+  EXPECT_EQ(
+      expectedStatTypes, reporter_->quantileStatTypesMap["macro_test_stat"]);
+  EXPECT_EQ(
+      expectedPercentiles,
+      reporter_->quantilePercentilesMap["macro_test_stat"]);
+  EXPECT_EQ(
+      expectedSlidingWindows,
+      reporter_->quantileSlidingWindowsMap["macro_test_stat"]);
+
+  RECORD_QUANTILE_STAT_VALUE("macro_test_stat", 100);
+  RECORD_QUANTILE_STAT_VALUE("macro_test_stat", 50);
+  RECORD_QUANTILE_STAT_VALUE("macro_test_stat"); // Default value of 1
+
+  EXPECT_EQ(151, reporter_->counterMap["macro_test_stat"]);
 }
 
 // Registering to folly Singleton with intended reporter type

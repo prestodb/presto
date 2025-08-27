@@ -117,6 +117,25 @@ class BaseStatsReporter {
       int64_t max,
       const std::vector<int32_t>& pcts) const = 0;
 
+  /// Register a quantile metric for quantile stats with export types,
+  /// quantiles, and sliding window periods.
+  /// @param key The key to identify the stat.
+  /// @param statTypes The list of stat types to export (e.g., AVG, SUM, COUNT).
+  /// @param pcts The quantile percentiles to track (as values between 0.0
+  /// and 1.0, e.g., 0.5 for 50th percentile, 0.95 for 95th percentile).
+  /// @param slidingWindowsSeconds The sliding window periods in seconds.
+  virtual void registerQuantileMetricExportType(
+      const char* key,
+      const std::vector<StatType>& statTypes,
+      const std::vector<double>& pcts,
+      const std::vector<size_t>& slidingWindowsSeconds = {60}) const = 0;
+
+  virtual void registerQuantileMetricExportType(
+      folly::StringPiece key,
+      const std::vector<StatType>& statTypes,
+      const std::vector<double>& pcts,
+      const std::vector<size_t>& slidingWindowsSeconds = {60}) const = 0;
+
   /// Add the given value to the stat.
   virtual void addMetricValue(const std::string& key, size_t value = 1)
       const = 0;
@@ -133,6 +152,16 @@ class BaseStatsReporter {
   virtual void addHistogramMetricValue(const char* key, size_t value) const = 0;
 
   virtual void addHistogramMetricValue(folly::StringPiece key, size_t value)
+      const = 0;
+
+  /// Add the given value to a quantile metric.
+  virtual void addQuantileMetricValue(const std::string& key, size_t value = 1)
+      const = 0;
+
+  virtual void addQuantileMetricValue(const char* key, size_t value = 1)
+      const = 0;
+
+  virtual void addQuantileMetricValue(folly::StringPiece key, size_t value = 1)
       const = 0;
 
   /// Return the aggregated metrics in a serialized string format.
@@ -165,6 +194,18 @@ class DummyStatsReporter : public BaseStatsReporter {
       int64_t /* max */,
       const std::vector<int32_t>& /* pcts */) const override {}
 
+  void registerQuantileMetricExportType(
+      const char* /* key */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
+  void registerQuantileMetricExportType(
+      folly::StringPiece /* key */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
   void addMetricValue(const std::string& /* key */, size_t /* value */)
       const override {}
 
@@ -183,10 +224,43 @@ class DummyStatsReporter : public BaseStatsReporter {
   void addHistogramMetricValue(folly::StringPiece /* key */, size_t /* value */)
       const override {}
 
+  void addQuantileMetricValue(const std::string& /* key */, size_t /* value */)
+      const override {}
+
+  void addQuantileMetricValue(const char* /* key */, size_t /* value */)
+      const override {}
+
+  void addQuantileMetricValue(folly::StringPiece /* key */, size_t /* value */)
+      const override {}
+
   std::string fetchMetrics() override {
     return "";
   }
 };
+
+/// Helper functions to create vectors from variadic arguments, reducing
+/// boilerplate in quantile stat definitions.
+
+/// Create a vector of StatTypes from variadic arguments.
+/// Usage: statTypes(StatType::AVG, StatType::COUNT, StatType::SUM)
+template <typename... Args>
+std::vector<StatType> statTypes(Args... args) {
+  return std::vector<StatType>{args...};
+}
+
+/// Create a vector of percentiles from variadic arguments.
+/// Usage: percentiles(0.5, 0.95, 0.99)
+template <typename... Args>
+std::vector<double> percentiles(Args... args) {
+  return std::vector<double>{static_cast<double>(args)...};
+}
+
+/// Create a vector of sliding window periods in seconds from variadic
+/// arguments. Usage: slidingWindowsSeconds(60, 600, 3600)
+template <typename... Args>
+std::vector<size_t> slidingWindowsSeconds(Args... args) {
+  return std::vector<size_t>{static_cast<size_t>(args)...};
+}
 
 #define DEFINE_METRIC(key, type)                               \
   {                                                            \
@@ -235,5 +309,28 @@ class DummyStatsReporter : public BaseStatsReporter {
         reporter->addHistogramMetricValue((key), ##__VA_ARGS__); \
       }                                                          \
     }                                                            \
+  }
+
+#define DEFINE_QUANTILE_STAT(key, statTypes, percentiles, slidingWindows) \
+  {                                                                       \
+    if (::facebook::velox::BaseStatsReporter::registered) {               \
+      auto reporter = folly::Singleton<                                   \
+          facebook::velox::BaseStatsReporter>::try_get_fast();            \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                            \
+        reporter->registerQuantileMetricExportType(                       \
+            (key), (statTypes), (percentiles), (slidingWindows));         \
+      }                                                                   \
+    }                                                                     \
+  }
+
+#define RECORD_QUANTILE_STAT_VALUE(key, ...)                    \
+  {                                                             \
+    if (::facebook::velox::BaseStatsReporter::registered) {     \
+      auto reporter = folly::Singleton<                         \
+          facebook::velox::BaseStatsReporter>::try_get_fast();  \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                  \
+        reporter->addQuantileMetricValue((key), ##__VA_ARGS__); \
+      }                                                         \
+    }                                                           \
   }
 } // namespace facebook::velox
