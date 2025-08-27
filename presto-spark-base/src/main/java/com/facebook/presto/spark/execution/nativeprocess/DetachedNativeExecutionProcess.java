@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import okhttp3.OkHttpClient;
 
@@ -47,7 +48,8 @@ public class DetachedNativeExecutionProcess
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?> workerProperty,
+            PrestoSparkConfiguration prestoSparkConfiguration)
             throws IOException
     {
         super(executablePath,
@@ -58,7 +60,8 @@ public class DetachedNativeExecutionProcess
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
                 maxErrorDuration,
-                workerProperty);
+                workerProperty,
+                prestoSparkConfiguration);
     }
 
     @Override

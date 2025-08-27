@@ -103,6 +103,20 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         populateProperty(connectorConfig.getAllProperties(), connectorConfigPath);
     }
 
+    public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path catalogDirectory, Map<String, Map<String, String>> catalogProperties)
+            throws IOException
+    {
+        populateProperty(systemConfig.getAllProperties(), systemConfigPath);
+        populateProperty(nodeConfig.getAllProperties(), nodeConfigPath);
+
+        for (Map.Entry<String, Map<String, String>> catalogEntry : catalogProperties.entrySet()) {
+            String catalogName = catalogEntry.getKey();
+            Map<String, String> properties = catalogEntry.getValue();
+            Path catalogConfigPath = catalogDirectory.resolve(catalogName + ".properties");
+            populateProperty(properties, catalogConfigPath);
+        }
+    }
+
     private void populateProperty(Map<String, String> properties, Path path)
             throws IOException
     {

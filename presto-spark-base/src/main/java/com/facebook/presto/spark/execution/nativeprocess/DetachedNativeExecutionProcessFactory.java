@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
@@ -41,6 +42,7 @@ public class DetachedNativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final WorkerProperty<?, ?, ?> workerProperty;
+    private final PrestoSparkConfiguration prestoSparkConfiguration;
 
     @Inject
     public DetachedNativeExecutionProcessFactory(
@@ -49,14 +51,16 @@ public class DetachedNativeExecutionProcessFactory
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             WorkerProperty<?, ?, ?> workerProperty,
+            PrestoSparkConfiguration prestoSparkConfiguration,
             FeaturesConfig featuresConfig)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty, featuresConfig);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty, prestoSparkConfiguration, featuresConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.coreExecutor = requireNonNull(coreExecutor, "ecoreExecutor is null");
+        this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.prestoSparkConfiguration = requireNonNull(prestoSparkConfiguration, "prestoSparkConfiguration is null");
     }
 
     @Override
@@ -78,7 +82,8 @@ public class DetachedNativeExecutionProcessFactory
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
-                    workerProperty);
+                    workerProperty,
+                    prestoSparkConfiguration);
         }
         catch (IOException e) {
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start native process: %s", e.getMessage()), e);
