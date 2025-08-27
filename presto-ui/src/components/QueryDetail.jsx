@@ -872,7 +872,6 @@ const QueryDetail = () => {
     });
 
     const dataSet = useRef({
-        query: null,
         lastSnapshotStages: null,
 
         lastScheduledTime: 0,
@@ -887,11 +886,9 @@ const QueryDetail = () => {
 
         reservedMemory: [],
 
-        initialized: false,
         ended: false,
 
         lastRefresh: null,
-        lastRender: null,
 
         stageRefresh: true,
     });
@@ -984,13 +981,11 @@ const QueryDetail = () => {
 
             dataSet.current = {
                 ...dataSet.current,
-                query: query,
                 lastSnapshotStages: lastSnapshotStages,
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
-                initialized: true,
                 ended: query.finalQueryInfo,
                 lastRefresh: nowMillis,
             };
