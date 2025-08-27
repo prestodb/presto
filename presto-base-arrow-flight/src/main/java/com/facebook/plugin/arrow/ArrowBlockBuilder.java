@@ -442,7 +442,8 @@ public class ArrowBlockBuilder
         }
     }
 
-    private static long getLocalMillisFromUTCMillis(long millis) {
+    private static long getLocalMillisFromUTCMillis(long millis)
+    {
         // Interpret Arrow millis as if they were "local wall-clock time" in datasource
         LocalDateTime localDateTime = Instant.ofEpochMilli(millis)
                 .atZone(ZoneOffset.UTC)  // treat raw millis as UTC
