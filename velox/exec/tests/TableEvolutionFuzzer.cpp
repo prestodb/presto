@@ -126,26 +126,6 @@ bool hasEmptyElement(const RowVectorPtr& data, int columnIndex) {
   return false; // No empty maps found
 }
 
-bool hasDuplicateMapKeys(const RowVectorPtr& data, int columnIndex) {
-  auto mapVector = data->childAt(columnIndex)->as<MapVector>();
-  if (!mapVector) {
-    return false;
-  }
-
-  auto keys = mapVector->mapKeys();
-  auto totalKeyCount = keys->size();
-
-  for (int i = 0; i < totalKeyCount; ++i) {
-    for (int j = i + 1; j < totalKeyCount; ++j) {
-      if (keys->equalValueAt(keys.get(), i, j)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 } // namespace
 
 TableEvolutionFuzzer::TableEvolutionFuzzer(const Config& config)
@@ -826,11 +806,6 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeWriteTask(
       if (setup.schema->childAt(i)->isMap()) {
         // Check if this specific map column has any empty elements
         if (hasEmptyElement(data, i)) {
-          continue;
-        }
-
-        // Check if this specific map column has duplicate elements
-        if (hasDuplicateMapKeys(data, i)) {
           continue;
         }
 
