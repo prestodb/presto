@@ -420,10 +420,10 @@ core::PlanNodePtr getTraceNode(
         nodeId,
         tableWriteNode->columns(),
         tableWriteNode->columnNames(),
-        tableWriteNode->aggregationNode(),
+        tableWriteNode->columnStatsSpec(),
         tableWriteNode->insertTableHandle(),
         tableWriteNode->hasPartitioningScheme(),
-        TableWriteTraits::outputType(tableWriteNode->aggregationNode()),
+        TableWriteTraits::outputType(tableWriteNode->columnStatsSpec()),
         tableWriteNode->commitStrategy(),
         std::make_shared<DummySourceNode>(
             tableWriteNode->sources().front()->outputType()));

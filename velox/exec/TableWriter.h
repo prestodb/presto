@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/core/PlanNode.h"
+#include "velox/exec/ColumnStatsCollector.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/Operator.h"
 
@@ -75,8 +76,8 @@ class TableWriteTraits {
       "pageSinkCommitStrategy";
   static constexpr std::string_view klastPageContextKey = "lastPage";
 
-  static const RowTypePtr outputType(
-      const core::AggregationNodePtr& aggregationNode = nullptr);
+  static RowTypePtr outputType(
+      const std::optional<core::ColumnStatsSpec>& columnStatsSpec);
 
   /// Returns the parsed commit context from table writer 'output'.
   static folly::dynamic getTableCommitContext(const RowVectorPtr& output);
@@ -236,7 +237,7 @@ class TableWriter : public Operator {
   // slow scaled writer scheduling in Prestissimo.
   const uint64_t createTimeUs_{0};
 
-  std::unique_ptr<Operator> aggregation_;
+  std::unique_ptr<ColumnStatsCollector> statsCollector_;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::unique_ptr<connector::DataSink> dataSink_;

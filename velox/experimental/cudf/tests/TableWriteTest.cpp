@@ -57,7 +57,7 @@ constexpr uint64_t kQueryMemoryCapacity = 512 * MB;
 
 namespace {
 
-static std::shared_ptr<core::AggregationNode> generateAggregationNode(
+static std::shared_ptr<core::AggregationNode> generateColumnStatsSpec(
     const std::string& name,
     const std::vector<core::FieldAccessTypedExprPtr>& groupingKeys,
     AggregationNode::Step step,

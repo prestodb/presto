@@ -26,9 +26,9 @@
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/exec/tests/utils/AggregationResolver.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
-#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/parse/Expressions.h"
@@ -388,30 +388,30 @@ core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {
         std::make_shared<core::InsertTableHandle>(connectorId_, hiveHandle);
   }
 
-  std::shared_ptr<core::AggregationNode> aggregationNode;
+  std::optional<core::ColumnStatsSpec> columnStatsSpec;
   if (!aggregates_.empty()) {
     auto aggregatesAndNames = planBuilder_.createAggregateExpressionsAndNames(
         aggregates_, {}, core::AggregationNode::Step::kPartial);
-    aggregationNode = std::make_shared<core::AggregationNode>(
-        planBuilder_.nextPlanNodeId(),
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    groupingKeys.reserve(partitionBy_.size());
+    for (const auto& partitionBy : partitionBy_) {
+      groupingKeys.push_back(std::make_shared<core::FieldAccessTypedExpr>(
+          outputType->findChild(partitionBy), partitionBy));
+    }
+    columnStatsSpec = core::ColumnStatsSpec(
+        std::move(groupingKeys),
         core::AggregationNode::Step::kPartial,
-        std::vector<core::FieldAccessTypedExprPtr>{}, // groupingKeys
-        std::vector<core::FieldAccessTypedExprPtr>{}, // preGroupedKeys
-        aggregatesAndNames.names, // ignoreNullKeys
-        aggregatesAndNames.aggregates,
-        false,
-        upstreamNode);
-    VELOX_CHECK_EQ(
-        aggregationNode->supportsBarrier(), aggregationNode->isPreGrouped());
+        aggregatesAndNames.names,
+        aggregatesAndNames.aggregates);
   }
   const auto writeNode = std::make_shared<core::TableWriteNode>(
       id,
       outputType,
       outputType->names(),
-      aggregationNode,
+      columnStatsSpec,
       insertHandle_,
       false,
-      TableWriteTraits::outputType(aggregationNode),
+      TableWriteTraits::outputType(columnStatsSpec),
       commitStrategy_,
       upstreamNode);
   VELOX_CHECK(!writeNode->supportsBarrier());
@@ -756,142 +756,54 @@ const core::TableWriteNodePtr findTableWrite(const core::PlanNodePtr planNode) {
 }
 } // namespace
 
-PlanBuilder& PlanBuilder::tableWriteMerge(
-    const core::AggregationNodePtr& aggregationNode) {
+PlanBuilder& PlanBuilder::tableWriteMerge() {
+  VELOX_CHECK_NOT_NULL(planNode_, "TableWriteMerge cannot be the source node");
+  auto writer = findTableWrite(planNode_);
+  VELOX_CHECK_NOT_NULL(
+      writer, "TableWriteMerge can only be added after TableWrite node");
+
+  std::optional<core::ColumnStatsSpec> columnStatsSpec;
+  if (writer->hasColumnStatsSpec()) {
+    const auto writerSpec = writer->columnStatsSpec().value();
+    VELOX_CHECK_EQ(
+        writerSpec.aggregationStep, core::AggregationNode::Step::kPartial);
+    std::vector<std::vector<TypePtr>> aggregateRawInputs;
+    const auto numAggregates = writerSpec.aggregates.size();
+    aggregateRawInputs.reserve(numAggregates);
+    for (const auto& aggregate : writerSpec.aggregates) {
+      aggregateRawInputs.push_back(aggregate.rawInputTypes);
+    }
+    const auto& inputType = planNode_->outputType();
+
+    std::vector<std::string> aggregateNames;
+    aggregateNames.reserve(numAggregates);
+    std::vector<core::AggregationNode::Aggregate> aggregates;
+    aggregates.reserve(numAggregates);
+    for (int i = 0; i < numAggregates; ++i) {
+      core::AggregationNode::Aggregate aggregate = writerSpec.aggregates[i];
+      aggregate.call = std::make_shared<core::CallTypedExpr>(
+          aggregate.call->type(),
+          std::vector<core::TypedExprPtr>{
+              field(inputType, writerSpec.aggregateNames[i])},
+          aggregate.call->name());
+      aggregates.push_back(std::move(aggregate));
+      aggregateNames.push_back(fmt::format("a{}", i));
+    }
+    columnStatsSpec = core::ColumnStatsSpec{
+        writerSpec.groupingKeys,
+        core::AggregationNode::Step::kIntermediate,
+        std::move(aggregateNames),
+        std::move(aggregates)};
+  }
+
   planNode_ = std::make_shared<core::TableWriteMergeNode>(
       nextPlanNodeId(),
-      TableWriteTraits::outputType(aggregationNode),
-      aggregationNode,
+      TableWriteTraits::outputType(columnStatsSpec),
+      columnStatsSpec,
       planNode_);
   VELOX_CHECK(!planNode_->supportsBarrier());
   return *this;
 }
-
-namespace {
-std::string throwAggregateFunctionDoesntExist(const std::string& name) {
-  std::stringstream error;
-  error << "Aggregate function doesn't exist: " << name << ".";
-  exec::aggregateFunctions().withRLock([&](const auto& functionsMap) {
-    if (functionsMap.empty()) {
-      error << " Registry of aggregate functions is empty. "
-               "Make sure to register some aggregate functions.";
-    }
-  });
-  VELOX_USER_FAIL(error.str());
-}
-
-std::string throwAggregateFunctionSignatureNotSupported(
-    const std::string& name,
-    const std::vector<TypePtr>& types,
-    const std::vector<std::shared_ptr<AggregateFunctionSignature>>&
-        signatures) {
-  std::stringstream error;
-  error << "Aggregate function signature is not supported: "
-        << toString(name, types)
-        << ". Supported signatures: " << toString(signatures) << ".";
-  VELOX_USER_FAIL(error.str());
-}
-
-TypePtr resolveAggregateType(
-    const std::string& aggregateName,
-    core::AggregationNode::Step step,
-    const std::vector<TypePtr>& rawInputTypes,
-    bool nullOnFailure) {
-  if (auto signatures = exec::getAggregateFunctionSignatures(aggregateName)) {
-    for (const auto& signature : signatures.value()) {
-      exec::SignatureBinder binder(*signature, rawInputTypes);
-      if (binder.tryBind()) {
-        return binder.tryResolveType(
-            exec::isPartialOutput(step) ? signature->intermediateType()
-                                        : signature->returnType());
-      }
-    }
-
-    if (nullOnFailure) {
-      return nullptr;
-    }
-
-    throwAggregateFunctionSignatureNotSupported(
-        aggregateName, rawInputTypes, signatures.value());
-  }
-
-  // We may be parsing lambda expression used in a lambda aggregate function. In
-  // this case, 'aggregateName' would refer to a scalar function.
-  //
-  // TODO Enhance the parser to allow for specifying separate resolver for
-  // lambda expressions.
-  if (auto type =
-          exec::resolveTypeForSpecialForm(aggregateName, rawInputTypes)) {
-    return type;
-  }
-
-  if (auto type = parse::resolveScalarFunctionType(
-          aggregateName, rawInputTypes, true)) {
-    return type;
-  }
-
-  if (nullOnFailure) {
-    return nullptr;
-  }
-
-  throwAggregateFunctionDoesntExist(aggregateName);
-  return nullptr;
-}
-
-class AggregateTypeResolver {
- public:
-  explicit AggregateTypeResolver(core::AggregationNode::Step step)
-      : step_(step), previousHook_(core::Expressions::getResolverHook()) {
-    core::Expressions::setTypeResolverHook(
-        [&](const auto& inputs, const auto& expr, bool nullOnFailure) {
-          return resolveType(inputs, expr, nullOnFailure);
-        });
-  }
-
-  ~AggregateTypeResolver() {
-    core::Expressions::setTypeResolverHook(previousHook_);
-  }
-
-  void setRawInputTypes(const std::vector<TypePtr>& types) {
-    rawInputTypes_ = types;
-  }
-
- private:
-  TypePtr resolveType(
-      const std::vector<core::TypedExprPtr>& inputs,
-      const std::shared_ptr<const core::CallExpr>& expr,
-      bool nullOnFailure) const {
-    auto functionName = expr->name();
-
-    // Use raw input types (if available) to resolve intermediate and final
-    // result types.
-    if (exec::isRawInput(step_)) {
-      std::vector<TypePtr> types;
-      for (auto& input : inputs) {
-        types.push_back(input->type());
-      }
-
-      return resolveAggregateType(functionName, step_, types, nullOnFailure);
-    }
-
-    if (!rawInputTypes_.empty()) {
-      return resolveAggregateType(
-          functionName, step_, rawInputTypes_, nullOnFailure);
-    }
-
-    if (!nullOnFailure) {
-      VELOX_USER_FAIL(
-          "Cannot resolve aggregation function return type without raw input types: {}",
-          functionName);
-    }
-    return nullptr;
-  }
-
-  const core::AggregationNode::Step step_;
-  const core::Expressions::TypeResolverHook previousHook_;
-  std::vector<TypePtr> rawInputTypes_;
-};
-} // namespace
 
 core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
     core::AggregationNode::Step step,
@@ -2338,8 +2250,8 @@ PlanBuilder& PlanBuilder::window(
   options.parseIntegerAsBigint = options_.parseIntegerAsBigint;
   for (const auto& windowString : windowFunctions) {
     const auto& windowExpr = duckdb::parseWindowExpr(windowString, options);
-    // All window function SQL strings in the list are expected to have the
-    // same PARTITION BY and ORDER BY clauses. Validate this assumption.
+    // All window function SQL strings in the list are expected to have the same
+    // PARTITION BY and ORDER BY clauses. Validate this assumption.
     if (first) {
       partitionKeys =
           parsePartitionKeys(windowExpr, windowString, inputType, pool_);

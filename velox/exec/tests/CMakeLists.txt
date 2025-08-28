@@ -46,6 +46,7 @@ add_executable(
   AsyncConnectorTest.cpp
   ConcatFilesSpillMergeStreamTest.cpp
   ContainerRowSerdeTest.cpp
+  ColumnStatsCollectorTest.cpp
   CustomJoinTest.cpp
   EnforceSingleRowTest.cpp
   ExchangeClientTest.cpp

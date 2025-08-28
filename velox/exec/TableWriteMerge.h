@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/core/PlanNode.h"
+#include "velox/exec/ColumnStatsCollector.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
@@ -51,6 +52,8 @@ class TableWriteMerge : public Operator {
     return finished_;
   }
 
+  void close() override;
+
  private:
   // Creates non-last output with fragments and last commit context only.
   RowVectorPtr createFragmentsOutput();
@@ -65,7 +68,7 @@ class TableWriteMerge : public Operator {
   // Check if the input is statistics input.
   bool isStatistics(RowVectorPtr input);
 
-  std::unique_ptr<Operator> aggregation_;
+  std::unique_ptr<ColumnStatsCollector> statsCollector_;
   bool finished_{false};
   // The sum of written rows.
   int64_t numRows_{0};

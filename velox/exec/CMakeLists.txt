@@ -26,6 +26,7 @@ velox_add_library(
   BlockingReason.cpp
   CallbackSink.cpp
   ContainerRowSerde.cpp
+  ColumnStatsCollector.cpp
   DistinctAggregations.cpp
   Driver.cpp
   EnforceSingleRow.cpp

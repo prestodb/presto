@@ -47,15 +47,19 @@ TableWriter::TableWriter(
       createTimeUs_(getCurrentTimeNano()) {
   setConnectorMemoryReclaimer();
   if (tableWriteNode->outputType()->size() == 1) {
-    VELOX_USER_CHECK_NULL(tableWriteNode->aggregationNode());
+    VELOX_USER_CHECK(!tableWriteNode->columnStatsSpec().has_value());
   } else {
     VELOX_USER_CHECK(tableWriteNode->outputType()->equivalent(
-        *(TableWriteTraits::outputType(tableWriteNode->aggregationNode()))));
+        *(TableWriteTraits::outputType(tableWriteNode->columnStatsSpec()))));
   }
 
-  if (tableWriteNode->aggregationNode() != nullptr) {
-    aggregation_ = std::make_unique<HashAggregation>(
-        operatorId, driverCtx, tableWriteNode->aggregationNode());
+  if (tableWriteNode->columnStatsSpec().has_value()) {
+    statsCollector_ = std::make_unique<ColumnStatsCollector>(
+        tableWriteNode->columnStatsSpec().value(),
+        tableWriteNode->sources()[0]->outputType(),
+        &operatorCtx_->driverCtx()->queryConfig(),
+        operatorCtx_->pool(),
+        &nonReclaimableSection_);
   }
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
@@ -95,8 +99,8 @@ void TableWriter::initialize() {
   Operator::initialize();
   VELOX_CHECK_NULL(dataSink_);
   createDataSink();
-  if (aggregation_ != nullptr) {
-    aggregation_->initialize();
+  if (statsCollector_ != nullptr) {
+    statsCollector_->initialize();
   }
 }
 
@@ -159,15 +163,15 @@ void TableWriter::addInput(RowVectorPtr input) {
   numWrittenRows_ += input->size();
   updateStats(dataSink_->stats());
 
-  if (aggregation_ != nullptr) {
-    aggregation_->addInput(input);
+  if (statsCollector_ != nullptr) {
+    statsCollector_->addInput(input);
   }
 }
 
 void TableWriter::noMoreInput() {
   Operator::noMoreInput();
-  if (aggregation_ != nullptr) {
-    aggregation_->noMoreInput();
+  if (statsCollector_ != nullptr) {
+    statsCollector_->noMoreInput();
   }
 }
 
@@ -185,11 +189,11 @@ RowVectorPtr TableWriter::getOutput() {
     return nullptr;
   }
 
-  if (aggregation_ != nullptr && !aggregation_->isFinished()) {
+  if (statsCollector_ != nullptr && !statsCollector_->finished()) {
     const std::string commitContext = createTableCommitContext(false);
     return TableWriteTraits::createAggregationStatsOutput(
         outputType_,
-        aggregation_->getOutput(),
+        statsCollector_->getOutput(),
         StringView(commitContext),
         pool());
   }
@@ -253,7 +257,7 @@ RowVectorPtr TableWriter::getOutput() {
       writtenRowsVector, fragmentsVector, commitContextVector};
 
   // 4. Set null statistics columns.
-  if (aggregation_ != nullptr) {
+  if (statsCollector_ != nullptr) {
     for (int i = TableWriteTraits::kStatsChannel; i < outputType_->size();
          ++i) {
       columns.push_back(BaseVector::createNullConstant(
@@ -325,8 +329,8 @@ void TableWriter::close() {
     // regular close.
     abortDataSink();
   }
-  if (aggregation_ != nullptr) {
-    aggregation_->close();
+  if (statsCollector_ != nullptr) {
+    statsCollector_->close();
   }
   Operator::close();
 }
@@ -472,15 +476,17 @@ const TypePtr& TableWriteTraits::contextColumnType() {
   return kContextType;
 }
 
-const RowTypePtr TableWriteTraits::outputType(
-    const core::AggregationNodePtr& aggregationNode) {
+// static.
+RowTypePtr TableWriteTraits::outputType(
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec) {
   static const auto kOutputTypeWithoutStats =
       ROW({rowCountColumnName(), fragmentColumnName(), contextColumnName()},
           {rowCountColumnType(), fragmentColumnType(), contextColumnType()});
-  if (aggregationNode == nullptr) {
+  if (!columnStatsSpec.has_value()) {
     return kOutputTypeWithoutStats;
   }
-  return kOutputTypeWithoutStats->unionWith(aggregationNode->outputType());
+  return kOutputTypeWithoutStats->unionWith(
+      ColumnStatsCollector::outputType(columnStatsSpec.value()));
 }
 
 folly::dynamic TableWriteTraits::getTableCommitContext(

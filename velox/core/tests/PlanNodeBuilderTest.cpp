@@ -17,6 +17,9 @@
 
 #include "velox/common/memory/Memory.h"
 #include "velox/core/PlanNode.h"
+#include "velox/duckdb/conversion/DuckParser.h"
+#include "velox/exec/tests/utils/AggregationResolver.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace ::facebook::velox;
@@ -31,11 +34,82 @@ class PlanNodeBuilderTest : public testing::Test, public test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+    aggregate::prestosql::registerAllAggregateFunctions();
+  }
+
+  core::ColumnStatsSpec createStatsSpec(
+      const RowTypePtr& type,
+      const std::vector<std::string>& groupingKeys,
+      core::AggregationNode::Step step,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& rawInputArgs = {}) {
+    std::vector<core::AggregationNode::Aggregate> aggs;
+    aggs.reserve(aggregates.size());
+    std::vector<std::string> names;
+    names.reserve(aggregates.size());
+
+    duckdb::ParseOptions options;
+    options.parseIntegerAsBigint = true;
+    exec::test::AggregateTypeResolver resolver(step);
+
+    for (auto i = 0; i < aggregates.size(); ++i) {
+      const auto& aggregate = aggregates[i];
+      const auto untypedExpr = duckdb::parseAggregateExpr(aggregate, options);
+
+      if (!rawInputArgs.empty()) {
+        resolver.setRawInputTypes(rawInputArgs[i]);
+      }
+
+      core::AggregationNode::Aggregate agg;
+      agg.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
+          core::Expressions::inferTypes(untypedExpr.expr, type, pool()));
+
+      if (step == core::AggregationNode::Step::kPartial ||
+          step == core::AggregationNode::Step::kSingle) {
+        VELOX_CHECK(rawInputArgs.empty());
+        for (const auto& input : agg.call->inputs()) {
+          agg.rawInputTypes.push_back(input->type());
+        }
+      } else {
+        agg.rawInputTypes = rawInputArgs[i];
+      }
+
+      VELOX_CHECK_NULL(untypedExpr.maskExpr);
+      VELOX_CHECK(!untypedExpr.distinct);
+      VELOX_CHECK(untypedExpr.orderBy.empty());
+
+      aggs.emplace_back(agg);
+
+      if (untypedExpr.expr->alias().has_value()) {
+        names.push_back(untypedExpr.expr->alias().value());
+      } else {
+        names.push_back(fmt::format("a{}", i));
+      }
+    }
+    VELOX_CHECK_EQ(aggs.size(), names.size());
+
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeyExprs;
+    groupingKeyExprs.reserve(groupingKeys.size());
+    for (const auto& groupingKey : groupingKeys) {
+      auto untypedGroupingKeyExpr = duckdb::parseExpr(groupingKey, options);
+      auto groupingKeyExpr =
+          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+              core::Expressions::inferTypes(
+                  untypedGroupingKeyExpr, type, pool()));
+      VELOX_CHECK_NOT_NULL(
+          groupingKeyExpr,
+          "Grouping key must use a column name, not an expression: {}",
+          groupingKey);
+      groupingKeyExprs.emplace_back(std::move(groupingKeyExpr));
+    }
+
+    return core::ColumnStatsSpec(
+        std::move(groupingKeyExprs), step, std::move(names), std::move(aggs));
   }
 
   // A default source node, these are frequently needed when construting
   // PlanNodes, so providing one here.
-  const std::shared_ptr<const ValuesNode> source =
+  const std::shared_ptr<const ValuesNode> source_ =
       ValuesNode::Builder()
           .id("values_node_id")
           .values({makeRowVector({makeFlatVector<int32_t>({1, 2, 3})})})
@@ -55,7 +129,7 @@ class TestConnectorTableHandleForLookupJoin
 };
 } // namespace
 
-TEST_F(PlanNodeBuilderTest, ValuesNode) {
+TEST_F(PlanNodeBuilderTest, valuesNode) {
   const PlanNodeId id = "values_node_id";
   const std::vector<RowVectorPtr> values{
       makeRowVector(
@@ -87,7 +161,7 @@ TEST_F(PlanNodeBuilderTest, ValuesNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, ArrowStreamNode) {
+TEST_F(PlanNodeBuilderTest, arrowStreamNode) {
   const PlanNodeId id = "arrow_stream_node_id";
   const RowTypePtr outputType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
   auto arrowStream = std::make_shared<ArrowArrayStream>();
@@ -109,7 +183,7 @@ TEST_F(PlanNodeBuilderTest, ArrowStreamNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, TraceScanNode) {
+TEST_F(PlanNodeBuilderTest, traceScanNode) {
   const PlanNodeId id = "trace_scan_node_id";
   const std::string traceDir = "/tmp/trace";
   const uint32_t pipelineId = 7;
@@ -137,7 +211,7 @@ TEST_F(PlanNodeBuilderTest, TraceScanNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, FilterNode) {
+TEST_F(PlanNodeBuilderTest, filterNode) {
   const PlanNodeId id = "filter_node_id";
   const auto filter =
       std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "col0");
@@ -145,18 +219,18 @@ TEST_F(PlanNodeBuilderTest, FilterNode) {
   const auto verify = [&](const std::shared_ptr<const FilterNode>& node) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->filter(), filter);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node =
-      FilterNode::Builder().id(id).filter(filter).source(source).build();
+      FilterNode::Builder().id(id).filter(filter).source(source_).build();
   verify(node);
 
   const auto node2 = FilterNode::Builder(*node).build();
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, ProjectNode) {
+TEST_F(PlanNodeBuilderTest, projectNode) {
   const PlanNodeId id = "project_node_id";
   const std::vector<std::string> names{"out_col"};
   const std::vector<TypedExprPtr> projections{
@@ -166,14 +240,14 @@ TEST_F(PlanNodeBuilderTest, ProjectNode) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->names(), names);
     EXPECT_EQ(node->projections(), projections);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node = ProjectNode::Builder()
                         .id(id)
                         .names(names)
                         .projections(projections)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -181,7 +255,7 @@ TEST_F(PlanNodeBuilderTest, ProjectNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, TableScanNode) {
+TEST_F(PlanNodeBuilderTest, tableScanNode) {
   const PlanNodeId id = "table_scan_node_id";
   const RowTypePtr outputType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
   const auto tableHandle =
@@ -209,7 +283,7 @@ TEST_F(PlanNodeBuilderTest, TableScanNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, AggregationNode) {
+TEST_F(PlanNodeBuilderTest, aggregationNode) {
   const PlanNodeId id = "aggregation_node_id";
   const auto step = AggregationNode::Step::kSingle;
   const auto rowType = ROW({"c0"}, {INTEGER()});
@@ -240,7 +314,7 @@ TEST_F(PlanNodeBuilderTest, AggregationNode) {
     EXPECT_EQ(node->globalGroupingSets(), globalGroupingSets);
     EXPECT_EQ(node->groupId(), groupId);
     EXPECT_EQ(node->ignoreNullKeys(), ignoreNullKeys);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node = AggregationNode::Builder()
@@ -253,7 +327,7 @@ TEST_F(PlanNodeBuilderTest, AggregationNode) {
                         .globalGroupingSets(globalGroupingSets)
                         .groupId(groupId)
                         .ignoreNullKeys(ignoreNullKeys)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -261,7 +335,7 @@ TEST_F(PlanNodeBuilderTest, AggregationNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, TableWriteNode) {
+TEST_F(PlanNodeBuilderTest, tableWriteNode) {
   const PlanNodeId id = "table_write_node_id";
   const RowTypePtr columns = ROW({"c0"}, {INTEGER()});
   const std::vector<std::string> columnNames{"c0"};
@@ -269,16 +343,11 @@ TEST_F(PlanNodeBuilderTest, TableWriteNode) {
   const bool hasPartitioningScheme = true;
   const auto commitStrategy = connector::CommitStrategy::kNoCommit;
 
-  const auto aggregationNode = AggregationNode::Builder()
-                                   .id("aggregation_node_id")
-                                   .step(AggregationNode::Step::kPartial)
-                                   .groupingKeys({})
-                                   .preGroupedKeys({})
-                                   .aggregateNames({})
-                                   .aggregates({})
-                                   .ignoreNullKeys(true)
-                                   .source(source)
-                                   .build();
+  const auto statsSpec = createStatsSpec(
+      columns,
+      std::vector<std::string>{},
+      AggregationNode::Step::kPartial,
+      std::vector<std::string>{"sum(c0)"});
 
   const auto insertTableHandle =
       std::make_shared<InsertTableHandle>("connector_id", nullptr);
@@ -287,24 +356,24 @@ TEST_F(PlanNodeBuilderTest, TableWriteNode) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->columns(), columns);
     EXPECT_EQ(node->columnNames(), columnNames);
-    EXPECT_EQ(node->aggregationNode(), aggregationNode);
     EXPECT_EQ(node->insertTableHandle(), insertTableHandle);
+    EXPECT_TRUE(node->hasColumnStatsSpec());
     EXPECT_EQ(node->hasPartitioningScheme(), hasPartitioningScheme);
     EXPECT_EQ(node->outputType(), outputType);
     EXPECT_EQ(node->commitStrategy(), commitStrategy);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node = TableWriteNode::Builder()
                         .id(id)
                         .columns(columns)
                         .columnNames(columnNames)
-                        .aggregationNode(aggregationNode)
+                        .columnStatsSpec(statsSpec)
                         .insertTableHandle(insertTableHandle)
                         .hasPartitioningScheme(hasPartitioningScheme)
                         .outputType(outputType)
                         .commitStrategy(commitStrategy)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -312,34 +381,30 @@ TEST_F(PlanNodeBuilderTest, TableWriteNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, TableWriteMergeNode) {
+TEST_F(PlanNodeBuilderTest, tableWriteMergeNode) {
   const PlanNodeId id = "table_write_merge_node_id";
   const RowTypePtr outputType = ROW({"c0"}, {BIGINT()});
 
-  const auto aggregationNode = AggregationNode::Builder()
-                                   .id("aggregation_node_id")
-                                   .step(AggregationNode::Step::kPartial)
-                                   .groupingKeys({})
-                                   .preGroupedKeys({})
-                                   .aggregateNames({})
-                                   .aggregates({})
-                                   .ignoreNullKeys(true)
-                                   .source(source)
-                                   .build();
+  const auto statsSpec = createStatsSpec(
+      outputType,
+      std::vector<std::string>{},
+      AggregationNode::Step::kIntermediate,
+      std::vector<std::string>{"sum(c0)"},
+      {{BIGINT()}});
 
   const auto verify =
       [&](const std::shared_ptr<const TableWriteMergeNode>& node) {
         EXPECT_EQ(node->id(), id);
         EXPECT_EQ(node->outputType(), outputType);
-        EXPECT_EQ(node->aggregationNode(), aggregationNode);
-        EXPECT_EQ(node->sources()[0], source);
+        EXPECT_TRUE(node->hasColumnStatsSpec());
+        EXPECT_EQ(node->sources()[0], source_);
       };
 
   const auto node = TableWriteMergeNode::Builder()
                         .id(id)
                         .outputType(outputType)
-                        .aggregationNode(aggregationNode)
-                        .source(source)
+                        .columnStatsSpec(statsSpec)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -347,7 +412,7 @@ TEST_F(PlanNodeBuilderTest, TableWriteMergeNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, ExpandNode) {
+TEST_F(PlanNodeBuilderTest, expandNode) {
   const PlanNodeId id = "expand_node_id";
   std::vector<std::vector<TypedExprPtr>> projections{
       {std::make_shared<FieldAccessTypedExpr>(INTEGER(), "col0")}};
@@ -357,14 +422,14 @@ TEST_F(PlanNodeBuilderTest, ExpandNode) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->projections(), projections);
     EXPECT_EQ(node->names(), names);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node = ExpandNode::Builder()
                         .id(id)
                         .projections(projections)
                         .names(names)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -372,7 +437,7 @@ TEST_F(PlanNodeBuilderTest, ExpandNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, GroupIdNode) {
+TEST_F(PlanNodeBuilderTest, groupIdNode) {
   const PlanNodeId id = "group_id_node_id";
   const std::vector<std::vector<std::string>> groupingSets{{"a"}, {"b"}};
   const std::vector<GroupIdNode::GroupingKeyInfo> groupingKeyInfos{
@@ -392,7 +457,7 @@ TEST_F(PlanNodeBuilderTest, GroupIdNode) {
         groupingKeyInfos[0].serialize());
     EXPECT_EQ(node->aggregationInputs(), aggregationInputs);
     EXPECT_EQ(node->groupIdName(), groupIdName);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node = GroupIdNode::Builder()
@@ -401,7 +466,7 @@ TEST_F(PlanNodeBuilderTest, GroupIdNode) {
                         .groupingKeyInfos(groupingKeyInfos)
                         .aggregationInputs(aggregationInputs)
                         .groupIdName(groupIdName)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -409,7 +474,7 @@ TEST_F(PlanNodeBuilderTest, GroupIdNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, ExchangeNode) {
+TEST_F(PlanNodeBuilderTest, exchangeNode) {
   const PlanNodeId id = "exchange_node_id";
   const RowTypePtr type = ROW({"c0"}, {BIGINT()});
   const auto serdeKind = VectorSerde::Kind::kPresto;
@@ -431,7 +496,7 @@ TEST_F(PlanNodeBuilderTest, ExchangeNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, MergeExchangeNode) {
+TEST_F(PlanNodeBuilderTest, mergeExchangeNode) {
   const PlanNodeId id = "merge_exchange_node_id";
   const RowTypePtr type = ROW({"c0"}, {BIGINT()});
   const auto serdeKind = VectorSerde::Kind::kPresto;
@@ -461,7 +526,7 @@ TEST_F(PlanNodeBuilderTest, MergeExchangeNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, LocalMergeNode) {
+TEST_F(PlanNodeBuilderTest, localMergeNode) {
   const PlanNodeId id = "local_merge_node_id";
   std::vector<FieldAccessTypedExprPtr> sortingKeys = {
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
@@ -471,14 +536,14 @@ TEST_F(PlanNodeBuilderTest, LocalMergeNode) {
     EXPECT_EQ(node->id(), id);
     EXPECT_EQ(node->sortingKeys(), sortingKeys);
     EXPECT_EQ(node->sortingOrders(), sortingOrders);
-    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+    EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
   };
 
   const auto node = LocalMergeNode::Builder()
                         .id(id)
                         .sortingKeys(sortingKeys)
                         .sortingOrders(sortingOrders)
-                        .sources({source})
+                        .sources({source_})
                         .build();
   verify(node);
 
@@ -486,7 +551,7 @@ TEST_F(PlanNodeBuilderTest, LocalMergeNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, LocalPartitionNode) {
+TEST_F(PlanNodeBuilderTest, localPartitionNode) {
   const PlanNodeId id = "local_partition_node_id";
   const auto type = LocalPartitionNode::Type::kGather;
   const bool scaleWriter = true;
@@ -498,7 +563,7 @@ TEST_F(PlanNodeBuilderTest, LocalPartitionNode) {
         EXPECT_EQ(node->id(), id);
         EXPECT_EQ(node->type(), type);
         EXPECT_EQ(node->scaleWriter(), scaleWriter);
-        EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+        EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
         EXPECT_EQ(
             node->partitionFunctionSpec().serialize(),
             partitionFunctionSpec->serialize());
@@ -509,7 +574,7 @@ TEST_F(PlanNodeBuilderTest, LocalPartitionNode) {
                         .type(type)
                         .scaleWriter(scaleWriter)
                         .partitionFunctionSpec(partitionFunctionSpec)
-                        .sources({source})
+                        .sources({source_})
                         .build();
   verify(node);
 
@@ -517,7 +582,7 @@ TEST_F(PlanNodeBuilderTest, LocalPartitionNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, PartitionedOutputNode) {
+TEST_F(PlanNodeBuilderTest, partitionedOutputNode) {
   const PlanNodeId id = "partitioned_output_node_id";
   const auto kind = PartitionedOutputNode::Kind::kPartitioned;
   std::vector<TypedExprPtr> keys{
@@ -539,7 +604,7 @@ TEST_F(PlanNodeBuilderTest, PartitionedOutputNode) {
         EXPECT_EQ(node->outputType(), outputType);
         EXPECT_EQ(node->serdeKind(), serdeKind);
         EXPECT_EQ(node->partitionFunctionSpecPtr(), partitionFunctionSpec);
-        EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source});
+        EXPECT_EQ(node->sources(), std::vector<PlanNodePtr>{source_});
       };
 
   const auto node = PartitionedOutputNode::Builder()
@@ -551,7 +616,7 @@ TEST_F(PlanNodeBuilderTest, PartitionedOutputNode) {
                         .partitionFunctionSpec(partitionFunctionSpec)
                         .outputType(outputType)
                         .serdeKind(serdeKind)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -559,7 +624,7 @@ TEST_F(PlanNodeBuilderTest, PartitionedOutputNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, HashJoinNode) {
+TEST_F(PlanNodeBuilderTest, hashJoinNode) {
   const PlanNodeId id = "hash_join_node_id";
   const auto joinType = JoinType::kLeftSemiProject;
   const bool nullAware = true;
@@ -612,7 +677,7 @@ TEST_F(PlanNodeBuilderTest, HashJoinNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, MergeJoinNode) {
+TEST_F(PlanNodeBuilderTest, mergeJoinNode) {
   const PlanNodeId id = "merge_join_node_id";
   const auto joinType = JoinType::kInner;
   const std::vector<FieldAccessTypedExprPtr> leftKeys{
@@ -662,7 +727,7 @@ TEST_F(PlanNodeBuilderTest, MergeJoinNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, IndexLookupJoinNode) {
+TEST_F(PlanNodeBuilderTest, indexLookupJoinNode) {
   const PlanNodeId id = "index_lookup_join_node_id";
   const auto joinType = JoinType::kInner;
   const std::vector<FieldAccessTypedExprPtr> leftKeys{
@@ -721,7 +786,7 @@ TEST_F(PlanNodeBuilderTest, IndexLookupJoinNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, NestedLoopJoinNode) {
+TEST_F(PlanNodeBuilderTest, nestedLoopJoinNode) {
   const PlanNodeId id = "nested_loop_join_node_id";
   const auto joinType = JoinType::kLeft;
   const auto joinCondition =
@@ -764,7 +829,7 @@ TEST_F(PlanNodeBuilderTest, NestedLoopJoinNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, OrderByNode) {
+TEST_F(PlanNodeBuilderTest, orderByNode) {
   const PlanNodeId id = "order_by_node_id";
   const std::vector<FieldAccessTypedExprPtr> sortingKeys{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
@@ -777,7 +842,7 @@ TEST_F(PlanNodeBuilderTest, OrderByNode) {
     EXPECT_EQ(node->sortingOrders(), sortingOrders);
     EXPECT_EQ(node->isPartial(), isPartial);
     EXPECT_EQ(node->sources().size(), 1);
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
   };
 
   const auto node = OrderByNode::Builder()
@@ -785,7 +850,7 @@ TEST_F(PlanNodeBuilderTest, OrderByNode) {
                         .sortingKeys(sortingKeys)
                         .sortingOrders(sortingOrders)
                         .isPartial(isPartial)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -793,7 +858,7 @@ TEST_F(PlanNodeBuilderTest, OrderByNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, SpatialJoinNode) {
+TEST_F(PlanNodeBuilderTest, spatialJoinNode) {
   const PlanNodeId id = "spatial_join_node_id";
   const auto joinType = JoinType::kInner;
   const auto joinCondition =
@@ -835,7 +900,7 @@ TEST_F(PlanNodeBuilderTest, SpatialJoinNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, TopNNode) {
+TEST_F(PlanNodeBuilderTest, topNNode) {
   const PlanNodeId id = "topn_node_id";
   const std::vector<FieldAccessTypedExprPtr> sortingKeys{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
@@ -850,7 +915,7 @@ TEST_F(PlanNodeBuilderTest, TopNNode) {
     EXPECT_EQ(node->count(), count);
     EXPECT_EQ(node->isPartial(), isPartial);
     EXPECT_EQ(node->sources().size(), 1);
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
   };
 
   const auto node = TopNNode::Builder()
@@ -859,7 +924,7 @@ TEST_F(PlanNodeBuilderTest, TopNNode) {
                         .sortingOrders(sortingOrders)
                         .count(count)
                         .isPartial(isPartial)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -867,7 +932,7 @@ TEST_F(PlanNodeBuilderTest, TopNNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, LimitNode) {
+TEST_F(PlanNodeBuilderTest, limitNode) {
   const PlanNodeId id = "limit_node_id";
   const int64_t offset = 1;
   const int64_t count = 5;
@@ -879,7 +944,7 @@ TEST_F(PlanNodeBuilderTest, LimitNode) {
     EXPECT_EQ(node->count(), count);
     EXPECT_EQ(node->isPartial(), isPartial);
     EXPECT_EQ(node->sources().size(), 1);
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
   };
 
   const auto node = LimitNode::Builder()
@@ -887,7 +952,7 @@ TEST_F(PlanNodeBuilderTest, LimitNode) {
                         .offset(offset)
                         .count(count)
                         .isPartial(isPartial)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -895,7 +960,7 @@ TEST_F(PlanNodeBuilderTest, LimitNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, UnnestNode) {
+TEST_F(PlanNodeBuilderTest, unnestNode) {
   const PlanNodeId id = "unnest_node_id";
   std::vector<FieldAccessTypedExprPtr> replicateVariables{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "a")};
@@ -910,7 +975,7 @@ TEST_F(PlanNodeBuilderTest, UnnestNode) {
     EXPECT_EQ(node->replicateVariables(), replicateVariables);
     EXPECT_EQ(node->unnestVariables(), unnestVariables);
     EXPECT_TRUE(node->hasOrdinality());
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
 
     for (int i = 0; i < node->outputType()->size(); ++i) {
       if (i < replicateVariables.size()) {
@@ -932,7 +997,7 @@ TEST_F(PlanNodeBuilderTest, UnnestNode) {
                         .unnestVariables(unnestVariables)
                         .unnestNames(unnestNames)
                         .ordinalityName(ordinalityName)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -940,25 +1005,25 @@ TEST_F(PlanNodeBuilderTest, UnnestNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, EnforceSingleRowNode) {
+TEST_F(PlanNodeBuilderTest, enforceSingleRowNode) {
   const PlanNodeId id = "enforce_single_row_id";
 
   const auto verify =
       [&](const std::shared_ptr<const EnforceSingleRowNode>& node) {
         EXPECT_EQ(node->id(), id);
         EXPECT_EQ(node->sources().size(), 1);
-        EXPECT_EQ(node->sources()[0], source);
+        EXPECT_EQ(node->sources()[0], source_);
       };
 
   const auto node =
-      EnforceSingleRowNode::Builder().id(id).source(source).build();
+      EnforceSingleRowNode::Builder().id(id).source(source_).build();
   verify(node);
 
   const auto node2 = EnforceSingleRowNode::Builder(*node).build();
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, AssignUniqueIdNode) {
+TEST_F(PlanNodeBuilderTest, assignUniqueIdNode) {
   const PlanNodeId id = "assign_unique_id_id";
   const std::string idName = "unique_id";
   const int32_t taskUniqueId = 42;
@@ -969,14 +1034,14 @@ TEST_F(PlanNodeBuilderTest, AssignUniqueIdNode) {
         EXPECT_EQ(node->outputType()->names().back(), idName);
         EXPECT_EQ(node->taskUniqueId(), taskUniqueId);
         EXPECT_EQ(node->sources().size(), 1);
-        EXPECT_EQ(node->sources()[0], source);
+        EXPECT_EQ(node->sources()[0], source_);
       };
 
   const auto node = AssignUniqueIdNode::Builder()
                         .id(id)
                         .idName(idName)
                         .taskUniqueId(taskUniqueId)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -984,7 +1049,7 @@ TEST_F(PlanNodeBuilderTest, AssignUniqueIdNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, WindowNode) {
+TEST_F(PlanNodeBuilderTest, windowNode) {
   const PlanNodeId id = "window_node_id";
   const std::vector<FieldAccessTypedExprPtr> partitionKeys{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "a")};
@@ -1015,13 +1080,13 @@ TEST_F(PlanNodeBuilderTest, WindowNode) {
 
     EXPECT_EQ(
         node->outputType()->size(),
-        source->outputType()->size() + windowColumnNames.size());
-    for (size_t i = source->outputType()->size();
+        source_->outputType()->size() + windowColumnNames.size());
+    for (size_t i = source_->outputType()->size();
          i < node->outputType()->size();
          ++i) {
       EXPECT_EQ(
           node->outputType()->nameOf(i),
-          windowColumnNames[i - source->outputType()->size()]);
+          windowColumnNames[i - source_->outputType()->size()]);
     }
 
     EXPECT_EQ(node->windowFunctions().size(), 1);
@@ -1029,7 +1094,7 @@ TEST_F(PlanNodeBuilderTest, WindowNode) {
         node->windowFunctions()[0].serialize(), windowFunctions[0].serialize());
     EXPECT_EQ(node->inputsSorted(), inputsSorted);
     EXPECT_EQ(node->sources().size(), 1);
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
   };
 
   const auto node = WindowNode::Builder()
@@ -1040,7 +1105,7 @@ TEST_F(PlanNodeBuilderTest, WindowNode) {
                         .windowColumnNames(windowColumnNames)
                         .windowFunctions(windowFunctions)
                         .inputsSorted(inputsSorted)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -1048,7 +1113,7 @@ TEST_F(PlanNodeBuilderTest, WindowNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, RowNumberNode) {
+TEST_F(PlanNodeBuilderTest, rowNumberNode) {
   const PlanNodeId id = "row_number_node_id";
   const std::vector<FieldAccessTypedExprPtr> partitionKeys{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
@@ -1061,7 +1126,7 @@ TEST_F(PlanNodeBuilderTest, RowNumberNode) {
     EXPECT_EQ(node->limit(), limit);
     EXPECT_TRUE(node->generateRowNumber());
     EXPECT_EQ(node->outputType()->names().back(), rowNumberColumnName);
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
   };
 
   const auto node = RowNumberNode::Builder()
@@ -1069,7 +1134,7 @@ TEST_F(PlanNodeBuilderTest, RowNumberNode) {
                         .partitionKeys(partitionKeys)
                         .rowNumberColumnName(rowNumberColumnName)
                         .limit(limit)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -1077,7 +1142,7 @@ TEST_F(PlanNodeBuilderTest, RowNumberNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, MarkDistinctNode) {
+TEST_F(PlanNodeBuilderTest, markDistinctNode) {
   const PlanNodeId id = "mark_distinct_node_id";
   const std::string markerName = "is_distinct";
   const std::vector<FieldAccessTypedExprPtr> distinctKeys{
@@ -1088,14 +1153,14 @@ TEST_F(PlanNodeBuilderTest, MarkDistinctNode) {
     EXPECT_EQ(node->markerName(), markerName);
     EXPECT_EQ(node->distinctKeys(), distinctKeys);
     EXPECT_EQ(node->sources().size(), 1);
-    EXPECT_EQ(node->sources()[0], source);
+    EXPECT_EQ(node->sources()[0], source_);
   };
 
   const auto node = MarkDistinctNode::Builder()
                         .id(id)
                         .markerName(markerName)
                         .distinctKeys(distinctKeys)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 
@@ -1103,7 +1168,7 @@ TEST_F(PlanNodeBuilderTest, MarkDistinctNode) {
   verify(node2);
 }
 
-TEST_F(PlanNodeBuilderTest, TopNRowNumberNode) {
+TEST_F(PlanNodeBuilderTest, topNRowNumberNode) {
   const PlanNodeId id = "topn_row_number_node_id";
   const std::vector<FieldAccessTypedExprPtr> partitionKeys{
       std::make_shared<FieldAccessTypedExpr>(BIGINT(), "c0")};
@@ -1123,7 +1188,7 @@ TEST_F(PlanNodeBuilderTest, TopNRowNumberNode) {
         EXPECT_TRUE(node->generateRowNumber());
         EXPECT_EQ(node->outputType()->names().back(), rowNumberColumnName);
         EXPECT_EQ(node->sources().size(), 1);
-        EXPECT_EQ(node->sources()[0], source);
+        EXPECT_EQ(node->sources()[0], source_);
       };
 
   const auto node = TopNRowNumberNode::Builder()
@@ -1133,7 +1198,7 @@ TEST_F(PlanNodeBuilderTest, TopNRowNumberNode) {
                         .sortingOrders(sortingOrders)
                         .rowNumberColumnName(rowNumberColumnName)
                         .limit(limit)
-                        .source(source)
+                        .source(source_)
                         .build();
   verify(node);
 

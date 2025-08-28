@@ -18,6 +18,7 @@ target_link_libraries(velox_temp_path velox_exception)
 
 add_library(
   velox_exec_test_lib
+  AggregationResolver.cpp
   AssertQueryBuilder.cpp
   ArbitratorTestUtil.cpp
   HiveConnectorTestBase.cpp

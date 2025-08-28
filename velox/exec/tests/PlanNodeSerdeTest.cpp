@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -708,25 +709,19 @@ TEST_F(PlanNodeSerdeTest, tableWriteMerge) {
 
   plan = PlanBuilder(pool_.get())
              .values(data_)
-             .tableWrite("targetDirectory")
+             .tableWrite(
+                 "targetDirectory", dwio::common::FileFormat::DWRF, {"min(c0)"})
              .localPartition(std::vector<std::string>{})
              .tableWriteMerge()
              .planNode();
   testSerde(plan);
 
-  const auto aggregationNode =
-      std::dynamic_pointer_cast<const core::AggregationNode>(
-          PlanBuilder(pool_.get())
-              .values({data_})
-              .partialAggregation({"c0"}, {"count(ARRAY[1,2])"})
-              .finalAggregation()
-              .planNode());
-
   plan = PlanBuilder(pool_.get())
              .values(data_)
-             .tableWrite("targetDirectory")
+             .tableWrite(
+                 "targetDirectory", dwio::common::FileFormat::DWRF, {"min(c0)"})
              .localPartition(std::vector<std::string>{})
-             .tableWriteMerge(aggregationNode)
+             .tableWriteMerge()
              .planNode();
   testSerde(plan);
 }
@@ -745,8 +740,233 @@ TEST_F(PlanNodeSerdeTest, tableWriteWithStats) {
                        "approx_distinct(c2)",
                        "sum_data_size_for_stats(c2)",
                        "max_data_size_for_stats(c2)"})
+                  .localPartition(std::vector<std::string>{})
+                  .tableWriteMerge()
                   .planNode();
   testSerde(plan);
+}
+
+TEST_F(PlanNodeSerdeTest, columnStatsSpec) {
+  // Helper function to create typed expressions
+  const auto createFieldAccess = [&](const std::string& name,
+                                     const TypePtr& type) {
+    return std::make_shared<core::FieldAccessTypedExpr>(type, name);
+  };
+
+  const auto createCallExpr = [&](const std::string& name,
+                                  const TypePtr& returnType,
+                                  const std::vector<core::TypedExprPtr>& args) {
+    return std::make_shared<core::CallTypedExpr>(returnType, args, name);
+  };
+
+  // Test 1: Empty ColumnStatsSpec
+  {
+    VELOX_ASSERT_THROW(
+        std::make_unique<core::ColumnStatsSpec>(
+            std::vector<core::FieldAccessTypedExprPtr>{},
+            core::AggregationNode::Step::kSingle,
+            std::vector<std::string>{},
+            std::vector<core::AggregationNode::Aggregate>{}),
+        "");
+  }
+
+  // Test 2: ColumnStatsSpec with only aggregates (no grouping keys)
+  {
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    std::vector<std::string> aggregateNames = {"min", "max", "count"};
+    std::vector<core::AggregationNode::Aggregate> aggregates;
+
+    // Create min(c0) aggregate
+    auto minInput = createFieldAccess("c0", BIGINT());
+    auto minCall = createCallExpr("min", BIGINT(), {minInput});
+    aggregates.push_back({minCall, {BIGINT()}, nullptr, {}, {}, false});
+
+    // Create max(c0) aggregate
+    auto maxInput = createFieldAccess("c0", BIGINT());
+    auto maxCall = createCallExpr("max", BIGINT(), {maxInput});
+    aggregates.push_back({maxCall, {BIGINT()}, nullptr, {}, {}, false});
+
+    // Create count(c1) aggregate
+    auto countInput = createFieldAccess("c1", INTEGER());
+    auto countCall = createCallExpr("count", BIGINT(), {countInput});
+    aggregates.push_back({countCall, {INTEGER()}, nullptr, {}, {}, false});
+
+    core::ColumnStatsSpec spec(
+        std::move(groupingKeys),
+        core::AggregationNode::Step::kPartial,
+        std::move(aggregateNames),
+        std::move(aggregates));
+
+    auto serialized = spec.serialize();
+    auto deserialized = core::ColumnStatsSpec::create(serialized, pool());
+
+    EXPECT_TRUE(deserialized.groupingKeys.empty());
+    EXPECT_EQ(deserialized.aggregateNames.size(), 3);
+    EXPECT_EQ(deserialized.aggregates.size(), 3);
+    EXPECT_EQ(
+        deserialized.aggregationStep, core::AggregationNode::Step::kPartial);
+    EXPECT_EQ(deserialized.aggregateNames.size(), 3);
+
+    EXPECT_EQ(deserialized.aggregateNames[0], "min");
+    EXPECT_EQ(deserialized.aggregateNames[1], "max");
+    EXPECT_EQ(deserialized.aggregateNames[2], "count");
+    EXPECT_EQ(deserialized.aggregates[0].call->name(), "min");
+    EXPECT_EQ(deserialized.aggregates[1].call->name(), "max");
+    EXPECT_EQ(deserialized.aggregates[2].call->name(), "count");
+  }
+
+  // Test 3: ColumnStatsSpec with grouping keys and aggregates
+  {
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    groupingKeys.push_back(createFieldAccess("partition_key", VARCHAR()));
+    groupingKeys.push_back(createFieldAccess("bucket_id", INTEGER()));
+
+    std::vector<std::string> aggregateNames = {"min", "sum"};
+    std::vector<core::AggregationNode::Aggregate> aggregates;
+
+    // Create min(c0) aggregate
+    auto minInput = createFieldAccess("c0", BIGINT());
+    auto minCall = createCallExpr("min", BIGINT(), {minInput});
+    aggregates.push_back({minCall, {BIGINT()}, nullptr, {}, {}, false});
+
+    // Create sum(c1) aggregate
+    auto sumInput = createFieldAccess("c1", DOUBLE());
+    auto sumCall = createCallExpr("sum", DOUBLE(), {sumInput});
+    aggregates.push_back({sumCall, {DOUBLE()}, nullptr, {}, {}, false});
+
+    core::ColumnStatsSpec spec(
+        std::move(groupingKeys),
+        core::AggregationNode::Step::kIntermediate,
+        std::move(aggregateNames),
+        std::move(aggregates));
+
+    auto serialized = spec.serialize();
+    auto deserialized = core::ColumnStatsSpec::create(serialized, pool());
+
+    EXPECT_EQ(deserialized.groupingKeys.size(), 2);
+    EXPECT_EQ(deserialized.aggregateNames.size(), 2);
+    EXPECT_EQ(deserialized.aggregates.size(), 2);
+    EXPECT_EQ(
+        deserialized.aggregationStep,
+        core::AggregationNode::Step::kIntermediate);
+    EXPECT_EQ(deserialized.aggregateNames.size(), 2);
+
+    EXPECT_EQ(deserialized.groupingKeys[0]->name(), "partition_key");
+    EXPECT_EQ(deserialized.groupingKeys[0]->type(), VARCHAR());
+    EXPECT_EQ(deserialized.groupingKeys[1]->name(), "bucket_id");
+    EXPECT_EQ(deserialized.groupingKeys[1]->type(), INTEGER());
+
+    EXPECT_EQ(deserialized.aggregateNames[0], "min");
+    EXPECT_EQ(deserialized.aggregateNames[1], "sum");
+    EXPECT_EQ(deserialized.aggregates[0].call->name(), "min");
+    EXPECT_EQ(deserialized.aggregates[1].call->name(), "sum");
+  }
+
+  // Test 4: ColumnStatsSpec with different aggregation steps
+  for (auto step :
+       {core::AggregationNode::Step::kSingle,
+        core::AggregationNode::Step::kPartial,
+        core::AggregationNode::Step::kIntermediate,
+        core::AggregationNode::Step::kFinal}) {
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    std::vector<std::string> aggregateNames = {"count"};
+    std::vector<core::AggregationNode::Aggregate> aggregates;
+
+    auto countInput = createFieldAccess("test_col", BIGINT());
+    auto countCall = createCallExpr("count", BIGINT(), {countInput});
+    aggregates.push_back({countCall, {BIGINT()}, nullptr, {}, {}, false});
+
+    core::ColumnStatsSpec spec(
+        std::move(groupingKeys),
+        step,
+        std::move(aggregateNames),
+        std::move(aggregates));
+
+    auto serialized = spec.serialize();
+    auto deserialized = core::ColumnStatsSpec::create(serialized, pool());
+
+    EXPECT_EQ(deserialized.aggregationStep, step);
+    EXPECT_EQ(deserialized.aggregateNames.size(), 1);
+    EXPECT_EQ(deserialized.aggregateNames[0], "count");
+  }
+
+  // Test 5: ColumnStatsSpec with complex aggregates (distinct, with mask, with
+  // sorting)
+  {
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    std::vector<std::string> aggregateNames = {
+        "count_distinct", "array_agg_sorted"};
+    std::vector<core::AggregationNode::Aggregate> aggregates;
+
+    // Create count(distinct c0) aggregate
+    auto distinctInput = createFieldAccess("c0", VARCHAR());
+    auto countDistinctCall = createCallExpr("count", BIGINT(), {distinctInput});
+    auto maskField = createFieldAccess("mask_col", BOOLEAN());
+    aggregates.push_back(
+        {countDistinctCall, {VARCHAR()}, maskField, {}, {}, true});
+
+    // Create array_agg(c1 ORDER BY c2) aggregate
+    auto arrayInput = createFieldAccess("c1", INTEGER());
+    auto arrayAggCall =
+        createCallExpr("array_agg", ARRAY(INTEGER()), {arrayInput});
+    auto sortingKey = createFieldAccess("c2", BIGINT());
+    std::vector<core::FieldAccessTypedExprPtr> sortingKeys = {sortingKey};
+    std::vector<core::SortOrder> sortingOrders = {core::SortOrder(true, true)};
+    aggregates.push_back(
+        {arrayAggCall,
+         {INTEGER()},
+         nullptr,
+         sortingKeys,
+         sortingOrders,
+         false});
+
+    core::ColumnStatsSpec spec(
+        std::move(groupingKeys),
+        core::AggregationNode::Step::kSingle,
+        std::move(aggregateNames),
+        std::move(aggregates));
+
+    auto serialized = spec.serialize();
+    auto deserialized = core::ColumnStatsSpec::create(serialized, pool());
+
+    EXPECT_EQ(deserialized.aggregates.size(), 2);
+
+    // Check distinct aggregate
+    EXPECT_TRUE(deserialized.aggregates[0].distinct);
+    EXPECT_NE(deserialized.aggregates[0].mask, nullptr);
+    EXPECT_EQ(deserialized.aggregates[0].mask->name(), "mask_col");
+
+    // Check sorted aggregate
+    EXPECT_FALSE(deserialized.aggregates[1].distinct);
+    EXPECT_EQ(deserialized.aggregates[1].mask, nullptr);
+    EXPECT_EQ(deserialized.aggregates[1].sortingKeys.size(), 1);
+    EXPECT_EQ(deserialized.aggregates[1].sortingKeys[0]->name(), "c2");
+    EXPECT_EQ(deserialized.aggregates[1].sortingOrders.size(), 1);
+    EXPECT_TRUE(deserialized.aggregates[1].sortingOrders[0].isAscending());
+    EXPECT_TRUE(deserialized.aggregates[1].sortingOrders[0].isNullsFirst());
+  }
+
+  // Error cases.
+  {
+    std::vector<core::FieldAccessTypedExprPtr> groupingKeys;
+    groupingKeys.push_back(createFieldAccess("partition_key", VARCHAR()));
+    groupingKeys.push_back(createFieldAccess("bucket_id", INTEGER()));
+
+    std::vector<std::string> aggregateNames = {"min", "sum"};
+    std::vector<core::AggregationNode::Aggregate> aggregates;
+
+    // Create min(c0) aggregate
+    auto minInput = createFieldAccess("c0", BIGINT());
+    auto minCall = createCallExpr("min", BIGINT(), {minInput});
+    aggregates.push_back({minCall, {BIGINT()}, nullptr, {}, {}, false});
+    VELOX_ASSERT_THROW(
+        core::ColumnStatsSpec(
+            std::move(groupingKeys),
+            core::AggregationNode::Step::kSingle,
+            std::move(aggregateNames),
+            std::move(aggregates)),
+        "");
+  }
 }
 
 } // namespace facebook::velox::exec::test

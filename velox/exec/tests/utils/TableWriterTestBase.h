@@ -105,7 +105,7 @@ class TableWriterTestBase : public HiveConnectorTestBase {
   static std::function<PlanNodePtr(std::string, PlanNodePtr)> addTableWriter(
       const RowTypePtr& inputColumns,
       const std::vector<std::string>& tableColumnNames,
-      const std::shared_ptr<core::AggregationNode>& aggregationNode,
+      const std::optional<core::ColumnStatsSpec>& columnStatsSpec,
       const std::shared_ptr<core::InsertTableHandle>& insertHandle,
       bool hasPartitioningScheme,
       connector::CommitStrategy commitStrategy =
@@ -115,11 +115,10 @@ class TableWriterTestBase : public HiveConnectorTestBase {
       const std::vector<std::string>& partitionedKeys,
       const RowTypePtr& rowType);
 
-  static std::shared_ptr<core::AggregationNode> generateAggregationNode(
+  static core::ColumnStatsSpec generateColumnStatsSpec(
       const std::string& name,
       const std::vector<core::FieldAccessTypedExprPtr>& groupingKeys,
-      AggregationNode::Step step,
-      const PlanNodePtr& source);
+      AggregationNode::Step step);
 
   std::shared_ptr<Task> assertQueryWithWriterConfigs(
       const core::PlanNodePtr& plan,
@@ -207,7 +206,7 @@ class TableWriterTestBase : public HiveConnectorTestBase {
           connector::hive::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
       bool aggregateResult = true,
-      std::shared_ptr<core::AggregationNode> aggregationNode = nullptr);
+      const std::optional<ColumnStatsSpec>& columnStatsSpec = std::nullopt);
 
   PlanNodePtr createInsertPlan(
       PlanBuilder& inputPlan,
@@ -222,7 +221,7 @@ class TableWriterTestBase : public HiveConnectorTestBase {
           connector::hive::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
       bool aggregateResult = true,
-      std::shared_ptr<core::AggregationNode> aggregationNode = nullptr);
+      const std::optional<ColumnStatsSpec>& columnStatsSpec = std::nullopt);
 
   PlanNodePtr createInsertPlanWithSingleWriter(
       PlanBuilder& inputPlan,
@@ -235,7 +234,7 @@ class TableWriterTestBase : public HiveConnectorTestBase {
       const connector::hive::LocationHandle::TableType& outputTableType,
       const CommitStrategy& outputCommitStrategy,
       bool aggregateResult,
-      std::shared_ptr<core::AggregationNode> aggregationNode);
+      std::optional<ColumnStatsSpec> columnStatsSpec);
 
   PlanNodePtr createInsertPlanForBucketTable(
       PlanBuilder& inputPlan,
@@ -248,7 +247,7 @@ class TableWriterTestBase : public HiveConnectorTestBase {
       const connector::hive::LocationHandle::TableType& outputTableType,
       const CommitStrategy& outputCommitStrategy,
       bool aggregateResult,
-      std::shared_ptr<core::AggregationNode> aggregationNode);
+      std::optional<ColumnStatsSpec> columnStatsSpec);
 
   // Return the corresponding column names in 'inputRowType' of
   // 'tableColumnNames' from 'tableRowType'.
@@ -267,7 +266,7 @@ class TableWriterTestBase : public HiveConnectorTestBase {
       const connector::hive::LocationHandle::TableType& outputTableType,
       const CommitStrategy& outputCommitStrategy,
       bool aggregateResult,
-      std::shared_ptr<core::AggregationNode> aggregationNode);
+      std::optional<ColumnStatsSpec> columnStatsSpec);
 
   // Parameter partitionName is string formatted in the Hive style
   // key1=value1/key2=value2/... Parameter partitionTypes are types of partition

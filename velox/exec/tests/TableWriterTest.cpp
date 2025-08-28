@@ -929,6 +929,7 @@ TEST_P(AllTableWriterTest, commitStrategies) {
         commitStrategy_);
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
+
     if (partitionedBy_.size() > 0) {
       auto newOutputType =
           getNonPartitionsColumns(partitionedBy_, tableSchema_);
@@ -1997,22 +1998,18 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
       makeAggregate(countArrayCallExpr),
       makeAggregate(sumDataSizeArrayCallExpr),
   };
-  const auto aggregationNode = std::make_shared<core::AggregationNode>(
-      core::PlanNodeId(),
-      core::AggregationNode::Step::kPartial,
+  const core::ColumnStatsSpec columnStatsSpec{
       groupingKeyFields,
-      std::vector<core::FieldAccessTypedExprPtr>{},
+      core::AggregationNode::Step::kPartial,
       aggregateNames,
-      aggregates,
-      false, // ignoreNullKeys
-      PlanBuilder().values({input}).planNode());
+      aggregates};
 
   auto plan = PlanBuilder()
                   .values({input})
                   .addNode(addTableWriter(
                       rowType_,
                       rowType_->names(),
-                      aggregationNode,
+                      columnStatsSpec,
                       std::make_shared<core::InsertTableHandle>(
                           kHiveConnectorId,
                           makeHiveInsertTableHandle(
@@ -2088,18 +2085,15 @@ TEST_P(AllTableWriterTest, columnStats) {
   output.emplace_back("min");
   types.emplace_back(BIGINT());
   const auto writerOutputType = ROW(std::move(output), std::move(types));
-  auto aggregationNode = generateAggregationNode(
-      "c0",
-      groupingKeys,
-      core::AggregationNode::Step::kPartial,
-      PlanBuilder().values({input}).planNode());
+  auto columnStatsSpec = generateColumnStatsSpec(
+      "c0", groupingKeys, core::AggregationNode::Step::kPartial);
 
   auto plan = PlanBuilder()
                   .values({input})
                   .addNode(addTableWriter(
                       rowType_,
                       rowType_->names(),
-                      aggregationNode,
+                      columnStatsSpec,
                       std::make_shared<core::InsertTableHandle>(
                           kHiveConnectorId,
                           makeHiveInsertTableHandle(
@@ -2187,16 +2181,13 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
   const auto writerOutputType = ROW(std::move(output), std::move(types));
 
   // aggregation node
-  auto aggregationNode = generateAggregationNode(
-      "c0",
-      groupingKeys,
-      core::AggregationNode::Step::kPartial,
-      PlanBuilder().values({input}).planNode());
+  auto columnStatsSpec = generateColumnStatsSpec(
+      "c0", groupingKeys, core::AggregationNode::Step::kPartial);
 
   auto tableWriterPlan = PlanBuilder().values({input}).addNode(addTableWriter(
       rowType_,
       rowType_->names(),
-      aggregationNode,
+      columnStatsSpec,
       std::make_shared<core::InsertTableHandle>(
           kHiveConnectorId,
           makeHiveInsertTableHandle(
@@ -2208,15 +2199,9 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
       false,
       commitStrategy_));
 
-  auto mergeAggregationNode = generateAggregationNode(
-      "min",
-      groupingKeys,
-      core::AggregationNode::Step::kIntermediate,
-      std::move(tableWriterPlan.planNode()));
-
   auto finalPlan = tableWriterPlan.capturePlanNodeId(tableWriteNodeId_)
                        .localPartition(std::vector<std::string>{})
-                       .tableWriteMerge(std::move(mergeAggregationNode))
+                       .tableWriteMerge()
                        .planNode();
   auto result = AssertQueryBuilder(finalPlan).copyResults(pool());
   auto rowVector = result->childAt(0)->asFlatVector<int64_t>();

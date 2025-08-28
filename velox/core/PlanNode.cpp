@@ -2584,12 +2584,48 @@ void TableWriteNode::addDetails(std::stringstream& stream) const {
   stream << insertTableHandle_->connectorInsertTableHandle()->toString();
 }
 
+folly::dynamic ColumnStatsSpec::serialize() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["groupingKeys"] = ISerializable::serialize(groupingKeys);
+  obj["aggregationStep"] = AggregationNode::toName(aggregationStep);
+  obj["aggregateNames"] = ISerializable::serialize(aggregateNames);
+  obj["aggregates"] = folly::dynamic::array;
+  for (const auto& aggregate : aggregates) {
+    obj["aggregates"].push_back(aggregate.serialize());
+  }
+  return obj;
+}
+
+// static
+ColumnStatsSpec ColumnStatsSpec::create(
+    const folly::dynamic& obj,
+    void* context) {
+  auto groupingKeys = deserializeFields(obj["groupingKeys"], context);
+  const auto aggregationStep =
+      AggregationNode::toStep(obj["aggregationStep"].asString());
+  auto aggregateNames = ISerializable::deserialize<std::vector<std::string>>(
+      obj["aggregateNames"]);
+
+  std::vector<AggregationNode::Aggregate> aggregates;
+  aggregates.reserve(obj["aggregates"].size());
+  for (const auto& aggregate : obj["aggregates"]) {
+    aggregates.push_back(
+        AggregationNode::Aggregate::deserialize(aggregate, context));
+  }
+
+  return ColumnStatsSpec{
+      std::move(groupingKeys),
+      aggregationStep,
+      std::move(aggregateNames),
+      std::move(aggregates)};
+}
+
 folly::dynamic TableWriteNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["columns"] = columns_->serialize();
   obj["columnNames"] = ISerializable::serialize(columnNames_);
-  if (aggregationNode_ != nullptr) {
-    obj["aggregationNode"] = aggregationNode_->serialize();
+  if (columnStatsSpec_.has_value()) {
+    obj["columnStatsSpec"] = columnStatsSpec_->serialize();
   }
   obj["connectorId"] = insertTableHandle_->connectorId();
   obj["connectorInsertTableHandle"] =
@@ -2625,11 +2661,15 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
   auto outputType = deserializeRowType(obj["outputType"]);
   auto commitStrategy =
       connector::stringToCommitStrategy(obj["commitStrategy"].asString());
+  std::optional<ColumnStatsSpec> columnStatsSpec;
+  if (obj.count("columnStatsSpec") != 0) {
+    columnStatsSpec = ColumnStatsSpec::create(obj["columnStatsSpec"], context);
+  }
   return std::make_shared<TableWriteNode>(
       id,
       columns,
       columnNames,
-      std::move(aggregationNode),
+      std::move(columnStatsSpec),
       std::make_shared<InsertTableHandle>(
           connectorId, connectorInsertTableHandle),
       hasPartitioningScheme,
@@ -2644,8 +2684,8 @@ folly::dynamic TableWriteMergeNode::serialize() const {
   auto obj = PlanNode::serialize();
   VELOX_CHECK_EQ(
       sources_.size(), 1, "TableWriteMergeNode can only have one source");
-  if (aggregationNode_ != nullptr) {
-    obj["aggregationNode"] = aggregationNode_->serialize();
+  if (columnStatsSpec_.has_value()) {
+    obj["columnStatsSpec"] = columnStatsSpec_->serialize();
   }
   obj["outputType"] = outputType_->serialize();
   return obj;
@@ -2663,13 +2703,15 @@ PlanNodePtr TableWriteMergeNode::create(
     void* context) {
   auto id = obj["id"].asString();
   auto outputType = deserializeRowType(obj["outputType"]);
-  AggregationNodePtr aggregationNode;
-  if (obj.count("aggregationNode") != 0) {
-    aggregationNode = ISerializable::deserialize<AggregationNode>(
-        obj["aggregationNode"], context);
+  std::optional<ColumnStatsSpec> columnStatsSpec;
+  if (obj.count("columnStatsSpec") != 0) {
+    columnStatsSpec = ColumnStatsSpec::create(obj["columnStatsSpec"], context);
   }
   return std::make_shared<TableWriteMergeNode>(
-      id, outputType, aggregationNode, deserializeSingleSource(obj, context));
+      id,
+      outputType,
+      std::move(columnStatsSpec),
+      deserializeSingleSource(obj, context));
 }
 
 MergeExchangeNode::MergeExchangeNode(

@@ -56,18 +56,26 @@ TableWriteMerge::TableWriteMerge(
           operatorId,
           tableWriteMergeNode->id(),
           "TableWriteMerge") {
-  VELOX_USER_CHECK(outputType_->equivalent(
-      *TableWriteTraits::outputType(tableWriteMergeNode->aggregationNode())));
-  if (tableWriteMergeNode->aggregationNode() != nullptr) {
-    aggregation_ = std::make_unique<HashAggregation>(
-        operatorId, driverCtx, tableWriteMergeNode->aggregationNode());
+  if (tableWriteMergeNode->outputType()->size() == 1) {
+    VELOX_USER_CHECK(!tableWriteMergeNode->hasColumnStatsSpec());
+  } else {
+    VELOX_USER_CHECK(tableWriteMergeNode->outputType()->equivalent(*(
+        TableWriteTraits::outputType(tableWriteMergeNode->columnStatsSpec()))));
+  }
+  if (tableWriteMergeNode->hasColumnStatsSpec()) {
+    statsCollector_ = std::make_unique<ColumnStatsCollector>(
+        tableWriteMergeNode->columnStatsSpec().value(),
+        tableWriteMergeNode->sources()[0]->outputType(),
+        &operatorCtx_->driverCtx()->queryConfig(),
+        operatorCtx_->pool(),
+        &nonReclaimableSection_);
   }
 }
 
 void TableWriteMerge::initialize() {
   Operator::initialize();
-  if (aggregation_ != nullptr) {
-    aggregation_->initialize();
+  if (statsCollector_ != nullptr) {
+    statsCollector_->initialize();
   }
 }
 
@@ -76,8 +84,8 @@ void TableWriteMerge::addInput(RowVectorPtr input) {
   VELOX_CHECK_GT(input->size(), 0);
 
   if (isStatistics(input)) {
-    VELOX_CHECK_NOT_NULL(aggregation_);
-    aggregation_->addInput(input);
+    VELOX_CHECK_NOT_NULL(statsCollector_);
+    statsCollector_->addInput(input);
     return;
   }
 
@@ -105,10 +113,16 @@ void TableWriteMerge::addInput(RowVectorPtr input) {
 
 void TableWriteMerge::noMoreInput() {
   Operator::noMoreInput();
-  if (aggregation_ != nullptr) {
-    aggregation_->noMoreInput();
+  if (statsCollector_ != nullptr) {
+    statsCollector_->noMoreInput();
   }
-  close();
+}
+
+void TableWriteMerge::close() {
+  if (statsCollector_ != nullptr) {
+    statsCollector_->close();
+  }
+  Operator::close();
 }
 
 RowVectorPtr TableWriteMerge::getOutput() {
@@ -121,11 +135,11 @@ RowVectorPtr TableWriteMerge::getOutput() {
     return nullptr;
   }
 
-  if (aggregation_ != nullptr && !aggregation_->isFinished()) {
+  if (statsCollector_ != nullptr && !statsCollector_->finished()) {
     const std::string commitContext = createTableCommitContext(false);
     return TableWriteTraits::createAggregationStatsOutput(
         outputType_,
-        aggregation_->getOutput(),
+        statsCollector_->getOutput(),
         StringView(commitContext),
         pool());
   }

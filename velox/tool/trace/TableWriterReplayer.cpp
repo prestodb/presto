@@ -78,10 +78,10 @@ core::PlanNodePtr TableWriterReplayer::createPlanNode(
       nodeId,
       tableWriterNode->columns(),
       tableWriterNode->columnNames(),
-      tableWriterNode->aggregationNode(),
+      tableWriterNode->columnStatsSpec(),
       insertTableHandle,
       tableWriterNode->hasPartitioningScheme(),
-      TableWriteTraits::outputType(tableWriterNode->aggregationNode()),
+      TableWriteTraits::outputType(tableWriterNode->columnStatsSpec()),
       tableWriterNode->commitStrategy(),
       source);
 }
