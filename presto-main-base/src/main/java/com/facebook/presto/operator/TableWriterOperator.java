@@ -20,6 +20,7 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -130,7 +131,7 @@ public class TableWriterOperator
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
             return new TableWriterOperator(
                     context,
-                    createPageSink(),
+                    createPageSink(context),
                     columnChannels,
                     notNullChannelColumnNames,
                     statisticsAggregationOperator,
@@ -140,19 +141,21 @@ public class TableWriterOperator
                     pageSinkCommitStrategy);
         }
 
-        private ConnectorPageSink createPageSink()
+        private ConnectorPageSink createPageSink(OperatorContext operatorContext)
         {
             PageSinkContext.Builder pageSinkContextBuilder = PageSinkContext.builder()
                     .setCommitRequired(pageSinkCommitStrategy.isCommitRequired());
 
+            RuntimeStats runtimeStats = operatorContext.getRuntimeStats();
+
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkContextBuilder.build());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
             if (target instanceof RefreshMaterializedViewHandle) {
-                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build());
+                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

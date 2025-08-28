@@ -116,7 +116,7 @@ class ArrowFlightTlsNoCertTest : public ArrowFlightConnectorTlsTestBase {
 };
 
 TEST_F(ArrowFlightTlsNoCertTest, tlsNoCert) {
-  executeTest(false, "handshake failed");
+  executeTest(false, "failed to connect");
 }
 
 } // namespace facebook::presto::test

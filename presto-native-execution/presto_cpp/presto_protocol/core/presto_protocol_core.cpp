@@ -7034,6 +7034,148 @@ void from_json(const json& j, MergeJoinNode& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
+void to_json(json& j, const NodeLoadMetrics& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "cpuUsedPercent",
+      p.cpuUsedPercent,
+      "NodeLoadMetrics",
+      "double",
+      "cpuUsedPercent");
+  to_json_key(
+      j,
+      "memoryUsedInBytes",
+      p.memoryUsedInBytes,
+      "NodeLoadMetrics",
+      "double",
+      "memoryUsedInBytes");
+  to_json_key(
+      j,
+      "numQueuedDrivers",
+      p.numQueuedDrivers,
+      "NodeLoadMetrics",
+      "int",
+      "numQueuedDrivers");
+  to_json_key(
+      j,
+      "cpuOverload",
+      p.cpuOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "cpuOverload");
+  to_json_key(
+      j,
+      "memoryOverload",
+      p.memoryOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "memoryOverload");
+}
+
+void from_json(const json& j, NodeLoadMetrics& p) {
+  from_json_key(
+      j,
+      "cpuUsedPercent",
+      p.cpuUsedPercent,
+      "NodeLoadMetrics",
+      "double",
+      "cpuUsedPercent");
+  from_json_key(
+      j,
+      "memoryUsedInBytes",
+      p.memoryUsedInBytes,
+      "NodeLoadMetrics",
+      "double",
+      "memoryUsedInBytes");
+  from_json_key(
+      j,
+      "numQueuedDrivers",
+      p.numQueuedDrivers,
+      "NodeLoadMetrics",
+      "int",
+      "numQueuedDrivers");
+  from_json_key(
+      j,
+      "cpuOverload",
+      p.cpuOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "cpuOverload");
+  from_json_key(
+      j,
+      "memoryOverload",
+      p.memoryOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "memoryOverload");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<NodeState, json> NodeState_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {NodeState::ACTIVE, "ACTIVE"},
+        {NodeState::INACTIVE, "INACTIVE"},
+        {NodeState::SHUTTING_DOWN, "SHUTTING_DOWN"}};
+void to_json(json& j, const NodeState& e) {
+  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(NodeState_enum_table),
+      std::end(NodeState_enum_table),
+      [e](const std::pair<NodeState, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(NodeState_enum_table))
+           ? it
+           : std::begin(NodeState_enum_table))
+          ->second;
+}
+void from_json(const json& j, NodeState& e) {
+  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(NodeState_enum_table),
+      std::end(NodeState_enum_table),
+      [&j](const std::pair<NodeState, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(NodeState_enum_table))
+           ? it
+           : std::begin(NodeState_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const NodeStats& p) {
+  j = json::object();
+  to_json_key(
+      j, "nodeState", p.nodeState, "NodeStats", "NodeState", "nodeState");
+  to_json_key(
+      j,
+      "loadMetrics",
+      p.loadMetrics,
+      "NodeStats",
+      "NodeLoadMetrics",
+      "loadMetrics");
+}
+
+void from_json(const json& j, NodeStats& p) {
+  from_json_key(
+      j, "nodeState", p.nodeState, "NodeStats", "NodeState", "nodeState");
+  from_json_key(
+      j,
+      "loadMetrics",
+      p.loadMetrics,
+      "NodeStats",
+      "NodeLoadMetrics",
+      "loadMetrics");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
 void to_json(json& j, const NodeVersion& p) {
   j = json::object();
   to_json_key(j, "version", p.version, "NodeVersion", "String", "version");
@@ -11567,41 +11709,5 @@ void from_json(const json& j, WindowNode& p) {
       "WindowNode",
       "int",
       "preSortedOrderPrefix");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
-
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<NodeState, json> NodeState_enum_table[] =
-    { // NOLINT: cert-err58-cpp
-        {NodeState::ACTIVE, "ACTIVE"},
-        {NodeState::INACTIVE, "INACTIVE"},
-        {NodeState::SHUTTING_DOWN, "SHUTTING_DOWN"}};
-void to_json(json& j, const NodeState& e) {
-  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(NodeState_enum_table),
-      std::end(NodeState_enum_table),
-      [e](const std::pair<NodeState, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(NodeState_enum_table))
-           ? it
-           : std::begin(NodeState_enum_table))
-          ->second;
-}
-void from_json(const json& j, NodeState& e) {
-  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(NodeState_enum_table),
-      std::end(NodeState_enum_table),
-      [&j](const std::pair<NodeState, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(NodeState_enum_table))
-           ? it
-           : std::begin(NodeState_enum_table))
-          ->first;
 }
 } // namespace facebook::presto::protocol

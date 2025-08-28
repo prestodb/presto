@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -147,6 +148,18 @@ public class NativeTypeManager
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
+        }
+    }
+
+    @Override
+    public boolean hasType(TypeSignature typeSignature)
+    {
+        try {
+            getType(typeSignature);
+            return true;
+        }
+        catch (UnknownTypeException e) {
+            return false;
         }
     }
 

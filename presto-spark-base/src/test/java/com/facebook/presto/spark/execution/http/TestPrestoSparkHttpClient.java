@@ -899,7 +899,7 @@ public class TestPrestoSparkHttpClient
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
                 new NativeExecutionConnectorConfig(),
                 new NativeExecutionNodeConfig(),
-                new NativeExecutionSystemConfig());
+                new NativeExecutionSystemConfig(ImmutableMap.of()));
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestingOkHttpClient(scheduledExecutorService, responseManager),
                 scheduledExecutorService,

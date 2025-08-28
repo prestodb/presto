@@ -117,7 +117,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
                 resultsSession.setWarnings(results.getWarnings());
 
-                T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties(), client.getStartedTransactionId(), client.isClearTransactionId());
                 return new ResultWithQueryId<>(new QueryId(results.getId()), result);
             }
 

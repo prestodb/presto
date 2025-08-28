@@ -143,7 +143,7 @@ public class RedisLoader
         }
 
         @Override
-        public Void build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
+        public Void build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties, String startTransactionId, boolean clearTransactionId)
         {
             return null;
         }

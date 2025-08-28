@@ -117,7 +117,13 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kNativeQueryMemoryReclaimerPriority,
        core::QueryConfig::kQueryMemoryReclaimerPriority},
       {SessionProperties::kMaxNumSplitsListenedTo,
-       core::QueryConfig::kMaxNumSplitsListenedTo}};
+       core::QueryConfig::kMaxNumSplitsListenedTo},
+      {SessionProperties::kIndexLookupJoinMaxPrefetchBatches,
+       core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches},
+      {SessionProperties::kIndexLookupJoinSplitOutput,
+       core::QueryConfig::kIndexLookupJoinSplitOutput},
+      {SessionProperties::kUnnestSplitOutput,
+       core::QueryConfig::kUnnestSplitOutput}};
 
   const auto& sessionProperties =
       SessionProperties::instance()->testingSessionProperties();

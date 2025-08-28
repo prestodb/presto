@@ -19,6 +19,11 @@ on:
         type: boolean
         default: true
         required: false
+      publish_github_release:
+        description: 'Publish executable jars to github release'
+        type: boolean
+        default: true
+        required: false
       publish_image:
         description: 'Publish presto docker image'
         type: boolean
@@ -33,11 +38,6 @@ on:
         description: 'prestissimo dependency image(e.g., prestodb/presto-native-dependency:latest)'
         required: false
         default: ''
-      publish_native_dep_image:
-        description: 'Publish prestissimo dependency docker image'
-        type: boolean
-        default: true
-        required: false
       tag_image_as_latest:
         description: 'Tag the published images as latest'
         type: boolean
@@ -61,6 +61,7 @@ env:
   RELEASE_NOTES_COMMIT: ${{ inputs.release-notes-commit }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
   GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  MAVEN_AUTO_PUBLISH: ${{ vars.MAVEN_AUTO_PUBLISH || 'true' }}
 
 jobs:
   publish-release-tag:
@@ -101,8 +102,12 @@ jobs:
   publish-maven-artifacts:
     needs: publish-release-tag
     if: |
-      (!failure() &&!cancelled()) &&
-      (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_image == 'true' || github.event.inputs.publish_docs == 'true')
+      (!failure() &&!cancelled()) && (
+        github.event.inputs.publish_maven == 'true' ||
+        github.event.inputs.publish_image == 'true' ||
+        github.event.inputs.publish_docs == 'true' ||
+        github.event.inputs.publish_github_release == 'true'
+      )
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 60
@@ -180,18 +185,8 @@ jobs:
           </settings>
           EOL
 
-      - name: Maven build
-        run: mvn clean install -DskipTests
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: presto-artifacts-${{ env.RELEASE_TAG }}
-          retention-days: 1
-          path: |
-            presto-server/target/presto-server-*.tar.gz
-            presto-cli/target/presto-cli-*-executable.jar
-            presto-docs/target/presto-docs-*.zip
+      - name: Build release artifacts
+        run: ./mvnw clean install -DskipTests
 
       - name: Set up GPG key
         env:
@@ -221,9 +216,58 @@ jobs:
             -DkeepStagingRepositoryOnCloseRuleFailure=true \
             -DautoReleaseAfterClose=true \
             -DstagingProgressTimeoutMinutes=60 \
+            -DdeploymentName=presto-${{ env.RELEASE_TAG }} \
+            -Drelease.autoPublish=${{ env.MAVEN_AUTO_PUBLISH }} \
+            -DskipExecutableJar \
             -Poss-release \
             -Pdeploy-to-ossrh \
             -pl '!presto-test-coverage'
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-artifacts-${{ env.RELEASE_TAG }}
+          retention-days: 7
+          path: |
+            presto-server/target/presto-server-*.tar.gz
+            presto-docs/target/presto-docs-*.zip
+            presto-cli/target/presto-cli-*-executable.jar
+            presto-benchmark-driver/target/presto-benchmark-driver-*-executable.jar
+            presto-testing-server-launcher/target/presto-testing-server-launcher-*-executable.jar
+
+  publish-github-release:
+    needs: publish-maven-artifacts
+    if: (!failure() && !cancelled()) && github.event.inputs.publish_github_release == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 150
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG}}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-artifacts-${{ env.RELEASE_TAG }}
+          path: ./
+
+      - name: Create github release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Presto ${{ env.RELEASE_TAG }}
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          body: |
+            See the release notes at https://prestodb.io/docs/current/release/release-${{ env.RELEASE_TAG }}.html
+          files: |
+            ./presto-cli/target/presto-cli-*-executable.jar
+            ./presto-benchmark-driver/target/presto-benchmark-driver-*-executable.jar
+            ./presto-testing-server-launcher/target/presto-testing-server-launcher-*-executable.jar
 
   publish-docker-image:
     needs: publish-maven-artifacts
@@ -338,7 +382,7 @@ jobs:
           else
             echo "Building new depedency image"
             docker compose build centos-native-dependency
-            if [[ "${{ github.event.inputs.publish_native_dep_image }}" == "true" ]]; then
+            if [[ "${{ github.event.inputs.publish_native_image }}" == "true" ]]; then
               docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
               docker push ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
               

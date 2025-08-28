@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
@@ -30,6 +29,7 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
@@ -46,6 +46,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.DenyAllAccessControl;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -153,6 +154,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -1114,6 +1116,34 @@ public class ExpressionAnalyzer
                     Type sortKeyType = process(sortItem.getSortKey(), context);
                     if (!sortKeyType.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
+                    }
+                }
+            }
+
+            List<TypeSignature> arguments = functionMetadata.getArgumentTypes();
+            String functionName = functionMetadata.getName().toString();
+
+            if (!argumentTypes.isEmpty() && "map".equals(arguments.get(0).getBase())) {
+                if (arguments.size() > 1) {
+                    arguments.stream()
+                            .skip(1)
+                            .filter(arg -> {
+                                String base = arg.getBase();
+                                return "function".equals(base) || "lambda".equals(base);
+                            })
+                            .findFirst()
+                            .ifPresent(arg -> {
+                                String warningMessage = createWarningMessage(node,
+                                        String.format("Function '%s' uses a lambda on large maps which is expensive. Consider using map_subset", functionName));
+                                warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
+                            });
+                }
+                else if (arguments.size() == 1) {
+                    String base = arguments.get(0).getBase();
+                    if ("function".equals(base) || "lambda".equals(base)) {
+                        String warningMessage = createWarningMessage(node,
+                                String.format("Function '%s' uses a lambda on large maps which is expensive. Consider using map_subset", functionName));
+                        warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
                     }
                 }
             }
