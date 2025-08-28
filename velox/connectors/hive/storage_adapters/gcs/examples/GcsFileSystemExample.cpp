@@ -16,6 +16,7 @@
 #include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/connectors/hive/storage_adapters/gcs/GcsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/gcs/GcsUtil.h"
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
@@ -45,7 +46,10 @@ int main(int argc, char** argv) {
     gflags::ShowUsageWithFlags(argv[0]);
     return 1;
   }
-  filesystems::GcsFileSystem gcfs(newConfiguration());
+  std::string bucket;
+  std::string object;
+  setBucketAndKeyFromGcsPath(FLAGS_gcs_path, bucket, object);
+  filesystems::GcsFileSystem gcfs(bucket, newConfiguration());
   gcfs.initializeClient();
   std::cout << "Opening file for read " << FLAGS_gcs_path << std::endl;
   std::unique_ptr<ReadFile> file_read = gcfs.openFileForRead(FLAGS_gcs_path);

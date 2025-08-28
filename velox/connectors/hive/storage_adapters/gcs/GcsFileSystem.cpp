@@ -36,12 +36,43 @@ using namespace connector::hive;
 namespace gcs = ::google::cloud::storage;
 namespace gc = ::google::cloud;
 
+namespace {
+
 auto constexpr kGcsInvalidPath = "File {} is not a valid gcs file";
+
+folly::Synchronized<
+    std::unordered_map<std::string, GcsOAuthCredentialsProviderFactory>>&
+credentialsProviderFactories() {
+  static folly::Synchronized<
+      std::unordered_map<std::string, GcsOAuthCredentialsProviderFactory>>
+      factories;
+  return factories;
+}
+
+std::shared_ptr<GcsOAuthCredentialsProvider> getCredentialsProviderByName(
+    const std::string& providerName,
+    const std::shared_ptr<connector::hive::HiveConfig>& hiveConfig) {
+  VELOX_USER_CHECK(
+      !providerName.empty(),
+      "GcsOAuthCredentialsProviderFactory name cannot be empty");
+  return credentialsProviderFactories().withRLock([&](const auto& factories) {
+    const auto it = factories.find(providerName);
+    VELOX_USER_CHECK(
+        it != factories.end(),
+        "GcsOAuthCredentialsProviderFactory for '{}' not registered",
+        providerName);
+    const auto& factory = it->second;
+    return factory(hiveConfig);
+  });
+}
+
+} // namespace
 
 class GcsFileSystem::Impl {
  public:
-  Impl(const config::ConfigBase* config)
-      : hiveConfig_(std::make_shared<HiveConfig>(
+  Impl(const std::string& bucket, const config::ConfigBase* config)
+      : bucket_(bucket),
+        hiveConfig_(std::make_shared<HiveConfig>(
             std::make_shared<config::ConfigBase>(config->rawConfigsCopy()))) {}
 
   ~Impl() = default;
@@ -50,21 +81,28 @@ class GcsFileSystem::Impl {
   void initializeClient() {
     constexpr std::string_view kHttpsScheme{"https://"};
     auto options = gc::Options{};
-    auto endpointOverride = hiveConfig_->gcsEndpoint();
-    // Use secure credentials by default.
-    if (!endpointOverride.empty()) {
-      options.set<gcs::RestEndpointOption>(endpointOverride);
-      // Use Google default credentials if endpoint has https scheme.
-      if (endpointOverride.find(kHttpsScheme) == 0) {
-        options.set<gc::UnifiedCredentialsOption>(
-            gc::MakeGoogleDefaultCredentials());
+    if (auto tokenProvider = hiveConfig_->gcsAuthAccessTokenProvider()) {
+      auto credentialsProvider =
+          getCredentialsProviderByName(tokenProvider.value(), hiveConfig_);
+      auto credentials = credentialsProvider->getCredentials(bucket_);
+      options.set<gcs::Oauth2CredentialsOption>(credentials);
+    } else {
+      auto endpointOverride = hiveConfig_->gcsEndpoint();
+      // Use secure credentials by default.
+      if (!endpointOverride.empty()) {
+        options.set<gcs::RestEndpointOption>(endpointOverride);
+        // Use Google default credentials if endpoint has https scheme.
+        if (endpointOverride.find(kHttpsScheme) == 0) {
+          options.set<gc::UnifiedCredentialsOption>(
+              gc::MakeGoogleDefaultCredentials());
+        } else {
+          options.set<gc::UnifiedCredentialsOption>(
+              gc::MakeInsecureCredentials());
+        }
       } else {
         options.set<gc::UnifiedCredentialsOption>(
-            gc::MakeInsecureCredentials());
+            gc::MakeGoogleDefaultCredentials());
       }
-    } else {
-      options.set<gc::UnifiedCredentialsOption>(
-          gc::MakeGoogleDefaultCredentials());
     }
     options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
 
@@ -107,13 +145,16 @@ class GcsFileSystem::Impl {
   }
 
  private:
+  const std::string bucket_;
   const std::shared_ptr<HiveConfig> hiveConfig_;
   std::shared_ptr<gcs::Client> client_;
 };
 
-GcsFileSystem::GcsFileSystem(std::shared_ptr<const config::ConfigBase> config)
+GcsFileSystem::GcsFileSystem(
+    const std::string& bucket,
+    std::shared_ptr<const config::ConfigBase> config)
     : FileSystem(config) {
-  impl_ = std::make_shared<Impl>(config.get());
+  impl_ = std::make_shared<Impl>(bucket, config.get());
 }
 
 void GcsFileSystem::initializeClient() {
@@ -323,6 +364,21 @@ void GcsFileSystem::rmdir(std::string_view path) {
         bucket,
         metadata->name());
   }
+}
+
+void registerOAuthCredentialsProvider(
+    const std::string& providerName,
+    const GcsOAuthCredentialsProviderFactory& factory) {
+  VELOX_CHECK(
+      !providerName.empty(),
+      "GcsOAuthCredentialsProviderFactory name cannot be empty");
+  credentialsProviderFactories().withWLock([&](auto& factories) {
+    VELOX_CHECK(
+        factories.find(providerName) == factories.end(),
+        "GcsOAuthCredentialsProviderFactory '{}' already registered",
+        providerName);
+    factories.insert({providerName, factory});
+  });
 }
 
 } // namespace filesystems

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
+
 #ifdef VELOX_ENABLE_GCS
 #include "velox/common/config/Config.h"
 #include "velox/connectors/hive/HiveConfig.h"
@@ -75,9 +77,10 @@ gcsFileSystemGenerator() {
 
               std::shared_ptr<GcsFileSystem> fs;
               if (properties != nullptr) {
-                fs = std::make_shared<GcsFileSystem>(properties);
+                fs = std::make_shared<GcsFileSystem>(bucket, properties);
               } else {
                 fs = std::make_shared<GcsFileSystem>(
+                    bucket,
                     std::make_shared<config::ConfigBase>(
                         std::unordered_map<std::string, std::string>()));
               }
@@ -111,6 +114,14 @@ void registerGcsFileSystem() {
   registerFileSystem(isGcsFile, gcsFileSystemGenerator());
   dwio::common::FileSink::registerFactory(
       std::function(gcsWriteFileSinkGenerator));
+#endif
+}
+
+void registerGcsOAuthCredentialsProvider(
+    const std::string& providerName,
+    const GcsOAuthCredentialsProviderFactory& factory) {
+#ifdef VELOX_ENABLE_GCS
+  registerOAuthCredentialsProvider(providerName, factory);
 #endif
 }
 

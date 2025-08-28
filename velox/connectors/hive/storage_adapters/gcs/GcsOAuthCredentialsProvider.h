@@ -16,26 +16,21 @@
 
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <string>
-
-namespace facebook::velox::connector::hive {
-class HiveConfig;
-}
+#include <google/cloud/storage/oauth2/credentials.h>
 
 namespace facebook::velox::filesystems {
-class GcsOAuthCredentialsProvider;
 
-// Register the GCS filesystem.
-void registerGcsFileSystem();
+namespace gcs = ::google::cloud::storage;
 
-using GcsOAuthCredentialsProviderFactory =
-    std::function<std::shared_ptr<GcsOAuthCredentialsProvider>(
-        const std::shared_ptr<connector::hive::HiveConfig>& hiveConfig)>;
+/// Interface for providing OAuth2 credentials for Google Cloud Storage (GCS).
+/// Implementations should return a GCS OAuth2 credential used for creating the
+/// GCS client for a specific bucket via `getCredentials`.
+class GcsOAuthCredentialsProvider {
+ public:
+  virtual ~GcsOAuthCredentialsProvider() = default;
 
-void registerGcsOAuthCredentialsProvider(
-    const std::string& providerName,
-    const GcsOAuthCredentialsProviderFactory& factory);
+  virtual std::shared_ptr<gcs::oauth2::Credentials> getCredentials(
+      const std::string& bucket) = 0;
+};
 
 } // namespace facebook::velox::filesystems

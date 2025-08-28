@@ -71,6 +71,9 @@ class HiveConfig {
   /// The GCS maximum time allowed to retry transient errors.
   static constexpr const char* kGcsMaxRetryTime = "hive.gcs.max-retry-time";
 
+  static constexpr const char* kGcsAuthAccessTokenProvider =
+      "hive.gcs.auth.access-token-provider";
+
   /// Maps table field names to file field names using names, not indices.
   // TODO: remove hive_orc_use_column_names since it doesn't exist in presto,
   // right now this is only used for testing.
@@ -210,6 +213,8 @@ class HiveConfig {
   std::optional<int> gcsMaxRetryCount() const;
 
   std::optional<std::string> gcsMaxRetryTime() const;
+
+  std::optional<std::string> gcsAuthAccessTokenProvider() const;
 
   bool isOrcUseColumnNames(const config::ConfigBase* session) const;
 

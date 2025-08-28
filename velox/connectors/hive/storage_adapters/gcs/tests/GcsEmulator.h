@@ -103,7 +103,7 @@ class GcsEmulator : public testing::Environment {
     return std::make_shared<const config::ConfigBase>(std::move(config));
   }
 
-  std::string_view preexistingBucketName() {
+  const std::string& preexistingBucketName() {
     return bucketName_;
   }
 

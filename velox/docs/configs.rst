@@ -914,6 +914,12 @@ These semantics are similar to the `Apache Hadoop-Aws module <https://hadoop.apa
      - string
      -
      - The GCS maximum time allowed to retry transient errors.
+   * - hive.gcs.auth.access-token-provider
+     - string
+     -
+     - A custom OAuth credential provider, if specified, will be used to create the client in favor of other
+       authentication mechanisms.
+       The provider must be registered using "registerGcsOAuthCredentialsProvider" before it can be used.
 
 ``Azure Blob Storage Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

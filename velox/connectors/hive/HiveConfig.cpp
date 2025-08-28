@@ -93,6 +93,11 @@ std::optional<std::string> HiveConfig::gcsMaxRetryTime() const {
       config_->get<std::string>(kGcsMaxRetryTime));
 }
 
+std::optional<std::string> HiveConfig::gcsAuthAccessTokenProvider() const {
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kGcsAuthAccessTokenProvider));
+}
+
 bool HiveConfig::isOrcUseColumnNames(const config::ConfigBase* session) const {
   return session->get<bool>(
       kOrcUseColumnNamesSession, config_->get<bool>(kOrcUseColumnNames, false));

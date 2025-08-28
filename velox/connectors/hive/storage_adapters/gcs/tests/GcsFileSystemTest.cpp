@@ -27,6 +27,16 @@
 namespace facebook::velox::filesystems {
 namespace {
 
+class DummyGcsOAuthCredentialsProvider : public GcsOAuthCredentialsProvider {
+ public:
+  explicit DummyGcsOAuthCredentialsProvider() : GcsOAuthCredentialsProvider() {}
+
+  std::shared_ptr<gcs::oauth2::Credentials> getCredentials(
+      const std::string&) override {
+    VELOX_FAIL("DummyGcsOAuthCredentialsProvider: Not implemented");
+  }
+};
+
 class GcsFileSystemTest : public testing::Test {
  public:
   void SetUp() {
@@ -41,7 +51,8 @@ TEST_F(GcsFileSystemTest, readFile) {
   const auto gcsFile = gcsURI(
       emulator_->preexistingBucketName(), emulator_->preexistingObjectName());
 
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
   auto readFile = gcfs.openFileForRead(gcsFile);
   std::int64_t size = readFile->size();
@@ -78,7 +89,8 @@ TEST_F(GcsFileSystemTest, writeAndReadFile) {
   const std::string_view newFile = "readWriteFile.txt";
   const auto gcsFile = gcsURI(emulator_->preexistingBucketName(), newFile);
 
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
   auto writeFile = gcfs.openFileForWrite(gcsFile);
   std::string_view kDataContent =
@@ -104,13 +116,15 @@ TEST_F(GcsFileSystemTest, writeAndReadFile) {
   EXPECT_EQ(readFile->pread(0, size), kDataContent);
 
   // Opening an existing file for write must be an error.
-  filesystems::GcsFileSystem newGcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem newGcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   newGcfs.initializeClient();
   VELOX_ASSERT_THROW(newGcfs.openFileForWrite(gcsFile), "File already exists");
 }
 
 TEST_F(GcsFileSystemTest, rename) {
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
 
   const std::string_view oldFile = "oldTest.txt";
@@ -146,7 +160,8 @@ TEST_F(GcsFileSystemTest, rename) {
 TEST_F(GcsFileSystemTest, mkdir) {
   const std::string_view dir = "newDirectory";
   const auto gcsNewDirectory = gcsURI(emulator_->preexistingBucketName(), dir);
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
   gcfs.mkdir(gcsNewDirectory);
   const auto& results = gcfs.list(gcsNewDirectory);
@@ -156,7 +171,8 @@ TEST_F(GcsFileSystemTest, mkdir) {
 TEST_F(GcsFileSystemTest, rmdir) {
   const std::string_view dir = "Directory";
   const auto gcsDirectory = gcsURI(emulator_->preexistingBucketName(), dir);
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
 
   auto writeFile = gcfs.openFileForWrite(gcsDirectory);
@@ -176,7 +192,8 @@ TEST_F(GcsFileSystemTest, rmdir) {
 TEST_F(GcsFileSystemTest, missingFile) {
   const std::string_view file = "newTest.txt";
   const auto gcsFile = gcsURI(emulator_->preexistingBucketName(), file);
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
   VELOX_ASSERT_RUNTIME_THROW_CODE(
       gcfs.openFileForRead(gcsFile),
@@ -185,7 +202,8 @@ TEST_F(GcsFileSystemTest, missingFile) {
 }
 
 TEST_F(GcsFileSystemTest, missingBucket) {
-  filesystems::GcsFileSystem gcfs(emulator_->hiveConfig());
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), emulator_->hiveConfig());
   gcfs.initializeClient();
   const std::string_view gcsFile = "gs://dummy/foo.txt";
   VELOX_ASSERT_RUNTIME_THROW_CODE(
@@ -243,12 +261,55 @@ TEST_F(GcsFileSystemTest, credentialsConfig) {
       {"hive.gcs.json-key-file-path", jsonFile->getPath()}};
   auto hiveConfig = emulator_->hiveConfig(configOverride);
 
-  filesystems::GcsFileSystem gcfs(hiveConfig);
+  filesystems::GcsFileSystem gcfs(
+      emulator_->preexistingBucketName(), hiveConfig);
   gcfs.initializeClient();
   const auto gcsFile = gcsURI(
       emulator_->preexistingBucketName(), emulator_->preexistingObjectName());
   VELOX_ASSERT_THROW(
       gcfs.openFileForRead(gcsFile), "Invalid ServiceAccountCredentials");
+}
+
+TEST_F(GcsFileSystemTest, credentialsProvider) {
+  const auto providerFactory =
+      [](const std::shared_ptr<connector::hive::HiveConfig>&) {
+        return std::make_shared<DummyGcsOAuthCredentialsProvider>();
+      };
+  registerGcsOAuthCredentialsProvider("dummy_provider", providerFactory);
+
+  {
+    std::unordered_map<std::string, std::string> configOverride = {
+        {"hive.gcs.auth.access-token-provider", "dummy_provider"}};
+    auto hiveConfig = emulator_->hiveConfig(configOverride);
+
+    filesystems::GcsFileSystem gcfs(
+        emulator_->preexistingBucketName(), hiveConfig);
+    VELOX_ASSERT_THROW(
+        gcfs.initializeClient(),
+        "DummyGcsOAuthCredentialsProvider: Not implemented");
+
+    VELOX_ASSERT_THROW(
+        registerGcsOAuthCredentialsProvider("", providerFactory),
+        "GcsOAuthCredentialsProviderFactory name cannot be empty");
+
+    VELOX_ASSERT_THROW(
+        registerGcsOAuthCredentialsProvider("dummy_provider", providerFactory),
+        "GcsOAuthCredentialsProviderFactory 'dummy_provider' already registered");
+  }
+
+  // Invalid provider name.
+  {
+    std::unordered_map<std::string, std::string> configOverride = {
+        {"hive.gcs.auth.access-token-provider", ""}};
+    auto hiveConfig = emulator_->hiveConfig(configOverride);
+
+    filesystems::GcsFileSystem gcfs(
+        emulator_->preexistingBucketName(), hiveConfig);
+
+    VELOX_ASSERT_THROW(
+        gcfs.initializeClient(),
+        "GcsOAuthCredentialsProviderFactory name cannot be empty");
+  }
 }
 
 TEST_F(GcsFileSystemTest, defaultCacheKey) {
