@@ -346,11 +346,16 @@ public class NativeExecutionProcess
         workerProperty.getSystemConfig()
                 .update(NativeExecutionSystemConfig.HTTP_SERVER_HTTP_PORT, String.valueOf(port));
         Map<String, Map<String, String>> catalogProperties = prestoSparkConfiguration.getCatalogProperties();
-        log.info("NATIVE EXECUTION: Writing individual catalog properties files for %d catalogs: %s",
-                    catalogProperties.size(), catalogProperties.keySet());
-        for (String catalogName : catalogProperties.keySet()) {
-            String catalogFilePath = Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE, catalogName + ".properties").toString();
-            log.info("NATIVE EXECUTION: Creating catalog file: %s", catalogFilePath);
+        if (catalogProperties != null) {
+            log.info("NATIVE EXECUTION: Writing individual catalog properties files for %d catalogs: %s",
+                        catalogProperties.size(), catalogProperties.keySet());
+            for (String catalogName : catalogProperties.keySet()) {
+                String catalogFilePath = Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE, format("%s.properties", catalogName)).toString();
+                log.info("NATIVE EXECUTION: Creating catalog file: %s", catalogFilePath);
+            }
+        }
+        else {
+            log.info("NATIVE EXECUTION: No catalog properties to write");
         }
         workerProperty.populateAllProperties(
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),

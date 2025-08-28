@@ -103,7 +103,11 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         populateProperty(connectorConfig.getAllProperties(), connectorConfigPath);
     }
 
-    public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path catalogDirectory, Map<String, Map<String, String>> catalogProperties)
+    public void populateAllProperties(
+            Path systemConfigPath,
+            Path nodeConfigPath,
+            Path catalogDirectory,
+            Map<String, Map<String, String>> catalogProperties)
             throws IOException
     {
         populateProperty(systemConfig.getAllProperties(), systemConfigPath);
