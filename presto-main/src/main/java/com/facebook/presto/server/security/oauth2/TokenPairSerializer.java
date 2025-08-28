@@ -15,8 +15,7 @@
 package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.presto.server.security.oauth2.OAuth2Client.Response;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Date;
 import java.util.Optional;
