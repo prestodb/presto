@@ -57,7 +57,16 @@ class TextReaderTest : public testing::Test,
   std::shared_ptr<LocalReadFile> readFile_;
 };
 
-TEST_F(TextReaderTest, DISABLED_basic) {
+struct TestCompressionParam {
+  std::string filepath;
+  std::string compression;
+};
+
+class TextReaderDecompressionTest
+    : public TextReaderTest,
+      public testing::WithParamInterface<TestCompressionParam> {};
+
+TEST_F(TextReaderTest, basic) {
   auto expected = makeRowVector({
       makeFlatVector<std::string>(
           {"FOO",
@@ -619,7 +628,7 @@ TEST_F(TextReaderTest, projectPrimitiveTypes) {
   }
 }
 
-TEST_F(TextReaderTest, DISABLED_projectColumns) {
+TEST_F(TextReaderTest, projectColumns) {
   auto type = ROW(
       {{"col_string", VARCHAR()},
        {"col_int", INTEGER()},
@@ -704,7 +713,7 @@ TEST_F(TextReaderTest, projectNone) {
   ASSERT_EQ(rowReader->next(10, result), 0);
 }
 
-TEST_F(TextReaderTest, DISABLED_compressedProjectNone) {
+TEST_F(TextReaderTest, compressedProjectNone) {
   // Tests the case where none of the columns are projected, e.g. a basic
   // count(*) query.
   auto type = ROW(
@@ -739,7 +748,7 @@ TEST_F(TextReaderTest, DISABLED_compressedProjectNone) {
   ASSERT_EQ(rowReader->next(10, result), 0);
 }
 
-TEST_F(TextReaderTest, DISABLED_compressedFilter) {
+TEST_F(TextReaderTest, compressedFilter) {
   auto type = ROW(
       {{"col_string", VARCHAR()},
        {"col_int", INTEGER()},
@@ -872,7 +881,7 @@ TEST_F(TextReaderTest, shrinkBatch) {
   ASSERT_EQ(rowReader->next(4, result), 0);
 }
 
-TEST_F(TextReaderTest, DISABLED_compressedShrinkBatch) {
+TEST_F(TextReaderTest, compressedShrinkBatch) {
   auto type = ROW(
       {{"col_string", VARCHAR()},
        {"col_int", INTEGER()},
@@ -904,7 +913,7 @@ TEST_F(TextReaderTest, DISABLED_compressedShrinkBatch) {
   ASSERT_EQ(rowReader->next(4, result), 0);
 }
 
-TEST_F(TextReaderTest, DISABLED_emptyFile) {
+TEST_F(TextReaderTest, emptyFile) {
   auto type = ROW({
       {"transaction_id", VARCHAR()},
       {"serial_number", VARCHAR()},
@@ -1687,6 +1696,120 @@ TEST_F(TextReaderTest, nestedRows) {
   }
   ASSERT_EQ(rowReader->next(10, result), 0);
 }
+
+TEST_P(TextReaderDecompressionTest, tests) {
+  auto [filepath, format] = GetParam();
+  auto expected = makeRowVector({
+      makeFlatVector<std::string>(
+          {"FOO",
+           "FOO",
+           "FOO",
+           "FOO",
+           "BAR",
+           "BAR",
+           "BAR",
+           "BAR",
+           "BAZ",
+           "BAZ",
+           "BAZ",
+           "BAZ"}),
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}),
+      makeFlatVector<double>(
+          {1.123,
+           2.333,
+           -6.1,
+           4.2,
+           47.2,
+           79.5,
+           3.1415926,
+           -221.145,
+           93.12,
+           -4123.11,
+           950.2,
+           43.66}),
+      makeFlatVector<bool>(
+          {true,
+           true,
+           false,
+           true,
+           false,
+           false,
+           true,
+           true,
+           false,
+           false,
+           false,
+           true}),
+  });
+
+  auto type = ROW(
+      {{"col_string", VARCHAR()},
+       {"col_int", INTEGER()},
+       {"col_float", DOUBLE()},
+       {"col_bool", BOOLEAN()}});
+  auto factory = dwio::common::getReaderFactory(dwio::common::FileFormat::TEXT);
+
+  auto path =
+      velox::test::getDataFilePath("velox/dwio/text/tests/reader/", filepath);
+  auto readFile = std::make_shared<LocalReadFile>(path);
+
+  auto readerOptions = dwio::common::ReaderOptions(pool());
+  readerOptions.setFileSchema(type);
+
+  auto input =
+      std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  auto reader = factory->createReader(std::move(input), readerOptions);
+  dwio::common::RowReaderOptions rowReaderOptions;
+  setScanSpec(*type, rowReaderOptions);
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  EXPECT_EQ(*reader->rowType(), *type);
+
+  VectorPtr result;
+
+  // Try reading 10 rows each time.
+  ASSERT_EQ(rowReader->next(10, result), 10);
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 2);
+  for (int i = 0; i < 2; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, 10 + i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+
+  input = std::make_unique<dwio::common::BufferedInput>(readFile, poolRef());
+  reader = factory->createReader(std::move(input), readerOptions);
+  rowReader = reader->createRowReader(rowReaderOptions);
+  // Try reading 2, 3, 4, 5 rows at a time.
+  ASSERT_EQ(rowReader->next(2, result), 2);
+  for (int i = 0; i < 2; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
+  }
+  ASSERT_EQ(rowReader->next(3, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, 2 + i));
+  }
+  ASSERT_EQ(rowReader->next(4, result), 4);
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, 5 + i));
+  }
+  ASSERT_EQ(rowReader->next(5, result), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(result->equalValueAt(expected.get(), i, 9 + i));
+  }
+  ASSERT_EQ(rowReader->next(10, result), 0);
+}
+
+std::vector<TestCompressionParam> params = {
+    {"examples/simple_types_compressed_file.deflate", "deflate"},
+    {"examples/simple_types_compressed_file.zst", "zstd"}};
+
+INSTANTIATE_TEST_SUITE_P(
+    TextReaderDecompressionTests,
+    TextReaderDecompressionTest,
+    testing::ValuesIn(params),
+    [](const auto& paramInfo) { return paramInfo.param.compression; });
 
 } // namespace
 

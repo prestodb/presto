@@ -32,9 +32,9 @@ using dwio::common::verify;
 using folly::AsciiCaseInsensitive;
 using folly::StringPiece;
 
-const std::string TEXTFILE_CODEC = "org.apache.hadoop.io.compress.GzipCodec";
-const std::string TEXTFILE_COMPRESSION_EXTENSION = ".gz";
-const std::string TEXTFILE_COMPRESSION_EXTENSION_RAW = ".deflate";
+constexpr const char* kTextfileCompressionExtensionGzip = ".gz";
+constexpr const char* kTextfileCompressionExtensionDeflate = ".deflate";
+constexpr const char* kTextfileCompressionExtensionZst = ".zst";
 
 static std::string emptyString = std::string();
 
@@ -91,6 +91,30 @@ void resizeVector(
   }
 }
 
+bool endsWith(const std::string& str, const std::string& suffix) {
+  return str.size() >= suffix.size() &&
+      str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+void setCompressionSettings(
+    const std::string& filename,
+    CompressionKind& kind,
+    dwio::common::compression::CompressionOptions& compressionOptions) {
+  if (endsWith(filename, kTextfileCompressionExtensionGzip)) {
+    kind = CompressionKind::CompressionKind_GZIP;
+    compressionOptions.format.zlib.windowBits =
+        15; // 2^15-byte deflate window size
+  } else if (endsWith(filename, kTextfileCompressionExtensionDeflate)) {
+    kind = CompressionKind::CompressionKind_ZLIB;
+    compressionOptions.format.zlib.windowBits =
+        -15; // raw deflate, 2^15-byte window size
+  } else if (endsWith(filename, kTextfileCompressionExtensionZst)) {
+    kind = CompressionKind::CompressionKind_ZSTD;
+  } else {
+    kind = CompressionKind::CompressionKind_NONE;
+  }
+}
+
 } // namespace
 
 FileContents::FileContents(
@@ -101,6 +125,7 @@ FileContents::FileContents(
       pool{pool},
       fileLength{0},
       compression{CompressionKind::CompressionKind_NONE},
+      compressionOptions{},
       needsEscape{} {
   needsEscape.fill(false);
   needsEscape.at(0) = true;
@@ -122,6 +147,7 @@ TextRowReader::TextRowReader(
       atEOL_{false},
       atEOF_{false},
       atSOL_{false},
+      atPhysicalEOF_{false},
       depth_{0},
       unreadIdx_{0},
       limit_{opts.limit()},
@@ -164,6 +190,45 @@ TextRowReader::TextRowReader(
       atEOF_ = true;
     }
     limit_ = std::numeric_limits<uint64_t>::max();
+
+    /**
+     * The output buffer for decompression is allocated based on the
+     * uncompressed length of the stream.
+     *
+     * For decompressors other than ZlibDecompressor, the uncompressed length is
+     * obtained via getDecompressedLength, and blockSize serves only as a
+     * fallbak when getDecompressedLength fails to return a valid length.
+     *
+     * ZlibDecompressor does not implement getDecompressedLength because the
+     * DEFLATE algorithm used by zlib does not inherently includes the
+     * uncompressed length in the compressed stream. As a result, blockSize is
+     * used to set z_stream.avail_out during decompression to ensure enough
+     * buffer allocated for the output. Since zlib requires avail_out to be a
+     * uInt (unsigned int), blockSize is set to std::numeric_limits<unsigned
+     * int>::max() for full compatibility.
+     */
+    const auto blockSize =
+        (contents_->compression == CompressionKind::CompressionKind_ZLIB ||
+         contents_->compression == CompressionKind::CompressionKind_GZIP)
+        ? std::numeric_limits<unsigned int>::max()
+        : std::numeric_limits<uint64_t>::max();
+
+    contents_->inputStream = contents_->input->loadCompleteFile();
+    auto name = contents_->inputStream->getName();
+    contents_->decompressedInputStream = createDecompressor(
+        contents_->compression,
+        std::move(contents_->inputStream),
+        blockSize,
+        contents_->pool,
+        contents_->compressionOptions,
+        fmt::format("Text Reader: Stream {}", name),
+        nullptr,
+        true,
+        contents_->fileLength);
+
+    if (opts.skipRows() > 0) {
+      (void)seekToRow(opts.skipRows());
+    }
   }
 }
 
@@ -241,9 +306,15 @@ uint64_t TextRowReader::next(
     ++currentRow_;
     ++rowsRead;
 
-    if (pos_ >= getLength()) {
-      // disable further chunk reads but parse the remainder of the line
-      atEOF_ = true;
+    bool eof = false;
+    if (contents_->compression == CompressionKind::CompressionKind_NONE) {
+      eof = pos_ >= getLength();
+    } else if (atPhysicalEOF_) {
+      eof = pos_ >= contents_->decompressedInputStream->ByteCount();
+    }
+
+    if (eof) {
+      setEOF();
     }
 
     // handle empty file
@@ -331,8 +402,7 @@ uint64_t TextRowReader::getLength() {
   return fileLength_;
 }
 
-/// TODO: COMPLETE IMPLEMENTATION WITH DECOMPRESSED STREAM
-uint64_t TextRowReader::getStreamLength() {
+uint64_t TextRowReader::getStreamLength() const {
   return contents_->input->getInputStream()->getLength();
 }
 
@@ -595,16 +665,40 @@ char TextRowReader::getByteUncheckedOptimized(DelimType& delim) {
 
   try {
     char v;
+    if (contents_->compression != CompressionKind::CompressionKind_NONE &&
+        preLoadedUnreadData_.empty()) {
+      int length = 0;
+      const void* buffer = nullptr;
+      atPhysicalEOF_ =
+          !contents_->decompressedInputStream->Next(&buffer, &length);
+      if (!atPhysicalEOF_) {
+        preLoadedUnreadData_ =
+            std::string_view(reinterpret_cast<const char*>(buffer), length);
+      }
+    }
+
     if (unreadData_.empty() || unreadIdx_ >= unreadData_.size()) {
-      int length;
-      const void* buffer;
-      if (!contents_->inputStream->Next(&buffer, &length)) {
+      bool updated = false;
+      if (contents_->compression != CompressionKind::CompressionKind_NONE) {
+        unreadData_.assign(
+            preLoadedUnreadData_.data(), preLoadedUnreadData_.size());
+        preLoadedUnreadData_ = {};
+        updated = !unreadData_.empty();
+      } else {
+        int length = 0;
+        const void* buffer = nullptr;
+        if (contents_->inputStream->Next(&buffer, &length) && length > 0) {
+          VELOX_CHECK_NOT_NULL(buffer);
+          unreadData_.assign(reinterpret_cast<const char*>(buffer), length);
+          updated = true;
+        }
+      }
+
+      if (!updated) {
         setEOF();
         delim = DelimTypeEOR;
         return '\0';
       }
-
-      unreadData_ = std::string(reinterpret_cast<const char*>(buffer), length);
       unreadIdx_ = 0;
     }
 
@@ -1402,7 +1496,8 @@ uint64_t maxStreamsForType(const std::shared_ptr<const Type>& type) {
 
 template <class T, class reqT>
 void TextRowReader::putValue(
-    std::function<T(TextRowReader& th, bool& isNull, DelimType& delim)> f,
+    const std::function<T(TextRowReader& th, bool& isNull, DelimType& delim)>&
+        f,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim) {
@@ -1505,26 +1600,10 @@ TextReader::TextReader(
       contents_->serDeOptions.nullString.compare("\n") != 0,
       "\'\\n\n is not allowed to be nullString");
 
-  // Set up the compression codec.
-  contents_->compression = CompressionKind::CompressionKind_NONE;
-  auto& filename = contents_->input->getName();
-
-  if (filename.size() > TEXTFILE_COMPRESSION_EXTENSION.size() &&
-      filename.rfind(TEXTFILE_COMPRESSION_EXTENSION) ==
-          (filename.size() - TEXTFILE_COMPRESSION_EXTENSION.size())) {
-    contents_->compression = CompressionKind::CompressionKind_ZLIB;
-  }
-
-  if (filename.size() > TEXTFILE_COMPRESSION_EXTENSION_RAW.size() &&
-      filename.rfind(TEXTFILE_COMPRESSION_EXTENSION_RAW) ==
-          (filename.size() - TEXTFILE_COMPRESSION_EXTENSION_RAW.size())) {
-    contents_->compression = CompressionKind::CompressionKind_ZLIB;
-  }
-
-  /// TODO: COMPLETE IMPLEMENTATION
-  if (contents_->compression != CompressionKind::CompressionKind_NONE) {
-    VELOX_UNSUPPORTED("Decompression not supported");
-  }
+  setCompressionSettings(
+      contents_->input->getName(),
+      contents_->compression,
+      contents_->compressionOptions);
 }
 
 std::optional<uint64_t> TextReader::numberOfRows() const {

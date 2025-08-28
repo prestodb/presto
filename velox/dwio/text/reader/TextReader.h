@@ -24,6 +24,7 @@
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/TypeWithId.h"
+#include "velox/dwio/common/compression/Compression.h"
 
 namespace facebook::velox::text {
 
@@ -48,9 +49,11 @@ struct FileContents {
 
   std::unique_ptr<BufferedInput> input;
   std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
+  std::unique_ptr<dwio::common::SeekableInputStream> decompressedInputStream;
   MemoryPool& pool;
   uint64_t fileLength;
   CompressionKind compression;
+  dwio::common::compression::CompressionOptions compressionOptions;
   SerDeOptions serDeOptions;
   std::array<bool, 128> needsEscape;
 };
@@ -133,7 +136,7 @@ class TextRowReader : public dwio::common::RowReader {
 
   uint64_t getLength();
 
-  uint64_t getStreamLength();
+  uint64_t getStreamLength() const;
 
   void setEOF();
 
@@ -197,7 +200,8 @@ class TextRowReader : public dwio::common::RowReader {
 
   template <class T, class reqT>
   void putValue(
-      std::function<T(TextRowReader& th, bool& isNull, DelimType& delim)> f,
+      const std::function<T(TextRowReader& th, bool& isNull, DelimType& delim)>&
+          f,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
@@ -215,8 +219,10 @@ class TextRowReader : public dwio::common::RowReader {
   bool atEOL_;
   bool atEOF_;
   bool atSOL_;
+  bool atPhysicalEOF_;
   uint8_t depth_;
   std::string unreadData_;
+  std::string_view preLoadedUnreadData_;
   int unreadIdx_;
   uint64_t limit_; // lowest offset not in the range
   uint64_t fileLength_;
