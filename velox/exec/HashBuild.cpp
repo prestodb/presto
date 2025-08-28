@@ -892,7 +892,7 @@ void HashBuild::processSpillInput() {
     if (!isRunning()) {
       return;
     }
-    if (operatorCtx_->driver()->shouldYield()) {
+    if (shouldYield()) {
       state_ = State::kYield;
       future_ = ContinueFuture{folly::Unit{}};
       return;

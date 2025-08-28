@@ -509,7 +509,7 @@ void RowNumber::recursiveSpillInput() {
   while (spillInputReader_->nextBatch(unspilledInput)) {
     spillInput(unspilledInput, pool());
 
-    if (operatorCtx_->driver()->shouldYield()) {
+    if (shouldYield()) {
       yield_ = true;
       return;
     }

@@ -460,6 +460,55 @@ class TestBadMemoryTranslator : public exec::Operator::PlanNodeTranslator {
     return nullptr;
   }
 };
+
+// Test operator that calls the protected shouldYield() method to verify it
+// correctly delegates to the driver's shouldYield() implementation and
+// respects CPU time slice limits.
+class TestShouldYieldOperator : public exec::Operator {
+ public:
+  TestShouldYieldOperator(
+      int32_t operatorId,
+      exec::DriverCtx* driverCtx,
+      const RowTypePtr& outputType,
+      const std::string& nodeId)
+      : Operator(driverCtx, outputType, operatorId, nodeId, "TestShouldYield") {
+  }
+
+  bool needsInput() const override {
+    return !noMoreInput_ && !input_;
+  }
+
+  void addInput(RowVectorPtr input) override {
+    input_ = std::move(input);
+  }
+
+  RowVectorPtr getOutput() override {
+    if (!input_) {
+      return nullptr;
+    }
+
+    // Test the protected shouldYield() method
+    shouldYieldResult_ = shouldYield();
+
+    return input_;
+  }
+
+  exec::BlockingReason isBlocked(ContinueFuture* /*unused*/) override {
+    return exec::BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return noMoreInput_ && !input_;
+  }
+
+  bool getShouldYieldResult() const {
+    return shouldYieldResult_;
+  }
+
+ private:
+  RowVectorPtr input_;
+  bool shouldYieldResult_{false};
+};
 } // namespace
 
 class TaskTest : public HiveConnectorTestBase {
@@ -3273,4 +3322,60 @@ DEBUG_ONLY_TEST_F(TaskTest, taskExecutionEndTime) {
       taskStats.executionEndTimeMs - taskStats.executionStartTimeMs,
       injectedDelaySecs * 1'000);
 }
+
+DEBUG_ONLY_TEST_F(TaskTest, operatorShouldYieldMethod) {
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto data = makeRowVector({
+      makeFlatVector<int64_t>(3, [](auto row) { return row; }),
+  });
+  const uint64_t kDriverCpuTimeSliceLimitMs = 100;
+
+  struct {
+    bool hasDelay;
+    std::string debugString() const {
+      return fmt::format("hasDelay: {}", hasDelay);
+    }
+  } testSetting[]{{true}, {false}};
+
+  for (const auto& testData : testSetting) {
+    SCOPED_TRACE(testData.debugString());
+    std::atomic<bool> shouldYieldResult{false};
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Values::getOutput",
+        std::function<void(const exec::Values*)>(
+            [&](const exec::Values* values) {
+              auto testShouldYieldOp =
+                  std::make_unique<TestShouldYieldOperator>(
+                      0,
+                      values->operatorCtx()->driverCtx(),
+                      ROW({"c0"}, {BIGINT()}),
+                      planNodeIdGenerator->next());
+
+              testShouldYieldOp->addInput(
+                  makeRowVector({makeFlatVector<int64_t>({1})}));
+              if (testData.hasDelay) {
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(2 * kDriverCpuTimeSliceLimitMs));
+              }
+
+              // This will test shouldYield() internally
+              testShouldYieldOp->getOutput();
+              shouldYieldResult = testShouldYieldOp->getShouldYieldResult();
+            }));
+
+    auto queryCtx = core::QueryCtx::create(
+        executor_.get(),
+        core::QueryConfig({
+            {core::QueryConfig::kDriverCpuTimeSliceLimitMs,
+             folly::to<std::string>(kDriverCpuTimeSliceLimitMs)},
+        }));
+
+    auto plan = PlanBuilder(planNodeIdGenerator).values({data}).planNode();
+    AssertQueryBuilder(plan).queryCtx(queryCtx).copyResults(pool());
+
+    ASSERT_EQ(testData.hasDelay, shouldYieldResult.load());
+  }
+}
+
 } // namespace facebook::velox::exec::test

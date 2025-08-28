@@ -251,6 +251,17 @@ RowVectorPtr NestedLoopJoinProbe::getOutput() {
     // Generate actual join output by processing probe and build matches, and
     // probe mismaches (for left joins).
     output = generateOutput();
+
+    // generateOutput() can be computationally expensive when
+    // processing large buildVectors_, as it iterates through all build rows for
+    // each probe row. The probe moves slowly through buildVectors_, making the
+    // numOutputRows_ >= outputBatchSize_ check harder to reach, which can cause
+    // driver threads to get stuck in long-running processing loops that exceed
+    // their allocated CPU time slice limits, preventing other tasks from being
+    // scheduled and degrading overall system responsiveness.
+    if (FOLLY_UNLIKELY(shouldYield())) {
+      break;
+    }
   }
   return output;
 }
