@@ -35,7 +35,9 @@ Array Functions
 
 .. function:: array_cum_sum(array(T)) -> array(T)
     Returns the array whose elements are the cumulative sum of the input array, i.e. result[i] = input[1] + input[2] +
-    … + input[i]. If there there is null elements in the array, the cumulative sum at and after the element is null. ::
+    … + input[i]. If there there is null elements in the array, the cumulative sum at and after the element is null.
+    The following types are supported: int8_t, int16_t, int32_t, int64_t, int128_t, float, double, ShortDecimal,
+    and LongDecimal. ::
 
         SELECT array_cum_sum(ARRAY [1, 2, 3]) -- array[1, 3, 6]
         SELECT array_cum_sum(ARRAY [1, 2, null, 3]) -- array[1, 3, null, null]

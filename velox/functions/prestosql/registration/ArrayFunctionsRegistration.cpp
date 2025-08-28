@@ -313,6 +313,8 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayCumSumFunction<int128_t>(prefix);
   registerArrayCumSumFunction<float>(prefix);
   registerArrayCumSumFunction<double>(prefix);
+  registerArrayCumSumFunction<LongDecimal<P1, S1>>(prefix);
+  registerArrayCumSumFunction<ShortDecimal<P1, S1>>(prefix);
 
   registerArrayHasDuplicatesFunctions<int8_t>(prefix);
   registerArrayHasDuplicatesFunctions<int16_t>(prefix);

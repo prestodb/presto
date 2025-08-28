@@ -180,4 +180,77 @@ TEST_F(ArrayCumSumTest, doubleLimits) {
        {kMax, kNan, kNan}});
   testArrayCumSum<double>(expected, input);
 }
+
+TEST_F(ArrayCumSumTest, shortDecimal) {
+  constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
+  constexpr int64_t kMin = std::numeric_limits<int64_t>::min();
+  auto input = makeNullableArrayVector<int64_t>(
+      {{}, // Empty
+       {100, 200, 300},
+       {kMax, -1, -2},
+       {kMax, kMin},
+       {kMax, kMin, kMax},
+       {std::nullopt, 500, -200, std::nullopt, 100}},
+      ARRAY(DECIMAL(10, 3)));
+
+  auto expected = makeNullableArrayVector<int64_t>(
+      {{},
+       {100, 300, 600},
+       {kMax, kMax - 1, kMax - 3},
+       {kMax, -1},
+       {kMax, -1, kMax - 1},
+       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt}},
+      ARRAY(DECIMAL(10, 3)));
+
+  testArrayCumSum<int64_t>(expected, input);
+}
+
+TEST_F(ArrayCumSumTest, shortDecimalOverflow) {
+  constexpr int64_t kMin = std::numeric_limits<int64_t>::min();
+  constexpr int64_t kMax = std::numeric_limits<int64_t>::max();
+
+  auto input = makeNullableArrayVector<int64_t>({{kMax, 1}});
+  VELOX_ASSERT_THROW(
+      evaluate("array_cum_sum(c0)", makeRowVector({input})), "overflow");
+
+  input = makeNullableArrayVector<int64_t>({{kMin, -1}});
+  VELOX_ASSERT_THROW(
+      evaluate("array_cum_sum(c0)", makeRowVector({input})), "overflow");
+}
+
+TEST_F(ArrayCumSumTest, longDecimal) {
+  auto input = makeNullableArrayVector<int128_t>(
+      {{},
+       {1, 2, 3},
+       {std::numeric_limits<int128_t>::max(), -1, -2},
+       {std::nullopt, 5, -2, std::nullopt, 1}},
+      ARRAY(DECIMAL(38, 10)));
+
+  auto expected = makeNullableArrayVector<int128_t>(
+      {{},
+       {1, 3, 6},
+       {std::numeric_limits<int128_t>::max(),
+        std::numeric_limits<int128_t>::max() - 1,
+        std::numeric_limits<int128_t>::max() - 3},
+       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt}},
+      ARRAY(DECIMAL(38, 10)));
+
+  testArrayCumSum<int128_t>(expected, input);
+}
+
+TEST_F(ArrayCumSumTest, longDecimalOverflow) {
+  constexpr int128_t kMin = std::numeric_limits<int128_t>::min();
+  constexpr int128_t kMax = std::numeric_limits<int128_t>::max();
+
+  auto input = makeNullableArrayVector<int128_t>({{kMax, 1}});
+
+  VELOX_ASSERT_THROW(
+      evaluate("array_cum_sum(c0)", makeRowVector({input})), "overflow");
+
+  input = makeNullableArrayVector<int128_t>({{kMin, -1}});
+
+  VELOX_ASSERT_THROW(
+      evaluate("array_cum_sum(c0)", makeRowVector({input})), "overflow");
+}
+
 } // namespace
