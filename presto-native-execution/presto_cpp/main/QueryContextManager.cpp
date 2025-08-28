@@ -63,7 +63,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::createAndCacheQueryCtx(
     QueryContextCache& cache,
     const QueryId& queryId,
     velox::core::QueryConfig&& queryConfig,
-    std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&& connectorConfigs,
+    std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
+        connectorConfigs,
     std::shared_ptr<memory::MemoryPool>&& pool) {
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_,
@@ -96,10 +97,12 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   // is still indexed by the query id.
   static std::atomic_uint64_t poolId{0};
   std::optional<memory::MemoryPool::DebugOptions> poolDbgOpts;
-  const auto debugMemoryPoolNameRegex = queryConfig.debugMemoryPoolNameRegex();
+  auto debugMemoryPoolNameRegex = queryConfig.debugMemoryPoolNameRegex();
   if (!debugMemoryPoolNameRegex.empty()) {
     poolDbgOpts = memory::MemoryPool::DebugOptions{
-        .debugPoolNameRegex = debugMemoryPoolNameRegex};
+        .debugPoolNameRegex = std::move(debugMemoryPoolNameRegex),
+        .debugPoolWarnThresholdBytes =
+            queryConfig.debugMemoryPoolWarnThresholdBytes()};
   }
   auto pool = memory::MemoryManager::getInstance()->addRootPool(
       fmt::format("{}_{}", queryId, poolId++),
