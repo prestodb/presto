@@ -50,6 +50,7 @@
 /presto-lark-sheets @prestodb/committers
 /presto-local-file @prestodb/committers
 /presto-main @prestodb/committers
+/presto-main-base @prestodb/committers
 /presto-matching @prestodb/committers
 /presto-memory @prestodb/committers
 /presto-memory-context @prestodb/committers
@@ -100,10 +101,10 @@ CODEOWNERS @prestodb/team-tsc
 # Presto core
 
 # Presto analyzer and optimizer
-/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
+/presto-main-base/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
 
 # Presto cost based optimizer framework
-/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
+/presto-main-base/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
 
 # Testing module
 # Note: all code owners in Presto core should be included here as well
