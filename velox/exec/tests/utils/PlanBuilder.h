@@ -29,6 +29,10 @@ namespace facebook::velox::tpch {
 enum class Table : uint8_t;
 }
 
+namespace facebook::velox::tpcds {
+enum class Table : uint8_t;
+}
+
 namespace facebook::velox::exec::test {
 
 struct PushdownConfig {
@@ -113,6 +117,8 @@ class PlanBuilder {
 
   static constexpr const std::string_view kHiveDefaultConnectorId{"test-hive"};
   static constexpr const std::string_view kTpchDefaultConnectorId{"test-tpch"};
+  static constexpr const std::string_view kTpcdsDefaultConnectorId{
+      "test-tpcds"};
 
   ///
   /// TableScan
@@ -200,6 +206,19 @@ class PlanBuilder {
       double scaleFactor = 1,
       std::string_view connectorId = kTpchDefaultConnectorId,
       const std::string& filter = "");
+
+  /// Add a TableScanNode to scan a TPC-DS table.
+  ///
+  /// @param tpcdsTableHandle The handle that specifies the target TPC-DS table
+  /// and scale factor.
+  /// @param columnNames The columns to be returned from that table.
+  /// @param scaleFactor The TPC-DS scale factor.
+  /// @param connectorId The TPC-DS connector id.
+  PlanBuilder& tpcdsTableScan(
+      tpcds::Table table,
+      std::vector<std::string> columnNames,
+      double scaleFactor = 0.01,
+      std::string_view connectorId = kTpcdsDefaultConnectorId);
 
   /// Helper class to build a custom TableScanNode.
   /// Uses a planBuilder instance to get the next plan id, memory pool, and

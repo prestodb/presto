@@ -52,6 +52,10 @@ if(${VELOX_ENABLE_TPCH_CONNECTOR})
   add_subdirectory(tpch/gen)
 endif()
 
+if(${VELOX_ENABLE_TPCDS_CONNECTOR})
+  add_subdirectory(tpcds/gen)
+endif()
+
 add_subdirectory(functions) # depends on md5 (postgresql)
 add_subdirectory(connectors)
 

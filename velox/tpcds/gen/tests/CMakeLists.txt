@@ -11,24 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-velox_add_library(velox_connector Connector.cpp)
+add_executable(velox_tpcds_gen_test TpcdsGenTest.cpp)
 
-velox_link_libraries(velox_connector velox_common_config velox_vector)
+add_test(velox_tpcds_gen_test velox_tpcds_gen_test)
 
-add_subdirectory(fuzzer)
-
-if(${VELOX_ENABLE_HIVE_CONNECTOR})
-  add_subdirectory(hive)
-endif()
-
-if(${VELOX_ENABLE_TPCH_CONNECTOR})
-  add_subdirectory(tpch)
-endif()
-
-if(${VELOX_ENABLE_TPCDS_CONNECTOR})
-  add_subdirectory(tpcds)
-endif()
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
+target_link_libraries(
+  velox_tpcds_gen_test
+  velox_tpcds_gen
+  velox_vector
+  velox_memory
+  Folly::folly
+  GTest::gtest
+  GTest::gtest_main)
