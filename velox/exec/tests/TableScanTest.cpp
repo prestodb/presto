@@ -1338,6 +1338,18 @@ TEST_F(TableScanTest, batchSize) {
     EXPECT_GT(opStats.outputPositions / opStats.outputVectors, 1);
     EXPECT_LT(opStats.outputPositions / opStats.outputVectors, numRows);
   }
+  {
+    SCOPED_TRACE("Projection");
+    plan = PlanBuilder().tableScan(ROW({}, {}), {}, "", rowType).planNode();
+    auto task = AssertQueryBuilder(plan)
+                    .splits(makeHiveConnectorSplits({filePath}))
+                    .config(
+                        QueryConfig::kPreferredOutputBatchBytes,
+                        std::to_string(1 + numRows / 8))
+                    .assertResults(makeRowVector(ROW({}, {}), numRows));
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[0];
+    EXPECT_EQ(opStats.outputVectors, 1);
+  }
 }
 
 // Test that adding the same split with the same sequence id does not cause

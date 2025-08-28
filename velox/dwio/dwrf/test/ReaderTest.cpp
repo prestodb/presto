@@ -823,7 +823,7 @@ TEST_F(TestReader, testEstimatedSize) {
     rowReaderOpts.select(cs);
 
     auto rowReader = reader->createRowReader(rowReaderOpts);
-    ASSERT_EQ(rowReader->estimatedRowSize(), 79);
+    ASSERT_EQ(rowReader->estimatedRowSize(), 67);
   }
 
   {
@@ -835,7 +835,7 @@ TEST_F(TestReader, testEstimatedSize) {
     RowReaderOptions rowReaderOpts;
     rowReaderOpts.select(cs);
     auto rowReader = reader->createRowReader(rowReaderOpts);
-    ASSERT_EQ(rowReader->estimatedRowSize(), 13);
+    ASSERT_EQ(rowReader->estimatedRowSize(), 4);
   }
 }
 

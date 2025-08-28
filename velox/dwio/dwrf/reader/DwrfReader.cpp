@@ -752,8 +752,10 @@ std::optional<size_t> DwrfRowReader::estimatedRowSizeHelper(
     case TypeKind::ARRAY:
     case TypeKind::MAP:
     case TypeKind::ROW: {
-      // start the estimate with the offsets and hasNulls vectors sizes
-      size_t totalEstimate = valueCount * (sizeof(uint8_t) + sizeof(uint64_t));
+      // Start the estimate with the offsets and sizes buffers.
+      size_t totalEstimate = nodeType.kind() == TypeKind::ROW
+          ? 0
+          : 2 * valueCount * sizeof(vector_size_t);
       for (int32_t i = 0; i < nodeType.subtypesSize(); ++i) {
         if (!shouldReadNode(nodeType.subtypes(i))) {
           continue;
