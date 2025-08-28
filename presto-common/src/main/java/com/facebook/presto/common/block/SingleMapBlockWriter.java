@@ -26,7 +26,7 @@ public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
 
     private final int offset;
     private final BlockBuilder keyBlockBuilder;

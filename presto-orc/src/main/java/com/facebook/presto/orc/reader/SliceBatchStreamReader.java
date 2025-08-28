@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
     private final SliceDirectBatchStreamReader directReader;

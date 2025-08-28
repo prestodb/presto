@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class LongOutputStreamV1
         implements LongOutputStream
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV1.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV1.class).instanceSize();
     private static final int MIN_REPEAT_SIZE = 3;
     private static final long UNMATCHABLE_DELTA_VALUE = Long.MAX_VALUE;
     private static final int MAX_DELTA = 127;

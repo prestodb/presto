@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public final class OrcInputStream
         extends InputStream
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcInputStream.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(OrcInputStream.class).instanceSize();
 
     private static final long VARINT_MASK = 0x8080_8080_8080_8080L;
     private static final int MAX_VARINT_LENGTH = 10;

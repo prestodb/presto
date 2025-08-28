@@ -62,7 +62,7 @@ public class SortingFileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortingFileWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SortingFileWriter.class).instanceSize();
 
     private final FileSystem fileSystem;
     private final Path tempFilePrefix;

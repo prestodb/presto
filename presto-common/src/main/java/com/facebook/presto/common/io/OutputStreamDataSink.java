@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class OutputStreamDataSink
         implements DataSink
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamDataSink.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamDataSink.class).instanceSize();
 
     private final OutputStreamSliceOutput output;
 

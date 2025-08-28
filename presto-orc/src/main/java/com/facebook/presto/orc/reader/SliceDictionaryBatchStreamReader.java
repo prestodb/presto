@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDictionaryBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBatchStreamReader.class).instanceSize();
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary

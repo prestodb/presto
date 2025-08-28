@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class PageFileWriter
         implements HiveFileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PageFileWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PageFileWriter.class).instanceSize();
 
     private final PageWriter pageWriter;
     private final PagesSerde pagesSerde;

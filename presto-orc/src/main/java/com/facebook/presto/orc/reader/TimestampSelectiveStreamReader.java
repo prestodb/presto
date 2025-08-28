@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TimestampSelectiveStreamReader.class).instanceSize();
     private static final Block NULL_BLOCK = TIMESTAMP.createBlockBuilder(null, 1).appendNull().build();
 
     private final StreamDescriptor streamDescriptor;

@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class BinaryDeltaValuesDecoder
         implements BinaryValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryDeltaValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryDeltaValuesDecoder.class).instanceSize();
 
     private final ValuesReader innerReader;
 

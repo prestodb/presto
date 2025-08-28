@@ -98,7 +98,7 @@ public class ThetaSketchStateFactory
             extends AbstractGroupedAccumulatorState
             implements ThetaSketchAggregationState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedThetaSketchState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedThetaSketchState.class).instanceSize();
         private final ObjectBigArray<Union> sketches = new ObjectBigArray<>();
         private long sizeBytes;
 

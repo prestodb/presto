@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ColumnarArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnarArray.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ColumnarArray.class).instanceSize();
 
     private final Block nullCheckBlock;
     private final int offsetsOffset;

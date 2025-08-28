@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class PageWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PageWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PageWriter.class).instanceSize();
 
     private final DataSink dataSink;
     private final HiveCompressionCodec compressionCodec;

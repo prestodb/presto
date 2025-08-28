@@ -65,7 +65,7 @@ import static java.util.Objects.requireNonNull;
 public class ListSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ListSelectiveStreamReader.class).instanceSize();
     private static final int ELEMENT_LENGTH_UNBOUNDED = -1;
 
     private final StreamDescriptor streamDescriptor;

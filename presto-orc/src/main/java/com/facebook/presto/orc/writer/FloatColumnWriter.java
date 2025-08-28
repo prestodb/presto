@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class FloatColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnWriter.class).instanceSize();
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
     private static final long TYPE_SIZE = Float.BYTES;
 

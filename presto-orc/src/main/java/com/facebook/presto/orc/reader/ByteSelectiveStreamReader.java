@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class ByteSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ByteSelectiveStreamReader.class).instanceSize();
     private static final Block NULL_BLOCK = TINYINT.createBlockBuilder(null, 1).appendNull().build();
 
     private final StreamDescriptor streamDescriptor;

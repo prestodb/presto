@@ -36,7 +36,7 @@ import static java.lang.Math.toIntExact;
 public class StreamSummary
         implements PriorityQueueDataChangeListener
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StreamSummary.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StreamSummary.class).instanceSize();
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final float FILL_RATIO = 0.75f;
     private static final int COMPACT_THRESHOLD_RATIO = 3;

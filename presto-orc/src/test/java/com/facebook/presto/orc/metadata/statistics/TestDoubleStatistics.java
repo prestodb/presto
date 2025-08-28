@@ -24,7 +24,7 @@ import static org.testng.Assert.assertThrows;
 public class TestDoubleStatistics
         extends AbstractRangeStatisticsTest<DoubleStatistics, Double>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
 
     @Override
     protected DoubleStatistics getCreateStatistics(Double min, Double max)

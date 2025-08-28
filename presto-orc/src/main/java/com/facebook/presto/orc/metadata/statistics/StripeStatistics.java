@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 
 public class StripeStatistics
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StripeStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StripeStatistics.class).instanceSize();
 
     private final List<ColumnStatistics> columnStatistics;
     private final long retainedSizeInBytes;

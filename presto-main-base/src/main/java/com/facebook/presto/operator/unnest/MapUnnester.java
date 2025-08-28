@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 class MapUnnester
         implements Unnester
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapUnnester.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapUnnester.class).instanceSize();
 
     private final UnnestBlockBuilder keyUnnestBlockBuilder;
     private final UnnestBlockBuilder valueUnnestBlockBuilder;

@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class BinaryLongDecimalDeltaValuesDecoder
         implements LongDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryLongDecimalDeltaValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryLongDecimalDeltaValuesDecoder.class).instanceSize();
 
     private final BinaryDeltaValuesDecoder delegate;
 

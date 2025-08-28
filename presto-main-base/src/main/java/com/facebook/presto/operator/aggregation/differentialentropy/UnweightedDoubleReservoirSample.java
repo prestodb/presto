@@ -30,7 +30,7 @@ public class UnweightedDoubleReservoirSample
         implements Cloneable
 {
     public static final int MAX_SAMPLES_LIMIT = 1_000_000;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnweightedDoubleReservoirSample.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(UnweightedDoubleReservoirSample.class).instanceSize();
 
     private int seenCount;
     private double[] samples;

@@ -52,7 +52,7 @@ public class ArrayBlockEncodingBuffer
     static final int POSITION_SIZE = SIZE_OF_INT + SIZE_OF_BYTE;
 
     private static final String NAME = "ARRAY";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockEncodingBuffer.class).instanceSize();
 
     // The buffer for the offsets for all incoming blocks so far
     private byte[] offsetsBuffer;

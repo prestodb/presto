@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public final class Rectangle
         implements HasExtent
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
     private static final Rectangle UNIVERSE_RECTANGLE = new Rectangle(
             Double.NEGATIVE_INFINITY,
             Double.NEGATIVE_INFINITY,
