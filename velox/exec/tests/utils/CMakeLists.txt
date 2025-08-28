@@ -62,21 +62,3 @@ target_link_libraries(
   velox_functions_prestosql
   velox_aggregates
 )
-
-if(${VELOX_BUILD_RUNNER})
-  add_library(velox_exec_runner_test_util DistributedPlanBuilder.cpp
-                                          LocalRunnerTestBase.cpp)
-
-  target_link_libraries(
-    velox_exec_runner_test_util
-    velox_temp_path
-    velox_exec_test_lib
-    velox_exec
-    velox_file_test_utils
-    velox_hive_connector
-    velox_tpch_connector
-    velox_tpcds_connector
-    velox_local_runner
-  )
-
-endif()

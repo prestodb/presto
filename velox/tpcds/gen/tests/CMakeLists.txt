@@ -22,4 +22,5 @@ target_link_libraries(
   velox_memory
   Folly::folly
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

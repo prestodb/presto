@@ -76,7 +76,8 @@ velox_add_library(
   w_web_page.cpp
   w_web_returns.cpp
   w_web_sales.cpp
-  w_web_site.cpp)
+  w_web_site.cpp
+)
 
 velox_include_directories(velox_tpcds_dsdgen PRIVATE include)
 velox_link_libraries(velox_tpcds_dsdgen velox_tpcds_append_info Folly::folly)
