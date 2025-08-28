@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.TypeSignature;
@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.builtin.tools.WorkerFunctionUtil.convertApplicableTypeToVariable;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManager.convertApplicableTypeToVariable;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

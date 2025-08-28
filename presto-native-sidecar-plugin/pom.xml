@@ -229,6 +229,10 @@
             <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-built-in-worker-function-tools</artifactId>
+        </dependency>
     </dependencies>
 
     <profiles>
