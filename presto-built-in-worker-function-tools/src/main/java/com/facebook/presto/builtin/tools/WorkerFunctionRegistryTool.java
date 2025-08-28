@@ -11,28 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.builtin.tools;
 
-import com.facebook.drift.annotations.ThriftEnum;
-import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.presto.spi.function.SqlFunction;
 
-@ThriftEnum
-public enum BuiltInFunctionKind
+import java.util.List;
+
+public interface WorkerFunctionRegistryTool
 {
-    ENGINE(0),
-    PLUGIN(1),
-    WORKER(2);
-
-    private final int value;
-
-    BuiltInFunctionKind(int value)
-    {
-        this.value = value;
-    }
-
-    @ThriftEnumValue
-    public int getValue()
-    {
-        return value;
-    }
+    List<? extends SqlFunction> getWorkerFunctions();
 }

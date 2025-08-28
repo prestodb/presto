@@ -123,6 +123,7 @@ public class PrestoNativeQueryRunnerUtils
         private String security;
         private boolean addStorageFormatToPath;
         private boolean coordinatorSidecarEnabled;
+        private boolean builtInWorkerFunctionsEnabled;
         private boolean enableRuntimeMetricsCollection;
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
@@ -218,6 +219,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setBuiltInWorkerFunctionsEnabled(boolean builtInWorkerFunctionsEnabled)
+        {
+            this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setStorageFormat(String storageFormat)
         {
             this.storageFormat = storageFormat;
@@ -261,7 +268,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        failOnNestedLoopJoin, coordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache);
+                        failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -350,7 +357,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false, false);
+                        false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -446,6 +453,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<String> remoteFunctionServerUds,
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
+            boolean isBuiltInWorkerFunctionsEnabled,
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache)
     {
@@ -467,6 +475,10 @@ public class PrestoNativeQueryRunnerUtils
                             configProperties = format("%s%n" +
                                     "native-sidecar=true%n" +
                                     "presto.default-namespace=native.default%n", configProperties);
+                        }
+                        else if (isBuiltInWorkerFunctionsEnabled) {
+                            configProperties = format("%s%n" +
+                                    "native-sidecar=true%n", configProperties);
                         }
 
                         if (enableRuntimeMetricsCollection) {
