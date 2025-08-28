@@ -488,7 +488,7 @@ VectorPtr TableEvolutionFuzzer::liftToType(
 
 void TableEvolutionFuzzer::run() {
   ScopedOOMInjector oomInjectorWritePath(
-      []() -> bool { return folly::Random::oneIn(10); },
+      [this]() -> bool { return folly::Random::oneIn(10, rng_); },
       10); // Check the condition every 10 ms.
   if (FLAGS_enable_oom_injection_write_path) {
     oomInjectorWritePath.enable();
@@ -619,7 +619,7 @@ void TableEvolutionFuzzer::run() {
       makeScanTask(rowType, std::move(expectedSplits), pushownConfig, true);
 
   ScopedOOMInjector oomInjectorReadPath(
-      []() -> bool { return folly::Random::oneIn(10); },
+      [this]() -> bool { return folly::Random::oneIn(10, rng_); },
       10); // Check the condition every 10 ms.
   if (FLAGS_enable_oom_injection_read_path) {
     oomInjectorReadPath.enable();
@@ -792,7 +792,9 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeWriteTask(
     const Setup& setup,
     const RowVectorPtr& data,
     const std::string& outputDir,
-    const std::vector<column_index_t>& bucketColumnIndices) {
+    const std::vector<column_index_t>& bucketColumnIndices,
+    FuzzerGenerator& rng,
+    bool enableFlatMap) {
   auto builder = PlanBuilder().values({data});
 
   // Create serdeParameters using proper dwrf::Config for flatmap configuration
@@ -811,7 +813,7 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeWriteTask(
 
         if (!hasUnsupportedMapKey(setup.schema->childAt(i))) {
           // %50 chance to enable flatmap for this map column.
-          if (folly::Random::oneIn(2)) {
+          if (enableFlatMap && folly::Random::oneIn(2, rng)) {
             supportedMapColumnIndices.push_back(static_cast<uint32_t>(i));
           }
         }
@@ -988,8 +990,8 @@ void TableEvolutionFuzzer::createWriteTasks(
     }
     auto actualDir = fmt::format("{}/actual_{}", tableOutputRootDirPath, i);
     VELOX_CHECK(std::filesystem::create_directory(actualDir));
-    writeTasks[2 * i] =
-        makeWriteTask(testSetups[i], data, actualDir, bucketColumnIndices);
+    writeTasks[2 * i] = makeWriteTask(
+        testSetups[i], data, actualDir, bucketColumnIndices, rng_, false);
 
     if (i == config_.evolutionCount - 1) {
       finalExpectedData = std::move(data);
@@ -1001,7 +1003,12 @@ void TableEvolutionFuzzer::createWriteTasks(
         liftToType(data, testSetups.back().schema));
 
     writeTasks[2 * i + 1] = makeWriteTask(
-        testSetups.back(), expectedData, expectedDir, bucketColumnIndices);
+        testSetups.back(),
+        expectedData,
+        expectedDir,
+        bucketColumnIndices,
+        rng_,
+        false);
   }
 }
 
