@@ -144,7 +144,7 @@ public class CoordinatorModule
 {
     private static final String DEFAULT_WEBUI_CSP =
             "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                    "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:";
+                    "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src 'self' http: https: data:; form-action 'self'";
 
     public static HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
     {
