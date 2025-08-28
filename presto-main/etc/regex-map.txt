@@ -1,0 +1,3 @@
+user=.*
+internal=coordinator
+admin=su.*
