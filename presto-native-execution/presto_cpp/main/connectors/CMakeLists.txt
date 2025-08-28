@@ -21,7 +21,7 @@ endif()
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_connectors velox_cudf_parquet_connector
-                        cudf::cudf)
+                        ucxx::ucxx cudf::cudf)
 endif()
 
 target_link_libraries(presto_connectors presto_velox_expr_conversion

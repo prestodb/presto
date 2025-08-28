@@ -121,6 +121,7 @@ if(PRESTO_ENABLE_CUDF)
   set(VELOX_ENABLE_PARSE ON)
   set(VELOX_ENABLE_DUCKDB ON)
   add_compile_definitions(PRESTO_ENABLE_CUDF)
+  add_compile_definitions(VELOX_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)

@@ -28,7 +28,6 @@
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
-#include "velox/experimental/cudf/exec/ToCudf.h"
 
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/connectors/parquet/ParquetConnector.h"
