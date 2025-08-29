@@ -107,15 +107,19 @@ extern const SortOrder kDescNullsLast;
 struct PlanSummaryOptions {
   /// Options that apply specifically to PROJECT nodes.
   struct ProjectOptions {
-    /// For a given PROJECT node, maximum number of non-identity projection
-    /// expressions to include in the summary. By default, no expression is
-    /// included.
+    /// For a given PROJECT node, maximum number of non-identity and
+    /// non-constant projection expressions to include in the summary. By
+    /// default, no expression is included.
     size_t maxProjections = 0;
 
     /// For a given PROJECT node, maximum number of dereference (access of a
     /// struct field) expressions to include in the summary. By default, no
     /// expression is included.
     size_t maxDereferences = 0;
+
+    /// For a given PROJECT node, maximum number of constant expressions to
+    /// include in the summary. By default, no expression is included.
+    size_t maxConstants = 0;
   };
 
   ProjectOptions project = {};

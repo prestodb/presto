@@ -857,7 +857,11 @@ class SummarizeExprVisitor : public ITypedExprVisitor {
   void visit(const FieldAccessTypedExpr& expr, ITypedExprVisitorContext& ctx)
       const override {
     auto& myCtx = static_cast<Context&>(ctx);
-    myCtx.expressionCounts()["field"]++;
+    if (expr.isInputColumn()) {
+      myCtx.expressionCounts()["field"]++;
+    } else {
+      myCtx.expressionCounts()["dereference"]++;
+    }
     visitInputs(expr, ctx);
   }
 
@@ -986,6 +990,12 @@ void AbstractProjectNode::addSummaryDetails(
   SummarizeExprVisitor::Context exprCtx;
   SummarizeExprVisitor visitor;
   for (const auto& projection : projections_) {
+    // Skip identity projections.
+    if (projection->isFieldAccessKind() &&
+        projection->asUnchecked<FieldAccessTypedExpr>()->isInputColumn()) {
+      continue;
+    }
+
     projection->accept(visitor, exprCtx);
   }
 
@@ -1000,12 +1010,17 @@ void AbstractProjectNode::addSummaryDetails(
   std::vector<size_t> dereferences;
   dereferences.reserve(numFields);
 
+  std::vector<size_t> constants;
+  constants.reserve(numFields);
+
   for (auto i = 0; i < numFields; ++i) {
     const auto& expr = projections_[i];
-    if (dynamic_cast<const DereferenceTypedExpr*>(expr.get())) {
+    if (expr->isDereferenceKind()) {
       dereferences.push_back(i);
+    } else if (expr->isConstantKind()) {
+      constants.push_back(i);
     } else {
-      auto fae = dynamic_cast<const FieldAccessTypedExpr*>(expr.get());
+      auto fae = expr->asUnchecked<FieldAccessTypedExpr>();
       if (fae == nullptr) {
         projections.push_back(i);
       } else if (!fae->isInputColumn()) {
@@ -1015,33 +1030,53 @@ void AbstractProjectNode::addSummaryDetails(
   }
 
   // projections: 4 out of 10
-  stream << indentation << "projections: " << projections.size() << " out of "
-         << numFields << std::endl;
-  {
-    const auto cnt =
-        std::min(options.project.maxProjections, projections.size());
-    appendProjections(
-        indentation + "   ",
-        *this,
-        projections,
-        cnt,
-        stream,
-        options.maxLength);
+  if (!projections.empty()) {
+    stream << indentation << "projections: " << projections.size() << " out of "
+           << numFields << std::endl;
+    {
+      const auto cnt =
+          std::min(options.project.maxProjections, projections.size());
+      appendProjections(
+          indentation + "   ",
+          *this,
+          projections,
+          cnt,
+          stream,
+          options.maxLength);
+    }
   }
 
   // dereferences: 2 out of 10
-  stream << indentation << "dereferences: " << dereferences.size() << " out of "
-         << numFields << std::endl;
-  {
-    const auto cnt =
-        std::min(options.project.maxDereferences, dereferences.size());
-    appendProjections(
-        indentation + "   ",
-        *this,
-        dereferences,
-        cnt,
-        stream,
-        options.maxLength);
+  if (!dereferences.empty()) {
+    stream << indentation << "dereferences: " << dereferences.size()
+           << " out of " << numFields << std::endl;
+    {
+      const auto cnt =
+          std::min(options.project.maxDereferences, dereferences.size());
+      appendProjections(
+          indentation + "   ",
+          *this,
+          dereferences,
+          cnt,
+          stream,
+          options.maxLength);
+    }
+  }
+
+  // constants: 1 out of 10
+  if (!constants.empty()) {
+    stream << indentation << "constant projections: " << constants.size()
+           << " out of " << numFields << std::endl;
+    {
+      const auto cnt = std::min(options.project.maxConstants, constants.size());
+      appendProjections(
+          indentation + "   ",
+          *this,
+          constants,
+          cnt,
+          stream,
+          options.maxLength);
+    }
   }
 }
 
