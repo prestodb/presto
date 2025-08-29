@@ -104,6 +104,8 @@ class ShuffleWriteOperator : public Operator {
             "collect");
       }
     }
+    auto lockedStats = stats_.wlock();
+    lockedStats->addOutputVector(input->estimateFlatSize(), input->size());
   }
 
   void noMoreInput() override {
