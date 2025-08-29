@@ -139,7 +139,7 @@ public class TestBuiltInConnectorFunctions
                         }
 
                         @Override
-                        public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+                        public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
                         {
                             return metadata;
                         }
