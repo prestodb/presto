@@ -24,6 +24,8 @@ import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
+import com.facebook.presto.spi.eventlistener.OutputColumn;
+import com.facebook.presto.spi.eventlistener.SourceColumn;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.security.AccessControl;
@@ -199,6 +201,10 @@ public class Analysis
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
+    private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
+    private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
+
+    private Optional<List<OutputColumn>> updatedSourceColumns = Optional.empty();
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
         this.root = root;
@@ -1037,6 +1043,38 @@ public class Analysis
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
     {
         return columnMaskScopes.contains(new ColumnMaskScopeEntry(table, column, identity));
+    }
+
+    public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn)
+    {
+        originColumnDetails.putAll(field, sourceColumn);
+    }
+
+    public Set<SourceColumn> getSourceColumns(Field field)
+    {
+        return ImmutableSet.copyOf(originColumnDetails.get(field));
+    }
+
+    public void addExpressionFields(Expression expression, Collection<Field> fields)
+    {
+        fieldLineage.putAll(NodeRef.of(expression), fields);
+    }
+
+    public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
+    {
+        return fieldLineage.get(NodeRef.of(expression)).stream()
+                .flatMap(field -> getSourceColumns(field).stream())
+                .collect(toImmutableSet());
+    }
+
+    public void setUpdateSourceColumns(Optional<List<OutputColumn>> targetColumns)
+    {
+        this.updatedSourceColumns = targetColumns;
+    }
+
+    public Optional<List<OutputColumn>> getUpdateSourceColumns()
+    {
+        return updatedSourceColumns;
     }
 
     public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)

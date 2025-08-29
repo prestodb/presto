@@ -25,6 +25,7 @@ import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
@@ -374,10 +375,13 @@ public class TestEventListenerManager
         List<QueryInputMetadata> inputs = new ArrayList<>();
         QueryInputMetadata queryInputMetadata = getQueryInputMetadata();
         inputs.add(queryInputMetadata);
-        Column column1 = new Column("column1", "int");
-        Column column2 = new Column("column2", "varchar");
-        Column column3 = new Column("column3", "varchar");
-        List<Column> columns = Arrays.asList(column1, column2, column3);
+        OutputColumnMetadata column1 = new OutputColumnMetadata("column1", "int", new HashSet<>());
+        OutputColumnMetadata column2 = new OutputColumnMetadata("column2", "varchar", new HashSet<>());
+        OutputColumnMetadata column3 = new OutputColumnMetadata("column3", "varchar", new HashSet<>());
+        List<OutputColumnMetadata> columns = new ArrayList<>();
+        columns.add(column1);
+        columns.add(column2);
+        columns.add(column3);
         QueryOutputMetadata outputMetadata = new QueryOutputMetadata(
                 "dummyCatalog",
                 "dummySchema",

@@ -47,6 +47,9 @@ import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.eventlistener.Column;
+import com.facebook.presto.spi.eventlistener.OutputColumn;
+import com.facebook.presto.spi.eventlistener.SourceColumn;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -178,6 +181,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Streams;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -191,6 +195,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
@@ -313,6 +318,7 @@ import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 
 class StatementAnalyzer
 {
@@ -464,6 +470,20 @@ class StatementAnalyzer
             analysis.setInsert(new Analysis.Insert(
                     tableColumnsMetadata.getTableHandle().get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+
+            List<Type> types = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
+
+            Stream<Column> columnStream = Streams.zip(
+                    insertColumns.stream(),
+                    types.stream()
+                            .map(Type::toString),
+                    Column::new);
+
+            analysis.setUpdateSourceColumns(Optional.of(Streams.zip(
+                    columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
+                    .collect(toList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
         }
@@ -693,21 +713,34 @@ class StatementAnalyzer
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
 
+            ImmutableList.Builder<OutputColumn> outputColumns = ImmutableList.builder();
+
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
-
+                int aliasPosition = 0;
                 // analyze only column types in subquery if column alias exists
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
+                    String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
+                    outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
+                    aliasPosition++;
                 }
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
+                queryScope.getRelationType().getVisibleFields().stream()
+                        .map(this::createOutputColumn)
+                        .forEach(outputColumns::add);
             }
-
+            analysis.setUpdateSourceColumns(Optional.of(outputColumns.build()));
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+        }
+
+        private OutputColumn createOutputColumn(Field field)
+        {
+            return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
         }
 
         @Override
@@ -1180,7 +1213,7 @@ class StatementAnalyzer
                     .filter(option -> option instanceof ExplainFormat)
                     .map(ExplainFormat.class::cast)
                     .map(ExplainFormat::getType)
-                    .collect(Collectors.toList());
+                    .collect(toList());
             checkState(formats.size() <= 1, "only a single format option is supported in EXPLAIN ANALYZE");
             formats.stream().findFirst().ifPresent(format -> checkState(format.equals(TEXT) || format.equals(JSON),
                     "only TEXT and JSON formats are supported in EXPLAIN ANALYZE"));
@@ -1296,7 +1329,7 @@ class StatementAnalyzer
                         Iterator<Field> visibleFieldsIterator = queryDescriptor.getVisibleFields().iterator();
                         for (Identifier columnName : columnNames.get()) {
                             Field inputField = visibleFieldsIterator.next();
-                            fieldBuilder.add(Field.newQualified(
+                            Field field = Field.newQualified(
                                     columnName.getLocation(),
                                     QualifiedName.of(name),
                                     Optional.of(columnName.getValue()),
@@ -1304,23 +1337,29 @@ class StatementAnalyzer
                                     false,
                                     inputField.getOriginTable(),
                                     inputField.getOriginColumnName(),
-                                    inputField.isAliased()));
+                                    inputField.isAliased());
+                            fieldBuilder.add(field);
+                            analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                         }
 
                         fields = fieldBuilder.build();
                     }
                     else {
-                        fields = queryDescriptor.getAllFields().stream()
-                                .map(field -> Field.newQualified(
-                                        field.getNodeLocation(),
-                                        QualifiedName.of(name),
-                                        field.getName(),
-                                        field.getType(),
-                                        field.isHidden(),
-                                        field.getOriginTable(),
-                                        field.getOriginColumnName(),
-                                        field.isAliased()))
-                                .collect(toImmutableList());
+                        ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
+                        for (Field inputField : queryDescriptor.getAllFields()) {
+                            Field field = Field.newQualified(
+                                    inputField.getNodeLocation(),
+                                    QualifiedName.of(name),
+                                    inputField.getName(),
+                                    inputField.getType(),
+                                    inputField.isHidden(),
+                                    inputField.getOriginTable(),
+                                    inputField.getOriginColumnName(),
+                                    inputField.isAliased());
+                            fieldBuilder.add(field);
+                            analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
+                        }
+                        fields = fieldBuilder.build();
                     }
 
                     return createAndAssignScope(table, scope, fields);
@@ -1388,6 +1427,7 @@ class StatementAnalyzer
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
+                analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, column.getName())));
             }
 
             analysis.registerTable(table, tableHandle.get());
@@ -1712,13 +1752,24 @@ class StatementAnalyzer
             }
 
             List<String> aliases = null;
+            Collection<Field> inputFields = relationType.getAllFields();
             if (relation.getColumnNames() != null) {
                 aliases = relation.getColumnNames().stream()
                         .map(Identifier::getValue)
-                        .collect(Collectors.toList());
+                        .collect(toList());
+                inputFields = relationType.getVisibleFields();
             }
 
             RelationType descriptor = relationType.withAlias(relation.getAlias().getValue(), aliases);
+            checkArgument(inputFields.size() == descriptor.getAllFieldCount(),
+                    "Expected %s fields, got %s",
+                    descriptor.getAllFieldCount(),
+                    inputFields.size());
+
+            Streams.forEachPair(
+                    descriptor.getAllFields().stream(),
+                    inputFields.stream(),
+                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
 
             return createAndAssignScope(relation, scope, descriptor);
         }
@@ -1918,6 +1969,14 @@ class StatementAnalyzer
                         oldField.getOriginTable(),
                         oldField.getOriginColumnName(),
                         oldField.isAliased());
+
+                int index = i;
+                analysis.addSourceColumns(
+                        outputDescriptorFields[index],
+                        relationScopes.stream()
+                                .map(relationType -> relationType.getRelationType().getFieldByIndex(index))
+                                .flatMap(field -> analysis.getSourceColumns(field).stream())
+                                .collect(toImmutableSet()));
             }
 
             for (int i = 0; i < node.getRelations().size(); i++) {
@@ -2478,7 +2537,7 @@ class StatementAnalyzer
                         .map(SqlFunction::getSignature)
                         .map(Signature::getName)
                         .map(QualifiedObjectName::getObjectName)
-                        .collect(Collectors.toList());
+                        .collect(toList());
                 if (builtInFunctionNames.contains(functionName.toString())) {
                     throw new SemanticException(INVALID_FUNCTION_NAME, node, format("Function %s is already registered as a built-in function.", functionName));
                 }
@@ -2668,6 +2727,7 @@ class StatementAnalyzer
                     Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                     for (Field field : sourceScope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
+                        analysis.addSourceColumns(field, analysis.getSourceColumns(field));
                         outputFields.add(Field.newUnqualified(node.getSelect().getLocation(), field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
                     }
                 }
@@ -2701,8 +2761,14 @@ class StatementAnalyzer
                             field = Optional.of(name.getOriginalSuffix());
                         }
                     }
-
-                    outputFields.add(Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent());
+                    if (originTable.isPresent()) {
+                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
+                    }
+                    else {
+                        analysis.addSourceColumns(newField, analysis.getExpressionSourceColumns(expression));
+                    }
+                    outputFields.add(newField);
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());

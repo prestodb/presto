@@ -50,6 +50,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
@@ -62,6 +63,7 @@ import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
+import com.facebook.presto.spi.eventlistener.SourceColumn;
 import com.facebook.presto.spi.eventlistener.StageStatistics;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -93,6 +95,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistri
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -600,11 +603,14 @@ public class QueryMonitor
                     .map(TableFinishInfo.class::cast)
                     .findFirst();
 
-            Optional<List<Column>> outputColumns = queryInfo.getOutput().get().getColumns()
+            Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
                     .map(columns -> columns.stream()
-                            .map(column -> new Column(
-                                    column.getName(),
-                                    column.getType()))
+                            .map(column -> new OutputColumnMetadata(
+                                    column.getColumn().getName(),
+                                    column.getColumn().getType(),
+                                    column.getSourceColumns().stream()
+                                            .map(SourceColumn::getColumnDetail)
+                                            .collect(toImmutableSet())))
                             .collect(toImmutableList()));
 
             output = Optional.of(
@@ -615,7 +621,7 @@ public class QueryMonitor
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
                             queryInfo.getOutput().get().getSerializedCommitOutput(),
-                            outputColumns));
+                            outputColumnsMetadata));
         }
 
         return new QueryIOMetadata(inputs.build(), output);
