@@ -14,6 +14,7 @@
 package com.facebook.presto.functions;
 
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.scalar.sql.ArrayIntersectFunction;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -50,6 +51,16 @@ public class TestPluginLoadedDuplicateSqlInvokedFunctions
         {
             return ImmutableSet.<Class<?>>builder()
                     .add(TestDuplicateSqlInvokedFunctions.class)
+                    .build();
+        }
+
+        @Override
+        public Set<Class<?>> getFunctions()
+        {
+            return ImmutableSet.<Class<?>>builder()
+                    .add(TestFunctions.class)
+                    // Adding a SQL Invoked function in the built-in functions to mimic a conflict.
+                    .add(ArrayIntersectFunction.class)
                     .build();
         }
     }

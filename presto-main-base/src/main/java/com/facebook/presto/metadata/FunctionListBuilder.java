@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.annotations.CodegenScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
-import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.WindowFunction;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
@@ -58,18 +56,6 @@ public class FunctionListBuilder
     public FunctionListBuilder scalars(Class<?> clazz)
     {
         functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
-        return this;
-    }
-
-    public FunctionListBuilder sqlInvokedScalar(Class<?> clazz)
-    {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz, JAVA_BUILTIN_NAMESPACE));
-        return this;
-    }
-
-    public FunctionListBuilder sqlInvokedScalars(Class<?> clazz)
-    {
-        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, JAVA_BUILTIN_NAMESPACE));
         return this;
     }
 

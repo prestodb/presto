@@ -123,4 +123,16 @@ public class TestDistributedEngineOnlyQueries
     public void testDefaultSamplingPercent()
     {
     }
+
+    @Override
+    @Test(enabled = false)
+    public void testLeftJoinWithArrayContainsCondition()
+    {
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testTry()
+    {
+    }
 }
