@@ -59,6 +59,7 @@ public abstract class AbstractTestFunctions
     private final FeaturesConfig featuresConfig;
     private final FunctionsConfig functionsConfig;
     protected FunctionAssertions functionAssertions;
+    private final boolean loadInlinedSqlInvokedFunctionsPlugin;
 
     protected AbstractTestFunctions()
     {
@@ -82,17 +83,22 @@ public abstract class AbstractTestFunctions
 
     protected AbstractTestFunctions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
+        this(session, featuresConfig, functionsConfig, true);
+    }
+    protected AbstractTestFunctions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean loadInlinedSqlInvokedFunctionsPlugin)
+    {
         this.session = requireNonNull(session, "session is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.functionsConfig = requireNonNull(functionsConfig, "config is null")
                 .setLegacyLogFunction(true)
                 .setUseNewNanDefinition(true);
+        this.loadInlinedSqlInvokedFunctionsPlugin = loadInlinedSqlInvokedFunctionsPlugin;
     }
 
     @BeforeClass
     public final void initTestFunctions()
     {
-        functionAssertions = new FunctionAssertions(session, featuresConfig, functionsConfig, false);
+        functionAssertions = new FunctionAssertions(session, featuresConfig, functionsConfig, false, loadInlinedSqlInvokedFunctionsPlugin);
     }
 
     @AfterClass(alwaysRun = true)

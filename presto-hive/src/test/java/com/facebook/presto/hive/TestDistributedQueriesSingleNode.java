@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
@@ -32,11 +33,13 @@ public class TestDistributedQueriesSingleNode
     {
         ImmutableMap.Builder<String, String> coordinatorProperties = ImmutableMap.builder();
         coordinatorProperties.put("single-node-execution-enabled", "true");
-        return HiveQueryRunner.createQueryRunner(
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
                 getTables(),
                 ImmutableMap.of(),
                 coordinatorProperties.build(),
                 Optional.empty());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override

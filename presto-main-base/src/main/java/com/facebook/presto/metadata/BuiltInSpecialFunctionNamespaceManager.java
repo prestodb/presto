@@ -58,7 +58,7 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
 {
     protected volatile FunctionMap functions = new FunctionMap();
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final Supplier<FunctionMap> cachedFunctions =
+    protected final Supplier<FunctionMap> cachedFunctions =
             Suppliers.memoize(this::createFunctionMap);
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
@@ -212,12 +212,16 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
         return getScalarFunctionImplementation(((BuiltInFunctionHandle) functionHandle).getSignature());
     }
 
-    private synchronized FunctionMap createFunctionMap()
+    protected Collection<? extends SqlFunction> getFunctionsFromDefaultNamespace()
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager =
                 functionAndTypeManager.getServingFunctionNamespaceManager(functionAndTypeManager.getDefaultNamespace());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for catalog '%s'", functionAndTypeManager.getDefaultNamespace().getCatalogName());
-        checkForNamingConflicts(functionNamespaceManager.get().listFunctions(Optional.empty(), Optional.empty()));
+        return functionNamespaceManager.get().listFunctions(Optional.empty(), Optional.empty());
+    }
+
+    private synchronized FunctionMap createFunctionMap()
+    {
         return functions;
     }
 
