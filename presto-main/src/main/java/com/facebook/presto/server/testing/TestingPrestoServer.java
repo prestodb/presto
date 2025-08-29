@@ -548,6 +548,12 @@ public class TestingPrestoServer
         pluginManager.installCoordinatorPlugin(plugin);
     }
 
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        metadata.getFunctionAndTypeManager()
+                .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
+    }
+
     public DispatchManager getDispatchManager()
     {
         return dispatchManager;

@@ -37,7 +37,6 @@ public class NativeFunctionNamespaceManagerModule
         implements Module
 {
     private final String catalogName;
-
     private final NodeManager nodeManager;
     private final FunctionMetadataManager functionMetadataManager;
 
@@ -55,6 +54,7 @@ public class NativeFunctionNamespaceManagerModule
 
         configBinder(binder).bindConfig(SqlInvokedFunctionNamespaceManagerConfig.class);
         configBinder(binder).bindConfig(SqlFunctionLanguageConfig.class);
+        configBinder(binder).bindConfig(NativeFunctionNamespaceManagerConfig.class);
         binder.bind(FunctionDefinitionProvider.class).to(NativeFunctionDefinitionProvider.class).in(SINGLETON);
         binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
                 .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));

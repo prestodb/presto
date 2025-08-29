@@ -41,6 +41,7 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -221,20 +222,25 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
-        this(session, new FeaturesConfig(), new FunctionsConfig(), false);
+        this(session, new FeaturesConfig(), new FunctionsConfig(), false, true);
     }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
-        this(session, featuresConfig, new FunctionsConfig(), false);
+        this(session, featuresConfig, new FunctionsConfig(), false, true);
     }
 
     public FunctionAssertions(Session session, FunctionsConfig functionsConfig)
     {
-        this(session, new FeaturesConfig(), functionsConfig, false);
+        this(session, new FeaturesConfig(), functionsConfig, false, true);
     }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean refreshSession)
+    {
+        this(session, featuresConfig, functionsConfig, refreshSession, true);
+    }
+
+    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean refreshSession, boolean loadInlinedSqlInvokedFunctionsPlugin)
     {
         requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session, featuresConfig, functionsConfig);
@@ -243,6 +249,9 @@ public final class FunctionAssertions
         }
         else {
             this.session = session;
+        }
+        if (loadInlinedSqlInvokedFunctionsPlugin) {
+            runner.installPlugin(new SqlInvokedFunctionsPlugin());
         }
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();

@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -40,7 +42,7 @@ public class TestTeradataDateFunctions
 
     protected TestTeradataDateFunctions()
     {
-        super(SESSION);
+        super(SESSION, new FeaturesConfig(), new FunctionsConfig(), false);
     }
 
     @BeforeClass
