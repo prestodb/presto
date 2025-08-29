@@ -37,6 +37,35 @@ The following file types are supported for the Hive connector:
 * JSON
 * Text
 
+
+Hive Metastore
+--------------
+
+The Hive Metastore is a central metadata repository that the Hive connector uses to access table definitions, partition information, 
+and other structural details about your Hive tables.
+
+Key Concepts
+------------
+- Stores metadata about tables, columns, partitions, and storage locations
+- Enables schema-on-read functionality
+- Supports multiple metastore backends (Apache Hive Metastore Service, AWS Glue)
+
+
+Additional Resources for Metastore Configuration
+------------------------------------------------
+
+* `Metastore Configuration Properties`_ 
+* `How to invalidate metastore cache?`_
+* :ref:`installation/deployment:File-Based Metastore`
+* :doc:`/connector/hive-security`
+* `AWS Glue Catalog Configuration Properties`_
+
+Additional authentication-related configuration properties are covered in
+:ref:`connector/hive-security:Hive Metastore Thrift Service Authentication` and
+:ref:`connector/hive-security:HDFS Authentication`.
+
+
+
 Configuration
 -------------
 
@@ -103,10 +132,8 @@ Accessing Hadoop clusters protected with Kerberos authentication
 Kerberos authentication is supported for both HDFS and the Hive metastore.
 However, Kerberos authentication by ticket cache is not yet supported.
 
-The properties that apply to Hive connector security are listed in the
-`Hive Configuration Properties`_ table. Please see the
-:doc:`/connector/hive-security` section for a more detailed discussion of the
-security options in the Hive connector.
+For authentication-related configuration of the Hive Metastore Thrift service and HDFS,
+see :doc:`/connector/hive-security`.
 
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
@@ -140,13 +167,13 @@ Property Name                                            Description            
 ``hive.compression-codec``                               The compression codec to use when writing files.             ``GZIP``
 
 ``hive.force-local-scheduling``                          Force splits to be scheduled on the same node as the Hadoop  ``false``
-                                                         DataNode process serving the split data.  This is useful for
+                                                         DataNode process serving the split data. This is useful for
                                                          installations where Presto is collocated with every
                                                          DataNode.
 
-``hive.order-based-execution-enabled``                   Enable order-based execution. When it's enabled, hive files  ``false``
+``hive.order-based-execution-enabled``                   Enable order-based execution. When enabled, Hive files       ``false``
                                                          become non-splittable and the table ordering properties
-                                                         would be exposed to plan optimizer
+                                                         would be exposed to plan optimizer.
 
 ``hive.respect-table-format``                            Should new partitions be written using the existing table    ``true``
                                                          format or the default Presto format?
@@ -162,31 +189,6 @@ Property Name                                            Description            
 ``hive.dynamic-split-sizes-enabled``                     Enable dynamic sizing of splits based on data scanned by     ``false``
                                                          the query.
 
-``hive.metastore.authentication.type``                   Hive metastore authentication type.                          ``NONE``
-                                                         Possible values are ``NONE`` or ``KERBEROS``.
-
-``hive.metastore.service.principal``                     The Kerberos principal of the Hive metastore service.
-
-``hive.metastore.client.principal``                      The Kerberos principal that Presto will use when connecting
-                                                         to the Hive metastore service.
-
-``hive.metastore.client.keytab``                         Hive metastore client keytab location.
-
-``hive.hdfs.authentication.type``                        HDFS authentication type.                                    ``NONE``
-                                                         Possible values are ``NONE`` or ``KERBEROS``.
-
-``hive.hdfs.impersonation.enabled``                      Enable HDFS end user impersonation.                          ``false``
-
-``hive.hdfs.presto.principal``                           The Kerberos principal that Presto will use when connecting
-                                                         to HDFS.
-
-``hive.hdfs.presto.keytab``                              HDFS client keytab location.
-
-``hive.security``                                        See :doc:`hive-security`.
-
-``security.config-file``                                 Path of config file to use when ``hive.security=file``.
-                                                         See :ref:`hive-file-based-authorization` for details.
-
 ``hive.non-managed-table-writes-enabled``                Enable writes to non-managed (external) Hive tables.         ``false``
 
 ``hive.non-managed-table-creates-enabled``               Enable creating non-managed (external) Hive tables.          ``true``
@@ -200,16 +202,16 @@ Property Name                                            Description            
 ``hive.s3select-pushdown.max-connections``               Maximum number of simultaneously open connections to S3 for    500
                                                          S3SelectPushdown.
 
-``hive.metastore.load-balancing-enabled``                Enable load balancing between multiple Metastore instances
+``hive.metastore.load-balancing-enabled``                Enable load balancing between multiple Metastore instances    ``false``
 
 ``hive.skip-empty-files``                                Enable skipping empty files. Otherwise, it will produce an   ``false``
                                                          error iterating through empty files.
 
- ``hive.file-status-cache.max-retained-size``            Maximum size in bytes of the directory listing cache          ``0KB``
+``hive.file-status-cache.max-retained-size``             Maximum size in bytes of the directory listing cache          ``0KB``
 
- ``hive.metastore.catalog.name``                         Specifies the catalog name to be passed to the metastore.
+``hive.metastore.catalog.name``                          Specifies the catalog name to be passed to the metastore.
 
-``hive.experimental.symlink.optimized-reader.enabled``   Experimental: Enable optimized SymlinkTextInputFormat reader  ``true``
+``hive.experimental.symlink.optimized-reader.enabled``   Experimental: Enable optimized SymlinkTextInputFormat reader ``true``
 
 ``hive.copy-on-first-write-configuration-enabled``       Optimize the number of configuration copies by enabling       ``false``
                                                          copy-on-write technique.
@@ -246,8 +248,8 @@ Property Name                                            Description            
                                                          Metastore.
 ======================================================== ============================================================================== ======================================================================================
 
-Hive Metastore Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Hive Metastore Configuration for Avro
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To support Avro tables with schema properties when using Hive 3.x, you must configure the Hive Metastore service:
 
