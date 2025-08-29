@@ -44,6 +44,6 @@ class AzureDataLakeFileClient {
   virtual void append(const uint8_t* buffer, size_t size, uint64_t offset) = 0;
   virtual void flush(uint64_t position) = 0;
   virtual void close() = 0;
-  virtual std::string getUrl() const = 0;
+  virtual std::string getUrl() = 0;
 };
 } // namespace facebook::velox::filesystems

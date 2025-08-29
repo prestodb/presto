@@ -20,10 +20,11 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <glog/logging.h>
 
-#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsPath.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AzureClientProviderFactories.h"
 
 namespace facebook::velox::filesystems {
 

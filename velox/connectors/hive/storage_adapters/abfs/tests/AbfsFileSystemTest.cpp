@@ -24,8 +24,12 @@
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/FileHandle.h"
-#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsPath.h"
+
+#include "connectors/hive/storage_adapters/abfs/AzureClientProviderFactories.h"
+#include "connectors/hive/storage_adapters/abfs/AzureClientProviderImpl.h"
+#include "connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
 #include "velox/connectors/hive/storage_adapters/abfs/tests/AzuriteServer.h"
@@ -38,7 +42,33 @@ using namespace facebook::velox;
 using namespace facebook::velox::filesystems;
 using ::facebook::velox::common::Region;
 
+namespace {
+
 constexpr int kOneMB = 1 << 20;
+
+class TestAzureClientProvider final : public AzureClientProvider {
+ public:
+  explicit TestAzureClientProvider() {
+    delegated_ = std::make_unique<SharedKeyAzureClientProvider>();
+  }
+
+  std::unique_ptr<AzureBlobClient> getReadFileClient(
+      const std::shared_ptr<AbfsPath>& path,
+      const config::ConfigBase& config) override {
+    return delegated_->getReadFileClient(path, config);
+  }
+
+  std::unique_ptr<AzureDataLakeFileClient> getWriteFileClient(
+      const std::shared_ptr<AbfsPath>& path,
+      const config::ConfigBase& config) override {
+    return std::make_unique<MockDataLakeFileClient>();
+  }
+
+ private:
+  std::unique_ptr<AzureClientProvider> delegated_;
+};
+
+} // namespace
 
 class AbfsFileSystemTest : public testing::Test {
  public:
@@ -47,12 +77,9 @@ class AbfsFileSystemTest : public testing::Test {
 
   static void SetUpTestCase() {
     registerAbfsFileSystem();
-    AbfsConfig::setUpTestWriteClient(
-        []() { return std::make_unique<MockDataLakeFileClient>(); });
-  }
-
-  static void TearDownTestSuite() {
-    AbfsConfig::tearDownTestWriteClient();
+    registerAzureClientProviderFactory("test", [](const std::string&) {
+      return std::make_unique<TestAzureClientProvider>();
+    });
   }
 
   void SetUp() override {
@@ -264,12 +291,12 @@ TEST_F(AbfsFileSystemTest, notImplemented) {
   VELOX_ASSERT_THROW(abfs_->rmdir("dir"), "rmdir for abfs not implemented");
 }
 
-TEST_F(AbfsFileSystemTest, credNotFOund) {
+TEST_F(AbfsFileSystemTest, clientProviderFactoryNotRegistered) {
   const std::string abfsFile =
       std::string("abfs://test@test1.dfs.core.windows.net/test");
   VELOX_ASSERT_THROW(
       abfs_->openFileForRead(abfsFile),
-      "Config fs.azure.account.key.test1.dfs.core.windows.net not found");
+      "No AzureClientProviderFactory registered for account 'test1'.");
 }
 
 TEST_F(AbfsFileSystemTest, registerAbfsFileSink) {

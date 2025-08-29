@@ -46,7 +46,7 @@ class MockDataLakeFileClient : public AzureDataLakeFileClient {
 
   void close() override;
 
-  std::string getUrl() const override {
+  std::string getUrl() override {
     return "testUrl";
   }
 

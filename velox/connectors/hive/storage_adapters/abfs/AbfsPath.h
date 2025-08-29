@@ -16,19 +16,12 @@
 
 #pragma once
 
-#include <azure/core/credentials/credentials.hpp>
-#include <azure/storage/blobs/blob_client.hpp>
 #include <azure/storage/files/datalake.hpp>
 #include <folly/hash/Hash.h>
 #include <string>
-#include "velox/connectors/hive/storage_adapters/abfs/AzureDataLakeFileClient.h"
 
 using namespace Azure::Storage::Blobs;
 using namespace Azure::Storage::Files::DataLake;
-
-namespace facebook::velox::config {
-class ConfigBase;
-}
 
 namespace facebook::velox::filesystems {
 
@@ -61,70 +54,43 @@ static constexpr const char* kAzureOAuthAuthType = "OAuth";
 
 static constexpr const char* kAzureSASAuthType = "SAS";
 
-class AbfsConfig {
+// Helper class to parse and extract information from a given ABFS path.
+class AbfsPath {
  public:
-  explicit AbfsConfig(std::string_view path, const config::ConfigBase& config);
+  AbfsPath(std::string_view path);
 
-  std::unique_ptr<BlobClient> getReadFileClient();
+  bool isHttps() const {
+    return isHttps_;
+  }
 
-  std::unique_ptr<AzureDataLakeFileClient> getWriteFileClient();
+  std::string fileSystem() const {
+    return fileSystem_;
+  }
 
   std::string filePath() const {
     return filePath_;
   }
 
-  /// Test only.
-  std::string fileSystem() const {
-    return fileSystem_;
+  std::string accountName() const {
+    return accountName_;
   }
 
-  /// Test only.
-  std::string connectionString() const {
-    return connectionString_;
+  std::string accountNameWithSuffix() const {
+    return accountNameWithSuffix_;
   }
 
-  /// Test only.
-  std::string tenentId() const {
-    return tenentId_;
-  }
-
-  /// Test only.
-  std::string authorityHost() const {
-    return authorityHost_;
-  }
-
-  /// Test only.
-  static void setUpTestWriteClient(
-      std::function<std::unique_ptr<AzureDataLakeFileClient>()> testClientFn) {
-    testWriteClientFn_ = testClientFn;
-  }
-
-  /// Test only.
-  static void tearDownTestWriteClient() {
-    testWriteClientFn_ = nullptr;
-  }
+  std::string getUrl(bool withblobSuffix) const;
 
  private:
-  std::string getUrl(bool withblobSuffix);
-
-  std::string authType_;
+  bool isHttps_;
 
   // Container name is called FileSystem in some Azure API.
   std::string fileSystem_;
   std::string filePath_;
   std::string connectionString_;
 
-  bool isHttps_;
+  std::string accountName_;
   std::string accountNameWithSuffix_;
-
-  std::string sas_;
-
-  std::string tenentId_;
-  std::string authorityHost_;
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential> tokenCredential_;
-
-  static std::function<std::unique_ptr<AzureDataLakeFileClient>()>
-      testWriteClientFn_;
 };
 
 } // namespace facebook::velox::filesystems

@@ -15,7 +15,8 @@
  */
 
 #include "velox/connectors/hive/storage_adapters/abfs/tests/AzuriteServer.h"
-#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsPath.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AzureClientProviderImpl.h"
 
 namespace facebook::velox::filesystems {
 
@@ -108,9 +109,10 @@ AzuriteServer::AzuriteServer(int64_t port) : port_(port) {
 }
 
 void AzuriteServer::addFile(std::string source) {
-  AbfsConfig conf(fileURI(), *hiveConfig());
+  const auto abfsPath = std::make_shared<AbfsPath>(fileURI());
+  auto clientProvider = SharedKeyAzureClientProvider();
   auto containerClient = BlobContainerClient::CreateFromConnectionString(
-      conf.connectionString(), container_);
+      clientProvider.connectionString(abfsPath, *hiveConfig()), container_);
   containerClient.CreateIfNotExists();
   auto blobClient = containerClient.GetBlockBlobClient(file_);
   blobClient.UploadFrom(source);
