@@ -1593,9 +1593,6 @@ class TableWriteNode : public PlanNode {
       VELOX_USER_CHECK(
           columnNames_.has_value(), "TableWriteNode columnNames is not set");
       VELOX_USER_CHECK(
-          columnStatsSpec_.has_value(),
-          "TableWriteNode column stats spec is not set");
-      VELOX_USER_CHECK(
           insertTableHandle_.has_value(),
           "TableWriteNode insertTableHandle is not set");
       VELOX_USER_CHECK(
@@ -1612,7 +1609,7 @@ class TableWriteNode : public PlanNode {
           id_.value(),
           columns_.value(),
           columnNames_.value(),
-          columnStatsSpec_.value(),
+          columnStatsSpec_,
           insertTableHandle_.value(),
           hasPartitioningScheme_.value(),
           outputType_.value(),
@@ -1784,16 +1781,10 @@ class TableWriteMergeNode : public PlanNode {
       VELOX_USER_CHECK(
           outputType_.has_value(), "TableWriteMergeNode outputType is not set");
       VELOX_USER_CHECK(
-          columnStatsSpec_.has_value(),
-          "TableWriteMergeNode column stats spec is not set");
-      VELOX_USER_CHECK(
           source_.has_value(), "TableWriteMergeNode source is not set");
 
       return std::make_shared<TableWriteMergeNode>(
-          id_.value(),
-          outputType_.value(),
-          columnStatsSpec_.value(),
-          source_.value());
+          id_.value(), outputType_.value(), columnStatsSpec_, source_.value());
     }
 
    private:
