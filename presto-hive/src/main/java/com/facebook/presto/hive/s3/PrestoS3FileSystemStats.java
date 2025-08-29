@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.AbortedException;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -45,7 +47,7 @@ public class PrestoS3FileSystemStats
     private final CounterStat getMetadataRetries = new CounterStat();
     private final CounterStat readRetries = new CounterStat();
 
-    // see AWSRequestMetrics
+    // AWS SDK v2 metrics
     private final CounterStat awsRequestCount = new CounterStat();
     private final CounterStat awsRetryCount = new CounterStat();
     private final CounterStat awsThrottleExceptions = new CounterStat();
@@ -270,9 +272,41 @@ public class PrestoS3FileSystemStats
         else if (t instanceof AbortedException) {
             awsAbortedExceptions.update(1);
         }
+        else if (t instanceof S3Exception) {
+            S3Exception s3Exception = (S3Exception) t;
+            if (isThrottlingException(s3Exception)) {
+                awsThrottleExceptions.update(1);
+            }
+            else {
+                otherReadErrors.update(1);
+            }
+        }
+        else if (t instanceof SdkClientException) {
+            // Check if the cause is a network-related exception
+            Throwable cause = t.getCause();
+            if (cause instanceof SocketException) {
+                socketExceptions.update(1);
+            }
+            else if (cause instanceof SocketTimeoutException) {
+                socketTimeoutExceptions.update(1);
+            }
+            else {
+                otherReadErrors.update(1);
+            }
+        }
         else {
             otherReadErrors.update(1);
         }
+    }
+
+    private boolean isThrottlingException(S3Exception s3Exception)
+    {
+        String errorCode = s3Exception.awsErrorDetails().errorCode();
+        return "Throttling".equals(errorCode) ||
+                "ThrottlingException".equals(errorCode) ||
+                "ProvisionedThroughputExceededException".equals(errorCode) ||
+                "RequestLimitExceeded".equals(errorCode) ||
+                "BandwidthLimitExceeded".equals(errorCode);
     }
 
     public void newGetObjectError()
