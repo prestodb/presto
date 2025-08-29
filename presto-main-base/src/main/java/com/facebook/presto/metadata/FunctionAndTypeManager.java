@@ -979,7 +979,12 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.doGetSpecializedFunctionKeyForMagicLiteralFunctions(signature, this);
     }
 
-    public CatalogSchemaName configureDefaultNamespace(String defaultNamespacePrefixString)
+    public BuiltInPluginFunctionNamespaceManager getBuiltInPluginFunctionNamespaceManager()
+    {
+        return builtInPluginFunctionNamespaceManager;
+    }
+
+    private CatalogSchemaName configureDefaultNamespace(String defaultNamespacePrefixString)
     {
         if (!defaultNamespacePrefixString.matches(DEFAULT_NAMESPACE_PREFIX_PATTERN.pattern())) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema', found: %s", defaultNamespacePrefixString));
