@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.s3select;
 
-import com.amazonaws.services.s3.model.CSVInput;
-import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.OutputSerialization;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import software.amazon.awssdk.services.s3.model.CSVInput;
+import software.amazon.awssdk.services.s3.model.CSVOutput;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
 
 import java.util.Properties;
 
@@ -62,17 +62,23 @@ public class S3SelectCsvRecordReader
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
-        CSVInput selectObjectCSVInputSerialization = new CSVInput();
-        selectObjectCSVInputSerialization.setRecordDelimiter(getLineDelimiter());
-        selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
-        selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
-        selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
-        selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
-        InputSerialization selectObjectInputSerialization = new InputSerialization();
-        selectObjectInputSerialization.setCompressionType(getCompressionType());
-        selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
+        CSVInput.Builder csvInputBuilder = CSVInput.builder()
+                .recordDelimiter(getLineDelimiter())
+                .fieldDelimiter(fieldDelimiter)
+                .comments(COMMENTS_CHAR_STR);
 
-        return selectObjectInputSerialization;
+        if (quoteChar != null) {
+            csvInputBuilder.quoteCharacter(quoteChar);
+        }
+
+        if (escapeChar != null) {
+            csvInputBuilder.quoteEscapeCharacter(escapeChar);
+        }
+
+        return InputSerialization.builder()
+                .compressionType(getCompressionType())
+                .csv(csvInputBuilder.build())
+                .build();
     }
 
     @Override
@@ -83,14 +89,20 @@ public class S3SelectCsvRecordReader
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
-        OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
-        CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-        selectObjectCSVOutputSerialization.setRecordDelimiter(getLineDelimiter());
-        selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
-        selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
-        selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
-        selectObjectOutputSerialization.setCsv(selectObjectCSVOutputSerialization);
+        CSVOutput.Builder csvOutputBuilder = CSVOutput.builder()
+                .recordDelimiter(getLineDelimiter())
+                .fieldDelimiter(fieldDelimiter);
 
-        return selectObjectOutputSerialization;
+        if (quoteChar != null) {
+            csvOutputBuilder.quoteCharacter(quoteChar);
+        }
+
+        if (escapeChar != null) {
+            csvOutputBuilder.quoteEscapeCharacter(escapeChar);
+        }
+
+        return OutputSerialization.builder()
+                .csv(csvOutputBuilder.build())
+                .build();
     }
 }
