@@ -993,6 +993,14 @@ Spark-specific Configuration
      - Type
      - Default Value
      - Description
+   * - spark.ansi_enabled
+     - bool
+     - false
+     - If true, Spark function's behavior is ANSI-compliant, e.g. throws runtime exception instead
+       of returning null on invalid inputs.
+       Note: This feature is still under development to achieve full ANSI compliance. Users can
+       refer to the Spark function documentation to verify the current support status of a specific
+       function.
    * - spark.legacy_size_of_null
      - bool
      - true
