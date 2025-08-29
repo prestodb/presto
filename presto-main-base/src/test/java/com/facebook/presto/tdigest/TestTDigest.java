@@ -397,6 +397,16 @@ public class TestTDigest
         }
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*Cannot serialize t-digest with NaN mean value.*")
+    public void testSerializationWithNaNMean()
+    {
+        double[] means = {1.0, Double.NaN, 3.0};
+        double[] weights = {1.0, 1.0, 1.0};
+        TDigest tDigest = createTDigest(means, weights, STANDARD_COMPRESSION_FACTOR, 1.0, 3.0, 6.0, 3);
+
+        tDigest.serialize();
+    }
+
     @Test(enabled = false)
     public void testPoissonDistribution()
     {
