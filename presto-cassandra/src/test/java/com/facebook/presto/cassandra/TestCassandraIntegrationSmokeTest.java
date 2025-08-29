@@ -21,6 +21,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -97,7 +98,7 @@ public class TestCassandraIntegrationSmokeTest
         this.server = server;
         this.session = server.getSession();
         createTestTables(session, server.getMetadata(), KEYSPACE, DATE_TIME_LOCAL);
-        return createCassandraQueryRunner(server);
+        return createCassandraQueryRunner(server, ImmutableMap.of());
     }
 
     @Test
@@ -312,7 +313,7 @@ public class TestCassandraIntegrationSmokeTest
                 .row("column_2", "bigint", "", "", 19L, null, null)
                 .build());
 
-        execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
+        session.execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
 
         assertEquals(execute("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount(), 1);
         assertUpdate("DROP TABLE cassandra.keyspace_2.table_2");

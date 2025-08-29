@@ -32,14 +32,14 @@ public class TestCassandraCqlUtils
     @Test
     public void testValidSchemaName()
     {
-        assertEquals("foo", validSchemaName("foo"));
+        assertEquals("\"foo\"", validSchemaName("foo"));
         assertEquals("\"select\"", validSchemaName("select"));
     }
 
     @Test
     public void testValidTableName()
     {
-        assertEquals("foo", validTableName("foo"));
+        assertEquals("\"foo\"", validTableName("foo"));
         assertEquals("\"Foo\"", validTableName("Foo"));
         assertEquals("\"select\"", validTableName("select"));
     }
@@ -47,7 +47,7 @@ public class TestCassandraCqlUtils
     @Test
     public void testValidColumnName()
     {
-        assertEquals("foo", validColumnName("foo"));
+        assertEquals("\"foo\"", validColumnName("foo"));
         assertEquals("\"\"", validColumnName(CassandraCqlUtils.EMPTY_COLUMN_NAME));
         assertEquals("\"\"", validColumnName(""));
         assertEquals("\"select\"", validColumnName("select"));
@@ -80,6 +80,6 @@ public class TestCassandraCqlUtils
         CassandraCqlUtils.appendSelectColumns(sb, columns);
         String str = sb.toString();
 
-        assertEquals("foo,bar,\"table\"", str);
+        assertEquals("\"foo\",\"bar\",\"table\"", str);
     }
 }
