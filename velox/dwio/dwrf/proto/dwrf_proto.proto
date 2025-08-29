@@ -284,6 +284,7 @@ enum CompressionKind {
   LZO = 3;
   ZSTD = 4;
   LZ4 = 5;
+  GZIP = 6;
 }
 
 enum StripeCacheMode {

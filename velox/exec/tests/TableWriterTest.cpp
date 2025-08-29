@@ -1434,6 +1434,7 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
     }
     if (compressionKind == CompressionKind_NONE ||
         compressionKind == CompressionKind_ZLIB ||
+        compressionKind == CompressionKind_GZIP ||
         compressionKind == CompressionKind_ZSTD) {
       auto result = AssertQueryBuilder(plan)
                         .config(

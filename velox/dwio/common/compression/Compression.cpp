@@ -35,6 +35,8 @@ using memory::MemoryPool;
 
 namespace {
 
+constexpr int kGzipCodec = 16;
+
 class ZstdCompressor : public Compressor {
  public:
   explicit ZstdCompressor(int32_t level) : Compressor{level} {}
@@ -57,7 +59,7 @@ ZstdCompressor::compress(const void* src, void* dest, uint64_t length) {
 
 class ZlibCompressor : public Compressor {
  public:
-  explicit ZlibCompressor(int32_t level);
+  explicit ZlibCompressor(int32_t level, int32_t windowBits, bool isGzip);
 
   ~ZlibCompressor() override;
 
@@ -68,13 +70,17 @@ class ZlibCompressor : public Compressor {
   z_stream stream_;
 };
 
-ZlibCompressor::ZlibCompressor(int32_t level)
+ZlibCompressor::ZlibCompressor(int32_t level, int32_t windowBits, bool isGzip)
     : Compressor{level}, isCompressCalled_{false} {
   stream_.zalloc = Z_NULL;
   stream_.zfree = Z_NULL;
   stream_.opaque = Z_NULL;
+  if (isGzip) {
+    windowBits = (windowBits < 0 ? -windowBits : windowBits) | kGzipCodec;
+  }
   DWIO_ENSURE_EQ(
-      deflateInit2(&stream_, level_, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY),
+      deflateInit2(
+          &stream_, level_, Z_DEFLATED, windowBits, 8, Z_DEFAULT_STRATEGY),
       Z_OK,
       "Error while calling deflateInit2() for zlib.");
 }
@@ -150,9 +156,9 @@ ZlibDecompressor::ZlibDecompressor(
   zstream_.next_out = Z_NULL;
   zstream_.avail_out = folly::to<uInt>(blockSize);
   int zlibWindowBits = windowBits;
-  constexpr int GZIP_DETECT_CODE = 32;
   if (isGzip) {
-    zlibWindowBits = zlibWindowBits | GZIP_DETECT_CODE;
+    zlibWindowBits =
+        (zlibWindowBits < 0 ? -zlibWindowBits : zlibWindowBits) | kGzipCodec;
   }
   const auto result = inflateInit2(&zstream_, zlibWindowBits);
   DWIO_ENSURE_EQ(
@@ -623,7 +629,18 @@ std::unique_ptr<Compressor> createCompressor(
           "Initialized zlib compressor with compression level {}",
           options.format.zlib.compressionLevel);
       return std::make_unique<ZlibCompressor>(
+          options.format.zlib.compressionLevel,
+          options.format.zlib.windowBits,
+          false);
+    }
+    case CompressionKind::CompressionKind_GZIP: {
+      XLOG_FIRST_N(INFO, 1) << fmt::format(
+          "Initialized zlib compressor with compression level {}",
           options.format.zlib.compressionLevel);
+      return std::make_unique<ZlibCompressor>(
+          options.format.zlib.compressionLevel,
+          options.format.zlib.windowBits,
+          true);
     }
     case CompressionKind::CompressionKind_ZSTD: {
       XLOG_FIRST_N(INFO, 1) << fmt::format(
