@@ -104,7 +104,7 @@ public class NativeCassandraSession
                 public KeyspaceMetadata load(String key)
                         throws Exception
                 {
-                    return getKeyspaceByCaseInsensitiveName0(key);
+                    return getKeyspaceByCaseSensitiveName0(key);
                 }
             });
 
@@ -174,9 +174,9 @@ public class NativeCassandraSession
     }
 
     @Override
-    public String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName)
+    public String getCaseSensitiveSchemaName(String caseSensitiveSchemaName)
     {
-        return getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName).getName();
+        return getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName).getName();
     }
 
     @Override
@@ -191,10 +191,10 @@ public class NativeCassandraSession
     }
 
     @Override
-    public List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
+    public List<String> getCaseSensitiveTableNames(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (TableMetadata table : keyspace.getTables()) {
             builder.add(table.getName());
@@ -209,7 +209,7 @@ public class NativeCassandraSession
     public CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
         AbstractTableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
 
         List<String> columnNames = new ArrayList<>();
@@ -273,11 +273,11 @@ public class NativeCassandraSession
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
-    private KeyspaceMetadata getKeyspaceByCaseInsensitiveName(String caseInsensitiveSchemaName)
+    private KeyspaceMetadata getKeyspaceByCaseSensitiveName(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
         try {
-            return keyspaceCache.get(caseInsensitiveSchemaName);
+            return keyspaceCache.get(caseSensitiveSchemaName);
         }
         catch (UncheckedExecutionException | ExecutionException e) {
             Throwable cause = e.getCause();
@@ -293,7 +293,7 @@ public class NativeCassandraSession
         }
     }
 
-    private KeyspaceMetadata getKeyspaceByCaseInsensitiveName0(String caseInsensitiveSchemaName)
+    private KeyspaceMetadata getKeyspaceByCaseSensitiveName0(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
         List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
@@ -301,31 +301,39 @@ public class NativeCassandraSession
         // Ensure that the error message is deterministic
         List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing(KeyspaceMetadata::getName)).immutableSortedCopy(keyspaces);
         for (KeyspaceMetadata keyspace : sortedKeyspaces) {
-            if (keyspace.getName().equalsIgnoreCase(caseInsensitiveSchemaName)) {
+            if (matchesSchemaName(keyspace.getName(), caseSensitiveSchemaName, caseSensitiveNameMatchingEnabled)) {
                 if (result != null) {
                     throw new PrestoException(
                             NOT_SUPPORTED,
-                            format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
-                                    caseInsensitiveSchemaName, result.getName(), keyspace.getName()));
+                            format("More than one keyspace has been found for the schema name: %s -> (%s, %s)",
+                                    caseSensitiveSchemaName, result.getName(), keyspace.getName()));
                 }
                 result = keyspace;
             }
         }
+
         if (result == null) {
-            throw new SchemaNotFoundException(caseInsensitiveSchemaName);
+            throw new SchemaNotFoundException(caseSensitiveSchemaName);
         }
         return result;
     }
 
-    private static AbstractTableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
+    private boolean matchesSchemaName(String keyspaceName, String schemaName, boolean caseSensitive)
+    {
+        return caseSensitive
+                ? keyspaceName.equals(schemaName)
+                : keyspaceName.equalsIgnoreCase(schemaName);
+    }
+
+    private static AbstractTableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseSensitiveTableName)
     {
         List<AbstractTableMetadata> tables = Stream.concat(
                 keyspace.getTables().stream(),
                 keyspace.getMaterializedViews().stream())
-                .filter(table -> caseSensitiveNameMatchingEnabled ? table.getName().equals(caseInsensitiveTableName) : table.getName().equalsIgnoreCase(caseInsensitiveTableName))
+                .filter(table -> caseSensitiveNameMatchingEnabled ? table.getName().equals(caseSensitiveTableName) : table.getName().equalsIgnoreCase(caseSensitiveTableName))
                 .collect(toImmutableList());
         if (tables.size() == 0) {
-            throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseInsensitiveTableName));
+            throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseSensitiveTableName));
         }
         else if (tables.size() == 1) {
             return tables.get(0);
@@ -337,27 +345,27 @@ public class NativeCassandraSession
         throw new PrestoException(
                 NOT_SUPPORTED,
                 format("More than one table has been found for the case insensitive table name: %s -> (%s)",
-                        caseInsensitiveTableName, tableNames));
+                        caseSensitiveTableName, tableNames));
     }
 
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
         return keyspace.getMaterializedView(schemaTableName.getTableName()) != null;
     }
 
     private static void checkColumnNames(List<ColumnMetadata> columns)
     {
-        Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
+        Map<String, ColumnMetadata> columnMap = new HashMap<>();
         for (ColumnMetadata column : columns) {
             String columnNameKey = caseSensitiveNameMatchingEnabled ? column.getName() : column.getName().toLowerCase(ROOT);
-            if (lowercaseNameToColumnMap.containsKey(columnNameKey)) {
+            if (columnMap.containsKey(columnNameKey)) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                columnNameKey, lowercaseNameToColumnMap.get(columnNameKey).getName(), column.getName()));
+                                columnNameKey, columnMap.get(columnNameKey).getName(), column.getName()));
             }
-            lowercaseNameToColumnMap.put(columnNameKey, column);
+            columnMap.put(columnNameKey, column);
         }
     }
 
