@@ -148,6 +148,7 @@
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-presto-bundle</artifactId>
+            <version>1.0.2</version>
         </dependency>
 
         <!-- Tests -->
@@ -263,6 +264,30 @@
                             <ignoredClassPattern>module-info</ignoredClassPattern>
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                         </ignoredClassPatterns>
+                        <ignoredDependencies>
+                            <dependency>
+                                <groupId>io.airlift</groupId>
+                                <artifactId>aircompressor</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.hudi</groupId>
+                                <artifactId>hudi-presto-bundle</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.hive</groupId>
+                                <artifactId>hive-storage-api</artifactId>
+                            </dependency>
+                        </ignoredDependencies>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <!-- TODO: Remove this once fixed -->
+                        <ignoredDependencies>
+                            <ignoredDependency>io.airlift:aircompressor:jar</ignoredDependency>
+                        </ignoredDependencies>
                     </configuration>
                 </plugin>
             </plugins>
