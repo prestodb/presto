@@ -24,6 +24,7 @@
 #include "velox/experimental/cudf/vector/CudfVector.h"
 
 #include "velox/common/time/Timer.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/expression/FieldReference.h"
 
 #include <cudf/io/parquet.hpp>
@@ -250,8 +251,27 @@ void ParquetDataSource::totalScanTimeCalculator(void* userData) {
 }
 
 void ParquetDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
-  // Dynamic cast split to `ParquetConnectorSplit`
-  split_ = std::dynamic_pointer_cast<ParquetConnectorSplit>(split);
+  split_ = [&]() {
+    // Dynamic cast split to `ParquetConnectorSplit`
+    if (std::dynamic_pointer_cast<ParquetConnectorSplit>(split)) {
+      return std::dynamic_pointer_cast<ParquetConnectorSplit>(split);
+      // Convert `HiveConnectorSplit` to `ParquetConnectorSplit`
+    } else if (std::dynamic_pointer_cast<hive::HiveConnectorSplit>(split)) {
+      const auto hiveSplit =
+          std::dynamic_pointer_cast<hive::HiveConnectorSplit>(split);
+      VELOX_CHECK_EQ(
+          hiveSplit->fileFormat,
+          dwio::common::FileFormat::PARQUET,
+          "Unsupported file format for conversion from HiveConnectorSplit to cuDF ParquetConnectorSplit");
+      return ParquetConnectorSplitBuilder(hiveSplit->filePath)
+          .connectorId(hiveSplit->connectorId)
+          .splitWeight(hiveSplit->splitWeight)
+          .build();
+    } else {
+      VELOX_FAIL("Unsupported split type: {}", split->toString());
+    }
+  }();
+
   VLOG(1) << "Adding split " << split_->toString();
 
   // Split reader already exists, reset
