@@ -214,11 +214,22 @@ Run IcebergExternalWorkerQueryRunner,
       `$DATA_DIR/iceberg_data/<file_format>/<catalog_type>`. Here `file_format` could be `PARQUET | ORC | AVRO` and `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
   * Use classpath of module: choose `presto-native-execution` module.
 
+Run NativeSidecarPluginQueryRunner:
+* Edit/Create `NativeSidecarPluginQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
+  * Main class: `com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner`.
+  * VM options : `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * Working directory: `$MODULE_DIR$`
+  * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
+  * Use classpath of module: choose `presto-native-execution` module.
+
 Run CLion:
 * File->Close Project if any is open.
 * Open `presto/presto-native-execution` directory as CMake project and wait till CLion loads/generates cmake files, symbols, etc.
 * Edit configuration for `presto_server` module (alter paths accordingly).
   * Program arguments: `--logtostderr=1 --v=1 --etc_dir=/Users/<user>/git/presto/presto-native-execution/etc`
+  * Working directory: `/Users/<user>/git/presto/presto-native-execution`
+* For sidecar, Edit configuration for `presto_server` module (alter paths accordingly).
+  * Program arguments: `--logtostderr=1 --v=1 --etc_dir=/Users/<user>/git/presto/presto-native-execution/etc_sidecar`
   * Working directory: `/Users/<user>/git/presto/presto-native-execution`
 * Edit menu CLion->Preferences->Build, Execution, Deployment->CMake
   * CMake options: `-DVELOX_BUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug`
@@ -237,13 +248,22 @@ Run CLion:
   * For Hive, Run `HiveExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
   * For Iceberg, Run `IcebergExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
 * Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every start.
-* Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
+* Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to announce itself to the Coordinator.
 * In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
 * Two ways to run Presto client to start executing queries on the running local setup:
   1. In command line from presto root directory run the presto client:
       * `java -jar presto-cli/target/presto-cli-*-executable.jar --catalog hive --schema tpch`
   2. Run `Presto Client` Application (see above on how to create and setup the configuration) inside IntelliJ
 * You can start from `show tables;` and `describe table;` queries and execute more queries as needed.
+
+### Run Presto Coordinator + Sidecar
+* Note that everything below can be done without using IDEs by running command line commands (not in this readme).
+* Add a property `presto.default-namespace=native.default` to `presto-native-execution/etc/config.properties`.
+* Run `NativeSidecarPluginQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
+* Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every startup.
+* Copy that port (or the whole URL) to the `discovery.uri` field in`presto/presto-native-execution/etc_sidecar/config.properties` for the sidecar to announce itself to the Coordinator.
+* In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
+* Follow the same steps as above to run Presto client to start executing queries on the running local setup.
 
 ### Run Integration (End to End or E2E) Tests
 * Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
