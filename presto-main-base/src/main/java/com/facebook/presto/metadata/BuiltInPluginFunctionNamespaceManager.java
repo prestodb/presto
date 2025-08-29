@@ -31,6 +31,11 @@ public class BuiltInPluginFunctionNamespaceManager
         super(functionAndTypeManager);
     }
 
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        checkForNamingConflicts(this.getFunctionsFromDefaultNamespace());
+    }
+
     @Override
     public synchronized void registerBuiltInSpecialFunctions(List<? extends SqlFunction> functions)
     {
