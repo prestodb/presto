@@ -398,7 +398,17 @@ jobs:
         working-directory: presto-native-execution
         run: |
           df -h
-          docker compose build centos-native-runtime
+          docker compose build --build-arg EXTRA_CMAKE_FLAGS="
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_SPATIAL=ON \
+            -DPRESTO_ENABLE_TESTING=OFF \
+            -DPRESTO_ENABLE_S3=ON" \
+            --build-arg NUM_THREADS=2 \
+            centos-native-runtime
 
       - name: Add release tag
         working-directory: presto-native-execution
