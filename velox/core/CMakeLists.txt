@@ -20,6 +20,7 @@ velox_add_library(
   Expressions.cpp
   ITypedExpr.cpp
   FilterToExpression.cpp
+  PlanConsistencyChecker.cpp
   PlanFragment.cpp
   PlanNode.cpp
   QueryConfig.cpp

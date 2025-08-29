@@ -777,6 +777,22 @@ PlanNodePtr ValuesNode::create(const folly::dynamic& obj, void* context) {
       obj["repeatTimes"].asInt());
 }
 
+// static
+RowTypePtr AbstractProjectNode::makeOutputType(
+    const std::vector<std::string>& names,
+    const std::vector<TypedExprPtr>& projections) {
+  VELOX_USER_CHECK_EQ(names.size(), projections.size());
+
+  std::vector<TypePtr> types;
+  types.reserve(projections.size());
+  for (const auto& projection : projections) {
+    types.push_back(projection->type());
+  }
+
+  auto namesCopy = names;
+  return ROW(std::move(namesCopy), std::move(types));
+}
+
 void AbstractProjectNode::addDetails(std::stringstream& stream) const {
   stream << "expressions: ";
   for (auto i = 0; i < projections_.size(); i++) {
@@ -1127,11 +1143,11 @@ std::vector<TypedExprPtr> flattenExprs(
   for (auto& group : exprs) {
     result.insert(result.end(), group.begin(), group.end());
   }
-  auto sourceType = input->outputType();
+
+  const auto& sourceType = input->outputType();
   for (auto& name : moreNames) {
-    auto idx = sourceType->getChildIdx(name);
-    result.push_back(
-        std::make_shared<FieldAccessTypedExpr>(sourceType->childAt(idx), name));
+    result.push_back(std::make_shared<FieldAccessTypedExpr>(
+        sourceType->findChild(name), name));
   }
   return result;
 }
@@ -1140,26 +1156,35 @@ std::vector<TypedExprPtr> flattenExprs(
 ParallelProjectNode::ParallelProjectNode(
     const PlanNodeId& id,
     std::vector<std::string> names,
-    std::vector<std::vector<TypedExprPtr>> exprs,
+    std::vector<std::vector<TypedExprPtr>> exprGroups,
     std::vector<std::string> noLoadIdentities,
     PlanNodePtr input)
     : AbstractProjectNode(
           id,
           allNames(names, noLoadIdentities),
-          flattenExprs(exprs, noLoadIdentities, input),
+          flattenExprs(exprGroups, noLoadIdentities, input),
           input),
       exprNames_(std::move(names)),
-      exprs_(std::move(exprs)),
-      noLoadIdentities_(std::move(noLoadIdentities)) {}
+      exprGroups_(std::move(exprGroups)),
+      noLoadIdentities_(std::move(noLoadIdentities)) {
+  VELOX_USER_CHECK(!exprNames_.empty());
+  VELOX_USER_CHECK(!exprGroups_.empty());
+
+  for (const auto& group : exprGroups_) {
+    VELOX_USER_CHECK(!group.empty());
+  }
+}
 
 void ParallelProjectNode::addDetails(std::stringstream& stream) const {
   AbstractProjectNode::addDetails(stream);
   stream << " Parallel expr groups: ";
   int32_t start = 0;
-  for (auto i = 0; i < exprs_.size(); ++i) {
-    stream << fmt::format("[{}-{}]", start, start + exprs_[i].size() - 1)
-           << (i < exprs_.size() - 1 ? ", " : "");
-    start += exprs_[i].size();
+  for (auto i = 0; i < exprGroups_.size(); ++i) {
+    if (i > 0) {
+      stream << ", ";
+    }
+    stream << fmt::format("[{}-{}]", start, start + exprGroups_[i].size() - 1);
+    start += exprGroups_[i].size();
   }
   stream << std::endl;
 }
@@ -1167,7 +1192,7 @@ void ParallelProjectNode::addDetails(std::stringstream& stream) const {
 folly::dynamic ParallelProjectNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["names"] = ISerializable::serialize(exprNames_);
-  obj["projections"] = ISerializable::serialize(exprs_);
+  obj["projections"] = ISerializable::serialize(exprGroups_);
   obj["noLoadIdentities"] = ISerializable::serialize(noLoadIdentities_);
   return obj;
 }

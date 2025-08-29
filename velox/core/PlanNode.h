@@ -325,10 +325,7 @@ class ValuesNode : public PlanNode {
       size_t repeatTimes = kDefaultRepeatTimes)
       : PlanNode(id),
         values_(std::move(values)),
-        outputType_(
-            values_.empty()
-                ? ROW({})
-                : std::dynamic_pointer_cast<const RowType>(values_[0]->type())),
+        outputType_(values_.empty() ? ROW({}) : values_[0]->rowType()),
         parallelizable_(parallelizable),
         repeatTimes_(repeatTimes) {}
 
@@ -825,16 +822,7 @@ class AbstractProjectNode : public PlanNode {
 
   static RowTypePtr makeOutputType(
       const std::vector<std::string>& names,
-      const std::vector<TypedExprPtr>& projections) {
-    std::vector<TypePtr> types;
-    types.reserve(projections.size());
-    for (auto& projection : projections) {
-      types.push_back(projection->type());
-    }
-
-    auto namesCopy = names;
-    return std::make_shared<RowType>(std::move(namesCopy), std::move(types));
-  }
+      const std::vector<TypedExprPtr>& projections);
 
   const std::vector<PlanNodePtr> sources_;
   const std::vector<std::string> names_;
@@ -912,7 +900,7 @@ class ParallelProjectNode : public core::AbstractProjectNode {
   ParallelProjectNode(
       const core::PlanNodeId& id,
       std::vector<std::string> names,
-      std::vector<std::vector<core::TypedExprPtr>> exprs,
+      std::vector<std::vector<core::TypedExprPtr>> exprGroups,
       std::vector<std::string> noLoadIdentities,
       core::PlanNodePtr input);
 
@@ -924,8 +912,8 @@ class ParallelProjectNode : public core::AbstractProjectNode {
     return exprNames_;
   }
 
-  const std::vector<std::vector<core::TypedExprPtr>>& exprs() const {
-    return exprs_;
+  const std::vector<std::vector<core::TypedExprPtr>>& exprGroups() const {
+    return exprGroups_;
   }
 
   const std::vector<std::string> noLoadIdentities() const {
@@ -943,7 +931,7 @@ class ParallelProjectNode : public core::AbstractProjectNode {
   void addDetails(std::stringstream& stream) const override;
 
   const std::vector<std::string> exprNames_;
-  const std::vector<std::vector<core::TypedExprPtr>> exprs_;
+  const std::vector<std::vector<core::TypedExprPtr>> exprGroups_;
   const std::vector<std::string> noLoadIdentities_;
 };
 

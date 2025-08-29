@@ -59,17 +59,18 @@ void ParallelProject::initialize() {
   std::vector<core::TypedExprPtr> allExprs;
 
   const auto& inputType = node_->sources()[0]->outputType();
-  auto& exprs = node_->exprs();
+  const auto& exprGroups = node_->exprGroups();
+
   int32_t unitIdx = 0;
   int32_t exprIdx = 0;
-  int32_t unitSize = exprs[unitIdx].size();
+  int32_t unitSize = exprGroups[unitIdx].size();
   work_.emplace_back();
   work_.back().execCtx = std::make_unique<core::ExecCtx>(
       operatorCtx_->pool(), operatorCtx_->driverCtx()->task->queryCtx().get());
 
   std::vector<core::TypedExprPtr> unitExprs;
   for (column_index_t i = 0; i < node_->exprNames().size(); i++) {
-    auto& projection = exprs[unitIdx][exprIdx];
+    const auto& projection = exprGroups[unitIdx][exprIdx];
     bool identityProjection = checkAddIdentityProjection(
         projection, inputType, i, identityProjections_);
     if (!identityProjection) {
@@ -87,10 +88,10 @@ void ParallelProject::initialize() {
       work_.back().exprSet = std::move(shared);
       ++unitIdx;
       exprIdx = 0;
-      if (unitIdx == exprs.size()) {
+      if (unitIdx == exprGroups.size()) {
         break;
       }
-      unitSize = exprs[unitIdx].size();
+      unitSize = exprGroups[unitIdx].size();
       work_.emplace_back();
       work_.back().execCtx = std::make_unique<core::ExecCtx>(
           operatorCtx_->pool(),
