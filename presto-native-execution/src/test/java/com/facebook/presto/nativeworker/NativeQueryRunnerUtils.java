@@ -59,6 +59,8 @@ public class NativeQueryRunnerUtils
                 .put("coordinator-sidecar-enabled", "true")
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("presto.default-namespace", "native.default")
+                // We override the inline-sql-functions config to true
+                .put("inline-sql-functions", "true")
                 .build();
     }
 
