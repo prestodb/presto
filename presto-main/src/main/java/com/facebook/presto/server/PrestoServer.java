@@ -209,6 +209,9 @@ public class PrestoServer
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
 
+            injector.getInstance(FunctionAndTypeManager.class)
+                    .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
+
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();
