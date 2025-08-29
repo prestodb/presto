@@ -18,10 +18,12 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeLoadMetrics;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -124,5 +126,11 @@ public class PrestoSparkInternalNodeManager
     public void removeNodeChangeListener(Consumer<AllNodes> listener)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<NodeLoadMetrics> getNodeLoadMetrics(String nodeIdentifier)
+    {
+        return Optional.empty();
     }
 }

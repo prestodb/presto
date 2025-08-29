@@ -84,6 +84,8 @@ import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicyModule;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
@@ -708,6 +710,10 @@ public class ServerMainModule
 
         // system connector
         binder.install(new SystemConnectorModule());
+
+        // ClusterOverload policy module
+        binder.install(new ClusterOverloadPolicyModule());
+        newExporter(binder).export(ClusterResourceChecker.class).withGeneratedName();
 
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
