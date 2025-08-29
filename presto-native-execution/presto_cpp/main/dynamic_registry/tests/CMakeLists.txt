@@ -10,13 +10,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(${PRESTO_ENABLE_EXAMPLES})
-  add_subdirectory(examples)
-endif()
-
-if(${PRESTO_ENABLE_CI_TEST_PLUGIN})
-  add_subdirectory(tests)
-endif()
-
-add_library(presto_dynamic_function_registrar INTERFACE
-            DynamicFunctionRegistrar.h)
+add_subdirectory(custom_functions)
