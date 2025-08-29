@@ -109,7 +109,7 @@ uint64_t IcebergSplitReader::next(uint64_t size, VectorPtr& output) {
   }
 
   const auto actualSize = baseRowReader_->nextReadSize(size);
-
+  baseReadOffset_ = baseRowReader_->nextRowNumber() - splitOffset_;
   if (actualSize == dwio::common::RowReader::kAtEnd) {
     return 0;
   }
@@ -136,7 +136,6 @@ uint64_t IcebergSplitReader::next(uint64_t size, VectorPtr& output) {
       : nullptr;
 
   auto rowsScanned = baseRowReader_->next(actualSize, output, &mutation);
-  baseReadOffset_ += rowsScanned;
 
   return rowsScanned;
 }

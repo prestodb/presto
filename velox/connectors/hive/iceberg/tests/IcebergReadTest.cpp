@@ -20,9 +20,13 @@
 #include "velox/connectors/hive/iceberg/IcebergDeleteFile.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#ifdef VELOX_ENABLE_PARQUET
+#include "velox/dwio/parquet/RegisterParquetReader.h"
+#endif
 
 #include <folly/Singleton.h>
 
@@ -35,6 +39,13 @@ namespace facebook::velox::connector::hive::iceberg {
 
 class HiveIcebergTest : public HiveConnectorTestBase {
  public:
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
+#ifdef VELOX_ENABLE_PARQUET
+    parquet::registerParquetReaderFactory();
+#endif
+  }
+
   HiveIcebergTest()
       : config_{std::make_shared<facebook::velox::dwrf::Config>()} {
     // Make the writers flush per batch so that we can create non-aligned
@@ -272,6 +283,54 @@ class HiveIcebergTest : public HiveConnectorTestBase {
 
     return splits;
   }
+
+#ifdef VELOX_ENABLE_PARQUET
+  std::vector<std::shared_ptr<ConnectorSplit>> createParquetDeleteFileAndSplits(
+      const std::string& path,
+      const std::vector<int64_t>& deletePositionsVec,
+      int32_t deletedPositionSize,
+      const std::shared_ptr<TempFilePath>& deleteFilePath) {
+    writeToFile(
+        deleteFilePath->getPath(),
+        {makeRowVector(
+            {pathColumn_->name, posColumn_->name},
+            {
+                makeFlatVector<std::string>(
+                    static_cast<vector_size_t>(deletedPositionSize),
+                    [&](vector_size_t) { return path; }),
+                makeFlatVector<int64_t>(deletePositionsVec),
+            })},
+        config_,
+        flushPolicyFactory_);
+
+    IcebergDeleteFile icebergDeleteFile(
+        FileContent::kPositionalDeletes,
+        deleteFilePath->getPath(),
+        fileFomat_,
+        deletedPositionSize,
+        testing::internal::GetFileSize(
+            std::fopen(deleteFilePath->getPath().c_str(), "r")));
+    auto fileSize = filesystems::getFileSystem(path, nullptr)
+                        ->openFileForRead(path)
+                        ->size();
+
+    std::unordered_map<std::string, std::string> customSplitInfo{
+        {"table_format", "hive-iceberg"}};
+    std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
+    return {std::make_shared<HiveIcebergSplit>(
+        kHiveConnectorId,
+        path,
+        dwio::common::FileFormat::PARQUET,
+        0,
+        fileSize,
+        partitionKeys,
+        std::nullopt,
+        customSplitInfo,
+        nullptr,
+        /*cacheable=*/true,
+        std::vector<IcebergDeleteFile>{icebergDeleteFile})};
+  }
+#endif
 
  private:
   std::map<std::string, std::shared_ptr<TempFilePath>> writeDataFiles(
@@ -774,4 +833,31 @@ TEST_F(HiveIcebergTest, testPartitionedRead) {
 
   HiveConnectorTestBase::assertQuery(plan, splits, "SELECT 0, '2018-04-06'");
 }
+
+#ifdef VELOX_ENABLE_PARQUET
+TEST_F(HiveIcebergTest, testPositionalDeleteFileWithRowGroupFilter) {
+  // This file contains three row groups, each with about 100 rows.
+  // Each row group has min/max values: [200, 299], [0, 99], [100, 199].
+  // The filter here is id >= 100, which will cause the parquet reader to filter
+  // out the middle row group ([0, 99]). This can lead to a mismatch between the
+  // baseReadOffset tracked by Iceberg's split reader and the actual offset,
+  // resulting in records in the position delete file being mapped to incorrect
+  // rows.
+  auto path = test::getDataFilePath(
+      "velox/connectors/hive/iceberg/test", "examples/three_groups.parquet");
+  const auto deletedPositionSize = 100;
+  std::vector<int64_t> deletePositionsVec(
+      deletedPositionSize); // allocate 100 elements, [100, 199].
+  std::iota(deletePositionsVec.begin(), deletePositionsVec.end(), 100);
+  auto deleteFilePath = TempFilePath::create();
+  HiveConnectorTestBase::assertQuery(
+      PlanBuilder(pool_.get())
+          .tableScan(ROW({"id"}, {BIGINT()}), {"id >= 100"})
+          .planNode(),
+      createParquetDeleteFileAndSplits(
+          path, deletePositionsVec, deletedPositionSize, deleteFilePath),
+      "SELECT i AS id FROM range(100, 300) AS t(i)",
+      0);
+}
+#endif
 } // namespace facebook::velox::connector::hive::iceberg
