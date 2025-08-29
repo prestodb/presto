@@ -53,6 +53,11 @@
             <artifactId>drift-protocol</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -131,7 +136,6 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
-
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
