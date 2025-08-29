@@ -45,6 +45,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
@@ -255,6 +256,7 @@ public class PrestoSparkQueryRunner
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
             copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
         }
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         return queryRunner;
     }
 

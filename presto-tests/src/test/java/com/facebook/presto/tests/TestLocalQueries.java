@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
@@ -77,6 +78,8 @@ public class TestLocalQueries
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
         sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
+
+        localQueryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
         return localQueryRunner;
     }

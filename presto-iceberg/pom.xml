@@ -732,6 +732,12 @@
             <artifactId>commons-math3</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-sql-invoked-functions-plugin</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
