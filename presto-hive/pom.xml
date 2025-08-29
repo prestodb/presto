@@ -485,7 +485,7 @@
         <dependency>
             <groupId>org.objenesis</groupId>
             <artifactId>objenesis</artifactId>
-            <version>2.6</version>
+            <version>3.4</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
