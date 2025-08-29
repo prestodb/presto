@@ -404,7 +404,7 @@ public class MongoSession
     public boolean collectionExists(MongoDatabase db, String collectionName)
     {
         for (String name : db.listCollectionNames()) {
-            if (name.equalsIgnoreCase(collectionName)) {
+            if (name.equals(collectionName)) {
                 return true;
             }
         }
@@ -457,14 +457,10 @@ public class MongoSession
         String tableName = schemaTableName.getTableName();
 
         MongoDatabase db = client.getDatabase(schemaName);
-        if (!collectionExists(db, tableName)) {
-            return false;
-        }
-
         DeleteResult result = db.getCollection(schemaCollection)
                 .deleteOne(new Document(TABLE_NAME_KEY, tableName));
 
-        return result.getDeletedCount() == 1;
+        return result.getDeletedCount() == 1 || !collectionExists(db, tableName);
     }
 
     private List<Document> guessTableFields(SchemaTableName schemaTableName)

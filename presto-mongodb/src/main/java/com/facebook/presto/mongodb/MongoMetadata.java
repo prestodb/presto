@@ -61,10 +61,12 @@ public class MongoMetadata
     private final MongoSession mongoSession;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final MongoClientConfig mongoClientConfig;
 
-    public MongoMetadata(MongoSession mongoSession)
+    public MongoMetadata(MongoSession mongoSession, MongoClientConfig mongoClientConfig)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+        this.mongoClientConfig = mongoClientConfig;
     }
 
     @Override
@@ -101,7 +103,7 @@ public class MongoMetadata
 
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             for (String tableName : mongoSession.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                tableNames.add(new SchemaTableName(schemaName, normalizeIdentifier(session, tableName)));
             }
         }
         return tableNames.build();
@@ -318,5 +320,11 @@ public class MongoMetadata
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         mongoSession.dropColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) column).getName());
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return mongoClientConfig.isCaseSensitiveNameMatchingEnabled() ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
