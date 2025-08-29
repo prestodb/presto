@@ -37,7 +37,7 @@ const std::string BASE_DATA_PATH = "/github/presto-trunk/presto-native-execution
 TEST_F(TaskUpdateRequestTest, connectorId) {
   protocol::ConnectorId connectorId;
   thrift::ConnectorId thriftConnectorId;
-  thriftConnectorId.catalogName_ref() = "test";
+  thriftConnectorId.catalogName() = "test";
   thrift::fromThrift(thriftConnectorId, connectorId);
   ASSERT_EQ(connectorId, "test");
 }
@@ -45,8 +45,8 @@ TEST_F(TaskUpdateRequestTest, connectorId) {
 TEST_F(TaskUpdateRequestTest, optionalField) {
   protocol::ResourceEstimates resourceEstimates;
   thrift::ResourceEstimates thriftResourceEstimates;
-  thriftResourceEstimates.executionTime_ref() = 100;
-  thriftResourceEstimates.peakMemory_ref() = 1024 * 1024 * 1024;
+  thriftResourceEstimates.executionTime() = 100;
+  thriftResourceEstimates.peakMemory() = 1024 * 1024 * 1024;
   thrift::fromThrift(thriftResourceEstimates, resourceEstimates);
   ASSERT_EQ(*resourceEstimates.executionTime, protocol::Duration(100, protocol::TimeUnit::MILLISECONDS));
   ASSERT_EQ(resourceEstimates.cpuTime, nullptr);
@@ -57,9 +57,9 @@ TEST_F(TaskUpdateRequestTest, optionalField) {
 TEST_F(TaskUpdateRequestTest, qualifiedObjectName) {
   protocol::QualifiedObjectName qualifiedObjectName;
   thrift::QualifiedObjectName thriftQualifiedObjectName;
-  thriftQualifiedObjectName.catalogName_ref() = "test_catalog";
-  thriftQualifiedObjectName.schemaName_ref() = "test_schema";
-  thriftQualifiedObjectName.objectName_ref() = "test_object";
+  thriftQualifiedObjectName.catalogName() = "test_catalog";
+  thriftQualifiedObjectName.schemaName() = "test_schema";
+  thriftQualifiedObjectName.objectName() = "test_object";
   thrift::fromThrift(thriftQualifiedObjectName, qualifiedObjectName);
   ASSERT_EQ(qualifiedObjectName, "test_catalog.test_schema.test_object");
 }
@@ -68,10 +68,10 @@ TEST_F(TaskUpdateRequestTest, routineCharacteristics) {
   protocol::RoutineCharacteristics routineCharacteristics;
   thrift::RoutineCharacteristics thriftRroutineCharacteristics;
   thrift::Language thriftLanguage;
-  thriftLanguage.language_ref() = "English";
-  thriftRroutineCharacteristics.language_ref() = std::move(thriftLanguage);
-  thriftRroutineCharacteristics.determinism_ref() = thrift::Determinism::NOT_DETERMINISTIC;
-  thriftRroutineCharacteristics.nullCallClause_ref() = thrift::NullCallClause::RETURNS_NULL_ON_NULL_INPUT;
+  thriftLanguage.language() = "English";
+  thriftRroutineCharacteristics.language() = std::move(thriftLanguage);
+  thriftRroutineCharacteristics.determinism() = thrift::Determinism::NOT_DETERMINISTIC;
+  thriftRroutineCharacteristics.nullCallClause() = thrift::NullCallClause::RETURNS_NULL_ON_NULL_INPUT;
   thrift::fromThrift(thriftRroutineCharacteristics, routineCharacteristics);
   ASSERT_EQ((*routineCharacteristics.language).language, "English");
   ASSERT_EQ(*routineCharacteristics.determinism, protocol::Determinism::NOT_DETERMINISTIC);
@@ -81,14 +81,14 @@ TEST_F(TaskUpdateRequestTest, routineCharacteristics) {
 TEST_F(TaskUpdateRequestTest, mapOutputBuffers) {
   protocol::OutputBuffers outputBuffers;
   thrift::OutputBuffers thriftOutputBuffers;
-  thriftOutputBuffers.type_ref() = thrift::BufferType::ARBITRARY;
-  thriftOutputBuffers.version_ref() = 1;
-  thriftOutputBuffers.noMoreBufferIds_ref() = true;
+  thriftOutputBuffers.type() = thrift::BufferType::ARBITRARY;
+  thriftOutputBuffers.version() = 1;
+  thriftOutputBuffers.noMoreBufferIds() = true;
   thrift::OutputBufferId outputBufferId1;
   thrift::OutputBufferId outputBufferId2;
-  outputBufferId1.id_ref() = 1;
-  outputBufferId2.id_ref() = 2;
-  thriftOutputBuffers.buffers_ref() =  {
+  outputBufferId1.id() = 1;
+  outputBufferId2.id() = 2;
+  thriftOutputBuffers.buffers() =  {
     {outputBufferId1, 10},
     {outputBufferId2, 20}
   };
@@ -103,12 +103,12 @@ TEST_F(TaskUpdateRequestTest, mapOutputBuffers) {
 
 TEST_F(TaskUpdateRequestTest, binaryHiveSplitFromThrift) {
   thrift::Split thriftSplit;
-  thriftSplit.connectorId()->catalogName_ref() = "hive";
-  thriftSplit.transactionHandle()->jsonValue_ref() = R"({
+  thriftSplit.connectorId()->catalogName() = "hive";
+  thriftSplit.transactionHandle()->jsonValue() = R"({
     "@type": "hive",
     "uuid": "8a4d6c83-60ee-46de-9715-bc91755619fa"
   })";
-  thriftSplit.connectorSplit()->jsonValue_ref() = slurp(getDataPath(BASE_DATA_PATH, "HiveSplit.json"));
+  thriftSplit.connectorSplit()->jsonValue() = slurp(getDataPath(BASE_DATA_PATH, "HiveSplit.json"));
 
   protocol::Split split;
   thrift::fromThrift(thriftSplit, split);
@@ -133,19 +133,19 @@ TEST_F(TaskUpdateRequestTest, binaryRemoteSplitFromThrift) {
   thrift::RemoteTransactionHandle thriftTransactionHandle;
   thrift::RemoteSplit thriftRemoteSplit;
 
-  thriftSplit.connectorId()->catalogName_ref() = "$remote";
-  thriftSplit.transactionHandle()->customSerializedValue_ref() =
+  thriftSplit.connectorId()->catalogName() = "$remote";
+  thriftSplit.transactionHandle()->customSerializedValue() =
       thriftWrite(thriftTransactionHandle);
   
-  thriftRemoteSplit.location()->location_ref() = "/test_location";
-  thriftRemoteSplit.remoteSourceTaskId()->id_ref() = 100;
-  thriftRemoteSplit.remoteSourceTaskId()->attemptNumber_ref() = 200;
-  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->id_ref() = 300;
-  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->stageId()->id_ref() = 400;
-  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->stageId()->queryId_ref() = "test_query_id";
+  thriftRemoteSplit.location()->location() = "/test_location";
+  thriftRemoteSplit.remoteSourceTaskId()->id() = 100;
+  thriftRemoteSplit.remoteSourceTaskId()->attemptNumber() = 200;
+  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->id() = 300;
+  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->stageId()->id() = 400;
+  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->stageId()->queryId() = "test_query_id";
 
-  thriftSplit.connectorSplit()->connectorId_ref() = "$remote";
-  thriftSplit.connectorSplit()->customSerializedValue_ref() =
+  thriftSplit.connectorSplit()->connectorId() = "$remote";
+  thriftSplit.connectorSplit()->customSerializedValue() =
       thriftWrite(thriftRemoteSplit);
 
   protocol::Split split;
@@ -162,14 +162,14 @@ TEST_F(TaskUpdateRequestTest, unionExecutionWriterTargetFromThrift) {
   // Construct ExecutionWriterTarget with CreateHandle
   thrift::CreateHandle thriftCreateHandle;
   thrift::ExecutionWriterTargetUnion thriftWriterTarget;
-  thriftCreateHandle.schemaTableName()->schema_ref() = "test_schema";
-  thriftCreateHandle.schemaTableName()->table_ref() = "test_table";
-  thriftCreateHandle.handle()->connectorId()->catalogName_ref() = "hive";
-  thriftCreateHandle.handle()->transactionHandle()->jsonValue_ref() = R"({
+  thriftCreateHandle.schemaTableName()->schema() = "test_schema";
+  thriftCreateHandle.schemaTableName()->table() = "test_table";
+  thriftCreateHandle.handle()->connectorId()->catalogName() = "hive";
+  thriftCreateHandle.handle()->transactionHandle()->jsonValue() = R"({
     "@type": "hive",
     "uuid": "8a4d6c83-60ee-46de-9715-bc91755619fa"
   })";
-  thriftCreateHandle.handle()->connectorHandle()->jsonValue_ref() = slurp(getDataPath(BASE_DATA_PATH, "HiveOutputTableHandle.json"));;
+  thriftCreateHandle.handle()->connectorHandle()->jsonValue() = slurp(getDataPath(BASE_DATA_PATH, "HiveOutputTableHandle.json"));;
   thriftWriterTarget.set_createHandle(std::move(thriftCreateHandle));
   
   // Convert from thrift to protocol and verify fields
@@ -207,10 +207,10 @@ TEST_F(TaskUpdateRequestTest, unionExecutionWriterTargetToThrift) {
   // Convert to thrift and verify fields. Note that toThrift functions for connector fields are not implemented.
   thrift::ExecutionWriterTargetUnion thriftWriterTarget;
   thrift::toThrift(writerTarget, thriftWriterTarget);
-  ASSERT_TRUE(thriftWriterTarget.createHandle_ref().has_value());
-  const auto& thriftCreateHandle = thriftWriterTarget.createHandle_ref().value();
-  ASSERT_EQ(thriftCreateHandle.schemaTableName()->schema_ref().value(), "test_schema");
-  ASSERT_EQ(thriftCreateHandle.schemaTableName()->table_ref().value(), "test_table");
+  ASSERT_TRUE(thriftWriterTarget.createHandle().has_value());
+  const auto& thriftCreateHandle = thriftWriterTarget.createHandle().value();
+  ASSERT_EQ(thriftCreateHandle.schemaTableName()->schema().value(), "test_schema");
+  ASSERT_EQ(thriftCreateHandle.schemaTableName()->table().value(), "test_table");
 }
 
 TEST_F(TaskUpdateRequestTest, fragment) {
@@ -260,7 +260,7 @@ TEST_F(TaskUpdateRequestTest, sessionRepresentation) {
       {"Age", "40"},
       {"City", "Chicago"}
   };
-  thriftSessionRepresentation.unprocessedCatalogProperties_ref() = std::move(thriftMap);
+  thriftSessionRepresentation.unprocessedCatalogProperties() = std::move(thriftMap);
 
   thrift::fromThrift(thriftSessionRepresentation, sessionRepresentation);
   ASSERT_EQ(sessionRepresentation.unprocessedCatalogProperties.size(), 3);
