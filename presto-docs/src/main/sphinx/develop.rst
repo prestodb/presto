@@ -22,3 +22,4 @@ This guide is intended for Presto contributors and plugin developers.
     develop/presto-console
     develop/presto-authenticator
     develop/client-request-filter
+    develop/release-process
