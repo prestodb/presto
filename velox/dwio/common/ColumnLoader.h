@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
+#include "velox/vector/LazyVector.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -30,11 +31,13 @@ class ColumnLoader : public VectorLoader {
         fieldReader_(fieldReader),
         version_(version) {}
 
+  virtual ~ColumnLoader() = default;
+
   bool supportsHook() const override {
     return true;
   }
 
- private:
+ protected:
   void loadInternal(
       RowSet rows,
       ValueHook* hook,
