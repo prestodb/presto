@@ -89,6 +89,7 @@
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
         <dep.arrow.version>17.0.0</dep.arrow.version>
+        <dep.mariadb.version>3.5.4</dep.mariadb.version>
 
         <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
 
@@ -171,7 +172,9 @@
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
         <module>presto-password-authenticators</module>
-        <module>presto-session-property-managers</module>
+        <module>presto-session-property-managers-common</module>
+        <module>presto-db-session-property-manager</module>
+        <module>presto-file-session-property-manager</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-api</module>
         <module>presto-thrift-testing-server</module>
@@ -341,7 +344,26 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-session-property-managers</artifactId>
+                <artifactId>presto-session-property-managers-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-session-property-managers-common</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-db-session-property-manager</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-file-session-property-manager</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2678,6 +2700,11 @@
                 <version>${dep.arrow.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.mariadb.jdbc</groupId>
+                <artifactId>mariadb-java-client</artifactId>
+                <version>${dep.mariadb.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

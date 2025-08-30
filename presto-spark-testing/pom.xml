@@ -88,7 +88,13 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-session-property-managers</artifactId>
+            <artifactId>presto-session-property-managers-common</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-file-session-property-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
