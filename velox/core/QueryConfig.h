@@ -692,8 +692,16 @@ class QueryConfig {
   /// username.
   static constexpr const char* kClientTags = "client_tags";
 
+  /// Enable row size tracker as a fallback to file level row size estimates.
+  static constexpr const char* kRowSizeTrackingEnabled =
+      "row_size_tracking_enabled";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
+  }
+
+  bool rowSizeTrackingEnabled() const {
+    return get<bool>(kRowSizeTrackingEnabled, true);
   }
 
   bool debugDisableExpressionsWithPeeling() const {
