@@ -617,6 +617,7 @@ public class SqlQueryExecution
             SubPlan fragmentedPlan = getSession().getRuntimeStats().recordWallAndCpuTime(
                     FRAGMENT_PLAN_TIME_NANOS,
                     () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
+            stateMachine.addWarnings(stateMachine.getWarningCollector().getWarnings());
 
             // record analysis time
             stateMachine.endAnalysis();
