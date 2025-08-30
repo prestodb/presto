@@ -144,6 +144,7 @@ import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
+import com.facebook.presto.operator.scalar.ArraySortByKeyFunction;
 import com.facebook.presto.operator.scalar.ArraySortComparatorFunction;
 import com.facebook.presto.operator.scalar.ArraySortFunction;
 import com.facebook.presto.operator.scalar.ArraySumBigIntFunction;
@@ -883,6 +884,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArraySortFunction.class)
+                .scalar(ArraySortByKeyFunction.class)
                 .scalar(MapSubsetFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
