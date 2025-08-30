@@ -855,20 +855,19 @@ VeloxQueryPlanConverterBase::toColumnStatsSpec(
       sourceVeloxPlan);
 
   // Sanity checks on aggregation node.
-  if (aggregationNode->ignoreNullKeys() ||
-      aggregationNode->groupId().has_value() ||
-      aggregationNode->isPreGrouped() ||
-      !aggregationNode->globalGroupingSets().empty() ||
-      aggregationNode->aggregateNames().empty() ||
-      (aggregationNode->aggregateNames().size() !=
-       aggregationNode->aggregates().size())) {
-    return std::nullopt;
-  }
-  return std::make_optional(core::ColumnStatsSpec{
+  VELOX_CHECK(!aggregationNode->ignoreNullKeys());
+  VELOX_CHECK(!aggregationNode->groupId().has_value());
+  VELOX_CHECK(!aggregationNode->isPreGrouped());
+  VELOX_CHECK(aggregationNode->globalGroupingSets().empty());
+  VELOX_CHECK(!aggregationNode->aggregateNames().empty());
+  VELOX_CHECK_EQ(
+      aggregationNode->aggregateNames().size(),
+      aggregationNode->aggregates().size());
+  return core::ColumnStatsSpec{
       aggregationNode->groupingKeys(),
       aggregationNode->step(),
       aggregationNode->aggregateNames(),
-      aggregationNode->aggregates()});
+      aggregationNode->aggregates()};
 }
 
 std::vector<protocol::VariableReferenceExpression>
