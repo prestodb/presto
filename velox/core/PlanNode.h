@@ -1467,50 +1467,6 @@ class TableWriteNode : public PlanNode {
     }
   }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  TableWriteNode(
-      const PlanNodeId& id,
-      const RowTypePtr& columns,
-      const std::vector<std::string>& columnNames,
-      AggregationNodePtr aggregationNode,
-      std::shared_ptr<const InsertTableHandle> insertTableHandle,
-      bool hasPartitioningScheme,
-      RowTypePtr outputType,
-      connector::CommitStrategy commitStrategy,
-      const PlanNodePtr& source)
-      : TableWriteNode(
-            id,
-            columns,
-            columnNames,
-            toColumnStatsSpec(std::move(aggregationNode)),
-            std::move(insertTableHandle),
-            hasPartitioningScheme,
-            std::move(outputType),
-            commitStrategy,
-            source) {}
-
-  static std::optional<core::ColumnStatsSpec> toColumnStatsSpec(
-      const core::AggregationNodePtr& aggregationNode) {
-    if (aggregationNode == nullptr) {
-      return std::nullopt;
-    }
-    // Sanity checks on aggregation node.
-    VELOX_CHECK(!aggregationNode->ignoreNullKeys());
-    VELOX_CHECK(!aggregationNode->groupId().has_value());
-    VELOX_CHECK(!aggregationNode->isPreGrouped());
-    VELOX_CHECK(aggregationNode->globalGroupingSets().empty());
-    VELOX_CHECK(!aggregationNode->aggregateNames().empty());
-    VELOX_CHECK_EQ(
-        aggregationNode->aggregateNames().size(),
-        aggregationNode->aggregates().size());
-    return core::ColumnStatsSpec{
-        aggregationNode->groupingKeys(),
-        aggregationNode->step(),
-        aggregationNode->aggregateNames(),
-        aggregationNode->aggregates()};
-  }
-#endif
-
   class Builder {
    public:
     Builder() = default;
@@ -1718,19 +1674,6 @@ class TableWriteMergeNode : public PlanNode {
           "TableWriteMergeNode requires aggregation step to be intermediate or final");
     }
   }
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  TableWriteMergeNode(
-      const PlanNodeId& id,
-      RowTypePtr outputType,
-      AggregationNodePtr aggregationNode,
-      PlanNodePtr source)
-      : TableWriteMergeNode(
-            id,
-            std::move(outputType),
-            TableWriteNode::toColumnStatsSpec(std::move(aggregationNode)),
-            source) {}
-#endif
 
   class Builder {
    public:
