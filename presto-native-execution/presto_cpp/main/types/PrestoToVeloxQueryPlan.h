@@ -116,9 +116,9 @@ class VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::TableScanNode> toVeloxQueryPlan(
-    const std::shared_ptr<const protocol::IndexSourceNode>& node,
-    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-    const protocol::TaskId& taskId);
+      const std::shared_ptr<const protocol::IndexSourceNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
 
   velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::MarkDistinctNode>& node,
@@ -151,9 +151,9 @@ class VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::TableWriteNode> toVeloxQueryPlan(
-    const std::shared_ptr<const protocol::DeleteNode>& node,
-    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-    const protocol::TaskId& taskId);
+      const std::shared_ptr<const protocol::DeleteNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::TableWriteMergeNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::TableWriterMergeNode>& node,

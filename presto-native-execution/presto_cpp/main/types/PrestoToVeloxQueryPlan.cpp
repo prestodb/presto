@@ -2383,10 +2383,10 @@ void parseIndexLookupCondition(
     const bool rightIsConstant = core::TypedExprs::isConstant(rightExpr);
 
     VELOX_CHECK_NE(
-      leftIsConstant,
-      rightIsConstant,
-      "The equal condition must have one key and one constant: {}",
-      toJsonString(filter));
+        leftIsConstant,
+        rightIsConstant,
+        "The equal condition must have one key and one constant: {}",
+        toJsonString(filter));
 
     // Determine which argument is the key (non-constant) and which is the value
     // (constant)
