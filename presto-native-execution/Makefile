@@ -97,6 +97,10 @@ clean:					#: Delete all build artifacts
 velox-submodule:		#: Check out code for velox submodule
 	git submodule sync --recursive
 	git submodule update --init --recursive
+	@if [ -f "velox/velox/connectors/hive/iceberg/IcebergDataSink.h" ]; then \
+        echo "Found velox/velox/connectors/hive/iceberg/IcebergDataSink.h - enabling Iceberg native insertion"; \
+        export EXTRA_CMAKE_FLAGS="$$EXTRA_CMAKE_FLAGS -DPRESTO_ENABLE_ICEBERG_NATIVE_INSERTION=ON"; \
+	fi
 
 submodules: velox-submodule
 
