@@ -115,6 +115,7 @@ import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyP
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlChecker;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.BroadcastFileInfo;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
@@ -250,11 +251,13 @@ public class PrestoSparkModule
 {
     private final SparkProcessType sparkProcessType;
     private final SqlParserOptions sqlParserOptions;
+    private final PrestoSparkConfiguration prestoSparkConfiguration;
 
-    public PrestoSparkModule(SparkProcessType sparkProcessType, SqlParserOptions sqlParserOptions)
+    public PrestoSparkModule(SparkProcessType sparkProcessType, SqlParserOptions sqlParserOptions, PrestoSparkConfiguration prestoSparkConfiguration)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
+        this.prestoSparkConfiguration = requireNonNull(prestoSparkConfiguration, "prestoSparkConfiguration is null");
     }
 
     @Override
@@ -550,6 +553,7 @@ public class PrestoSparkModule
 
         // spark specific
         binder.bind(SparkProcessType.class).toInstance(sparkProcessType);
+        binder.bind(PrestoSparkConfiguration.class).toInstance(prestoSparkConfiguration);
         binder.bind(PrestoSparkExecutionExceptionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkSettingsRequirements.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryPlanner.class).in(Scopes.SINGLETON);

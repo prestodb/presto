@@ -53,6 +53,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutio
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
@@ -315,6 +316,19 @@ public class PrestoSparkQueryRunner
         moduleBuilder.add(new PrestoSparkLocalMetadataStorageModule());
         moduleBuilder.addAll(additionalModules);
 
+        // Create a test PrestoSparkConfiguration for the test injector factory
+        PrestoSparkConfiguration testConfiguration = new PrestoSparkConfiguration(
+                configProperties.build(),
+                "", // pluginsDirectoryPath
+                ImmutableMap.<String, Map<String, String>>of(), // catalogProperties
+                ImmutableMap.of("metadata_storage_type", "LOCAL"), // prestoSparkProperties
+                Optional.empty(), // nativeWorkerConfigProperties
+                Optional.empty(), // eventListenerProperties
+                Optional.empty(), // accessControlProperties
+                Optional.empty(), // sessionPropertyConfigurationProperties
+                Optional.empty(), // functionNamespaceProperties
+                Optional.empty()); // tempStorageProperties
+
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 DRIVER,
                 configProperties.build(),
@@ -327,7 +341,8 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 new SqlParserOptions(),
                 moduleBuilder.build(),
-                true);
+                true, // Set isForTesting to true
+                testConfiguration);
 
         Injector injector = injectorFactory.create(new PrestoSparkBootstrapTimer(systemTicker(), false));
 

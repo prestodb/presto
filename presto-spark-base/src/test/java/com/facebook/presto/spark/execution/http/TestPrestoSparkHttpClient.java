@@ -28,6 +28,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.execution.http.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
@@ -75,6 +76,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -906,6 +908,7 @@ public class TestPrestoSparkHttpClient
                 scheduledExecutorService,
                 SERVER_INFO_JSON_CODEC,
                 workerProperty,
+                createTestPrestoSparkConfiguration(),
                 new FeaturesConfig());
         return factory.createNativeExecutionProcess(testSessionBuilder().build(), maxErrorDuration);
     }
@@ -1417,5 +1420,20 @@ public class TestPrestoSparkHttpClient
             }
             throw new RuntimeException("response handler is not expected to be called more than once");
         }
+    }
+
+    private PrestoSparkConfiguration createTestPrestoSparkConfiguration()
+    {
+        return new PrestoSparkConfiguration(
+                ImmutableMap.of(), // configProperties
+                "", // pluginsDirectoryPath
+                ImmutableMap.<String, Map<String, String>>of(), // catalogProperties - empty for test
+                ImmutableMap.of("metadata_storage_type", "LOCAL"), // prestoSparkProperties
+                Optional.empty(), // nativeWorkerConfigProperties
+                Optional.empty(), // eventListenerProperties
+                Optional.empty(), // accessControlProperties
+                Optional.empty(), // sessionPropertyConfigurationProperties
+                Optional.empty(), // functionNamespaceProperties
+                Optional.empty());
     }
 }
