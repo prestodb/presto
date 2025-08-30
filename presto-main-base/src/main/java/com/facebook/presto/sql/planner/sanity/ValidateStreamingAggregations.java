@@ -86,8 +86,10 @@ public class ValidateStreamingAggregations
 
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedVariables()));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();
+            Iterator<Optional<LocalProperty<VariableReferenceExpression>>> additionalMatchIterator = LocalProperties.match(properties.getAdditionalLocalProperties(), desiredProperties).iterator();
             Optional<LocalProperty<VariableReferenceExpression>> unsatisfiedRequirement = Iterators.getOnlyElement(matchIterator);
-            checkArgument(!unsatisfiedRequirement.isPresent(), "Streaming aggregation with input not grouped on the grouping keys");
+            Optional<LocalProperty<VariableReferenceExpression>> additionalUnsatisfiedRequirement = Iterators.getOnlyElement(additionalMatchIterator);
+            checkArgument(!unsatisfiedRequirement.isPresent() || !additionalUnsatisfiedRequirement.isPresent(), "Streaming aggregation with input not grouped on the grouping keys");
             return null;
         }
     }

@@ -85,6 +85,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUER
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS;
+import static com.facebook.presto.SystemSessionProperties.UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
@@ -2153,6 +2154,113 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testRowId()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING, "true")
+                .build();
+        String sql;
+        sql = "SELECT\n" +
+                "    unique_id AS unique_id,\n" +
+                "    ARBITRARY(name) AS customer_name,\n" +
+                "    ARRAY_AGG(orderkey) AS orders_info\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        customer.name,\n" +
+                "        orders.orderkey,\n" +
+                "        customer.\"$row_id\" AS unique_id\n" +
+                "    FROM customer\n" +
+                "    LEFT JOIN orders\n" +
+                "        ON customer.custkey = orders.custkey\n" +
+                "        AND orders.orderstatus IN ('O', 'F')\n" +
+                "        AND orders.orderdate BETWEEN DATE '1995-01-01' AND DATE '1995-12-31'\n" +
+                "    WHERE\n" +
+                "        customer.nationkey IN (1, 2, 3, 4, 5)\n" +
+                ")\n" +
+                "GROUP BY\n" +
+                "    unique_id";
+
+        assertPlan(session,
+                sql,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of(),
+                                join(
+                                        anyTree(tableScan("customer")),
+                                        anyTree(tableScan("orders"))))));
+
+        sql = "select \"$row_id\", count(*) from orders group by 1";
+        assertPlan(sql, anyTree(aggregation(ImmutableMap.of(), tableScan("orders"))));
+        sql = "SELECT\n" +
+                "    customer.\"$row_id\" AS unique_id,\n" +
+                "    COUNT(orders.orderkey) AS order_count,\n" +
+                "    ARRAY_AGG(orders.orderkey) AS order_keys\n" +
+                "FROM customer\n" +
+                "LEFT JOIN orders\n" +
+                "    ON customer.custkey = orders.custkey\n" +
+                "WHERE customer.acctbal > 1000\n" +
+                "GROUP BY customer.\"$row_id\"";
+        assertPlan(sql, anyTree(
+                aggregation(ImmutableMap.of(),
+                        join(
+                                anyTree(tableScan("customer")),
+                                anyTree(tableScan("orders"))))));
+
+        sql = "SELECT\n" +
+                "    unique_id,\n" +
+                "    MAX(orderdate) AS latest_order_date\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        customer.\"$row_id\" AS unique_id,\n" +
+                "        orders.orderdate\n" +
+                "    FROM customer\n" +
+                "    JOIN orders\n" +
+                "        ON customer.custkey = orders.custkey\n" +
+                "    WHERE orders.orderstatus = 'O'\n" +
+                ") t\n" +
+                "GROUP BY unique_id";
+        assertPlan(sql, anyTree(
+                aggregation(ImmutableMap.of(),
+                        join(
+                                anyTree(tableScan("customer")),
+                                anyTree(tableScan("orders"))))));
+
+        sql = "SELECT\n" +
+                "    DISTINCT customer.\"$row_id\" AS unique_id,\n" +
+                "    customer.name\n" +
+                "FROM customer\n" +
+                "WHERE customer.nationkey = 1";
+
+        assertPlan(sql, anyTree(
+                aggregation(ImmutableMap.of(),
+                        project(filter(tableScan("customer"))))));
+
+        sql = "SELECT\n" +
+                "    c.name,\n" +
+                "    o.orderkey,\n" +
+                "    c.\"$row_id\" AS customer_row_id,\n" +
+                "    o.\"$row_id\" AS order_row_id\n" +
+                "FROM customer c\n" +
+                "JOIN orders o\n" +
+                "    ON c.\"$row_id\" = o.\"$row_id\"\n" +
+                "WHERE o.totalprice > 10000";
+        assertPlan(sql, anyTree(
+                join(
+                        exchange(anyTree(tableScan("customer"))),
+                        exchange(anyTree(tableScan("orders"))))));
+
+        sql = "SELECT\n" +
+                "    \"$row_id\" AS unique_id,\n" +
+                "    orderstatus,\n" +
+                "    COUNT(*) AS cnt\n" +
+                "FROM orders\n" +
+                "GROUP BY \"$row_id\", orderstatus";
+        assertPlan(sql, anyTree(
+                aggregation(ImmutableMap.of(),
+                        project(tableScan("orders")))));
+    }
+
     private static Set<Subfield> toSubfields(String... subfieldPaths)
     {
         return Arrays.stream(subfieldPaths)
@@ -2168,6 +2276,11 @@ public class TestHiveLogicalPlanner
     private void assertPushdownSubfields(Session session, String query, String tableName, Map<String, Set<Subfield>> requiredSubfields)
     {
         assertPlan(session, query, anyTree(tableScan(tableName, requiredSubfields)));
+    }
+
+    private static PlanMatchPattern tableScan(String expectedTableName)
+    {
+        return PlanMatchPattern.tableScan(expectedTableName);
     }
 
     private static PlanMatchPattern tableScan(String expectedTableName, Map<String, Set<Subfield>> expectedRequiredSubfields)
