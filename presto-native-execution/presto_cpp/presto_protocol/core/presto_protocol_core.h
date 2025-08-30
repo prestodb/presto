@@ -2188,6 +2188,27 @@ void to_json(json& j, const SortedRangeSet& p);
 void from_json(const json& j, SortedRangeSet& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class SpatialJoinType { INNER, LEFT };
+extern void to_json(json& j, const SpatialJoinType& e);
+extern void from_json(const json& j, SpatialJoinType& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct SpatialJoinNode : public PlanNode {
+  SpatialJoinType type = {};
+  std::shared_ptr<PlanNode> left = {};
+  std::shared_ptr<PlanNode> right = {};
+  List<VariableReferenceExpression> outputVariables = {};
+  std::shared_ptr<RowExpression> filter = {};
+  std::shared_ptr<VariableReferenceExpression> leftPartitionVariable = {};
+  std::shared_ptr<VariableReferenceExpression> rightPartitionVariable = {};
+  std::shared_ptr<String> kdbTree = {};
+
+  SpatialJoinNode() noexcept;
+};
+void to_json(json& j, const SpatialJoinNode& p);
+void from_json(const json& j, SpatialJoinNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class Form {
   IF,
   NULL_IF,
