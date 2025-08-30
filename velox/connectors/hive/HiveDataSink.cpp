@@ -423,7 +423,7 @@ HiveDataSink::HiveDataSink(
           hiveConfig_,
           connectorQueryCtx->sessionProperties())),
       fileNameGenerator_(insertTableHandle_->fileNameGenerator()) {
-  fileSystemStats_ = std::make_shared<filesystems::File::IoStats>();
+  fileSystemStats_ = std::make_unique<filesystems::File::IoStats>();
   if (isBucketed()) {
     VELOX_USER_CHECK_LT(
         bucketCount_,
@@ -775,7 +775,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       std::move(writerPool),
       std::move(sinkPool),
       std::move(sortPool)));
-  ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
+  ioStats_.emplace_back(std::make_unique<io::IoStatistics>());
 
   setMemoryReclaimers(writerInfo_.back().get(), ioStats_.back().get());
 

@@ -660,6 +660,15 @@ class HiveDataSink : public DataSink {
 
   void closeInternal();
 
+  // IMPORTANT NOTE: these are passed to writers as raw pointers. HiveDataSink
+  // owns the lifetime of these objects, and therefore must destroy them last.
+  // Additionally, we must assume that no objects which hold a reference to
+  // these stats will outlive the HiveDataSink instance. This is a reasonable
+  // assumption given the semantics of these stats objects.
+  std::vector<std::unique_ptr<io::IoStatistics>> ioStats_;
+  // Generic filesystem stats, exposed as RuntimeStats
+  std::unique_ptr<filesystems::File::IoStats> fileSystemStats_;
+
   const RowTypePtr inputType_;
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
   const ConnectorQueryCtx* const connectorQueryCtx_;
@@ -692,10 +701,6 @@ class HiveDataSink : public DataSink {
   // writers_ are both indexed by partitionId.
   std::vector<std::shared_ptr<HiveWriterInfo>> writerInfo_;
   std::vector<std::unique_ptr<dwio::common::Writer>> writers_;
-  // IO statistics collected for each writer.
-  std::vector<std::shared_ptr<io::IoStatistics>> ioStats_;
-  // Generic filesystem stats, exposed as RuntimeStats
-  std::shared_ptr<filesystems::File::IoStats> fileSystemStats_;
 
   // Below are structures updated when processing current input. partitionIds_
   // are indexed by the row of input_. partitionRows_, rawPartitionRows_ and
