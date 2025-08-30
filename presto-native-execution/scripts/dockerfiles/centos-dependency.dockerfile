@@ -40,6 +40,7 @@ RUN bash -c "mkdir build && \
                  install_adapters && \
                  install_clang15 && \
                  install_cuda ${CUDA_VERSION}) && \
+                 install_ucx) && \
     rm -rf build"
 
 # put CUDA binaries on the PATH
