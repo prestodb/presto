@@ -17,7 +17,6 @@
 #pragma once
 
 #include <folly/Singleton.h>
-#include <memory>
 
 /// StatsReporter designed to assist in reporting various metrics of the
 /// application that uses velox library. The library itself does not implement
@@ -136,6 +135,24 @@ class BaseStatsReporter {
       const std::vector<double>& pcts,
       const std::vector<size_t>& slidingWindowsSeconds = {60}) const = 0;
 
+  /// Register a dynamic quantile metric with a template key pattern that
+  /// supports runtime substitution.
+  /// @param keyPattern The key pattern with {} placeholders for substitution.
+  /// @param statTypes The list of stat types to export.
+  /// @param pcts The quantile percentiles to track.
+  /// @param slidingWindowsSeconds The sliding window periods in seconds.
+  virtual void registerDynamicQuantileMetricExportType(
+      const char* keyPattern,
+      const std::vector<StatType>& statTypes,
+      const std::vector<double>& pcts,
+      const std::vector<size_t>& slidingWindowsSeconds = {60}) const = 0;
+
+  virtual void registerDynamicQuantileMetricExportType(
+      folly::StringPiece keyPattern,
+      const std::vector<StatType>& statTypes,
+      const std::vector<double>& pcts,
+      const std::vector<size_t>& slidingWindowsSeconds = {60}) const = 0;
+
   /// Add the given value to the stat.
   virtual void addMetricValue(const std::string& key, size_t value = 1)
       const = 0;
@@ -163,6 +180,22 @@ class BaseStatsReporter {
 
   virtual void addQuantileMetricValue(folly::StringPiece key, size_t value = 1)
       const = 0;
+
+  /// Add the given value to a quantile metric.
+  virtual void addDynamicQuantileMetricValue(
+      const std::string& key,
+      folly::Range<const folly::StringPiece*> subkeys,
+      size_t value = 1) const = 0;
+
+  virtual void addDynamicQuantileMetricValue(
+      const char* key,
+      folly::Range<const folly::StringPiece*> subkeys,
+      size_t value = 1) const = 0;
+
+  virtual void addDynamicQuantileMetricValue(
+      folly::StringPiece key,
+      folly::Range<const folly::StringPiece*> subkeys,
+      size_t value = 1) const = 0;
 
   /// Return the aggregated metrics in a serialized string format.
   virtual std::string fetchMetrics() = 0;
@@ -206,6 +239,18 @@ class DummyStatsReporter : public BaseStatsReporter {
       const std::vector<double>& /* pcts */,
       const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
 
+  void registerDynamicQuantileMetricExportType(
+      const char* /* keyPattern */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
+  void registerDynamicQuantileMetricExportType(
+      folly::StringPiece /* keyPattern */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
   void addMetricValue(const std::string& /* key */, size_t /* value */)
       const override {}
 
@@ -232,6 +277,21 @@ class DummyStatsReporter : public BaseStatsReporter {
 
   void addQuantileMetricValue(folly::StringPiece /* key */, size_t /* value */)
       const override {}
+
+  void addDynamicQuantileMetricValue(
+      const std::string& /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {}
+
+  void addDynamicQuantileMetricValue(
+      const char* /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {}
+
+  void addDynamicQuantileMetricValue(
+      folly::StringPiece /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {}
 
   std::string fetchMetrics() override {
     return "";
@@ -261,6 +321,29 @@ template <typename... Args>
 std::vector<size_t> slidingWindowsSeconds(Args... args) {
   return std::vector<size_t>{static_cast<size_t>(args)...};
 }
+
+/// Helper class that stores subkeys in a member array and converts to
+/// folly::Range. This is a temporary object that lives just for the duration of
+/// the macro call.
+template <size_t N>
+class subkeys {
+  std::array<folly::StringPiece, N> pieces_;
+
+ public:
+  template <typename... Args>
+  subkeys(Args&&... args)
+      : pieces_{folly::StringPiece(std::forward<Args>(args))...} {}
+
+  /// Conversion operator to folly::Range<const folly::StringPiece*>
+  operator folly::Range<const folly::StringPiece*>() const {
+    return folly::Range<const folly::StringPiece*>(
+        pieces_.data(), pieces_.size());
+  }
+};
+
+/// Template deduction guide for subkeys class
+template <typename... Args>
+subkeys(Args&&...) -> subkeys<sizeof...(Args)>;
 
 #define DEFINE_METRIC(key, type)                               \
   {                                                            \
@@ -332,5 +415,30 @@ std::vector<size_t> slidingWindowsSeconds(Args... args) {
         reporter->addQuantileMetricValue((key), ##__VA_ARGS__); \
       }                                                         \
     }                                                           \
+  }
+
+#define DEFINE_DYNAMIC_QUANTILE_STAT(                                    \
+    keyPattern, statTypes, percentiles, slidingWindows)                  \
+  {                                                                      \
+    if (::facebook::velox::BaseStatsReporter::registered) {              \
+      auto reporter = folly::Singleton<                                  \
+          facebook::velox::BaseStatsReporter>::try_get_fast();           \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                           \
+        reporter->registerDynamicQuantileMetricExportType(               \
+            (keyPattern), (statTypes), (percentiles), (slidingWindows)); \
+      }                                                                  \
+    }                                                                    \
+  }
+
+#define RECORD_DYNAMIC_QUANTILE_STAT_VALUE(keyPattern, subkeys, ...) \
+  {                                                                  \
+    if (::facebook::velox::BaseStatsReporter::registered) {          \
+      auto reporter = folly::Singleton<                              \
+          facebook::velox::BaseStatsReporter>::try_get_fast();       \
+      if (FOLLY_LIKELY(reporter != nullptr)) {                       \
+        reporter->addDynamicQuantileMetricValue(                     \
+            (keyPattern), (subkeys), ##__VA_ARGS__);                 \
+      }                                                              \
+    }                                                                \
   }
 } // namespace facebook::velox

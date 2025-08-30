@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <folly/init/Init.h>
+#include <functional>
 
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
@@ -117,6 +118,33 @@ class S3TestReporter : public BaseStatsReporter {
 
   void addQuantileMetricValue(folly::StringPiece /* key */, size_t /* value */)
       const override {}
+
+  void registerDynamicQuantileMetricExportType(
+      const char* /* keyPattern */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
+  void registerDynamicQuantileMetricExportType(
+      folly::StringPiece /* keyPattern */,
+      const std::vector<StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {}
+
+  void addDynamicQuantileMetricValue(
+      const std::string& /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {}
+
+  void addDynamicQuantileMetricValue(
+      const char* /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {}
+
+  void addDynamicQuantileMetricValue(
+      folly::StringPiece /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {}
 
   std::string fetchMetrics() override {
     std::stringstream ss;
