@@ -29,6 +29,7 @@ Property Name                                Description                        
 ============================================ ===================================================================== ==============================
 
 .. _sidecar-worker-properties:
+
 Sidecar worker properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Enable sidecar functionality with:
@@ -68,7 +69,7 @@ Property Name                                Description                        
 ============================================ ===================================================================== ==============================
 
 Session properties
------------------
+------------------
 
 These properties must be configured in ``etc/session-property-providers/native-worker.properties`` to use the session property provider of the ``NativeSidecarPlugin``.
 
