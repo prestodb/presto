@@ -82,8 +82,12 @@ RowVectorPtr getTpchData(
 } // namespace
 
 std::string TpchTableHandle::toString() const {
-  return fmt::format(
-      "table: {}, scale factor: {}", toTableName(table_), scaleFactor_);
+  std::stringstream out;
+  out << "table: " << toTableName(table_) << ", scale factor: " << scaleFactor_;
+  if (filterExpression_ != nullptr) {
+    out << ", filter: " << filterExpression_->toString();
+  }
+  return out.str();
 }
 
 TpchDataSource::TpchDataSource(
