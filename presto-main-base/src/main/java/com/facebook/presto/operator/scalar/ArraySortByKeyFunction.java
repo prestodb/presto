@@ -13,107 +13,39 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
+import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.ints.IntComparator;
 
-import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static it.unimi.dsi.fastutil.ints.IntArrays.quickSort;
 
 @ScalarFunction("array_sort")
-@Description("Sorts the given array using a lambda function to extract the sorting key")
+@Description("Sorts the given array using a lambda function to extract sorting keys")
 public final class ArraySortByKeyFunction
 {
     private ArraySortByKeyFunction() {}
 
-    @TypeParameter("E")
+    @TypeParameter("T")
     @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = long.class)
-    @SqlType("array(E)")
-    public static Block sortLong(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
+    @SqlType("array(T)")
+    public static Block sortByKey(
+            @TypeParameter("T") Type elementType,
             @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
-    {
-        return sort(elementType, array, function);
-    }
-
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = double.class)
-    @SqlType("array(E)")
-    public static Block sortDouble(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
-    {
-        return sort(elementType, array, function);
-    }
-
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = boolean.class)
-    @SqlType("array(E)")
-    public static Block sortBoolean(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
-    {
-        return sort(elementType, array, function);
-    }
-
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = Slice.class)
-    @SqlType("array(E)")
-    public static Block sortSlice(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
-    {
-        return sort(elementType, array, function);
-    }
-
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = Block.class)
-    @SqlType("array(E)")
-    public static Block sortBlock(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
-    {
-        return sort(elementType, array, function);
-    }
-
-    private static Block sort(
-            Type elementType,
-            Block array,
-            UnaryFunctionInterface function)
+            SqlFunctionProperties properties,
+            @SqlType("array(T)") Block array,
+            @SqlType("function(T, K)") KeyExtractorFunction function)
     {
         int arrayLength = array.getPositionCount();
 
@@ -121,115 +53,176 @@ public final class ArraySortByKeyFunction
             return array;
         }
 
-        List<ElementWithPosition> elementsWithPositions = new ArrayList<>(arrayLength);
-        for (int position = 0; position < arrayLength; position++) {
-            if (array.isNull(position)) {
-                elementsWithPositions.add(new ElementWithPosition(position, null, true));
-                continue;
+        // Create array of indices and extracted keys
+        int[] indices = new int[arrayLength];
+        BlockBuilder keyBlockBuilder = keyType.createBlockBuilder(null, arrayLength);
+
+        // Extract keys for all elements
+        for (int i = 0; i < arrayLength; i++) {
+            indices[i] = i;
+
+            if (array.isNull(i)) {
+                keyBlockBuilder.appendNull();
             }
-
-            Object element = getElementAtPosition(elementType, array, position);
-            elementsWithPositions.add(new ElementWithPosition(position, element, false));
-        }
-
-        elementsWithPositions.sort(new Comparator<ElementWithPosition>() {
-            @Override
-            public int compare(ElementWithPosition e1, ElementWithPosition e2)
-            {
-                if (e1.isNull) {
-                    return e2.isNull ? 0 : 1;
-                }
-                else if (e2.isNull) {
-                    return -1;
-                }
-
+            else {
                 try {
-                    Object key1 = function.apply(e1.element);
-                    Object key2 = function.apply(e2.element);
+                    // Get element value based on its Java type
+                    Object element = getElementValue(elementType, array, i);
+                    Object key = function.apply(element);
 
-                    if (key1 == null) {
-                        return key2 == null ? 0 : 1;
+                    if (key == null) {
+                        keyBlockBuilder.appendNull();
                     }
-                    else if (key2 == null) {
-                        return -1;
+                    else {
+                        writeToBlockBuilder(keyType, keyBlockBuilder, key);
                     }
-
-                    return compareKeys(key1, key2);
                 }
                 catch (Throwable throwable) {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key function failed with exception", throwable);
                 }
             }
-        });
+        }
 
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, arrayLength);
-        for (ElementWithPosition elementWithPosition : elementsWithPositions) {
-            if (elementWithPosition.isNull) {
-                blockBuilder.appendNull();
+        Block keysBlock = keyBlockBuilder.build();
+
+        // Sort indices based on extracted keys using Type's compareTo
+        try {
+            if (array.mayHaveNull() || keysBlock.mayHaveNull()) {
+                quickSort(indices, new NullableComparator(array, keysBlock, keyType));
             }
             else {
-                elementType.appendTo(array, elementWithPosition.position, blockBuilder);
+                quickSort(indices, new NonNullableComparator(keysBlock, keyType));
             }
         }
+        catch (NotSupportedException | UnsupportedOperationException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key type does not support comparison", e);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key type does not support comparison", e);
+            }
+            throw e;
+        }
 
-        return blockBuilder.build();
+        // Build result array using sorted indices
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, arrayLength);
+        for (Integer index : indices) {
+            elementType.appendTo(array, index, resultBuilder);
+        }
+
+        return resultBuilder.build();
     }
 
-    private static int compareKeys(Object key1, Object key2)
+    private static Object getElementValue(Type elementType, Block array, int position)
     {
-        if (key1 instanceof Long && key2 instanceof Long) {
-            return Long.compare((Long) key1, (Long) key2);
-        }
-        else if (key1 instanceof Number && key2 instanceof Number) {
-            return Double.compare(((Number) key1).doubleValue(), ((Number) key2).doubleValue());
-        }
-        else if (key1 instanceof Boolean && key2 instanceof Boolean) {
-            return Boolean.compare((Boolean) key1, (Boolean) key2);
-        }
-        else if (key1 instanceof Slice && key2 instanceof Slice) {
-            return ((Slice) key1).compareTo((Slice) key2);
-        }
-        else if (key1 instanceof String && key2 instanceof String) {
-            return ((String) key1).compareTo((String) key2);
-        }
-        else {
-            return key1.toString().compareTo(key2.toString());
-        }
-    }
+        Class<?> javaType = elementType.getJavaType();
 
-    private static Object getElementAtPosition(Type elementType, Block array, int position)
-    {
-        if (elementType.getJavaType() == long.class) {
+        if (javaType == long.class) {
             return elementType.getLong(array, position);
         }
-        else if (elementType.getJavaType() == double.class) {
+        else if (javaType == double.class) {
             return elementType.getDouble(array, position);
         }
-        else if (elementType.getJavaType() == boolean.class) {
+        else if (javaType == boolean.class) {
             return elementType.getBoolean(array, position);
         }
-        else if (elementType.getJavaType() == Slice.class) {
+        else if (javaType == Slice.class) {
             return elementType.getSlice(array, position);
-        }
-        else if (elementType.getJavaType() == Block.class) {
-            return elementType.getObject(array, position);
         }
         else {
             return elementType.getObject(array, position);
         }
     }
 
-    private static class ElementWithPosition
+    private static void writeToBlockBuilder(Type type, BlockBuilder blockBuilder, Object value)
     {
-        private final int position;
-        private final Object element;
-        private final boolean isNull;
+        Class<?> javaType = type.getJavaType();
 
-        public ElementWithPosition(int position, Object element, boolean isNull)
-        {
-            this.position = position;
-            this.element = element;
-            this.isNull = isNull;
+        if (javaType == long.class) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
         }
+        else if (javaType == double.class) {
+            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+        }
+        else if (javaType == boolean.class) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
+        }
+        else if (javaType == Slice.class) {
+            type.writeSlice(blockBuilder, (Slice) value);
+        }
+        else {
+            type.writeObject(blockBuilder, value);
+        }
+    }
+
+    private static class NullableComparator
+            implements IntComparator
+    {
+        private final Block array;
+        private final Block keysBlock;
+        private final Type keyType;
+
+        public NullableComparator(Block array, Block keysBlock, Type keyType)
+        {
+            this.array = array;
+            this.keysBlock = keysBlock;
+            this.keyType = keyType;
+        }
+
+        @Override
+        public int compare(int leftIndex, int rightIndex)
+        {
+            // Handle nulls in the original array
+            boolean isNull1 = array.isNull(leftIndex);
+            boolean isNull2 = array.isNull(rightIndex);
+
+            if (isNull1) {
+                return isNull2 ? 0 : 1;
+            }
+            if (isNull2) {
+                return -1;
+            }
+
+            // Handle nulls in the keys
+            boolean keyIsNull1 = keysBlock.isNull(leftIndex);
+            boolean keyIsNull2 = keysBlock.isNull(rightIndex);
+
+            if (keyIsNull1) {
+                return keyIsNull2 ? 0 : 1;
+            }
+            if (keyIsNull2) {
+                return -1;
+            }
+
+            // Use Type's compareTo for actual comparison
+            return keyType.compareTo(keysBlock, leftIndex, keysBlock, rightIndex);
+        }
+    }
+
+    private static class NonNullableComparator
+            implements IntComparator
+    {
+        private final Block keysBlock;
+        private final Type keyType;
+
+        public NonNullableComparator(Block keysBlock, Type keyType)
+        {
+            this.keysBlock = keysBlock;
+            this.keyType = keyType;
+        }
+
+        @Override
+        public int compare(int leftIndex, int rightIndex)
+        {
+            // Use Type's compareTo for actual comparison
+            return keyType.compareTo(keysBlock, leftIndex, keysBlock, rightIndex);
+        }
+    }
+
+    @FunctionalInterface
+    public interface KeyExtractorFunction
+            extends LambdaFunctionInterface
+    {
+        Object apply(Object value);
     }
 }
