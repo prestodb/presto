@@ -60,6 +60,7 @@ add_executable(
   DecimalArithmeticTest.cpp
   DistanceFunctionsTest.cpp
   ElementAtTest.cpp
+  EnumFunctionsTest.cpp
   FailTest.cpp
   FindFirstTest.cpp
   FloatingPointFunctionsTest.cpp

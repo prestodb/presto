@@ -108,6 +108,39 @@ void ArgumentTypeFuzzer::determineUnboundedIntegerVariables(
   }
 }
 
+void ArgumentTypeFuzzer::determineUnboundedEnumVariables(
+    const exec::TypeSignature& type) {
+  if (boost::algorithm::to_lower_copy(type.baseName()) != "bigint_enum") {
+    return;
+  }
+
+  for (const auto& param : type.parameters()) {
+    const auto paramName = param.baseName();
+
+    auto it = variables().find(paramName);
+    if (it != variables().end() && it->second.isEnumParameter()) {
+      if (longEnumParameterBindings_.find(paramName) ==
+          longEnumParameterBindings_.end()) {
+        // Generate a random LongEnumParameter with a random name and random
+        // values.
+        // TODO: Revisit when implementing custom input generator for enum type,
+        // and when enum_key function is removed from the fuzzer skip list.
+        int numValues = rand32(0, 20);
+        std::string enumName =
+            fmt::format("test.enum.{}{}", paramName, numValues);
+        std::unordered_map<std::string, int64_t> enumValues;
+        for (int i = 0; i < numValues; i++) {
+          std::string key = fmt::format("VALUE{}", i);
+          enumValues[key] = i;
+        }
+
+        LongEnumParameter enumParam(enumName, enumValues);
+        longEnumParameterBindings_[paramName] = enumParam;
+      }
+    }
+  }
+}
+
 void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
   for (auto& [variableName, variableInfo] : variables()) {
     if (!variableInfo.isTypeParameter()) {
@@ -189,6 +222,7 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
   determineUnboundedTypeVariables();
   for (const auto& argType : formalArgs) {
     determineUnboundedIntegerVariables(argType);
+    determineUnboundedEnumVariables(argType);
   }
   for (auto i = 0; i < formalArgsCnt; i++) {
     TypePtr actualArg;
@@ -228,6 +262,7 @@ TypePtr ArgumentTypeFuzzer::fuzzReturnType() {
 
   determineUnboundedTypeVariables();
   determineUnboundedIntegerVariables(signature_.returnType());
+  determineUnboundedEnumVariables(signature_.returnType());
 
   const auto& returnType = signature_.returnType();
 

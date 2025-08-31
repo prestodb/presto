@@ -33,6 +33,7 @@ extern void registerHyperLogFunctions(const std::string& prefix);
 extern void registerTDigestFunctions(const std::string& prefix);
 extern void registerQDigestFunctions(const std::string& prefix);
 extern void registerSfmSketchFunctions(const std::string& prefix);
+extern void registerEnumFunctions(const std::string& prefix);
 extern void registerIntegerFunctions(const std::string& prefix);
 extern void registerFloatingPointFunctions(const std::string& prefix);
 extern void registerJsonFunctions(const std::string& prefix);
@@ -93,6 +94,10 @@ void registerSfmSketchFunctions(const std::string& prefix) {
   functions::registerSfmSketchFunctions(prefix);
 }
 
+void registerEnumFunctions(const std::string& prefix) {
+  functions::registerEnumFunctions(prefix);
+}
+
 void registerIntegerFunctions(const std::string& prefix) {
   functions::registerIntegerFunctions(prefix);
 }
@@ -136,9 +141,6 @@ void registerBitwiseFunctions(const std::string& prefix) {
 }
 
 void registerAllScalarFunctions(const std::string& prefix) {
-  // TODO: move registerBigintEnumType to registerEnumTypeFunctions once the
-  // enum functions are implemented
-  registerBigintEnumType();
   registerArithmeticFunctions(prefix);
   registerCheckedArithmeticFunctions(prefix);
   registerComparisonFunctions(prefix);
@@ -149,6 +151,7 @@ void registerAllScalarFunctions(const std::string& prefix) {
   registerTDigestFunctions(prefix);
   registerQDigestFunctions(prefix);
   registerSfmSketchFunctions(prefix);
+  registerEnumFunctions(prefix);
   registerIntegerFunctions(prefix);
   registerFloatingPointFunctions(prefix);
   registerBingTileFunctions(prefix);

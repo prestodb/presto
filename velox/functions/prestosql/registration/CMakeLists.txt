@@ -24,6 +24,7 @@ velox_add_library(
   ComparisonFunctionsRegistration.cpp
   DateTimeFunctionsRegistration.cpp
   DataSizeFunctionsRegistration.cpp
+  EnumFunctionsRegistration.cpp
   GeneralFunctionsRegistration.cpp
   HyperLogFunctionsRegistration.cpp
   IntegerFunctionsRegistration.cpp

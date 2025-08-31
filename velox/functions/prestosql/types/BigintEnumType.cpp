@@ -15,6 +15,7 @@
  */
 
 #include <folly/Synchronized.h>
+#include <folly/container/EvictingCacheMap.h>
 
 #include "velox/functions/prestosql/types/BigintEnumType.h"
 
@@ -62,6 +63,14 @@ BigintEnumType::BigintEnumType(const LongEnumParameter& parameters)
 std::string BigintEnumType::toString() const {
   return fmt::format(
       "{}:BigintEnum({})", name_, flippedMapToString(flippedMap_));
+}
+
+const std::optional<std::string> BigintEnumType::keyAt(int64_t value) const {
+  auto it = flippedMap_.find(value);
+  if (it != flippedMap_.end()) {
+    return it->second;
+  }
+  return std::nullopt;
 }
 
 // A thread-safe LRU cache to store instances of BigintEnumType.

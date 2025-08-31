@@ -26,6 +26,7 @@ Presto Functions
     functions/presto/geospatial
     functions/presto/ipaddress
     functions/presto/uuid
+    functions/presto/enum
     functions/presto/misc
 
 Here is a list of all scalar and aggregate Presto functions available in Velox.

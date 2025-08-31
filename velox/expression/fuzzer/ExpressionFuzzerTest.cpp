@@ -386,6 +386,7 @@ std::unordered_set<std::string> skipFunctionsSOT = {
     "inverse_chi_squared_cdf", // https://github.com/facebookincubator/velox/issues/13788
     "bing_tile_children", // Velox limits the max zoom shift
                           // https://github.com/facebookincubator/velox/pull/13604
+    "enum_key", // Requires a custom input generator
     // Not registered
     "array_sum_propagate_element_null",
     // Skipping until the new signature is merged and released in Presto:

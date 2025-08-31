@@ -81,6 +81,10 @@ class ArgumentTypeFuzzer {
   // Noop if 'type' is not a decimal type signature.
   void determineUnboundedIntegerVariables(const exec::TypeSignature& type);
 
+  // Bind LongEnumParameter variables used in enum type signatures to
+  // randomly generated values if not already bound.
+  void determineUnboundedEnumVariables(const exec::TypeSignature& type);
+
   TypePtr randType();
 
   /// Generates an orderable random type, including structs, and arrays.

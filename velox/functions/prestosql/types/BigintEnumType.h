@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include <folly/container/EvictingCacheMap.h>
-
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -50,6 +48,10 @@ class BigintEnumType : public BigintType {
   bool containsValue(int64_t value) const {
     return flippedMap_.contains(value);
   }
+
+  /// Returns the string key given an integer value. If the value does not exist
+  /// in the flippedMap_, return std::nullopt.
+  const std::optional<std::string> keyAt(int64_t value) const;
 
   const std::string& enumName() const {
     return name_;
