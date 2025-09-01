@@ -37,14 +37,14 @@ OperatorReplayerBase::OperatorReplayerBase(
     std::string queryId,
     std::string taskId,
     std::string nodeId,
-    std::string operatorType,
+    std::string nodeName,
     const std::string& driverIds,
     uint64_t queryCapacity,
     folly::Executor* executor)
     : queryId_(std::string(std::move(queryId))),
       taskId_(std::move(taskId)),
       nodeId_(std::move(nodeId)),
-      operatorType_(std::move(operatorType)),
+      nodeName_(std::move(nodeName)),
       taskTraceDir_(
           exec::trace::getTaskTraceDirectory(traceDir, queryId_, taskId_)),
       nodeTraceDir_(exec::trace::getNodeTraceDirectory(taskTraceDir_, nodeId_)),
@@ -61,8 +61,8 @@ OperatorReplayerBase::OperatorReplayerBase(
   VELOX_USER_CHECK(!taskTraceDir_.empty());
   VELOX_USER_CHECK(!taskId_.empty());
   VELOX_USER_CHECK(!nodeId_.empty());
-  VELOX_USER_CHECK(!operatorType_.empty());
-  if (operatorType_ == "HashJoin") {
+  VELOX_USER_CHECK(!nodeName_.empty());
+  if (nodeName_ == "HashJoin") {
     VELOX_USER_CHECK_EQ(pipelineIds_.size(), 2);
   } else {
     VELOX_USER_CHECK_EQ(pipelineIds_.size(), 1);
@@ -98,7 +98,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() {
       planFragment_.get(),
       [this](const core::PlanNode* node) { return node->id() == nodeId_; });
 
-  if (replayNode->name() == "TableScan") {
+  if (replayNode->sources().empty()) {
     return exec::test::PlanBuilder()
         .addNode(replayNodeFactory(replayNode))
         .capturePlanNodeId(replayPlanNodeId_)
@@ -119,7 +119,7 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() {
 std::shared_ptr<core::QueryCtx> OperatorReplayerBase::createQueryCtx() {
   static std::atomic_uint64_t replayQueryId{0};
   auto queryPool = memory::memoryManager()->addRootPool(
-      fmt::format("{}_replayer_{}", operatorType_, replayQueryId++),
+      fmt::format("{}_replayer_{}", nodeName_, replayQueryId++),
       queryCapacity_);
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;

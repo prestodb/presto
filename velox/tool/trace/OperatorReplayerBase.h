@@ -33,7 +33,7 @@ class OperatorReplayerBase {
       std::string queryId,
       std::string taskId,
       std::string nodeId,
-      std::string operatorType,
+      std::string nodeName,
       const std::string& driverIds,
       uint64_t queryCapacity,
       folly::Executor* executor);
@@ -60,7 +60,7 @@ class OperatorReplayerBase {
   const std::string queryId_;
   const std::string taskId_;
   const std::string nodeId_;
-  const std::string operatorType_;
+  const std::string nodeName_;
   const std::string taskTraceDir_;
   const std::string nodeTraceDir_;
   const std::shared_ptr<filesystems::FileSystem> fs_;

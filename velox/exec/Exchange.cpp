@@ -15,10 +15,31 @@
  */
 #include "velox/exec/Exchange.h"
 
+#include "velox/common/serialization/Serializable.h"
 #include "velox/exec/Task.h"
 #include "velox/serializers/CompactRowSerializer.h"
 
 namespace facebook::velox::exec {
+
+folly::dynamic RemoteConnectorSplit::serialize() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["name"] = "RemoteConnectorSplit";
+  obj["taskId"] = taskId;
+  return obj;
+}
+
+// static
+std::shared_ptr<RemoteConnectorSplit> RemoteConnectorSplit::create(
+    const folly::dynamic& obj) {
+  const auto taskId = obj["taskId"].asString();
+  return std::make_shared<RemoteConnectorSplit>(taskId);
+}
+
+// static
+void RemoteConnectorSplit::registerSerDe() {
+  auto& registry = DeserializationRegistryForSharedPtr();
+  registry.Register("RemoteConnectorSplit", RemoteConnectorSplit::create);
+}
 
 namespace {
 std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
@@ -81,6 +102,9 @@ bool Exchange::getSplits(ContinueFuture* future) {
         auto remoteSplit = std::dynamic_pointer_cast<RemoteConnectorSplit>(
             split.connectorSplit);
         VELOX_CHECK_NOT_NULL(remoteSplit, "Wrong type of split");
+        if (FOLLY_UNLIKELY(splitTracer_ != nullptr)) {
+          splitTracer_->write(split);
+        }
         remoteTaskIds.push_back(remoteSplit->taskId);
       } else {
         addRemoteTaskIds(remoteTaskIds);

@@ -31,6 +31,13 @@ struct RemoteConnectorSplit : public connector::ConnectorSplit {
   explicit RemoteConnectorSplit(const std::string& remoteTaskId)
       : ConnectorSplit(""), taskId(remoteTaskId) {}
 
+  static std::shared_ptr<RemoteConnectorSplit> create(
+      const folly::dynamic& obj);
+
+  static void registerSerDe();
+
+  folly::dynamic serialize() const override;
+
   std::string toString() const override {
     return fmt::format("Remote: {}", taskId);
   }

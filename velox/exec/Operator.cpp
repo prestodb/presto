@@ -147,7 +147,7 @@ void Operator::maybeSetTracer() {
       opTraceDirPath,
       operatorCtx_->driverCtx()->queryConfig().opTraceDirectoryCreateConfig());
 
-  if (operatorType() == "TableScan") {
+  if (dynamic_cast<SourceOperator*>(this) != nullptr) {
     setupSplitTracer(opTraceDirPath);
   } else {
     setupInputTracer(opTraceDirPath);

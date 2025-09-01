@@ -57,7 +57,8 @@ class TraceReplayRunner {
   virtual void run();
 
  protected:
-  std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() const;
+  virtual std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer()
+      const;
 
   const std::unique_ptr<folly::CPUThreadPoolExecutor> cpuExecutor_;
   const std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;

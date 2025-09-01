@@ -78,6 +78,11 @@ class DummySourceNode final : public core::PlanNode {
 };
 
 void registerDummySourceSerDe();
+
+std::unordered_map<std::string, TraceNodeFactory>& traceNodeRegistry() {
+  static std::unordered_map<std::string, TraceNodeFactory> registry;
+  return registry;
+}
 } // namespace
 
 void createTraceDirectory(
@@ -291,7 +296,11 @@ bool canTrace(const std::string& operatorType) {
       "PartitionedOutput",
       "TableScan",
       "TableWrite"};
-  return kSupportedOperatorTypes.count(operatorType) > 0;
+  if (kSupportedOperatorTypes.count(operatorType) > 0 ||
+      traceNodeRegistry().count(operatorType) > 0) {
+    return true;
+  }
+  return false;
 }
 
 core::PlanNodePtr getTraceNode(
@@ -442,8 +451,22 @@ core::PlanNodePtr getTraceNode(
             unnestNode->sources().front()->outputType()));
   }
 
+  for (const auto& factory : traceNodeRegistry()) {
+    if (auto node = factory.second(traceNode, nodeId)) {
+      return node;
+    }
+  }
+
   VELOX_UNSUPPORTED(
       fmt::format("Unsupported trace node: {}", traceNode->name()));
+}
+
+void registerTraceNodeFactory(
+    const std::string& operatorType,
+    TraceNodeFactory&& factory) {
+  auto& registry = traceNodeRegistry();
+  VELOX_CHECK_EQ(registry.count(operatorType), 0);
+  registry.emplace(operatorType, std::move(factory));
 }
 
 void registerDummySourceSerDe() {

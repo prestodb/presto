@@ -142,5 +142,12 @@ core::PlanNodePtr getTraceNode(
     const core::PlanNodePtr& plan,
     core::PlanNodeId nodeId);
 
+using TraceNodeFactory = std::function<
+    core::PlanNodePtr(const core::PlanNode*, const core::PlanNodeId&)>;
+
+void registerTraceNodeFactory(
+    const std::string& operatorType,
+    TraceNodeFactory&& factory);
+
 void registerDummySourceSerDe();
 } // namespace facebook::velox::exec::trace
