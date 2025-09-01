@@ -66,6 +66,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.VerifyException;
@@ -82,7 +83,6 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
-import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionSpec;
@@ -194,6 +194,7 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTable
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -207,8 +208,6 @@ import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
-import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
-import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
 public abstract class IcebergAbstractMetadata
@@ -225,6 +224,8 @@ public abstract class IcebergAbstractMetadata
     protected Transaction transaction;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
+    protected final IsolationLevel isolationLevel;
+    protected final boolean autoCommitContext;
 
     private final StandardFunctionResolution functionResolution;
     private final ConcurrentMap<SchemaTableName, Table> icebergTables = new ConcurrentHashMap<>();
@@ -237,7 +238,9 @@ public abstract class IcebergAbstractMetadata
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            com.facebook.presto.spi.transaction.IsolationLevel isolationLevel,
+            boolean autoCommitContext)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -247,6 +250,8 @@ public abstract class IcebergAbstractMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
+        this.autoCommitContext = autoCommitContext;
     }
 
     protected final Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
@@ -603,14 +608,13 @@ public abstract class IcebergAbstractMetadata
 
         RowDelta rowDelta = transaction.newRowDelta();
         writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
-        IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
         commitTasks.forEach(task -> handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFiles));
 
         rowDelta.validateDataFilesExist(referencedDataFiles.build());
-        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+        if (isolationLevel == SERIALIZABLE) {
             rowDelta.validateNoConflictingDataFiles();
         }
 
