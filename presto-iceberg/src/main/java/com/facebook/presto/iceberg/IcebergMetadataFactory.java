@@ -14,8 +14,11 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 
 public interface IcebergMetadataFactory
 {
     ConnectorMetadata create();
+
+    ConnectorMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext);
 }
