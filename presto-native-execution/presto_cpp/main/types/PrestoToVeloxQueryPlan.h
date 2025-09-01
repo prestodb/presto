@@ -204,7 +204,7 @@ class VeloxQueryPlanConverterBase {
   velox::VectorPtr evaluateConstantExpression(
       const velox::core::TypedExprPtr& expression);
 
-  std::shared_ptr<velox::core::AggregationNode> generateAggregationNode(
+  std::optional<velox::core::ColumnStatsSpec> toColumnStatsSpec(
       const std::shared_ptr<protocol::StatisticAggregations>&
           statisticsAggregation,
       velox::core::AggregationNode::Step step,
