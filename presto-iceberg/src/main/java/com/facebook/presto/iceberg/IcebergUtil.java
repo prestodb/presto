@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
@@ -273,6 +274,13 @@ public final class IcebergUtil
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support get views");
         }
         return ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(table, catalogFactory.isNestedNamespaceEnabled()));
+    }
+
+    public static TableOperations opsFromTable(Table table)
+    {
+        return table instanceof BaseTransaction.TransactionTable ?
+                ((BaseTransaction.TransactionTable) table).operations() :
+                ((BaseTable) table).operations();
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
