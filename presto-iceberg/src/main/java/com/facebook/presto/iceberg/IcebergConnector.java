@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
-import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
@@ -204,12 +204,12 @@ public class IcebergConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean autoCommitContext, boolean readOnly)
     {
-        checkConnectorSupports(SERIALIZABLE, isolationLevel);
+        checkConnectorSupports(REPEATABLE_READ, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            transactionManager.put(transaction, metadataFactory.create());
+            transactionManager.put(transaction, metadataFactory.create(isolationLevel, autoCommitContext));
         }
         return transaction;
     }
