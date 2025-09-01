@@ -21,8 +21,10 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import jakarta.inject.Inject;
 
+import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergNativeMetadataFactory
@@ -67,6 +69,13 @@ public class IcebergNativeMetadataFactory
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        return create(REPEATABLE_READ, true);
+    }
+
+    public ConnectorMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext)
+    {
+        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution,
+                rowExpressionService, commitTaskCodec, catalogType, nodeVersion,
+                filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
     }
 }
