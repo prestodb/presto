@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.transaction;
 
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Map;
@@ -24,24 +23,24 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class IcebergTransactionManager
 {
-    private final Map<ConnectorTransactionHandle, ConnectorMetadata> transactions = new ConcurrentHashMap<>();
+    private final Map<ConnectorTransactionHandle, IcebergTransactionMetadata> transactions = new ConcurrentHashMap<>();
 
-    public ConnectorMetadata get(ConnectorTransactionHandle transaction)
+    public IcebergTransactionMetadata get(ConnectorTransactionHandle transaction)
     {
-        ConnectorMetadata metadata = transactions.get(transaction);
+        IcebergTransactionMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         return metadata;
     }
 
     public void remove(ConnectorTransactionHandle transaction)
     {
-        ConnectorMetadata metadata = transactions.remove(transaction);
+        IcebergTransactionMetadata metadata = transactions.remove(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
     }
 
-    public void put(ConnectorTransactionHandle transaction, ConnectorMetadata metadata)
+    public void put(ConnectorTransactionHandle transaction, IcebergTransactionMetadata metadata)
     {
-        ConnectorMetadata existing = transactions.putIfAbsent(transaction, metadata);
+        IcebergTransactionMetadata existing = transactions.putIfAbsent(transaction, metadata);
         checkState(existing == null, "transaction already exists: %s", existing);
     }
 }
