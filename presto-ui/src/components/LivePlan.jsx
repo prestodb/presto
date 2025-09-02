@@ -158,7 +158,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
 
     const timeoutId = useRef<TimeoutID | null>(null);
     const graphRef = useRef(initializeGraph());
-    const svgRef = useRef<SVGElement | null>(null);
+    const svgRef = useRef<?SVGSVGElement>(null);
     const renderRef = useRef(new dagreD3.render());
 
     const refreshLoop = () => {
