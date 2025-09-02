@@ -33,8 +33,6 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -49,7 +47,6 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -58,8 +55,6 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
 {
     protected volatile FunctionMap functions = new FunctionMap();
     private final FunctionAndTypeManager functionAndTypeManager;
-    protected final Supplier<FunctionMap> cachedFunctions =
-            Suppliers.memoize(this::createFunctionMap);
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
 
@@ -85,11 +80,7 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
     @Override
     public Collection<SqlFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName)
     {
-        if (functions.list().isEmpty() ||
-                (!functionName.getCatalogSchemaName().equals(functionAndTypeManager.getDefaultNamespace()))) {
-            return emptyList();
-        }
-        return cachedFunctions.get().get(functionName);
+        return functions.get(functionName);
     }
 
     /**
@@ -98,7 +89,7 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
     @Override
     public Collection<SqlFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
-        return cachedFunctions.get().list();
+        return functions.list();
     }
 
     @Override

@@ -14,15 +14,23 @@
 package com.facebook.presto.i18n.functions;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 
 public class TestMyanmarFunctions
         extends AbstractTestFunctions
 {
+    public TestMyanmarFunctions()
+    {
+        super(TEST_SESSION, new FeaturesConfig(), new FunctionsConfig(), false);
+    }
+
     @BeforeClass
     public void setUp()
     {

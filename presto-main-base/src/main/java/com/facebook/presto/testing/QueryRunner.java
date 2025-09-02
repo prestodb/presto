@@ -126,6 +126,11 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
+    default void triggerConflictCheckWithBuiltInFunctions()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     class MaterializedResultWithPlan
     {
         private final MaterializedResult materializedResult;

@@ -15,13 +15,21 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import org.testng.annotations.BeforeClass;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 
 abstract class AbstractTestMLFunctions
         extends AbstractTestFunctions
 {
+    public AbstractTestMLFunctions()
+    {
+        super(TEST_SESSION, new FeaturesConfig(), new FunctionsConfig(), false);
+    }
+
     @BeforeClass
     protected void registerFunctions()
     {

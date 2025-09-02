@@ -280,4 +280,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/sql-invoked-functions-plugin">
+        <artifact id="${project.groupId}:presto-sql-invoked-functions-plugin:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
