@@ -91,9 +91,9 @@ TEST_F(PlanNodeToStringTest, recursiveAndDetailed) {
 
 TEST_F(PlanNodeToStringTest, withContext) {
   auto addContext = [](const core::PlanNodeId& planNodeId,
-                       const std::string& /* indentation */,
-                       std::stringstream& stream) {
-    stream << "Context for " << planNodeId;
+                       const std::string& indentation,
+                       std::ostream& stream) {
+    stream << indentation << "Context for " << planNodeId << std::endl;
   };
 
   ASSERT_EQ(
@@ -136,9 +136,11 @@ TEST_F(PlanNodeToStringTest, withContext) {
 TEST_F(PlanNodeToStringTest, withMultiLineContext) {
   auto addContext = [](const core::PlanNodeId& planNodeId,
                        const std::string& indentation,
-                       std::stringstream& stream) {
-    stream << "Context for " << planNodeId << ": line 1" << std::endl;
-    stream << indentation << "Context for " << planNodeId << ": line 2";
+                       std::ostream& stream) {
+    stream << indentation << "Context for " << planNodeId << ": line 1"
+           << std::endl;
+    stream << indentation << "Context for " << planNodeId << ": line 2"
+           << std::endl;
   };
 
   ASSERT_EQ(

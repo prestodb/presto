@@ -298,7 +298,7 @@ namespace {
 void printCustomStats(
     const std::unordered_map<std::string, RuntimeMetric>& stats,
     const std::string& indentation,
-    std::stringstream& stream) {
+    std::ostream& stream) {
   int width = 0;
   for (const auto& entry : stats) {
     if (width < entry.first.size()) {
@@ -314,9 +314,9 @@ void printCustomStats(
   }
 
   for (const auto& [name, metric] : orderedStats) {
-    stream << std::endl;
     stream << indentation << std::left << std::setw(width) << name;
     metric.printMetric(stream);
+    stream << std::endl;
   }
 }
 } // namespace
@@ -338,16 +338,15 @@ std::string printPlanWithStats(
         // Print input rows and sizes only for leaf plan nodes. Including this
         // information for other plan nodes is redundant as it is the same as
         // output of the source nodes.
-        const bool includeInputStats = leafPlanNodes.count(planNodeId) > 0;
-        stream << stats.toString(includeInputStats);
+        const bool includeInputStats = leafPlanNodes.contains(planNodeId);
+        stream << indentation << stats.toString(includeInputStats) << std::endl;
 
         // Include break down by operator type for plan nodes with multiple
         // operators. Print input rows and sizes for all such nodes.
         if (stats.isMultiOperatorTypeNode()) {
           for (const auto& entry : stats.operatorStats) {
-            stream << std::endl;
             stream << indentation << entry.first << ": "
-                   << entry.second->toString(true);
+                   << entry.second->toString(true) << std::endl;
 
             if (includeCustomStats) {
               printCustomStats(

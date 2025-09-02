@@ -48,7 +48,7 @@ void RuntimeMetric::merge(const RuntimeMetric& other)
   max = std::max(max, other.max);
 }
 
-void RuntimeMetric::printMetric(std::stringstream& stream) const {
+void RuntimeMetric::printMetric(std::ostream& stream) const {
   switch (unit) {
     case RuntimeCounter::Unit::kNanos:
       stream << " sum: " << succinctNanos(sum) << ", count: " << count

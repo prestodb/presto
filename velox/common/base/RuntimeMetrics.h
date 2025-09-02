@@ -19,9 +19,6 @@
 #include <fmt/format.h>
 #include <folly/CppAttributes.h>
 #include <limits>
-#include <sstream>
-
-#include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox {
 
@@ -57,7 +54,7 @@ struct RuntimeMetric {
   /// positive.
   void aggregate();
 
-  void printMetric(std::stringstream& stream) const;
+  void printMetric(std::ostream& stream) const;
 
   void merge(const RuntimeMetric& other);
 

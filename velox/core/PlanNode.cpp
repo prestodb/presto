@@ -3308,7 +3308,7 @@ void PlanNode::toString(
     const std::function<void(
         const PlanNodeId& planNodeId,
         const std::string& indentation,
-        std::stringstream& stream)>& addContext) const {
+        std::ostream& stream)>& addContext) const {
   const std::string indentation(indentationSize, ' ');
 
   stream << indentation << "-- " << name() << "[" << id() << "]";
@@ -3323,10 +3323,8 @@ void PlanNode::toString(
   stream << std::endl;
 
   if (addContext) {
-    auto contextIndentation = indentation + "   ";
-    stream << contextIndentation;
+    const auto contextIndentation = indentation + "   ";
     addContext(id(), contextIndentation, stream);
-    stream << std::endl;
   }
 
   if (recursive) {
