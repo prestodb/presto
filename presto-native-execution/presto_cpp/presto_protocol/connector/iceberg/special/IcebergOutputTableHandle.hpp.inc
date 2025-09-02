@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-// IcebergInsertTableHandle is special since it needs an usage of
+// IcebergOutputTableHandle is special since it needs an usage of
 // hive::.
 
 namespace facebook::presto::protocol::iceberg {

@@ -172,8 +172,8 @@ class PrestoServer {
 
   /// Invoked to get the ip address of the process. In certain deployment
   /// setup, each process has different ip address. Deployment environment
-  /// may provide there own library to get process specific ip address.
-  /// In such cases, getLocalIp can be overriden to pass process specific
+  /// may provide their own library to get process specific ip address.
+  /// In such cases, getLocalIp can be overridden to pass process specific
   /// ip address.
   virtual std::string getLocalIp() const;
 
