@@ -1,18 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
         <version>0.295-edge8.3-SNAPSHOT</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
     <artifactId>presto-built-in-worker-function-tools</artifactId>
     <name>presto-built-in-worker-function-tools</name>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <project.build.targetJdk>17</project.build.targetJdk>
+        <air.main.basedir>${project.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
