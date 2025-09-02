@@ -14,7 +14,7 @@
 //@flow
 import React, { useState, useEffect, useRef } from "react";
 
-export const PageTitle = () => {
+export const PageTitle = (): React.Node => {
     const [state, setState] = useState({
         noConnection: false,
         lightShown: false,
@@ -24,7 +24,7 @@ export const PageTitle = () => {
         errorText: null,
     });
 
-    const timeoutId = useRef<number | null>(null);
+    const timeoutId = useRef<TimeoutID | null>(null);
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);
