@@ -52,7 +52,7 @@ const isOffline = () => {
     return window.location.protocol === 'file:';
 };
 
-export const PageTitle = (props: Props) => {
+export const PageTitle = (props: Props): React.Node => {
     const [state, setState] = useState<State>({
         noConnection: false,
         lightShown: false,
@@ -62,7 +62,7 @@ export const PageTitle = (props: Props) => {
         errorText: null,
     });
 
-    const timeoutId = useRef<number | null>(null);
+    const timeoutId = useRef<TimeoutID | null>(null);
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);

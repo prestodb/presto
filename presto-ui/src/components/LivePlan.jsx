@@ -86,7 +86,7 @@ function flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any,
     });
 }
 
-export const StageStatistics = (props: StageStatisticsProps) => {
+export const StageStatistics = (props: StageStatisticsProps): React.Node => {
     const stage = props.stage;
     const stats = props.stage.stageStats;
     return (
@@ -126,7 +126,7 @@ type PlanNodeProps = {
 }
 type PlanNodeState = {}
 
-export const PlanNode = (props: PlanNodeProps) => {
+export const PlanNode = (props: PlanNodeProps): React.Node => {
     return (
         <div style={{color: "#000"}} data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-container="body" data-bs-html="true"
              title={"<h4>" + props.name + "</h4>" + props.identifier}>
@@ -149,16 +149,16 @@ type LivePlanState = {
     query: ?any,
 }
 
-export const LivePlan = (props: LivePlanProps) => {
+export const LivePlan = (props: LivePlanProps): React.Node => {
     const [state, setState] = useState<LivePlanState>({
         initialized: false,
         ended: false,
         query: null,
     });
 
-    const timeoutId = useRef<number | null>(null);
+    const timeoutId = useRef<TimeoutID | null>(null);
     const graphRef = useRef(initializeGraph());
-    const svgRef = useRef(null);
+    const svgRef = useRef<?SVGSVGElement>(null);
     const renderRef = useRef(new dagreD3.render());
 
     const refreshLoop = () => {
@@ -241,14 +241,16 @@ export const LivePlan = (props: LivePlanProps) => {
     };
 
     const updateD3Graph = () => {
-        if (!svgRef.current || !state.query) {
+        const currentSvg = svgRef.current;
+        const queryInfo = state.query;
+        if (!currentSvg || !queryInfo) {
             return
         }
 
         // const svg = d3.select(svgRef.current);
-        const svg = initializeSvg(svgRef.current);
+        const svg = initializeSvg(currentSvg);
         const graph = graphRef.current;
-        const stages = getStages(state.query);
+        const stages = getStages(queryInfo);
         stages.forEach(stage => {
             updateD3Stage(stage, graph, stages);
         });
