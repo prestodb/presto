@@ -13,7 +13,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
-        <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
     </properties>
 
     <dependencies>
@@ -21,11 +20,6 @@
             <groupId>com.facebook.presto.spark</groupId>
             <artifactId>spark-core</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</artifactId>
         </dependency>
 
         <dependency>
@@ -41,6 +35,25 @@
 
     <profiles>
         <profile>
+            <id>spark2</id>
+
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>!spark-version</name>
+                </property>
+            </activation>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-spark-classloader-spark2</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+            </dependencies>
+
+        </profile>
+        <profile>
             <id>spark3</id>
 
             <activation>
@@ -50,22 +63,12 @@
                 </property>
             </activation>
 
-            <properties>
-                <dep.pos.classloader.module-name.suffix>3</dep.pos.classloader.module-name.suffix>
-            </properties>
-
-            <dependencyManagement>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.facebook.presto.spark</groupId>
-                        <artifactId>spark-core</artifactId>
-                        <version>3.4.1-1</version>
-                        <scope>compile</scope>
-                    </dependency>
-                </dependencies>
-            </dependencyManagement>
-
             <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-spark-classloader-spark3</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
                 <dependency>
                     <groupId>org.scala-lang</groupId>
                     <artifactId>scala-library</artifactId>
