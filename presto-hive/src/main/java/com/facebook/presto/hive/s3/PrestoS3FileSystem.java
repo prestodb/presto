@@ -92,7 +92,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -768,15 +767,9 @@ public class PrestoS3FileSystem
             }
         }
         String specifiedRegion = hadoopConfig.get(S3ConfigurationUpdater.S3_REGION);
-        if (Objects.nonNull(specifiedRegion)) {
-            Regions regions = Regions.fromName(specifiedRegion);
-            if (Objects.nonNull(regions)) {
-                clientBuilder = clientBuilder.withRegion(regions);
-                regionOrEndpointSet = true;
-            }
-            else {
-                throw new IllegalArgumentException("Invalid S3 region: " + specifiedRegion);
-            }
+        if (specifiedRegion != null) {
+            clientBuilder = clientBuilder.withRegion(Regions.fromName(specifiedRegion));
+            regionOrEndpointSet = true;
         }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
