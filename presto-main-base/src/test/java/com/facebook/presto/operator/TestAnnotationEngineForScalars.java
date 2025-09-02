@@ -30,13 +30,13 @@ import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsPars
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.IsNull;
+import com.facebook.presto.spi.function.LiteralParameter;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
