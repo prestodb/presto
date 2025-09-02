@@ -39,6 +39,7 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:centos9
     env:
       CCACHE_DIR: /tmp/ccache
+      CCACHE_NOHASHDIR: true # build isolation leads to cache misses
     steps:
 
       - name: Restore ccache
@@ -47,7 +48,7 @@ jobs:
         id: restore-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-wheels-8-core-ubuntu
+          key: ccache-docs-8-core-ubuntu
 
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -58,25 +59,23 @@ jobs:
       - name: Install System Dependencies
         run: |
           dnf install -y --setopt=install_weak_deps=False pandoc
-          pip3 install pipx
-          pipx install --force uv cmake==3.31
-          echo "PATH=$PATH:/github/home/.local/bin" >> $GITHUB_ENV
+
+      - name: CCache Stats Before
+        run: ccache -sz
 
       - name: Install Python Dependencies
         run: |
-          which uv
-          make python-venv
-          which uv
-          uv pip install -r scripts/docs-requirements.txt
-
           # Install pyvelox to generate it's docs
-          make python-build
+          uv sync --extra docs
+
+      - name: CCache Stats After
+        run: ccache -s
 
       - name: Save ccache
         uses: apache/infrastructure-actions/stash/save@3354c1565d4b0e335b78a76aedd82153a9e144d4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-wheels-8-core-ubuntu
+          key: ccache-docs-8-core-ubuntu
 
       - name: Build Documentation
         run: |
