@@ -32,6 +32,7 @@
 #include "connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
+#include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/abfs/tests/AzuriteServer.h"
 #include "velox/connectors/hive/storage_adapters/abfs/tests/MockDataLakeFileClient.h"
 #include "velox/dwio/common/FileSink.h"

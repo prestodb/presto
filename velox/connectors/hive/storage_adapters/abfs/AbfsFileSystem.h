@@ -76,5 +76,4 @@ class AbfsFileSystem : public FileSystem {
   }
 };
 
-void registerAbfsFileSystem();
 } // namespace facebook::velox::filesystems
