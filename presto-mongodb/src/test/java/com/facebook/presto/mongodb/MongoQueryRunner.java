@@ -14,6 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +77,7 @@ public class MongoQueryRunner
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
             return queryRunner;
         }
         catch (Throwable e) {

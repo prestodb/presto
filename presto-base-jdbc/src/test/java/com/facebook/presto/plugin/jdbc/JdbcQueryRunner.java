@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +60,8 @@ public final class JdbcQueryRunner
 
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
             queryRunner.createCatalog("jdbc", "base-jdbc", properties);
+
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
