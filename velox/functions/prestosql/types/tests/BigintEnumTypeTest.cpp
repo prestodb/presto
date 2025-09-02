@@ -75,5 +75,14 @@ TEST_F(BigintEnumTypeTest, basic) {
 TEST_F(BigintEnumTypeTest, serde) {
   testTypeSerde(moodEnum_);
 }
+
+TEST_F(BigintEnumTypeTest, keyAt) {
+  // Test existing values
+  ASSERT_EQ(moodEnum_->keyAt(-2), "CURIOUS");
+  ASSERT_EQ(moodEnum_->keyAt(0), "HAPPY");
+
+  // Test non-existent value
+  ASSERT_EQ(moodEnum_->keyAt(999), std::nullopt);
+}
 } // namespace
 } // namespace facebook::velox
