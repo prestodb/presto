@@ -177,6 +177,85 @@ struct FollyJsonSizeFunction {
   }
 };
 
+template <typename T, bool document>
+struct JsonParsingErrorFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE Status call(bool& result, const arg_type<Json>& json) {
+    simdjson::ondemand::document jsonDoc;
+
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    if constexpr (document) {
+      // jsonParsingError with document
+      auto errorCode = simdjsonParse(paddedJson).get(jsonDoc);
+      if (errorCode || jsonParsingError(jsonDoc)) {
+        if (threadSkipErrorDetails()) {
+          return Status::UserError();
+        }
+        return Status::UserError(
+            "Failed to parse JSON: {}", simdjson::error_message(errorCode));
+      }
+    } else {
+      // jsonParsingError with paddedString
+      if (auto errorCode = jsonParsingError(paddedJson)) {
+        if (threadSkipErrorDetails()) {
+          return Status::UserError();
+        }
+        return Status::UserError(
+            "Failed to parse JSON: {}", simdjson::error_message(errorCode));
+      }
+
+      if (simdjsonParse(paddedJson).get(jsonDoc)) {
+        return Status::UserError("Failed to parse JSON");
+      }
+    }
+    result = true;
+    return Status::OK();
+  }
+};
+
+template <typename T>
+struct JsonParsingErrorWithDocumentFunction
+    : public JsonParsingErrorFunction<T, true> {};
+
+template <typename T>
+struct JsonParsingErrorWithPaddedStringFunction
+    : public JsonParsingErrorFunction<T, false> {};
+
+template <typename T, bool rewind>
+struct SimdjsonParseFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(bool& result, const arg_type<Json>& json) {
+    return callImpl(result, json) == simdjson::SUCCESS;
+  }
+  FOLLY_ALWAYS_INLINE simdjson::error_code callImpl(
+      bool& result,
+      const arg_type<Json>& json) {
+    simdjson::ondemand::document jsonDoc;
+
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    if constexpr (rewind) {
+      SIMDJSON_ASSIGN_OR_RAISE(jsonDoc, simdjsonParse(paddedJson));
+      jsonDoc.rewind();
+    } else {
+      SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(paddedJson));
+      // Parse paddedJson again.
+      simdjsonParse(paddedJson).get(jsonDoc);
+    }
+    result = true;
+    return simdjson::SUCCESS;
+  }
+};
+
+template <typename T>
+struct SimdjsonParseWithRewindFunction : public SimdjsonParseFunction<T, true> {
+};
+
+template <typename T>
+struct SimdjsonParseWithParseAgainFunction
+    : public SimdjsonParseFunction<T, false> {};
+
 const std::string smallJson = R"({"k1":"v1"})";
 
 class JsonBenchmark : public velox::functions::test::FunctionBenchmarkBase {
@@ -203,6 +282,14 @@ class JsonBenchmark : public velox::functions::test::FunctionBenchmarkBase {
     registerFunction<JsonSizeFunction, int64_t, Json, Varchar>({"json_size"});
     registerFunction<FollyJsonSizeFunction, int64_t, Json, Varchar>(
         {"folly_json_size"});
+    registerFunction<JsonParsingErrorWithDocumentFunction, bool, Json>(
+        {"json_parse_error_with_document"});
+    registerFunction<JsonParsingErrorWithPaddedStringFunction, bool, Json>(
+        {"json_parse_error_with_paddedstring"});
+    registerFunction<SimdjsonParseWithRewindFunction, bool, Json>(
+        {"simdjsonParse_with_rewind"});
+    registerFunction<SimdjsonParseWithParseAgainFunction, bool, Json>(
+        {"simdjsonParse_with_parse_again"});
     registerJsonVectorFunctions();
   }
 
@@ -388,6 +475,41 @@ void SIMDJsonSize(int iter, int vectorSize, int jsonSize) {
   auto json = benchmark.prepareData(jsonSize);
   suspender.dismiss();
   benchmark.runWithJsonExtract(iter, vectorSize, "json_size", json, "$.key");
+}
+
+void JsonParsingErrorWithDocument(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJson(
+      iter, vectorSize, "json_parse_error_with_document", json);
+}
+
+void JsonParsingErrorWithPaddedString(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJson(
+      iter, vectorSize, "json_parse_error_with_paddedstring", json);
+}
+
+void SimdjsonParseWithRewind(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJson(iter, vectorSize, "simdjsonParse_with_rewind", json);
+}
+
+void SimdjsonParseWithParseAgain(int iter, int vectorSize, int jsonSize) {
+  folly::BenchmarkSuspender suspender;
+  JsonBenchmark benchmark;
+  auto json = benchmark.prepareData(jsonSize);
+  suspender.dismiss();
+  benchmark.runWithJson(
+      iter, vectorSize, "simdjsonParse_with_parse_again", json);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -608,6 +730,102 @@ BENCHMARK_DRAW_LINE();
 BENCHMARK_NAMED_PARAM(FollyJsonSize, 100_iters_10000bytes_size, 100, 10000);
 BENCHMARK_RELATIVE_NAMED_PARAM(
     SIMDJsonSize,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    JsonParsingErrorWithPaddedString,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    JsonParsingErrorWithDocument,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    JsonParsingErrorWithPaddedString,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    JsonParsingErrorWithDocument,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    JsonParsingErrorWithPaddedString,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    JsonParsingErrorWithDocument,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    JsonParsingErrorWithPaddedString,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    JsonParsingErrorWithDocument,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    SimdjsonParseWithParseAgain,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SimdjsonParseWithRewind,
+    100_iters_10bytes_size,
+    100,
+    10);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    SimdjsonParseWithParseAgain,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SimdjsonParseWithRewind,
+    100_iters_100bytes_size,
+    100,
+    100);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    SimdjsonParseWithParseAgain,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SimdjsonParseWithRewind,
+    100_iters_1000bytes_size,
+    100,
+    1000);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK_NAMED_PARAM(
+    SimdjsonParseWithParseAgain,
+    100_iters_10000bytes_size,
+    100,
+    10000);
+BENCHMARK_RELATIVE_NAMED_PARAM(
+    SimdjsonParseWithRewind,
     100_iters_10000bytes_size,
     100,
     10000);

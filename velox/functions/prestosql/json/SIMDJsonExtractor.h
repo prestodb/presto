@@ -68,6 +68,12 @@ class SIMDJsonExtractor {
       TConsumer& consumer,
       bool& isDefinitePath);
 
+  template <typename TConsumer>
+  simdjson::error_code extract(
+      simdjson::ondemand::document& jsonDoc,
+      TConsumer& consumer,
+      bool& isDefinitePath);
+
   /// Returns true if this extractor was initialized with the trivial path "$".
   bool isRootOnlyPath() {
     return tokens_.empty();
@@ -127,6 +133,14 @@ simdjson::error_code SIMDJsonExtractor::extract(
     TConsumer& consumer,
     bool& isDefinitePath) {
   SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
+  return extract(jsonDoc, consumer, isDefinitePath);
+}
+
+template <typename TConsumer>
+simdjson::error_code SIMDJsonExtractor::extract(
+    simdjson::ondemand::document& jsonDoc,
+    TConsumer& consumer,
+    bool& isDefinitePath) {
   SIMDJSON_ASSIGN_OR_RAISE(auto isScalar, jsonDoc.is_scalar());
   if (isScalar) {
     // Note, we cannot convert this to a value as this is not supported if the

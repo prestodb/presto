@@ -1117,7 +1117,7 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ(std::nullopt, jsonExtract(R"({"a": [{"b": 123}]})", "$.a[0].c"));
 
   // Wildcard on empty object and array
-  EXPECT_EQ("[]", jsonExtract("{\"a\": {}", "$.a.[*]"));
+  EXPECT_EQ("[]", jsonExtract("{\"a\": {}}", "$.a.[*]"));
   EXPECT_EQ("[]", jsonExtract("{\"a\": []}", "$.a.[*]"));
 
   // Calling wildcard on a scalar
@@ -1180,6 +1180,9 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ(std::nullopt, jsonExtract(kJson, "max($..price)", true));
   EXPECT_EQ(std::nullopt, jsonExtract(kJson, "concat($..category)", true));
   EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$.store.keys()", true));
+
+  // Invalid JSON
+  EXPECT_EQ(std::nullopt, jsonExtract("{\"a\": {}", "$.a.[*]"));
 }
 
 TEST_F(JsonFunctionsTest, jsonExtractVarcharInput) {

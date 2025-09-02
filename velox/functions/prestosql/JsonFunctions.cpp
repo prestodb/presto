@@ -29,6 +29,60 @@ namespace facebook::velox::functions {
 
 namespace {
 
+template <typename T>
+static simdjson::error_code validate(T value) {
+  SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
+  switch (type) {
+    case simdjson::ondemand::json_type::array: {
+      SIMDJSON_ASSIGN_OR_RAISE(auto array, value.get_array());
+      for (auto elementOrError : array) {
+        SIMDJSON_ASSIGN_OR_RAISE(auto element, elementOrError);
+        SIMDJSON_TRY(validate(element));
+      }
+      return simdjson::SUCCESS;
+    }
+    case simdjson::ondemand::json_type::object: {
+      SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());
+      for (auto fieldOrError : object) {
+        SIMDJSON_ASSIGN_OR_RAISE(auto field, fieldOrError);
+        SIMDJSON_TRY(validate(field.value()));
+      }
+      return simdjson::SUCCESS;
+    }
+    case simdjson::ondemand::json_type::number:
+      return value.get_double().error();
+    case simdjson::ondemand::json_type::string:
+      return value.get_string().error();
+    case simdjson::ondemand::json_type::boolean:
+      return value.get_bool().error();
+    case simdjson::ondemand::json_type::null: {
+      SIMDJSON_ASSIGN_OR_RAISE(auto isNull, value.is_null());
+      return isNull ? simdjson::SUCCESS : simdjson::N_ATOM_ERROR;
+    }
+  }
+  VELOX_UNREACHABLE();
+}
+
+} // namespace
+
+simdjson::error_code jsonParsingError(simdjson::ondemand::document& doc) {
+  SIMDJSON_TRY(validate<simdjson::ondemand::document&>(doc));
+  if (!doc.at_end()) {
+    return simdjson::TRAILING_CONTENT;
+  }
+  // Rewind the document to go through a document more than once without
+  // rescanning all of the input data again.
+  doc.rewind();
+  return simdjson::SUCCESS;
+}
+
+simdjson::error_code jsonParsingError(const simdjson::padded_string& json) {
+  SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(json));
+  return jsonParsingError(doc);
+}
+
+namespace {
+
 const std::string_view kArrayStart = "[";
 const std::string_view kArrayEnd = "]";
 const std::string_view kSeparator = ",";
@@ -747,16 +801,12 @@ struct JsonExtractImpl {
     simdjson::padded_string paddedJson(json.data(), json.size());
 
     // Check for valid json
-    {
-      SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
-      simdjson::ondemand::document parsedDoc;
-      if (auto errorCode = simdjsonParse(paddedJson).get(parsedDoc);
-          errorCode != simdjson::SUCCESS) {
-        return errorCode;
-      }
+    SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(paddedJson));
+    if (auto error = jsonParsingError(doc)) {
+      return error;
     }
 
-    SIMDJSON_TRY(extractor.extract(paddedJson, consumer, isDefinitePath));
+    SIMDJSON_TRY(extractor.extract(doc, consumer, isDefinitePath));
 
     if (results.size() == 0) {
       if (isDefinitePath) {
@@ -862,51 +912,7 @@ class JsonInternalCastFunction : public exec::VectorFunction {
   mutable JsonCastOperator jsonCastOperator_;
 };
 
-template <typename T>
-static simdjson::error_code validate(T value) {
-  SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
-  switch (type) {
-    case simdjson::ondemand::json_type::array: {
-      SIMDJSON_ASSIGN_OR_RAISE(auto array, value.get_array());
-      for (auto elementOrError : array) {
-        SIMDJSON_ASSIGN_OR_RAISE(auto element, elementOrError);
-        SIMDJSON_TRY(validate(element));
-      }
-      return simdjson::SUCCESS;
-    }
-    case simdjson::ondemand::json_type::object: {
-      SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());
-      for (auto fieldOrError : object) {
-        SIMDJSON_ASSIGN_OR_RAISE(auto field, fieldOrError);
-        SIMDJSON_TRY(validate(field.value()));
-      }
-      return simdjson::SUCCESS;
-    }
-    case simdjson::ondemand::json_type::number:
-      return value.get_double().error();
-    case simdjson::ondemand::json_type::string:
-      return value.get_string().error();
-    case simdjson::ondemand::json_type::boolean:
-      return value.get_bool().error();
-    case simdjson::ondemand::json_type::null: {
-      SIMDJSON_ASSIGN_OR_RAISE(auto isNull, value.is_null());
-      return isNull ? simdjson::SUCCESS : simdjson::N_ATOM_ERROR;
-    }
-  }
-  VELOX_UNREACHABLE();
-}
-
 } // namespace
-
-simdjson::error_code jsonParsingError(const simdjson::padded_string& json) {
-  SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(json));
-  SIMDJSON_TRY(validate<simdjson::ondemand::document&>(doc));
-  if (!doc.at_end()) {
-    return simdjson::TRAILING_CONTENT;
-  }
-
-  return simdjson::SUCCESS;
-}
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_json_format,
