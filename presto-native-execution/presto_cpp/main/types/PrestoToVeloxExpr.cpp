@@ -13,15 +13,19 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include <unordered_map>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/functions/remote/PrestoToVeloxRemoteFunctionExpr.h"
+#endif
 
 using namespace facebook::velox::core;
 using facebook::velox::TypeKind;
@@ -514,6 +518,19 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  else if (
+      auto restFunctionHandle =
+          std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = typeParser_->parse(pexpr.returnType);
+
+    functions::remote::rest::registerRestRemoteFunction(*restFunctionHandle);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(restFunctionHandle->functionId));
+  }
+#endif
 
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
