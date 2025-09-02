@@ -16,7 +16,6 @@
         <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.okio-jvm.version>3.9.1</dep.okio-jvm.version>
-        <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
     </properties>
 
     <dependencyManagement>
@@ -52,12 +51,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -539,6 +532,25 @@
             </build>
         </profile>
         <profile>
+            <id>spark2</id>
+
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>!spark-version</name>
+                </property>
+            </activation>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-spark-classloader-spark2</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
             <id>spark3</id>
 
             <activation>
@@ -548,11 +560,13 @@
                 </property>
             </activation>
 
-            <properties>
-                <dep.pos.classloader.module-name.suffix>3</dep.pos.classloader.module-name.suffix>
-            </properties>
-
             <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-spark-classloader-spark3</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+
                 <dependency>
                     <groupId>com.facebook.presto.spark</groupId>
                     <artifactId>spark-core</artifactId>
