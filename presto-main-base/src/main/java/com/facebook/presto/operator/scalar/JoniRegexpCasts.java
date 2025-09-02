@@ -15,11 +15,11 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameter;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.JoniRegexpType;
-import com.facebook.presto.type.LiteralParameter;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
