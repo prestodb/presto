@@ -17,12 +17,14 @@ package com.facebook.presto.hudi;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class HudiConfig
 {
@@ -33,6 +35,9 @@ public class HudiConfig
     private int maxOutstandingSplits = 1000;
     private int splitLoaderParallelism = 4;
     private int splitGeneratorParallelism = 4;
+
+    private boolean isColumnStatsIndexEnabled = true;
+    private Duration columnStatsWaitTimeout = new Duration(1, SECONDS);
 
     public boolean isMetadataTableEnabled()
     {
@@ -131,5 +136,32 @@ public class HudiConfig
     {
         this.splitLoaderParallelism = splitLoaderParallelism;
         return this;
+    }
+
+    @Config("hudi.index.column-stats-index-enabled")
+    @ConfigDescription("Internal configuration to control whether column stats index is enabled for debugging/testing.")
+    public HudiConfig setColumnStatsIndexEnabled(boolean isColumnStatsIndexEnabled)
+    {
+        this.isColumnStatsIndexEnabled = isColumnStatsIndexEnabled;
+        return this;
+    }
+
+    public boolean isColumnStatsIndexEnabled()
+    {
+        return isColumnStatsIndexEnabled;
+    }
+
+    @Config("hudi.index.column-stats.wait-timeout")
+    @ConfigDescription("Maximum timeout to wait for loading column stats, e.g. 1000ms, 20s")
+    public HudiConfig setColumnStatsWaitTimeout(Duration columnStatusWaitTimeout)
+    {
+        this.columnStatsWaitTimeout = columnStatusWaitTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getColumnStatsWaitTimeout()
+    {
+        return columnStatsWaitTimeout;
     }
 }

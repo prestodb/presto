@@ -15,6 +15,7 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -28,6 +29,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.CACHE_ENABLED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static java.lang.String.format;
 
@@ -41,6 +43,9 @@ public class HudiSessionProperties
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
+
+    static final String COLUMN_STATS_INDEX_ENABLED = "column_stats_index_enabled";
+    static final String COLUMN_STATS_WAIT_TIMEOUT = "column_stats_wait_timeout";
 
     @Inject
     public HudiSessionProperties(HudiConfig hudiConfig)
@@ -91,6 +96,16 @@ public class HudiSessionProperties
                         SPLIT_GENERATOR_PARALLELISM,
                         "Number of threads used to generate splits from partitions",
                         hudiConfig.getSplitGeneratorParallelism(),
+                        false),
+                booleanProperty(
+                        COLUMN_STATS_INDEX_ENABLED,
+                        "Enable column stats index for file skipping",
+                        hudiConfig.isColumnStatsIndexEnabled(),
+                        true),
+                durationProperty(
+                        COLUMN_STATS_WAIT_TIMEOUT,
+                        "Maximum timeout to wait for loading column stats",
+                        hudiConfig.getColumnStatsWaitTimeout(),
                         false));
     }
 
@@ -127,5 +142,15 @@ public class HudiSessionProperties
     public static int getSplitGeneratorParallelism(ConnectorSession session)
     {
         return session.getProperty(SPLIT_GENERATOR_PARALLELISM, Integer.class);
+    }
+
+    public static boolean isColumnStatsIndexEnabled(ConnectorSession session)
+    {
+        return session.getProperty(COLUMN_STATS_INDEX_ENABLED, Boolean.class);
+    }
+
+    public static Duration getColumnStatsWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(COLUMN_STATS_WAIT_TIMEOUT, Duration.class);
     }
 }
