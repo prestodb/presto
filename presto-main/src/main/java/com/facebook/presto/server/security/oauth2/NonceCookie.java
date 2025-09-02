@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.security.oauth2;
 
-import jakarta.servlet.http.Cookie;
+import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.NewCookie;
 import org.apache.commons.lang3.StringUtils;
 
@@ -48,14 +48,14 @@ public final class NonceCookie
                 true);
     }
 
-    public static Cookie createServletCookie(String nonce, Instant tokenExpiration)
+    public static jakarta.servlet.http.Cookie createServletCookie(String nonce, Instant tokenExpiration)
     {
         return toServletCookie(create(nonce, tokenExpiration));
     }
 
-    public static Cookie toServletCookie(NewCookie cookie)
+    public static jakarta.servlet.http.Cookie toServletCookie(NewCookie cookie)
     {
-        Cookie servletCookie = new Cookie(cookie.getName(), cookie.getValue());
+        jakarta.servlet.http.Cookie servletCookie = new jakarta.servlet.http.Cookie(cookie.getName(), cookie.getValue());
         servletCookie.setPath(cookie.getPath());
         servletCookie.setMaxAge(cookie.getMaxAge());
         servletCookie.setSecure(cookie.isSecure());
