@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
