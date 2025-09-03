@@ -72,8 +72,6 @@ OperatorCtx::createConnectorQueryCtx(
       task->queryCtx()->fsTokenProvider());
   connectorQueryCtx->setSelectiveNimbleReaderEnabled(
       driverCtx_->queryConfig().selectiveNimbleReaderEnabled());
-  connectorQueryCtx->setRowSizeTrackingEnabled(
-      driverCtx_->queryConfig().rowSizeTrackingEnabled());
   return connectorQueryCtx;
 }
 

@@ -379,8 +379,6 @@ void SplitReader::createRowReader(
       hiveConfig_,
       connectorQueryCtx_->sessionProperties(),
       baseRowReaderOpts_);
-  baseRowReaderOpts_.setTrackRowSize(
-      connectorQueryCtx_->rowSizeTrackingEnabled());
   baseRowReader_ = baseReader_->createRowReader(baseRowReaderOpts_);
 }
 

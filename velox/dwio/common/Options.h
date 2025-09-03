@@ -428,14 +428,6 @@ class RowReaderOptions {
     serdeParameters_ = std::move(serdeParameters);
   }
 
-  bool trackRowSize() const {
-    return trackRowSize_;
-  }
-
-  void setTrackRowSize(bool value) {
-    trackRowSize_ = value;
-  }
-
  private:
   uint64_t dataStart_;
   uint64_t dataLength_;
@@ -493,7 +485,6 @@ class RowReaderOptions {
   TimestampPrecision timestampPrecision_ = TimestampPrecision::kMilliseconds;
 
   std::shared_ptr<FormatSpecificOptions> formatSpecificOptions_;
-  bool trackRowSize_{false};
 };
 
 /// Options for creating a Reader.
