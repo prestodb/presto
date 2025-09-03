@@ -274,13 +274,34 @@ class MergeJoin : public Operator {
   // rightRowIndex_ are unchanged.
   bool tryAddOutputRowForRightJoin();
 
+  // Checks if we need to fetch more input from the right side of the join.
+  // Returns true if the right side has not been exhausted and we don't have
+  // a pending future for right side input and there's no current right input
+  // batch available for processing.
+  bool needsInputFromRightSide() const;
+
+  // Attempts to get the next batch of input from the right side. This method
+  // will keep trying to get input until either:
+  // 1. A right input batch is received
+  // 2. The right side is exhausted
+  // 3. A blocking operation is encountered
+  // Returns true if successful (got input or exhausted), false if blocked.
+  bool getNextFromRightSide();
+
+  // Processes the draining state when one or both sides of the join have been
+  // exhausted. Handles cleanup operations like dropping input sources for
+  // different join types (inner, left, right, anti) when appropriate.
+  // Returns true if draining is complete and the operator should return
+  // nullptr, false if draining is still in progress or there is no draining.
+  bool processDrain();
+
   // If all rows from the current left batch have been processed.
-  bool finishedLeftBatch() const {
+  bool leftBatchFinished() const {
     return leftRowIndex_ == input_->size();
   }
 
   // If all rows from the current right batch have been processed.
-  bool finishedRightBatch() const {
+  bool rightBatchFinished() const {
     return rightRowIndex_ == rightInput_->size();
   }
 
@@ -563,7 +584,7 @@ class MergeJoin : public Operator {
   vector_size_t outputSize_;
 
   // A future that will be completed when right side input becomes available.
-  ContinueFuture futureRightSideInput_{ContinueFuture::makeEmpty()};
+  ContinueFuture rightSideInputFuture_{ContinueFuture::makeEmpty()};
 
   // True if all the right side data has been received.
   bool noMoreRightInput_{false};
