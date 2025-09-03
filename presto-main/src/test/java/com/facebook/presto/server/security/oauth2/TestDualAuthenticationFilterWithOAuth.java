@@ -122,7 +122,7 @@ public class TestDualAuthenticationFilterWithOAuth
         // Due to problems with the Presto OSS project related to the AuthenticationFilter we have to run Presto behind a Proxy and terminate SSL at the proxy.
         simpleProxy = new SimpleProxyServer(server.getHttpBaseUrl());
         MILLISECONDS.sleep(1000);
-        proxyURI = simpleProxy.getHttpsBaseUrl();
+        proxyURI = URI.create("https://127.0.0.1:" + simpleProxy.getHttpsBaseUrl().getPort());
 
         hydraIdP.createClient(
                 PRESTO_CLIENT_ID,
