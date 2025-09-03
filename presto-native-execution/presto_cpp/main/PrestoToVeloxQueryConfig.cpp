@@ -139,6 +139,12 @@ void updateFromSystemConfigs(
       {std::string(SystemConfig::kUseLegacyArrayAgg),
        velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
 
+      {std::string{SystemConfig::kTaskWriterCount},
+        velox::core::QueryConfig::kTaskWriterCount},
+
+      {std::string{SystemConfig::kTaskPartitionedWriterCount},
+        velox::core::QueryConfig::kTaskPartitionedWriterCount},
+
       {std::string(SystemConfig::kSinkMaxBufferSize),
        velox::core::QueryConfig::kMaxOutputBufferSize,
        [](const auto& value) {
