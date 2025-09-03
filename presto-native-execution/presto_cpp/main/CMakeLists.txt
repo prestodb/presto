@@ -78,10 +78,10 @@ target_link_libraries(
   velox_hive_iceberg_splitreader
   velox_hive_partition_function
   velox_presto_serializer
+  velox_presto_type_parser
   velox_s3fs
   velox_serialization
   velox_time
-  velox_type_parser
   velox_type
   velox_type_fbhive
   velox_type_tz

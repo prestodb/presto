@@ -15,7 +15,7 @@
 #include <iostream>
 
 #include "presto_cpp/main/types/TypeParser.h"
-#include "velox/type/parser/TypeParser.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 #include "presto_cpp/main/common/Configs.h"
 
@@ -33,7 +33,7 @@ velox::TypePtr TypeParser::parse(const std::string& text) const {
     return it->second;
   }
 
-  auto result = velox::parseType(text);
+  auto result = velox::functions::prestosql::parseType(text);
   cache_.insert({text, result});
   return result;
 }
