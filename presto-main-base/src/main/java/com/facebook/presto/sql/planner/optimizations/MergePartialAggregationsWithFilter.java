@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -128,12 +129,14 @@ public class MergePartialAggregationsWithFilter
         private final Map<VariableReferenceExpression, VariableReferenceExpression> partialResultToMask;
         private final Map<VariableReferenceExpression, VariableReferenceExpression> partialOutputMapping;
         private final List<VariableReferenceExpression> newAggregationOutput;
+        private final Map<VariableReferenceExpression, RowExpression> maskExpressions;
 
         public Context()
         {
             partialResultToMask = new HashMap<>();
             partialOutputMapping = new HashMap<>();
             newAggregationOutput = new LinkedList<>();
+            maskExpressions = new HashMap<>();
         }
 
         public boolean isEmpty()
@@ -146,6 +149,7 @@ public class MergePartialAggregationsWithFilter
             partialResultToMask.clear();
             partialOutputMapping.clear();
             newAggregationOutput.clear();
+            maskExpressions.clear();
         }
 
         public Map<VariableReferenceExpression, VariableReferenceExpression> getPartialOutputMapping()
@@ -161,6 +165,11 @@ public class MergePartialAggregationsWithFilter
         public List<VariableReferenceExpression> getNewAggregationOutput()
         {
             return newAggregationOutput;
+        }
+
+        public Map<VariableReferenceExpression, RowExpression> getMaskExpressions()
+        {
+            return maskExpressions;
         }
     }
 
@@ -293,7 +302,14 @@ public class MergePartialAggregationsWithFilter
             ImmutableList.Builder<VariableReferenceExpression> groupingVariables = ImmutableList.builder();
             AggregationNode.GroupingSetDescriptor groupingSetDescriptor = node.getGroupingSets();
             groupingVariables.addAll(groupingSetDescriptor.getGroupingKeys());
-            groupingVariables.addAll(maskVariables);
+
+            Set<VariableReferenceExpression> variablesToAdd = extractSimpleFilterVariables(maskVariables);
+            if (!variablesToAdd.isEmpty()) {
+                groupingVariables.addAll(variablesToAdd);
+            }
+            else {
+                groupingVariables.addAll(maskVariables);
+            }
             AggregationNode.GroupingSetDescriptor partialGroupingSetDescriptor = new AggregationNode.GroupingSetDescriptor(
                     groupingVariables.build(), groupingSetDescriptor.getGroupingSetCount(), groupingSetDescriptor.getGlobalGroupingSets());
 
@@ -435,6 +451,89 @@ public class MergePartialAggregationsWithFilter
                         node.getOrderingScheme());
             }
             return node.replaceChildren(children);
+        }
+
+        private Set<VariableReferenceExpression> extractSimpleFilterVariables(Set<VariableReferenceExpression> maskVariables)
+        {
+            Set<VariableReferenceExpression> commonVariables = new HashSet<>();
+
+            for (VariableReferenceExpression maskVar : maskVariables) {
+                RowExpression maskExpression = getMaskVariableExpression(maskVar);
+                if (maskExpression == null) {
+                    return new HashSet<>();
+                }
+
+                VariableReferenceExpression variable = extractVariableFromSimpleComparison(maskExpression);
+                if (variable == null) {
+                    return new HashSet<>();
+                }
+
+                commonVariables.add(variable);
+            }
+
+            // If all mask variables reference the same variable in simple comparisons, use that
+            if (commonVariables.size() == 1) {
+                return commonVariables;
+            }
+
+            return new HashSet<>();
+        }
+
+        /**
+         * Gets the expression that defines a mask variable by looking in the source plan.
+         * This is a simple implementation that looks for project nodes.
+         */
+        private RowExpression getMaskVariableExpression(VariableReferenceExpression maskVar)
+        {
+            // For the simple approach, we disable the optimization for now
+            // and always fallback to original behavior. This ensures correctness
+            // while we build the foundation.
+            return null;
+        }
+
+        /**
+         * Extracts the variable from simple comparison expressions like "column = constant".
+         * Returns the variable if this is a simple comparison, null otherwise.
+         */
+        private VariableReferenceExpression extractVariableFromSimpleComparison(RowExpression expression)
+        {
+            if (!(expression instanceof CallExpression)) {
+                return null;
+            }
+
+            CallExpression call = (CallExpression) expression;
+
+            String functionName = call.getDisplayName();
+            if (!isSimpleComparisonOperator(functionName)) {
+                return null;
+            }
+
+            if (call.getArguments().size() != 2) {
+                return null;
+            }
+
+            RowExpression left = call.getArguments().get(0);
+            RowExpression right = call.getArguments().get(1);
+
+            if (left instanceof VariableReferenceExpression && right instanceof ConstantExpression) {
+                return (VariableReferenceExpression) left;
+            }
+
+            if (left instanceof ConstantExpression && right instanceof VariableReferenceExpression) {
+                return (VariableReferenceExpression) right;
+            }
+
+            return null;
+        }
+
+        private boolean isSimpleComparisonOperator(String functionName)
+        {
+            return functionName.equals("$operator$equal") ||
+                    functionName.equals("$operator$not_equal") ||
+                    functionName.equals("$operator$less_than") ||
+                    functionName.equals("$operator$less_than_or_equal") ||
+                    functionName.equals("$operator$greater_than") ||
+                    functionName.equals("$operator$greater_than_or_equal");
         }
     }
 }
