@@ -443,6 +443,22 @@ TEST_F(TpchConnectorTest, orderDateCount) {
   EXPECT_EQ(9, orderDate->size());
 }
 
+TEST_F(TpchConnectorTest, config) {
+  std::unordered_map<std::string, std::string> properties = {
+      {"property", "value"}};
+  auto connector =
+      connector::getConnectorFactory(
+          connector::tpch::TpchConnectorFactory::kTpchConnectorName)
+          ->newConnector(
+              kTpchConnectorId,
+              std::make_shared<config::ConfigBase>(std::move(properties)));
+
+  const auto& config = connector->connectorConfig();
+  auto val = config->get<std::string>("property");
+  EXPECT_TRUE(val.has_value());
+  EXPECT_EQ(val.value(), "value");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {

@@ -25,8 +25,8 @@ ParquetConnector::ParquetConnector(
     const std::string& id,
     std::shared_ptr<const facebook::velox::config::ConfigBase> config,
     folly::Executor* executor)
-    : Connector(id),
-      parquetConfig_(std::make_shared<ParquetConfig>(config)),
+    : Connector(id, std::move(config)),
+      parquetConfig_(std::make_shared<ParquetConfig>(connectorConfig())),
       executor_(executor) {
   LOG(INFO) << "cudf::Parquet connector " << connectorId() << " created.";
 }

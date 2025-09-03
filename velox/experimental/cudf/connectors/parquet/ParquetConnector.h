@@ -45,10 +45,6 @@ class ParquetConnector final : public Connector {
       const ColumnHandleMap& columnHandles,
       ConnectorQueryCtx* connectorQueryCtx) override final;
 
-  const std::shared_ptr<const ConfigBase>& connectorConfig() const override {
-    return parquetConfig_->config();
-  }
-
   std::unique_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       ConnectorInsertTableHandlePtr connectorInsertTableHandle,

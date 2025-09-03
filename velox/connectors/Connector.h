@@ -562,7 +562,10 @@ class ConnectorMetadata;
 
 class Connector {
  public:
-  explicit Connector(const std::string& id) : id_(id) {}
+  explicit Connector(
+      const std::string& id,
+      std::shared_ptr<const config::ConfigBase> config = nullptr)
+      : id_(id), config_(std::move(config)) {}
 
   virtual ~Connector() = default;
 
@@ -570,9 +573,8 @@ class Connector {
     return id_;
   }
 
-  virtual const std::shared_ptr<const config::ConfigBase>& connectorConfig()
-      const {
-    VELOX_NYI("connectorConfig is not supported yet");
+  const std::shared_ptr<const config::ConfigBase>& connectorConfig() const {
+    return config_;
   }
 
   /// Returns true if this connector would accept a filter dynamically
@@ -682,6 +684,7 @@ class Connector {
   static void unregisterTracker(cache::ScanTracker* tracker);
 
   const std::string id_;
+  const std::shared_ptr<const config::ConfigBase> config_;
 
   static folly::Synchronized<
       std::unordered_map<std::string_view, std::weak_ptr<cache::ScanTracker>>>

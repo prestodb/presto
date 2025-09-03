@@ -35,7 +35,7 @@ TpchConnector::TpchConnector(
     const std::string& id,
     std::shared_ptr<const config::ConfigBase> config,
     folly::Executor* /*executor*/)
-    : Connector(id) {
+    : Connector(id, std::move(config)) {
   for (auto& factory : tpchConnectorMetadataFactories()) {
     metadata_ = factory->create(this);
     if (metadata_ != nullptr) {

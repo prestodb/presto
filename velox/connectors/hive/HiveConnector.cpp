@@ -40,8 +40,8 @@ HiveConnector::HiveConnector(
     const std::string& id,
     std::shared_ptr<const config::ConfigBase> config,
     folly::Executor* executor)
-    : Connector(id),
-      hiveConfig_(std::make_shared<HiveConfig>(config)),
+    : Connector(id, std::move(config)),
+      hiveConfig_(std::make_shared<HiveConfig>(connectorConfig())),
       fileHandleFactory_(
           hiveConfig_->isFileHandleCacheEnabled()
               ? std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(
