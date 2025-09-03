@@ -49,9 +49,15 @@ class HiveConnector : public Connector {
       const connector::ColumnHandleMap& columnHandles,
       ConnectorQueryCtx* connectorQueryCtx) override;
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   bool supportsSplitPreload() override {
     return true;
   }
+#else
+  bool supportsSplitPreload() const override {
+    return true;
+  }
+#endif
 
   std::unique_ptr<DataSink> createDataSink(
       RowTypePtr inputType,

@@ -599,9 +599,15 @@ class Connector {
   /// ConnectorSplit in addSplit(). If so, TableScan can preload splits
   /// so that file opening and metadata operations are off the Driver'
   /// thread.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   virtual bool supportsSplitPreload() {
     return false;
   }
+#else
+  virtual bool supportsSplitPreload() const {
+    return false;
+  }
+#endif
 
   /// Returns true if the connector supports index lookup, otherwise false.
   virtual bool supportsIndexLookup() const {
