@@ -123,7 +123,7 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         // Due to problems with the Presto OSS project related to the AuthenticationFilter we have to run Presto behind a Proxy and terminate SSL at the proxy.
         simpleProxy = new SimpleProxyServer(server.getHttpBaseUrl());
         MILLISECONDS.sleep(1000);
-        proxyURI = simpleProxy.getHttpsBaseUrl();
+        proxyURI = URI.create("https://127.0.0.1:" + simpleProxy.getHttpsBaseUrl().getPort());
         uiUri = proxyURI.resolve("/");
 
         hydraIdP.createClient(
@@ -353,13 +353,14 @@ public abstract class BaseOAuth2AuthenticationFilterTest
             @Override
             public List<Cookie> loadForRequest(HttpUrl url)
             {
-                return ImmutableList.of(new Cookie.Builder()
+                Cookie cookie = new Cookie.Builder()
                             .domain(proxyURI.getHost())
                             .path("/")
                             .name(OAUTH2_COOKIE)
                             .value(cookieValue)
                             .secure()
-                            .build());
+                            .build();
+                return ImmutableList.of(cookie);
             }
         });
         return httpClientBuilder.build();
