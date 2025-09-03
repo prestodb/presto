@@ -37,18 +37,22 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusMetadata
         implements ConnectorMetadata
 {
     private final PrometheusClient prometheusClient;
+    private final boolean caseSensitiveNameMatching;
 
     @Inject
-    public PrometheusMetadata(PrometheusClient prometheusClient)
+    public PrometheusMetadata(PrometheusClient prometheusClient, PrometheusConnectorConfig config)
     {
         requireNonNull(prometheusClient, "client is null");
+        requireNonNull(config, "config is null");
         this.prometheusClient = prometheusClient;
+        this.caseSensitiveNameMatching = config.isCaseSensitiveNameMatching();
     }
 
     private static List<String> listSchemaNames()
@@ -69,11 +73,15 @@ public class PrometheusMetadata
             return null;
         }
 
-        if (prometheusClient.getTable(tableName.getSchemaName(), tableName.getTableName()) == null) {
+        // Use normalized table name for lookup
+        String normalizedTableName = normalizeIdentifier(session, tableName.getTableName());
+        PrometheusTable table = prometheusClient.getTable(tableName.getSchemaName(), normalizedTableName);
+        if (table == null) {
             return null;
         }
 
-        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        // Use the actual table name from Prometheus in the handle
+        return new PrometheusTableHandle(tableName.getSchemaName(), table.getName());
     }
 
     @Override
@@ -168,5 +176,11 @@ public class PrometheusMetadata
             return listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         return ImmutableList.of(prefix.toSchemaTableName());
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatching ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }

@@ -142,15 +142,35 @@ public class PrometheusClient
         if (tableNames == null) {
             return null;
         }
-        if (!tableNames.contains(tableName)) {
+        // Find the actual table name in Prometheus
+        String actualTableName = findActualTableName(tableNames, tableName);
+        if (actualTableName == null) {
             return null;
         }
         return new PrometheusTable(
-                tableName,
+                actualTableName,
                 ImmutableList.of(
                         new PrometheusColumn("labels", varcharMapType),
                         new PrometheusColumn("timestamp", TIMESTAMP_WITH_TIME_ZONE),
                         new PrometheusColumn("value", DoubleType.DOUBLE)));
+    }
+
+    /**
+     * Find the actual table name in Prometheus based on case sensitivity configuration
+     */
+    private String findActualTableName(List<String> tableNames, String requestedName)
+    {
+        // Case-sensitive matching
+        if (config.isCaseSensitiveNameMatching()) {
+            return tableNames.contains(requestedName) ? requestedName : null;
+        }
+        // Case-insensitive matching
+        for (String name : tableNames) {
+            if (name.equalsIgnoreCase(requestedName)) {
+                return name; // Return the actual name from Prometheus
+            }
+        }
+        return null;
     }
 
     private Map<String, Object> fetchMetrics(JsonCodec<Map<String, Object>> metricsCodec, URI metadataUri)
