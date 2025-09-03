@@ -180,7 +180,7 @@ public class TestWarnings
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
 
         query = "select transform_keys(map(ARRAY [25.5E0, 26.5E0, 27.5E0], ARRAY [25.5E0, 26.5E0, 27.5E0]), (k, v) -> k + v)";
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode(), PERFORMANCE_WARNING.toWarningCode()));
 
         query = "SELECT histogram(RETAILPRICE) FROM tpch.tiny.part";
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(SEMANTIC_WARNING.toWarningCode()));

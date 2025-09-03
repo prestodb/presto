@@ -43,12 +43,12 @@ class ConfigBase {
   }
 
   /// DO NOT DELETE THIS METHOD!
-  /// The method is used to register new properties after the config class is created.
-  /// Returns true if succeeded, false if failed (due to the property already
-  /// registered).
+  /// The method is used to register new properties after the config class is
+  /// created. Returns true if succeeded, false if failed (due to the property
+  /// already registered).
   bool registerProperty(
-    const std::string& propertyName,
-    const folly::Optional<std::string>& defaultValue = {});
+      const std::string& propertyName,
+      const folly::Optional<std::string>& defaultValue = {});
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -260,6 +260,7 @@ class SystemConfig : public ConfigBase {
   /// The number of stuck operators (effectively stuck driver threads) when we
   /// detach the worker from the cluster in an attempt to keep the cluster
   /// operational.
+  /// 1/2 of the hardware concurrency is the default.
   static constexpr std::string_view kDriverNumStuckOperatorsToDetachWorker{
       "driver.num-stuck-operators-to-detach-worker"};
 
@@ -721,10 +722,6 @@ class SystemConfig : public ConfigBase {
   /// Optional string containing the path to the plugin directory
   static constexpr std::string_view kPluginDir{"plugin.dir"};
 
-  /// Below are the Presto properties from config.properties that get converted
-  /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
-  /// BaseVeloxQueryConfig.
-
   /// Uses legacy version of array_agg which ignores nulls.
   static constexpr std::string_view kUseLegacyArrayAgg{
       "deprecated.legacy-array-agg"};
@@ -752,7 +749,7 @@ class SystemConfig : public ConfigBase {
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
-    "exchange.http-client.request-data-sizes-max-wait-sec"};
+      "exchange.http-client.request-data-sizes-max-wait-sec"};
 
   static constexpr std::string_view kExchangeIoEvbViolationThresholdMs{
       "exchange.io-evb-violation-threshold-ms"};
@@ -764,8 +761,7 @@ class SystemConfig : public ConfigBase {
 
   // Add to temporarily help with gradual rollout for text writer
   // TODO: remove once text writer is fully rolled out
-  static constexpr std::string_view kTextWriterEnabled{
-    "text-writer-enabled"};
+  static constexpr std::string_view kTextWriterEnabled{"text-writer-enabled"};
 
   SystemConfig();
 
@@ -1069,7 +1065,8 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodePrometheusExecutorThreads{"node.prometheus.num-executor-threads"};
+  static constexpr std::string_view kNodePrometheusExecutorThreads{
+      "node.prometheus.num-executor-threads"};
 
   NodeConfig();
 
@@ -1087,21 +1084,6 @@ class NodeConfig : public ConfigBase {
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;
-};
-
-/// Used only in the single instance as the source of the initial properties for
-/// velox::QueryConfig. Not designed for actual property access during a query
-/// run.
-class BaseVeloxQueryConfig : public ConfigBase {
- public:
-  BaseVeloxQueryConfig();
-
-  virtual ~BaseVeloxQueryConfig() = default;
-
-  void updateLoadedValues(
-      std::unordered_map<std::string, std::string>& values) const override;
-
-  static BaseVeloxQueryConfig* instance();
 };
 
 } // namespace facebook::presto

@@ -89,7 +89,8 @@ class RowExpressionTest : public ::testing::Test {
         returnTypeField + R"##(,
             "typeVariableConstraints": [],
             "variableArity": false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
     )##" +
         returnTypeField + R"##(
@@ -477,7 +478,8 @@ TEST_F(RowExpressionTest, call) {
             "returnType": "boolean",
             "typeVariableConstraints": [],
             "variableArity": false
-          }
+          },
+          "builtInFunctionKind": "ENGINE"
         },
         "returnType": "boolean"
       }
@@ -686,7 +688,8 @@ TEST_F(RowExpressionTest, special) {
                 "returnType": "boolean",
                 "typeVariableConstraints": [],
                 "variableArity": false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType": "boolean"
           },
@@ -718,7 +721,8 @@ TEST_F(RowExpressionTest, special) {
                 "returnType": "boolean",
                 "typeVariableConstraints": [],
                 "variableArity": false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType": "boolean"
           }
@@ -821,7 +825,8 @@ TEST_F(RowExpressionTest, bind) {
                            "bigint"
                         ],
                         "variableArity":false
-                     }
+                     },
+                     "builtInFunctionKind": "ENGINE"
                   },
                   "returnType":"bigint",
                   "arguments":[
@@ -844,7 +849,8 @@ TEST_F(RowExpressionTest, bind) {
                                  "integer"
                               ],
                               "variableArity":false
-                           }
+                           },
+                           "builtInFunctionKind": "ENGINE"
                         },
                         "returnType":"bigint",
                         "arguments":[
@@ -894,7 +900,8 @@ TEST_F(RowExpressionTest, likeSimple) {
                 "returnType" : "boolean",
                 "argumentTypes" : [ "varchar", "LikePattern" ],
                 "variableArity" : false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType" : "boolean",
             "arguments" : [ {
@@ -914,7 +921,8 @@ TEST_F(RowExpressionTest, likeSimple) {
                   "returnType" : "LikePattern",
                   "argumentTypes" : [ "varchar" ],
                   "variableArity" : false
-                }
+                },
+                "builtInFunctionKind": "ENGINE"
               },
               "returnType" : "LikePattern",
               "arguments" : [ {
@@ -953,7 +961,8 @@ TEST_F(RowExpressionTest, likeWithEscape) {
                 "returnType" : "boolean",
                 "argumentTypes" : [ "varchar", "LikePattern" ],
                 "variableArity" : false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType" : "boolean",
             "arguments" : [ {
@@ -973,7 +982,8 @@ TEST_F(RowExpressionTest, likeWithEscape) {
                   "returnType" : "LikePattern",
                   "argumentTypes" : [ "varchar", "varchar" ],
                   "variableArity" : false
-                }
+                },
+                "builtInFunctionKind": "ENGINE"
               },
               "returnType" : "LikePattern",
               "arguments" : [ {
@@ -1029,7 +1039,8 @@ TEST_F(RowExpressionTest, dereference) {
                       "bigint"
                    ],
                    "variableArity":false
-                }
+                },
+                "builtInFunctionKind": "ENGINE"
              },
              "returnType":"row(partkey integer,suppkey integer,quantity integer,extendedprice double,discount double,tax double,returnflag varchar(1),linestatus varchar(1),shipdate varchar,commitdate varchar,receiptdate varchar,shipinstruct varchar(25),shipmode varchar(10))",
              "arguments":[
@@ -1053,7 +1064,8 @@ TEST_F(RowExpressionTest, dereference) {
                             "integer"
                          ],
                          "variableArity":false
-                      }
+                      },
+                      "builtInFunctionKind": "ENGINE"
                    },
                    "returnType":"array(row(partkey integer,suppkey integer,quantity integer,extendedprice double,discount double,tax double,returnflag varchar(1),linestatus varchar(1),shipdate varchar,commitdate varchar,receiptdate varchar,shipinstruct varchar(25),shipmode varchar(10)))",
                    "arguments":[

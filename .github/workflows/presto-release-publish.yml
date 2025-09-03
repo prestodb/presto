@@ -61,6 +61,7 @@ env:
   RELEASE_NOTES_COMMIT: ${{ inputs.release-notes-commit }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
   GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  MAVEN_AUTO_PUBLISH: ${{ vars.MAVEN_AUTO_PUBLISH || 'true' }}
 
 jobs:
   publish-release-tag:
@@ -212,18 +213,28 @@ jobs:
           GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
         run: |
           unset MAVEN_CONFIG
-          ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
-            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
-            -Dmaven.wagon.http.retryHandler.count=8 \
-            -DskipTests \
-            -DstagingProfileId="${{ secrets.MAVEN_STAGING_PROFILE_ID }}" \
-            -DkeepStagingRepositoryOnFailure=true \
-            -DkeepStagingRepositoryOnCloseRuleFailure=true \
-            -DautoReleaseAfterClose=true \
-            -DstagingProgressTimeoutMinutes=60 \
-            -Poss-release \
-            -Pdeploy-to-ossrh \
-            -pl '!presto-test-coverage'
+          modules=$(find . -maxdepth 1 -type d \( ! -name . \) -exec test -f '{}/pom.xml' \; -print | sed 's|^./||')
+          for module in $modules; do
+            if [ "$module" = "presto-test-coverage" ]; then
+              echo "Skipping $module"
+              continue
+            fi
+            MODULE_PATH=$(awk -F'[<>]' '/^    <groupId>/ {print $3; exit}' "$module/pom.xml" | sed 's|\.|/|g' | sed 's|^com/facebook/presto||')
+            echo "Checking https://repo1.maven.org/maven2/com/facebook/presto${MODULE_PATH}/${module}/${RELEASE_TAG}"
+            if ! curl --silent --fail "https://repo1.maven.org/maven2/com/facebook/presto${MODULE_PATH}/${module}/${RELEASE_TAG}" > /dev/null; then
+              echo "Publishing ${module}"
+              ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
+                -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
+                -Dmaven.wagon.http.retryHandler.count=8 \
+                -DskipTests \
+                -Drelease.autoPublish=${{ env.MAVEN_AUTO_PUBLISH }} \
+                -Poss-release \
+                -Pdeploy-to-ossrh \
+                -pl "$module"
+            else
+              echo "${module} ${RELEASE_TAG} already published, skipping."
+            fi
+          done
 
   publish-docker-image:
     needs: publish-maven-artifacts

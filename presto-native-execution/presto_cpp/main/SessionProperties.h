@@ -231,8 +231,7 @@ class SessionProperties {
   static constexpr const char* kQueryTraceDir = "native_query_trace_dir";
 
   /// The plan node id whose input data will be traced.
-  static constexpr const char* kQueryTraceNodeId =
-      "native_query_trace_node_id";
+  static constexpr const char* kQueryTraceNodeId = "native_query_trace_node_id";
 
   /// The max trace bytes limit. Tracing is disabled if zero.
   static constexpr const char* kQueryTraceMaxBytes =
@@ -322,10 +321,27 @@ class SessionProperties {
   static constexpr const char* kMaxNumSplitsListenedTo =
       "native_max_num_splits_listened_to";
 
+  /// Specifies the max number of input batches to prefetch to do index lookup
+  /// ahead. If it is zero, then process one input batch at a time.
+  static constexpr const char* kIndexLookupJoinMaxPrefetchBatches =
+      "native_index_lookup_join_max_prefetch_batches";
+
+  /// If this is true, then the index join operator might split output for each
+  /// input batch based on the output batch size control. Otherwise, it tries to
+  /// produce a single output for each input batch.
+  static constexpr const char* kIndexLookupJoinSplitOutput =
+      "native_index_lookup_join_split_output";
+
+  /// If this is true, then the unnest operator might split output for each
+  /// input batch based on the output batch size control. Otherwise, it produces
+  /// a single output for each input batch.
+  static constexpr const char* kUnnestSplitOutput =
+      "native_unnest_split_output";
+
   static SessionProperties* instance();
 
   SessionProperties();
-  
+
   /// Utility function to translate a config name in Presto to its equivalent in
   /// Velox. Returns 'name' as is if there is no mapping.
   const std::string toVeloxConfig(const std::string& name) const;

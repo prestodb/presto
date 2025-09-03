@@ -34,6 +34,8 @@ class TaskManager {
       folly::Executor* httpSrvExecutor,
       folly::Executor* spillerExecutor);
 
+  virtual ~TaskManager() = default;
+
   /// Invoked by Presto server shutdown to wait for all the tasks to complete
   /// and cleanup the completed tasks.
   void shutdown();
@@ -195,6 +197,9 @@ class TaskManager {
   /// See if we have any queued tasks that can be started.
   void maybeStartNextQueuedTask();
 
+ protected:
+  std::unique_ptr<QueryContextManager> queryContextManager_;
+
  private:
   static constexpr folly::StringPiece kMaxDriversPerTask{
       "max_drivers_per_task"};
@@ -229,7 +234,6 @@ class TaskManager {
   std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   folly::Synchronized<TaskQueue> taskQueue_;
-  std::unique_ptr<QueryContextManager> queryContextManager_;
   folly::Executor* httpSrvCpuExecutor_;
   std::atomic_bool serverOverloaded_{false};
   std::atomic_uint32_t numQueuedDrivers_{0};

@@ -36,6 +36,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.server.RetryConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -94,6 +95,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -110,6 +112,9 @@ class Query
     private final QueryId queryId;
     private final Session session;
     private final String slug;
+    private final Optional<URI> retryUrl;
+    private final OptionalLong retryExpirationEpochTime;
+    private final boolean isRetryQuery;
 
     @GuardedBy("this")
     private final ExchangeClient exchangeClient;
@@ -119,6 +124,7 @@ class Query
 
     private final PagesSerde serde;
     private final RetryCircuitBreaker retryCircuitBreaker;
+    private final RetryConfig retryConfig;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -183,9 +189,26 @@ class Query
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde,
-            RetryCircuitBreaker retryCircuitBreaker)
+            RetryCircuitBreaker retryCircuitBreaker,
+            RetryConfig retryConfig,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime,
+            boolean isRetryQuery)
     {
-        Query result = new Query(session, slug, queryManager, transactionManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, retryCircuitBreaker);
+        Query result = new Query(
+                session,
+                slug,
+                retryUrl,
+                retryExpirationEpochTime,
+                isRetryQuery,
+                queryManager,
+                transactionManager,
+                exchangeClient,
+                dataProcessorExecutor,
+                timeoutExecutor,
+                blockEncodingSerde,
+                retryCircuitBreaker,
+                retryConfig);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -202,16 +225,22 @@ class Query
     private Query(
             Session session,
             String slug,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime,
+            boolean isRetryQuery,
             QueryManager queryManager,
             TransactionManager transactionManager,
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde,
-            RetryCircuitBreaker retryCircuitBreaker)
+            RetryCircuitBreaker retryCircuitBreaker,
+            RetryConfig retryConfig)
     {
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
+        requireNonNull(retryUrl, "retryUrl is null");
+        requireNonNull(retryExpirationEpochTime, "retryExpirationEpochTime is null");
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(exchangeClient, "exchangeClient is null");
@@ -219,6 +248,7 @@ class Query
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         requireNonNull(blockEncodingSerde, "serde is null");
         requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
+        requireNonNull(retryConfig, "retryConfig is null");
 
         this.queryManager = queryManager;
         this.transactionManager = transactionManager;
@@ -226,12 +256,16 @@ class Query
         this.queryId = session.getQueryId();
         this.session = session;
         this.slug = slug;
+        this.retryUrl = retryUrl;
+        this.retryExpirationEpochTime = retryExpirationEpochTime;
+        this.isRetryQuery = isRetryQuery;
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
 
         this.serde = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session), isExchangeChecksumEnabled(session)).createPagesSerde();
         this.retryCircuitBreaker = retryCircuitBreaker;
+        this.retryConfig = retryConfig;
     }
 
     public void cancel()
@@ -426,11 +460,13 @@ class Query
 
         // build a new query with next uri
         // we expect failed nodes have been removed from discovery server upon query failure
+        URI nextUri = createRetryUri(scheme, uriInfo);
+
         return new QueryResults(
                 queryId.toString(),
                 queryResults.getInfoUri(),
                 queryResults.getPartialCancelUri(),
-                createRetryUri(scheme, uriInfo),
+                nextUri,
                 queryResults.getColumns(),
                 null,
                 null,
@@ -668,6 +704,20 @@ class Query
 
     private synchronized URI createRetryUri(String scheme, UriInfo uriInfo)
     {
+        // Check if we have external retry URL information
+        if (retryUrl.isPresent()) {
+            // Check if the retry URL has not expired
+            long currentTime = currentTimeMillis();
+            if (currentTime < retryExpirationEpochTime.getAsLong()) {
+                return retryUrl.get();
+            }
+            else {
+                log.warn("Retry URL for query %s has expired. Current time: %d, Expiration: %d",
+                         queryId, currentTime, retryExpirationEpochTime.getAsLong());
+            }
+        }
+
+        // Use the default retry mechanism
         UriBuilder uri = uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement/queued/retry")
@@ -713,8 +763,28 @@ class Query
         }
 
         if (!retryQueryWithHistoryBasedOptimizationEnabled(session)) {
-            if (!queryResults.getError().isRetriable()) {
-                return false;
+            // Check if cross-cluster retry is attempted
+            if (retryUrl.isPresent()) {
+                // Check if this is already a retry query - prevent cross-cluster retry chains
+                if (isRetryQuery) {
+                    log.debug("Query %s is already a retry query, preventing cross-cluster retry chain", queryId);
+                    return false;
+                }
+
+                // For cross-cluster retry, only allow specific error codes
+                int errorCode = queryResults.getError().getErrorCode();
+                if (!retryConfig.getCrossClusterRetryErrorCodes().contains(errorCode)) {
+                    log.debug("Query %s error code %d is not allowed for cross-cluster retry. Allowed codes: %s",
+                            queryId, errorCode, retryConfig.getCrossClusterRetryErrorCodes());
+                    return false;
+                }
+            }
+            else {
+                // For same-cluster retry, use the normal retriable flag
+                if (!queryResults.getError().isRetriable()) {
+                    log.debug("Query %s error code %s is not retriable", queryId, queryResults.getError().getErrorName());
+                    return false;
+                }
             }
 
             // check if we have exceeded the global limit

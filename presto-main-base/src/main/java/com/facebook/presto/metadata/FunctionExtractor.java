@@ -32,6 +32,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 
 public final class FunctionExtractor
 {
@@ -39,8 +40,13 @@ public final class FunctionExtractor
 
     public static List<SqlFunction> extractFunctions(Collection<Class<?>> classes)
     {
+        return extractFunctions(classes, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<SqlFunction> extractFunctions(Collection<Class<?>> classes, CatalogSchemaName functionNamespace)
+    {
         return classes.stream()
-                .map(FunctionExtractor::extractFunctions)
+                .map(c -> extractFunctions(c, functionNamespace))
                 .flatMap(Collection::stream)
                 .collect(toImmutableList());
     }
@@ -53,17 +59,21 @@ public final class FunctionExtractor
     public static List<? extends SqlFunction> extractFunctions(Class<?> clazz, CatalogSchemaName defaultNamespace)
     {
         if (WindowFunction.class.isAssignableFrom(clazz)) {
+            checkArgument(defaultNamespace.equals(JAVA_BUILTIN_NAMESPACE), format("Connector specific Window functions are not supported: Class [%s], Namespace [%s]", clazz.getName(), defaultNamespace));
             @SuppressWarnings("unchecked")
             Class<? extends WindowFunction> windowClazz = (Class<? extends WindowFunction>) clazz;
             return WindowAnnotationsParser.parseFunctionDefinition(windowClazz);
         }
 
         if (clazz.isAnnotationPresent(AggregationFunction.class)) {
-            return SqlAggregationFunction.createFunctionsByAnnotations(clazz);
+            return SqlAggregationFunction.createFunctionsByAnnotations(clazz, defaultNamespace);
         }
 
-        if (clazz.isAnnotationPresent(ScalarFunction.class) ||
-                clazz.isAnnotationPresent(ScalarOperator.class)) {
+        if (clazz.isAnnotationPresent(ScalarFunction.class)) {
+            return ScalarFromAnnotationsParser.parseFunctionDefinition(clazz, defaultNamespace);
+        }
+        if (clazz.isAnnotationPresent(ScalarOperator.class)) {
+            checkArgument(defaultNamespace.equals(JAVA_BUILTIN_NAMESPACE), format("Connector specific Scalar Operator functions are not supported: Class [%s], Namespace [%s]", clazz.getName(), defaultNamespace));
             return ScalarFromAnnotationsParser.parseFunctionDefinition(clazz);
         }
 
@@ -72,9 +82,9 @@ public final class FunctionExtractor
         }
 
         List<SqlFunction> scalarFunctions = ImmutableList.<SqlFunction>builder()
-                .addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
+                .addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, defaultNamespace))
                 .addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, defaultNamespace))
-                .addAll(CodegenScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
+                .addAll(CodegenScalarFromAnnotationsParser.parseFunctionDefinitions(clazz, defaultNamespace))
                 .build();
         checkArgument(!scalarFunctions.isEmpty(), "Class [%s] does not define any scalar functions", clazz.getName());
         return scalarFunctions;

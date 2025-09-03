@@ -196,7 +196,6 @@ PrestoServer::~PrestoServer() {}
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
-  auto baseVeloxQueryConfig = BaseVeloxQueryConfig::instance();
   int httpPort{0};
 
   std::string certPath;
@@ -212,9 +211,6 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    // velox.properties is optional.
-    baseVeloxQueryConfig->initialize(
-        fmt::format("{}/velox.properties", configDirectoryPath_), true);
 
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
@@ -275,8 +271,8 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
-  registerFileSinks();
   registerFileSystems();
+  registerFileSinks();
   registerFileReadersAndWriters();
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
@@ -319,9 +315,15 @@ void PrestoServer::run() {
       httpsSocketAddress.setFromLocalPort(httpsPort.value());
     }
 
-    const bool http2Enabled = SystemConfig::instance()->httpServerHttp2Enabled();
+    const bool http2Enabled =
+        SystemConfig::instance()->httpServerHttp2Enabled();
     httpsConfig = std::make_unique<http::HttpsConfig>(
-        httpsSocketAddress, certPath, keyPath, ciphers, reusePort, http2Enabled);
+        httpsSocketAddress,
+        certPath,
+        keyPath,
+        ciphers,
+        reusePort,
+        http2Enabled);
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(
@@ -432,8 +434,7 @@ void PrestoServer::run() {
   nativeWorkerPool_ = velox::memory::MemoryManager::getInstance()->addLeafPool(
       "PrestoNativeWorker");
 
-  taskManager_ = std::make_unique<TaskManager>(
-      driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
+  createTaskManager();
 
   if (systemConfig->prestoNativeSidecar()) {
     registerSidecarEndpoints();
@@ -1735,6 +1736,11 @@ void PrestoServer::registerDynamicFunctions() {
         << "Plugin directory path: " << pluginDir << " is invalid.";
     return;
   }
+}
+
+void PrestoServer::createTaskManager() {
+  taskManager_ = std::make_unique<TaskManager>(
+      driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 }
 
 } // namespace facebook::presto

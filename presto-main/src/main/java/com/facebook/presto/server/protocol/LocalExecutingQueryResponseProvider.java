@@ -23,7 +23,9 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -54,11 +56,14 @@ public class LocalExecutingQueryResponseProvider
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
             boolean binaryResults,
-            long durationUntilExpirationMs)
+            long durationUntilExpirationMs,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime,
+            boolean isRetryQuery)
     {
         Query query;
         try {
-            query = queryProvider.getQuery(queryId, slug);
+            query = queryProvider.getQuery(queryId, slug, retryUrl, retryExpirationEpochTime, isRetryQuery);
         }
         catch (WebApplicationException e) {
             return Optional.empty();

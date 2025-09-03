@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -65,16 +66,16 @@ public class TestSingleStoreIntegrationSmokeTest
         // we need specific implementation of this tests due to specific Presto<->SingleStore varchar length mapping.
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(85)", "", "")//utf-8
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(85)", "", "")
-                .row("clerk", "varchar(85)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(85)", "", "")
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 19L, null, null)
+                .row("custkey", "bigint", "", "", 19L, null, null)
+                .row("orderstatus", "varchar(85)", "", "", null, null, 85L)//utf-8
+                .row("totalprice", "double", "", "", 53L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar(85)", "", "", null, null, 85L)
+                .row("clerk", "varchar(85)", "", "", null, null, 85L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar(85)", "", "", null, null, 85L)
                 .build();
         assertEquals(actualColumns, expectedColumns);
     }

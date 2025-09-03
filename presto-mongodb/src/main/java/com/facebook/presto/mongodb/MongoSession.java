@@ -583,8 +583,8 @@ public class MongoSession
         Document newColumn = new Document()
                 .append(FIELDS_NAME_KEY, columnMetadata.getName())
                 .append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString())
-                .append(COMMENT_KEY, columnMetadata.getComment())
                 .append(FIELDS_HIDDEN_KEY, false);
+        columnMetadata.getComment().ifPresent(comment -> newColumn.append(COMMENT_KEY, comment));
         columns.add(newColumn);
 
         metadata.append(FIELDS_KEY, columns);

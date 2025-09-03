@@ -553,6 +553,15 @@ public class BuiltInTypeAndFunctionNamespaceManager
             Set<Type> types,
             FunctionAndTypeManager functionAndTypeManager)
     {
+        this(blockEncodingSerde, functionsConfig, types, functionAndTypeManager, true);
+    }
+    public BuiltInTypeAndFunctionNamespaceManager(
+            BlockEncodingSerde blockEncodingSerde,
+            FunctionsConfig functionsConfig,
+            Set<Type> types,
+            FunctionAndTypeManager functionAndTypeManager,
+            boolean registerFunctions)
+    {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
 
@@ -605,7 +614,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(this::instantiateParametricType));
 
-        registerBuiltInFunctions(getBuiltInFunctions(functionsConfig));
+        if (registerFunctions) {
+            registerBuiltInFunctions(getBuiltInFunctions(functionsConfig));
+        }
         registerBuiltInTypes(functionsConfig);
 
         for (Type type : requireNonNull(types, "types is null")) {

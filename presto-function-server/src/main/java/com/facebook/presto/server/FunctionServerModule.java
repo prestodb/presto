@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.TableFunctionRegistry;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.transaction.NoOpTransactionManager;
@@ -53,6 +54,7 @@ public class FunctionServerModule
     {
         jaxrsBinder(binder).bind(FunctionResource.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());

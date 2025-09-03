@@ -148,9 +148,6 @@ public class TestEnums
                 "cast(map(array[test.enum.country.FRANCE], array[array[test.enum.mood.HAPPY]]) as JSON)",
                 "{\"France\":[0]}");
         assertSingleValue(
-                "map_filter(MAP(ARRAY[test.enum.country.FRANCE, test.enum.country.US], ARRAY[test.enum.mood.HAPPY, test.enum.mood.SAD]), (k,v) -> CAST(v AS BIGINT) > 0)",
-                ImmutableMap.of("United States", 1L));
-        assertSingleValue(
                 "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
     }

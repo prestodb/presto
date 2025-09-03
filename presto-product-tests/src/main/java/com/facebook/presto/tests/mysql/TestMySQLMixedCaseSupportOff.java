@@ -118,27 +118,27 @@ public class TestMySQLMixedCaseSupportOff
                 .failsWithMessage("line 1:1: Column 'NuM2' already exists");
 
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME_UPPER_2)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("num01", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num01", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("num1", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("num1", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02.toUpperCase())).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("num1", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("num1", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
 
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME + " RENAME COLUMN num TO numb");
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME + " RENAME COLUMN NuM2 TO NuM02");
@@ -146,30 +146,30 @@ public class TestMySQLMixedCaseSupportOff
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02 + " RENAME COLUMN NuM2 TO NuM02");
 
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("numb", "real", "", ""),
-                row("num02", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("numb", "real", "", "", 24L, null, null),
+                row("num02", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("numb01", "real", "", ""),
-                row("num02", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("numb01", "real", "", "", 24L, null, null),
+                row("num02", "real", "", "", 24L, null, null));
 
         // drop column
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME + " DROP COLUMN NuM02");
         query("ALTER TABLE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02 + " DROP COLUMN numb01");
 
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME + "." + TABLE_NAME)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("numb", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("numb", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + CATALOG + "." + SCHEMA_NAME_UPPER + "." + TABLE_NAME_UPPER_SCHEMA_02)).containsOnly(
-                row("name", "varchar(255)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("num02", "real", "", ""));
+                row("name", "varchar(255)", "", "", null, null, 255L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("num02", "real", "", "", 24L, null, null));
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testTableAlterWithMixedCaseNames")

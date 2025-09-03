@@ -79,7 +79,7 @@ These requirements can be expressed with the following rules:
       {
         "group": "global.*",
         "sessionProperties": {
-          "query_max_execution_time": "8h",
+          "query_max_execution_time": "8h"
         }
       },
       {

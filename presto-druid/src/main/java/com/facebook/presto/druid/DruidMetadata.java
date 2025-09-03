@@ -192,7 +192,7 @@ public class DruidMetadata
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getTableName() == null) {
-            return listTables(session, Optional.of(prefix.getSchemaName()));
+            return listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         return ImmutableList.of(prefix.toSchemaTableName());
     }

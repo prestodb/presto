@@ -123,6 +123,8 @@ class QueryContextManager {
       folly::Executor* driverExecutor,
       folly::Executor* spillerExecutor);
 
+  virtual ~QueryContextManager() = default;
+
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& taskUpdateRequest);
@@ -141,16 +143,24 @@ class QueryContextManager {
   /// Test method to clear the query context cache.
   void testingClearCache();
 
+ protected:
+  folly::Executor* const driverExecutor_{nullptr};
+  folly::Executor* const spillerExecutor_{nullptr};
+
  private:
+  virtual std::shared_ptr<velox::core::QueryCtx> createAndCacheQueryCtx(
+    QueryContextCache& cache,
+    const protocol::QueryId& queryId,
+    velox::core::QueryConfig&& queryConfig,
+    std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigs,
+    std::shared_ptr<velox::memory::MemoryPool>&& pool);
+
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
       velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);
-
-  folly::Executor* const driverExecutor_{nullptr};
-  folly::Executor* const spillerExecutor_{nullptr};
 
   folly::Synchronized<QueryContextCache> queryContextCache_;
 };

@@ -177,7 +177,7 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
           "Have set system property value '{}' to '{}'. Old value was '{}'.\n",
           name,
           value,
-          BaseVeloxQueryConfig::instance()
+          SystemConfig::instance()
               ->setValue(name, value)
               .value_or("<default>"));
     }
@@ -190,7 +190,7 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
           ServerOperation::actionString(op.action));
       return fmt::format(
           "{}\n",
-          BaseVeloxQueryConfig::instance()->optionalProperty(name).value_or(
+          SystemConfig::instance()->optionalProperty(name).value_or(
               "<default>"));
     }
     default:

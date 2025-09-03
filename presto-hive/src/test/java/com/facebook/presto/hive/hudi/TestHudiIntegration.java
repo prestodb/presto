@@ -34,6 +34,7 @@ import static com.facebook.presto.hive.hudi.HudiTestingDataGenerator.DATA_COLUMN
 import static com.facebook.presto.hive.hudi.HudiTestingDataGenerator.HUDI_META_COLUMNS;
 import static com.facebook.presto.hive.hudi.HudiTestingDataGenerator.PARTITION_COLUMNS;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class TestHudiIntegration
         extends AbstractTestQueryFramework
@@ -151,10 +152,43 @@ public class TestHudiIntegration
     private static String generateDescribeIdenticalQuery(TypeManager typeManager, List<Column> metaColumns, List<Column> dataColumns, List<Column> partitionColumns)
     {
         Stream<String> regularRows = Streams.concat(metaColumns.stream(), dataColumns.stream())
-                .map(column -> format("('%s', '%s', '', '')", column.getName(), column.getType().getType(typeManager).getDisplayName()));
+                .map(column -> {
+                    return format("('%s', '%s', '', '', %s, NULL, %s)", column.getName(), column.getType().getType(typeManager).getDisplayName(),
+                            getColumnSize(column.getType().getType(typeManager).getDisplayName()),
+                            (column.getType().getType(typeManager).getDisplayName()).toLowerCase(ENGLISH).equals("varchar") ? "2147483647" : "NULL");
+                });
+
         Stream<String> partitionRows = partitionColumns.stream()
-                .map(column -> format("('%s', '%s', 'partition key', '')", column.getName(), column.getType().getType(typeManager).getDisplayName()));
-        String rows = Streams.concat(regularRows, partitionRows).collect(Collectors.joining(","));
+                .map(column -> {
+                    return format("('%s', '%s', 'partition key', '', %s, NULL, %s)", column.getName(),
+                            column.getType().getType(typeManager).getDisplayName(),
+                            getColumnSize(column.getType().getType(typeManager).getDisplayName()),
+                            (column.getType().getType(typeManager).getDisplayName()).toLowerCase(ENGLISH).equals("varchar") ? "2147483647" : "NULL");
+                });
+
+        String rows = Streams.concat(regularRows, partitionRows)
+                .collect(Collectors.joining(", "));
+
         return "SELECT * FROM VALUES " + rows;
+    }
+
+    private static String getColumnSize(String type)
+    {
+        switch (type.toLowerCase(ENGLISH)) {
+            case "bigint":
+                return "19";
+            case "integer":
+                return "10";
+            case "smallint":
+                return "5";
+            case "tinyint":
+                return "3";
+            case "double":
+                return "53";
+            case "real":
+                return "24";
+            default:
+                return "NULL";
+        }
     }
 }

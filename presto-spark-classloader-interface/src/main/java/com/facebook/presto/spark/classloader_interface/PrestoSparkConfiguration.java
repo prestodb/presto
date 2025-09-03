@@ -30,6 +30,7 @@ public class PrestoSparkConfiguration
     private final String pluginsDirectoryPath;
     private final Map<String, Map<String, String>> catalogProperties;
     private final Map<String, String> prestoSparkProperties;
+    private final Optional<Map<String, String>> nativeWorkerConfigProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
@@ -41,6 +42,7 @@ public class PrestoSparkConfiguration
             String pluginsDirectoryPath,
             Map<String, Map<String, String>> catalogProperties,
             Map<String, String> prestoSparkProperties,
+            Optional<Map<String, String>> nativeWorkerConfigProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -53,6 +55,7 @@ public class PrestoSparkConfiguration
                 .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
         this.prestoSparkProperties = unmodifiableMap(new HashMap<>(requireNonNull(prestoSparkProperties, "prestoSparkProperties is null")));
         requireNonNull(prestoSparkProperties.get(METADATA_STORAGE_TYPE_KEY), "prestoSparkProperties must contain " + METADATA_STORAGE_TYPE_KEY);
+        this.nativeWorkerConfigProperties = requireNonNull(nativeWorkerConfigProperties, "nativeWorkerConfigProperties is null");
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
@@ -90,6 +93,11 @@ public class PrestoSparkConfiguration
     public String getMetadataStorageType()
     {
         return prestoSparkProperties.get(METADATA_STORAGE_TYPE_KEY);
+    }
+
+    public Optional<Map<String, String>> getNativeWorkerConfigProperties()
+    {
+        return nativeWorkerConfigProperties;
     }
 
     public Optional<Map<String, String>> getEventListenerProperties()

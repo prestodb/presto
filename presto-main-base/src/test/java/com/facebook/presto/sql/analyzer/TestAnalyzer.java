@@ -153,6 +153,35 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testMapFilterWarnings()
+    {
+        assertHasWarning(
+                analyzeWithWarnings("SELECT map_filter(x, (k, v) -> v > 1) FROM (VALUES (map(ARRAY[1,2], ARRAY[2,3]))) AS t(x)"),
+                PERFORMANCE_WARNING,
+                "Function 'presto.default.map_filter' uses a lambda on large maps which is expensive. Consider using map_subset");
+
+        assertHasWarning(
+                analyzeWithWarnings("SELECT map_filter(x, (k, v) -> k = 2) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(x)"),
+                PERFORMANCE_WARNING,
+                "Function 'presto.default.map_filter' uses a lambda on large maps which is expensive. Consider using map_subset");
+
+        assertHasWarning(
+                analyzeWithWarnings("SELECT map_filter(x, (k, v) -> k IN (1, 3)) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(x)"),
+                PERFORMANCE_WARNING,
+                "Function 'presto.default.map_filter' uses a lambda on large maps which is expensive. Consider using map_subset");
+
+        assertHasWarning(
+                analyzeWithWarnings("SELECT map_filter(x, (k, v) -> v IN (20, 30)) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(x)"),
+                PERFORMANCE_WARNING,
+                "Function 'presto.default.map_filter' uses a lambda on large maps which is expensive. Consider using map_subset");
+
+        assertHasWarning(
+                analyzeWithWarnings("SELECT map_filter(x, (k, v) -> k + v > 25) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(x)"),
+                PERFORMANCE_WARNING,
+                "Function 'presto.default.map_filter' uses a lambda on large maps which is expensive. Consider using map_subset");
+    }
+
+    @Test
     public void testIgnoreNullWarning()
     {
         List<String> valueFunctions = ImmutableList.of(

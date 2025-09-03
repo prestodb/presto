@@ -509,6 +509,35 @@ SessionProperties::SessionProperties() {
       0,
       QueryConfig::kMaxNumSplitsListenedTo,
       std::to_string(c.maxNumSplitsListenedTo()));
+
+  addSessionProperty(
+      kIndexLookupJoinMaxPrefetchBatches,
+      "Specifies the max number of input batches to prefetch to do index"
+      "lookup ahead. If it is zero, then process one input batch at a time.",
+      INTEGER(),
+      false,
+      QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
+      std::to_string(c.indexLookupJoinMaxPrefetchBatches()));
+
+  addSessionProperty(
+      kIndexLookupJoinSplitOutput,
+      "If this is true, then the index join operator might split output for"
+      "each input batch based on the output batch size control. Otherwise, it tries to"
+      "produce a single output for each input batch.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kIndexLookupJoinSplitOutput,
+      std::to_string(c.indexLookupJoinSplitOutput()));
+
+  addSessionProperty(
+      kUnnestSplitOutput,
+      "In streaming aggregation, wait until we have enough number of output"
+      "rows to produce a batch of size specified by this. If set to 0, then"
+      "Operator::outputBatchRows will be used as the min output batch rows.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kUnnestSplitOutput,
+      std::to_string(c.unnestSplitOutput()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

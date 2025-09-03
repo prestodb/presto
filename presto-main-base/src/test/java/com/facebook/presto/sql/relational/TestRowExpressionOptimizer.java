@@ -13,17 +13,31 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -34,6 +48,7 @@ import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -43,6 +58,11 @@ import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.JAVA;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -52,10 +72,29 @@ import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestRowExpressionOptimizer
 {
+    private static final SqlInvokedFunction CPP_FOO = new SqlInvokedFunction(
+            new QualifiedObjectName("native", "default", "sqrt"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.DOUBLE),
+            "sqrt(x)",
+            RoutineCharacteristics.builder().setLanguage(CPP).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            notVersioned());
+    public static final SqlInvokedFunction CPP_CUSTOM_FUNCTION = new SqlInvokedFunction(
+            new QualifiedObjectName("native", "default", "cpp_custom_func"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "cpp_custom_func(x)",
+            RoutineCharacteristics.builder().setLanguage(CPP).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            notVersioned());
+
     private FunctionAndTypeManager functionAndTypeManager;
     private RowExpressionOptimizer optimizer;
 
@@ -132,6 +171,83 @@ public class TestRowExpressionOptimizer
         assertEquals(
                 resultExpression,
                 call(JSON_TO_ROW_CAST.name(), functionAndTypeManager.lookupCast(JSON_TO_ROW_CAST, VARCHAR, functionAndTypeManager.getType(parseTypeSignature("row(varchar,bigint)"))), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
+    }
+
+    @Test
+    public void testDefaultExpressionOptimizerUsesJavaNamespaceForBuiltInFunctions()
+    {
+        String nativePrefix = "native.default";
+        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FunctionsConfig().setDefaultNamespacePrefix(nativePrefix));
+
+        metadata.getFunctionAndTypeManager().addFunctionNamespace(
+                "native",
+                new InMemoryFunctionNamespaceManager(
+                        "native",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        CPP, FunctionImplementationType.CPP,
+                                        JAVA, FunctionImplementationType.JAVA),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp")));
+        metadata.getFunctionAndTypeManager().createFunction(CPP_FOO, true);
+        RowExpressionOptimizer nativeOptimizer = new RowExpressionOptimizer(metadata);
+        RowExpression simpleAddition = call(
+                "sqrt",
+                new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                QualifiedObjectName.valueOf(format("%s.sqrt", nativePrefix)),
+                                ImmutableList.of(BIGINT.getTypeSignature())),
+                        "1"),
+                DOUBLE,
+                ImmutableList.of(
+                        constant(4L, BIGINT)));
+        assertEquals(nativeOptimizer.optimize(simpleAddition, OPTIMIZED, SESSION), constant(2.0, DOUBLE));
+        assertThrows(IllegalArgumentException.class, () -> optimizer.optimize(simpleAddition, OPTIMIZED, SESSION));
+    }
+
+    @Test
+    public void testFunctionNotInPrestoDefaultNamespaceIsNotEvaluated()
+    {
+        // Create a custom function that exists only in native namespace, not in presto.default
+        String nativePrefix = "native.default";
+        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FunctionsConfig().setDefaultNamespacePrefix(nativePrefix));
+
+        metadata.getFunctionAndTypeManager().addFunctionNamespace(
+                "native",
+                new InMemoryFunctionNamespaceManager(
+                        "native",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        CPP, FunctionImplementationType.CPP,
+                                        JAVA, FunctionImplementationType.JAVA),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp")));
+
+        // Create a custom function that only exists in native namespace
+        metadata.getFunctionAndTypeManager().createFunction(CPP_CUSTOM_FUNCTION, true);
+
+        RowExpressionOptimizer nativeOptimizer = new RowExpressionOptimizer(metadata);
+
+        // Create a call expression to the custom native function
+        RowExpression customFunctionCall = call(
+                "cpp_custom_func",
+                new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                QualifiedObjectName.valueOf(format("%s.cpp_custom_func", nativePrefix)),
+                                ImmutableList.of(BIGINT.getTypeSignature())),
+                        "1"),
+                BIGINT,
+                ImmutableList.of(constant(42L, BIGINT)));
+
+        // The function should not be evaluated since it doesn't exist in presto.default namespace
+        // It should return the original call expression unchanged
+        RowExpression optimized = nativeOptimizer.optimize(customFunctionCall, OPTIMIZED, SESSION);
+        assertEquals(optimized, customFunctionCall);
+        assertInstanceOf(optimized, CallExpression.class);
+
+        // Verify that the function handle remains the same (not replaced)
+        CallExpression optimizedCall = (CallExpression) optimized;
+        assertEquals(optimizedCall.getFunctionHandle().getCatalogSchemaName().toString(), nativePrefix);
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)

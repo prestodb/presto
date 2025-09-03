@@ -225,11 +225,19 @@ public class IcebergTableProperties
                 .addAll(deprecatedPropertyMetadata.values().iterator())
                 .build();
 
-        columnProperties = ImmutableList.of(stringProperty(
-                PARTITIONING_PROPERTY,
-                "This column's partition transform",
-                null,
-                false));
+        columnProperties = ImmutableList.of(
+                new PropertyMetadata<>(
+                        PARTITIONING_PROPERTY,
+                        "This column's partition transforms, supports both string expressions (e.g., 'bucket(4)') and array expressions (e.g. ARRAY['bucket(4)', 'identity'])",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value)
+                        .withAdditionalTypeHandler(VARCHAR, ImmutableList::of));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -242,7 +250,7 @@ public class IcebergTableProperties
         return columnProperties;
     }
 
-    public Set<String> getUpdatableProperties()
+    public static Set<String> getUpdatableProperties()
     {
         return UPDATABLE_PROPERTIES;
     }
@@ -251,7 +259,7 @@ public class IcebergTableProperties
      * @return a map of deprecated property name to new property name, or null if the property is
      * removed entirely.
      */
-    public Map<String, String> getDeprecatedProperties()
+    public static Map<String, String> getDeprecatedProperties()
     {
         return DEPRECATED_PROPERTIES;
     }
@@ -262,20 +270,20 @@ public class IcebergTableProperties
     }
 
     @SuppressWarnings("unchecked")
-    public List<String> getPartitioning(Map<String, Object> tableProperties)
+    public static List<String> getPartitioning(Map<String, Object> tableProperties)
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
     }
 
     @SuppressWarnings("unchecked")
-    public List<String> getSortOrder(Map<String, Object> tableProperties)
+    public static List<String> getSortOrder(Map<String, Object> tableProperties)
     {
         List<String> sortedBy = (List<String>) tableProperties.get(SORTED_BY_PROPERTY);
         return sortedBy == null ? ImmutableList.of() : ImmutableList.copyOf(sortedBy);
     }
 
-    public String getTableLocation(Map<String, Object> tableProperties)
+    public static String getTableLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(LOCATION_PROPERTY);
     }

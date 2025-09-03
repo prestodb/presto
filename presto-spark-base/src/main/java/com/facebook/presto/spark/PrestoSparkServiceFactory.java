@@ -48,6 +48,7 @@ public class PrestoSparkServiceFactory
                 sparkProcessType,
                 properties.build(),
                 configuration.getCatalogProperties(),
+                configuration.getNativeWorkerConfigProperties(),
                 configuration.getEventListenerProperties(),
                 configuration.getAccessControlProperties(),
                 configuration.getSessionPropertyConfigurationProperties(),

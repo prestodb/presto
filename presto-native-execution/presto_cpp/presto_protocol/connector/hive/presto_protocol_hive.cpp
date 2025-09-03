@@ -370,10 +370,9 @@ namespace facebook::presto::protocol::hive {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BucketFunctionType, json>
-    BucketFunctionType_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {BucketFunctionType::HIVE_COMPATIBLE, "HIVE_COMPATIBLE"},
-            {BucketFunctionType::PRESTO_NATIVE, "PRESTO_NATIVE"}};
+    BucketFunctionType_enum_table[] = { // NOLINT: cert-err58-cpp
+        {BucketFunctionType::HIVE_COMPATIBLE, "HIVE_COMPATIBLE"},
+        {BucketFunctionType::PRESTO_NATIVE, "PRESTO_NATIVE"}};
 void to_json(json& j, const BucketFunctionType& e) {
   static_assert(
       std::is_enum<BucketFunctionType>::value,
@@ -599,13 +598,12 @@ namespace facebook::presto::protocol::hive {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<HiveCompressionCodec, json>
-    HiveCompressionCodec_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {HiveCompressionCodec::NONE, "NONE"},
-            {HiveCompressionCodec::SNAPPY, "SNAPPY"},
-            {HiveCompressionCodec::GZIP, "GZIP"},
-            {HiveCompressionCodec::LZ4, "LZ4"},
-            {HiveCompressionCodec::ZSTD, "ZSTD"}};
+    HiveCompressionCodec_enum_table[] = { // NOLINT: cert-err58-cpp
+        {HiveCompressionCodec::NONE, "NONE"},
+        {HiveCompressionCodec::SNAPPY, "SNAPPY"},
+        {HiveCompressionCodec::GZIP, "GZIP"},
+        {HiveCompressionCodec::LZ4, "LZ4"},
+        {HiveCompressionCodec::ZSTD, "ZSTD"}};
 void to_json(json& j, const HiveCompressionCodec& e) {
   static_assert(
       std::is_enum<HiveCompressionCodec>::value,

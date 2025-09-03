@@ -17,11 +17,13 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -289,6 +291,24 @@ public class ExtractSystemTableFilterRuleSet
                     context.getIdAllocator().getNextId(),
                     newExchange,
                     filterNode.getPredicate());
+
+            // Check if the original exchange's output variables match the filter's output
+            // If not, add a project node to align them
+            if (!exchangeNode.getOutputVariables().equals(newFilter.getOutputVariables())) {
+                Assignments.Builder assignments = Assignments.builder();
+                for (VariableReferenceExpression variable : exchangeNode.getOutputVariables()) {
+                    assignments.put(variable, variable);
+                }
+
+                ProjectNode projectNode = new ProjectNode(
+                        exchangeNode.getSourceLocation(),
+                        context.getIdAllocator().getNextId(),
+                        newFilter,
+                        assignments.build(),
+                        ProjectNode.Locality.LOCAL);
+
+                return Result.ofPlanNode(projectNode);
+            }
 
             return Result.ofPlanNode(newFilter);
         }

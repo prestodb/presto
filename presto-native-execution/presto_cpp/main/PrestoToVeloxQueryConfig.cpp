@@ -70,6 +70,13 @@ void updateFromSessionConfigs(
     }
   }
 
+  if (session.source) {
+    queryConfigs[velox::core::QueryConfig::kSource] = *session.source;
+  }
+  if (!session.clientTags.empty()) {
+    queryConfigs[velox::core::QueryConfig::kClientTags] = folly::join(',', session.clientTags);
+  }
+
   // If there's a timeZoneKey, convert to timezone name and add to the
   // configs. Throws if timeZoneKey can't be resolved.
   if (session.timeZoneKey != 0) {
@@ -168,9 +175,7 @@ void updateFromSystemConfigs(
 
 velox::core::QueryConfig toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
-  // Use base velox query config as the starting point and add Presto session
-  // properties on top of it.
-  auto configs = BaseVeloxQueryConfig::instance()->values();
+  std::unordered_map<std::string, std::string> configs;
 
   // Firstly apply Presto system properties to Velox query config.
   updateFromSystemConfigs(configs);

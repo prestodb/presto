@@ -330,6 +330,112 @@ public class TestIcebergSmokeOnS3Hadoop
         dropTable(session, "test_table_comments");
     }
 
+    @Test
+    public void testAddColumnWithMultiplePartitionTransforms()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = format("\"%s\"", session.getSchema().get());
+
+        assertQuerySucceeds("create table add_multiple_partition_column(a int)");
+        assertUpdate("insert into add_multiple_partition_column values 1", 1);
+
+        validateShowCreateTable(catalog, schema, "add_multiple_partition_column",
+                ImmutableList.of(columnDefinition("a", "integer")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_multiple_partition_column") + "'",
+                        "write.data.path", "'" + getPathBasedOnDataDirectory(session.getSchema().get() + "/add_multiple_partition_column") + "'")));
+
+        // Add a varchar column with partition transforms `ARRAY['bucket(4)', 'truncate(2)', 'identity']`
+        assertQuerySucceeds("alter table add_multiple_partition_column add column b varchar with(partitioning = ARRAY['bucket(4)', 'truncate(2)', 'identity'])");
+        assertUpdate("insert into add_multiple_partition_column values(2, '1002')", 1);
+
+        validateShowCreateTable(catalog, schema, "add_multiple_partition_column",
+                ImmutableList.of(
+                        columnDefinition("a", "integer"),
+                        columnDefinition("b", "varchar")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_multiple_partition_column") + "'",
+                        "partitioning", "ARRAY['bucket(b, 4)','truncate(b, 2)','b']",
+                        "write.data.path", "'" + getPathBasedOnDataDirectory(session.getSchema().get() + "/add_multiple_partition_column") + "'")));
+
+        // Add a date column with partition transforms `ARRAY['year', 'bucket(8)', 'identity']`
+        assertQuerySucceeds("alter table add_multiple_partition_column add column c date with(partitioning = ARRAY['year', 'bucket(8)', 'identity'])");
+        assertUpdate("insert into add_multiple_partition_column values(3, '1003', date '1984-12-08')", 1);
+
+        validateShowCreateTable(catalog, schema, "add_multiple_partition_column",
+                ImmutableList.of(
+                        columnDefinition("a", "integer"),
+                        columnDefinition("b", "varchar"),
+                        columnDefinition("c", "date")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_multiple_partition_column") + "'",
+                        "partitioning", "ARRAY['bucket(b, 4)','truncate(b, 2)','b','year(c)','bucket(c, 8)','c']",
+                        "write.data.path", "'" + getPathBasedOnDataDirectory(session.getSchema().get() + "/add_multiple_partition_column") + "'")));
+
+        assertQuery("select * from add_multiple_partition_column",
+                "values(1, null, null), (2, '1002', null), (3, '1003', date '1984-12-08')");
+        dropTable(getSession(), "add_multiple_partition_column");
+    }
+
+    @Test
+    public void testAddColumnWithRedundantOrDuplicatedPartitionTransforms()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = format("\"%s\"", session.getSchema().get());
+
+        assertQuerySucceeds("create table add_redundant_partition_column(a int)");
+
+        // Specify duplicated transforms would fail
+        assertQueryFails("alter table add_redundant_partition_column add column b varchar with(partitioning = ARRAY['bucket(4)', 'truncate(2)', 'bucket(4)'])",
+                "Cannot add duplicate partition field: .*");
+        assertQueryFails("alter table add_redundant_partition_column add column b varchar with(partitioning = ARRAY['identity', 'identity'])",
+                "Cannot add duplicate partition field: .*");
+
+        // Specify redundant transforms would fail
+        assertQueryFails("alter table add_redundant_partition_column add column c date with(partitioning = ARRAY['year', 'month'])",
+                "Cannot add redundant partition field: .*");
+        assertQueryFails("alter table add_redundant_partition_column add column c timestamp with(partitioning = ARRAY['day', 'hour'])",
+                "Cannot add redundant partition field: .*");
+
+        validateShowCreateTable(catalog, schema, "add_redundant_partition_column",
+                ImmutableList.of(columnDefinition("a", "integer")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_redundant_partition_column") + "'",
+                        "write.data.path", "'" + getPathBasedOnDataDirectory(session.getSchema().get() + "/add_redundant_partition_column") + "'")));
+
+        dropTable(getSession(), "add_redundant_partition_column");
+    }
+
+    @Test
+    public void testAddColumnWithUnsupportedPropertyValueTypes()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = format("\"%s\"", session.getSchema().get());
+
+        assertQuerySucceeds("create table add_invalid_partition_column(a int)");
+
+        assertQueryFails("alter table add_invalid_partition_column add column b varchar with(partitioning = 123)",
+                "Invalid value for column property 'partitioning': Cannot convert '123' to array\\(varchar\\) or any of \\[varchar]");
+        assertQueryFails("alter table add_invalid_partition_column add column b varchar with(partitioning = ARRAY[123, 234])",
+                "Invalid value for column property 'partitioning': Cannot convert 'ARRAY\\[123,234]' to array\\(varchar\\) or any of \\[varchar]");
+
+        validateShowCreateTable(catalog, schema, "add_invalid_partition_column",
+                ImmutableList.of(columnDefinition("a", "integer")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_invalid_partition_column") + "'",
+                        "write.data.path", "'" + getPathBasedOnDataDirectory(session.getSchema().get() + "/add_invalid_partition_column") + "'")));
+
+        dropTable(getSession(), "add_invalid_partition_column");
+    }
+
     @Override
     protected String getLocation(String schema, String table)
     {

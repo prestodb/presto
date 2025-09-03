@@ -905,12 +905,12 @@ public class PredicatePushDown
             RowExpression inheritedPredicate = context.get();
 
             // See if we can rewrite left join in terms of a plain inner join
-            if (node.getType() == SpatialJoinNode.Type.LEFT && canConvertOuterToInner(node.getRight().getOutputVariables(), inheritedPredicate)) {
+            if (node.getType() == SpatialJoinNode.SpatialJoinType.LEFT && canConvertOuterToInner(node.getRight().getOutputVariables(), inheritedPredicate)) {
                 planChanged = true;
                 node = new SpatialJoinNode(
                         node.getSourceLocation(),
                         node.getId(),
-                        SpatialJoinNode.Type.INNER,
+                        SpatialJoinNode.SpatialJoinType.INNER,
                         node.getLeft(),
                         node.getRight(),
                         node.getOutputVariables(),

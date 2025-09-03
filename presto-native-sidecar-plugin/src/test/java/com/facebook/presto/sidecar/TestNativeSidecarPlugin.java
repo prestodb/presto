@@ -319,7 +319,7 @@ public class TestNativeSidecarPlugin
     public void testInformationSchemaTables()
     {
         assertQuery("select lower(table_name) from information_schema.tables "
-                + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
+                        + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
     }
 
     @Test

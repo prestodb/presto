@@ -77,7 +77,7 @@ jobs:
           key: ccache-prestocpp-macos-build-engine-${{ matrix.os }}
 
       - name: Zero ccache statistics
-        run: ccache -sz
+        run: PATH=${INSTALL_PREFIX}/bin:${PATH} ccache -sz
 
       - name: "Build presto_cpp on MacOS"
         run: |
@@ -99,7 +99,7 @@ jobs:
           ninja -C _build/${BUILD_TYPE} -j ${NJOBS}
 
       - name: Ccache after
-        run: ccache -s
+        run: PATH=${INSTALL_PREFIX}/bin:${PATH} ccache -s
 
       - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
         with:

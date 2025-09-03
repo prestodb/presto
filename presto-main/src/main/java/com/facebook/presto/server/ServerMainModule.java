@@ -107,6 +107,7 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.StaticTypeManagerStore;
 import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
+import com.facebook.presto.metadata.TableFunctionRegistry;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
@@ -633,6 +634,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticTypeManagerStoreConfig.class);
         configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
 
         if (serverConfig.isCatalogServerEnabled() && serverConfig.isCoordinator()) {

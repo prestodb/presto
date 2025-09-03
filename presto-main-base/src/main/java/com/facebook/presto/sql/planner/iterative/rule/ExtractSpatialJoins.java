@@ -457,7 +457,7 @@ public class ExtractSpatialJoins
         return Result.ofPlanNode(new SpatialJoinNode(
                 joinNode.getSourceLocation(),
                 nodeId,
-                SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
+                SpatialJoinNode.SpatialJoinType.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
                 newRightNode,
                 outputVariables,

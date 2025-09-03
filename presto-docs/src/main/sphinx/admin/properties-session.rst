@@ -425,6 +425,15 @@ Run the following command to use ``optimizers_to_enable_verbose_runtime_stats``:
 
 ``SET SESSION optimizers_to_enable_verbose_runtime_stats=ALL;``
 
+``pushdown_subfields_for_map_functions``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use this to optimize the ``map_filter()`` and ``map_subset()`` function.
+
+It controls if subfields access is executed at the data source or not.
+
 JDBC Properties
 ---------------
 

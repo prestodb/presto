@@ -133,6 +133,7 @@ public class FunctionAndTypeManager
 {
     private static final Pattern DEFAULT_NAMESPACE_PREFIX_PATTERN = Pattern.compile("[a-z]+\\.[a-z]+");
     private final TransactionManager transactionManager;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
     private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
@@ -150,10 +151,13 @@ public class FunctionAndTypeManager
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final BuiltInPluginFunctionNamespaceManager builtInPluginFunctionNamespaceManager;
+    private final FunctionsConfig functionsConfig;
+    private final Set<Type> types;
 
     @Inject
     public FunctionAndTypeManager(
             TransactionManager transactionManager,
+            TableFunctionRegistry tableFunctionRegistry,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
             FunctionsConfig functionsConfig,
@@ -161,7 +165,10 @@ public class FunctionAndTypeManager
             Set<Type> types)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.functionsConfig = requireNonNull(functionsConfig, "functionsConfig is null");
+        this.types = requireNonNull(types, "types is null");
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
         this.functionNamespaceManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
@@ -188,6 +195,7 @@ public class FunctionAndTypeManager
     {
         return new FunctionAndTypeManager(
                 createTestTransactionManager(),
+                new TableFunctionRegistry(),
                 new BlockEncodingManager(),
                 new FeaturesConfig(),
                 new FunctionsConfig(),
@@ -417,6 +425,11 @@ public class FunctionAndTypeManager
         handleResolver.addFunctionNamespace(name, factory.getHandleResolver());
     }
 
+    public TableFunctionRegistry getTableFunctionRegistry()
+    {
+        return tableFunctionRegistry;
+    }
+
     public void loadTypeManager(String typeManagerName)
     {
         requireNonNull(typeManagerName, "typeManagerName is null");
@@ -447,6 +460,16 @@ public class FunctionAndTypeManager
     public void registerPluginFunctions(List<? extends SqlFunction> functions)
     {
         builtInPluginFunctionNamespaceManager.registerPluginFunctions(functions);
+    }
+
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functions)
+    {
+        FunctionNamespaceManager builtInPluginFunctionNamespaceManager = functionNamespaceManagers.get(catalogName);
+        if (builtInPluginFunctionNamespaceManager == null) {
+            builtInPluginFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this, false);
+            addFunctionNamespace(catalogName, builtInPluginFunctionNamespaceManager);
+        }
+        ((BuiltInTypeAndFunctionNamespaceManager) builtInPluginFunctionNamespaceManager).registerBuiltInFunctions(functions);
     }
 
     /**

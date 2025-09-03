@@ -22,6 +22,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
@@ -48,10 +49,10 @@ public class TestHiddenColumns
     @Test
     public void testDescribeTable()
     {
-        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("regionkey", "bigint", "", "")
-                .row("name", "varchar(25)", "", "")
-                .row("comment", "varchar(152)", "", "")
+        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("regionkey", "bigint", "", "", 19L, null, null)
+                .row("name", "varchar(25)", "", "", null, null, 25L)
+                .row("comment", "varchar(152)", "", "", null, null, 152L)
                 .build();
         assertEquals(runner.execute("DESC REGION"), expected);
     }

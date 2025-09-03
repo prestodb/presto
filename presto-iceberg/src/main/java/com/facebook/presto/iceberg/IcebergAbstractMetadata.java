@@ -85,7 +85,6 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
@@ -95,6 +94,7 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
@@ -718,6 +718,7 @@ public abstract class IcebergAbstractMetadata
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
                         .setType(toPrestoType(column.type(), typeManager))
+                        .setNullable(column.isOptional())
                         .setComment(column.doc())
                         .setHidden(false)
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
@@ -871,9 +872,13 @@ public abstract class IcebergAbstractMetadata
         Transaction transaction = icebergTable.newTransaction();
         transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
-            String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
-            transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),
-                    getTransformTerm(column.getName(), transform)).commit();
+            List<String> partitioningTransform = (List<String>) column.getProperties().get(PARTITIONING_PROPERTY);
+            UpdatePartitionSpec updatePartitionSpec = transaction.updateSpec();
+            for (String transform : partitioningTransform) {
+                updatePartitionSpec = updatePartitionSpec.addField(getPartitionColumnName(column.getName(), transform),
+                        getTransformTerm(column.getName(), transform));
+            }
+            updatePartitionSpec.commit();
         }
         transaction.commitTransaction();
     }
@@ -908,9 +913,12 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
         Transaction transaction = icebergTable.newTransaction();
         transaction.updateSchema().renameColumn(columnHandle.getName(), target).commit();
-        if (icebergTable.spec().fields().stream().map(PartitionField::sourceId).anyMatch(sourceId -> sourceId == columnHandle.getId())) {
-            transaction.updateSpec().renameField(columnHandle.getName(), target).commit();
-        }
+        icebergTable.spec().fields().stream()
+                .filter(field -> field.sourceId() == columnHandle.getId())
+                .forEach(field -> {
+                    String transform = field.transform().toString();
+                    transaction.updateSpec().renameField(field.name(), getPartitionColumnName(target, transform)).commit();
+                });
         transaction.commitTransaction();
     }
 

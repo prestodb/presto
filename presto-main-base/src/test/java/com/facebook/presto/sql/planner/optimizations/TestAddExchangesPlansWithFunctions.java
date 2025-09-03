@@ -23,10 +23,16 @@ import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerContext;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -37,6 +43,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -74,6 +82,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestAddExchangesPlansWithFunctions
         extends BasePlanTest
 {
+    private static final String NO_OP_OPTIMIZER = "no-op-optimizer";
+
     public TestAddExchangesPlansWithFunctions()
     {
         super(TestAddExchangesPlansWithFunctions::createTestQueryRunner);
@@ -138,6 +148,7 @@ public class TestAddExchangesPlansWithFunctions
         LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("tiny")
+                .setSystemProperty("expression_optimizer_name", NO_OP_OPTIMIZER)
                 .build(),
                 new FeaturesConfig(),
                 new FunctionsConfig().setDefaultNamespacePrefix("dummy.unittest"));
@@ -164,6 +175,8 @@ public class TestAddExchangesPlansWithFunctions
         parseFunctionDefinitions(CombineHashFunction.class).stream()
                 .map(TestAddExchangesPlansWithFunctions::convertToSqlInvokedFunction)
                 .forEach(function -> queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(function, true));
+        queryRunner.getExpressionManager().addExpressionOptimizerFactory(new NoOpExpressionOptimizerFactory());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NO_OP_OPTIMIZER, NO_OP_OPTIMIZER, ImmutableMap.of());
         return queryRunner;
     }
 
@@ -632,5 +645,62 @@ public class TestAddExchangesPlansWithFunctions
                                                         tableScan("nation", ImmutableMap.of(
                                                                 "nationkey", "nationkey",
                                                                 "name", "name"))))))));
+    }
+
+    @Test
+    public void testSystemTableFilterWithOutputVariableMismatch()
+    {
+        assertNativeDistributedPlan(
+                "SELECT table_name FROM information_schema.columns WHERE cpp_foo(ordinal_position) > 5",
+                output(
+                        project(ImmutableMap.of("table_name", expression("table_name")),
+                                filter("cpp_foo(ordinal_position) > BIGINT'5'",
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                tableScan("columns", ImmutableMap.of(
+                                                        "ordinal_position", "ordinal_position",
+                                                        "table_name", "table_name")))))));
+    }
+
+    @Test
+    public void testSystemTableFilterWithMultipleColumnsAndPartialSelection()
+    {
+        assertNativeDistributedPlan(
+                "SELECT table_schema, table_name FROM information_schema.columns " +
+                        "WHERE cpp_foo(ordinal_position) > 0 AND cpp_baz(ordinal_position) < 100",
+                output(
+                        project(ImmutableMap.of("table_schema", expression("table_schema"),
+                                               "table_name", expression("table_name")),
+                                filter("cpp_foo(ordinal_position) > BIGINT'0' AND cpp_baz(ordinal_position) < BIGINT'100'",
+                                        exchange(REMOTE_STREAMING, GATHER,
+                                                tableScan("columns", ImmutableMap.of(
+                                                        "ordinal_position", "ordinal_position",
+                                                        "table_schema", "table_schema",
+                                                        "table_name", "table_name")))))));
+    }
+
+    private static class NoOpExpressionOptimizerFactory
+            implements ExpressionOptimizerFactory
+    {
+        @Override
+        public ExpressionOptimizer createOptimizer(Map<String, String> config, ExpressionOptimizerContext context)
+        {
+            return new NoOpExpressionOptimizer();
+        }
+
+        @Override
+        public String getName()
+        {
+            return NO_OP_OPTIMIZER;
+        }
+    }
+
+    private static class NoOpExpressionOptimizer
+            implements ExpressionOptimizer
+    {
+        @Override
+        public RowExpression optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
+        {
+            return expression;
+        }
     }
 }

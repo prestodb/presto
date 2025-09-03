@@ -243,7 +243,7 @@ public class MetadataManager
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, new TableFunctionRegistry(), blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
@@ -300,6 +300,12 @@ public class MetadataManager
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         functionAndTypeManager.registerBuiltInFunctions(functionInfos);
+    }
+
+    @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        functionAndTypeManager.registerConnectorFunctions(catalogName, functionInfos);
     }
 
     @Override

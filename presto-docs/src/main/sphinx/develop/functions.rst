@@ -2,12 +2,15 @@
 Functions
 =========
 
+Functions in Presto can be implemented at Plugin and the Connector level.
+The following two sections describe how to implement them.
+
 Plugin Implementation
 ---------------------
 
 The function framework is used to implement SQL functions. Presto includes a
 number of built-in functions. In order to implement new functions, you can
-write a plugin that returns one more functions from ``getFunctions()``:
+write a plugin that returns one or more functions from ``getFunctions()``:
 
 .. code-block:: java
 
@@ -31,9 +34,43 @@ Note that the ``ImmutableSet`` class is a utility class from Guava.
 The ``getFunctions()`` method contains all of the classes for the functions
 that we will implement below in this tutorial.
 
+Functions registered using this method are available in the default
+namespace ``presto.default``.
+
 For a full example in the codebase, see either the ``presto-ml`` module for machine
 learning functions or the ``presto-teradata-functions`` module for Teradata-compatible
 functions, both in the root of the Presto source.
+
+Connector Functions Implementation
+----------------------------------
+
+To implement new functions at the connector level, in your
+connector implementation, override the ``getSystemFunctions()`` method that returns one
+or more functions:
+
+.. code-block:: java
+
+    public class ExampleFunctionsConnector
+            implements Connector
+    {
+        @Override
+        public Set<Class<?>> getSystemFunctions()
+        {
+            return ImmutableSet.<Class<?>>builder()
+                    .add(ExampleNullFunction.class)
+                    .add(IsNullFunction.class)
+                    .add(IsEqualOrNullFunction.class)
+                    .add(ExampleStringFunction.class)
+                    .add(ExampleAverageFunction.class)
+                    .build();
+        }
+    }
+
+Functions registered using this interface are available in the namespace
+``<catalog-name>.system`` where ``<catalog-name>`` is the catalog name used
+in the Presto deployment for this connector type.
+
+At present, connector level functions do not support Window functions and Scalar operators.
 
 Scalar Function Implementation
 ------------------------------

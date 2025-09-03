@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
@@ -46,7 +47,12 @@ public abstract class SqlAggregationFunction
 
     public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
     {
-        return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
+        return createFunctionsByAnnotations(aggregationDefinition, JAVA_BUILTIN_NAMESPACE);
+    }
+
+    public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition, CatalogSchemaName functionNamespace)
+    {
+        return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition, functionNamespace)
                 .stream()
                 .map(x -> (SqlAggregationFunction) x)
                 .collect(toImmutableList());

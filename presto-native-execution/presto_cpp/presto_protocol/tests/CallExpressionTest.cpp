@@ -44,7 +44,8 @@ TEST_F(CallExpressionTest, dollarStatic) {
                 "returnType": "real",
                 "typeVariableConstraints": [],
                 "variableArity": false
-              }
+              },
+              "builtInFunctionKind": "ENGINE"
             },
             "returnType": "double"
           }
@@ -76,6 +77,7 @@ TEST_F(CallExpressionTest, dollarStatic) {
     ASSERT_EQ(k->signature.argumentTypes[0], "real");
     ASSERT_EQ(k->signature.kind, FunctionKind::AGGREGATE);
     ASSERT_EQ(k->signature.returnType, "real");
+    ASSERT_EQ(k->builtInFunctionKind, BuiltInFunctionKind::ENGINE);
   }
 
   testJsonRoundtrip(j, p);

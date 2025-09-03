@@ -19,7 +19,9 @@ import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 
@@ -32,10 +34,12 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
-import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class ValuesStatsRule
@@ -44,10 +48,12 @@ public class ValuesStatsRule
     private static final Pattern<ValuesNode> PATTERN = values();
 
     private final Metadata metadata;
+    private final ExpressionOptimizerManager expressionOptimizerManager;
 
-    public ValuesStatsRule(Metadata metadata)
+    public ValuesStatsRule(Metadata metadata, ExpressionOptimizerManager expressionOptimizerManager)
     {
-        this.metadata = metadata;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
     }
 
     @Override
@@ -82,7 +88,10 @@ public class ValuesStatsRule
         }
         return valuesNode.getRows().stream()
                 .map(row -> row.get(symbolId))
-                .map(rowExpression -> evaluateConstantRowExpression(rowExpression, metadata.getFunctionAndTypeManager(), session.toConnectorSession()))
+                .map(rowExpression -> expressionOptimizerManager.getExpressionOptimizer(session.toConnectorSession())
+                        .optimize(rowExpression, EVALUATED, session.toConnectorSession(), i -> i))
+                .peek(rowExpression -> verify(rowExpression instanceof ConstantExpression, "Expected constant expression, but got: %s", rowExpression))
+                .map(rowExpression -> ((ConstantExpression) rowExpression).getValue())
                 .collect(toList());
     }
 

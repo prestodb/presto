@@ -16,7 +16,6 @@ package com.facebook.presto.spark.execution.nativeprocess;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
@@ -74,9 +73,9 @@ public class NativeExecutionModule
 
     protected void bindWorkerProperties(Binder binder)
     {
-        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         if (connectorConfig.isPresent()) {
-            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig()));
+            binder.bind(PrestoSparkWorkerProperty.class).toInstance(new PrestoSparkWorkerProperty(connectorConfig.get(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig()));
         }
         else {
             binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);

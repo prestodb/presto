@@ -17,6 +17,8 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.type.Type;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -36,6 +38,7 @@ public final class PropertyMetadata<T>
     private final T defaultValue;
     private final Function<Object, T> decoder;
     private final Function<T, Object> encoder;
+    private final List<AdditionalSqlTypeHandler> additionalSqlTypeHandlers = new ArrayList<>();
 
     public PropertyMetadata(
             String name,
@@ -84,6 +87,11 @@ public final class PropertyMetadata<T>
         return sqlType;
     }
 
+    public List<AdditionalSqlTypeHandler> getAdditionalSqlTypeHandlers()
+    {
+        return additionalSqlTypeHandlers;
+    }
+
     /**
      * Java type of this property.
      */
@@ -116,6 +124,14 @@ public final class PropertyMetadata<T>
         return decoder.apply(value);
     }
 
+    /**
+     * Decodes the SQL type object value to the Java type of the property using a specified decoder.
+     */
+    public T decode(Object value, Function<Object, T> decoder)
+    {
+        return decoder.apply(value);
+    }
+
     public Function<Object, T> getDecoder()
     {
         return decoder;
@@ -132,6 +148,12 @@ public final class PropertyMetadata<T>
     public Function<T, Object> getEncoder()
     {
         return encoder;
+    }
+
+    public PropertyMetadata<?> withAdditionalTypeHandler(Type additionalSupportedType, Function<Object, T> decoder)
+    {
+        this.additionalSqlTypeHandlers.add(new AdditionalSqlTypeHandler(additionalSupportedType, decoder));
+        return this;
     }
 
     public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)
@@ -268,5 +290,27 @@ public final class PropertyMetadata<T>
         result = 31 * result + Objects.hashCode(defaultValue);
 
         return result;
+    }
+
+    public class AdditionalSqlTypeHandler
+    {
+        Type sqlType;
+        Function<Object, T> decoder;
+
+        public AdditionalSqlTypeHandler(Type sqlType, Function<Object, T> decoder)
+        {
+            this.sqlType = sqlType;
+            this.decoder = decoder;
+        }
+
+        public Function<Object, T> getDecoder()
+        {
+            return decoder;
+        }
+
+        public Type getSqlType()
+        {
+            return sqlType;
+        }
     }
 }

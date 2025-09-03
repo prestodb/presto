@@ -83,6 +83,7 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.StaticTypeManagerStore;
 import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
+import com.facebook.presto.metadata.TableFunctionRegistry;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.FileFragmentResultCacheConfig;
@@ -122,7 +123,6 @@ import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
 import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
@@ -284,7 +284,6 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
         configBinder(binder).bindConfig(TracingConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionVeloxConfig.class);
         configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
         configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
         configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
@@ -381,6 +380,7 @@ public class PrestoSparkModule
 
         // metadata
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);

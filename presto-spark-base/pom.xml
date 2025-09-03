@@ -16,6 +16,7 @@
         <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.okio-jvm.version>3.9.1</dep.okio-jvm.version>
+        <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
     </properties>
 
     <dependencyManagement>
@@ -51,7 +52,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
-            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -459,6 +465,10 @@
                     <ignoredUnusedDeclaredDependencies>
                         <ignoredUnusedDeclaredDependency>javax.ws.rs:javax.ws.rs-api</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>javax.servlet:javax.servlet-api</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>com.google.code.findbugs:jsr305</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>javax.inject:javax.inject</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>javax.annotation:javax.annotation-api</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.apache.httpcomponents:httpcore</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
@@ -523,6 +533,107 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>spark3</id>
+
+            <activation>
+                <property>
+                    <name>spark-version</name>
+                    <value>3</value>
+                </property>
+            </activation>
+
+            <properties>
+                <dep.pos.classloader.module-name.suffix>3</dep.pos.classloader.module-name.suffix>
+            </properties>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.facebook.presto.spark</groupId>
+                    <artifactId>spark-core</artifactId>
+                    <version>3.4.1-1</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>jakarta.annotation</groupId>
+                    <artifactId>jakarta.annotation-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.weakref</groupId>
+                    <artifactId>jmxutils</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>jakarta.validation</groupId>
+                    <artifactId>jakarta.validation-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                    <version>2.13.8</version>
+                    <scope>provided</scope>
+                </dependency>
+
+            </dependencies>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <configuration>
+                            <ignoredDependencies>
+                                <ignoredDependency>org.glassfish.hk2.external:jakarta.inject</ignoredDependency>
+                                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                                <ignoredDependency>jakarta.annotation:jakarta.annotation-api</ignoredDependency>
+                                <ignoredDependency>jakarta.validation:jakarta.validation-api</ignoredDependency>
+                            </ignoredDependencies>
+                        </configuration>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testExcludes>
+                                <!-- skip TestPrestoSparkExecutionExceptionFactory UT to avoid errors of incompatible types between spark 2 and spark 3-->
+                                <exclude>**/TestPrestoSparkExecutionExceptionFactory.java</exclude>
+                            </testExcludes>
+                        </configuration>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <!-- skip TestPrestoSparkExecutionExceptionFactory UT to avoid errors of incompatible types between spark 2 and spark 3-->
+                                <exclude>**/TestPrestoSparkExecutionExceptionFactory.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+
         </profile>
     </profiles>
 </project>
