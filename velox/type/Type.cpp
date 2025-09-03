@@ -394,14 +394,23 @@ template <typename T>
 std::string makeFieldNotFoundErrorMessage(
     const T& name,
     const std::vector<std::string>& availableNames) {
+  static constexpr auto kMaxFields = 50;
+
+  const auto numAvailable = availableNames.size();
+
   std::stringstream errorMessage;
   errorMessage << "Field not found: " << name << ". Available fields are: ";
-  for (auto i = 0; i < availableNames.size(); ++i) {
+  for (auto i = 0; i < numAvailable && i < kMaxFields; ++i) {
     if (i > 0) {
       errorMessage << ", ";
     }
     errorMessage << availableNames[i];
   }
+
+  if (numAvailable > kMaxFields) {
+    errorMessage << ", ..." << (numAvailable - kMaxFields) << " more";
+  }
+
   errorMessage << ".";
   return errorMessage.str();
 }
@@ -875,7 +884,7 @@ RowTypePtr ROW(std::vector<std::string> names, std::vector<TypePtr> types) {
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
-RowTypePtr ROW(std::vector<std::string> names, TypePtr childType) {
+RowTypePtr ROW(std::vector<std::string> names, const TypePtr& childType) {
   const auto cnt = names.size();
   return ROW(std::move(names), std::vector(cnt, childType));
 }
