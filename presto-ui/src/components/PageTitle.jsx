@@ -201,5 +201,3 @@ export const PageTitle = (props: Props): React.Node => {
         </div>
     );
 };
-
-export default PageTitle;

@@ -26,7 +26,6 @@ const SMALL_SPARKLINE_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-// Helper moved out of the component
 const getStatusQuery = (id) => {
     // Node ID does not have a common pattern
     if (id.length === 0) {
@@ -35,7 +34,6 @@ const getStatusQuery = (id) => {
     return `/v1/worker/${encodeURIComponent(id)}/status`;
 };
 
-// Helpers converted from static methods
 const renderPoolBar = (name, pool) => {
     if (!pool) {
         return;
@@ -170,7 +168,6 @@ const WorkerStatus = () => {
         $('#nonheap-used-sparkline').sparkline(nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
-        // Clipboard is provided globally via static assets
         // eslint-disable-next-line no-undef
         new Clipboard('.copy-button');
     }, [serverInfo, processCpuLoad, systemCpuLoad, heapPercentUsed, nonHeapUsed]);
