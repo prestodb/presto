@@ -96,6 +96,9 @@ TEST_F(DateTimeFunctionsTest, toUtcTimestamp) {
   EXPECT_EQ(
       "2015-01-23T16:00:00.000000000",
       toUtcTimestamp("2015-01-24 00:00:00", "+08:00"));
+  EXPECT_EQ(
+      "2024-03-10T08:01:58.000000000",
+      toUtcTimestamp("2024-03-10 02:01:58", "America/Chicago"));
   VELOX_ASSERT_THROW(
       toUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
       "Unknown time zone: 'Asia/Ooty'");
@@ -310,6 +313,11 @@ TEST_F(DateTimeFunctionsTest, unixTimestampCustomFormat) {
   EXPECT_EQ(
       std::nullopt,
       unixTimestamp("2022-12-12 asd 07:45:31", "yyyy-MM-dd 'asd HH:mm:ss"));
+
+  setQueryTimeZone("America/Chicago");
+  // Verify the gap time 2024-03-10 02:01:58 is correctly handled.
+  EXPECT_EQ(
+      1710057718, unixTimestamp("2024-03-10 02:01:58", "yyyy-MM-dd HH:mm:ss"));
 }
 
 TEST_F(DateTimeFunctionsTest, unixTimestampTimestampInput) {
@@ -813,6 +821,12 @@ TEST_F(DateTimeFunctionsTest, getTimestamp) {
   EXPECT_EQ(
       getTimestampString("2023/12/08 08:20:19", "yyyy/MM/dd HH:mm:ss"),
       "2023-12-08T08:20:19.000000000");
+
+  // Verify the gap time is correctly handled.
+  setQueryTimeZone("America/Chicago");
+  EXPECT_EQ(
+      getTimestampString("2024-03-10 02:01:58", "yyyy-MM-dd HH:mm:ss"),
+      "2024-03-10T08:01:58.000000000");
 
   // 8 hours ahead UTC.
   setQueryTimeZone("Asia/Shanghai");

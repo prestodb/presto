@@ -31,6 +31,7 @@ velox_add_library(
   RegexFunctions.cpp
   Size.cpp
   String.cpp
+  TimestampUtils.cpp
   UnscaledValueFunction.cpp
 )
 

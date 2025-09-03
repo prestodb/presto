@@ -86,22 +86,23 @@ TEST_F(MakeTimestampTest, basic) {
   // Valid cases w/ time zone argument.
   {
     setQueryTimeZone("Asia/Shanghai");
-    const auto year = makeFlatVector<int32_t>({2021, 2021, 1});
-    const auto month = makeFlatVector<int32_t>({07, 07, 1});
-    const auto day = makeFlatVector<int32_t>({11, 11, 1});
-    const auto hour = makeFlatVector<int32_t>({6, 6, 1});
-    const auto minute = makeFlatVector<int32_t>({30, 30, 1});
+    const auto year = makeFlatVector<int32_t>({2021, 2021, 1, 2024});
+    const auto month = makeFlatVector<int32_t>({07, 07, 1, 3});
+    const auto day = makeFlatVector<int32_t>({11, 11, 1, 10});
+    const auto hour = makeFlatVector<int32_t>({6, 6, 1, 2});
+    const auto minute = makeFlatVector<int32_t>({30, 30, 1, 1});
     const auto micros =
-        makeNullableFlatVector<int64_t>({45678000, 45678000, 1e6}, microsType);
-    const auto timeZone =
-        makeNullableFlatVector<StringView>({"GMT", "CET", std::nullopt});
+        makeFlatVector<int64_t>({45678000, 45678000, 0, 45678000}, microsType);
+    const auto timeZone = makeNullableFlatVector<StringView>(
+        {"GMT", "CET", std::nullopt, "America/Chicago"});
     auto data =
         makeRowVector({year, month, day, hour, minute, micros, timeZone});
     // Session time zone will be ignored if time zone is specified in argument.
     auto expected = makeNullableFlatVector<Timestamp>(
         {parseTimestamp("2021-07-11 06:30:45.678"),
          parseTimestamp("2021-07-11 04:30:45.678"),
-         std::nullopt});
+         std::nullopt,
+         parseTimestamp("2024-03-10 08:01:45.678")});
     testMakeTimestamp(data, expected, true);
   }
 }

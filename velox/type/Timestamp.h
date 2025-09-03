@@ -358,12 +358,12 @@ struct Timestamp {
       const TimestampToStringOptions& options,
       char* const startPosition);
 
-  // Assuming the timestamp represents a time at zone, converts it to the GMT
-  // time at the same moment. For example:
-  //
-  //  Timestamp ts{0, 0};
-  //  ts.Timezone("America/Los_Angeles");
-  //  ts.toString(); // returns January 1, 1970 08:00:00
+  /// Assuming the timestamp represents a time at zone, converts it to the GMT
+  /// time at the same moment. For example:
+  ///
+  ///  Timestamp ts{0, 0};
+  ///  ts.Timezone("America/Los_Angeles");
+  ///  ts.toString(); // returns January 1, 1970 08:00:00
   void toGMT(const tz::TimeZone& zone);
 
   /// Assuming the timestamp represents a GMT time, converts it to the time at

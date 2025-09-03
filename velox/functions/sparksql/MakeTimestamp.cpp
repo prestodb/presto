@@ -16,6 +16,7 @@
 
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/sparksql/TimestampUtils.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -74,7 +75,7 @@ void setTimestampOrNull(
   const auto timeZoneName = timeZoneVector->valueAt<StringView>(row);
   const auto* timeZone = tz::locateZone(std::string_view(timeZoneName));
   if (timestamp.has_value()) {
-    timestamp->toGMT(*timeZone);
+    toGMTWithGapCorrection(timestamp.value(), *timeZone);
     result->set(row, *timestamp);
   } else {
     result->setNull(row, true);
@@ -87,7 +88,7 @@ void setTimestampOrNull(
     const tz::TimeZone* timeZone,
     FlatVector<Timestamp>* result) {
   if (timestamp.has_value()) {
-    timestamp->toGMT(*timeZone);
+    toGMTWithGapCorrection(timestamp.value(), *timeZone);
     result->set(row, *timestamp);
   } else {
     result->setNull(row, true);
