@@ -223,10 +223,9 @@ uint32_t ScaleWriterPartitioningLocalPartition::getNextWriterId(
 void ScaleWriterPartitioningLocalPartition::close() {
   LocalPartition::close();
 
-  // The last driver operator reports the shared table partition rebalancer
-  // stats. We expect one reference hold by this operator and one referenced by
-  // the task.
-  if (tablePartitionRebalancer_.use_count() != 2) {
+  // The first driver operator instance reports the shared table partition
+  // rebalancer stats.
+  if (operatorCtx_->driverCtx()->driverId != 0) {
     return;
   }
 

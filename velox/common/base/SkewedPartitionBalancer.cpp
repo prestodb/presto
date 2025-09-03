@@ -174,9 +174,10 @@ void SkewedPartitionRebalancer::rebalanceBasedOnTaskSkewness(
 
       const uint32_t totalAssignedTasks =
           partitionAssignments_[maxPartition].size();
-      if (partitionBytes_[maxPartition] <
-          (minProcessedBytesRebalanceThresholdPerPartition_ *
-           totalAssignedTasks)) {
+      if (partitionBytes_[maxPartition] == 0 ||
+          (partitionBytes_[maxPartition] <
+           (minProcessedBytesRebalanceThresholdPerPartition_ *
+            totalAssignedTasks))) {
         break;
       }
 

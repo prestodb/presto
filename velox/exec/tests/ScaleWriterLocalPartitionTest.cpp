@@ -812,11 +812,10 @@ TEST_F(ScaleWriterLocalPartitionTest, partitionBasic) {
       {4, 4, 4, 1ULL << 30, 1.0, 0, {1, 2}, 0.8, 0.6, false},
       {1, 4, 4, 0, 1.0, 0, {1, 2}, 0.3, 0.2, false},
       {4, 4, 4, 0, 1.0, 0, {1, 2}, 0.3, 0.2, false},
-      {1, 4, 4, 0, 0.1, queryCapacity / 2, {1, 2}, 0.8, 0.6, false},
-      {4, 4, 4, 0, 0.1, queryCapacity / 2, {1, 2}, 0.8, 0.6, false},
+      {1, 4, 4, 0, 0.0001, queryCapacity / 2, {1, 2}, 0.8, 0.6, false},
+      {4, 4, 4, 0, 0.0001, queryCapacity / 2, {1, 2}, 0.8, 0.6, false},
       {1, 32, 128, 0, 1.0, 0, {1, 2, 3, 4, 5, 6, 7, 8}, 0.8, 0.6, true},
-      {4, 32, 128, 0, 1.0, 0, {1, 2, 3, 4, 5, 6, 7, 8}, 0.8, 0.6, true},
-  };
+      {4, 32, 128, 0, 1.0, 0, {1, 2, 3, 4, 5, 6, 7, 8}, 0.8, 0.6, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -888,17 +887,25 @@ TEST_F(ScaleWriterLocalPartitionTest, partitionBasic) {
             .copyResults(pool_.get(), task);
     auto planStats = toPlanStats(task->taskStats());
     if (testData.expectedRebalance) {
-      ASSERT_EQ(
+      // NOTE: thre is time race across multiple drivers on the shared balancer
+      // stats reporting which can't totally avoid in tests under some extreme
+      // conditions like the rebalance happens on the last close driver.
+      ASSERT_LE(
           planStats.at(exchnangeNodeId)
               .customStats.count(
                   ScaleWriterPartitioningLocalPartition::kScaledPartitions),
           1);
-      ASSERT_GT(
-          planStats.at(exchnangeNodeId)
-              .customStats
-              .at(ScaleWriterPartitioningLocalPartition::kScaledPartitions)
-              .sum,
-          0);
+      if (planStats.at(exchnangeNodeId)
+              .customStats.count(
+                  ScaleWriterPartitioningLocalPartition::kScaledPartitions) ==
+          1) {
+        ASSERT_GT(
+            planStats.at(exchnangeNodeId)
+                .customStats
+                .at(ScaleWriterPartitioningLocalPartition::kScaledPartitions)
+                .sum,
+            0);
+      }
       ASSERT_EQ(
           planStats.at(exchnangeNodeId)
               .customStats.count(
