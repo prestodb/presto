@@ -394,7 +394,7 @@ const StageOperatorGraph = ({ stage }) => {
         }
 
         graph.setParent(operatorNodeId, pipelineNode);
-    }, [/* static */]);
+    }, []);
 
     const updateD3Graph = useCallback(() => {
         if (!stage) {
@@ -497,7 +497,7 @@ export const StageDetail = () => {
         return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
      }
 
-    // Keep refs in sync to avoid stale closures in the polling loop
+    // keep refs in sync to avoid stale closures in the polling loop
     useEffect(() => { endedRef.current = ended; }, [ended]);
     useEffect(() => { selectedStageIdRef.current = selectedStageId; }, [selectedStageId]);
 
@@ -506,7 +506,6 @@ export const StageDetail = () => {
         const queryString = getFirstParameter(window.location.search).split('.');
         const rawQueryId = queryString.length > 0 ? queryString[0] : "";
 
-        // Initialize selected stage from URL only once when not yet set
         if (selectedStageIdRef.current === null) {
             const initialStageId = queryString.length > 1 ? parseInt(queryString[1]) : 0;
             setSelectedStageId(initialStageId);
@@ -631,185 +630,6 @@ export const StageDetail = () => {
             </div>
         </div>
     );
-}
-
-export class StageDetail2 extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            initialized: false,
-            ended: false,
-
-            selectedStageId: null,
-            query: null,
-
-            lastRefresh: null,
-            lastRender: null
-        };
-
-        this.refreshLoop = this.refreshLoop.bind(this);
-    }
-
-    resetTimer() {
-        clearTimeout(this.timeoutId);
-        // stop refreshing when query finishes or fails
-        if (this.state.query === null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop, 1000);
-        }
-    }
-     static getQueryURL(id) {
-        if (!id || typeof id !== 'string' || id.length === 0) {
-            return "/v1/query/undefined";
-        }
-        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
-        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
-     }
-
-    refreshLoop() {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryString = getFirstParameter(window.location.search).split('.');
-        const rawQueryId = queryString.length > 0 ? queryString[0] : "";
-        let selectedStageId = this.state.selectedStageId;
-        if (selectedStageId === null) {
-            selectedStageId = 0;
-            if (queryString.length > 1) {
-                selectedStageId = parseInt(queryString[1]);
-            }
-        }
-
-       
-        $.get(StageDetail.getQueryURL(rawQueryId), query => {
-            this.setState({
-                initialized: true,
-                ended: query.finalQueryInfo,
-
-                selectedStageId: selectedStageId,
-                query: query,
-            });
-            this.resetTimer();
-        })
-    }
-
-    componentDidMount() {
-        this.refreshLoop();
-    }
-
-    findStage(stageId, currentStage) {
-        if (stageId === null) {
-            return null;
-        }
-
-        if (currentStage.stageId === stageId) {
-            return currentStage;
-        }
-
-        for (let i = 0; i < currentStage.subStages.length; i++) {
-            const stage = this.findStage(stageId, currentStage.subStages[i]);
-            if (stage !== null) {
-                return stage;
-            }
-        }
-
-        return null;
-    }
-
-    getAllStageIds(result, currentStage) {
-        result.push(currentStage.plan.id);
-        currentStage.subStages.forEach(stage => {
-            this.getAllStageIds(result, stage);
-        });
-    }
-
-    render() {
-        if (!this.state.query) {
-            let label = (<div className="loader">Loading...</div>);
-            if (this.state.initialized) {
-                label = "Query not found";
-            }
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>{label}</h4></div>
-                </div>
-            );
-        }
-
-        if (!this.state.query.outputStage) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
-                </div>
-            );
-        }
-
-        const query = this.state.query;
-        const allStages = [];
-        this.getAllStageIds(allStages, query.outputStage);
-
-        const stage = this.findStage(query.queryId + "." + this.state.selectedStageId, query.outputStage);
-        if (stage === null) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>Stage not found</h4></div>
-                </div>
-            );
-        }
-
-        let stageOperatorGraph = null;
-        if (!isQueryEnded(query.state)) {
-            stageOperatorGraph = (
-                <div className="row error-message">
-                    <div className="col-12">
-                        <h4>Operator graph will appear automatically when query completes.</h4>
-                        <div className="loader">Loading...</div>
-                    </div>
-                </div>
-            )
-        }
-        else {
-            stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage}/>;
-        }
-
-        return (
-            <div>
-                <QueryHeader query={query}/>
-                <div className="row">
-                    <div className="col-12">
-                        <div className="row justify-content-between">
-                            <div className="col-2 align-self-end">
-                                <h3>Stage {stage.plan.id}</h3>
-                            </div>
-                            <div className="col-2 align-self-end">
-                                <div className="stage-dropdown" role="group">
-                                    <div className="btn-group">
-                                        <button type="button" className="btn bg-white btn-secondary text-dark dropdown-toggle"
-                                            data-bs-toggle="dropdown" aria-haspopup="true"
-                                            aria-expanded="false">Select Stage<span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu bg-white">
-                                            {
-                                                allStages.map(stageId => (
-                                                    <li key={stageId}>
-                                                        <a className={clsx('dropdown-item text-dark', stage.plan.id === stageId && 'selected')}
-                                                            onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a>
-                                                    </li>
-                                                ))
-                                            }
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <hr className="h3-hr"/>
-                <div className="row">
-                    <div className="col-12">
-                        {stageOperatorGraph}
-                    </div>
-                </div>
-            </div>
-        );
-    }
 }
 
 export default StageDetail;

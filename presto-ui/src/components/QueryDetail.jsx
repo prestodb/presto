@@ -948,12 +948,12 @@ const QueryDetail = () => {
         return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
     }
 
-    // Timer/polling helpers
     const timerIdRef = useRef(null);
     const endedRef = useRef(false);
     useEffect(() => { endedRef.current = state.ended; }, [state.ended]);
 
     const refreshLoop = () => {
+        // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(timerIdRef.current);
         if (!endedRef.current) {
             timerIdRef.current = setTimeout(fetchData, 3000);
