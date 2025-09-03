@@ -2420,6 +2420,19 @@
                 <version>2.1.0-3</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-clp</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-clp</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
