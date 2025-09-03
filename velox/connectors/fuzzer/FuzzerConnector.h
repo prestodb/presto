@@ -34,7 +34,7 @@ namespace facebook::velox::connector::fuzzer {
 
 class FuzzerTableHandle : public ConnectorTableHandle {
  public:
-  explicit FuzzerTableHandle(
+  FuzzerTableHandle(
       std::string connectorId,
       VectorFuzzer::Options options,
       size_t fuzzerSeed = 0)
@@ -42,14 +42,13 @@ class FuzzerTableHandle : public ConnectorTableHandle {
         fuzzerOptions(options),
         fuzzerSeed(fuzzerSeed) {}
 
-  ~FuzzerTableHandle() override {}
-
-  std::string toString() const override {
-    return "fuzzer-mock-table";
+  const std::string& name() const override {
+    static const std::string kName = "fuzzer-mock-table";
+    return kName;
   }
 
   const VectorFuzzer::Options fuzzerOptions;
-  size_t fuzzerSeed;
+  const size_t fuzzerSeed;
 };
 
 class FuzzerDataSource : public DataSource {

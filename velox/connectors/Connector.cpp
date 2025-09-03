@@ -174,17 +174,4 @@ folly::dynamic ConnectorTableHandle::serialize() const {
   return serializeBase("ConnectorTableHandle");
 }
 
-// static
-ConnectorTableHandlePtr ConnectorTableHandle::create(
-    const folly::dynamic& obj,
-    void* /*unused*/) {
-  const auto connectorId = obj["connectorId"].asString();
-  return std::make_shared<const ConnectorTableHandle>(connectorId);
-}
-
-// static
-void ConnectorTableHandle::registerSerDe() {
-  auto& registry = DeserializationWithContextRegistryForSharedPtr();
-  registry.Register("ConnectorTableHandle", create);
-}
 } // namespace facebook::velox::connector

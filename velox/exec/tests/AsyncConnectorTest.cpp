@@ -32,11 +32,16 @@ const std::string kTestConnectorId = "test";
 
 class TestTableHandle : public connector::ConnectorTableHandle {
  public:
-  TestTableHandle() : connector::ConnectorTableHandle(kTestConnectorId) {}
+  TestTableHandle(std::string name)
+      : connector::ConnectorTableHandle(kTestConnectorId),
+        name_{std::move(name)} {}
 
-  std::string toString() const override {
-    VELOX_NYI();
+  const std::string& name() const override {
+    return name_;
   }
+
+ private:
+  const std::string name_;
 };
 
 class TestSplit : public connector::ConnectorSplit {
@@ -193,7 +198,7 @@ class AsyncConnectorTest : public OperatorTestBase {
 };
 
 TEST_F(AsyncConnectorTest, basic) {
-  auto tableHandle = std::make_shared<TestTableHandle>();
+  auto tableHandle = std::make_shared<TestTableHandle>("test");
   core::PlanNodeId scanId;
   auto plan = PlanBuilder()
                   .startTableScan()

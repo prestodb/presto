@@ -123,6 +123,10 @@ class TestConnectorTableHandleForLookupJoin
   explicit TestConnectorTableHandleForLookupJoin(std::string connectorId)
       : connector::ConnectorTableHandle(std::move(connectorId)) {}
 
+  const std::string& name() const override {
+    VELOX_NYI();
+  }
+
   bool supportsIndexLookup() const override {
     return true;
   }
@@ -255,14 +259,30 @@ TEST_F(PlanNodeBuilderTest, projectNode) {
   verify(node2);
 }
 
+class DummyTableHandle : public connector::ConnectorTableHandle {
+ public:
+  DummyTableHandle(const std::string& connectorId)
+      : connector::ConnectorTableHandle(connectorId) {}
+
+  const std::string& name() const override {
+    VELOX_NYI();
+  }
+};
+
+class DummyColumnHandle : public connector::ColumnHandle {
+ public:
+  const std::string& name() const override {
+    VELOX_NYI();
+  }
+};
+
 TEST_F(PlanNodeBuilderTest, tableScanNode) {
   const PlanNodeId id = "table_scan_node_id";
   const RowTypePtr outputType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
-  const auto tableHandle =
-      std::make_shared<connector::ConnectorTableHandle>("connector_id");
+  const auto tableHandle = std::make_shared<DummyTableHandle>("connector_id");
   const connector::ColumnHandleMap assignments{
-      {"c0", std::make_shared<connector::ColumnHandle>()},
-      {"c1", std::make_shared<connector::ColumnHandle>()}};
+      {"c0", std::make_shared<DummyColumnHandle>()},
+      {"c1", std::make_shared<DummyColumnHandle>()}};
 
   const auto verify = [&](const std::shared_ptr<const TableScanNode>& node) {
     EXPECT_EQ(node->id(), id);
@@ -751,7 +771,7 @@ TEST_F(PlanNodeBuilderTest, indexLookupJoinNode) {
           .outputType(ROW({"c1"}, {VARCHAR()}))
           .tableHandle(std::make_shared<TestConnectorTableHandleForLookupJoin>(
               "connector_id"))
-          .assignments({{"c1", std::make_shared<connector::ColumnHandle>()}})
+          .assignments({{"c1", std::make_shared<DummyColumnHandle>()}})
           .build();
   const auto outputType = ROW({"c0"}, {BIGINT()});
 

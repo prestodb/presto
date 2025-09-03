@@ -23,24 +23,14 @@
 #include <folly/experimental/EventCount.h>
 
 #include "velox/common/file/FileSystems.h"
-#include "velox/common/hyperloglog/SparseHll.h"
-#include "velox/common/testutil/TestValue.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/TableWriter.h"
 #include "velox/exec/TraceUtil.h"
-#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/FilterProjectReplayer.h"
-
-#include "velox/common/file/Utils.h"
-#include "velox/exec/PlanNodeStats.h"
-
-#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::core;
@@ -54,6 +44,7 @@ using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::common::hll;
 
 namespace facebook::velox::tool::trace::test {
+namespace {
 class FilterProjectReplayerTest : public HiveConnectorTestBase {
  protected:
   static void SetUpTestCase() {
@@ -65,7 +56,6 @@ class FilterProjectReplayerTest : public HiveConnectorTestBase {
     }
     Type::registerSerDe();
     common::Filter::registerSerDe();
-    connector::ConnectorTableHandle::registerSerDe();
     connector::hive::HiveTableHandle::registerSerDe();
     connector::hive::LocationHandle::registerSerDe();
     connector::hive::HiveColumnHandle::registerSerDe();
@@ -352,4 +342,5 @@ TEST_F(FilterProjectReplayerTest, dryRun) {
                              .run();
   assertEqualResults({result}, {replayingResult});
 }
+} // namespace
 } // namespace facebook::velox::tool::trace::test

@@ -47,11 +47,14 @@ class TpcdsTableHandle : public ConnectorTableHandle {
       double scaleFactor = 0.01)
       : ConnectorTableHandle(std::move(connectorId)),
         table_(table),
+        name_(toTableName(table)),
         scaleFactor_(scaleFactor) {
     VELOX_CHECK_GT(scaleFactor, 0.0, "Tpcds scale factor must be non-negative");
   }
 
-  ~TpcdsTableHandle() override {}
+  const std::string& name() const override {
+    return name_;
+  }
 
   std::string toString() const override;
 
@@ -65,7 +68,8 @@ class TpcdsTableHandle : public ConnectorTableHandle {
 
  private:
   const velox::tpcds::Table table_;
-  double scaleFactor_;
+  const std::string name_;
+  const double scaleFactor_;
 };
 
 class TpcdsDataSource : public velox::connector::DataSource {

@@ -110,7 +110,7 @@ class HiveColumnHandle : public ColumnHandle {
         ColumnParseParameters::kDaysSinceEpoch;
   }
 
-  std::string toString() const;
+  std::string toString() const override;
 
   folly::dynamic serialize() const override;
 

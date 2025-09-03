@@ -289,7 +289,6 @@ void TraceReplayRunner::init() {
     serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
   }
 
-  connector::ConnectorTableHandle::registerSerDe();
   connector::hive::HiveTableHandle::registerSerDe();
   connector::hive::LocationHandle::registerSerDe();
   connector::hive::HiveColumnHandle::registerSerDe();
