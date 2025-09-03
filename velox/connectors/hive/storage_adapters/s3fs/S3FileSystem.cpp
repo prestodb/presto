@@ -36,6 +36,8 @@
 #include <aws/core/client/DefaultRetryStrategy.h>
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
+#include <aws/s3/model/CopyObjectRequest.h>
+#include <aws/s3/model/DeleteObjectRequest.h>
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/ListObjectsRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
@@ -531,6 +533,42 @@ void S3FileSystem::mkdir(
       "Failed to mkdir objects in S3 bucket",
       bucket,
       key);
+}
+
+void S3FileSystem::rename(
+    std::string_view path,
+    std::string_view newPath,
+    bool overWrite) {
+  std::string sourceBucket;
+  std::string sourceKey;
+  getBucketAndKeyFromPath(getPath(path), sourceBucket, sourceKey);
+
+  std::string targetBucket;
+  std::string targetKey;
+  getBucketAndKeyFromPath(getPath(newPath), targetBucket, targetKey);
+
+  // Copies the object to the new location.
+  Aws::S3::Model::CopyObjectRequest copyRequest;
+  copyRequest.SetCopySource(awsString(sourceBucket + "/" + sourceKey));
+  copyRequest.SetBucket(awsString(targetBucket));
+  copyRequest.SetKey(awsString(targetKey));
+
+  VELOX_CHECK_AWS_OUTCOME(
+      impl_->s3Client()->CopyObject(copyRequest),
+      "Failed to copy object in S3 during rename",
+      sourceBucket,
+      sourceKey);
+
+  // Deletes the original object.
+  Aws::S3::Model::DeleteObjectRequest deleteRequest;
+  deleteRequest.SetBucket(awsString(sourceBucket));
+  deleteRequest.SetKey(awsString(sourceKey));
+
+  VELOX_CHECK_AWS_OUTCOME(
+      impl_->s3Client()->DeleteObject(deleteRequest),
+      "Failed to delete original object in S3 during rename",
+      sourceBucket,
+      sourceKey);
 }
 
 } // namespace facebook::velox::filesystems
