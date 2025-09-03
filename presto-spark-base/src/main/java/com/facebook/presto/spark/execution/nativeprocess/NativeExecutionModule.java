@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
+import com.facebook.presto.spark.execution.property.NativeExecutionCatalogProperties;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
@@ -32,6 +30,7 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import okhttp3.OkHttpClient;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -40,20 +39,20 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 public class NativeExecutionModule
         implements Module
 {
-    private Optional<NativeExecutionConnectorConfig> connectorConfig;
+    private Optional<Map<String, Map<String, String>>> catalogProperties;
 
     // For use by production system where the configurations can only be tuned via configurations.
     public NativeExecutionModule()
     {
-        this.connectorConfig = Optional.empty();
+        this.catalogProperties = Optional.empty();
     }
 
     // In the future, we would make more bindings injected into NativeExecutionModule
     // to be able to test various configuration parameters
     @VisibleForTesting
-    public NativeExecutionModule(Optional<NativeExecutionConnectorConfig> connectorConfig)
+    public NativeExecutionModule(Optional<Map<String, Map<String, String>>> catalogProperties)
     {
-        this.connectorConfig = connectorConfig;
+        this.catalogProperties = catalogProperties;
     }
 
     @Override
@@ -74,17 +73,14 @@ public class NativeExecutionModule
 
     protected void bindWorkerProperties(Binder binder)
     {
+        // Bind NativeExecutionCatalogProperties - this is not bound elsewhere
+        binder.bind(NativeExecutionCatalogProperties.class).toInstance(
+                new NativeExecutionCatalogProperties(catalogProperties.orElse(ImmutableMap.of())));
+
+        // Bind worker property classes
         newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {
         }).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
-        if (connectorConfig.isPresent()) {
-            binder.bind(PrestoSparkWorkerProperty.class).toInstance(
-                    new PrestoSparkWorkerProperty(connectorConfig.get(),
-                            new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(
-                            ImmutableMap.of())));
-        }
-        else {
-            binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
-        }
+        binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
     }
 
     protected void bindHttpClient(Binder binder)

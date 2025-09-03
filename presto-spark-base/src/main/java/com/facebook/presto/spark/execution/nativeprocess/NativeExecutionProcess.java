@@ -343,8 +343,7 @@ public class NativeExecutionProcess
         workerProperty.populateAllProperties(
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
-                Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE,
-                    getNativeExecutionCatalogName(session))));
+                Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE));  // Directory path for catalogs
     }
 
     private void doGetServerInfo(SettableFuture<ServerInfo> future)
