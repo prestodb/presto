@@ -219,4 +219,3 @@
 	  "outputTableWriterFragment": false,
 	  "jsonRepresentation": "{\n  \"id\" : \"9\",\n  \"name\" : \"Output\",\n  \"identifier\" : \"[a, b]\",\n  \"details\" : \"a := field\\nb := field_0\\n\",\n  \"children\" : [ {\n    \"id\" : \"4\",\n    \"name\" : \"Filter\",\n    \"identifier\" : \"[filterPredicate = (field) = (INTEGER 1)]\",\n    \"details\" : \"\",\n    \"children\" : [ {\n      \"id\" : \"133\",\n      \"name\" : \"LocalExchange\",\n      \"identifier\" : \"[ROUND_ROBIN] ()\",\n      \"details\" : \"\",\n      \"children\" : [ {\n        \"id\" : \"0\",\n        \"name\" : \"Values\",\n        \"identifier\" : \"\",\n        \"details\" : \"(INTEGER 1, VARCHAR(1) a)\\n(INTEGER 2, VARCHAR(1) b)\\n(INTEGER 3, VARCHAR(1) c)\\n\",\n        \"children\" : [ ],\n        \"remoteSources\" : [ ]\n      } ],\n      \"remoteSources\" : [ ]\n    } ],\n    \"remoteSources\" : [ ]\n  } ],\n  \"remoteSources\" : [ ]\n}"
 	}
-
