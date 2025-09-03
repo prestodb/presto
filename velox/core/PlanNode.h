@@ -3955,7 +3955,7 @@ class SpatialJoinNode : public PlanNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 
  private:
-  static const JoinType kDefaultJoinType;
+  constexpr static JoinType kDefaultJoinType = JoinType::kInner;
 
   void addDetails(std::stringstream& stream) const override;
 

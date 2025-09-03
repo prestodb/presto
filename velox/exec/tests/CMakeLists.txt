@@ -108,6 +108,10 @@ add_executable(
   WriterFuzzerUtilTest.cpp
 )
 
+if(VELOX_ENABLE_GEO)
+  target_sources(velox_exec_test PRIVATE SpatialJoinTest.cpp)
+endif()
+
 add_executable(
   velox_exec_infra_test
   AssertQueryBuilderTest.cpp

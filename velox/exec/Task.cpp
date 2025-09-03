@@ -31,6 +31,7 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/SpatialJoinBuild.h"
 #include "velox/exec/TableScan.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/TaskTraceWriter.h"
@@ -1226,6 +1227,8 @@ void Task::createSplitGroupStateLocked(uint32_t splitGroupId) {
     addHashJoinBridgesLocked(splitGroupId, factory->needsHashJoinBridges());
     addNestedLoopJoinBridgesLocked(
         splitGroupId, factory->needsNestedLoopJoinBridges());
+    addSpatialJoinBridgesLocked(
+        splitGroupId, factory->needsSpatialJoinBridges());
     addCustomJoinBridgesLocked(splitGroupId, factory->planNodes);
 
     core::PlanNodeId tableScanNodeId;
@@ -2295,6 +2298,20 @@ void Task::addNestedLoopJoinBridgesLocked(
   }
 }
 
+void Task::addSpatialJoinBridgesLocked(
+    uint32_t splitGroupId,
+    const std::vector<core::PlanNodeId>& planNodeIds) {
+  auto& splitGroupState = splitGroupStates_[splitGroupId];
+  for (const auto& planNodeId : planNodeIds) {
+    auto const inserted =
+        splitGroupState.bridges
+            .emplace(planNodeId, std::make_shared<SpatialJoinBridge>())
+            .second;
+    VELOX_CHECK(
+        inserted, "Join bridge for node {} is already present", planNodeId);
+  }
+}
+
 std::shared_ptr<HashJoinBridge> Task::getHashJoinBridge(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
@@ -2312,6 +2329,12 @@ std::shared_ptr<NestedLoopJoinBridge> Task::getNestedLoopJoinBridge(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
   return getJoinBridgeInternal<NestedLoopJoinBridge>(splitGroupId, planNodeId);
+}
+
+std::shared_ptr<SpatialJoinBridge> Task::getSpatialJoinBridge(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  return getJoinBridgeInternal<SpatialJoinBridge>(splitGroupId, planNodeId);
 }
 
 template <class TBridgeType>

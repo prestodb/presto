@@ -818,6 +818,10 @@ struct DriverFactory {
   /// based on this pipeline.
   std::vector<core::PlanNodeId> needsNestedLoopJoinBridges() const;
 
+  /// Returns plan node IDs for which Spatial Join Bridges must be created
+  /// based on this pipeline.
+  std::vector<core::PlanNodeId> needsSpatialJoinBridges() const;
+
   static std::vector<DriverAdapter> adapters;
 };
 

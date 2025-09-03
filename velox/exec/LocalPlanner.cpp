@@ -40,6 +40,8 @@
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/RowNumber.h"
 #include "velox/exec/ScaleWriterLocalPartition.h"
+#include "velox/exec/SpatialJoinBuild.h"
+#include "velox/exec/SpatialJoinProbe.h"
 #include "velox/exec/StreamingAggregation.h"
 #include "velox/exec/TableScan.h"
 #include "velox/exec/TableWriteMerge.h"
@@ -174,6 +176,13 @@ OperatorSupplier makeOperatorSupplier(
           std::dynamic_pointer_cast<const core::NestedLoopJoinNode>(planNode)) {
     return [join](int32_t operatorId, DriverCtx* ctx) {
       return std::make_unique<NestedLoopJoinBuild>(operatorId, ctx, join);
+    };
+  }
+
+  if (auto join =
+          std::dynamic_pointer_cast<const core::SpatialJoinNode>(planNode)) {
+    return [join](int32_t operatorId, DriverCtx* ctx) {
+      return std::make_unique<SpatialJoinBuild>(operatorId, ctx, join);
     };
   }
 
@@ -461,6 +470,11 @@ void LocalPlanner::markMixedJoinBridges(
             break;
           }
         }
+      } else if (
+          auto spatialJoinNode =
+              std::dynamic_pointer_cast<const core::SpatialJoinNode>(
+                  planNode)) {
+        VELOX_FAIL("Spatial joins do not support grouped execution.");
       }
     }
   }
@@ -560,6 +574,11 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
                 planNode)) {
       operators.push_back(
           std::make_unique<NestedLoopJoinProbe>(id, ctx.get(), joinNode));
+    } else if (
+        auto spatialJoinNode =
+            std::dynamic_pointer_cast<const core::SpatialJoinNode>(planNode)) {
+      operators.push_back(
+          std::make_unique<SpatialJoinProbe>(id, ctx.get(), spatialJoinNode));
     } else if (
         auto joinNode =
             std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(
@@ -774,6 +793,19 @@ std::vector<core::PlanNodeId> DriverFactory::needsNestedLoopJoinBridges()
           !mixedExecutionModeNestedLoopJoinNodeIds.contains(joinNode->id())) {
         planNodeIds.emplace_back(joinNode->id());
       }
+    }
+  }
+
+  return planNodeIds;
+}
+
+std::vector<core::PlanNodeId> DriverFactory::needsSpatialJoinBridges() const {
+  std::vector<core::PlanNodeId> planNodeIds;
+  for (const auto& planNode : planNodes) {
+    if (auto joinNode =
+            std::dynamic_pointer_cast<const core::SpatialJoinNode>(planNode)) {
+      // Grouped execution pipelines should not create cross-mode bridges.
+      planNodeIds.emplace_back(joinNode->id());
     }
   }
 

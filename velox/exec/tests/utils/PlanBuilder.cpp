@@ -1741,6 +1741,30 @@ PlanBuilder& PlanBuilder::nestedLoopJoin(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::spatialJoin(
+    const core::PlanNodePtr& right,
+    const std::string& joinCondition,
+    const std::vector<std::string>& outputLayout,
+    core::JoinType joinType) {
+  VELOX_CHECK_NOT_NULL(planNode_, "SpatialJoin cannot be the source node");
+  auto resultType = concat(planNode_->outputType(), right->outputType());
+  auto outputType = extract(resultType, outputLayout);
+
+  VELOX_CHECK(!joinCondition.empty(), "SpatialJoin condition cannot be empty");
+  core::TypedExprPtr joinConditionExpr =
+      parseExpr(joinCondition, resultType, options_, pool_);
+
+  planNode_ = std::make_shared<core::SpatialJoinNode>(
+      nextPlanNodeId(),
+      joinType,
+      std::move(joinConditionExpr),
+      std::move(planNode_),
+      right,
+      outputType);
+  VELOX_CHECK(!planNode_->supportsBarrier());
+  return *this;
+}
+
 namespace {
 core::TypedExprPtr removeCastTypedExpr(const core::TypedExprPtr& expr) {
   core::TypedExprPtr convertedTypedExpr = expr;

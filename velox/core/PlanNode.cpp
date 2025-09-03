@@ -3064,9 +3064,6 @@ PlanNodePtr PartitionedOutputNode::create(
       deserializeSingleSource(obj, context));
 }
 
-// static
-const JoinType SpatialJoinNode::kDefaultJoinType = JoinType::kInner;
-
 SpatialJoinNode::SpatialJoinNode(
     const PlanNodeId& id,
     JoinType joinType,
