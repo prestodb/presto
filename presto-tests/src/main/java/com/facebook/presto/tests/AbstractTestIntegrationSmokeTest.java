@@ -149,27 +149,70 @@ public abstract class AbstractTestIntegrationSmokeTest
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll(".$", "_");
 
-        @Language("SQL") String ordersTableWithColumns = "VALUES " +
-                "('orders', 'orderkey'), " +
-                "('orders', 'custkey'), " +
-                "('orders', 'orderstatus'), " +
-                "('orders', 'totalprice'), " +
-                "('orders', 'orderdate'), " +
-                "('orders', 'orderpriority'), " +
-                "('orders', 'clerk'), " +
-                "('orders', 'shippriority'), " +
-                "('orders', 'comment')";
+        // Create a unique table name to avoid conflicts with concurrent tests
+        String uniqueTableName = "orders_test_" + System.nanoTime();
 
-        assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
-        assertQuery(
-                "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
-                ordersTableWithColumns);
-        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+        // Create a copy of the orders table with unique name
+        assertUpdate("CREATE TABLE " + uniqueTableName + " AS SELECT * FROM orders", 15000);
+
+        try {
+            @Language("SQL") String ordersTableWithColumns = "VALUES " +
+                    "('" + uniqueTableName + "', 'orderkey'), " +
+                    "('" + uniqueTableName + "', 'custkey'), " +
+                    "('" + uniqueTableName + "', 'orderstatus'), " +
+                    "('" + uniqueTableName + "', 'totalprice'), " +
+                    "('" + uniqueTableName + "', 'orderdate'), " +
+                    "('" + uniqueTableName + "', 'orderpriority'), " +
+                    "('" + uniqueTableName + "', 'clerk'), " +
+                    "('" + uniqueTableName + "', 'shippriority'), " +
+                    "('" + uniqueTableName + "', 'comment')";
+
+            assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'",
+                    "VALUES " +
+                            "('orders', 'orderkey'), " +
+                            "('orders', 'custkey'), " +
+                            "('orders', 'orderstatus'), " +
+                            "('orders', 'totalprice'), " +
+                            "('orders', 'orderdate'), " +
+                            "('orders', 'orderpriority'), " +
+                            "('orders', 'clerk'), " +
+                            "('orders', 'shippriority'), " +
+                            "('orders', 'comment')");
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'",
+                    "VALUES " +
+                            "('orders', 'orderkey'), " +
+                            "('orders', 'custkey'), " +
+                            "('orders', 'orderstatus'), " +
+                            "('orders', 'totalprice'), " +
+                            "('orders', 'orderdate'), " +
+                            "('orders', 'orderpriority'), " +
+                            "('orders', 'clerk'), " +
+                            "('orders', 'shippriority'), " +
+                            "('orders', 'comment')");
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'",
+                    "VALUES " +
+                            "('orders', 'orderkey'), " +
+                            "('orders', 'custkey'), " +
+                            "('orders', 'orderstatus'), " +
+                            "('orders', 'totalprice'), " +
+                            "('orders', 'orderdate'), " +
+                            "('orders', 'orderpriority'), " +
+                            "('orders', 'clerk'), " +
+                            "('orders', 'shippriority'), " +
+                            "('orders', 'comment')");
+            // Use the unique table name to avoid conflicts with concurrent tests
+            assertQuery(
+                    "SELECT table_name, column_name FROM information_schema.columns " +
+                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueTableName + "%'",
+                    ordersTableWithColumns);
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+        }
+        finally {
+            // Clean up the temporary table
+            assertUpdate("DROP TABLE IF EXISTS " + uniqueTableName);
+        }
     }
 
     @Test
