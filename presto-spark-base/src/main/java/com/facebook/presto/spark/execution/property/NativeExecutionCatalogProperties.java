@@ -13,20 +13,25 @@
  */
 package com.facebook.presto.spark.execution.property;
 
-import com.google.inject.Inject;
+import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 /**
- * A utility class that helps with properties and its materialization.
+ * This class holds catalog properties for native execution process.
+ * Each catalog will generate a separate <catalog-name>.properties file.
  */
-public class PrestoSparkWorkerProperty
-        extends WorkerProperty<NativeExecutionCatalogProperties, NativeExecutionNodeConfig, NativeExecutionSystemConfig>
+public class NativeExecutionCatalogProperties
 {
-    @Inject
-    public PrestoSparkWorkerProperty(
-            NativeExecutionCatalogProperties catalogProperties,
-            NativeExecutionNodeConfig nodeConfig,
-            NativeExecutionSystemConfig systemConfig)
+    private final Map<String, Map<String, String>> catalogProperties;
+
+    public NativeExecutionCatalogProperties(Map<String, Map<String, String>> catalogProperties)
     {
-        super(catalogProperties, nodeConfig, systemConfig);
+        this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
+    }
+
+    public Map<String, Map<String, String>> getAllCatalogProperties()
+    {
+        return catalogProperties;
     }
 }

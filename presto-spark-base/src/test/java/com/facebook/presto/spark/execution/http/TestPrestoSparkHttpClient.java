@@ -33,7 +33,7 @@ import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTask
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
+import com.facebook.presto.spark.execution.property.NativeExecutionCatalogProperties;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
@@ -897,7 +897,7 @@ public class TestPrestoSparkHttpClient
             TestingResponseManager responseManager)
     {
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
-                new NativeExecutionConnectorConfig(),
+                new NativeExecutionCatalogProperties(ImmutableMap.of()),
                 new NativeExecutionNodeConfig(),
                 new NativeExecutionSystemConfig(ImmutableMap.of()));
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(

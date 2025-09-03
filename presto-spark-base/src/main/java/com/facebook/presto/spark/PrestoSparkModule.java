@@ -120,7 +120,6 @@ import com.facebook.presto.spark.execution.BroadcastFileInfo;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
@@ -284,7 +283,6 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
         configBinder(binder).bindConfig(TracingConfig.class);
         configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
         configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
         configBinder(binder).bindConfig(SecurityConfig.class);
 
