@@ -43,6 +43,7 @@ velox_add_library(
   Expr.cpp
   ExprCompiler.cpp
   ExprToSubfieldFilter.cpp
+  ExprUtils.cpp
   FieldReference.cpp
   FunctionCallToSpecialForm.cpp
   GenericWriter.cpp
