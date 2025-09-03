@@ -252,9 +252,7 @@ void addConjunct(
     conjunction = conjunct;
   } else {
     conjunction = std::make_shared<core::CallTypedExpr>(
-        BOOLEAN(),
-        std::vector<core::TypedExprPtr>{conjunction, conjunct},
-        "and");
+        BOOLEAN(), "and", conjunction, conjunct);
   }
 }
 } // namespace
@@ -783,9 +781,8 @@ PlanBuilder& PlanBuilder::tableWriteMerge() {
       core::AggregationNode::Aggregate aggregate = writerSpec.aggregates[i];
       aggregate.call = std::make_shared<core::CallTypedExpr>(
           aggregate.call->type(),
-          std::vector<core::TypedExprPtr>{
-              field(inputType, writerSpec.aggregateNames[i])},
-          aggregate.call->name());
+          aggregate.call->name(),
+          field(inputType, writerSpec.aggregateNames[i]));
       aggregates.push_back(std::move(aggregate));
       aggregateNames.push_back(fmt::format("a{}", i));
     }

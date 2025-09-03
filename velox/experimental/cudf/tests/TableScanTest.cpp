@@ -333,27 +333,18 @@ TEST_F(TableScanTest, filterPushdown) {
   // c1 >= 0 or null and c3 is true
   auto c1Expr = std::make_shared<core::CallTypedExpr>(
       BOOLEAN(),
-      std::vector<core::TypedExprPtr>{
-          std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c1"),
-          std::make_shared<core::ConstantTypedExpr>(BIGINT(), int64_t(0)),
-      },
-      "gte");
+      "gte",
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c1"),
+      std::make_shared<core::ConstantTypedExpr>(BIGINT(), int64_t(0)));
 
   auto c3Expr = std::make_shared<core::CallTypedExpr>(
       BOOLEAN(),
-      std::vector<core::TypedExprPtr>{
-          std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c3"),
-          std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), true),
-      },
-      "eq");
+      "eq",
+      std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c3"),
+      std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), true));
 
-  auto subfieldFilterExpr = std::make_shared<core::CallTypedExpr>(
-      BOOLEAN(),
-      std::vector<core::TypedExprPtr>{
-          c1Expr,
-          c3Expr,
-      },
-      "and");
+  auto subfieldFilterExpr =
+      std::make_shared<core::CallTypedExpr>(BOOLEAN(), "and", c1Expr, c3Expr);
   auto tableHandle = makeTableHandle(
       "parquet_table", rowType, true, std::move(subfieldFilterExpr), nullptr);
 

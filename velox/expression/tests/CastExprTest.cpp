@@ -2525,8 +2525,8 @@ TEST_F(CastExprTest, castAsCall) {
   auto input = makeRowVector({makeNullableFlatVector(inputValues)});
   core::TypedExprPtr inputField =
       std::make_shared<const core::FieldAccessTypedExpr>(INTEGER(), "c0");
-  core::TypedExprPtr callExpr = std::make_shared<const core::CallTypedExpr>(
-      DOUBLE(), std::vector<core::TypedExprPtr>{inputField}, "cast");
+  core::TypedExprPtr callExpr =
+      std::make_shared<const core::CallTypedExpr>(DOUBLE(), "cast", inputField);
 
   auto result = evaluate(callExpr, input);
   auto expected = makeNullableFlatVector(outputValues);

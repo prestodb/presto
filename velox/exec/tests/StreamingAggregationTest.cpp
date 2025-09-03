@@ -726,9 +726,7 @@ TEST_P(StreamingAggregationTest, closeUninitialized) {
                             std::make_shared<core::FieldAccessTypedExpr>(
                                 BIGINT(), "c0"),
                             std::make_shared<core::CallTypedExpr>(
-                                BIGINT(),
-                                std::vector<core::TypedExprPtr>{},
-                                "do-not-exist")},
+                                BIGINT(), "do-not-exist")},
                         source);
                   })
                   .partialStreamingAggregation({"c0"}, {"sum(x)"})

@@ -564,9 +564,7 @@ void FilterToExpressionTest::testRoundTrip(
 
       // Create a between expression
       auto betweenExpr = std::make_shared<CallTypedExpr>(
-          callExpr->type(),
-          std::vector<TypedExprPtr>{field, lowerBound, upperBound},
-          "between");
+          callExpr->type(), "between", field, lowerBound, upperBound);
 
       common::Subfield roundTripSubfield;
       auto roundTripFilter =

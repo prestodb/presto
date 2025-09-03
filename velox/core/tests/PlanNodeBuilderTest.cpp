@@ -315,8 +315,7 @@ TEST_F(PlanNodeBuilderTest, aggregationNode) {
   const std::vector<std::string> aggregateNames{"a0"};
   const std::vector<AggregationNode::Aggregate> aggregates{
       AggregationNode::Aggregate{
-          .call = std::make_shared<core::CallTypedExpr>(
-              INTEGER(), std::vector<TypedExprPtr>{}, "sum"),
+          .call = std::make_shared<core::CallTypedExpr>(INTEGER(), "sum"),
           .rawInputTypes = {INTEGER()}}};
   const std::vector<vector_size_t> globalGroupingSets{0};
   const std::optional<FieldAccessTypedExprPtr> groupId{
@@ -1080,8 +1079,7 @@ TEST_F(PlanNodeBuilderTest, windowNode) {
   const bool inputsSorted = true;
 
   // Create a dummy window function.
-  const auto functionCall = std::make_shared<CallTypedExpr>(
-      BIGINT(), std::vector<TypedExprPtr>{}, "rank");
+  const auto functionCall = std::make_shared<CallTypedExpr>(BIGINT(), "rank");
   WindowNode::Frame frame{
       WindowNode::WindowType::kRows,
       WindowNode::BoundType::kUnboundedPreceding,

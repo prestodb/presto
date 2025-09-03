@@ -189,6 +189,16 @@ class CallTypedExpr : public ITypedExpr {
       : ITypedExpr{ExprKind::kCall, std::move(type), std::move(inputs)},
         name_(std::move(name)) {}
 
+  /// @param type Return type.
+  /// @param name Name of the function or special form.
+  /// @param inputs List of input expressions.
+  template <typename... TypedExprs>
+  CallTypedExpr(TypePtr type, std::string name, TypedExprs... inputs)
+      : CallTypedExpr(
+            std::move(type),
+            std::vector<TypedExprPtr>{std::forward<TypedExprs>(inputs)...},
+            std::move(name)) {}
+
   virtual const std::string& name() const {
     return name_;
   }

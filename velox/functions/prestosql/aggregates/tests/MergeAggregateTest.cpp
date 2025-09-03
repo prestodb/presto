@@ -159,9 +159,7 @@ class MergeAggregateTest : public AggregationTestBase {
     auto fieldAccess =
         std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0");
     auto fromBase64 = std::make_shared<core::CallTypedExpr>(
-        VARBINARY(),
-        std::vector<core::TypedExprPtr>{fieldAccess},
-        "from_base64");
+        VARBINARY(), "from_base64", fieldAccess);
     auto castToDigest =
         std::make_shared<core::CastTypedExpr>(digestType, fromBase64, true);
     auto aggResultAccess =
@@ -169,9 +167,7 @@ class MergeAggregateTest : public AggregationTestBase {
     auto castToVarbinary = std::make_shared<core::CastTypedExpr>(
         VARBINARY(), aggResultAccess, true);
     auto toBase64 = std::make_shared<core::CallTypedExpr>(
-        VARCHAR(),
-        std::vector<core::TypedExprPtr>{castToVarbinary},
-        "to_base64");
+        VARCHAR(), "to_base64", castToVarbinary);
 
     return PlanBuilder()
         .values({input})

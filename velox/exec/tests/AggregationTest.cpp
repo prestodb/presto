@@ -456,8 +456,8 @@ TEST_F(AggregationTest, missingFunctionOrSignature) {
       BIGINT(), inputs, "missing-function");
   auto wrongInputTypes =
       std::make_shared<core::CallTypedExpr>(BIGINT(), inputs, "test_aggregate");
-  auto missingInputs = std::make_shared<core::CallTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{}, "test_aggregate");
+  auto missingInputs =
+      std::make_shared<core::CallTypedExpr>(BIGINT(), "test_aggregate");
 
   auto makePlan = [&](const core::CallTypedExprPtr& aggExpr) {
     return PlanBuilder()
@@ -518,9 +518,7 @@ TEST_F(AggregationTest, missingLambdaFunction) {
       std::make_shared<core::LambdaTypedExpr>(
           ROW({"a", "b"}, {BIGINT(), BIGINT()}),
           std::make_shared<core::CallTypedExpr>(
-              BIGINT(),
-              std::vector<core::TypedExprPtr>{field("a"), field("b")},
-              "multiply")),
+              BIGINT(), "multiply", field("a"), field("b"))),
   };
 
   auto plan = PlanBuilder()

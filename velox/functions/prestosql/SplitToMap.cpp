@@ -70,13 +70,11 @@ core::TypedExprPtr rewriteSplitToMapCall(
 
   return std::make_shared<core::CallTypedExpr>(
       call->type(),
-      std::vector<core::TypedExprPtr>{
-          call->inputs()[0],
-          call->inputs()[1],
-          call->inputs()[2],
-          std::make_shared<core::ConstantTypedExpr>(
-              BOOLEAN(), keepFirst.value())},
-      "$internal$split_to_map");
+      "$internal$split_to_map",
+      call->inputs()[0],
+      call->inputs()[1],
+      call->inputs()[2],
+      std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), keepFirst.value()));
 }
 
 } // namespace facebook::velox::functions

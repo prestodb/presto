@@ -129,10 +129,9 @@ TEST_F(PlanFragmentTest, aggregationCanSpill) {
   const std::vector<FieldAccessTypedExprPtr> emptyPreGroupingKeys;
   std::vector<std::string> aggregateNames{"sum"};
   std::vector<std::string> emptyAggregateNames{};
-  std::vector<TypedExprPtr> aggregateInputs{
-      std::make_shared<InputTypedExpr>(BIGINT())};
+  auto aggregateInput = std::make_shared<InputTypedExpr>(BIGINT());
   const std::vector<AggregationNode::Aggregate> aggregates{
-      {std::make_shared<core::CallTypedExpr>(BIGINT(), aggregateInputs, "sum"),
+      {std::make_shared<core::CallTypedExpr>(BIGINT(), "sum", aggregateInput),
        {},
        nullptr,
        {},

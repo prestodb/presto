@@ -36,7 +36,7 @@ class MakeDecimalTest : public SparkFunctionBaseTest {
         outputType, std::move(inputs), "make_decimal");
     if (tryMakeDecimal) {
       return std::make_shared<core::CallTypedExpr>(
-          outputType, std::vector<core::TypedExprPtr>{makeDecimal}, "try");
+          outputType, "try", makeDecimal);
     } else {
       return makeDecimal;
     }

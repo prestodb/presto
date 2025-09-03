@@ -314,8 +314,7 @@ TypedExprPtr toVeloxExpression(
           std::move(children),
           name);
       if (negate) {
-        return std::make_shared<CallTypedExpr>(
-            BOOLEAN(), std::vector<TypedExprPtr>{call}, "not");
+        return std::make_shared<CallTypedExpr>(BOOLEAN(), "not", call);
       }
       return call;
     }
@@ -360,7 +359,7 @@ PlanNodePtr toVeloxPlan(
       veloxFilter = conjunct;
     } else {
       veloxFilter = std::make_shared<CallTypedExpr>(
-          BOOLEAN(), std::vector<TypedExprPtr>{veloxFilter, conjunct}, "and");
+          BOOLEAN(), "and", veloxFilter, conjunct);
     }
   }
   return std::make_shared<FilterNode>(
@@ -857,7 +856,7 @@ PlanNodePtr processDelimGetJoin(
       veloxFilter = conjunct;
     } else {
       veloxFilter = std::make_shared<CallTypedExpr>(
-          BOOLEAN(), std::vector<TypedExprPtr>{veloxFilter, conjunct}, "and");
+          BOOLEAN(), "and", veloxFilter, conjunct);
     }
   }
   return std::make_shared<FilterNode>(

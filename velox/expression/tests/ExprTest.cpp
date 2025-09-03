@@ -519,14 +519,10 @@ TEST_P(ParameterizedExprTest, constantNull) {
   // Builds the following expression: "plus(c0, plus(c0, null))"
   auto expression = std::make_shared<core::CallTypedExpr>(
       INTEGER(),
-      std::vector<core::TypedExprPtr>{
-          inputExpr,
-          std::make_shared<core::CallTypedExpr>(
-              INTEGER(),
-              std::vector<core::TypedExprPtr>{inputExpr, nullConstant},
-              "plus"),
-      },
-      "plus");
+      "plus",
+      inputExpr,
+      std::make_shared<core::CallTypedExpr>(
+          INTEGER(), "plus", inputExpr, nullConstant));
 
   // Execute it and check it returns all null results.
   auto vector = makeNullableFlatVector<int32_t>({1, std::nullopt, 3});
@@ -551,7 +547,7 @@ TEST_P(ParameterizedExprTest, validateReturnType) {
 
   // Builds a "eq(c0, c0)" expression.
   auto expression = std::make_shared<core::CallTypedExpr>(
-      INTEGER(), std::vector<core::TypedExprPtr>{inputExpr, inputExpr}, "eq");
+      INTEGER(), "eq", inputExpr, inputExpr);
 
   // Execute it and check it returns all null results.
   auto vector = makeNullableFlatVector<int32_t>({1, 2, 3});
@@ -2859,9 +2855,7 @@ TEST_P(ParameterizedExprTest, constantToSql) {
 
 TEST_P(ParameterizedExprTest, constantJsonToSql) {
   core::TypedExprPtr expression = std::make_shared<const core::CallTypedExpr>(
-      VARCHAR(),
-      std::vector<core::TypedExprPtr>{makeConstantExpr("[1, 2, 3]", JSON())},
-      "json_format");
+      VARCHAR(), "json_format", makeConstantExpr("[1, 2, 3]", JSON()));
 
   auto exprSet = compileNoConstantFolding(expression);
 
@@ -4744,14 +4738,12 @@ TEST_P(ParameterizedExprTest, coalesceRowInputTypesAreTheSame) {
     // different.
     auto call1 = std::make_shared<const core::CallTypedExpr>(
         ROW({"row_field0"}, {BIGINT()}),
-        std::vector<core::TypedExprPtr>{
-            std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), "c0")},
-        "foo");
+        "foo",
+        std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), "c0"));
     auto call2 = std::make_shared<const core::CallTypedExpr>(
         ROW({""}, {BIGINT()}),
-        std::vector<core::TypedExprPtr>{
-            std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), "c0")},
-        "foo");
+        "foo",
+        std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), "c0"));
     ASSERT_FALSE(*call1 == *call2);
 
     auto fieldAccess1 = std::make_shared<const core::FieldAccessTypedExpr>(
@@ -4792,11 +4784,10 @@ TEST_P(ParameterizedExprTest, coalesceRowInputTypesAreTheSame) {
                 BIGINT(), "c0")});
     core::TypedExprPtr coalesce = std::make_shared<const core::CallTypedExpr>(
         ROW({"row_field0"}, {BIGINT()}),
-        std::vector<core::TypedExprPtr>{
-            std::make_shared<const core::FieldAccessTypedExpr>(
-                ROW({"row_field0"}, {BIGINT()}), "c1"),
-            concat},
-        "coalesce");
+        "coalesce",
+        std::make_shared<const core::FieldAccessTypedExpr>(
+            ROW({"row_field0"}, {BIGINT()}), "c1"),
+        concat);
     core::TypedExprPtr dereference =
         std::make_shared<const core::FieldAccessTypedExpr>(
             BIGINT(), coalesce, "row_field0");
@@ -4807,16 +4798,12 @@ TEST_P(ParameterizedExprTest, coalesceRowInputTypesAreTheSame) {
                 BIGINT(), "c0")});
     ASSERT_FALSE(*concat == *concat2);
     core::TypedExprPtr cast = std::make_shared<const core::CallTypedExpr>(
-        ROW({"row_field0"}, {BIGINT()}),
-        std::vector<core::TypedExprPtr>{concat2},
-        "cast");
+        ROW({"row_field0"}, {BIGINT()}), "cast", concat2);
     core::TypedExprPtr dereference2 =
         std::make_shared<const core::FieldAccessTypedExpr>(
             BIGINT(), cast, "row_field0");
     core::TypedExprPtr plus = std::make_shared<const core::CallTypedExpr>(
-        BIGINT(),
-        std::vector<core::TypedExprPtr>{dereference2, dereference},
-        "plus");
+        BIGINT(), "plus", dereference2, dereference);
 
     ASSERT_NO_THROW(compileExpression(plus));
   }

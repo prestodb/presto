@@ -528,14 +528,12 @@ core::TypedExprPtr rewriteArraySortCall(
 
     auto rewritten = std::make_shared<core::CallTypedExpr>(
         call->type(),
-        std::vector<core::TypedExprPtr>{
-            call->inputs()[0],
-            std::make_shared<core::LambdaTypedExpr>(
-                ROW({lambda->signature()->nameOf(0)},
-                    {lambda->signature()->childAt(0)}),
-                comparison->expr),
-        },
-        name);
+        name,
+        call->inputs()[0],
+        std::make_shared<core::LambdaTypedExpr>(
+            ROW({lambda->signature()->nameOf(0)},
+                {lambda->signature()->childAt(0)}),
+            comparison->expr));
 
     return rewritten;
   }

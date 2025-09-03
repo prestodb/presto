@@ -150,11 +150,11 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
       const TypePtr& returnType,
       const RowVectorPtr& data,
       const VectorPtr& expected) {
-    auto inputFeild =
+    auto inputField =
         std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0");
 
     auto expression = std::make_shared<core::CallTypedExpr>(
-        returnType, std::vector<core::TypedExprPtr>{inputFeild}, functionName);
+        returnType, functionName, inputField);
 
     SelectivityVector rows(data->size());
     std::vector<VectorPtr> result(1);

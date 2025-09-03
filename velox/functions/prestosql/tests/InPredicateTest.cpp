@@ -41,10 +41,9 @@ class InPredicateTest : public FunctionBaseTest {
       const TypePtr& type) {
     return std::make_shared<core::CallTypedExpr>(
         BOOLEAN(),
-        std::vector<core::TypedExprPtr>{
-            std::make_shared<core::FieldAccessTypedExpr>(type, probe),
-            std::make_shared<core::ConstantTypedExpr>(inList)},
-        "in");
+        "in",
+        std::make_shared<core::FieldAccessTypedExpr>(type, probe),
+        std::make_shared<core::ConstantTypedExpr>(inList));
   }
 
   template <typename T>
@@ -241,19 +240,16 @@ class InPredicateTest : public FunctionBaseTest {
 
     return std::make_shared<core::CallTypedExpr>(
         BOOLEAN(),
-        std::vector<core::TypedExprPtr>{
-            field(values->type(), "c0"),
-            std::make_shared<core::ConstantTypedExpr>(
-                std::make_shared<ArrayVector>(
-                    pool(),
-                    ARRAY(values->type()),
-                    nullptr,
-                    1,
-                    offsets,
-                    sizes,
-                    values)),
-        },
-        "in");
+        "in",
+        field(values->type(), "c0"),
+        std::make_shared<core::ConstantTypedExpr>(std::make_shared<ArrayVector>(
+            pool(),
+            ARRAY(values->type()),
+            nullptr,
+            1,
+            offsets,
+            sizes,
+            values)));
   }
 
   VectorPtr makeTimestampVector(const std::vector<int64_t>& millis) {
@@ -278,12 +274,10 @@ class InPredicateTest : public FunctionBaseTest {
                                    std::vector<bool> expected) {
       auto expr = std::make_shared<core::CallTypedExpr>(
           BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              field(columnFloatType, "c0"),
-              std::make_shared<core::ConstantTypedExpr>(
-                  makeArrayVector<T>({inlist})),
-          },
-          "in");
+          "in",
+          field(columnFloatType, "c0"),
+          std::make_shared<core::ConstantTypedExpr>(
+              makeArrayVector<T>({inlist})));
       auto data = makeRowVector({
           makeFlatVector<T>(input),
       });
@@ -309,11 +303,9 @@ class InPredicateTest : public FunctionBaseTest {
                makeFlatVector<int32_t>(std::vector<int32_t>({1}))}));
       auto expr = std::make_shared<core::CallTypedExpr>(
           BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              field(ROW({columnFloatType, INTEGER()}), "c0"),
-              std::make_shared<core::ConstantTypedExpr>(inlist),
-          },
-          "in");
+          "in",
+          field(ROW({columnFloatType, INTEGER()}), "c0"),
+          std::make_shared<core::ConstantTypedExpr>(inlist));
       // Input is [row{kNaN, 1}, row{kSNaN, 1}, row{kNaN, 2}].
       auto data = makeRowVector({makeRowVector(
           {makeFlatVector<T>(std::vector<T>({kNaN, kSNaN, kNaN})),
@@ -333,12 +325,10 @@ class InPredicateTest : public FunctionBaseTest {
       // Expression: c0 in (c1, c2)
       auto inWithVariableInList = std::make_shared<core::CallTypedExpr>(
           BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              field(columnFloatType, "c0"),
-              field(columnFloatType, "c1"),
-              field(columnFloatType, "c2"),
-          },
-          "in");
+          "in",
+          field(columnFloatType, "c0"),
+          field(columnFloatType, "c1"),
+          field(columnFloatType, "c2"));
       auto expectedResults = makeFlatVector<bool>({
           true, // kNaN in (kNaN, 1)
           true, // kSNaN in (kNaN, 1)
@@ -363,11 +353,9 @@ class InPredicateTest : public FunctionBaseTest {
       // Expression: c0 in (c1)
       auto inWithVariableInList = std::make_shared<core::CallTypedExpr>(
           BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              field(ROW({columnFloatType, INTEGER()}), "c0"),
-              field(ROW({columnFloatType, INTEGER()}), "c1"),
-          },
-          "in");
+          "in",
+          field(ROW({columnFloatType, INTEGER()}), "c0"),
+          field(ROW({columnFloatType, INTEGER()}), "c1"));
       auto expectedResults = makeFlatVector<bool>({true, true, false});
       auto result = evaluate(inWithVariableInList, data);
       assertEqualVectors(expectedResults, result);
@@ -1059,13 +1047,11 @@ TEST_F(InPredicateTest, nonConstantInList) {
 
   auto in = std::make_shared<core::CallTypedExpr>(
       BOOLEAN(),
-      std::vector<core::TypedExprPtr>{
-          field(INTEGER(), "c0"),
-          field(INTEGER(), "c1"),
-          field(INTEGER(), "c2"),
-          field(INTEGER(), "c3"),
-      },
-      "in");
+      "in",
+      field(INTEGER(), "c0"),
+      field(INTEGER(), "c1"),
+      field(INTEGER(), "c2"),
+      field(INTEGER(), "c3"));
 
   auto result = evaluate(in, data);
   assertEqualVectors(expected, result);
@@ -1102,11 +1088,10 @@ TEST_F(InPredicateTest, nonConstantInList) {
   });
   in = std::make_shared<core::CallTypedExpr>(
       BOOLEAN(),
-      std::vector<core::TypedExprPtr>{
-          field(INTEGER(), "c0"),
-          field(INTEGER(), "c1"),
-          field(INTEGER(), "c2")},
-      "in");
+      "in",
+      field(INTEGER(), "c0"),
+      field(INTEGER(), "c1"),
+      field(INTEGER(), "c2"));
   expected = makeNullableFlatVector<bool>({
       std::nullopt, // [1, null] in ([1, null], [1, 2])
       false, // [1, 2] in ([1, 3], [1, 3])
@@ -1157,9 +1142,7 @@ TEST_F(InPredicateTest, BadTimestampsWithTry) {
   auto expected = BaseVector::createNullConstant(BOOLEAN(), 1, pool());
 
   auto expression = std::make_shared<core::CallTypedExpr>(
-      BOOLEAN(),
-      std::vector<core::TypedExprPtr>{makeInExpression(inValues)},
-      "try");
+      BOOLEAN(), "try", makeInExpression(inValues));
 
   auto result = evaluate(expression, makeRowVector({flatVectorWithoutNulls}));
   assertEqualVectors(expected, result);

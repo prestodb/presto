@@ -49,15 +49,13 @@ class ExprCompilerTest : public testing::Test,
   core::TypedExprPtr andCall(
       const core::TypedExprPtr& a,
       const core::TypedExprPtr& b) {
-    return std::make_shared<core::CallTypedExpr>(
-        BOOLEAN(), std::vector<core::TypedExprPtr>{a, b}, "and");
+    return std::make_shared<core::CallTypedExpr>(BOOLEAN(), "and", a, b);
   }
 
   core::TypedExprPtr orCall(
       const core::TypedExprPtr& a,
       const core::TypedExprPtr& b) {
-    return std::make_shared<core::CallTypedExpr>(
-        BOOLEAN(), std::vector<core::TypedExprPtr>{a, b}, "or");
+    return std::make_shared<core::CallTypedExpr>(BOOLEAN(), "or", a, b);
   }
 
   core::TypedExprPtr concatCall(
@@ -252,9 +250,7 @@ TEST_F(ExprCompilerTest, concatArrayFlattening) {
 
 TEST_F(ExprCompilerTest, functionNameNotRegistered) {
   auto expression = std::make_shared<core::CallTypedExpr>(
-      VARCHAR(),
-      std::vector<core::TypedExprPtr>{varchar("---"), varchar("...")},
-      "not_registered_function");
+      VARCHAR(), "not_registered_function", varchar("---"), varchar("..."));
 
   VELOX_ASSERT_THROW(
       compile(expression),

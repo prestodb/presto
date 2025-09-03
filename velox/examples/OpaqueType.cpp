@@ -324,9 +324,9 @@ VectorPtr evaluate(
 
   auto exprPlan = std::make_shared<core::CallTypedExpr>(
       OPAQUE<UserDefinedOutput>(),
-      std::vector<core::TypedExprPtr>{
-          fieldAccessExprNode1, fieldAccessExprNode2},
-      functionName);
+      functionName,
+      fieldAccessExprNode1,
+      fieldAccessExprNode2);
 
   exec::ExprSet exprSet({exprPlan}, &execCtx);
   exec::EvalCtx evalCtx(&execCtx, &exprSet, rowVector.get());

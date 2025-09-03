@@ -122,9 +122,9 @@ core::TypedExprPtr toJoinConditionExpr(
                 condition)) {
       conditionExprs.push_back(std::make_shared<const core::CallTypedExpr>(
           BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              inCondition->list, std::move(indexColumnExpr)},
-          "contains"));
+          "contains",
+          inCondition->list,
+          std::move(indexColumnExpr)));
       continue;
     }
     if (auto betweenCondition =
@@ -132,21 +132,17 @@ core::TypedExprPtr toJoinConditionExpr(
                 condition)) {
       conditionExprs.push_back(std::make_shared<const core::CallTypedExpr>(
           BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              std::move(indexColumnExpr),
-              betweenCondition->lower,
-              betweenCondition->upper},
-          "between"));
+          "between",
+          std::move(indexColumnExpr),
+          betweenCondition->lower,
+          betweenCondition->upper));
       continue;
     }
     if (auto equalCondition =
             std::dynamic_pointer_cast<core::EqualIndexLookupCondition>(
                 condition)) {
       conditionExprs.push_back(std::make_shared<const core::CallTypedExpr>(
-          BOOLEAN(),
-          std::vector<core::TypedExprPtr>{
-              std::move(indexColumnExpr), equalCondition->value},
-          "eq"));
+          BOOLEAN(), "eq", std::move(indexColumnExpr), equalCondition->value));
       continue;
     }
     VELOX_FAIL("Invalid index join condition: {}", condition->toString());

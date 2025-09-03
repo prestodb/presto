@@ -438,9 +438,8 @@ TEST_F(WindowTest, missingFunctionSignature) {
 
   auto callExpr = std::make_shared<core::CallTypedExpr>(
       BIGINT(),
-      std::vector<core::TypedExprPtr>{
-          std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c1")},
-      "sum");
+      "sum",
+      std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c1"));
 
   VELOX_ASSERT_THROW(
       runWindow(callExpr),
@@ -448,9 +447,8 @@ TEST_F(WindowTest, missingFunctionSignature) {
 
   callExpr = std::make_shared<core::CallTypedExpr>(
       VARCHAR(),
-      std::vector<core::TypedExprPtr>{
-          std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c2")},
-      "sum");
+      "sum",
+      std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "c2"));
 
   VELOX_ASSERT_THROW(
       runWindow(callExpr),

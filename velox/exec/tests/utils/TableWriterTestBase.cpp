@@ -103,8 +103,8 @@ core::ColumnStatsSpec TableWriterTestBase::generateColumnStatsSpec(
     AggregationNode::Step step) {
   core::TypedExprPtr inputField =
       std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), name);
-  auto callExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{inputField}, "min");
+  auto callExpr =
+      std::make_shared<const core::CallTypedExpr>(BIGINT(), "min", inputField);
   std::vector<std::string> aggregateNames = {"min"};
   std::vector<core::AggregationNode::Aggregate> aggregates = {
       core::AggregationNode::Aggregate{

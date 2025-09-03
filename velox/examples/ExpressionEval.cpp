@@ -103,9 +103,7 @@ int main(int argc, char** argv) {
   // would be automatically and recursively generated based on some input IDL
   // (or by a SQL string parser).
   auto exprTree = std::make_shared<core::CallTypedExpr>(
-      BIGINT(),
-      std::vector<core::TypedExprPtr>{fieldAccessExprNode},
-      "times_two");
+      BIGINT(), "times_two", fieldAccessExprNode);
 
   // Lastly, ExprSet contains the main expression evaluation logic. It takes a
   // vector of expression trees (if there are multiple expressions to be
