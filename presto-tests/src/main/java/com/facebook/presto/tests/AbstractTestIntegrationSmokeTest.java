@@ -148,9 +148,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll(".$", "_");
 
-        // Generate a unique pattern to avoid conflicts with concurrent tests
-        String uniquePattern = "orders_" + Math.abs(System.nanoTime() % 1000000);
-
         @Language("SQL") String ordersTableWithColumns = "VALUES " +
                 "('orders', 'orderkey'), " +
                 "('orders', 'custkey'), " +
@@ -167,17 +164,11 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
-        // Use a unique pattern that won't match any tables created by concurrent tests
         assertQuery(
                 "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%" + uniquePattern + "%'",
-                "SELECT '' WHERE false");
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
+                ordersTableWithColumns);
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
-        }
-        finally {
-            // Clean up the temporary table
-            assertUpdate("DROP TABLE IF EXISTS " + uniqueTableName);
-        }
     }
 
     @Test
