@@ -541,7 +541,8 @@ Property Name                                         Description               
                                                       assign a split to. Splits which read data from the same file within
                                                       the same chunk will hash to the same node. A smaller chunk size will
                                                       result in a higher probability splits being distributed evenly across
-                                                      the cluster, but reduce locality.
+                                                      the cluster, but reduce locality. 
+                                                      See :ref:`develop/connectors:Node Selection Strategy`.
 ``iceberg.parquet_dereference_pushdown_enabled``      Overrides the behavior of the connector property                        Yes                 No
                                                       ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
 ===================================================== ======================================================================= =================== =============================================
