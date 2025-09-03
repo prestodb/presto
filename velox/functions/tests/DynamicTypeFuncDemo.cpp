@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "folly/Conv.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/expression/VectorReaders.h"
+#include "velox/expression/VectorWriters.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::functions {
 
@@ -106,6 +110,7 @@ void runDynamicTypeTest(
     size_t numElements,
     memory::MemoryPool* pool) {
   std::vector<VectorPtr> elementVectors;
+  elementVectors.reserve(numElements);
   for (auto i = 0; i < numElements; ++i) {
     elementVectors.push_back(elementVector);
   }
@@ -143,24 +148,183 @@ void runDynamicTypeTest(
   VELOX_CHECK_EQ(result[0]->type(), expectedOutputType);
 }
 
-void runDynamicTypeDemo() {
-  // Initialize Velox
+// Initialize Velox environment
+std::shared_ptr<memory::MemoryPool> initializeVelox() {
   memory::MemoryManager::initialize(memory::MemoryManagerOptions{});
   registerDynamicTypeFunction();
   parse::registerTypeResolver();
-  auto pool = memory::MemoryManager::getInstance()->addLeafPool();
+  return memory::MemoryManager::getInstance()->addLeafPool();
+}
 
-  const auto elementSize{3};
-  auto elementVector = std::dynamic_pointer_cast<FlatVector<int32_t>>(
-      BaseVector::create(INTEGER(), elementSize, pool.get()));
-  for (auto i = 0; i < elementSize; ++i) {
-    elementVector->set(i, i);
+// Create original row vector with array columns
+VectorPtr createOriginalRowVector(
+    memory::MemoryPool* pool,
+    int numRows,
+    int numCols,
+    int arraySize) {
+  velox::test::VectorMaker vectorMaker{pool};
+  std::vector<VectorPtr> arrayVectors;
+
+  for (int col = 0; col < numCols; ++col) {
+    auto arrayVector = vectorMaker.arrayVector<int64_t>(
+        numRows,
+        [arraySize](auto row) { return arraySize; },
+        [col](auto row, auto index) {
+          return row * 100 + col * 10 + index + 1;
+        });
+    arrayVectors.push_back(arrayVector);
+
+    // Log each arrayVector's toString
+    LOG(INFO) << "Created Column " << col << " (ArrayVector):";
+    LOG(INFO) << arrayVector->toString(0, numRows);
   }
 
-  runDynamicTypeTest(elementVector, elementSize, 1, pool.get());
-  runDynamicTypeTest(elementVector, elementSize, 2, pool.get());
-  runDynamicTypeTest(elementVector, elementSize, 3, pool.get());
+  auto rowVector =
+      vectorMaker.rowVector({"col0", "col1", "col2"}, arrayVectors);
+
+  return rowVector;
 }
+
+// Demonstrate VectorReader<DynamicRow> usage
+VectorPtr readRowVector(
+    const VectorPtr& originalRowVector,
+    memory::MemoryPool* pool) {
+  DecodedVector decoded;
+  decoded.decode(*originalRowVector);
+  exec::VectorReader<DynamicRow> reader(&decoded);
+
+  velox::test::VectorMaker vectorMaker{pool};
+  std::vector<VectorPtr> newArrayVectors;
+
+  auto numRows = originalRowVector->size();
+  auto numCols = originalRowVector->as<RowVector>()->childrenSize();
+
+  for (int col = 0; col < numCols; ++col) {
+    std::vector<std::vector<int64_t>> columnData;
+
+    for (int row = 0; row < numRows; ++row) {
+      auto dynamicRowView = reader[row];
+      auto columnView = dynamicRowView.at(col);
+
+      if (auto arrayView = columnView->tryCastTo<Array<int64_t>>()) {
+        std::vector<int64_t> rowData;
+        for (size_t j = 0; j < arrayView->size(); ++j) {
+          auto value = (*arrayView)[j];
+          rowData.push_back(value.value());
+        }
+        columnData.push_back(rowData);
+
+        std::string arrayContent = "[";
+        for (size_t j = 0; j < rowData.size(); ++j) {
+          if (j > 0) {
+            arrayContent += ", ";
+          }
+          arrayContent += folly::to<std::string>(rowData[j]);
+        }
+        arrayContent += "]";
+        LOG(INFO) << "Read from Column " << col << " Row " << row << ": "
+                  << arrayContent;
+      }
+    }
+
+    auto newArrayVector = vectorMaker.arrayVector<int64_t>(columnData);
+    newArrayVectors.push_back(newArrayVector);
+  }
+
+  auto newRowVector =
+      vectorMaker.rowVector({"col0", "col1", "col2"}, newArrayVectors);
+
+  LOG(INFO) << "Created new rowVector from VectorReader<DynamicRow> data:";
+  LOG(INFO) << "New RowVector toString: " << newRowVector->toString(0, numRows);
+
+  return newRowVector;
+}
+
+// Demonstrate VectorWriter<DynamicRow> usage - creates new output vector
+VectorPtr writeRowVector(
+    const VectorPtr& referenceRowVector,
+    memory::MemoryPool* pool) {
+  LOG(INFO)
+      << "=== Using VectorWriter<DynamicRow> to create new output vector ===";
+
+  auto numRows = referenceRowVector->size();
+  auto numCols = referenceRowVector->as<RowVector>()->childrenSize();
+
+  // Get array size from the first array in the reference vector
+  auto firstArrayCol =
+      referenceRowVector->as<RowVector>()->childAt(0)->as<ArrayVector>();
+  auto arraySize = firstArrayCol->sizeAt(0);
+
+  // Create a new output vector with the same structure as reference
+  auto outputRowType = referenceRowVector->type();
+
+  // Create new output vector
+  VectorPtr outputVector;
+  SelectivityVector rows(numRows);
+  BaseVector::ensureWritable(rows, outputRowType, pool, outputVector);
+
+  // Set up VectorWriter to write to the new output vector
+  exec::VectorWriter<DynamicRow> dynamicWriter;
+  dynamicWriter.init(*outputVector->as<RowVector>());
+
+  // Write data using VectorWriter<DynamicRow>
+  for (int row = 0; row < numRows; ++row) {
+    dynamicWriter.setOffset(row);
+    auto& dynamicRowWriter = dynamicWriter.current();
+
+    // Write each column (array) for this row
+    for (int col = 0; col < numCols; ++col) {
+      auto& arrayWriter = dynamicRowWriter.get_writer_at(col);
+
+      if (auto typedArrayWriter = arrayWriter.tryCastTo<Array<int64_t>>()) {
+        typedArrayWriter->resize(arraySize);
+        for (int i = 0; i < arraySize; ++i) {
+          (*typedArrayWriter)[i] = row * 100 + col * 10 + i + 1;
+        }
+      }
+    }
+
+    dynamicWriter.commit();
+  }
+  dynamicWriter.finish();
+
+  LOG(INFO) << "Created new rowVector using VectorWriter<DynamicRow>:";
+  LOG(INFO) << "Output RowVector toString: "
+            << outputVector->toString(0, numRows);
+
+  return outputVector;
+}
+
+void runDynamicTypeDemo() {
+  // Step 1: Initialize Velox environment
+  auto pool = initializeVelox();
+
+  // Step 2: Create original row vector with array columns
+  const int numRows = 3;
+  const int numCols = 3;
+  const int arraySize = 4;
+  auto originalRowVector =
+      createOriginalRowVector(pool.get(), numRows, numCols, arraySize);
+
+  // Step 3: Demonstrate VectorReader<DynamicRow> usage
+  auto readerRowVector = readRowVector(originalRowVector, pool.get());
+
+  // Step 4: Demonstrate VectorWriter<DynamicRow> usage
+  auto writerRowVector = writeRowVector(originalRowVector, pool.get());
+
+  // Step 5: Verify that VectorReader output and VectorWriter output matches
+  // original
+  std::vector<RowVectorPtr> readerVecs = {
+      std::dynamic_pointer_cast<RowVector>(readerRowVector)};
+  std::vector<RowVectorPtr> writerVecs = {
+      std::dynamic_pointer_cast<RowVector>(writerRowVector)};
+  std::vector<RowVectorPtr> originalVecs = {
+      std::dynamic_pointer_cast<RowVector>(originalRowVector)};
+
+  exec::test::assertEqualResults(readerVecs, writerVecs);
+  exec::test::assertEqualResults(originalVecs, writerVecs);
+}
+
 } // namespace facebook::velox::functions
 
 int main(int argc, char** argv) {
