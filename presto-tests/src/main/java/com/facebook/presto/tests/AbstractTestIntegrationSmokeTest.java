@@ -152,8 +152,12 @@ public abstract class AbstractTestIntegrationSmokeTest
         // Generate a unique table name
         String uniqueSuffix = String.valueOf(ThreadLocalRandom.current().nextInt(1_000_000, 10_000_000));
         String tableName = "orders_" + uniqueSuffix;
+        // Skip test for connectors that do not support CTAS
+        if (catalog.equalsIgnoreCase("arrow_flight") || catalog.equalsIgnoreCase("cassandra")) {
+            throw new SkipException("Connector does not support CREATE TABLE AS SELECT");
+        }
         // Create the unique table
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 15000);
         @Language("SQL") String ordersTableWithColumns = "VALUES " +
                 "('" + tableName + "', 'orderkey'), " +
                 "('" + tableName + "', 'custkey'), " +
