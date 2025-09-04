@@ -17,11 +17,9 @@
 
 namespace facebook::velox::expression {
 
-constexpr const char* kConjunt = "conjunct";
 constexpr const char* kAnd = "and";
 constexpr const char* kOr = "or";
 constexpr const char* kSwitch = "switch";
-constexpr const char* kIn = "in";
 constexpr const char* kIf = "if";
 constexpr const char* kFail = "fail";
 constexpr const char* kCoalesce = "coalesce";
