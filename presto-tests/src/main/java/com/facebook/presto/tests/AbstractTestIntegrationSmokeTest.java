@@ -180,7 +180,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                     ordersTableWithColumns
             );
             assertQuery(
-                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + uniqueSuffix + "'",
+                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_[0-9]%" + uniqueSuffix + "'",
                     ordersTableWithColumns
             );
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
