@@ -21,6 +21,7 @@ import com.facebook.airlift.discovery.client.ServiceAnnouncement;
 import com.facebook.airlift.discovery.client.ServiceSelectorManager;
 import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
 import com.facebook.airlift.event.client.EventModule;
+import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
@@ -60,6 +61,7 @@ import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
+import com.facebook.presto.server.HttpServerModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
@@ -135,7 +137,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
@@ -152,7 +153,8 @@ public class TestingPrestoServer
     private final FunctionAndTypeManager functionAndTypeManager;
     private final WorkerFunctionRegistryTool workerFunctionRegistryTool;
     private final ConnectorManager connectorManager;
-    private final TestingHttpServer server;
+    private final URI httpBaseUri;
+    private final URI httpsUri;
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final SqlParser sqlParser;
@@ -294,16 +296,15 @@ public class TestingPrestoServer
 
         properties = new HashMap<>(properties);
         this.nodeSchedulerIncludeCoordinator = (properties.getOrDefault("node-scheduler.include-coordinator", "true")).equals("true");
-        String coordinatorPort = properties.remove("http-server.http.port");
-        if (coordinatorPort == null) {
-            coordinatorPort = "0";
+
+        if (!coordinator) {
+            properties.remove("http-server.http.port");
         }
 
         Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, coordinatorSidecarEnabled, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
-                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
                 .add(installModuleIf(
                         FeaturesConfig.class,
@@ -338,6 +339,13 @@ public class TestingPrestoServer
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
                 });
+
+        if (coordinator) {
+            modules.add(new HttpServerModule());
+        }
+        else {
+            modules.add(new TestingHttpServerModule(0));
+        }
 
         if (discoveryUri != null) {
             requireNonNull(environment, "environment required when discoveryUri is present");
@@ -374,7 +382,15 @@ public class TestingPrestoServer
         functionAndTypeManager = injector.getInstance(FunctionAndTypeManager.class);
         workerFunctionRegistryTool = injector.getInstance(WorkerFunctionRegistryTool.class);
 
-        server = injector.getInstance(TestingHttpServer.class);
+        if (coordinator) {
+            httpBaseUri = injector.getInstance(HttpServerInfo.class).getHttpUri();
+            httpsUri = injector.getInstance(HttpServerInfo.class).getHttpsUri();
+        }
+        else {
+            httpBaseUri = injector.getInstance(TestingHttpServer.class).getBaseUrl();
+            httpsUri = injector.getInstance(TestingHttpServer.class).getHttpServerInfo().getHttpsUri();
+        }
+
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         sqlParser = injector.getInstance(SqlParser.class);
@@ -600,12 +616,12 @@ public class TestingPrestoServer
 
     public URI getBaseUrl()
     {
-        return server.getBaseUrl();
+        return httpBaseUri;
     }
 
     public URI resolve(String path)
     {
-        return server.getBaseUrl().resolve(path);
+        return httpBaseUri.resolve(path);
     }
 
     public HostAndPort getAddress()
@@ -615,7 +631,6 @@ public class TestingPrestoServer
 
     public HostAndPort getHttpsAddress()
     {
-        URI httpsUri = server.getHttpServerInfo().getHttpsUri();
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
     }
 
