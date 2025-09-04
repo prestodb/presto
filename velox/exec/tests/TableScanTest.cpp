@@ -5132,6 +5132,60 @@ TEST_F(TableScanTest, flatMapKeyTypeEvolution) {
   }
 }
 
+TEST_F(TableScanTest, flatMapLazyRowValue) {
+  auto c0 = makeMapVector(
+      {0, 2},
+      makeFlatVector<int64_t>({1, 2, 1, 2}),
+      makeRowVector({
+          makeFlatVector<int64_t>({3, 4, 5, 6}),
+          makeFlatVector<int64_t>({7, 8, 9, 10}),
+      }));
+  auto vector = makeRowVector({c0, makeFlatVector<bool>({false, true})});
+  auto config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set<const std::vector<uint32_t>>(dwrf::Config::MAP_FLAT_COLS, {0});
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector}, config);
+  auto split = makeHiveConnectorSplit(file->getPath());
+  {
+    SCOPED_TRACE("Read as map");
+    auto plan = PlanBuilder()
+                    .tableScan(
+                        ROW("c0", c0->type()),
+                        {"c0 is not null", "c1 = true"},
+                        "",
+                        vector->rowType())
+                    .planNode();
+    auto expected = makeRowVector({wrapInDictionary(makeIndices({1}), c0)});
+    AssertQueryBuilder(plan).split(split).assertResults(expected);
+  }
+  {
+    SCOPED_TRACE("Read as struct");
+    auto valueType = ROW({"c0", "c1"}, {BIGINT(), BIGINT()});
+    auto readSchema = ROW("c0", ROW({"1", "2"}, valueType));
+    auto plan = PlanBuilder()
+                    .tableScan(
+                        readSchema,
+                        {"c0 is not null", "c1 = true"},
+                        "",
+                        vector->rowType())
+                    .planNode();
+    auto expected = makeRowVector({makeRowVector(
+        {"1", "2"},
+        {
+            makeRowVector({
+                makeConstant<int64_t>(5, 1),
+                makeConstant<int64_t>(9, 1),
+            }),
+            makeRowVector({
+                makeConstant<int64_t>(6, 1),
+                makeConstant<int64_t>(10, 1),
+            }),
+        })});
+    AssertQueryBuilder(plan).split(split).assertResults(expected);
+  }
+}
+
 TEST_F(TableScanTest, dynamicFilters) {
   // Make sure filters on same column from multiple downstream operators are
   // merged properly without overwriting each other.

@@ -296,8 +296,18 @@ void checkResultsEqual(
       expectedRowIndex = 0;
       continue;
     }
-    VELOX_CHECK(actual[actualVectorIndex]->equalValueAt(
-        expected[expectedVectorIndex].get(), actualRowIndex, expectedRowIndex));
+    VELOX_CHECK(
+        actual[actualVectorIndex]->equalValueAt(
+            expected[expectedVectorIndex].get(),
+            actualRowIndex,
+            expectedRowIndex),
+        "actualVectorIndex={} actualRowIndex={} expectedVectorIndex={} expectedRowIndex={}\nactual={}\nexpected={}",
+        actualVectorIndex,
+        actualRowIndex,
+        expectedVectorIndex,
+        expectedRowIndex,
+        actual[actualVectorIndex]->toString(actualRowIndex),
+        expected[expectedVectorIndex]->toString(expectedRowIndex));
     ++actualRowIndex;
     ++expectedRowIndex;
   }
@@ -505,8 +515,8 @@ void TableEvolutionFuzzer::run() {
     // Generate remaining filters and extract new columns
     generatedRemainingFilters = generateRemainingFilters(config_, currentSeed_);
 
-    LOG(INFO) << "Generated remaining filters from expression fuzzer: "
-              << generatedRemainingFilters.expressions[0]->toString();
+    VLOG(1) << "Generated remaining filters from expression fuzzer: "
+            << generatedRemainingFilters.expressions[0]->toString();
 
     // Extract all columns from generatedRemainingFilters.inputType
     if (generatedRemainingFilters.inputType) {
@@ -524,7 +534,7 @@ void TableEvolutionFuzzer::run() {
           << " columns from generateRemainingFilters, will add to schema evolution";
     }
   } else {
-    LOG(INFO) << "Skipping remaining filter generation (50% randomization)";
+    VLOG(1) << "Skipping remaining filter generation (50% randomization)";
   }
 
   // Step 2: Test setup and bucketColumnIndices generation with additional
@@ -586,19 +596,14 @@ void TableEvolutionFuzzer::run() {
   std::unordered_set<std::string> subfieldFilteredFields;
   for (const auto& [subfield, filter] : pushownConfig.subfieldFiltersMap) {
     auto fieldName = subfield.toString();
-    LOG(INFO) << "Raw subfield: " << fieldName;
+    VLOG(1) << "Raw subfield: " << fieldName << ' ' << filter->toString();
     // Extract the root field name (before any nested access)
-    size_t dotPos = fieldName.find('.');
+    const size_t dotPos = fieldName.find('.');
     if (dotPos != std::string::npos) {
       fieldName = fieldName.substr(0, dotPos);
+      VLOG(1) << "Subfield filter targets field: " << fieldName;
     }
     subfieldFilteredFields.insert(fieldName);
-    LOG(INFO) << "Subfield filter targets field: " << fieldName;
-  }
-
-  LOG(INFO) << "All subfield filtered fields:";
-  for (const auto& field : subfieldFilteredFields) {
-    LOG(INFO) << "  - " << field;
   }
 
   // Apply generated remaining filters with updated column names, avoiding
@@ -815,6 +820,8 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeWriteTask(
           // %50 chance to enable flatmap for this map column.
           if (enableFlatMap && folly::Random::oneIn(2, rng)) {
             supportedMapColumnIndices.push_back(static_cast<uint32_t>(i));
+            VLOG(1) << "Write column " << setup.schema->nameOf(i)
+                    << " as flatmap";
           }
         }
       }
@@ -829,9 +836,6 @@ std::unique_ptr<TaskCursor> TableEvolutionFuzzer::makeWriteTask(
       // Convert to serdeParameters
       auto configParams = config->toSerdeParams();
       serdeParameters.insert(configParams.begin(), configParams.end());
-    } else {
-      LOG(INFO)
-          << "No map columns support flatmap, skipping flatmap configuration";
     }
   }
 
@@ -991,7 +995,7 @@ void TableEvolutionFuzzer::createWriteTasks(
     auto actualDir = fmt::format("{}/actual_{}", tableOutputRootDirPath, i);
     VELOX_CHECK(std::filesystem::create_directory(actualDir));
     writeTasks[2 * i] = makeWriteTask(
-        testSetups[i], data, actualDir, bucketColumnIndices, rng_, false);
+        testSetups[i], data, actualDir, bucketColumnIndices, rng_, true);
 
     if (i == config_.evolutionCount - 1) {
       finalExpectedData = std::move(data);
@@ -1008,7 +1012,7 @@ void TableEvolutionFuzzer::createWriteTasks(
         expectedDir,
         bucketColumnIndices,
         rng_,
-        false);
+        true);
   }
 }
 
@@ -1026,7 +1030,7 @@ void TableEvolutionFuzzer::applyRemainingFilters(
   std::vector<std::string> filterStrings;
   for (const auto& expr : generatedRemainingFilters.expressions) {
     auto filterString = expr->toString();
-    LOG(INFO) << "Processing remaining filter expression: " << filterString;
+    VLOG(1) << "Processing remaining filter expression: " << filterString;
 
     // First, update column names in the filter string using columnNameMapping
     for (const auto& [originalName, currentName] : columnNameMapping) {
@@ -1057,7 +1061,7 @@ void TableEvolutionFuzzer::applyRemainingFilters(
       }
     }
 
-    LOG(INFO) << "After column name mapping: " << filterString;
+    VLOG(1) << "After column name mapping: " << filterString;
 
     // Now check if this filter expression conflicts with subfield filters
     bool hasConflict = false;
@@ -1082,7 +1086,7 @@ void TableEvolutionFuzzer::applyRemainingFilters(
 
         if (isCompleteWord) {
           hasConflict = true;
-          LOG(INFO)
+          VLOG(1)
               << "CONFLICT DETECTED! Skipping remaining filter due to conflict with subfield filter on field: "
               << subfieldField << ", filter: " << filterString;
           break;
@@ -1096,12 +1100,11 @@ void TableEvolutionFuzzer::applyRemainingFilters(
 
     // Skip this filter if it conflicts with subfield filters
     if (hasConflict) {
-      LOG(INFO) << "Skipping filter due to conflict: " << filterString;
+      VLOG(1) << "Skipping filter due to conflict: " << filterString;
       continue;
     }
 
-    LOG(INFO) << "No conflict detected, proceeding with filter: "
-              << filterString;
+    VLOG(1) << "No conflict detected, proceeding with filter: " << filterString;
 
     // Fix DATE literal format: convert bare date to DATE literal format
     // to prevent DuckDB parser from interpreting it as arithmetic expression

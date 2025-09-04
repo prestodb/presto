@@ -255,6 +255,11 @@ class SelectiveFlatMapAsMapReader : public SelectiveStructColumnReaderBase {
                 scanSpec,
                 dwio::common::flatmap::FlatMapOutput::kMap)) {}
 
+  void setIsTopLevel() override {
+    // Children are not considered top level since this is materialized as MAP.
+    SelectiveColumnReader::setIsTopLevel();
+  }
+
   void read(int64_t offset, const RowSet& rows, const uint64_t* incomingNulls)
       override {
     flatMap_.read(offset, rows, incomingNulls);

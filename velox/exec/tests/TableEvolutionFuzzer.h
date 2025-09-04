@@ -105,7 +105,7 @@ class TableEvolutionFuzzer {
       const std::string& outputDir,
       const std::vector<column_index_t>& bucketColumnIndices,
       FuzzerGenerator& rng,
-      bool enableFlatMap = false);
+      bool enableFlatMap);
 
   template <typename To, typename From>
   VectorPtr liftToPrimitiveType(
