@@ -893,54 +893,11 @@ RowVectorPtr MergeJoin::doGetOutput() {
   // match.
   if (leftMatch_) {
     VELOX_CHECK(rightMatch_);
-
-    if (input_) {
-      // Look for continuation of a match on the left and/or right sides.
-      if (!findEndOfMatch(input_, leftKeyChannels_, leftMatch_.value())) {
-        VELOX_CHECK(!leftMatch_->complete);
-        // Continue looking for the end of the match.
-        clearLeftInput();
-        return nullptr;
-      }
-      VELOX_CHECK(leftMatch_->complete);
-
-      if (leftMatch_->inputs.back() == input_) {
-        leftRowIndex_ = leftMatch_->endRowIndex;
-      }
-    } else if (leftHasNoInput()) {
-      leftMatch_->complete = true;
-    } else {
-      // Need more input.
+    if (!advanceMatch()) {
       return nullptr;
     }
-
-    if (rightInput_) {
-      if (!findEndOfMatch(
-              rightInput_, rightKeyChannels_, rightMatch_.value())) {
-        VELOX_CHECK(!rightMatch_->complete);
-        // Continue looking for the end of the match.
-        clearRightInput();
-        return nullptr;
-      }
-      VELOX_CHECK(rightMatch_->complete);
-
-      if (rightMatch_->inputs.back() == rightInput_) {
-        if (isFullJoin(joinType_) || isRightJoin(joinType_)) {
-          rightRowIndex_ = rightMatch_->endRowIndex;
-        } else {
-          rightRowIndex_ = firstNonNull(
-              rightInput_, rightKeyChannels_, rightMatch_->endRowIndex);
-          if (rightRowIndex_ == rightInput_->size()) {
-            clearRightInput();
-          }
-        }
-      }
-    } else if (rightHasNoInput()) {
-      rightMatch_->complete = true;
-    } else {
-      // Need more input.
-      return nullptr;
-    }
+    VELOX_CHECK(leftMatch_->complete);
+    VELOX_CHECK(rightMatch_->complete);
   }
 
   // There is no output-in-progress match, but there can be a complete match
@@ -1210,6 +1167,84 @@ RowVectorPtr MergeJoin::doGetOutput() {
   }
 
   VELOX_UNREACHABLE();
+}
+
+bool MergeJoin::advanceMatch() {
+  VELOX_CHECK(leftMatch_);
+  VELOX_CHECK(rightMatch_);
+
+  if (!advanceLeftMatch()) {
+    return false;
+  }
+  return advanceRightMatch();
+}
+
+// Template implementation for advancing left or right match completion.
+// Consolidates logic for finding the end of incomplete matches.
+template <bool IsLeft>
+bool MergeJoin::advanceMatchImpl() {
+  auto& match = IsLeft ? leftMatch_ : rightMatch_;
+  auto& input = IsLeft ? input_ : rightInput_;
+  auto& keyChannels = IsLeft ? leftKeyChannels_ : rightKeyChannels_;
+  auto& rowIndex = IsLeft ? leftRowIndex_ : rightRowIndex_;
+
+  VELOX_CHECK(match);
+
+  if (input) {
+    // Look for continuation of a match.
+    if (!findEndOfMatch(input, keyChannels, match.value())) {
+      VELOX_CHECK(!match->complete);
+      // Continue looking for the end of the match.
+      if constexpr (IsLeft) {
+        clearLeftInput();
+      } else {
+        clearRightInput();
+      }
+      return false;
+    }
+    VELOX_CHECK(match->complete);
+
+    if (match->inputs.back() == input) {
+      if (IsLeft || isFullJoin(joinType_) || isRightJoin(joinType_)) {
+        rowIndex = match->endRowIndex;
+      } else {
+        rowIndex = firstNonNull(input, keyChannels, match->endRowIndex);
+        if (rowIndex == input->size()) {
+          if constexpr (IsLeft) {
+            clearLeftInput();
+          } else {
+            clearRightInput();
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  if constexpr (IsLeft) {
+    if (leftHasNoInput()) {
+      match->complete = true;
+      return true;
+    }
+  } else {
+    if (rightHasNoInput()) {
+      match->complete = true;
+      return true;
+    }
+  }
+
+  // Need more input.
+  return false;
+}
+
+// Delegates to the template implementation for left match advancement.
+bool MergeJoin::advanceLeftMatch() {
+  return advanceMatchImpl<true>();
+}
+
+// Delegates to the template implementation for right match advancement.
+bool MergeJoin::advanceRightMatch() {
+  return advanceMatchImpl<false>();
 }
 
 void MergeJoin::clearLeftInput() {

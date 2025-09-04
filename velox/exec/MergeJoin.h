@@ -311,6 +311,26 @@ class MergeJoin : public Operator {
     return rightRowIndex_ == rightInput_->size();
   }
 
+  // Tries to complete incomplete matches on both left and right sides.
+  // Returns true if both matches are complete, false if more input is needed.
+  bool advanceMatch();
+
+  // Tries to complete an incomplete match on the left side by finding the end
+  // of matching key sequence. Returns true if complete, false if more input
+  // needed.
+  bool advanceLeftMatch();
+
+  // Tries to complete an incomplete match on the right side by finding the end
+  // of matching key sequence. Returns true if complete, false if more input
+  // needed.
+  bool advanceRightMatch();
+
+  // Template function to consolidate advanceLeftMatch and advanceRightMatch
+  // logic. Uses compile-time template parameter to handle left vs right
+  // differences.
+  template <bool IsLeft>
+  bool advanceMatchImpl();
+
   // Properly resizes and produces the current output vector if one is
   // available.
   RowVectorPtr produceOutput() {
