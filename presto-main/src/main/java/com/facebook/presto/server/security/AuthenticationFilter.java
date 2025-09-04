@@ -46,6 +46,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -70,6 +71,7 @@ public class AuthenticationFilter
     private final boolean allowForwardedHttps;
     private final ClientRequestFilterManager clientRequestFilterManager;
     private final List<String> headersBlockList = ImmutableList.of("X-Presto-Transaction-Id", "X-Presto-Started-Transaction-Id", "X-Presto-Clear-Transaction-Id", "X-Presto-Trace-Token");
+    private final boolean allowRequestFilterOverwriteHeaders;
 
     @Inject
     public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, ClientRequestFilterManager clientRequestFilterManager)
@@ -77,6 +79,7 @@ public class AuthenticationFilter
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.allowForwardedHttps = requireNonNull(securityConfig, "securityConfig is null").getAllowForwardedHttps();
         this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
+        this.allowRequestFilterOverwriteHeaders = securityConfig.isAllowRequestFilterOverwriteHeaders();
     }
 
     @Override
@@ -156,37 +159,55 @@ public class AuthenticationFilter
             return request;
         }
 
-        ImmutableMap.Builder<String, String> extraHeadersMapBuilder = ImmutableMap.builder();
-        Set<String> addedHeaders = new HashSet<>();
-
-        for (ClientRequestFilter requestFilter : clientRequestFilters) {
-            boolean headersPresent = requestFilter.getExtraHeaderKeys().stream()
-                    .allMatch(headerName -> request.getHeader(headerName) != null);
-
-            if (!headersPresent) {
+        Map<String, String> completeExtraHeaders;
+        if (allowRequestFilterOverwriteHeaders) {
+            Map<String, String> extraHeadersMap = new HashMap<>();
+            for (ClientRequestFilter requestFilter : clientRequestFilters) {
                 Map<String, String> extraHeaderValueMap = requestFilter.getExtraHeaders(principal);
+                for (Map.Entry<String, String> extraHeaderEntry : extraHeaderValueMap.entrySet()) {
+                    String headerKey = extraHeaderEntry.getKey();
+                    if (headersBlockList.contains(headerKey)) {
+                        throw new PrestoException(HEADER_MODIFICATION_ATTEMPT,
+                                "Modification attempt detected: The header " + headerKey + " is not allowed to be modified. The following headers cannot be modified: " +
+                                        String.join(", ", headersBlockList));
+                    }
+                    String existingValue = extraHeadersMap.getOrDefault(headerKey, request.getHeader(headerKey));
+                    extraHeadersMap.put(headerKey, requestFilter.resolveHeaderConflict(headerKey, existingValue, extraHeaderEntry.getValue()));
+                }
+            }
+            completeExtraHeaders = ImmutableMap.copyOf(extraHeadersMap);
+        }
+        else {
+            ImmutableMap.Builder<String, String> extraHeadersMapBuilder = ImmutableMap.builder();
+            Set<String> addedHeaders = new HashSet<>();
+            for (ClientRequestFilter requestFilter : clientRequestFilters) {
+                boolean headersPresent = requestFilter.getExtraHeaderKeys().stream()
+                        .allMatch(headerName -> request.getHeader(headerName) != null);
+                if (!headersPresent) {
+                    Map<String, String> extraHeaderValueMap = requestFilter.getExtraHeaders(principal);
 
-                if (!extraHeaderValueMap.isEmpty()) {
-                    for (Map.Entry<String, String> extraHeaderEntry : extraHeaderValueMap.entrySet()) {
-                        String headerKey = extraHeaderEntry.getKey();
-                        if (headersBlockList.contains(headerKey)) {
-                            throw new PrestoException(HEADER_MODIFICATION_ATTEMPT,
-                                    "Modification attempt detected: The header " + headerKey + " is not allowed to be modified. The following headers cannot be modified: " +
-                                            String.join(", ", headersBlockList));
-                        }
-                        if (addedHeaders.contains(headerKey)) {
-                            throw new PrestoException(HEADER_MODIFICATION_ATTEMPT, "Header conflict detected: " + headerKey + " already added by another filter.");
-                        }
-                        if (request.getHeader(headerKey) == null && requestFilter.getExtraHeaderKeys().contains(headerKey)) {
-                            extraHeadersMapBuilder.put(headerKey, extraHeaderEntry.getValue());
-                            addedHeaders.add(headerKey);
+                    if (!extraHeaderValueMap.isEmpty()) {
+                        for (Map.Entry<String, String> extraHeaderEntry : extraHeaderValueMap.entrySet()) {
+                            String headerKey = extraHeaderEntry.getKey();
+                            if (headersBlockList.contains(headerKey)) {
+                                throw new PrestoException(HEADER_MODIFICATION_ATTEMPT,
+                                        "Modification attempt detected: The header " + headerKey + " is not allowed to be modified. The following headers cannot be modified: " +
+                                                String.join(", ", headersBlockList));
+                            }
+                            if (addedHeaders.contains(headerKey)) {
+                                throw new PrestoException(HEADER_MODIFICATION_ATTEMPT, "Header conflict detected: " + headerKey + " already added by another filter.");
+                            }
+                            if (request.getHeader(headerKey) == null && requestFilter.getExtraHeaderKeys().contains(headerKey)) {
+                                extraHeadersMapBuilder.put(headerKey, extraHeaderEntry.getValue());
+                                addedHeaders.add(headerKey);
+                            }
                         }
                     }
                 }
             }
+            completeExtraHeaders = extraHeadersMapBuilder.build();
         }
-
-        return new ModifiedHttpServletRequest(request, extraHeadersMapBuilder.build());
+        return new ModifiedHttpServletRequest(request, completeExtraHeaders);
     }
 
     private boolean doesRequestSupportAuthentication(HttpServletRequest request)

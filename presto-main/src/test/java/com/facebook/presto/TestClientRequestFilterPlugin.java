@@ -20,6 +20,7 @@ import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ClientRequestFilter;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -38,11 +39,12 @@ import static org.testng.Assert.assertEquals;
 public class TestClientRequestFilterPlugin
 {
     @Test
-    public void testCustomRequestFilterWithHeaders() throws Exception
+    public void testCustomRequestFilterWithHeaders()
+            throws Exception
     {
         MockHttpServletRequest request = new MockHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header", "CustomValue"));
         List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterFactory();
-        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory);
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory, false);
         PrincipalStub testPrincipal = new PrincipalStub();
 
         HttpServletRequest wrappedRequest = filter.mergeExtraHeaders(request, testPrincipal);
@@ -55,11 +57,12 @@ public class TestClientRequestFilterPlugin
             expectedExceptions = RuntimeException.class,
             expectedExceptionsMessageRegExp = "Modification attempt detected: The header X-Presto-Transaction-Id is not allowed to be modified. The following headers cannot be modified: " +
                     "X-Presto-Transaction-Id, X-Presto-Started-Transaction-Id, X-Presto-Clear-Transaction-Id, X-Presto-Trace-Token")
-    public void testCustomRequestFilterWithHeadersInBlockList() throws Exception
+    public void testCustomRequestFilterWithHeadersInBlockList()
+            throws Exception
     {
         MockHttpServletRequest request = new MockHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header", "CustomValue"));
         List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterInBlockList();
-        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory);
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory, false);
         PrincipalStub testPrincipal = new PrincipalStub();
 
         filter.mergeExtraHeaders(request, testPrincipal);
@@ -68,14 +71,29 @@ public class TestClientRequestFilterPlugin
     @Test(
             expectedExceptions = RuntimeException.class,
             expectedExceptionsMessageRegExp = "Header conflict detected: ExpectedExtraValue already added by another filter.")
-    public void testCustomRequestFilterHandlesConflict() throws Exception
+    public void testCustomRequestFilterHandlesConflict()
+            throws Exception
     {
         MockHttpServletRequest request = new MockHttpServletRequest(ImmutableListMultimap.of("X-Custom-Header", "CustomValue"));
         List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterFactoryHandlesConflict();
-        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory);
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory, false);
         PrincipalStub testPrincipal = new PrincipalStub();
 
         filter.mergeExtraHeaders(request, testPrincipal);
+    }
+
+    @Test
+    public void testCustomRequestFilterOverwriteCredential()
+            throws Exception
+    {
+        MockHttpServletRequest request = new MockHttpServletRequest(ImmutableListMultimap.of("X-Presto-Extra-Credential", "OldValue"));
+        List<ClientRequestFilterFactory> requestFilterFactory = getClientRequestFilterFactoryOverwriteCredential();
+        AuthenticationFilter filter = setupAuthenticationFilter(requestFilterFactory, true);
+        PrincipalStub testPrincipal = new PrincipalStub();
+
+        HttpServletRequest wrappedRequest = filter.mergeExtraHeaders(request, testPrincipal);
+
+        assertEquals("UPDATED_VALUE", wrappedRequest.getHeader("X-Presto-Extra-Credential"));
     }
 
     private List<ClientRequestFilterFactory> getClientRequestFilterFactory()
@@ -103,13 +121,22 @@ public class TestClientRequestFilterPlugin
                 });
     }
 
-    private AuthenticationFilter setupAuthenticationFilter(List<ClientRequestFilterFactory> requestFilterFactory) throws Exception
+    private List<ClientRequestFilterFactory> getClientRequestFilterFactoryOverwriteCredential()
     {
-        try (TestingPrestoServer testingPrestoServer = new TestingPrestoServer()) {
+        return createFilterFactories(
+                new String[][] {
+                        {"OverwriteCredential", "X-Presto-Extra-Credential", "UPDATED_VALUE"},
+                });
+    }
+
+    private AuthenticationFilter setupAuthenticationFilter(List<ClientRequestFilterFactory> requestFilterFactory, boolean allowOverwriteHeaders)
+            throws Exception
+    {
+        try (TestingPrestoServer testingPrestoServer = new TestingPrestoServer(true, ImmutableMap.of("http-server.http.port", "8081"), null, null, new SqlParserOptions(), ImmutableList.of())) {
             ClientRequestFilterManager clientRequestFilterManager = testingPrestoServer.getClientRequestFilterManager(requestFilterFactory);
 
             List<Authenticator> authenticators = createAuthenticators();
-            SecurityConfig securityConfig = createSecurityConfig();
+            SecurityConfig securityConfig = createSecurityConfig(allowOverwriteHeaders);
 
             return new AuthenticationFilter(authenticators, securityConfig, clientRequestFilterManager);
         }
@@ -129,13 +156,20 @@ public class TestClientRequestFilterPlugin
         return Collections.emptyList();
     }
 
-    private SecurityConfig createSecurityConfig()
+    private SecurityConfig createSecurityConfig(boolean allowOverwriteHeaders)
     {
-        return new SecurityConfig() {
+        return new SecurityConfig()
+        {
             @Override
             public boolean getAllowForwardedHttps()
             {
                 return true;
+            }
+
+            @Override
+            public boolean isAllowRequestFilterOverwriteHeaders()
+            {
+                return allowOverwriteHeaders;
             }
         };
     }
@@ -179,6 +213,15 @@ public class TestClientRequestFilterPlugin
             public Map<String, String> getExtraHeaders(Principal principal)
             {
                 return ImmutableMap.of(headerName, headerValue);
+            }
+
+            @Override
+            public String resolveHeaderConflict(String headerName, String clientHeaderValue, String filterHeaderValue)
+            {
+                if (headerName.equals("X-Presto-Extra-Credential")) {
+                    return filterHeaderValue;
+                }
+                return clientHeaderValue;
             }
         }
     }
