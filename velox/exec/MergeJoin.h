@@ -235,6 +235,12 @@ class MergeJoin : public Operator {
   // right.
   bool addToOutputForRightJoin();
 
+ private:
+  // Template function to consolidate addToOutputForLeftJoin and
+  // addToOutputForRightJoin
+  template <bool IsLeftJoin>
+  bool addToOutputImpl();
+
   // Tries to add one row of output by writing to the indices of the output
   // dictionaries. By default, this operator returns dictionaries wrapped around
   // the input columns from the left and right. If `isRightFlattened_`, the

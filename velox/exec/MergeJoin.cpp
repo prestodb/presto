@@ -573,71 +573,98 @@ bool MergeJoin::addToOutput() {
   }
 }
 
-bool MergeJoin::addToOutputForLeftJoin() {
-  size_t firstLeftBatch;
-  vector_size_t leftStartRowIndex;
-  if (leftMatch_->cursor) {
-    firstLeftBatch = leftMatch_->cursor->batchIndex;
-    leftStartRowIndex = leftMatch_->cursor->rowIndex;
+template <bool IsLeftJoin>
+bool MergeJoin::addToOutputImpl() {
+  // For left join: outerMatch=left, innerMatch=right
+  // For right join: outerMatch=right, innerMatch=left
+  auto& outerMatch = IsLeftJoin ? leftMatch_ : rightMatch_;
+  auto& innerMatch = IsLeftJoin ? rightMatch_ : leftMatch_;
+
+  size_t outerFirstBatch;
+  vector_size_t outerStartRowIndex;
+  if (outerMatch->cursor) {
+    outerFirstBatch = outerMatch->cursor->batchIndex;
+    outerStartRowIndex = outerMatch->cursor->rowIndex;
   } else {
-    firstLeftBatch = 0;
-    leftStartRowIndex = leftMatch_->startRowIndex;
+    outerFirstBatch = 0;
+    outerStartRowIndex = outerMatch->startRowIndex;
   }
 
-  const size_t numLeftBatches = leftMatch_->inputs.size();
-  for (size_t leftBatchIndex = firstLeftBatch; leftBatchIndex < numLeftBatches;
-       ++leftBatchIndex) {
-    const auto& leftBatch = leftMatch_->inputs[leftBatchIndex];
-    const auto leftStartRow =
-        leftBatchIndex == firstLeftBatch ? leftStartRowIndex : 0;
-    const auto leftEndRow = leftBatchIndex == numLeftBatches - 1
-        ? leftMatch_->endRowIndex
-        : leftBatch->size();
+  const size_t numOuterBatches = outerMatch->inputs.size();
+  for (size_t outerBatchIndex = outerFirstBatch;
+       outerBatchIndex < numOuterBatches;
+       ++outerBatchIndex) {
+    const auto& outerBatch = outerMatch->inputs[outerBatchIndex];
+    const auto outerStartRow =
+        outerBatchIndex == outerFirstBatch ? outerStartRowIndex : 0;
+    const auto outerEndRow = outerBatchIndex == numOuterBatches - 1
+        ? outerMatch->endRowIndex
+        : outerBatch->size();
 
-    for (auto leftRow = leftStartRow; leftRow < leftEndRow; ++leftRow) {
-      const bool firstLeftRow =
-          leftBatchIndex == firstLeftBatch && leftRow == leftStartRow;
-      const auto firstRightBatch = (firstLeftRow && rightMatch_->cursor)
-          ? rightMatch_->cursor->batchIndex
+    for (auto outerRow = outerStartRow; outerRow < outerEndRow; ++outerRow) {
+      const bool outerFirstRow =
+          outerBatchIndex == outerFirstBatch && outerRow == outerStartRow;
+      const auto innerFirstBatch = (outerFirstRow && innerMatch->cursor)
+          ? innerMatch->cursor->batchIndex
           : 0;
 
-      const auto rightStartRowIndex = (firstLeftRow && rightMatch_->cursor)
-          ? rightMatch_->cursor->rowIndex
-          : rightMatch_->startRowIndex;
+      const auto innerStartRowIndex = (outerFirstRow && innerMatch->cursor)
+          ? innerMatch->cursor->rowIndex
+          : innerMatch->startRowIndex;
 
-      const auto numRightBatches = rightMatch_->inputs.size();
+      const auto numInnerBatches = innerMatch->inputs.size();
       // TODO: Since semi joins only require determining if there is at least
       // one match on the other side, we could explore specialized algorithms
       // or data structures that short-circuit the join process once a match
       // is found.
-      for (size_t rightBatchIndex =
-               (isLeftSemiFilterJoin(joinType_) && !filter_)
-               ? numRightBatches - 1
-               : firstRightBatch;
-           rightBatchIndex < numRightBatches;
-           ++rightBatchIndex) {
-        const auto& rightBatch = rightMatch_->inputs[rightBatchIndex];
-        auto rightStartRow =
-            rightBatchIndex == firstRightBatch ? rightStartRowIndex : 0;
-        const auto rightEndRow = rightBatchIndex == numRightBatches - 1
-            ? rightMatch_->endRowIndex
-            : rightBatch->size();
-        if (isLeftSemiFilterJoin(joinType_) && !filter_) {
-          rightStartRow = rightEndRow - 1;
+      // Handle semi-filter join optimization
+      const bool isSemiFilter = IsLeftJoin
+          ? (isLeftSemiFilterJoin(joinType_) && !filter_)
+          : (isRightSemiFilterJoin(joinType_) && !filter_);
+
+      for (size_t innerBatchIndex = isSemiFilter ? numInnerBatches - 1
+                                                 : innerFirstBatch;
+           innerBatchIndex < numInnerBatches;
+           ++innerBatchIndex) {
+        const auto& innerBatch = innerMatch->inputs[innerBatchIndex];
+        auto innerStartRow =
+            innerBatchIndex == innerFirstBatch ? innerStartRowIndex : 0;
+        const auto innerEndRow = innerBatchIndex == numInnerBatches - 1
+            ? innerMatch->endRowIndex
+            : innerBatch->size();
+
+        if (isSemiFilter) {
+          innerStartRow = innerEndRow - 1;
         }
+
+        // Determine the correct order for prepareOutput and tryAddOutputRow
+        const auto& leftBatch = IsLeftJoin ? outerBatch : innerBatch;
+        const auto& rightBatch = IsLeftJoin ? innerBatch : outerBatch;
+
         if (prepareOutput(leftBatch, rightBatch)) {
           output_->resize(outputSize_);
-          leftMatch_->setCursor(leftBatchIndex, leftRow);
-          rightMatch_->setCursor(rightBatchIndex, rightStartRow);
+          outerMatch->setCursor(outerBatchIndex, outerRow);
+          innerMatch->setCursor(innerBatchIndex, innerStartRow);
           return true;
         }
 
-        for (auto rightRow = rightStartRow; rightRow < rightEndRow;
-             ++rightRow) {
-          if (!tryAddOutputRow(leftBatch, leftRow, rightBatch, rightRow)) {
-            leftMatch_->setCursor(leftBatchIndex, leftRow);
-            rightMatch_->setCursor(rightBatchIndex, rightRow);
-            return true;
+        if (IsLeftJoin) {
+          for (auto innerRow = innerStartRow; innerRow < innerEndRow;
+               ++innerRow) {
+            if (!tryAddOutputRow(leftBatch, outerRow, rightBatch, innerRow)) {
+              outerMatch->setCursor(outerBatchIndex, outerRow);
+              innerMatch->setCursor(innerBatchIndex, innerRow);
+              return true;
+            }
+          }
+        } else {
+          for (auto innerRow = innerStartRow; innerRow < innerEndRow;
+               ++innerRow) {
+            if (!tryAddOutputRow(leftBatch, innerRow, rightBatch, outerRow)) {
+              outerMatch->setCursor(outerBatchIndex, outerRow);
+              innerMatch->setCursor(innerBatchIndex, innerRow);
+              return true;
+            }
           }
         }
       }
@@ -649,81 +676,12 @@ bool MergeJoin::addToOutputForLeftJoin() {
   return outputSize_ == outputBatchSize_;
 }
 
+bool MergeJoin::addToOutputForLeftJoin() {
+  return addToOutputImpl<true>();
+}
+
 bool MergeJoin::addToOutputForRightJoin() {
-  size_t firstRightBatch;
-  vector_size_t rightStartRowIndex;
-  if (rightMatch_->cursor) {
-    firstRightBatch = rightMatch_->cursor->batchIndex;
-    rightStartRowIndex = rightMatch_->cursor->rowIndex;
-  } else {
-    firstRightBatch = 0;
-    rightStartRowIndex = rightMatch_->startRowIndex;
-  }
-
-  const size_t numRightBatches = rightMatch_->inputs.size();
-  for (size_t rightBatchIndex = firstRightBatch;
-       rightBatchIndex < numRightBatches;
-       ++rightBatchIndex) {
-    const auto& rightBatch = rightMatch_->inputs[rightBatchIndex];
-    const auto rightStartRow =
-        rightBatchIndex == firstRightBatch ? rightStartRowIndex : 0;
-    const auto rightEndRow = rightBatchIndex == numRightBatches - 1
-        ? rightMatch_->endRowIndex
-        : rightBatch->size();
-
-    for (auto rightRow = rightStartRow; rightRow < rightEndRow; ++rightRow) {
-      const bool firstRightRow =
-          rightBatchIndex == firstRightBatch && rightRow == rightStartRow;
-      const auto firstLeftBatch = (firstRightRow && leftMatch_->cursor)
-          ? leftMatch_->cursor->batchIndex
-          : 0;
-      const auto leftStartRowIndex = (firstRightRow && leftMatch_->cursor)
-          ? leftMatch_->cursor->rowIndex
-          : leftMatch_->startRowIndex;
-
-      const auto numLeftBatches = leftMatch_->inputs.size();
-      // TODO: Since semi joins only require determining if there is at least
-      // one match on the other side, we could explore specialized algorithms
-      // or data structures that short-circuit the join process once a match
-      // is found.
-      for (size_t leftBatchIndex =
-               (isRightSemiFilterJoin(joinType_) && !filter_)
-               ? numLeftBatches - 1
-               : firstLeftBatch;
-           leftBatchIndex < numLeftBatches;
-           ++leftBatchIndex) {
-        const auto& leftBatch = leftMatch_->inputs[leftBatchIndex];
-        auto leftStartRow =
-            leftBatchIndex == firstLeftBatch ? leftStartRowIndex : 0;
-        const auto leftEndRow = leftBatchIndex == numLeftBatches - 1
-            ? leftMatch_->endRowIndex
-            : leftBatch->size();
-        if (isRightSemiFilterJoin(joinType_) && !filter_) {
-          // RightSemiFilter produce each row from the right at most once.
-          leftStartRow = leftEndRow - 1;
-        }
-
-        if (prepareOutput(leftBatch, rightBatch)) {
-          output_->resize(outputSize_);
-          leftMatch_->setCursor(leftBatchIndex, leftStartRow);
-          rightMatch_->setCursor(rightBatchIndex, rightRow);
-          return true;
-        }
-
-        for (auto leftRow = leftStartRow; leftRow < leftEndRow; ++leftRow) {
-          if (!tryAddOutputRow(leftBatch, leftRow, rightBatch, rightRow)) {
-            rightMatch_->setCursor(rightBatchIndex, rightRow);
-            leftMatch_->setCursor(leftBatchIndex, leftRow);
-            return true;
-          }
-        }
-      }
-    }
-  }
-
-  leftMatch_.reset();
-  rightMatch_.reset();
-  return outputSize_ == outputBatchSize_;
+  return addToOutputImpl<false>();
 }
 
 namespace {
@@ -1125,7 +1083,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
     return nullptr;
   }
 
-  const auto output = handleRightSideNullRows();
+  auto output = handleRightSideNullRows();
   if (output != nullptr || rightInput_ == nullptr) {
     return output;
   }
