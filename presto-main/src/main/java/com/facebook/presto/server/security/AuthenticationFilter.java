@@ -72,6 +72,7 @@ public class AuthenticationFilter
     private final ClientRequestFilterManager clientRequestFilterManager;
     private final List<String> headersBlockList = ImmutableList.of("X-Presto-Transaction-Id", "X-Presto-Started-Transaction-Id", "X-Presto-Clear-Transaction-Id", "X-Presto-Trace-Token");
     private final boolean allowRequestFilterOverwriteHeaders;
+    private final boolean testingClientRequestFilters;
 
     @Inject
     public AuthenticationFilter(List<Authenticator> authenticators, SecurityConfig securityConfig, ClientRequestFilterManager clientRequestFilterManager)
@@ -80,6 +81,7 @@ public class AuthenticationFilter
         this.allowForwardedHttps = requireNonNull(securityConfig, "securityConfig is null").getAllowForwardedHttps();
         this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
         this.allowRequestFilterOverwriteHeaders = securityConfig.isAllowRequestFilterOverwriteHeaders();
+        this.testingClientRequestFilters = securityConfig.getTestingClientRequestFilters();
     }
 
     @Override
@@ -216,6 +218,9 @@ public class AuthenticationFilter
             return false;
         }
         if (request.isSecure()) {
+            return true;
+        }
+        if (testingClientRequestFilters) {
             return true;
         }
         if (allowForwardedHttps) {
