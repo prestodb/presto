@@ -204,11 +204,11 @@ public class JoinPrefilter
                 boolean hashJoinKey = leftKeyList.size() > 1 || (leftKeyList.get(0).getType().equals(VARCHAR) || leftKeyList.get(0).getType() instanceof VarcharType);
 
                 // First create a SELECT DISTINCT leftKey FROM left
-                Map<VariableReferenceExpression, VariableReferenceExpression> leftVarMap = new HashMap();
-                PlanNode leftKeys = clonePlanNode(rewrittenLeft, session, metadata, idAllocator, leftKeyList, leftVarMap);
+                Map<VariableReferenceExpression, VariableReferenceExpression> leftVarMap = new HashMap<>();
+                PlanNode leftKeys = clonePlanNode(rewrittenLeft, session, metadata, idAllocator, leftKeyList, leftVarMap, variableAllocator);
                 ImmutableList.Builder<RowExpression> expressionsToProject = ImmutableList.builder();
                 if (hashJoinKey) {
-                    RowExpression hashExpression = getVariableHash(leftKeyList);
+                    RowExpression hashExpression = getVariableHash(leftKeyList.stream().map(leftVarMap::get).collect(toImmutableList()));
                     expressionsToProject.add(hashExpression);
                 }
                 else {
