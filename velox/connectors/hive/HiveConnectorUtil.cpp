@@ -110,8 +110,7 @@ void addSubfields(
       folly::F14FastMap<std::string, std::vector<SubfieldSpec>> required;
       for (auto& subfield : subfields) {
         auto* element = subfield.subfield->path()[level].get();
-        auto* nestedField =
-            dynamic_cast<const common::Subfield::NestedField*>(element);
+        auto* nestedField = element->as<common::Subfield::NestedField>();
         VELOX_CHECK(
             nestedField,
             "Unsupported for row subfields pruning: {}",
@@ -150,20 +149,18 @@ void addSubfields(
       std::vector<int64_t> longSubscripts;
       for (auto& subfield : subfields) {
         auto* element = subfield.subfield->path()[level].get();
-        if (dynamic_cast<const common::Subfield::AllSubscripts*>(element)) {
+        if (element->is(common::SubfieldKind::kAllSubscripts)) {
           return;
         }
         if (stringKey) {
-          auto* subscript =
-              dynamic_cast<const common::Subfield::StringSubscript*>(element);
+          auto* subscript = element->as<common::Subfield::StringSubscript>();
           VELOX_CHECK(
               subscript,
               "Unsupported for string map pruning: {}",
               element->toString());
           stringSubscripts.push_back(subscript->index());
         } else {
-          auto* subscript =
-              dynamic_cast<const common::Subfield::LongSubscript*>(element);
+          auto* subscript = element->as<common::Subfield::LongSubscript>();
           VELOX_CHECK(
               subscript,
               "Unsupported for long map pruning: {}",

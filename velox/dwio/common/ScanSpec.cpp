@@ -52,7 +52,7 @@ ScanSpec* ScanSpec::getOrCreateChild(const Subfield& subfield) {
   const auto& path = subfield.path();
   for (size_t depth = 0; depth < path.size(); ++depth) {
     const auto element = path[depth].get();
-    VELOX_CHECK_EQ(element->kind(), kNestedField);
+    VELOX_CHECK_EQ(element->kind(), SubfieldKind::kNestedField);
     auto* nestedField = static_cast<const Subfield::NestedField*>(element);
     container = container->getOrCreateChild(nestedField->name());
   }

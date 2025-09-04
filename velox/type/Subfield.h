@@ -15,21 +15,23 @@
  */
 #pragma once
 
-#include <boost/algorithm/string/replace.hpp>
 #include <fmt/format.h>
 #include <ostream>
 
+#include "velox/common/Enums.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Macros.h"
 
 namespace facebook::velox::common {
 
-enum SubfieldKind {
+enum class SubfieldKind {
   kAllSubscripts,
   kNestedField,
   kStringSubscript,
-  kLongSubscript
+  kLongSubscript,
 };
+
+VELOX_DECLARE_ENUM_NAME(SubfieldKind)
 
 // Contains field name separators to be used in Tokenizer.
 struct Separators {
@@ -56,24 +58,42 @@ class Subfield {
  public:
   class PathElement {
    public:
+    explicit PathElement(SubfieldKind kind) : kind_{kind} {}
+
     virtual ~PathElement() = default;
-    virtual SubfieldKind kind() const = 0;
-    virtual bool isSubscript() const = 0;
+
+    SubfieldKind kind() const {
+      return kind_;
+    }
+
+    bool isSubscript() const {
+      return kind_ != SubfieldKind::kNestedField;
+    }
+
     virtual std::string toString() const = 0;
+
     virtual size_t hash() const = 0;
+
     virtual bool operator==(const PathElement& other) const = 0;
+
     virtual std::unique_ptr<PathElement> clone() = 0;
+
+    bool is(SubfieldKind k) const {
+      return kind_ == k;
+    }
+
+    template <typename T>
+    const T* as() const {
+      return dynamic_cast<const T*>(this);
+    }
+
+   private:
+    const SubfieldKind kind_;
   };
 
   class AllSubscripts final : public PathElement {
    public:
-    SubfieldKind kind() const override {
-      return kAllSubscripts;
-    }
-
-    bool isSubscript() const override {
-      return true;
-    }
+    AllSubscripts() : PathElement(SubfieldKind::kAllSubscripts) {}
 
     std::string toString() const override {
       return "[*]";
@@ -84,7 +104,7 @@ class Subfield {
     }
 
     bool operator==(const PathElement& other) const override {
-      return other.kind() == kAllSubscripts;
+      return other.kind() == SubfieldKind::kAllSubscripts;
     }
 
     std::unique_ptr<PathElement> clone() override {
@@ -94,13 +114,10 @@ class Subfield {
 
   class NestedField final : public PathElement {
    public:
-    explicit NestedField(const std::string& name) : name_(name) {
+    explicit NestedField(const std::string& name)
+        : PathElement(SubfieldKind::kNestedField), name_(name) {
       VELOX_USER_CHECK(
           !name.empty(), "NestedFields must have non-empty names.");
-    }
-
-    SubfieldKind kind() const override {
-      return kNestedField;
     }
 
     const std::string& name() const {
@@ -111,21 +128,16 @@ class Subfield {
       if (this == &other) {
         return true;
       }
-      return other.kind() == kNestedField &&
-          reinterpret_cast<const NestedField*>(&other)->name_ == name_;
+      return other.kind() == SubfieldKind::kNestedField &&
+          other.as<NestedField>()->name_ == name_;
     }
 
     size_t hash() const override {
-      std::hash<std::string> hash;
-      return hash(name_);
+      return std::hash<std::string>()(name_);
     }
 
     std::string toString() const override {
       return "." + name_;
-    }
-
-    bool isSubscript() const override {
-      return false;
     }
 
     std::unique_ptr<PathElement> clone() override {
@@ -138,11 +150,8 @@ class Subfield {
 
   class LongSubscript final : public PathElement {
    public:
-    explicit LongSubscript(long index) : index_(index) {}
-
-    SubfieldKind kind() const override {
-      return kLongSubscript;
-    }
+    explicit LongSubscript(long index)
+        : PathElement(SubfieldKind::kLongSubscript), index_(index) {}
 
     long index() const {
       return index_;
@@ -152,21 +161,16 @@ class Subfield {
       if (this == &other) {
         return true;
       }
-      return other.kind() == kLongSubscript &&
-          reinterpret_cast<const LongSubscript*>(&other)->index_ == index_;
+      return other.kind() == SubfieldKind::kLongSubscript &&
+          other.as<LongSubscript>()->index_ == index_;
     }
 
     size_t hash() const override {
-      std::hash<long> hash;
-      return hash(index_);
+      return std::hash<long>()(index_);
     }
 
     std::string toString() const override {
       return "[" + std::to_string(index_) + "]";
-    }
-
-    bool isSubscript() const override {
-      return true;
     }
 
     std::unique_ptr<PathElement> clone() override {
@@ -179,11 +183,8 @@ class Subfield {
 
   class StringSubscript final : public PathElement {
    public:
-    explicit StringSubscript(const std::string& index) : index_(index) {}
-
-    SubfieldKind kind() const override {
-      return kStringSubscript;
-    }
+    explicit StringSubscript(const std::string& index)
+        : PathElement(SubfieldKind::kStringSubscript), index_(index) {}
 
     const std::string index() const {
       return index_;
@@ -193,22 +194,15 @@ class Subfield {
       if (this == &other) {
         return true;
       }
-      return other.kind() == kStringSubscript &&
-          reinterpret_cast<const StringSubscript*>(&other)->index_ == index_;
+      return other.kind() == SubfieldKind::kStringSubscript &&
+          other.as<StringSubscript>()->index_ == index_;
     }
 
     size_t hash() const override {
-      std::hash<std::string> hash;
-      return hash(index_);
+      return std::hash<std::string>()(index_);
     }
 
-    std::string toString() const override {
-      return "[\"" + boost::replace_all_copy(index_, "\"", "\\\"") + "\"]";
-    }
-
-    bool isSubscript() const override {
-      return true;
-    }
+    std::string toString() const override;
 
     std::unique_ptr<PathElement> clone() override {
       return std::make_unique<StringSubscript>(index_);
@@ -233,6 +227,11 @@ class Subfield {
     return std::make_unique<Subfield>(std::move(path));
   }
 
+  /// @return The name of the base column.
+  const std::string& baseName() const {
+    return path_[0]->as<NestedField>()->name();
+  }
+
   const std::vector<std::unique_ptr<PathElement>>& path() const {
     return path_;
   }
@@ -241,56 +240,16 @@ class Subfield {
     return path_;
   }
 
-  bool isPrefix(const Subfield& other) const {
-    if (path_.size() < other.path_.size()) {
-      for (size_t i = 0; i < path_.size(); ++i) {
-        if (!(*path_[i].get() == *other.path_[i].get())) {
-          return false;
-        }
-      }
-      return true;
-    }
-    return false;
-  }
+  bool isPrefix(const Subfield& other) const;
 
-  std::string toString() const {
-    if (!valid()) {
-      return "";
-    }
-    std::ostringstream out;
-    out << static_cast<const NestedField*>(path_[0].get())->name();
-    for (size_t i = 1; i < path_.size(); i++) {
-      out << path_[i]->toString();
-    }
-    return out.str();
-  }
+  std::string toString() const;
 
-  bool operator==(const Subfield& other) const {
-    if (this == &other) {
-      return true;
-    }
+  bool operator==(const Subfield& other) const;
 
-    if (path_.size() != other.path_.size()) {
-      return false;
-    }
-    for (size_t i = 0; i < path_.size(); ++i) {
-      if (!(*path_[i].get() == *other.path_[i].get())) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  size_t hash() const {
-    size_t result = 1;
-    for (size_t i = 0; i < path_.size(); ++i) {
-      result = result * 31 + path_[i]->hash();
-    }
-    return result;
-  }
+  size_t hash() const;
 
   bool valid() const {
-    return !path_.empty() && path_[0]->kind() == kNestedField;
+    return !path_.empty() && path_[0]->is(SubfieldKind::kNestedField);
   }
 
   Subfield clone() const;

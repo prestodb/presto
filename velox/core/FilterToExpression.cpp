@@ -57,64 +57,37 @@ core::TypedExprPtr handleNullAllowed(
 core::TypedExprPtr getTypedExprFromSubfield(
     const common::Subfield& subfield,
     const RowTypePtr& rowType) {
-  // Ensure the subfield is valid
   VELOX_CHECK(subfield.valid(), "Invalid subfield");
 
   // Get the path elements
   const auto& path = subfield.path();
+  const auto& fieldName = subfield.baseName();
 
-  // Start with the first element, which should be a NestedField
-  VELOX_CHECK_GT(path.size(), 0, "Empty subfield path");
-  VELOX_CHECK_EQ(
-      path[0]->kind(),
-      common::SubfieldKind::kNestedField,
-      "First element must be a field name");
+  core::TypedExprPtr expr = std::make_shared<core::FieldAccessTypedExpr>(
+      rowType->findChild(fieldName), fieldName);
 
-  const auto* nestedField =
-      static_cast<const common::Subfield::NestedField*>(path[0].get());
-  const auto& fieldName = nestedField->name();
-
-  // Find the field in the row type
-  auto fieldType = rowType->findChild(fieldName);
-  VELOX_CHECK_NOT_NULL(fieldType, "Field not found: {}", fieldName);
-
-  // Create the initial field access expression
-  core::TypedExprPtr expr =
-      std::make_shared<core::FieldAccessTypedExpr>(fieldType, fieldName);
-
-  // If there are more elements in the path, create nested field accesses
+  // If there are more elements in the path, create nested field accesses.
   for (size_t i = 1; i < path.size(); ++i) {
     const auto& element = path[i];
 
     switch (element->kind()) {
       case common::SubfieldKind::kNestedField: {
-        // Handle nested field access
-        const auto* nestedField =
-            static_cast<const common::Subfield::NestedField*>(element.get());
+        const auto* nestedField = element->as<common::Subfield::NestedField>();
         const auto& nestedName = nestedField->name();
 
-        // Ensure current expression type is a ROW
-        auto rowType = std::dynamic_pointer_cast<const RowType>(expr->type());
-        VELOX_CHECK_NOT_NULL(
-            rowType, "Expected ROW type for nested field access");
+        VELOX_CHECK(
+            expr->type()->isRow(), "Expected ROW type for nested field access");
+        const auto& rowType = expr->type()->asRow();
 
-        // Find the nested field in the row type
-        auto nestedType = rowType->findChild(nestedName);
-        VELOX_CHECK_NOT_NULL(
-            nestedType, "Nested field not found: {}", nestedName);
-
-        // Create a field access expression for the nested field
         expr = std::make_shared<core::FieldAccessTypedExpr>(
-            nestedType, expr, nestedName);
+            rowType.findChild(nestedName), expr, nestedName);
         break;
       }
 
-      case common::SubfieldKind::kLongSubscript:
-      case common::SubfieldKind::kStringSubscript:
-      case common::SubfieldKind::kAllSubscripts:
+      default:
         VELOX_NYI(
-            "All other SubfieldKind except kNestedField are not implemented in getTypedExprFromSubfield");
-        break;
+            "SubfieldKind other than kNestedField are not supported: {}",
+            common::SubfieldKindName::toName(element->kind()));
     }
   }
 
