@@ -135,12 +135,7 @@ public class AbstractAnalyzerTest
         transactionManager = createTestTransactionManager(catalogManager);
 
         TestingAccessControlManager accessControlManager = new TestingAccessControlManager(transactionManager);
-        try {
-            accessControlManager.loadSystemAccessControl();
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to load system access control", e);
-        }
+        accessControlManager.loadSystemAccessControl();
 
         accessControl = accessControlManager;
 

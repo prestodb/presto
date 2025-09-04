@@ -74,12 +74,7 @@ public abstract class AbstractTestingPrestoClient<T>
             Session defaultSession)
     {
         this.prestoServer = requireNonNull(prestoServer, "prestoServer is null");
-        try {
-            prestoServer.getAccessControl().loadSystemAccessControl();
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to load system access control", e);
-        }
+        prestoServer.getAccessControl().loadSystemAccessControl();
 
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
     }

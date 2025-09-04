@@ -469,12 +469,7 @@ public class LocalQueryRunner
         expressionOptimizerManager = new ExpressionOptimizerManager(new PluginNodeManager(nodeManager, nodeInfo.getEnvironment()), getFunctionAndTypeManager());
 
         this.accessControl = new TestingAccessControlManager(transactionManager);
-        try {
-            this.accessControl.loadSystemAccessControl();
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to load access control", e);
-        }
+        this.accessControl.loadSystemAccessControl();
 
         this.statsNormalizer = new StatsNormalizer();
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, expressionOptimizerManager);

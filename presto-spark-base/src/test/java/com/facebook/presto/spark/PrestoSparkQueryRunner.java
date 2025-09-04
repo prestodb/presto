@@ -366,13 +366,7 @@ public class PrestoSparkQueryRunner
         sparkContext = sparkContextHolder.get(additionalSparkProperties, availableCpuCount);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
-
-        try {
-            testingAccessControlManager.loadSystemAccessControl();
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to load system access control", e);
-        }
+        testingAccessControlManager.loadSystemAccessControl();
 
         nodeManager = injector.getInstance(PluginNodeManager.class);
 
