@@ -16,7 +16,11 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
-#include "velox/common/file/File.h"
+#include "velox/common/caching/AsyncDataCache.h"
+#include "velox/connectors/Connector.h"
+#include "velox/dwio/common/CachedBufferedInput.h"
+#include "velox/dwio/common/MetricsLog.h"
+#include "velox/dwio/common/Options.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/FlatVector.h"
 
@@ -28,6 +32,10 @@ namespace facebook::presto::operators {
 namespace {
 std::string makeUuid() {
   return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+}
+
+const std::string& generateScanId(const std::string& broadcastFilePath) {
+  return broadcastFilePath;
 }
 } // namespace
 
@@ -51,8 +59,8 @@ std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
 std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
     std::unique_ptr<BroadcastFileInfo> fileInfo,
     velox::memory::MemoryPool* pool) {
-  auto broadcastFileReader =
-      std::make_shared<BroadcastFileReader>(fileInfo, fileSystem_, pool);
+  auto broadcastFileReader = std::make_shared<BroadcastFileReader>(
+      fileInfo, fileSystem_, velox::cache::AsyncDataCache::getInstance(), pool);
   return broadcastFileReader;
 }
 
@@ -153,11 +161,16 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
 BroadcastFileReader::BroadcastFileReader(
     std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
     std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+    velox::cache::AsyncDataCache* FOLLY_NULLABLE cache,
     velox::memory::MemoryPool* pool)
     : broadcastFileInfo_(std::move(broadcastFileInfo)),
       fileSystem_(fileSystem),
+      cache_(cache),
+      scanId_(generateScanId(broadcastFileInfo_->filePath_)),
+      ioStats_(std::make_shared<dwio::common::IoStatistics>()),
       hasData_(true),
       numBytes_(0),
+      lease_(fileIds(), broadcastFileInfo_->filePath_),
       pool_(pool) {}
 
 bool BroadcastFileReader::hasNext() {
@@ -168,17 +181,39 @@ velox::BufferPtr BroadcastFileReader::next() {
   if (!hasNext()) {
     return nullptr;
   }
-
   auto readFile = fileSystem_->openFileForRead(broadcastFileInfo_->filePath_);
-  auto buffer = AlignedBuffer::allocate<char>(readFile->size(), pool_, 0);
-  readFile->pread(0, readFile->size(), buffer->asMutable<char>());
-  numBytes_ += readFile->size();
+  numBytes_ = readFile->size();
+  auto buffer = AlignedBuffer::allocate<char>(numBytes_, pool_, 0);
+
+  if (cache_) {
+    bufferedInput_ = std::make_unique<velox::dwio::common::CachedBufferedInput>(
+        std::move(readFile),
+        velox::dwio::common::MetricsLog::voidLog(),
+        lease_.id(),
+        cache_,
+        velox::connector::Connector::getTracker(
+            scanId_, velox::dwio::common::ReaderOptions::kDefaultLoadQuantum),
+        lease_.id(),
+        ioStats_,
+        nullptr,
+        velox::dwio::common::ReaderOptions(pool_));
+
+    auto inputStream = bufferedInput_->read(
+        0, numBytes_, velox::dwio::common::MetricsLog::MetricsType::FILE);
+    inputStream->readFully(buffer->asMutable<char>(), numBytes_);
+  } else {
+    readFile->pread(0, readFile->size(), buffer->asMutable<char>());
+  }
+
   hasData_ = false;
   return buffer;
 }
 
 folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() {
-  return {{"broadcastExchangeSource.numBytes", numBytes_}};
+  auto cacheStats = cache_->refreshStats();
+  return {
+      {"broadcastExchangeSource.numBytes", numBytes_},
+  };
 }
 
 } // namespace facebook::presto::operators
