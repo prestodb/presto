@@ -52,6 +52,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -228,7 +229,14 @@ public class TestingHydraIdentityProvider
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet(), ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+        return new TestingHttpServer(
+                httpServerInfo,
+                nodeInfo,
+                config,
+                new AcceptAllLoginsAndConsentsServlet(),
+                ImmutableMap.of("/userinfo", new AcceptAllLoginsAndConsentsServlet()),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private class AcceptAllLoginsAndConsentsServlet
@@ -254,6 +262,24 @@ public class TestingHydraIdentityProvider
             }
             if (request.getPathInfo().contains("/consent")) {
                 acceptConsent(request, response);
+                return;
+            }
+            if ("/userinfo".equals(request.getPathInfo())) {
+                response.setCharacterEncoding("UTF-8");
+                response.setContentType("application/json; charset=UTF-8");
+                response.setStatus(HttpServletResponse.SC_OK);
+
+                String json = "{"
+                        + "\"sub\":\"test-user@example.com\","
+                        + "\"aud\":[\"presto-client\"],"
+                        + "\"iat\":" + (System.currentTimeMillis() / 1000) + ","
+                        + "\"iss\":\"" + ISSUER + "\""
+                        + "}";
+
+                try (PrintWriter out = response.getWriter()) {
+                    out.write(json);
+                    out.flush();
+                }
                 return;
             }
             response.setStatus(SC_NOT_FOUND);
