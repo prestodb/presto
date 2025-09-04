@@ -42,11 +42,8 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.hadoop.fs.HadoopFSUtils;
-import org.apache.hudi.storage.StorageConfiguration;
+import org.apache.hudi.org.apache.avro.Schema;
 import org.apache.hudi.util.Lazy;
 
 import java.io.IOException;
@@ -62,6 +59,9 @@ import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
+import static com.facebook.presto.hudi.HudiSessionProperties.isResolveColumnNameCasingEnabled;
+import static com.facebook.presto.hudi.util.HudiUtil.buildTableMetaClient;
+import static com.facebook.presto.hudi.util.HudiUtil.getLatestTableSchema;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -114,19 +114,11 @@ public class HudiMetadata
         ExtendedFileSystem fs = getFileSystem(session, tableName, basePath);
         return new HudiTableHandle(
                 table,
-                Lazy.lazily(() -> buildTableMetaClient(fs, basePath)),
+                Lazy.lazily(() -> buildTableMetaClient(fs, tableName.getTableName(), basePath)),
                 table.getDatabaseName(),
                 table.getTableName(),
                 basePath,
                 hudiTableType);
-    }
-
-    public static HoodieTableMetaClient buildTableMetaClient(
-            ExtendedFileSystem fs,
-            String basePath)
-    {
-        StorageConfiguration<Configuration> conf = HadoopFSUtils.getStorageConfWithCopy(fs.getConf());
-        return HoodieTableMetaClient.builder().setConf(conf).setBasePath(basePath).build();
     }
 
     private ExtendedFileSystem getFileSystem(ConnectorSession session, SchemaTableName table, String basePath)
@@ -155,16 +147,22 @@ public class HudiMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        HudiTableHandle handle = (HudiTableHandle) tableHandle;
+        HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
         Table table = getTable(session, tableHandle);
         List<HudiColumnHandle> partitionColumns = getPartitionColumnHandles(table);
         List<HudiColumnHandle> dataColumns = getDataColumnHandles(table);
+        HudiPredicates predicates = HudiPredicates.from(constraint.getSummary());
+        Optional<Lazy<Schema>> hudiTableSchema = isResolveColumnNameCasingEnabled(session) ?
+                Optional.of(Lazy.lazily(() -> getLatestTableSchema(hudiTableHandle.getMetaClient(), hudiTableHandle.getTableName()))) : Optional.empty();
+
         ConnectorTableLayout layout = new ConnectorTableLayout(new HudiTableLayoutHandle(
-                handle,
+                hudiTableHandle,
                 dataColumns,
                 partitionColumns,
                 table.getParameters(),
-                constraint.getSummary()));
+                predicates.getRegularColumnPredicates(),
+                predicates.getPartitionColumnPredicates(),
+                hudiTableSchema));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 

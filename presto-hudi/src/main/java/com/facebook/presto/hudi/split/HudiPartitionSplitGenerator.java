@@ -17,45 +17,33 @@ package com.facebook.presto.hudi.split;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.AsyncQueue;
-import com.facebook.presto.hudi.HudiColumnHandle;
 import com.facebook.presto.hudi.HudiFile;
 import com.facebook.presto.hudi.HudiPartition;
 import com.facebook.presto.hudi.HudiSplit;
 import com.facebook.presto.hudi.HudiTableHandle;
 import com.facebook.presto.hudi.HudiTableLayoutHandle;
 import com.facebook.presto.hudi.HudiTableType;
+import com.facebook.presto.hudi.query.HudiDirectoryLister;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
-import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
-import org.apache.hudi.storage.StoragePath;
-import org.apache.hudi.util.Lazy;
 
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
-import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_METADATA;
-import static com.facebook.presto.hudi.HudiMetadata.fromDataColumns;
 import static com.facebook.presto.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static com.facebook.presto.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -70,88 +58,57 @@ public class HudiPartitionSplitGenerator
 
     private final HudiTableLayoutHandle layout;
     private final HudiTableHandle table;
-    private final Path tablePath;
-    private final Lazy<HoodieTableFileSystemView> lazyFsView;
+    private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
-    private final Queue<String> concurrentPartitionQueue;
+    private final Queue<HudiPartition> concurrentPartitionQueue;
     private final HudiSplitWeightProvider splitWeightProvider;
     private final Map<String, Partition> partitionMap;
+    private final boolean useIndex;
+
+    private boolean isRunning;
 
     public HudiPartitionSplitGenerator(
             ConnectorSession session,
             HudiTableLayoutHandle layout,
-            Lazy<HoodieTableFileSystemView> lazyFsView,
+            HudiDirectoryLister hudiDirectoryLister,
             Map<String, Partition> partitionMap,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            Queue<String> concurrentPartitionQueue)
+            Deque<HudiPartition> concurrentPartitionQueue,
+            boolean useIndex)
     {
         this.layout = requireNonNull(layout, "layout is null");
-        this.table = layout.getTable();
-        this.tablePath = new Path(table.getPath());
-        this.lazyFsView = requireNonNull(lazyFsView, "fsView is null");
+        this.table = layout.getTableHandle();
+        this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "fsView is null");
         this.partitionMap = requireNonNull(partitionMap, "partitionMap is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
         this.concurrentPartitionQueue = requireNonNull(concurrentPartitionQueue, "concurrentPartitionQueue is null");
         this.splitWeightProvider = createSplitWeightProvider(requireNonNull(session, "session is null"));
+        this.useIndex = useIndex;
+        this.isRunning = true;
     }
 
     @Override
     public void run()
     {
         HoodieTimer timer = HoodieTimer.start();
-        while (!concurrentPartitionQueue.isEmpty()) {
-            String partitionName = concurrentPartitionQueue.poll();
-            if (partitionName != null) {
-                generateSplitsFromPartition(partitionName);
+        while (isRunning || !concurrentPartitionQueue.isEmpty()) {
+            HudiPartition hudiPartition = concurrentPartitionQueue.poll();
+
+            if (hudiPartition != null && hudiPartition.getName() != null) {
+                generateSplitsFromPartition(hudiPartition);
             }
         }
         log.debug("Partition split generator finished in %d ms", timer.endTimer());
     }
 
-    private void generateSplitsFromPartition(String partitionName)
+    private void generateSplitsFromPartition(HudiPartition hudiPartition)
     {
-        HudiPartition hudiPartition = getHudiPartition(layout, partitionName);
-        Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
-        String relativePartitionPath = FSUtils.getRelativePartitionPath(new StoragePath(tablePath.toUri()), new StoragePath(partitionPath.toUri()));
-        Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
-                lazyFsView.get().getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, table.getLatestCommitTime()) :
-                lazyFsView.get().getLatestFileSlicesBeforeOrOn(relativePartitionPath, table.getLatestCommitTime(), false);
-        fileSlices.map(fileSlice -> createHudiSplit(table, fileSlice, table.getLatestCommitTime(), hudiPartition, splitWeightProvider))
+        Stream<FileSlice> partitionFileSlices = hudiDirectoryLister.listStatus(hudiPartition, useIndex);
+
+        partitionFileSlices.map(fileSlice -> createHudiSplit(table, fileSlice, table.getLatestCommitTime(), hudiPartition, splitWeightProvider))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(asyncQueue::offer);
-    }
-
-    private HudiPartition getHudiPartition(HudiTableLayoutHandle tableLayout, String partitionName)
-    {
-        String databaseName = tableLayout.getTable().getSchemaName();
-        String tableName = tableLayout.getTable().getTableName();
-        List<HudiColumnHandle> partitionColumns = tableLayout.getPartitionColumns();
-
-        if (partitionColumns.isEmpty()) {
-            // non-partitioned tableLayout
-            Table metastoreTable = Optional.ofNullable(table.getTable())
-                    .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Table %s.%s expected but not found", databaseName, tableName)));
-            return new HudiPartition(partitionName, ImmutableList.of(), ImmutableMap.of(), metastoreTable.getStorage(), tableLayout.getDataColumns());
-        }
-        else {
-            // partitioned tableLayout
-            List<String> partitionValues = extractPartitionValues(partitionName);
-            checkArgument(partitionColumns.size() == partitionValues.size(),
-                    format("Invalid partition name %s for partition columns %s", partitionName, partitionColumns));
-            Partition partition = Optional.ofNullable(partitionMap.get(partitionName))
-                    .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Partition %s expected but not found", partitionName)));
-            Map<String, String> keyValues = zipPartitionKeyValues(partitionColumns, partitionValues);
-            return new HudiPartition(partitionName, partitionValues, keyValues, partition.getStorage(), fromDataColumns(partition.getColumns()));
-        }
-    }
-
-    private Map<String, String> zipPartitionKeyValues(List<HudiColumnHandle> partitionColumns, List<String> partitionValues)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        Streams.forEachPair(partitionColumns.stream(), partitionValues.stream(),
-                (column, value) -> builder.put(column.getName(), value));
-        return builder.build();
     }
 
     private Optional<HudiSplit> createHudiSplit(
@@ -168,7 +125,7 @@ public class HudiPartitionSplitGenerator
         List<HudiFile> logFiles = slice.getLogFiles()
                 .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
                 .collect(toImmutableList());
-        long logFilesSize = logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L;
+        long logFilesSize = logFiles.isEmpty() ? 0L : logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum);
         long sizeInBytes = baseFile != null ? baseFile.getLength() + logFilesSize : logFilesSize;
 
         return Optional.of(new HudiSplit(
@@ -190,5 +147,10 @@ public class HudiPartitionSplitGenerator
             return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
         }
         return HudiSplitWeightProvider.uniformStandardWeightProvider();
+    }
+
+    public void stopRunning()
+    {
+        this.isRunning = false;
     }
 }

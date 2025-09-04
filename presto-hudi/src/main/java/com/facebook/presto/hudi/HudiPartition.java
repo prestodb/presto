@@ -17,6 +17,8 @@ package com.facebook.presto.hudi;
 import com.facebook.presto.hive.metastore.Storage;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.storage.StoragePath;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,7 @@ public class HudiPartition
     // TODO: storage and dataColumns is required from MOR record cursor, might be able to remove later
     private final Storage storage;
     private final List<HudiColumnHandle> dataColumns;
+    private final String relativePartitionPath;
 
     @JsonCreator
     public HudiPartition(
@@ -39,13 +42,15 @@ public class HudiPartition
             @JsonProperty("values") List<String> values,
             @JsonProperty("keyValues") Map<String, String> keyValues,
             @JsonProperty("storage") Storage storage,
-            @JsonProperty("dataColumns") List<HudiColumnHandle> dataColumns)
+            @JsonProperty("dataColumns") List<HudiColumnHandle> dataColumns,
+            @JsonProperty("relativePartitionPath") String relativePartitionPath)
     {
         this.name = requireNonNull(name, "name is null");
         this.values = requireNonNull(values, "values is null");
         this.keyValues = requireNonNull(keyValues, "keyValues is null");
         this.storage = requireNonNull(storage, "storage is null");
         this.dataColumns = requireNonNull(dataColumns, "dataColumns is null");
+        this.relativePartitionPath = requireNonNull(relativePartitionPath, "relativePartitionPath is null");
     }
 
     @JsonProperty
@@ -76,6 +81,12 @@ public class HudiPartition
     public List<HudiColumnHandle> getDataColumns()
     {
         return dataColumns;
+    }
+
+    @JsonProperty
+    public String getRelativePartitionPath()
+    {
+        return relativePartitionPath;
     }
 
     @Override

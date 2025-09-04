@@ -15,7 +15,6 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
@@ -42,7 +41,6 @@ public class HudiSplitManager
 {
     private static final Logger log = Logger.get(HudiSplitManager.class);
 
-    private final HdfsEnvironment hdfsEnvironment;
     private final HudiTransactionManager hudiTransactionManager;
     private final HudiPartitionManager hudiPartitionManager;
     private final ExecutorService asyncQueueExecutor;
@@ -51,14 +49,12 @@ public class HudiSplitManager
 
     @Inject
     public HudiSplitManager(
-            HdfsEnvironment hdfsEnvironment,
             HudiTransactionManager hudiTransactionManager,
             HudiPartitionManager hudiPartitionManager,
             @ForHudiSplitAsyncQueue ExecutorService asyncQueueExecutor,
             @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
             @ForHudiBackgroundSplitLoader ExecutorService splitGeneratorExecutorService)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hudiTransactionManager = requireNonNull(hudiTransactionManager, "hudiTransactionManager is null");
         this.hudiPartitionManager = requireNonNull(hudiPartitionManager, "hudiPartitionManager is null");
         this.asyncQueueExecutor = requireNonNull(asyncQueueExecutor, "asyncQueueExecutor is null");
@@ -75,12 +71,12 @@ public class HudiSplitManager
     {
         ExtendedHiveMetastore metastore = ((HudiMetadata) hudiTransactionManager.get(transaction)).getMetastore();
         HudiTableLayoutHandle layout = (HudiTableLayoutHandle) layoutHandle;
-        HudiTableHandle table = layout.getTable();
+        HudiTableHandle table = layout.getTableHandle();
 
         Lazy<Map<String, Partition>> lazyPartitionMap = Lazy.lazily(() -> {
             // Retrieve and prune partitions
             HoodieTimer timer = HoodieTimer.start();
-            Map<String, Partition> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table, layout.getTupleDomain());
+            Map<String, Partition> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table, layout.getPartitionPredicates());
             log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
             return partitions;
         });
