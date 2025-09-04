@@ -276,6 +276,39 @@ TEST_F(MapFilterTest, lambdaSelectivityVector) {
   assertEqualVectors(expected, result[0]);
 }
 
+TEST_F(MapFilterTest, fuzzFlatMap) {
+  auto options = VectorFuzzer::Options();
+  options.allowFlatMapVector = true;
+  VectorFuzzer fuzzer(options, execCtx_.pool());
+  constexpr vector_size_t size = 100;
+  auto num_iterations = 100;
+  while (num_iterations--) {
+    auto flatMap = fuzzer.fuzzFlatMap(INTEGER(), INTEGER(), size);
+
+    // Convert to a regular map vector.
+    auto map = flatMap->as<FlatMapVector>()->toMapVector();
+
+    // Wrap in a row vector for evaluation.
+    auto dataFlat = makeRowVector({"c0"}, {flatMap});
+    auto dataMap = makeRowVector({"c0"}, {map});
+
+    // Try a few different filters.
+    std::vector<std::string> filters = {
+        "(k, v) -> (v IS NOT NULL)",
+        "(k, v) -> (k % 2 = 0)",
+        "(k, v) -> (v > 50)",
+        "(k, v) -> (k < 5 OR v IS NULL)",
+    };
+
+    for (const auto& filter : filters) {
+      auto expr = fmt::format("map_filter(c0, {})", filter);
+      auto resultFlat = evaluate(expr, dataFlat);
+      auto resultMap = evaluate(expr, dataMap);
+      assertEqualVectors(resultMap, resultFlat);
+    }
+  }
+}
+
 TEST_F(MapFilterTest, fromFlatMapEncodings) {
   // Case 1: Verify value filter
   assertEqualVectors(
