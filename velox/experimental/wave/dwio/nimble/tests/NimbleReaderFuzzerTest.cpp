@@ -40,7 +40,7 @@ class NimbleReaderFuzzerTest
       public testing::WithParamInterface<NimbleReaderFuzzerParam> {
  protected:
   static void SetUpTestCase() {
-    memory::initializeMemoryManager(velox::memory::MemoryManagerOptions{});
+    memory::initializeMemoryManager(velox::memory::MemoryManager::Options{});
   }
   void SetUp() override {
     if (int device; cudaGetDevice(&device) != cudaSuccess) {

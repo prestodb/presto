@@ -39,7 +39,7 @@ class NimbleReaderTest : public ::testing::Test,
                          public velox::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
-    memory::initializeMemoryManager(velox::memory::MemoryManagerOptions{});
+    memory::initializeMemoryManager(velox::memory::MemoryManager::Options{});
   }
 
   void SetUp() override {

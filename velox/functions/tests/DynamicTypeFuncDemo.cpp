@@ -150,7 +150,7 @@ void runDynamicTypeTest(
 
 // Initialize Velox environment
 std::shared_ptr<memory::MemoryPool> initializeVelox() {
-  memory::MemoryManager::initialize(memory::MemoryManagerOptions{});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   registerDynamicTypeFunction();
   parse::registerTypeResolver();
   return memory::MemoryManager::getInstance()->addLeafPool();
