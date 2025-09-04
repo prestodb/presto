@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
@@ -101,7 +102,15 @@ public class TestingAccessControlManager
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
+        this(transactionManager, true);
+    }
+
+    public TestingAccessControlManager(TransactionManager transactionManager, boolean loadDefaultSystemAccessControl)
+    {
         super(transactionManager);
+        if (loadDefaultSystemAccessControl) {
+            setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        }
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)

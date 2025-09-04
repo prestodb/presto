@@ -66,7 +66,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.HttpURLConnection;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -91,6 +90,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -253,6 +253,7 @@ public class DistributedQueryRunner
                             coordinatorSidecarEnabled,
                             false,
                             skipLoadingResourceGroupConfigurationManager,
+                            false,
                             workerProperties,
                             parserOptions,
                             environment,
@@ -283,6 +284,7 @@ public class DistributedQueryRunner
                             false,
                             false,
                             skipLoadingResourceGroupConfigurationManager,
+                            false,
                             rmProperties,
                             parserOptions,
                             environment,
@@ -304,6 +306,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         skipLoadingResourceGroupConfigurationManager,
+                        false,
                         catalogServerProperties,
                         parserOptions,
                         environment,
@@ -323,6 +326,7 @@ public class DistributedQueryRunner
                         true,
                         false,
                         skipLoadingResourceGroupConfigurationManager,
+                        false,
                         coordinatorSidecarProperties,
                         parserOptions,
                         environment,
@@ -330,6 +334,9 @@ public class DistributedQueryRunner
                         extraModules)));
                 servers.add(coordinatorSidecar.get());
             }
+
+            final boolean loadDefaultSystemAccessControl = !accessControlProperties.containsKey("access-control.name") ||
+                    accessControlProperties.get("access-control.name").equals("allow-all");
 
             for (int i = 0; i < coordinatorCount; i++) {
                 TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(
@@ -342,6 +349,7 @@ public class DistributedQueryRunner
                         false,
                         true,
                         skipLoadingResourceGroupConfigurationManager,
+                        loadDefaultSystemAccessControl,
                         extraCoordinatorProperties,
                         parserOptions,
                         environment,
@@ -396,10 +404,6 @@ public class DistributedQueryRunner
             SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
-        }
-
-        if (accessControlProperties.get("access-control.name").equals("allow-all")) {
-            loadSystemAccessControl();
         }
     }
 
@@ -478,6 +482,7 @@ public class DistributedQueryRunner
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
             boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
             Map<String, String> extraProperties,
             SqlParserOptions parserOptions,
             String environment,
@@ -510,6 +515,7 @@ public class DistributedQueryRunner
                 coordinatorSidecarEnabled,
                 coordinator,
                 skipLoadingResourceGroupConfigurationManager,
+                loadDefaultSystemAccessControl,
                 properties,
                 environment,
                 discoveryUri,
@@ -1109,14 +1115,6 @@ public class DistributedQueryRunner
         catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
-        }
-    }
-
-    private static int getAvailablePort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
         }
     }
 

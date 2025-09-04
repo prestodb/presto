@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static org.testng.Assert.assertEquals;
 
 public class TestClientRequestFilterPlugin
@@ -132,7 +133,7 @@ public class TestClientRequestFilterPlugin
     private AuthenticationFilter setupAuthenticationFilter(List<ClientRequestFilterFactory> requestFilterFactory, boolean allowOverwriteHeaders)
             throws Exception
     {
-        try (TestingPrestoServer testingPrestoServer = new TestingPrestoServer(true, ImmutableMap.of("http-server.http.port", "8081"), null, null, new SqlParserOptions(), ImmutableList.of())) {
+        try (TestingPrestoServer testingPrestoServer = new TestingPrestoServer(true, ImmutableMap.of("http-server.http.port", String.valueOf(getAvailablePort())), null, null, new SqlParserOptions(), ImmutableList.of())) {
             ClientRequestFilterManager clientRequestFilterManager = testingPrestoServer.getClientRequestFilterManager(requestFilterFactory);
 
             List<Authenticator> authenticators = createAuthenticators();
