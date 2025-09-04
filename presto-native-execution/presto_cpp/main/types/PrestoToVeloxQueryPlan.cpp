@@ -1264,6 +1264,34 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       ROW(std::move(outputNames), std::move(outputTypes)));
 }
 
+namespace {
+core::JoinType toJoinType(protocol::SpatialJoinType type) {
+  switch (type) {
+    case protocol::SpatialJoinType::INNER:
+      return core::JoinType::kInner;
+    case protocol::SpatialJoinType::LEFT:
+      return core::JoinType::kLeft;
+  }
+
+  VELOX_UNSUPPORTED("Unknown spatial join type");
+}
+} // namespace
+
+core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::SpatialJoinNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  auto joinType = toJoinType(node->type);
+
+  return std::make_shared<core::NestedLoopJoinNode>(
+      node->id,
+      joinType,
+      node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
+      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      toRowType(node->outputVariables, typeParser_));
+}
+
 std::shared_ptr<const core::IndexLookupJoinNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::IndexJoinNode>& node,
