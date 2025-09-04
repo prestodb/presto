@@ -170,6 +170,7 @@ enum_map_entries_json : LBRACE enum_map_entries RBRACE {$$ = "[" + $2 + "]"; }
 
 enum_map_entry : QUOTED_ID COLON SIGNED_INT {  $$ = "[" + $1 + "," + std::to_string($3) + "]"; }
                | QUOTED_ID COLON NUMBER     {  $$ = "[" + $1 + "," + std::to_string($3) + "]"; }
+               | QUOTED_ID COLON QUOTED_ID  {  $$ = "[" + $1 + "," + $3 + "]"; }
                ;
 
 enum_kind : WORD { if ($1 != "BigintEnum" && $1 != "VarcharEnum" )

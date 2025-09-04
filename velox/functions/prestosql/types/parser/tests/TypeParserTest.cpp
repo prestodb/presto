@@ -19,6 +19,8 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/types/BigintEnumRegistration.h"
 #include "velox/functions/prestosql/types/BigintEnumType.h"
+#include "velox/functions/prestosql/types/VarcharEnumRegistration.h"
+#include "velox/functions/prestosql/types/VarcharEnumType.h"
 #include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 namespace facebook::velox::functions::prestosql {
@@ -369,7 +371,7 @@ TEST_F(TypeParserTest, fieldNames) {
            ARRAY(BIGINT())}));
 }
 
-TEST_F(TypeParserTest, enumBasic) {
+TEST_F(TypeParserTest, bigintEnumBasic) {
   registerBigintEnumType();
   LongEnumParameter moodInfo("test.enum.mood", {{"CURIOUS", 2}, {"HAPPY", 0}});
   ASSERT_EQ(
@@ -427,12 +429,16 @@ TEST_F(TypeParserTest, enumBasic) {
       *ROW({"c0"}, {BIGINT_ENUM(moodWithNegativeValue)}));
 }
 
-TEST_F(TypeParserTest, invalidEnums) {
+TEST_F(TypeParserTest, invalidBigintEnums) {
   // Duplicate keys.
   VELOX_ASSERT_THROW(
       parseType(
           "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"CURIOUS\":0})"),
       "Failed to parse map: [[\"CURIOUS\",-2], [\"CURIOUS\",0]], duplicate key found: CURIOUS");
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\":-2, \"Curious\":0})"),
+      "Failed to parse map: [[\"CURIOUS\",-2], [\"Curious\",0]], duplicate key found: CURIOUS");
 
   // Duplicate values.
   VELOX_ASSERT_THROW(
@@ -461,12 +467,110 @@ TEST_F(TypeParserTest, invalidEnums) {
   VELOX_ASSERT_THROW(
       parseType(
           "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": \"varchar value\", \"HAPPY\": \"0\"})"),
-      "Failed to parse type [test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": \"varchar value\", \"HAPPY\": \"0\"})]. syntax error, unexpected QUOTED_ID, expecting NUMBER or SIGNED_INT");
+      "Failed to parse map: [[\"CURIOUS\",\"varchar value\"], [\"HAPPY\",\"0\"]], each element must have an integer value.");
   VELOX_ASSERT_THROW(
       parseType(
           "test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": 1.1, \"HAPPY\": -1.0})"),
       "Failed to parse type [test.enum.mood:BigintEnum(test.enum.mood{\"CURIOUS\": 1.1, \"HAPPY\": -1.0})]. syntax error, unexpected PERIOD, expecting COMMA or RBRACE");
 }
 
+TEST_F(TypeParserTest, varcharEnumBasic) {
+  registerVarcharEnumType();
+  VarcharEnumParameter moodInfo(
+      "test.enum.mood",
+      {{"CURIOUS", "someValue"},
+       {"HAPPY", "some value"},
+       {"SAD", "SOME VALUE"}});
+  ASSERT_EQ(
+      *parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"})"),
+      *VARCHAR_ENUM(moodInfo));
+
+  // Enum name that is not in the form catalog.namespace.enum_name.
+  VarcharEnumParameter otherEnumInfo(
+      "someEnumType",
+      {{"CURIOUS", "someValue"},
+       {"HAPPY", "some value"},
+       {"SAD", "SOME VALUE"}});
+  auto otherEnumString =
+      "someEnumType:VarcharEnum(someEnumType{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"})";
+  ASSERT_EQ(*parseType(otherEnumString), *VARCHAR_ENUM(otherEnumInfo));
+
+  auto sameEnumDiffOrderMap =
+      "someEnumType:VarcharEnum(someEnumType{\"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"SAD\":\"KNHU2RJAKZAUYVKF\"})";
+  ASSERT_EQ(*parseType(sameEnumDiffOrderMap), *VARCHAR_ENUM(otherEnumInfo));
+
+  // Array type with enum values.
+  ASSERT_EQ(
+      *parseType(
+          "array(test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"}))"),
+      *ARRAY(VARCHAR_ENUM(moodInfo)));
+
+  // Map type with enum values.
+  ASSERT_EQ(
+      *parseType(
+          "map(test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"}), bigint)"),
+      *MAP(VARCHAR_ENUM(moodInfo), BIGINT()));
+  ASSERT_EQ(
+      *parseType(
+          "map(bigint,test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"}))"),
+      *MAP(BIGINT(), VARCHAR_ENUM(moodInfo)));
+
+  // Row type with enum values.
+  ASSERT_EQ(
+      *parseType(
+          "row(test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"}))"),
+      *ROW({VARCHAR_ENUM(moodInfo)}));
+  ASSERT_EQ(
+      *parseType(
+          "row(c0 test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZJAOZQWY5LF\" , \"SAD\":\"KNHU2RJAKZAUYVKF\"}))"),
+      *ROW({"c0"}, {VARCHAR_ENUM(moodInfo)}));
+}
+
+TEST_F(TypeParserTest, invalidVarcharEnums) {
+  // Duplicate keys or values.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"CURIOUS\":\"ONXW2ZJAOZQWY5LF\"})"),
+      "Failed to parse map: [[\"CURIOUS\",\"ONXW2ZKWMFWHKZI=\"], [\"CURIOUS\",\"ONXW2ZJAOZQWY5LF\"]], duplicate key found: CURIOUS");
+
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"curious\":\"ONXW2ZJAOZQWY5LF\"})"),
+      "Failed to parse map: [[\"CURIOUS\",\"ONXW2ZKWMFWHKZI=\"], [\"curious\",\"ONXW2ZJAOZQWY5LF\"]], duplicate key found: CURIOUS");
+
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"ONXW2ZKWMFWHKZI=\", \"HAPPY\":\"ONXW2ZKWMFWHKZI=\"})"),
+      "Failed to parse map: [[\"CURIOUS\",\"ONXW2ZKWMFWHKZI=\"], [\"HAPPY\",\"ONXW2ZKWMFWHKZI=\"]], duplicate value found: someValue");
+
+  // Invalid base 32 encoded values.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\":\"12345\", \"HAPPY\":\"ONXW2ZKWMFWHKZI=\"})"),
+      "Failed to parse value 12345, invalid Base32 character: 1");
+
+  // Invalid format: missing ":"
+  VELOX_ASSERT_THROW(
+      parseType(
+          "testNoColon(test.enum.mood{\"CURIOUS\":\"2\", \"HAPPY\":\"happy\"})"),
+      "Failed to parse type [testNoColon(test.enum.mood{\"CURIOUS\":\"2\", \"HAPPY\":\"happy\"})]. syntax error, unexpected LBRACE, expecting COLON");
+
+  // Invalid format: missing "{"
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood\"CURIOUS\":\"2\", \"HAPPY\":\"happy\"})"),
+      "Failed to parse type [test.enum.mood:VarcharEnum(test.enum.mood\"CURIOUS\":\"2\", \"HAPPY\":\"happy\"})]. syntax error, unexpected QUOTED_ID, expecting LBRACE");
+
+  // Invalid enum type with values of different types.
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\": 0, \"HAPPY\":\"happy\"})"),
+      "Failed to parse map: [[\"CURIOUS\",0], [\"HAPPY\",\"happy\"]], each element must have a string value.");
+  VELOX_ASSERT_THROW(
+      parseType(
+          "test.enum.mood:VarcharEnum(test.enum.mood{\"CURIOUS\": 0, \"HAPPY\":1})"),
+      "Failed to parse map: [[\"CURIOUS\",0], [\"HAPPY\",1]], each element must have a string value.");
+}
 } // namespace
 } // namespace facebook::velox::functions::prestosql
