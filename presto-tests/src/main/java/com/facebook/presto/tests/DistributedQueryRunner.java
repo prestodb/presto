@@ -1101,6 +1101,14 @@ public class DistributedQueryRunner
         }
     }
 
+    public static int getAvailablePort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {
@@ -1109,14 +1117,6 @@ public class DistributedQueryRunner
         catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
-        }
-    }
-
-    private static int getAvailablePort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
         }
     }
 

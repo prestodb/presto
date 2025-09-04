@@ -133,7 +133,16 @@ public class AbstractAnalyzerTest
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new TestingAccessControlManager(transactionManager);
+
+        TestingAccessControlManager accessControlManager = new TestingAccessControlManager(transactionManager);
+        try {
+            accessControlManager.loadSystemAccessControl();
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to load system access control", e);
+        }
+
+        accessControl = accessControlManager;
 
         metadata = createTestMetadataManager(transactionManager);
 

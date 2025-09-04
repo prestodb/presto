@@ -40,7 +40,7 @@ public class TestArrowFlightIntegrationSmokeTest
     public TestArrowFlightIntegrationSmokeTest()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = DistributedQueryRunner.getAvailablePort();
     }
 
     @BeforeClass

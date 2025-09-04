@@ -27,8 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.List;
 import java.util.Set;
 
@@ -49,19 +47,11 @@ public class TestRestRemoteFunctions
             .build();
     private TestingFunctionServer functionServer;
 
-    private static int findRandomPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        int functionServerPort = findRandomPort();
+        int functionServerPort = DistributedQueryRunner.getAvailablePort();
         functionServer = new TestingFunctionServer(functionServerPort);
         return FunctionServerQueryRunner.createQueryRunner(
                 functionServerPort,

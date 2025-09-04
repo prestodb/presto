@@ -57,7 +57,7 @@ public class TestArrowFlightNativeQueries
     public TestArrowFlightNativeQueries()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = DistributedQueryRunner.getAvailablePort();
     }
 
     @BeforeClass
@@ -366,10 +366,10 @@ public class TestArrowFlightNativeQueries
 
                         Files.write(catalogDirectoryPath.resolve(format("%s.properties", ARROW_FLIGHT_CATALOG)),
                                 format("connector.name=%s\n" +
-                                       "arrow-flight.server=localhost\n" +
-                                       "arrow-flight.server.port=%d\n" +
-                                       "arrow-flight.server-ssl-enabled=true\n" +
-                                       "arrow-flight.server-ssl-certificate=%s", ARROW_FLIGHT_CONNECTOR, flightServerPort, flightCertPath).getBytes());
+                                        "arrow-flight.server=localhost\n" +
+                                        "arrow-flight.server.port=%d\n" +
+                                        "arrow-flight.server-ssl-enabled=true\n" +
+                                        "arrow-flight.server-ssl-certificate=%s", ARROW_FLIGHT_CONNECTOR, flightServerPort, flightCertPath).getBytes());
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")

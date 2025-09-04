@@ -337,15 +337,15 @@ public class PrestoSparkQueryRunner
                 // Sql-Standard Access Control Checker
                 // needs us to specify our role
                 .setIdentity(
-                    new Identity(
-                        "hive",
-                        Optional.empty(),
-                        ImmutableMap.of(defaultCatalog,
-                            new SelectedRole(Type.ROLE, Optional.of("admin"))),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        Optional.empty(),
-                        Optional.empty()))
+                        new Identity(
+                                "hive",
+                                Optional.empty(),
+                                ImmutableMap.of(defaultCatalog,
+                                        new SelectedRole(Type.ROLE, Optional.of("admin"))),
+                                ImmutableMap.of(),
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                Optional.empty()))
                 .build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -366,6 +366,14 @@ public class PrestoSparkQueryRunner
         sparkContext = sparkContextHolder.get(additionalSparkProperties, availableCpuCount);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
+
+        try {
+            testingAccessControlManager.loadSystemAccessControl();
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to load system access control", e);
+        }
+
         nodeManager = injector.getInstance(PluginNodeManager.class);
 
         // Install tpch Plugin

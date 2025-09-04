@@ -123,7 +123,7 @@ public class TestArrowFlightEchoQueries
     public TestArrowFlightEchoQueries()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = DistributedQueryRunner.getAvailablePort();
     }
 
     @BeforeClass

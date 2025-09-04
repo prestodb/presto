@@ -48,7 +48,7 @@ public class TestArrowFlightMtls
     public TestArrowFlightMtls()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = DistributedQueryRunner.getAvailablePort();
     }
 
     @BeforeClass
