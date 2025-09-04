@@ -17,6 +17,11 @@ add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
 target_link_libraries(presto_velox_expr_conversion velox_presto_types
                       velox_vector velox_exception)
 
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  target_link_libraries(presto_velox_expr_conversion presto_functions_remote
+                        velox_expression_functions)
+endif()
+
 add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp
                          PrestoToVeloxSplit.cpp)
 target_link_libraries(
