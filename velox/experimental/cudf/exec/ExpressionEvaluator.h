@@ -18,6 +18,8 @@
 
 #include "velox/core/Expressions.h"
 #include "velox/expression/Expr.h"
+#include "velox/type/Filter.h"
+#include "velox/type/Subfield.h"
 #include "velox/type/Type.h"
 
 #include <cudf/ast/expressions.hpp>
@@ -73,6 +75,23 @@ void addPrecomputedColumns(
     const std::vector<PrecomputeInstruction>& precomputeInstructions,
     const std::vector<std::unique_ptr<cudf::scalar>>& scalars,
     rmm::cuda_stream_view stream);
+
+// Convert subfield filters to cudf AST
+cudf::ast::expression const& createAstFromSubfieldFilter(
+    const common::Subfield& subfield,
+    const common::Filter& filter,
+    cudf::ast::tree& tree,
+    std::vector<std::unique_ptr<cudf::scalar>>& scalars,
+    const RowTypePtr& inputRowSchema);
+
+// Build a single AST expression representing logical AND of all filters in
+// 'subfieldFilters'. The resulting expression reference is owned by the passed
+// 'tree'.
+cudf::ast::expression const& createAstFromSubfieldFilters(
+    const common::SubfieldFilters& subfieldFilters,
+    cudf::ast::tree& tree,
+    std::vector<std::unique_ptr<cudf::scalar>>& scalars,
+    const RowTypePtr& inputRowSchema);
 
 // Evaluates the expression tree
 class ExpressionEvaluator {
