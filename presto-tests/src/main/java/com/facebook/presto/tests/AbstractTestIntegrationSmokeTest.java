@@ -149,34 +149,27 @@ public abstract class AbstractTestIntegrationSmokeTest
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll(".$", "_");
 
-        // Generate a unique table name
-        int uniqueSuffix = (int) (Math.random() * 9_000_000) + 1_000_000;
-        String tableName = "orders_" + uniqueSuffix;
-        // Create the unique table
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 15000);
         @Language("SQL") String ordersTableWithColumns = "VALUES " +
-                "('" + tableName + "', 'orderkey'), " +
-                "('" + tableName + "', 'custkey'), " +
-                "('" + tableName + "', 'orderstatus'), " +
-                "('" + tableName + "', 'totalprice'), " +
-                "('" + tableName + "', 'orderdate'), " +
-                "('" + tableName + "', 'orderpriority'), " +
-                "('" + tableName + "', 'clerk'), " +
-                "('" + tableName + "', 'shippriority'), " +
-                "('" + tableName + "', 'comment')";
-        try {
-            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
-            assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name", "VALUES '" + tableName + "'");
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_%' ESCAPE '\\'", ordersTableWithColumns);
-            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
-        }
-        finally {
-            // Clean up the table after the test
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
+                "('orders', 'orderkey'), " +
+                "('orders', 'custkey'), " +
+                "('orders', 'orderstatus'), " +
+                "('orders', 'totalprice'), " +
+                "('orders', 'orderdate'), " +
+                "('orders', 'orderpriority'), " +
+                "('orders', 'clerk'), " +
+                "('orders', 'shippriority'), " +
+                "('orders', 'comment')";
+
+        assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
+        assertQuery(
+                "SELECT table_name, column_name FROM information_schema.columns " +
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
+                ordersTableWithColumns);
+        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
     }
 
     @Test
