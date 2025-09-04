@@ -27,6 +27,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeLoadMetrics;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.NodeStats;
@@ -446,6 +447,15 @@ public final class DiscoveryNodeManager
                 ? nodeStats.get(nodeId).getNodeStats()
                 : Optional.empty();
         return remoteNodeStats.isPresent() && remoteNodeStats.get().getNodeState() == SHUTTING_DOWN;
+    }
+
+    @Override
+    public Optional<NodeLoadMetrics> getNodeLoadMetrics(String nodeId)
+    {
+        Optional<NodeStats> remoteNodeStats = nodeStats.containsKey(nodeId)
+                ? nodeStats.get(nodeId).getNodeStats()
+                : Optional.empty();
+        return remoteNodeStats.flatMap(NodeStats::getLoadMetrics);
     }
 
     @Override
