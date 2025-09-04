@@ -331,6 +331,10 @@ class MergeJoin : public Operator {
   // rows from the left side that have a match on the right.
   RowVectorPtr filterOutputForAntiJoin(const RowVectorPtr& output);
 
+  void clearLeftInput();
+
+  void clearRightInput();
+
   // As we populate the results of the join, we track whether a given
   // output row is a result of a match between left and right sides or a miss.
   // We use JoinTracker::addMatch and addMiss methods for that.
