@@ -126,7 +126,7 @@ public interface HiveMetastore
 
     PartitionStatistics getTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName);
 
-    Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames);
+    Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNames);
 
     void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
 

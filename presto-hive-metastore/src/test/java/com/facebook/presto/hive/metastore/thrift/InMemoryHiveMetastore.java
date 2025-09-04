@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveTableHandle;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
@@ -450,16 +451,16 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNamesWithVersion)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        for (String partitionName : partitionNames) {
-            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+        for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
+            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionNameWithVersion.getPartitionName());
             PartitionStatistics statistics = partitionColumnStatistics.get(partitionKey);
             if (statistics == null) {
                 statistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
             }
-            result.put(partitionName, statistics);
+            result.put(partitionNameWithVersion.getPartitionName(), statistics);
         }
         return result.build();
     }
@@ -474,7 +475,7 @@ public class InMemoryHiveMetastore
     public synchronized void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
+        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))).get(partitionName)));
     }
 
     @Override
