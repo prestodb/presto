@@ -170,7 +170,7 @@ public abstract class AbstractTestIntegrationSmokeTest
             assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name", "VALUES '" + tableName + "'");
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name REGEXP '^orders_[0-9]+$'", ordersTableWithColumns);
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_%' ESCAPE '\\'", ordersTableWithColumns);
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
         }
         finally {
