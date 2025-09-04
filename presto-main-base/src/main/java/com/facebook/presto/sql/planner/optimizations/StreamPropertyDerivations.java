@@ -449,6 +449,13 @@ public final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitMetadataDelete(MetadataDeleteNode node, List<StreamProperties> inputProperties)
+        {
+            // MetadataDeleteNode is a leaf node (no input properties), similar to TableScanNode
+            return StreamProperties.singleStream();
+        }
+
+        @Override
         public StreamProperties visitTableWriter(TableWriterNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);

@@ -387,6 +387,15 @@ public class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitMetadataDelete(MetadataDeleteNode node, List<ActualProperties> inputProperties)
+        {
+            // MetadataDeleteNode is a leaf node that only outputs a row count
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
+                    .build();
+        }
+
+        @Override
         public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
