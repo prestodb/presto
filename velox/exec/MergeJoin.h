@@ -362,8 +362,14 @@ class MergeJoin : public Operator {
   // rows from the left side that have a match on the right.
   RowVectorPtr filterOutputForAntiJoin(const RowVectorPtr& output);
 
+  // Clears the current left input batch (input_) by setting it to nullptr.
+  // Called when the left batch has been fully processed or when resetting
+  // state during match processing.
   void clearLeftInput();
 
+  // Clears the current right input batch (rightInput_) by setting it to
+  // nullptr. Called when the right batch has been fully processed or when
+  // resetting state during match processing.
   void clearRightInput();
 
   // As we populate the results of the join, we track whether a given

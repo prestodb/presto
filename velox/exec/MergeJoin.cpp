@@ -216,6 +216,7 @@ bool MergeJoin::needsInput() const {
 void MergeJoin::addInput(RowVectorPtr input) {
   VELOX_CHECK_NULL(input_);
   input_ = std::move(input);
+  // TODO: support selective lazy loading both sides.
   loadColumns(input_, *operatorCtx_->execCtx());
   leftRowIndex_ = 0;
   if (joinTracker_) {
@@ -346,7 +347,15 @@ bool MergeJoin::tryAddOutputRowForRightJoin() {
     return false;
   }
 
-  rawRightOutputIndices_[outputSize_] = rightRowIndex_++;
+  if (!isRightFlattened_) {
+    // All right side projections share the same dictionary indices
+    // (rightIndices_).
+    rawRightOutputIndices_[outputSize_] = rightRowIndex_++;
+  } else {
+    copyRow(
+        rightInput_, rightRowIndex_++, output_, outputSize_, rightProjections_);
+  }
+
   for (const auto& projection : leftProjections_) {
     auto& target = output_->childAt(projection.outputChannel);
     addNull(
@@ -868,8 +877,6 @@ RowVectorPtr MergeJoin::handleRightSideNullRows() {
   if (rightBatchFinished()) {
     // Ran out of rows on the right side.
     clearRightInput();
-    output_->resize(outputSize_);
-    return std::move(output_);
   }
   return nullptr;
 }
@@ -960,7 +967,6 @@ RowVectorPtr MergeJoin::doGetOutput() {
           output_->resize(outputSize_);
           return std::move(output_);
         }
-
         if (!tryAddOutputRowForRightJoin()) {
           return std::move(output_);
         }
@@ -971,7 +977,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
 
       if (rightBatchFinished()) {
         clearRightInput();
-        return produceOutput();
+        return nullptr;
       }
       compareResult = compare();
     }
