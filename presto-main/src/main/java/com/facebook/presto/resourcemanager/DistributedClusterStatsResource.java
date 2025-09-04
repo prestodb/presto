@@ -85,6 +85,9 @@ public class DistributedClusterStatsResource
         activeNodes -= internalNodeManager.getResourceManagers().size();
 
         long runningDrivers = 0;
+        long queuedDrivers = 0;
+        long completedDrivers = 0;
+        long totalDrivers = 0;
         long runningTasks = 0;
         double memoryReservation = 0;
 
@@ -112,6 +115,9 @@ public class DistributedClusterStatsResource
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
+                queuedDrivers += query.getQueryStats().getQueuedDrivers();
+                completedDrivers += query.getQueryStats().getCompletedDrivers();
+                totalDrivers += query.getQueryStats().getTotalDrivers();
                 runningTasks += query.getQueryStats().getRunningTasks();
             }
         }
@@ -121,6 +127,9 @@ public class DistributedClusterStatsResource
                 queuedQueries,
                 activeNodes,
                 runningDrivers,
+                queuedDrivers,
+                completedDrivers,
+                totalDrivers,
                 runningTasks,
                 memoryReservation,
                 totalInputRows,
