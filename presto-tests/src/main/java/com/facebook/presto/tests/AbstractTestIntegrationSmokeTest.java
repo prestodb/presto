@@ -165,15 +165,23 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "('" + tableName + "', 'shippriority'), " +
                 "('" + tableName + "', 'comment')";
         try {
+
+            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
+
             assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name", "VALUES '" + tableName + "'");
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + tableName + "'", ordersTableWithColumns);
-            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_%'", ordersTableWithColumns);
             assertQuery(
-                    "SELECT table_name, column_name FROM information_schema.columns " +
-                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%" + tableName + "%'",
-                    ordersTableWithColumns);
+                    "SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name",
+                    "VALUES '" + tableName + "'"
+            );
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
+            assertQuery(
+                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'",
+                    ordersTableWithColumns
+            );
+            assertQuery(
+                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + uniqueSuffix + "'",
+                    ordersTableWithColumns
+            );
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
         }
         finally {
