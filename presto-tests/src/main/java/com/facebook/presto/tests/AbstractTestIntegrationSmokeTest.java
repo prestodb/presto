@@ -16,7 +16,6 @@ package com.facebook.presto.tests;
 import com.facebook.presto.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -150,7 +149,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         String schemaPattern = schema.replaceAll(".$", "_");
 
         // Generate a unique table name
-        String uniqueSuffix = String.valueOf(ThreadLocalRandom.current().nextInt(1_000_000, 10_000_000));
+        int uniqueSuffix = (int) (Math.random() * 9_000_000) + 1_000_000;
         String tableName = "orders_" + uniqueSuffix;
         // Create the unique table
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 15000);
@@ -165,23 +164,12 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "('" + tableName + "', 'shippriority'), " +
                 "('" + tableName + "', 'comment')";
         try {
-
             assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
-
             assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-            assertQuery(
-                    "SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name",
-                    "VALUES '" + tableName + "'"
-            );
+            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name", "VALUES '" + tableName + "'");
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
-            assertQuery(
-                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'",
-                    ordersTableWithColumns
-            );
-            assertQuery(
-                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name REGEXP '^orders_[0-9]+$'",
-                    ordersTableWithColumns
-            );
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name REGEXP '^orders_[0-9]+$'", ordersTableWithColumns);
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
         }
         finally {
