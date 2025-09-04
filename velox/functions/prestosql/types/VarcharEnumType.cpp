@@ -14,29 +14,31 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/types/BigintEnumType.h"
+#include "velox/functions/prestosql/types/VarcharEnumType.h"
 
 namespace facebook::velox {
 
 // Should only be called from get() to create a new instance.
-BigintEnumType::BigintEnumType(const LongEnumParameter& parameters)
-    : EnumTypeBase<int64_t, LongEnumParameter, BigintType>(parameters) {}
-
-std::string BigintEnumType::toString() const {
-  return fmt::format("{}:BigintEnum({})", name_, flippedMapToString());
+VarcharEnumType::VarcharEnumType(const VarcharEnumParameter& parameters)
+    : EnumTypeBase<std::string, VarcharEnumParameter, VarcharType>(parameters) {
 }
 
-BigintEnumTypePtr BigintEnumType::get(const LongEnumParameter& parameter) {
-  return getCached<BigintEnumType>(parameter);
+std::string VarcharEnumType::toString() const {
+  return fmt::format("{}:VarcharEnum({})", name_, flippedMapToString());
 }
 
-folly::dynamic BigintEnumType::serialize() const {
+VarcharEnumTypePtr VarcharEnumType::get(const VarcharEnumParameter& parameter) {
+  return getCached<VarcharEnumType>(parameter);
+}
+
+folly::dynamic VarcharEnumType::serialize() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["name"] = "Type";
   obj["type"] = name();
-  // parameters_[0].longEnumLiteral is assumed to have a value since it is
-  // constructed from a LongEnumParameter.
-  obj["kLongEnumParam"] = parameters_[0].longEnumLiteral.value().serialize();
+  // parameters_[0].varcharEnumLiteral is assumed to have a value since it is
+  // constructed from a VarcharEnumParameter.
+  obj["kVarcharEnumParam"] =
+      parameters_[0].varcharEnumLiteral.value().serialize();
   return obj;
 }
 

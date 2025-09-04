@@ -16,7 +16,6 @@
 #include <string>
 #include "velox/functions/prestosql/IPAddressFunctions.h"
 #include "velox/functions/prestosql/UuidFunctions.h"
-#include "velox/functions/prestosql/types/BigintEnumRegistration.h"
 
 namespace facebook::velox::functions {
 

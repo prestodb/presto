@@ -404,7 +404,7 @@ struct LongEnumParameter {
     return name == other.name && valuesMap == other.valuesMap;
   }
 
-  folly::dynamic serializeEnumParameter() const;
+  folly::dynamic serialize() const;
 
   struct Hash {
     size_t operator()(const LongEnumParameter& param) const;
@@ -417,6 +417,23 @@ struct LongEnumParameter {
 /// Represents the parameters for a VarcharEnumType.
 /// Consists of the name of the enum and a map of string keys to string values.
 struct VarcharEnumParameter {
+  VarcharEnumParameter() = default;
+
+  VarcharEnumParameter(
+      std::string enumName,
+      std::unordered_map<std::string, std::string> enumValuesMap)
+      : name(std::move(enumName)), valuesMap(std::move(enumValuesMap)) {}
+
+  bool operator==(const VarcharEnumParameter& other) const {
+    return name == other.name && valuesMap == other.valuesMap;
+  }
+
+  folly::dynamic serialize() const;
+
+  struct Hash {
+    size_t operator()(const VarcharEnumParameter& param) const;
+  };
+
   std::string name;
   std::unordered_map<std::string, std::string> valuesMap;
 };

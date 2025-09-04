@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/functions/prestosql/types/EnumTypeBase.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -25,44 +26,22 @@ using BigintEnumTypePtr = std::shared_ptr<const BigintEnumType>;
 /// Represents an enumerated value where the physical type is a bigint. Each
 /// enum type has a name and a set of string keys which map to bigint values,
 /// passed in as a LongEnumParameter TypeParameterKind.
-class BigintEnumType : public BigintType {
+class BigintEnumType
+    : public EnumTypeBase<int64_t, LongEnumParameter, BigintType> {
  public:
   static BigintEnumTypePtr get(const LongEnumParameter& parameter);
 
-  bool equivalent(const Type& other) const override {
-    return this == &other;
-  }
-
   const char* name() const override {
     return "BIGINT_ENUM";
-  }
-
-  const std::vector<TypeParameter>& parameters() const override {
-    return parameters_;
   }
 
   std::string toString() const override;
 
   folly::dynamic serialize() const override;
 
-  bool containsValue(int64_t value) const {
-    return flippedMap_.contains(value);
-  }
-
-  /// Returns the string key given an integer value. If the value does not exist
-  /// in the flippedMap_, return std::nullopt.
-  const std::optional<std::string> keyAt(int64_t value) const;
-
-  const std::string& enumName() const {
-    return name_;
-  }
-
  private:
   explicit BigintEnumType(const LongEnumParameter& parameters);
-
-  const std::vector<TypeParameter> parameters_;
-  const std::string name_;
-  const std::unordered_map<int64_t, std::string> flippedMap_;
+  friend class EnumTypeBase<int64_t, LongEnumParameter, BigintType>;
 };
 
 inline BigintEnumTypePtr BIGINT_ENUM(const LongEnumParameter& parameter) {

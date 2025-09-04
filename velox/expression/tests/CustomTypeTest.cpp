@@ -237,6 +237,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
       "QDIGEST",
       "SFMSKETCH",
       "BIGINT_ENUM",
+      "VARCHAR_ENUM",
   };
 #ifdef VELOX_ENABLE_GEO
   expectedTypes.insert("GEOMETRY");
@@ -284,6 +285,13 @@ TEST_F(CustomTypeTest, nullConstant) {
       auto type = getCustomType(name, {TypeParameter(moodInfo)});
       checkNullConstant(
           type, "test.enum.mood:BigintEnum({\"CURIOUS\": -2, \"HAPPY\": 0})");
+    } else if (name == "VARCHAR_ENUM") {
+      VarcharEnumParameter colorInfo(
+          "test.enum.color", {{"RED", "red"}, {"BLUE", "blue"}});
+      auto type = getCustomType(name, {TypeParameter(colorInfo)});
+      checkNullConstant(
+          type,
+          "test.enum.color:VarcharEnum({\"BLUE\": \"blue\", \"RED\": \"red\"})");
     } else {
       auto type = getCustomType(name, {});
       checkNullConstant(type, type->toString());

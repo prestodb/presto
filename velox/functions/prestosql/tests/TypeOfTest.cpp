@@ -23,6 +23,7 @@
 #include "velox/functions/prestosql/types/QDigestType.h"
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/functions/prestosql/types/VarcharEnumType.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -92,6 +93,13 @@ TEST_F(TypeOfTest, customTypes) {
   LongEnumParameter otherInfo("someEnumType", enumMap);
   EXPECT_EQ("test.enum.mood", typeOf(BIGINT_ENUM(moodInfo)));
   EXPECT_EQ("someEnumType", typeOf(BIGINT_ENUM(otherInfo)));
+
+  std::unordered_map<std::string, std::string> varcharEnumMap = {
+      {"RED", "red"}, {"BLUE", "blue"}};
+  VarcharEnumParameter colorInfo("test.enum.color", varcharEnumMap);
+  VarcharEnumParameter otherColorInfo("someColorType", varcharEnumMap);
+  EXPECT_EQ("test.enum.color", typeOf(VARCHAR_ENUM(colorInfo)));
+  EXPECT_EQ("someColorType", typeOf(VARCHAR_ENUM(otherColorInfo)));
 }
 } // namespace
 } // namespace facebook::velox::functions

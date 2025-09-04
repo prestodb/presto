@@ -19,16 +19,19 @@ velox_add_library(
   BigintEnumType.cpp
   BingTileRegistration.cpp
   BingTileType.cpp
+  EnumTypeBase.cpp
   HyperLogLogRegistration.cpp
   IPAddressRegistration.cpp
   IPPrefixRegistration.cpp
   JsonCastOperator.cpp
   JsonRegistration.cpp
+  QDigestRegistration.cpp
   SfmSketchRegistration.cpp
   TDigestRegistration.cpp
-  QDigestRegistration.cpp
   TimestampWithTimeZoneRegistration.cpp
   UuidRegistration.cpp
+  VarcharEnumRegistration.cpp
+  VarcharEnumType.cpp
 )
 if(VELOX_ENABLE_GEO)
   velox_sources(velox_presto_types PRIVATE GeometryRegistration.cpp)

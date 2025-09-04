@@ -177,6 +177,7 @@ GEOMETRY                  VARBINARY
 TDIGEST                   VARBINARY
 QDIGEST                   VARBINARY
 BIGINT_ENUM               BIGINT
+VARCHAR_ENUM              VARCHAR
 ========================  =====================
 
 TIMESTAMP WITH TIME ZONE represents a time point in milliseconds precision
@@ -232,6 +233,14 @@ different enum type as a singleton. The LongEnumParameter is used as the key to 
 and a new instance is only created if it has not been created with the given LongEnumParameter.
 Casting is permitted from any integer type to an enum type. Casting is only permitted from an enum type
 to a BIGINT type. Casting between different enum types is not permitted.
+Comparison operations are only allowed between values of the same enum type.
+
+VARCHAR_ENUM(VarcharEnumParameter) type represents an enumerated value where the physical type is VARCHAR.
+It takes one VarcharEnumParameter as parameter, which consists of a string name and a mapping of
+string keys to VARCHAR values.
+Similar to BIGINT_ENUM, there is a static cache which stores instances of different VARCHAR_ENUM types, with the
+VarcharEnumParameter as the key.
+Casting is only permitted to and from VARCHAR type, and is case-sensitive. Casting between different enum types is not permitted.
 Comparison operations are only allowed between values of the same enum type.
 
 Spark Types

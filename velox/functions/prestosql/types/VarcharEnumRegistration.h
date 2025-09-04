@@ -14,19 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/EnumFunctions.h"
-#include "velox/functions/prestosql/types/BigintEnumRegistration.h"
-#include "velox/functions/prestosql/types/VarcharEnumRegistration.h"
-#include "velox/type/SimpleFunctionApi.h"
+#pragma once
 
-namespace facebook::velox::functions {
+namespace facebook::velox {
 
-void registerEnumFunctions(const std::string& prefix) {
-  registerBigintEnumType();
-  registerVarcharEnumType();
+void registerVarcharEnumType();
 
-  registerFunction<EnumKeyFunction, Varchar, BigintEnum<E1>>(
-      {prefix + "enum_key"});
-}
-} // namespace facebook::velox::functions
+} // namespace facebook::velox
