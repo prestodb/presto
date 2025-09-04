@@ -253,6 +253,28 @@ TEST_F(FlatMapVectorTest, withNulls) {
   EXPECT_TRUE(flatMapVector->isInMap(*channel, 2));
 }
 
+TEST_F(FlatMapVectorTest, nullInMaps) {
+  // Construct a flat map with two null BufferPtrs in the inMaps vector.
+  auto vectorSize = 1;
+  auto distinctKeys = maker_.flatVector<int32_t>({1, 2, 3});
+  std::vector<VectorPtr> mapValues(distinctKeys->size());
+  std::vector<BufferPtr> inMaps(distinctKeys->size());
+  inMaps[1] = AlignedBuffer::allocate<bool>(vectorSize, pool_.get(), 0);
+  auto flatMap = std::make_shared<FlatMapVector>(
+      pool_.get(),
+      MAP(INTEGER(), INTEGER()),
+      nullptr,
+      vectorSize,
+      distinctKeys,
+      mapValues,
+      inMaps);
+
+  // Channels with null inMaps (0 and 2) will always return true.
+  EXPECT_TRUE(flatMap->isInMap(0, 0));
+  EXPECT_FALSE(flatMap->isInMap(1, 0));
+  EXPECT_TRUE(flatMap->isInMap(2, 0));
+}
+
 TEST_F(FlatMapVectorTest, primitiveKeys) {
   // bigint key.
   auto flatMapVector = maker_.flatMapVector<int64_t, double>({

@@ -190,9 +190,11 @@ class MapFilterFunction : public FilterFunctionBase {
     // Flatten inMap buffer.
     auto* mutableFlattedInMap = flattenedInMap->asMutable<uint64_t>();
     bits::fillBits(mutableFlattedInMap, 0, inMapSize, false);
-    auto* mutableInMap = inMap->asMutable<uint64_t>();
+    auto* mutableInMap = inMap ? inMap->asMutable<uint64_t>() : nullptr;
     rows.applyToSelected([&](vector_size_t row) {
-      if (bits::isBitSet(mutableInMap, decodedIndices[row])) {
+      // If inMap is null, short circuit and set bit because key is present in
+      // all rows.
+      if (!inMap || bits::isBitSet(mutableInMap, decodedIndices[row])) {
         bits::setBit(mutableFlattedInMap, decodedIndices[row]);
       }
     });

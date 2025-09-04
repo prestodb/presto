@@ -214,8 +214,12 @@ class FlatMapVector : public BaseVector {
     if (inMaps_.size() <= keyChannel) {
       return true;
     }
-    auto* inMap = inMapsAt(keyChannel)->asMutable<uint64_t>();
-    return inMap ? bits::isBitSet(inMap, index) : true;
+    if (auto& inMap = inMapsAt(keyChannel)) {
+      return bits::isBitSet(inMap->as<uint64_t>(), index);
+    } else {
+      // If inMap is null, key is present in all rows.
+      return true;
+    }
   }
 
   /// Get the map values vector at a given a map key channel.
