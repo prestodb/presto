@@ -313,6 +313,7 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         assertThat(cookie.getMaxAge()).isLessThanOrEqualTo(TTL_ACCESS_TOKEN_IN_SECONDS.getSeconds());
         validateAccessToken(cookie.getValue());
     }
+
     protected void validateAccessToken(String cookieValue)
     {
         Request request = new Request.Builder().url("https://localhost:" + hydraIdP.getAuthPort() + "/userinfo").addHeader(AUTHORIZATION, "Bearer " + cookieValue).build();
