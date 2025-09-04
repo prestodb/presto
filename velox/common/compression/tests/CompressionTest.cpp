@@ -19,6 +19,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -99,18 +100,18 @@ void checkCodecRoundtrip(
     Codec* c1,
     Codec* c2,
     const std::vector<uint8_t>& data) {
-  auto maxCompressedLen =
+  auto maxCompressedLength =
       static_cast<size_t>(c1->maxCompressedLength(data.size()));
-  std::vector<uint8_t> compressed(maxCompressedLen);
+  std::vector<uint8_t> compressed(maxCompressedLength);
   // Allocate at least 1 byte to ensure data.get() is not nullptr.
   std::vector<uint8_t> decompressed(data.size() == 0 ? 1 : data.size());
 
   // Compress with codec c1.
-  auto compressionLength =
+  auto compressedLength =
       c1->compress(
-            data.data(), data.size(), compressed.data(), maxCompressedLen)
+            data.data(), data.size(), compressed.data(), maxCompressedLength)
           .thenOrThrow(folly::identity, throwsNotOk);
-  compressed.resize(compressionLength);
+  compressed.resize(compressedLength);
 
   // Decompress with codec c2.
   auto decompressedLength = c2->decompress(
@@ -122,6 +123,39 @@ void checkCodecRoundtrip(
   decompressed.resize(data.size());
   ASSERT_EQ(data, decompressed);
   ASSERT_EQ(data.size(), decompressedLength);
+
+  // Compress with codec c1 with a smaller output buffer to test compression
+  // failure.
+  static const std::unordered_map<std::string_view, std::string>
+      compressionFailures = {
+          {"lz4", "LZ4 compression failed: ERROR_dstMaxSize_tooSmall"},
+          {"lz4_raw", "LZ4 compression failed"},
+          {"lz4_hadoop", "LZ4 compression failed"}};
+  VELOX_ASSERT_ERROR_STATUS(
+      c1->compress(
+            data.data(), data.size(), compressed.data(), compressedLength - 1)
+          .error(),
+      StatusCode::kIOError,
+      compressionFailures.at(c1->name()));
+
+  // Decompress corrupted data.
+  std::vector<uint8_t> corruptedData = compressed;
+  corruptedData.resize(compressed.size() + 1);
+
+  static const std::unordered_map<std::string_view, std::string>
+      decompressionFailures = {
+          {"lz4", "LZ4 decompression failed."},
+          {"lz4_raw", "LZ4 decompression failed."},
+          {"lz4_hadoop", "LZ4 decompression failed."}};
+  VELOX_ASSERT_ERROR_STATUS(
+      c2->decompress(
+            corruptedData.data(),
+            corruptedData.size(),
+            decompressed.data(),
+            decompressed.size())
+          .error(),
+      StatusCode::kIOError,
+      decompressionFailures.at(c2->name()));
 }
 
 // Use same codec for both compression and decompression.

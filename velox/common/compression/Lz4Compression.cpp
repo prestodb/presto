@@ -223,7 +223,7 @@ Status LZ4Compressor::init() {
   firstTime_ = true;
 
   ret = LZ4F_createCompressionContext(&ctx_, LZ4F_VERSION);
-  VELOX_RETURN_IF(LZ4F_isError(ret), lz4Error("LZ4 init failed: ", ret));
+  VELOX_RETURN_IF(LZ4F_isError(ret), lz4Error("LZ4 init failed: {}", ret));
   return Status::OK();
 }
 
@@ -255,7 +255,7 @@ Expected<StreamingCompressor::CompressResult> LZ4Compressor::compress(
       ctx_, output, outputSize, input, inputSize, nullptr /* options */);
   VELOX_RETURN_UNEXPECTED_IF(
       LZ4F_isError(numBytesOrError),
-      lz4Error("LZ4 compress updated failed: ", numBytesOrError));
+      lz4Error("LZ4 compress updated failed: {}", numBytesOrError));
   bytesWritten += static_cast<int64_t>(numBytesOrError);
 
   VELOX_DCHECK_LE(bytesWritten, outputSize);
@@ -287,7 +287,7 @@ Expected<StreamingCompressor::FlushResult> LZ4Compressor::flush(
       LZ4F_flush(ctx_, output, outputSize, nullptr /* options */);
   VELOX_RETURN_UNEXPECTED_IF(
       LZ4F_isError(numBytesOrError),
-      lz4Error("LZ4 flush failed: ", numBytesOrError));
+      lz4Error("LZ4 flush failed: {}", numBytesOrError));
   bytesWritten += static_cast<uint64_t>(numBytesOrError);
 
   VELOX_DCHECK_LE(bytesWritten, outputLength);
@@ -319,7 +319,7 @@ Expected<StreamingCompressor::EndResult> LZ4Compressor::finalize(
       LZ4F_compressEnd(ctx_, output, outputSize, nullptr /* options */);
   VELOX_RETURN_UNEXPECTED_IF(
       LZ4F_isError(numBytesOrError),
-      lz4Error("LZ4 end failed: ", numBytesOrError));
+      lz4Error("LZ4 finalize failed: {}", numBytesOrError));
   bytesWritten += static_cast<uint64_t>(numBytesOrError);
 
   VELOX_DCHECK_LE(bytesWritten, outputLength);
@@ -333,7 +333,7 @@ Status LZ4Compressor::compressBegin(
   auto numBytesOrError = LZ4F_compressBegin(ctx_, output, outputLen, &prefs_);
   VELOX_RETURN_IF(
       LZ4F_isError(numBytesOrError),
-      lz4Error("LZ4 compress begin failed: ", numBytesOrError));
+      lz4Error("LZ4 compress begin failed: {}", numBytesOrError));
   firstTime_ = false;
   output += numBytesOrError;
   outputLen -= numBytesOrError;
@@ -344,7 +344,7 @@ Status LZ4Compressor::compressBegin(
 Status LZ4Decompressor::init() {
   finished_ = false;
   auto ret = LZ4F_createDecompressionContext(&ctx_, LZ4F_VERSION);
-  VELOX_RETURN_IF(LZ4F_isError(ret), lz4Error("LZ4 init failed: ", ret));
+  VELOX_RETURN_IF(LZ4F_isError(ret), lz4Error("LZ4 init failed: {}", ret));
   return Status::OK();
 }
 
@@ -378,7 +378,7 @@ Expected<StreamingDecompressor::DecompressResult> LZ4Decompressor::decompress(
   auto ret = LZ4F_decompress(
       ctx_, output, &outputSize, input, &inputSize, nullptr /* options */);
   VELOX_RETURN_UNEXPECTED_IF(
-      LZ4F_isError(ret), lz4Error("LZ4 decompress failed: ", ret));
+      LZ4F_isError(ret), lz4Error("LZ4 decompression failed: {}", ret));
   finished_ = (ret == 0);
   return DecompressResult{
       static_cast<uint64_t>(inputSize),
@@ -443,7 +443,7 @@ Expected<uint64_t> Lz4FrameCodec::compress(
       static_cast<size_t>(inputLength),
       &prefs_);
   VELOX_RETURN_UNEXPECTED_IF(
-      LZ4F_isError(ret), lz4Error("Lz4 compression failure: ", ret));
+      LZ4F_isError(ret), lz4Error("LZ4 compression failed: {}", ret));
   return static_cast<uint64_t>(ret);
 }
 
@@ -470,12 +470,11 @@ Expected<uint64_t> Lz4FrameCodec::decompress(
           bytesWritten += result.bytesWritten;
           VELOX_RETURN_UNEXPECTED_IF(
               result.outputTooSmall,
-              Status::IOError("Lz4 decompression buffer too small."));
+              Status::IOError("LZ4 decompression buffer too small."));
         }
         VELOX_RETURN_UNEXPECTED_IF(
             !decompressor->isFinished() || inputLength != 0,
-            Status::IOError(
-                "Lz4 compressed input contains less than one frame."));
+            Status::IOError("LZ4 decompression failed."));
         return bytesWritten;
       });
 }
@@ -534,7 +533,7 @@ Expected<uint64_t> Lz4RawCodec::compress(
         compressionLevel_);
   }
   VELOX_RETURN_UNEXPECTED_IF(
-      compressedSize == 0, Status::IOError("Lz4 compression failure."));
+      compressedSize == 0, Status::IOError("LZ4 compression failed."));
   return static_cast<uint64_t>(compressedSize);
 }
 
@@ -551,7 +550,7 @@ Expected<uint64_t> Lz4RawCodec::decompress(
       static_cast<int>(inputLength),
       static_cast<int>(outputLength));
   VELOX_RETURN_UNEXPECTED_IF(
-      decompressedSize < 0, Status::IOError("Lz4 decompression failure."));
+      decompressedSize < 0, Status::IOError("LZ4 decompression failed."));
   return static_cast<uint64_t>(decompressedSize);
 }
 
