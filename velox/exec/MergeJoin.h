@@ -331,6 +331,11 @@ class MergeJoin : public Operator {
   template <bool IsLeft>
   bool advanceMatchImpl();
 
+  // Handles output generation when only one side of the join has data
+  // available. Processes unmatched rows for outer joins when the other side is
+  // exhausted.
+  RowVectorPtr handleSingleSideOutput();
+
   // Properly resizes and produces the current output vector if one is
   // available.
   RowVectorPtr produceOutput() {

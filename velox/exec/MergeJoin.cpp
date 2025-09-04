@@ -912,132 +912,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
   }
 
   if (!input_ || !rightInput_) {
-    if (isLeftJoin(joinType_) || isAntiJoin(joinType_)) {
-      if (input_ && rightHasNoInput()) {
-        // If output_ is currently wrapping a different buffer, return it
-        // first.
-        if (prepareOutput(input_, nullptr)) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-        while (true) {
-          if (!tryAddOutputRowForLeftJoin()) {
-            return std::move(output_);
-          }
-
-          if (leftBatchFinished()) {
-            clearLeftInput();
-            return produceOutput();
-          }
-        }
-        VELOX_UNREACHABLE();
-      }
-
-      if (leftHasNoInput()) {
-        if (output_ != nullptr) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-        if (input_ == nullptr) {
-          clearRightInput();
-        }
-      }
-    } else if (isRightJoin(joinType_)) {
-      if (rightInput_ && leftHasNoInput()) {
-        // If output_ is currently wrapping a different buffer, return it
-        // first.
-        if (prepareOutput(nullptr, rightInput_)) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-
-        while (true) {
-          if (!tryAddOutputRowForRightJoin()) {
-            return std::move(output_);
-          }
-
-          if (rightBatchFinished()) {
-            // Ran out of rows on the right side.
-            clearRightInput();
-            return nullptr;
-          }
-        }
-        VELOX_UNREACHABLE();
-      }
-
-      if (rightHasNoInput()) {
-        if (output_ != nullptr) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-        if (rightInput_ == nullptr) {
-          clearLeftInput();
-        }
-      }
-    } else if (isFullJoin(joinType_)) {
-      if (input_ && rightHasNoInput()) {
-        // If output_ is currently wrapping a different buffer, return it
-        // first.
-        if (prepareOutput(input_, nullptr)) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-
-        while (true) {
-          if (!tryAddOutputRowForLeftJoin()) {
-            return std::move(output_);
-          }
-
-          if (leftBatchFinished()) {
-            clearLeftInput();
-            return produceOutput();
-          }
-        }
-        VELOX_UNREACHABLE();
-      }
-
-      if (leftHasNoInput() && output_) {
-        output_->resize(outputSize_);
-        return std::move(output_);
-      }
-
-      if (rightInput_ && leftHasNoInput()) {
-        // If output_ is currently wrapping a different buffer, return it
-        // first.
-        if (prepareOutput(nullptr, rightInput_)) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-
-        while (true) {
-          if (!tryAddOutputRowForRightJoin()) {
-            return std::move(output_);
-          }
-
-          if (rightBatchFinished()) {
-            // Ran out of rows on the right side.
-            clearRightInput();
-            return nullptr;
-          }
-        }
-        VELOX_UNREACHABLE();
-      }
-
-      if (rightHasNoInput() && output_) {
-        output_->resize(outputSize_);
-        return std::move(output_);
-      }
-    } else {
-      if (leftHasNoInput() || rightHasNoInput()) {
-        if (output_) {
-          output_->resize(outputSize_);
-          return std::move(output_);
-        }
-        clearLeftInput();
-        clearRightInput();
-      }
-    }
-    return nullptr;
+    return handleSingleSideOutput();
   }
 
   auto output = handleRightSideNullRows();
@@ -1167,6 +1042,137 @@ RowVectorPtr MergeJoin::doGetOutput() {
   }
 
   VELOX_UNREACHABLE();
+}
+
+RowVectorPtr MergeJoin::handleSingleSideOutput() {
+  VELOX_CHECK(!input_ || !rightInput_);
+
+  if (isLeftJoin(joinType_) || isAntiJoin(joinType_)) {
+    if (input_ && rightHasNoInput()) {
+      // If output_ is currently wrapping a different buffer, return it
+      // first.
+      if (prepareOutput(input_, nullptr)) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+      while (true) {
+        if (!tryAddOutputRowForLeftJoin()) {
+          return std::move(output_);
+        }
+
+        if (leftBatchFinished()) {
+          clearLeftInput();
+          return produceOutput();
+        }
+      }
+      VELOX_UNREACHABLE();
+    }
+
+    if (leftHasNoInput()) {
+      if (output_ != nullptr) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+      if (input_ == nullptr) {
+        clearRightInput();
+      }
+    }
+  } else if (isRightJoin(joinType_)) {
+    if (rightInput_ && leftHasNoInput()) {
+      // If output_ is currently wrapping a different buffer, return it
+      // first.
+      if (prepareOutput(nullptr, rightInput_)) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+
+      while (true) {
+        if (!tryAddOutputRowForRightJoin()) {
+          return std::move(output_);
+        }
+
+        if (rightBatchFinished()) {
+          // Ran out of rows on the right side.
+          clearRightInput();
+          return nullptr;
+        }
+      }
+      VELOX_UNREACHABLE();
+    }
+
+    if (rightHasNoInput()) {
+      if (output_ != nullptr) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+      if (rightInput_ == nullptr) {
+        clearLeftInput();
+      }
+    }
+  } else if (isFullJoin(joinType_)) {
+    if (input_ && rightHasNoInput()) {
+      // If output_ is currently wrapping a different buffer, return it
+      // first.
+      if (prepareOutput(input_, nullptr)) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+
+      while (true) {
+        if (!tryAddOutputRowForLeftJoin()) {
+          return std::move(output_);
+        }
+
+        if (leftBatchFinished()) {
+          clearLeftInput();
+          return produceOutput();
+        }
+      }
+      VELOX_UNREACHABLE();
+    }
+
+    if (leftHasNoInput() && output_) {
+      output_->resize(outputSize_);
+      return std::move(output_);
+    }
+
+    if (rightInput_ && leftHasNoInput()) {
+      // If output_ is currently wrapping a different buffer, return it
+      // first.
+      if (prepareOutput(nullptr, rightInput_)) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+
+      while (true) {
+        if (!tryAddOutputRowForRightJoin()) {
+          return std::move(output_);
+        }
+
+        if (rightBatchFinished()) {
+          // Ran out of rows on the right side.
+          clearRightInput();
+          return nullptr;
+        }
+      }
+      VELOX_UNREACHABLE();
+    }
+
+    if (rightHasNoInput() && output_) {
+      output_->resize(outputSize_);
+      return std::move(output_);
+    }
+  } else {
+    if (leftHasNoInput() || rightHasNoInput()) {
+      if (output_) {
+        output_->resize(outputSize_);
+        return std::move(output_);
+      }
+      clearLeftInput();
+      clearRightInput();
+    }
+  }
+  return nullptr;
 }
 
 bool MergeJoin::advanceMatch() {
