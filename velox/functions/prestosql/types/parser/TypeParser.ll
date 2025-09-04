@@ -56,8 +56,8 @@ WORD_WITH_PERIODS ([[:alpha:]_][[:alnum:]_]*)(\.([[:alpha:]_][[:alnum:]_]*))*
 (DECIMAL)          return Parser::token::DECIMAL;
 (ROW)              return Parser::token::ROW;
 {VARIABLE}         yylval->build<std::string>(YYText()); return Parser::token::VARIABLE;
-{NUMBER}           yylval->build<long long>(folly::to<int>(YYText())); return Parser::token::NUMBER;
-{SIGNED_INT}       yylval->build<long long>(folly::to<int>(YYText())); return Parser::token::SIGNED_INT;
+{NUMBER}           yylval->build<long long>(folly::to<long long>(YYText())); return Parser::token::NUMBER;
+{SIGNED_INT}       yylval->build<long long>(folly::to<long long>(YYText())); return Parser::token::SIGNED_INT;
 {WORD}             yylval->build<std::string>(YYText()); return Parser::token::WORD;
 {WORD_WITH_PERIODS}             yylval->build<std::string>(YYText()); return Parser::token::WORD_WITH_PERIODS;
 {QUOTED_ID}        yylval->build<std::string>(YYText()); return Parser::token::QUOTED_ID;
