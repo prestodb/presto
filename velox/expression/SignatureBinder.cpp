@@ -83,6 +83,17 @@ std::optional<LongEnumParameter> tryResolveLongEnumLiteral(
   return std::nullopt;
 }
 
+std::optional<VarcharEnumParameter> tryResolveVarcharEnumLiteral(
+    const TypeSignature& parameter,
+    const std::unordered_map<std::string, VarcharEnumParameter>&
+        varcharEnumParameterVariableBindings) {
+  auto it = varcharEnumParameterVariableBindings.find(parameter.baseName());
+  if (it != varcharEnumParameterVariableBindings.end()) {
+    return it->second;
+  }
+  return std::nullopt;
+}
+
 // If the parameter is a named field from a row, ensure the names are
 // compatible. For example:
 //
@@ -173,6 +184,19 @@ bool SignatureBinderBase::checkOrSetLongEnumParameter(
     }
   }
   longEnumVariablesBindings_[parameterName] = params;
+  return true;
+}
+
+bool SignatureBinderBase::checkOrSetVarcharEnumParameter(
+    const std::string& parameterName,
+    const VarcharEnumParameter& params) {
+  auto it = varcharEnumVariablesBindings_.find(parameterName);
+  if (it != varcharEnumVariablesBindings_.end()) {
+    if (varcharEnumVariablesBindings_[parameterName] != params) {
+      return false;
+    }
+  }
+  varcharEnumVariablesBindings_[parameterName] = params;
   return true;
 }
 
@@ -299,6 +323,11 @@ bool SignatureBinderBase::tryBind(
         }
         break;
       case TypeParameterKind::kVarcharEnumLiteral:
+        if (!checkOrSetVarcharEnumParameter(
+                params[i].baseName(),
+                actualParameter.varcharEnumLiteral.value())) {
+          return false;
+        }
         break;
       case TypeParameterKind::kType:
         if (!checkNamedRowField(params[i], actualType, i)) {
@@ -321,7 +350,9 @@ TypePtr SignatureBinder::tryResolveType(
     const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
     std::unordered_map<std::string, int>& integerVariablesBindings,
     const std::unordered_map<std::string, LongEnumParameter>&
-        longEnumParameterVariableBindings) {
+        longEnumParameterVariableBindings,
+    const std::unordered_map<std::string, VarcharEnumParameter>&
+        varcharEnumParameterVariableBindings) {
   const auto& baseName = typeSignature.baseName();
 
   if (variables.count(baseName)) {
@@ -351,13 +382,20 @@ TypePtr SignatureBinder::tryResolveType(
       typeParameters.emplace_back(longEnumParameterliteral.value());
       continue;
     }
+    auto varcharEnumParameterliteral = tryResolveVarcharEnumLiteral(
+        param, varcharEnumParameterVariableBindings);
+    if (varcharEnumParameterliteral.has_value()) {
+      typeParameters.emplace_back(varcharEnumParameterliteral.value());
+      continue;
+    }
 
     auto type = tryResolveType(
         param,
         variables,
         typeVariablesBindings,
         integerVariablesBindings,
-        longEnumParameterVariableBindings);
+        longEnumParameterVariableBindings,
+        varcharEnumParameterVariableBindings);
     if (!type) {
       return nullptr;
     }

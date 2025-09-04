@@ -61,6 +61,10 @@ class SignatureBinderBase {
   /// Record concrete values that are bound to LongEnumParameter variables.
   std::unordered_map<std::string, LongEnumParameter> longEnumVariablesBindings_;
 
+  /// Record concrete values that are bound to VarcharEnumParameter variables.
+  std::unordered_map<std::string, VarcharEnumParameter>
+      varcharEnumVariablesBindings_;
+
  private:
   /// If the integer parameter is set, then it must match with value.
   /// Returns false if values do not match or the parameter does not exist.
@@ -70,6 +74,11 @@ class SignatureBinderBase {
   bool checkOrSetLongEnumParameter(
       const std::string& parameterName,
       const LongEnumParameter& params);
+
+  /// Try to bind the VarcharEnumParameter from the actualType.
+  bool checkOrSetVarcharEnumParameter(
+      const std::string& parameterName,
+      const VarcharEnumParameter& params);
 
   /// Try to bind the integer parameter from the actualType.
   bool tryBindIntegerParameters(
@@ -122,7 +131,8 @@ class SignatureBinder : private SignatureBinderBase {
         variables(),
         typeVariablesBindings_,
         integerVariablesBindings_,
-        longEnumVariablesBindings_);
+        longEnumVariablesBindings_,
+        varcharEnumVariablesBindings_);
   }
 
   // Try resolve types for all specified signatures. Return empty list if some
@@ -150,12 +160,14 @@ class SignatureBinder : private SignatureBinderBase {
       const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables) {
     std::unordered_map<std::string, int> dummyEmpty;
     std::unordered_map<std::string, LongEnumParameter> dummyEmpty2;
+    std::unordered_map<std::string, VarcharEnumParameter> dummyEmpty3;
     return tryResolveType(
         typeSignature,
         variables,
         resolvedTypeVariables,
         dummyEmpty,
-        dummyEmpty2);
+        dummyEmpty2,
+        dummyEmpty3);
   }
 
   // Given a pre-computed binding for type variables and integer variables,
@@ -167,7 +179,9 @@ class SignatureBinder : private SignatureBinderBase {
       const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
       std::unordered_map<std::string, int>& integerVariablesBindings,
       const std::unordered_map<std::string, LongEnumParameter>&
-          bigintEnumVariablesBindings);
+          bigintEnumVariablesBindings,
+      const std::unordered_map<std::string, VarcharEnumParameter>&
+          varcharEnumVariablesBindings);
 
  private:
   bool tryBind(bool allowCoercions, std::vector<Coercion>& coercions);

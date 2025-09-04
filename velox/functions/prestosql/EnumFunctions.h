@@ -20,10 +20,11 @@
 #include "velox/core/QueryConfig.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/types/BigintEnumType.h"
+#include "velox/functions/prestosql/types/VarcharEnumType.h"
 
 namespace facebook::velox::functions {
 
-template <typename TExec>
+template <typename TExec, typename EnumTypePtr>
 struct EnumKeyFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
@@ -33,22 +34,45 @@ struct EnumKeyFunction {
       const arg_type<BigintEnum<E1>>* /*input*/) {
     VELOX_USER_CHECK_EQ(
         inputTypes.size(), 1, "Expected 1 input type for enum_key function.");
-    enumPtr_ = std::dynamic_pointer_cast<const BigintEnumType>(inputTypes[0]);
+    enumPtr_ = asBigintEnum(inputTypes[0]);
     VELOX_USER_CHECK_NOT_NULL(
         enumPtr_, "Input type for enum_key function must be a BigintEnumType.");
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& /*config*/,
+      const arg_type<VarcharEnum<E1>>* /*input*/) {
+    VELOX_USER_CHECK_EQ(
+        inputTypes.size(), 1, "Expected 1 input type for enum_key function.");
+    enumPtr_ = asVarcharEnum(inputTypes[0]);
+    VELOX_USER_CHECK_NOT_NULL(
+        enumPtr_,
+        "Input type for enum_key function must be a VarcharEnumType.");
   }
 
   Status call(out_type<Varchar>& result, const int64_t& input) {
     auto keyAt = enumPtr_->keyAt(input);
     if (!keyAt.has_value()) {
-      return Status::UserError("Value '{}' not in enum 'BigintEnum'", input);
+      return Status::UserError(
+          "Value '{}' not in BigintEnum: {}", input, enumPtr_->toString());
+    }
+    result = keyAt.value();
+    return Status::OK();
+  }
+
+  Status call(out_type<Varchar>& result, const std::string& input) {
+    auto keyAt = enumPtr_->keyAt(input);
+    if (!keyAt.has_value()) {
+      return Status::UserError(
+          "Value '{}' not in VarcharEnum: {}", input, enumPtr_->toString());
     }
     result = keyAt.value();
     return Status::OK();
   }
 
  private:
-  BigintEnumTypePtr enumPtr_;
+  EnumTypePtr enumPtr_;
 };
 
 } // namespace facebook::velox::functions

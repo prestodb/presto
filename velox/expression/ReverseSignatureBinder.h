@@ -63,6 +63,16 @@ class ReverseSignatureBinder : private SignatureBinderBase {
     return longEnumVariablesBindings_;
   }
 
+  /// Return the VarcharEnumParameter bindings produced by 'tryBind'. This
+  /// function should be called after 'tryBind' and only if 'tryBind' returns
+  /// true.
+  const std::unordered_map<std::string, VarcharEnumParameter>&
+  varcharEnumParameterBindings() const {
+    VELOX_CHECK(
+        tryBindSucceeded_, "tryBind() must be called first and succeed");
+    return varcharEnumVariablesBindings_;
+  }
+
  private:
   const TypePtr returnType_;
 

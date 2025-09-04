@@ -120,6 +120,10 @@ class ArgumentTypeFuzzer {
   /// Bindings between LongEnumParameter variables and their actual types.
   std::unordered_map<std::string, LongEnumParameter> longEnumParameterBindings_;
 
+  /// Bindings between VarcharEnumParameter variables and their actual types.
+  std::unordered_map<std::string, VarcharEnumParameter>
+      varcharEnumParameterBindings_;
+
   /// RNG to generate random types for unbounded type variables when necessary.
   FuzzerGenerator& rng_;
 

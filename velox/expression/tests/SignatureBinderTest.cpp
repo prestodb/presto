@@ -247,7 +247,7 @@ TEST(SignatureBinderTest, decimals) {
       std::unordered_map<std::string, int> integerVariables;
       ASSERT_EQ(
           exec::SignatureBinder::tryResolveType(
-              typeSignature, {}, {}, integerVariables, {}),
+              typeSignature, {}, {}, integerVariables, {}, {}),
           nullptr);
     }
     // Type parameter + constraint = error.

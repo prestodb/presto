@@ -246,6 +246,18 @@ struct BigintEnumT {
 template <typename E>
 using BigintEnum = CustomType<BigintEnumT<E>>;
 
+// Type to use for inputs and outputs of simple functions with VarcharEnum
+// types. E.g. arg_type<VarcharEnum<E1>> and out_type<VarcharEnum<E1>>.
+template <typename E>
+struct VarcharEnumT {
+  using type = Varchar;
+
+  static inline const std::string typeName = "varchar_enum(" + E::name() + ")";
+};
+
+template <typename E>
+using VarcharEnum = CustomType<VarcharEnumT<E>>;
+
 template <typename T>
 struct Constant {};
 
