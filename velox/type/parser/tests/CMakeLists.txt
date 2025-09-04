@@ -20,6 +20,7 @@ target_link_libraries(
   velox_type_parser_test
   velox_type_parser
   velox_type
+  velox_presto_types
   GTest::gtest
   GTest::gtest_main
   GTest::gmock
