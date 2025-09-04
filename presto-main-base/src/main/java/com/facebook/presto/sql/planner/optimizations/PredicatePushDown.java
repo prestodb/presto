@@ -356,7 +356,8 @@ public class PredicatePushDown
 
             return dependencies.entrySet().stream()
                     .allMatch(entry -> (entry.getValue() == 1 && !node.getAssignments().get(entry.getKey()).accept(new ExternalCallExpressionChecker(functionAndTypeManager), null)) ||
-                            node.getAssignments().get(entry.getKey()) instanceof ConstantExpression);
+                            node.getAssignments().get(entry.getKey()) instanceof ConstantExpression ||
+                            node.getAssignments().get(entry.getKey()) instanceof VariableReferenceExpression);
         }
 
         @Override
