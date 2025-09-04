@@ -79,7 +79,6 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("catalog.config-dir", "/")
                 .put("task.info-update-interval", "100ms")
                 .put("spark.initial-partition-count", "1")
-                .put("register-test-functions", "true")
                 .put("native-execution-program-arguments", "--logtostderr=1 --minloglevel=3")
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
