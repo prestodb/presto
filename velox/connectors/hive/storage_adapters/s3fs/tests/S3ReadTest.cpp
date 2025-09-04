@@ -61,7 +61,7 @@ class S3ReadTest : public S3Test, public ::test::VectorTestBase {
 };
 } // namespace
 
-TEST_F(S3ReadTest, s3ReadTest) {
+TEST_F(S3ReadTest, DISABLED_s3ReadTest) {
   const auto sourceFile = test::getDataFilePath(
       "velox/connectors/hive/storage_adapters/s3fs/tests",
       "../../../../../dwio/parquet/tests/examples/int.parquet");

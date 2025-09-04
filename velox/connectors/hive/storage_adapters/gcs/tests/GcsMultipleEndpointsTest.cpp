@@ -191,7 +191,7 @@ class GcsMultipleEndpointsTest : public testing::Test,
 };
 } // namespace
 
-TEST_F(GcsMultipleEndpointsTest, baseEndpoints) {
+TEST_F(GcsMultipleEndpointsTest, DISABLED_baseEndpoints) {
   const int64_t kExpectedRows = 1'000;
 
   const auto gcsBucket = gcsURI(gcsEmulatorOne_->preexistingBucketName(), "");

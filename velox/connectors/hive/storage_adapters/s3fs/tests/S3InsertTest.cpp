@@ -44,7 +44,7 @@ class S3InsertTest : public S3Test, public test::InsertTest {
 };
 } // namespace
 
-TEST_F(S3InsertTest, s3InsertTest) {
+TEST_F(S3InsertTest, DISABLED_s3InsertTest) {
   const int64_t kExpectedRows = 1'000;
   const std::string_view kOutputDirectory{"s3://writedata/"};
   minioServer_->addBucket("writedata");

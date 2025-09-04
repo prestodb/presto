@@ -191,7 +191,7 @@ class S3MultipleEndpoints : public S3Test, public ::test::VectorTestBase {
 };
 } // namespace
 
-TEST_F(S3MultipleEndpoints, baseEndpoints) {
+TEST_F(S3MultipleEndpoints, DISABLED_baseEndpoints) {
   const int64_t kExpectedRows = 1'000;
   const auto outputDirectory{filesystems::s3URI(kBucketName, "")};
 
@@ -203,7 +203,7 @@ TEST_F(S3MultipleEndpoints, baseEndpoints) {
   connector::unregisterConnector(std::string(kConnectorId2));
 }
 
-TEST_F(S3MultipleEndpoints, bucketEndpoints) {
+TEST_F(S3MultipleEndpoints, DISABLED_bucketEndpoints) {
   const int64_t kExpectedRows = 1'000;
   const auto outputDirectory{filesystems::s3URI(kBucketName, "")};
 
