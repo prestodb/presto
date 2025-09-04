@@ -397,10 +397,6 @@ public class DistributedQueryRunner
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         }
-
-        if (accessControlProperties.get("access-control.name").equals("allow-all")) {
-            loadSystemAccessControl();
-        }
     }
 
     public void waitForClusterToGetReady()
