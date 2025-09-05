@@ -44,7 +44,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class LongDictionarySelectiveStreamReader
         extends AbstractLongSelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionarySelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDictionarySelectiveStreamReader.class).instanceSize();
 
     // filter evaluation status for dictionary entries; using byte instead of enum for memory efficiency
     private static final byte FILTER_NOT_EVALUATED = 0;

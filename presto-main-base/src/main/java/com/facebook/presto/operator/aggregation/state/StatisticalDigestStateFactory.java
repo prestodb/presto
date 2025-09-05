@@ -77,7 +77,7 @@ public class StatisticalDigestStateFactory<T>
             extends AbstractGroupedAccumulatorState
             implements StatisticalDigestState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedStatisticalDigestState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedStatisticalDigestState.class).instanceSize();
         private final ObjectBigArray<StatisticalDigest<T>> digests = new ObjectBigArray<>();
         private long size;
         private final Function<Slice, StatisticalDigest<T>> deserializer;
@@ -128,7 +128,7 @@ public class StatisticalDigestStateFactory<T>
     public static class SingleStatisticalDigestState<T>
             implements StatisticalDigestState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleStatisticalDigestState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleStatisticalDigestState.class).instanceSize();
         private final Function<Slice, StatisticalDigest<T>> deserializer;
         private StatisticalDigest<T> digest;
 

@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class Int64FlatBatchReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64FlatBatchReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int64FlatBatchReader.class).instanceSize();
 
     private final RichColumnDescriptor columnDescriptor;
 

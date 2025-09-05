@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractDecimalSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractDecimalSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AbstractDecimalSelectiveStreamReader.class).instanceSize();
 
     protected final TupleDomainFilter filter;
     protected final boolean nullsAllowed;

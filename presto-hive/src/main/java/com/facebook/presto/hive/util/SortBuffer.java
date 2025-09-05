@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SortBuffer
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SortBuffer.class).instanceSize();
 
     private final long maxMemoryBytes;
     private final List<Type> types;

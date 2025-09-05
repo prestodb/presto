@@ -23,7 +23,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class BooleanPlainValuesDecoder
         implements BooleanValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanPlainValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BooleanPlainValuesDecoder.class).instanceSize();
 
     private final byte[] byteBuffer;
     private final int bufferEnd;

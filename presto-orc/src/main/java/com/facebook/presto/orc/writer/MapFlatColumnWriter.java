@@ -83,7 +83,7 @@ public class MapFlatColumnWriter
     private static final int SEQUENCE_START_INDEX = 1;
     private static final ColumnEncoding FLAT_MAP_COLUMN_ENCODING = new ColumnEncoding(DWRF_MAP_FLAT, 0);
     private static final DwrfProto.KeyInfo EMPTY_SLICE_KEY = DwrfProto.KeyInfo.newBuilder().setBytesKey(ByteString.EMPTY).build();
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapFlatColumnWriter.class).instanceSize();
     private static final int MIN_CAPACITY = 16;
 
     private final int nodeIndex;

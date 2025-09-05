@@ -798,7 +798,7 @@ public class GenericAccumulatorFactory
     private static class SpillableFinalOnlyGroupedAccumulator
             implements GroupedAccumulator
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SpillableFinalOnlyGroupedAccumulator.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SpillableFinalOnlyGroupedAccumulator.class).instanceSize();
 
         private final FinalOnlyGroupedAccumulator delegate;
         private final List<Type> sourceTypes;
@@ -1243,7 +1243,7 @@ public class GenericAccumulatorFactory
 
     private static class GroupIdPage
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupIdPage.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupIdPage.class).instanceSize();
 
         private final GroupByIdBlock groupByIdBlock;
         private final Page page;
