@@ -33,7 +33,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
-import org.apache.hudi.storage.StoragePath;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +47,7 @@ import static com.facebook.presto.hudi.HudiSplitManager.getHudiPartition;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.fs.FSUtils.getRelativePartitionPath;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.convertToStoragePath;
 
 /**
  * A runnable to take partition names from a queue of partitions to process,
@@ -108,7 +108,7 @@ public class HudiPartitionSplitGenerator
     {
         HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
-        String relativePartitionPath = getRelativePartitionPath(new StoragePath(tablePath.toUri()), new StoragePath(partitionPath.toUri()));
+        String relativePartitionPath = getRelativePartitionPath(convertToStoragePath(tablePath), convertToStoragePath(partitionPath));
         Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
                 fsView.getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, latestInstant) :
                 fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false);
