@@ -19,12 +19,14 @@ import com.facebook.presto.session.AbstractTestSessionPropertyManager;
 import com.facebook.presto.session.SessionMatchSpec;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.session.file.FileSessionPropertyManager.CODEC;
 import static org.testng.Assert.assertEquals;
@@ -58,5 +60,61 @@ public class TestFileSessionPropertyManager
             assertEquals(propertyConfiguration.systemPropertyOverrides, overrideProperties);
             assertEquals(manager.getCatalogSessionProperties(CONTEXT), catalogProperties);
         }
+    }
+
+    @Test
+    public void testNullSessionProperties()
+            throws IOException
+    {
+        ImmutableMap<String, Map<String, String>> catalogProperties = ImmutableMap.of("CATALOG", ImmutableMap.of("PROPERTY", "VALUE"));
+        SessionMatchSpec spec = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                null,
+                catalogProperties);
+
+        assertProperties(ImmutableMap.of(), ImmutableMap.of(), catalogProperties, spec);
+    }
+
+    @Test
+    public void testNullCatalogSessionProperties()
+            throws IOException
+    {
+        Map<String, String> properties = ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2");
+        SessionMatchSpec spec = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                properties,
+                null);
+
+        assertProperties(properties, spec);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Either sessionProperties or catalogSessionProperties must be provided")
+    public void testNullBothSessionProperties()
+            throws IOException
+    {
+        SessionMatchSpec spec = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                null,
+                null);
+
+        assertProperties(ImmutableMap.of(), spec);
     }
 }
