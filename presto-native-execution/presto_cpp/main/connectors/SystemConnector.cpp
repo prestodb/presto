@@ -82,10 +82,11 @@ SystemTableHandle::SystemTableHandle(
       "SystemConnector supports only runtime schema");
   VELOX_USER_CHECK_EQ(
       tableName_, kTasksTable, "SystemConnector supports only tasks table");
+  name_ = schemaName_ + '.' + tableName_;
 }
 
-std::string SystemTableHandle::toString() const {
-  return fmt::format("schema: {} table: {}", schemaName_, tableName_);
+const std::string& SystemTableHandle::name() const {
+  return name_;
 }
 
 SystemDataSource::SystemDataSource(
