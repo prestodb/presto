@@ -278,6 +278,12 @@ public final class FunctionAssertions
         return this;
     }
 
+    public FunctionAssertions addConnectorFunctions(List<? extends SqlFunction> functionInfos, String namespace)
+    {
+        metadata.registerConnectorFunctions(namespace, functionInfos);
+        return this;
+    }
+
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
