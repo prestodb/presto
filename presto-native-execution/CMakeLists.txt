@@ -70,9 +70,6 @@ option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 
 option(PRESTO_ENABLE_EXAMPLES "Enable Presto examples" OFF)
 
-# Builds the test plugins used by presto-native-execution (for CI only).
-option(PRESTO_ENABLE_CI_TEST_PLUGIN "Build test plugin (.so/.dylib) for CI" OFF)
-
 option(PRESTO_ENABLE_TESTING "Enable tests" ON)
 
 option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)

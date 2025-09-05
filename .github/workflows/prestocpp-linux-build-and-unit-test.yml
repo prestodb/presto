@@ -79,6 +79,8 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           source /opt/rh/gcc-toolset-12/enable
+          cp -r presto-native-tests/presto_cpp/tests presto-native-execution/presto_cpp/main/dynamic_registry
+          echo "add_subdirectory(tests)" >> presto-native-execution/presto_cpp/main/dynamic_registry/CMakeLists.txt
           cd presto-native-execution
           cmake \
             -B _build/release \
@@ -86,7 +88,6 @@ jobs:
             -DTREAT_WARNINGS_AS_ERRORS=1 \
             -DENABLE_ALL_WARNINGS=1 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DPRESTO_ENABLE_CI_TEST_PLUGIN=ON \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
             -DPRESTO_ENABLE_JWT=ON \
             -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \

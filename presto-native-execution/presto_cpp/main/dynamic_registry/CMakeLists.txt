@@ -14,9 +14,5 @@ if(${PRESTO_ENABLE_EXAMPLES})
   add_subdirectory(examples)
 endif()
 
-if(${PRESTO_ENABLE_CI_TEST_PLUGIN})
-  add_subdirectory(tests)
-endif()
-
 add_library(presto_dynamic_function_registrar INTERFACE
             DynamicFunctionRegistrar.h)
