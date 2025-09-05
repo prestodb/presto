@@ -16,6 +16,19 @@ velox_add_library(velox_functions_iceberg_hash Murmur3Hash32.cpp)
 
 velox_link_libraries(velox_functions_iceberg_hash velox_common_base velox_functions_util)
 
+velox_add_library(velox_functions_iceberg BucketFunction.cpp Register.cpp)
+
+velox_link_libraries(
+  velox_functions_iceberg
+  velox_functions_iceberg_hash
+  velox_functions_lib
+  Folly::folly
+)
+
+if(NOT VELOX_MONO_LIBRARY)
+  set_property(TARGET velox_functions_iceberg PROPERTY JOB_POOL_COMPILE high_memory_pool)
+endif()
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
