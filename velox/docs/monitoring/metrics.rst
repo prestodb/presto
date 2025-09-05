@@ -9,14 +9,17 @@ instance, the collected data can help automatically generate alerts at an
 outage. Velox provides a framework to collect the metrics which consists of
 three steps:
 
-**Define**: define the name and type for the metric through DEFINE_METRIC and
-DEFINE_HISTOGRAM_METRIC macros. DEFINE_HISTOGRAM_METRIC is used for histogram
-metric type and DEFINE_METRIC is used for the other types (see metric type
-definition below). BaseStatsReporter provides methods for metric definition.
-Register metrics during startup using registerVeloxMetrics() API.
+**Define**: define the name and type for the metric through DEFINE_METRIC,
+DEFINE_HISTOGRAM_METRIC, DEFINE_QUANTILE_STAT, and DEFINE_DYNAMIC_QUANTILE_STAT
+macros. DEFINE_HISTOGRAM_METRIC is used for histogram metric type,
+DEFINE_QUANTILE_STAT for quantile metrics, DEFINE_DYNAMIC_QUANTILE_STAT for
+dynamic quantile metrics, and DEFINE_METRIC is used for the other types (see
+metric type definition below). BaseStatsReporter provides methods for metric
+definition. Register metrics during startup using registerVeloxMetrics() API.
 
-**Record**: record the metric data point using RECORD_METRIC_VALUE and
-RECORD_HISTOGRAM_METRIC_VALUE macros when the corresponding event happens.
+**Record**: record the metric data point using RECORD_METRIC_VALUE,
+RECORD_HISTOGRAM_METRIC_VALUE, RECORD_QUANTILE_STAT_VALUE, and
+RECORD_DYNAMIC_QUANTILE_STAT_VALUE macros when the corresponding event happens.
 BaseStatsReporter provides methods for metric recording.
 
 **Export**: aggregates the collected data points based on the defined metrics,
@@ -26,7 +29,7 @@ implementation of BaseStatsReporter is required to integrate with a specific
 monitoring service. The metric aggregation granularity and export interval are
 also configured based on the actual used monitoring service.
 
-Velox supports five metric types:
+Velox supports seven metric types:
 
 **Count**: tracks the count of events, such as the number of query failures.
 
@@ -48,6 +51,23 @@ less than min is counted in min bucket, and any one larger than max is counted
 in max bucket. It also allows to specify the value percentiles to report for
 monitoring. This allows BaseStatsReporter and the backend monitoring service to
 optimize the aggregated data storage.
+
+**Quantile**: tracks quantile statistics (percentiles) of event data point values
+over configurable sliding time windows, such as P50, P95, and P99 latencies over
+the last 60 seconds. Unlike histograms which use fixed buckets, quantile metrics
+dynamically calculate percentiles from the actual data distribution.
+DEFINE_QUANTILE_STAT specifies the stat types to export (e.g., AVG, COUNT, SUM),
+the percentiles to track (as values between 0.0 and 1.0), and the sliding window
+periods in seconds. This provides more accurate percentile calculations compared
+to histogram approximations, especially for metrics with varying distributions.
+
+**Dynamic Quantile**: extends quantile metrics to support dynamic key patterns
+with runtime substitution using format placeholders (e.g., "latency.{}.{}" where
+placeholders are replaced with actual values like database names or endpoint names).
+DEFINE_DYNAMIC_QUANTILE_STAT registers a pattern template, and
+RECORD_DYNAMIC_QUANTILE_STAT_VALUE substitutes the placeholders to create specific
+metric instances. This enables efficient tracking of quantile metrics across
+multiple dimensions without pre-registering every possible combination.
 
 Task Execution
 --------------
