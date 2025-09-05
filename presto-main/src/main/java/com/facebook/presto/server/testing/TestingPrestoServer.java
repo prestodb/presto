@@ -118,6 +118,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -229,7 +230,7 @@ public class TestingPrestoServer
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
+        this(true, ImmutableMap.of("http-server.http.port", String.valueOf(getAvailablePort())), null, null, new SqlParserOptions(), additionalModules);
     }
 
     public TestingPrestoServer(
@@ -930,5 +931,13 @@ public class TestingPrestoServer
     public ClientRequestFilterManager getClientRequestFilterManager()
     {
         return clientRequestFilterManager;
+    }
+
+    public static int getAvailablePort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 }
