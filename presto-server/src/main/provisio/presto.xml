@@ -292,4 +292,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/native-sql-invoked-functions-plugin">
+        <artifact id="${project.groupId}:presto-native-sql-invoked-functions-plugin:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
