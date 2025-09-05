@@ -2051,7 +2051,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5");
+                ") WHERE rn <= 5 ORDER BY rn");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
         assertEquals(actual, expected);
@@ -2860,9 +2860,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowSchemasLikeWithEscape()
     {
-        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", "(?s)line 1:39: mismatched input '<EOF>'. Expecting: <string>.*");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "(?s)Escape string must be a single character.*");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "(?s)Escape string must be a single character.*");
+        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", ".*line 1:39: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", ".*Escape string must be a single character.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", ".*Escape string must be a single character.*");
 
         Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
         assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
@@ -2909,9 +2909,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTablesLikeWithEscape()
     {
-        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", "(?s)line 1:36: mismatched input '<EOF>'. Expecting: <string>.*");
-        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "(?s)Escape string must be a single character.*");
-        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "(?s)Escape string must be a single character.*");
+        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", ".*line 1:36: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", ".*Escape string must be a single character.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", ".*Escape string must be a single character.*");
 
         Set<Object> allTables = computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet();
         assertEquals(allTables, computeActual("SHOW TABLES FROM information_schema LIKE '%_%'").getOnlyColumnAsSet());
@@ -7563,9 +7563,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "true")
                 .build();
         // Trigger optimization
-        assertQuery(session, "select * from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
+        assertQuery(session, "select o.custkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
         assertQuery(session, "select o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
-        assertQuery(session, "select *, cast(o.custkey as varchar), cast(c.custkey as varchar) from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
+        assertQuery(session, "select c.name, cast(o.custkey as varchar), cast(c.custkey as varchar) from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
         assertQuery(session, "select r.custkey, r.orderkey, r.name, n.nationkey from (select o.custkey, o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)) r, nation n");
         // Do not trigger optimization
         assertQuery(session, "select * from customer c join orders o on cast(acctbal as varchar) = cast(totalprice as varchar)");
