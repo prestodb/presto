@@ -52,7 +52,6 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
