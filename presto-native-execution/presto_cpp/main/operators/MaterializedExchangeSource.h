@@ -20,45 +20,55 @@
 
 namespace facebook::presto::operators {
 
-class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
+/// Exchange source for materialized shuffle data using promise-based
+/// concurrency control to prevent multiple concurrent requests.
+/// Follows the same pattern as PrestoExchangeSource.
+class MaterializedExchangeSource : public velox::exec::ExchangeSource {
  public:
-  UnsafeRowExchangeSource(
+  MaterializedExchangeSource(
       const std::string& taskId,
-      int destination,
+      int partitionId,
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       const std::shared_ptr<ShuffleReader>& shuffle,
       velox::memory::MemoryPool* FOLLY_NONNULL pool)
-      : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
+      : ExchangeSource(taskId, partitionId, queue, pool), shuffle_(shuffle) {}
 
-  bool shouldRequestLocked() override {
-    return !atEnd_;
-  }
+  /// Implements gating mechanism to prevent multiple concurrent requests.
+  /// Checks stream end status and pending requests before allowing new
+  ///  requests.
+  bool shouldRequestLocked() override;
 
+  /// Initiates async request for shuffle data and returns
+  ///  future which will befulfilled when data is available.
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
       std::chrono::microseconds maxWait) override;
 
+  /// Returns estimated remaining bytes in shuffle stream without fetching data.
+  /// Uses default size estimate as shuffle interface doesn't provide sizes.
   folly::SemiFuture<Response> requestDataSizes(
       std::chrono::microseconds maxWait) override;
 
-  void close() override {
-    shuffle_->noMoreData(true);
-  }
+  /// Closes the exchange source and fulfills any pending promises to prevent
+  /// hangs.
+  void close() override;
 
+  /// Returns shuffle operation statistics from the underlying reader.
   folly::F14FastMap<std::string, int64_t> stats() const override;
 
-  /// url needs to follow below format:
-  /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
+  /// Factory method to create exchange source from URL.
+  /// URL format: batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
   static std::shared_ptr<velox::exec::ExchangeSource> createExchangeSource(
       const std::string& url,
-      int32_t destination,
+      int32_t partitionId,
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
+  /// Underlying shuffle reader providing access to materialized data.
   const std::shared_ptr<ShuffleReader> shuffle_;
 
-  // The number of batches read from 'shuffle_'.
+  // The number of batches read from 'shuffle_'..
   uint64_t numBatches_{0};
 };
 } // namespace facebook::presto::operators
