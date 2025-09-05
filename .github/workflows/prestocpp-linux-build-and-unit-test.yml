@@ -370,7 +370,7 @@ jobs:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
         run: |
-          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-sidecar-plugin' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
       - name: Run presto-native sidecar tests
         if: |

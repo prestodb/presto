@@ -39,6 +39,16 @@ if [[ -z "${PRESTO_SERVER_DIR:-}" ]]; then
     source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
     PRESTO_SERVER_DIR="${PROJECT_ROOT}/presto-server/target/presto-server-${PRESTO_VERSION}/"
 fi
+
+# The following plugin results in a function signature conflict when loaded in Java/ sidecar disabled native clusters.
+# This plugin is only meant for sidecar enabled native clusters, hence exclude it.
+PLUGIN_TO_EXCLUDE="native-sql-invoked-functions-plugin"
+
+if [[ -d "${PRESTO_SERVER_DIR}/plugin/${PLUGIN_TO_EXCLUDE}" ]]; then
+    echo "Excluding plugin: $PLUGIN_TO_EXCLUDE"
+    rm -rf "${PRESTO_SERVER_DIR}/plugin/${PLUGIN_TO_EXCLUDE}"
+fi
+
 export_canonical_path PRESTO_SERVER_DIR
 
 if [[ -z "${PRESTO_CLI_JAR:-}" ]]; then
