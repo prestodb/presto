@@ -17,8 +17,11 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.TestingPrestoClient;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
@@ -48,6 +51,7 @@ public class TestPluginLoadedSqlInvokedFunctions
             throws Exception
     {
         server = new TestingPrestoServer();
+        server.getAccessControl().loadSystemAccessControl();
         server.installPlugin(new TestFunctionsPlugin());
         client = new TestingPrestoClient(server, testSessionBuilder()
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Bahia_Banderas"))
