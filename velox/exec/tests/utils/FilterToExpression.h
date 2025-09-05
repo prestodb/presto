@@ -20,7 +20,7 @@
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
 
-namespace facebook::velox::core {
+namespace facebook::velox::core::test {
 /// Converts a Filter object to a TypedExpr object that can be used in Velox's
 /// expression evaluation system.
 ///
@@ -42,4 +42,4 @@ core::TypedExprPtr filterToExpr(
     const common::Filter* filter,
     const RowTypePtr& rowType,
     memory::MemoryPool* pool);
-} // namespace facebook::velox::core
+} // namespace facebook::velox::core::test

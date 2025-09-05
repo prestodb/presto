@@ -52,6 +52,7 @@ add_executable(
   ExchangeClientTest.cpp
   ExpandTest.cpp
   FilterProjectTest.cpp
+  FilterToExpressionTest.cpp
   FunctionResolutionTest.cpp
   HashBitRangeTest.cpp
   HashJoinBridgeTest.cpp

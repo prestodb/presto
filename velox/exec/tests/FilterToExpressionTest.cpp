@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/core/FilterToExpression.h"
+#include "velox/exec/tests/utils/FilterToExpression.h"
 #include <gtest/gtest.h>
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryCtx.h"

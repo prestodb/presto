@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/core/FilterToExpression.h"
+#include "velox/exec/tests/utils/FilterToExpression.h"
 #include "velox/core/Expressions.h"
 
-namespace facebook::velox::core {
+namespace facebook::velox::core::test {
 
 core::TypedExprPtr createBooleanExpr(
     const std::vector<TypedExprPtr>& conditions) {
@@ -613,4 +613,4 @@ core::TypedExprPtr filterToExpr(
       return subfieldExpr;
   }
 }
-} // namespace facebook::velox::core
+} // namespace facebook::velox::core::test
