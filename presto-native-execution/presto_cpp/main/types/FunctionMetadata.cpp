@@ -279,7 +279,7 @@ json getFunctionsMetadata() {
   for (const auto& entry : signatures) {
     const auto name = entry.first;
     // Skip internal functions. They don't have any prefix.
-    if (kBlockList.count(name) != 0 ||
+    if (kBlockList.contains(name) ||
         name.find("$internal$") != std::string::npos ||
         getScalarMetadata(name).companionFunction) {
       continue;
@@ -307,7 +307,7 @@ json getFunctionsMetadata() {
   // as they have been processed.
   const auto& functions = exec::windowFunctions();
   for (const auto& entry : functions) {
-    if (aggregateFunctions.count(entry.first) == 0) {
+    if (!aggregateFunctions.contains(entry.first)) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(entry.first);
       const auto schema = parts[1];
