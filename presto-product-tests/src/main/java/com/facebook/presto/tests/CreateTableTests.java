@@ -32,7 +32,7 @@ public class CreateTableTests
     {
         String tableName = "create_table_as_select";
         query(format("DROP TABLE IF EXISTS %s", tableName));
-        query(format("CREATE TABLE %s(nationkey, name) AS SELECT n_nationkey, n_name FROM nation", tableName));
+        query(format("CREATE TABLE %s(nationkey, name) WITH(format='PARQUET') AS SELECT n_nationkey, n_name FROM nation", tableName));
         assertThat(query(format("SELECT * FROM %s", tableName))).hasRowsCount(25);
     }
 
