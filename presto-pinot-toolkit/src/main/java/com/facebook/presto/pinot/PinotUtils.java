@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.pinot;
 
+import com.google.protobuf.ByteString;
+import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.spi.utils.TimestampUtils;
 
 import java.util.Optional;
@@ -94,5 +96,15 @@ public class PinotUtils
             }
             throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), "Cannot decode double value from pinot " + value, ne);
         }
+    }
+
+    public static ByteString toByteString(byte[] bytes)
+    {
+        return ByteString.copyFrom(bytes);
+    }
+
+    public static InstanceConfig toInstanceConfig(String instanceId)
+    {
+        return InstanceConfig.toInstanceConfig(instanceId);
     }
 }
