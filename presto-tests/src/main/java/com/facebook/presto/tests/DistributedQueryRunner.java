@@ -253,6 +253,7 @@ public class DistributedQueryRunner
                             coordinatorSidecarEnabled,
                             false,
                             skipLoadingResourceGroupConfigurationManager,
+                            false,
                             workerProperties,
                             parserOptions,
                             environment,
@@ -283,6 +284,7 @@ public class DistributedQueryRunner
                             false,
                             false,
                             skipLoadingResourceGroupConfigurationManager,
+                            false,
                             rmProperties,
                             parserOptions,
                             environment,
@@ -304,6 +306,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         skipLoadingResourceGroupConfigurationManager,
+                        false,
                         catalogServerProperties,
                         parserOptions,
                         environment,
@@ -323,6 +326,7 @@ public class DistributedQueryRunner
                         true,
                         false,
                         skipLoadingResourceGroupConfigurationManager,
+                        false,
                         coordinatorSidecarProperties,
                         parserOptions,
                         environment,
@@ -330,6 +334,9 @@ public class DistributedQueryRunner
                         extraModules)));
                 servers.add(coordinatorSidecar.get());
             }
+
+            final boolean loadDefaultSystemAccessControl = !accessControlProperties.containsKey("access-control.name") ||
+                    accessControlProperties.get("access-control.name").equals("allow-all");
 
             for (int i = 0; i < coordinatorCount; i++) {
                 TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(
@@ -342,6 +349,7 @@ public class DistributedQueryRunner
                         false,
                         true,
                         skipLoadingResourceGroupConfigurationManager,
+                        loadDefaultSystemAccessControl,
                         extraCoordinatorProperties,
                         parserOptions,
                         environment,
@@ -365,9 +373,9 @@ public class DistributedQueryRunner
             }
         }
 
-        if (!accessControlProperties.containsKey("access-control.name") || accessControlProperties.get("access-control.name").equals("allow-all")) {
-            loadSystemAccessControl();
-        }
+//        if (!accessControlProperties.containsKey("access-control.name") || accessControlProperties.get("access-control.name").equals("allow-all")) {
+//            loadSystemAccessControl();
+//        }
 
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinators.get(0).getMetadata().getSessionPropertyManager());
@@ -478,6 +486,7 @@ public class DistributedQueryRunner
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
             boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
             Map<String, String> extraProperties,
             SqlParserOptions parserOptions,
             String environment,
@@ -510,6 +519,7 @@ public class DistributedQueryRunner
                 coordinatorSidecarEnabled,
                 coordinator,
                 skipLoadingResourceGroupConfigurationManager,
+                loadDefaultSystemAccessControl,
                 properties,
                 environment,
                 discoveryUri,

@@ -289,6 +289,42 @@ public class TestingPrestoServer
             Optional<Path> dataDirectory)
             throws Exception
     {
+        this(
+                resourceManager,
+                resourceManagerEnabled,
+                catalogServer,
+                catalogServerEnabled,
+                coordinatorSidecar,
+                coordinatorSidecarEnabled,
+                coordinator,
+                skipLoadingResourceGroupConfigurationManager,
+                true,
+                properties,
+                environment,
+                discoveryUri,
+                parserOptions,
+                additionalModules,
+                dataDirectory);
+    }
+
+    public TestingPrestoServer(
+            boolean resourceManager,
+            boolean resourceManagerEnabled,
+            boolean catalogServer,
+            boolean catalogServerEnabled,
+            boolean coordinatorSidecar,
+            boolean coordinatorSidecarEnabled,
+            boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri,
+            SqlParserOptions parserOptions,
+            List<Module> additionalModules,
+            Optional<Path> dataDirectory)
+            throws Exception
+    {
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
         this.coordinatorSidecar = coordinatorSidecar;
@@ -400,6 +436,10 @@ public class TestingPrestoServer
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
+        if (loadDefaultSystemAccessControl) {
+            accessControl.loadSystemAccessControl();
+        }
+
         prestoAuthenticatorManager = injector.getInstance(PrestoAuthenticatorManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);

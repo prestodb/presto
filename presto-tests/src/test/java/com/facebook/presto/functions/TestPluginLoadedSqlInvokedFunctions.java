@@ -48,7 +48,6 @@ public class TestPluginLoadedSqlInvokedFunctions
             throws Exception
     {
         server = new TestingPrestoServer();
-        server.getAccessControl().loadSystemAccessControl();
         server.installPlugin(new TestFunctionsPlugin());
         client = new TestingPrestoClient(server, testSessionBuilder()
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Bahia_Banderas"))

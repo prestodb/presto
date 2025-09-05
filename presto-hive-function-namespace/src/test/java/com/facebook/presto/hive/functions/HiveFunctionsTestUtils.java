@@ -30,7 +30,6 @@ public final class HiveFunctionsTestUtils
             throws Exception
     {
         TestingPrestoServer server = new TestingPrestoServer();
-        server.getAccessControl().loadSystemAccessControl();
         server.installPlugin(new MemoryPlugin());
         server.installPlugin(new HiveFunctionNamespacePlugin());
         server.createCatalog("memory", "memory");

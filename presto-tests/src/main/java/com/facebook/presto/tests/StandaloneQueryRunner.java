@@ -68,7 +68,6 @@ public final class StandaloneQueryRunner
 
         try {
             server = createTestingPrestoServer();
-            server.getAccessControl().loadSystemAccessControl();
         }
         catch (Exception e) {
             close();

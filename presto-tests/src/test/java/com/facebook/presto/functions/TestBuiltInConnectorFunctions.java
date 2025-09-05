@@ -83,7 +83,6 @@ public class TestBuiltInConnectorFunctions
             throws Exception
     {
         server = new TestingPrestoServer();
-        server.getAccessControl().loadSystemAccessControl();
         server.installPlugin(new TestConnectorWithBuiltinFunctions());
         server.createCatalog(CATALOG_NAME, PLUGIN_NAME);
         client = new TestingPrestoClient(server, testSessionBuilder()
