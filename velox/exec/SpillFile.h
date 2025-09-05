@@ -54,8 +54,6 @@ class SpillWriteFile {
 
   uint64_t write(std::unique_ptr<folly::IOBuf> iobuf);
 
-  void write(const char* data, uint64_t bytes);
-
   WriteFile* file() {
     return file_.get();
   }
