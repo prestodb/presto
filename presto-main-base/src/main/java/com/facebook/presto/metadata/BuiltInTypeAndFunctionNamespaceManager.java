@@ -67,6 +67,7 @@ import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
+import com.facebook.presto.operator.aggregation.DoubleRegressionExtendedAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.EntropyAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
@@ -84,6 +85,7 @@ import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.RealHistogramAggregation;
 import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
+import com.facebook.presto.operator.aggregation.RealRegressionExtendedAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
@@ -744,7 +746,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(DoubleCovarianceAggregation.class)
                 .aggregates(RealCovarianceAggregation.class)
                 .aggregates(DoubleRegressionAggregation.class)
+                .aggregates(DoubleRegressionExtendedAggregation.class)
                 .aggregates(RealRegressionAggregation.class)
+                .aggregates(RealRegressionExtendedAggregation.class)
                 .aggregates(DoubleCorrelationAggregation.class)
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)

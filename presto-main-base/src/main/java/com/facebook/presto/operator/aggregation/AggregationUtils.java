@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
 import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
+import com.facebook.presto.operator.aggregation.state.ExtendedRegressionState;
 import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
@@ -145,9 +146,14 @@ public final class AggregationUtils
     public static void updateRegressionState(RegressionState state, double x, double y)
     {
         double oldMeanX = state.getMeanX();
-        double oldMeanY = state.getMeanY();
         updateCovarianceState(state, x, y);
         state.setM2X(state.getM2X() + (x - oldMeanX) * (x - state.getMeanX()));
+    }
+
+    public static void updateExtendedRegressionState(ExtendedRegressionState state, double x, double y)
+    {
+        double oldMeanY = state.getMeanY();
+        updateRegressionState(state, x, y);
         state.setM2Y(state.getM2Y() + (y - oldMeanY) * (y - state.getMeanY()));
     }
 
@@ -189,12 +195,12 @@ public final class AggregationUtils
         return state.getC2();
     }
 
-    public static double getRegressionSyy(RegressionState state)
+    public static double getRegressionSyy(ExtendedRegressionState state)
     {
         return state.getM2Y();
     }
 
-    public static double getRegressionR2(RegressionState state)
+    public static double getRegressionR2(ExtendedRegressionState state)
     {
         if (state.getM2X() != 0 && state.getM2Y() == 0) {
             return 1.0;
@@ -311,8 +317,19 @@ public final class AggregationUtils
         long na = state.getCount();
         long nb = otherState.getCount();
         state.setM2X(state.getM2X() + otherState.getM2X() + na * nb * Math.pow(state.getMeanX() - otherState.getMeanX(), 2) / (double) (na + nb));
-        state.setM2Y(state.getM2Y() + otherState.getM2Y() + na * nb * Math.pow(state.getMeanY() - otherState.getMeanY(), 2) / (double) (na + nb));
         updateCovarianceState(state, otherState);
+    }
+
+    public static void mergeExtendedRegressionState(ExtendedRegressionState state, ExtendedRegressionState otherState)
+    {
+        if (otherState.getCount() == 0) {
+            return;
+        }
+
+        long na = state.getCount();
+        long nb = otherState.getCount();
+        state.setM2Y(state.getM2Y() + otherState.getM2Y() + na * nb * Math.pow(state.getMeanY() - otherState.getMeanY(), 2) / (double) (na + nb));
+        mergeRegressionState(state, otherState);
     }
 
     public static String generateAggregationName(String baseName, TypeSignature outputType, List<TypeSignature> inputTypes)
