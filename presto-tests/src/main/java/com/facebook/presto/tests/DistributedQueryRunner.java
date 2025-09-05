@@ -365,13 +365,16 @@ public class DistributedQueryRunner
             }
         }
 
+        if (!accessControlProperties.containsKey("access-control.name") || accessControlProperties.get("access-control.name").equals("allow-all")) {
+            loadSystemAccessControl();
+        }
+
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinators.get(0).getMetadata().getSessionPropertyManager());
 
         ImmutableList.Builder<TestingPrestoClient> prestoClientsBuilder = ImmutableList.builder();
         for (int i = 0; i < coordinatorCount; i++) {
             prestoClientsBuilder.add(closer.register(new TestingPrestoClient(coordinators.get(i), defaultSession)));
-//            coordinators.get(i).getAccessControl().loadSystemAccessControl();
         }
         prestoClients = prestoClientsBuilder.build();
 
