@@ -249,13 +249,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- these tests take a very long time so only run them in the CI server -->
-                            <excludes>
-                                <exclude>**/TestClickHouseIntegrationSmokeTest.java</exclude>
-                                <include>**/TestClickHouseDistributedQueries.java</include>
-                            </excludes>
-                        </configuration>
                     </plugin>
                 </plugins>
             </build>
