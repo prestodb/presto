@@ -434,7 +434,7 @@ class Aggregate {
     if (isInitialized(group)) {
       auto accumulator = value<T>(group);
       std::destroy_at(accumulator);
-      ::memset(accumulator, 0, sizeof(T));
+      ::memset(static_cast<void*>(accumulator), 0, sizeof(T));
     }
   }
 
