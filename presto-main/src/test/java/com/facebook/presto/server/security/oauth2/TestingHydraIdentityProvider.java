@@ -234,7 +234,7 @@ public class TestingHydraIdentityProvider
                 nodeInfo,
                 config,
                 new AcceptAllLoginsAndConsentsServlet(),
-                ImmutableMap.of("/userinfo", new AcceptAllLoginsAndConsentsServlet()),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
     }
@@ -262,24 +262,6 @@ public class TestingHydraIdentityProvider
             }
             if (request.getPathInfo().contains("/consent")) {
                 acceptConsent(request, response);
-                return;
-            }
-            if ("/userinfo".equals(request.getPathInfo())) {
-                response.setCharacterEncoding("UTF-8");
-                response.setContentType("application/json; charset=UTF-8");
-                response.setStatus(HttpServletResponse.SC_OK);
-
-                String json = "{"
-                        + "\"sub\":\"test-user@example.com\","
-                        + "\"aud\":[\"presto-client\"],"
-                        + "\"iat\":" + (System.currentTimeMillis() / 1000) + ","
-                        + "\"iss\":\"" + ISSUER + "\""
-                        + "}";
-
-                try (PrintWriter out = response.getWriter()) {
-                    out.write(json);
-                    out.flush();
-                }
                 return;
             }
             response.setStatus(SC_NOT_FOUND);
