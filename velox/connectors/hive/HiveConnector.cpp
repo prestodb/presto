@@ -47,7 +47,7 @@ HiveConnector::HiveConnector(
               ? std::make_unique<SimpleLRUCache<FileHandleKey, FileHandle>>(
                     hiveConfig_->numCacheFileHandles())
               : nullptr,
-          std::make_unique<FileHandleGenerator>(config)),
+          std::make_unique<FileHandleGenerator>(hiveConfig_->config())),
       executor_(executor) {
   if (hiveConfig_->isFileHandleCacheEnabled()) {
     LOG(INFO) << "Hive connector " << connectorId()
