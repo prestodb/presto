@@ -14,6 +14,7 @@
 package com.facebook.presto.sidecar;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
@@ -44,6 +45,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -403,6 +405,22 @@ public class TestNativeSidecarPlugin
                         "        ('P3', ST_Point(8, 4)))" +
                         "SELECT p.id, r.name FROM points p LEFT JOIN regions r ON ST_Within(p.geom, r.geom)",
                 "Error from native plan checker: .SpatialJoinNode no abstract type PlanNode ");
+    }
+
+    @Test
+    public void testRemoveMapCast()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .build();
+        assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)",
+                "values 0.5, 0.1");
+        assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)",
+                "values 0.5, 0.1");
+        assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
+                "values 0.5, null");
+        assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
+                "values 0.5, 0.1");
     }
 
     private String generateRandomTableName()
