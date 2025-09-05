@@ -919,7 +919,7 @@ TEST_F(CudfFilterProjectTest, cardinalityAndSplitOneByOne) {
 }
 
 // TODO: Requires a fix for the expression evaluator to handle function nesting.
-TEST_F(CudfFilterProjectTest, DISABLED_cardinalityAndSplitFused) {
+TEST_F(CudfFilterProjectTest, cardinalityAndSplitFused) {
   auto input = makeFlatVector<std::string>(
       {"hello world", "hello world2", "hello hello", "does not contain it"});
   auto data = makeRowVector({input});

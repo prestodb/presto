@@ -322,6 +322,8 @@ void registerCudf(const CudfOptions& options) {
     return;
   }
 
+  registerBuiltinFunctions(options.prefix());
+
   CUDF_FUNC_RANGE();
   cudaFree(nullptr); // Initialize CUDA context at startup
 
