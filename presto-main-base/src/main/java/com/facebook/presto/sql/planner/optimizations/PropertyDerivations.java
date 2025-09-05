@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.UniqueProperty;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -90,6 +91,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isUtilizeUniquePropertyInQueryPlanningEnabled;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.common.predicate.TupleDomain.toLinkedMap;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
@@ -140,6 +142,19 @@ public class PropertyDerivations
     public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session)
     {
         return node.accept(new Visitor(metadata, session), inputProperties);
+    }
+
+    public static ActualProperties uniqueToGroupProperties(ActualProperties properties)
+    {
+        if (properties.getLocalProperties().isEmpty()) {
+            return null;
+        }
+        LocalProperty<VariableReferenceExpression> localProperty = Iterables.getOnlyElement(properties.getLocalProperties());
+        if (localProperty instanceof UniqueProperty) {
+            return ActualProperties.builderFrom(properties).local(ImmutableList.of(new GroupingProperty<>(ImmutableList.of(((UniqueProperty<VariableReferenceExpression>) localProperty).getColumn())))).build();
+        }
+        checkState(localProperty instanceof GroupingProperty);
+        return properties;
     }
 
     private static class Visitor
@@ -196,12 +211,14 @@ public class PropertyDerivations
                 // preserve input (possibly preferred) partitioning
                 return ActualProperties.builderFrom(properties)
                         .local(newLocalProperties.build())
+                        .additionalProperty(properties.getAdditionalProperty())
                         .build();
             }
 
             return ActualProperties.builderFrom(properties)
                     .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdVariable()), Optional.empty()))
                     .local(newLocalProperties.build())
+                    .additionalProperty(properties.getAdditionalProperty())
                     .build();
         }
 
@@ -282,7 +299,10 @@ public class PropertyDerivations
                 inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
-            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
+            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+            return ActualProperties.builderFrom(properties.translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column))))
+                    .additionalProperty(properties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x.translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column))))))
+                    .build();
         }
 
         @Override
@@ -291,16 +311,23 @@ public class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             ActualProperties translated = properties.translateVariable(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
-
             return ActualProperties.builderFrom(translated)
                     .local(LocalProperties.grouped(node.getGroupingKeys()))
-                    .build();
+                    .additionalProperty(uniqueProperties(translated.getAdditionalProperty())).build();
         }
 
         @Override
         public ActualProperties visitRowNumber(RowNumberNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
+        }
+
+        private static Optional<ActualProperties> uniqueProperties(Optional<ActualProperties> properties)
+        {
+            if (properties.isPresent() && properties.get().getLocalProperties().size() == 1 && properties.get().getLocalProperties().get(0) instanceof UniqueProperty) {
+                return properties;
+            }
+            return Optional.empty();
         }
 
         @Override
@@ -316,6 +343,7 @@ public class PropertyDerivations
 
             return ActualProperties.builderFrom(properties)
                     .local(localProperties.build())
+                    .additionalProperty(uniqueProperties(properties.getAdditionalProperty()))
                     .build();
         }
 
@@ -330,6 +358,7 @@ public class PropertyDerivations
 
             return ActualProperties.builderFrom(properties)
                     .local(localProperties)
+                    .additionalProperty(uniqueProperties(properties.getAdditionalProperty()))
                     .build();
         }
 
@@ -344,6 +373,7 @@ public class PropertyDerivations
 
             return ActualProperties.builderFrom(properties)
                     .local(localProperties)
+                    .additionalProperty(uniqueProperties(properties.getAdditionalProperty()))
                     .build();
         }
 
@@ -360,6 +390,7 @@ public class PropertyDerivations
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.grouped(node.getDistinctVariables()))
+                    .additionalProperty(uniqueProperties(properties.getAdditionalProperty()))
                     .build();
         }
 
@@ -431,10 +462,12 @@ public class PropertyDerivations
 
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(constants)
+                            .additionalProperty(probeProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column)))))
                             .unordered(unordered)
                             .build();
                 case LEFT:
                     return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
+                            .additionalProperty(probeProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))))
                             .unordered(unordered)
                             .build();
                 case RIGHT:
@@ -518,10 +551,12 @@ public class PropertyDerivations
                                     .putAll(probeProperties.getConstants())
                                     .putAll(indexProperties.getConstants())
                                     .build())
+                            .additionalProperty(probeProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x)))
                             .build();
                 case SOURCE_OUTER:
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(probeProperties.getConstants())
+                            .additionalProperty(probeProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x)))
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -553,16 +588,19 @@ public class PropertyDerivations
                     constants.putAll(rightProperties.getConstants());
 
                     return ActualProperties.builderFrom(leftProperties)
+                            .additionalProperty(leftProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column)))))
                             .constants(constants)
                             .build();
                 case LEFT:
                     return ActualProperties.builderFrom(leftProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
+                            .additionalProperty(leftProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))))
                             .build();
                 case RIGHT:
                     rightProperties = rightProperties.translateVariable(column -> filterIfMissing(node.getOutputVariables(), column));
 
                     return ActualProperties.builderFrom(rightProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
                             .local(ImmutableList.of())
+                            .additionalProperty(rightProperties.getAdditionalProperty().map(x -> uniqueToGroupProperties(x.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))))
                             .unordered(true)
                             .build();
                 case FULL:
@@ -598,6 +636,7 @@ public class PropertyDerivations
             checkArgument(!node.getScope().isRemote() || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated), "Null-and-any replicated inputs should not be remotely exchanged");
 
             Set<Map.Entry<VariableReferenceExpression, ConstantExpression>> entries = null;
+            ActualProperties translated = null;
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                 List<VariableReferenceExpression> inputVariables = node.getInputs().get(sourceIndex);
                 Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
@@ -605,7 +644,7 @@ public class PropertyDerivations
                     inputToOutput.put(inputVariables.get(i), node.getOutputVariables().get(i));
                 }
 
-                ActualProperties translated = inputProperties.get(sourceIndex).translateVariable(variable -> Optional.ofNullable(inputToOutput.get(variable)));
+                translated = inputProperties.get(sourceIndex).translateVariable(variable -> Optional.ofNullable(inputToOutput.get(variable)));
 
                 entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
             }
@@ -620,6 +659,8 @@ public class PropertyDerivations
                         .map(column -> new SortingProperty<>(column, node.getOrderingScheme().get().getOrdering(column)))
                         .forEach(localProperties::add);
             }
+
+            boolean additionalPropertyIsUnique = inputProperties.size() == 1 && uniqueProperties(translated.getAdditionalProperty()).isPresent();
 
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
             // local exchanges do not produce all global properties as represented by ActualProperties.
@@ -638,6 +679,10 @@ public class PropertyDerivations
                 }
                 else if (inputProperties.stream().anyMatch(ActualProperties::isSingleNode)) {
                     builder.global(coordinatorSingleStreamPartition());
+                }
+
+                if (additionalPropertyIsUnique) {
+                    builder.additionalProperty(translated.getAdditionalProperty());
                 }
 
                 return builder.build();
@@ -666,6 +711,7 @@ public class PropertyDerivations
                     return ActualProperties.builder()
                             .global(globalPartitioning)
                             .constants(constants)
+                            .additionalProperty(additionalPropertyIsUnique ? translated.getAdditionalProperty() : Optional.empty())
                             .build();
                 }
                 case REPLICATE:
@@ -691,6 +737,7 @@ public class PropertyDerivations
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
+                    .additionalProperty(properties.getAdditionalProperty())
                     .build();
         }
 
@@ -728,6 +775,7 @@ public class PropertyDerivations
 
             return ActualProperties.builderFrom(translatedProperties)
                     .constants(constants)
+                    .additionalProperty(properties.getAdditionalProperty().map(x -> x.translateRowExpression(node.getAssignments().getMap())))
                     .build();
         }
 
@@ -814,6 +862,13 @@ public class PropertyDerivations
                     .addAll(layout.getLocalProperties())
                     .build();
             properties.local(LocalProperties.translate(constantAppendedLocalProperties, column -> Optional.ofNullable(assignments.get(column))));
+            if (isUtilizeUniquePropertyInQueryPlanningEnabled(session) && layout.getUniqueColumn().isPresent() && assignments.containsKey(layout.getUniqueColumn().get())) {
+                VariableReferenceExpression uniqueVariable = assignments.get(layout.getUniqueColumn().get());
+                ActualProperties.Builder additionalProperties = ActualProperties.builder();
+                additionalProperties.global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(uniqueVariable), Optional.empty()));
+                additionalProperties.local(LocalProperties.unique(uniqueVariable));
+                properties.additionalProperty(Optional.of(additionalProperties.build()));
+            }
 
             return properties.build();
         }

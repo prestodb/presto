@@ -188,9 +188,11 @@ public class StreamPreferredProperties
         // is there a preference for a specific partitioning scheme?
         if (partitioningColumns.isPresent()) {
             if (exactColumnOrder) {
-                return actualProperties.isExactlyPartitionedOn(partitioningColumns.get());
+                return actualProperties.isExactlyPartitionedOn(partitioningColumns.get())
+                        || actualProperties.getAdditionalStreamProperties().isPresent() && actualProperties.getAdditionalStreamProperties().get().isExactlyPartitionedOn(partitioningColumns.get());
             }
-            return actualProperties.isPartitionedOn(partitioningColumns.get());
+            return actualProperties.isPartitionedOn(partitioningColumns.get())
+                    || actualProperties.getAdditionalStreamProperties().isPresent() && actualProperties.getAdditionalStreamProperties().get().isPartitionedOn(partitioningColumns.get());
         }
 
         return true;
