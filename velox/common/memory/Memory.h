@@ -59,118 +59,6 @@ namespace facebook::velox::memory {
       "{}",                                                         \
       errorMessage);
 
-/// TODO(wangke): deprecate when MemoryManagerOptions is fully migrated.
-struct MemoryManagerOptions {
-  /// Specifies the default memory allocation alignment.
-  uint16_t alignment{MemoryAllocator::kMaxAlignment};
-
-  /// If true, enable memory usage tracking in the default memory pool.
-  bool trackDefaultUsage{
-      FLAGS_velox_enable_memory_usage_track_in_default_memory_pool};
-
-  /// If true, check the memory pool and usage leaks on destruction.
-  ///
-  /// TODO: deprecate this flag after all the existing memory leak use cases
-  /// have been fixed.
-  bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
-
-  /// Terminates the process and generates a core file on an allocation failure
-  bool coreOnAllocationFailureEnabled{false};
-
-  /// Disables the memory manager's tracking on memory pools.
-  bool disableMemoryPoolTracking{false};
-
-  /// ================== 'MemoryAllocator' settings ==================
-
-  /// Specifies the max memory allocation capacity in bytes enforced by
-  /// MemoryAllocator, default unlimited.
-  int64_t allocatorCapacity{kMaxMemory};
-
-  /// If true, uses MmapAllocator for memory allocation which manages the
-  /// physical memory allocation on its own through std::mmap techniques. If
-  /// false, use MallocAllocator which delegates the memory allocation to
-  /// std::malloc.
-  bool useMmapAllocator{false};
-
-  /// Number of pages in the largest size class in MmapAllocator.
-  int32_t largestSizeClassPages{256};
-
-  /// If true, allocations larger than largest size class size will be delegated
-  /// to ManagedMmapArena. Otherwise a system mmap call will be issued for each
-  /// such allocation.
-  ///
-  /// NOTE: this only applies for MmapAllocator.
-  bool useMmapArena{false};
-
-  /// Used to determine MmapArena capacity. The ratio represents
-  /// 'allocatorCapacity' to single MmapArena capacity ratio.
-  ///
-  /// NOTE: this only applies for MmapAllocator.
-  int32_t mmapArenaCapacityRatio{10};
-
-  /// If not zero, reserve 'smallAllocationReservePct'% of space from
-  /// 'allocatorCapacity' for ad hoc small allocations. And those allocations
-  /// are delegated to std::malloc. If 'maxMallocBytes' is 0, this value will be
-  /// disregarded.
-  ///
-  /// NOTE: this only applies for MmapAllocator.
-  uint32_t smallAllocationReservePct{0};
-
-  /// The allocation threshold less than which an allocation is delegated to
-  /// std::malloc(). If it is zero, then we don't delegate any allocation
-  /// std::malloc, and 'smallAllocationReservePct' will be automatically set to
-  /// 0 disregarding any passed in value.
-  ///
-  /// NOTE: this only applies for MmapAllocator.
-  int32_t maxMallocBytes{3072};
-
-  /// The memory allocations with size smaller than this threshold check the
-  /// capacity with local sharded counter to reduce the lock contention on the
-  /// global allocation counter. The sharded local counters reserve/release
-  /// memory capacity from the global counter in batch. With this optimization,
-  /// we don't have to update the global counter for each individual small
-  /// memory allocation. If it is zero, then this optimization is disabled. The
-  /// default is 1MB.
-  ///
-  /// NOTE: this only applies for MallocAllocator.
-  uint32_t allocationSizeThresholdWithReservation{1 << 20};
-
-  /// ================== 'MemoryArbitrator' settings =================
-
-  /// Memory capacity available for query/task memory pools. This capacity
-  /// setting should be equal or smaller than 'allocatorCapacity'. The
-  /// difference between 'allocatorCapacity' and 'arbitratorCapacity' is
-  /// reserved for system usage such as cache and spilling.
-  ///
-  /// NOTE:
-  /// - if 'arbitratorCapacity' is greater than 'allocatorCapacity', the
-  /// behavior will be equivalent to as if they are equal, meaning no
-  /// reservation capacity for system usage.
-  int64_t arbitratorCapacity{kMaxMemory};
-
-  /// The string kind of memory arbitrator used in the memory manager.
-  ///
-  /// NOTE: the arbitrator will only be created if its kind is set explicitly.
-  /// Otherwise MemoryArbitrator::create returns a nullptr.
-  std::string arbitratorKind{};
-
-  /// Provided by the query system to validate the state after a memory pool
-  /// enters arbitration if not null. For instance, Prestissimo provides
-  /// callback to check if a memory arbitration request is issued from a driver
-  /// thread, then the driver should be put in suspended state to avoid the
-  /// potential deadlock when reclaim memory from the task of the request memory
-  /// pool.
-  MemoryArbitrationStateCheckCB arbitrationStateCheckCb{nullptr};
-
-  /// Additional configs that are arbitrator implementation specific.
-  std::unordered_map<std::string, std::string> extraArbitratorConfigs{};
-
-  /// Provides the customized get preferred size function for memory pool
-  /// allocation. It returns the actual allocation size for a given input size.
-  /// If not set, uses the memory pool's default get preferred size function.
-  std::function<size_t(size_t)> getPreferredSize{nullptr};
-};
-
 /// 'MemoryManager' is responsible for creating allocator, arbitrator and
 /// managing the memory pools.
 class MemoryManager {
@@ -291,17 +179,11 @@ class MemoryManager {
 
   explicit MemoryManager(const Options& options = Options{});
 
-  /// TODO(wangke): deprecate when MemoryManagerOptions is fully migrated.
-  explicit MemoryManager(const MemoryManagerOptions& options);
-
   ~MemoryManager();
 
   /// Creates process-wide memory manager using specified options. Throws if
   /// memory manager has already been created by an easier call.
   static void initialize(const Options& options);
-
-  /// TODO(wangke): deprecate when MemoryManagerOptions is fully migrated.
-  static void initialize(const MemoryManagerOptions& options);
 
   /// Returns process-wide memory manager. Throws if 'initialize' hasn't been
   /// called yet.
@@ -318,9 +200,6 @@ class MemoryManager {
 
   /// Used by test to override the process-wide memory manager.
   static MemoryManager& testingSetInstance(const Options& options);
-
-  /// TODO(wangke): deprecate when MemoryManagerOptions is fully migrated.
-  static MemoryManager& testingSetInstance(const MemoryManagerOptions& options);
 
   /// Returns the memory capacity of this memory manager which puts a hard cap
   /// on memory usage, and any allocation that exceeds this capacity throws.
@@ -456,9 +335,6 @@ class MemoryManager {
 /// NOTE: user should only call this once on query system startup. Otherwise,
 /// the function throws.
 void initializeMemoryManager(const MemoryManager::Options& options);
-
-/// TODO(wangke): deprecate when MemoryManagerOptions is fully migrated.
-void initializeMemoryManager(const MemoryManagerOptions& options);
 
 /// Returns the process-wide memory manager.
 ///

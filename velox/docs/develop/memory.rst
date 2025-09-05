@@ -126,10 +126,10 @@ The memory manager is created on server startup with the provided
 physical memory allocations for both query memory allocated through memory pool
 and cache memory allocated through the file cache. It ensures the total
 allocated memory is within the system memory limit (specified by
-*MemoryManagerOptions::allocatorCapacity*). The memory manager also creates a
+*MemoryManager::Options::allocatorCapacity*). The memory manager also creates a
 memory arbitrator instance to arbitrate the memory capacity among running
 queries. It ensures the total allocated query memory capacity is within the
-query memory limit (specified by *MemoryManagerOptions::arbitratorCapacity*). The
+query memory limit (specified by *MemoryManager::Options::arbitratorCapacity*). The
 memory arbitrator also prevents each individual query running out of its
 per-query memory limit (specified by *QueryConfig::query_max_memory_per_node*) by
 reclaiming overused memory through `disk spilling <https://facebookincubator.github.io/velox/develop/spilling.html>`_ (refer to `memory arbitrator
@@ -171,8 +171,8 @@ allocator guarantees the actual allocated memory are within the system memory
 limit no matter if it is for system operation or for user query execution. In
 practice, we shall reserve some space from the memory allocator to compensate
 for such system memory usage. We can do that by configuring the query
-memory limit (*MemoryManagerOptions::arbitratorCapacity*) to be smaller than the system memory
-limit (*MemoryManagerOptions::allocatorCapacity*) (refer to `OOM prevention section <#server-oom-prevention>`_
+memory limit (*MemoryManager::Options::arbitratorCapacity*) to be smaller than the system memory
+limit (*MemoryManager::Options::allocatorCapacity*) (refer to `OOM prevention section <#server-oom-prevention>`_
 for detail).
 
 Memory System Setup
@@ -186,7 +186,7 @@ Here is the code block from Prestissimo that initializes the Velox memory system
    void PrestoServer::initializeVeloxMemory() {
      auto* systemConfig = SystemConfig::instance();
      const uint64_t memoryGb = systemConfig->systemMemoryGb();
-     MemoryManagerOptions options;
+     MemoryManager::Options options;
      options.allocatorCapacity = memoryGb << 30;
      options.useMmapAllocator = systemConfig->useMmapAllocator();
      if (!systemConfig->memoryArbitratorKind().empty()) {
@@ -217,7 +217,7 @@ Here is the code block from Prestissimo that initializes the Velox memory system
 * L10: set the memory arbitrator capacity (query memory limit) from the
   Prestissimo system config
 * L13: creates the process-wide memory manager which creates memory
-  allocator and arbitrator inside based on MemoryManagerOptions initialized from previous steps
+  allocator and arbitrator inside based on MemoryManager::Options initialized from previous steps
 * L15-19: creates the file cache if it is enabled in Prestissimo system
   config
 
@@ -542,7 +542,7 @@ different query systems. As for now, we implement *SharedArbitrator* for both
 Prestissimo and Prestissimo-on-Spark. `Gluten <https://github.com/apache/incubator-gluten>`_ implements its own memory
 arbitrator to integrate with the `Spark memory system <https://www.linkedin.com/pulse/apache-spark-memory-management-deep-dive-deepak-rajak/>`_. *SharedArbitrator*
 ensures the total allocated memory capacity is within the query memory limit
-(*MemoryManagerOptions::arbitratorCapacity*), and also ensures each individual
+(*MemoryManager::Options::arbitratorCapacity*), and also ensures each individual
 query’s capacity is within the per-query memory limit (*MemoryPool::maxCapacity_*).
 When a query needs to grow its capacity, *SharedArbitrator* either reclaims the
 used memory from the query itself if it has exceeded its max memory capacity,
@@ -700,7 +700,7 @@ control on RSS. We haven't yet confirmed whether *MmapAllocator* works better
 than *MallocAllocator*, but we are able to run a sizable Prestissimo workload
 using it. We will compare that workload using two allocators to determine which
 one is better in the future. Users can choose the allocator for their
-application by setting *MemoryManagerOptions::useMmapAllocator* (see
+application by setting *MemoryManager::Options::useMmapAllocator* (see
 `memory system setup section <#memory-system-setup>`_ for example).
 
 Non-Contiguous Allocation
