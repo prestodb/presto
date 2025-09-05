@@ -382,6 +382,11 @@ Property Name                                Description
                                              set this to the AWS region-specific endpoint
                                              (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
+``hive.s3.region``                           The S3 storage region.This can be used to
+                                             connect to an S3-compatible storage system instead
+                                             of AWS. It's recommended to set this to the AWS region you want to use.
+                                             (e.g., ``us-west-1``)
+
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
                                              Default storage class is ``STANDARD``
