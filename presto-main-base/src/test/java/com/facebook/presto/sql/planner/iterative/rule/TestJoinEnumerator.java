@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.RowExpressionVerifier;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
@@ -260,6 +261,12 @@ public class TestJoinEnumerator
 
         return new Rule.Context()
         {
+            @Override
+            public Memo getMemo()
+            {
+                return null;
+            }
+
             @Override
             public Lookup getLookup()
             {
