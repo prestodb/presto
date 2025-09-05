@@ -3302,10 +3302,7 @@ void PlanNode::toString(
     bool detailed,
     bool recursive,
     size_t indentationSize,
-    const std::function<void(
-        const PlanNodeId& planNodeId,
-        const std::string& indentation,
-        std::ostream& stream)>& addContext) const {
+    const AddContextFunc& addContext) const {
   const std::string indentation(indentationSize, ' ');
 
   stream << indentation << "-- " << name() << "[" << id() << "]";
@@ -3373,14 +3370,22 @@ void PlanNode::accept(
 void PlanNode::toSummaryString(
     const PlanSummaryOptions& options,
     std::stringstream& stream,
-    size_t indentationSize) const {
+    size_t indentationSize,
+    const AddContextFunc& addContext) const {
   const std::string indentation(indentationSize, ' ');
+
+  const auto detailsIndentation = indentation + std::string(6, ' ');
 
   stream << indentation << "-- " << name() << "[" << id()
          << "]: " << summarizeOutputType(outputType(), options) << std::endl;
-  addSummaryDetails(indentation + std::string(6, ' '), options, stream);
+  addSummaryDetails(detailsIndentation, options, stream);
+
+  if (addContext != nullptr) {
+    addContext(id(), detailsIndentation, stream);
+  }
+
   for (auto& source : sources()) {
-    source->toSummaryString(options, stream, indentationSize + 2);
+    source->toSummaryString(options, stream, indentationSize + 2, addContext);
   }
 }
 

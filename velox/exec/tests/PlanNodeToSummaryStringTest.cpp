@@ -222,5 +222,36 @@ TEST_F(PlanNodeToSummaryStringTest, aggregation) {
           testing::Eq("")));
 }
 
+TEST_F(PlanNodeToSummaryStringTest, withContext) {
+  auto plan = PlanBuilder()
+                  .tableScan(ROW({"a", "b", "c"}, INTEGER()))
+                  .project({"a + b", "a * c"})
+                  .filter("p0 > p1")
+                  .planNode();
+
+  auto addContext = [](const PlanNodeId& planNodeId,
+                       const std::string& indentation,
+                       std::ostream& stream) {
+    stream << indentation << "Context for " << planNodeId << std::endl;
+  };
+
+  ASSERT_THAT(
+      toLines(plan->toSummaryString({}, addContext)),
+      testing::ElementsAre(
+          testing::StartsWith("-- Filter[2]"),
+          testing::StartsWith("      expressions:"),
+          testing::StartsWith("      functions:"),
+          testing::StartsWith("      filter:"),
+          testing::StartsWith("      Context for 2"),
+          testing::StartsWith("  -- Project[1]"),
+          testing::StartsWith("        expressions:"),
+          testing::StartsWith("        functions:"),
+          testing::StartsWith("        projections:"),
+          testing::StartsWith("        Context for 1"),
+          testing::StartsWith("    -- TableScan[0]"),
+          testing::StartsWith("          table: hive_table"),
+          testing::StartsWith("          Context for 0"),
+          testing::Eq("")));
+}
 } // namespace
 } // namespace facebook::velox::core

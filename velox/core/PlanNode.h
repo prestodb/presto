@@ -217,6 +217,14 @@ class PlanNode : public ISerializable {
   /// Returns a set of leaf plan node IDs.
   std::unordered_set<core::PlanNodeId> leafPlanNodeIds() const;
 
+  /// Lambda to add context for a given plan node. Receives plan node ID,
+  /// indentation and std::ostream where to append the context. Start each line
+  /// of context with 'indentation' and end with a new-line character.
+  using AddContextFunc = std::function<void(
+      const PlanNodeId& planNodeId,
+      const std::string& indentation,
+      std::ostream& stream)>;
+
   /// Returns human-friendly representation of the plan. By default, returns the
   /// plan node name. Includes plan node details such as join keys and aggregate
   /// function names if 'detailed' is true. Returns the whole sub-tree if
@@ -224,24 +232,21 @@ class PlanNode : public ISerializable {
   /// 'addContext' is not null.
   ///
   /// @param addContext Optional lambda to add context for a given plan node.
-  /// Receives plan node ID, indentation and std::stringstream where to append
-  /// the context. Start each line of context with 'indentation' and end with a
-  /// new-line character.
   std::string toString(
       bool detailed = false,
       bool recursive = false,
-      const std::function<void(
-          const PlanNodeId& planNodeId,
-          const std::string& indentation,
-          std::ostream& stream)>& addContext = nullptr) const {
+      const AddContextFunc& addContext = nullptr) const {
     std::stringstream stream;
     toString(stream, detailed, recursive, 0, addContext);
     return stream.str();
   }
 
-  std::string toSummaryString(PlanSummaryOptions options = {}) const {
+  /// @param addContext Optional lambda to add context for a given plan node.
+  std::string toSummaryString(
+      PlanSummaryOptions options = {},
+      const AddContextFunc& addContext = nullptr) const {
     std::stringstream stream;
-    toSummaryString(options, stream, 0);
+    toSummaryString(options, stream, 0, addContext);
     return stream.str();
   }
 
@@ -288,10 +293,7 @@ class PlanNode : public ISerializable {
       bool detailed,
       bool recursive,
       size_t indentationSize,
-      const std::function<void(
-          const PlanNodeId& planNodeId,
-          const std::string& indentation,
-          std::ostream& stream)>& addContext) const;
+      const AddContextFunc& addContext) const;
 
   // The default implementation calls 'addDetails' and truncates the result.
   virtual void addSummaryDetails(
@@ -302,7 +304,8 @@ class PlanNode : public ISerializable {
   void toSummaryString(
       const PlanSummaryOptions& options,
       std::stringstream& stream,
-      size_t indentationSize) const;
+      size_t indentationSize,
+      const AddContextFunc& addContext) const;
 
   // Even shorter summary of the plan. Hides all Project nodes. Shows only
   // number of output columns, but no names or types. Doesn't show any details
