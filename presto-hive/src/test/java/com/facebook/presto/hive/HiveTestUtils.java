@@ -1,16 +1,16 @@
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ /*
+         * Licensed under the Apache License, Version 2.0 (the "License");
+         * you may not use this file except in compliance with the License.
+         * You may obtain a copy of the License at
+         *
+         *     http://www.apache.org/licenses/LICENSE-2.0
+         *
+         * Unless required by applicable law or agreed to in writing, software
+         * distributed under the License is distributed on an "AS IS" BASIS,
+         * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+         * See the License for the specific language governing permissions and
+         * limitations under the License.
+         */
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
@@ -107,9 +107,8 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertTrue;
 
-public final class HiveTestUtils
-{
-    private static final Logger log = Logger.get(HiveTestUtils.class);
+        public final class HiveTestUtils {
+            private static final Logger log = Logger.get(HiveTestUtils.class);
 
     private HiveTestUtils()
     {
@@ -313,55 +312,268 @@ public final class HiveTestUtils
             if (environmentVariableValue == null) {
                 return Optional.empty();
             }
-            else {
-                return Optional.of(environmentVariableValue);
-            }
-        }
-        else {
-            if (environmentVariableValue != null && !systemPropertyValue.equals(environmentVariableValue)) {
-                throw new IllegalArgumentException(format("%s is set in both Java system property and environment variable, but their values are different. The Java system property value is %s, while the" +
-                                " environment variable value is %s. Please use only one value.",
-                        name,
-                        systemPropertyValue,
-                        environmentVariableValue));
-            }
-            return Optional.of(systemPropertyValue);
-        }
-    }
 
-    public static Optional<Path> getDataDirectoryPath(Optional<String> suppliedDataDirectoryPath)
-    {
-        Optional<Path> dataDirectory = Optional.empty();
-        if (!suppliedDataDirectoryPath.isPresent()) {
-            //in case the path is not supplied as program argument, read it from env variable.
-            suppliedDataDirectoryPath = getProperty("DATA_DIR");
-        }
-        if (suppliedDataDirectoryPath.isPresent()) {
-            File dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
-            if (dataDirectoryFile.exists()) {
-                if (!dataDirectoryFile.isDirectory()) {
-                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
-                    System.exit(1);
+            public static final DirectoryLister DO_NOTHING_DIRECTORY_LISTER = (fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext) -> null;
+
+            public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
+            public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
+
+            public static final Set<String> TEST_CLIENT_TAGS = ImmutableSet.of("TAG1", "TAG2");
+
+            public static final ConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), new HiveCommonClientConfig()), TEST_CLIENT_TAGS);
+            public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
+
+            public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
+
+            public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+
+            public static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService() {
+                @Override
+                public DomainTranslator getDomainTranslator() {
+                    return new RowExpressionDomainTranslator(METADATA);
                 }
-                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
-                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
-                    System.exit(1);
+
+                @Override
+                public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session) {
+                    return new RowExpressionOptimizer(METADATA);
                 }
+
+                @Override
+                public PredicateCompiler getPredicateCompiler() {
+                    return new RowExpressionPredicateCompiler(METADATA);
+                }
+
+                @Override
+                public DeterminismEvaluator getDeterminismEvaluator() {
+                    return new RowExpressionDeterminismEvaluator(METADATA);
+                }
+
+                @Override
+                public String formatRowExpression(ConnectorSession session, RowExpression expression) {
+                    return new RowExpressionFormatter(METADATA.getFunctionAndTypeManager()).formatRowExpression(session, expression);
+                }
+            };
+
+            public static final FilterStatsCalculatorService FILTER_STATS_CALCULATOR_SERVICE = new ConnectorFilterStatsCalculatorService(
+                    new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA, ROW_EXPRESSION_SERVICE), new StatsNormalizer()));
+
+            public static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();
+            public static final MetastoreClientConfig METASTORE_CLIENT_CONFIG = new MetastoreClientConfig();
+
+            public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG, METASTORE_CLIENT_CONFIG);
+
+            public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
+
+            public static Set<HiveBatchPageSourceFactory> getDefaultHiveBatchPageSourceFactories(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                return ImmutableSet.<HiveBatchPageSourceFactory>builder()
+                        .add(new RcFilePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, testHdfsEnvironment, stats))
+                        .add(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                        .add(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), NO_ENCRYPTION))
+                        .add(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, testHdfsEnvironment, stats, new MetadataReader()))
+                        .add(new PageFilePageSourceFactory(testHdfsEnvironment, new BlockEncodingManager()))
+                        .build();
             }
-            else {
-                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
-                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
-                while (!dataDirectoryFile.exists()) {
-                    dataDirectoryFile = dataDirectoryFile.getParentFile();
+
+            public static Set<HiveSelectivePageSourceFactory> getDefaultHiveSelectivePageSourceFactories(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                return ImmutableSet.<HiveSelectivePageSourceFactory>builder()
+                        .add(new OrcSelectivePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), new TupleDomainFilterCache()))
+                        .add(new DwrfSelectivePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), new TupleDomainFilterCache(), NO_ENCRYPTION))
+                        .build();
+            }
+
+            public static Set<HiveAggregatedPageSourceFactory> getDefaultHiveAggregatedPageSourceFactories(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                return ImmutableSet.<HiveAggregatedPageSourceFactory>builder()
+                        .add(new OrcAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                        .add(new DwrfAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                        .add(new ParquetAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, testHdfsEnvironment, stats, new MetadataReader()))
+                        .build();
+            }
+
+            public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                return ImmutableSet.<HiveRecordCursorProvider>builder()
+                        .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                        .build();
+            }
+
+            public static Set<HiveRecordCursorProvider> getDefaultS3HiveRecordCursorProvider(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                // Without S3SelectRecordCursorProvider we are not pushing down to Select, but falling on GET path.
+                // GenericHiveRecordCursorProvider is needed to handle Hive splits when the query does not filter data
+                // as this is no longer pushed to Select.
+                return ImmutableSet.<HiveRecordCursorProvider>builder()
+                        .add(new S3SelectRecordCursorProvider(testHdfsEnvironment, hiveClientConfig, new PrestoS3ClientFactory()))
+                        .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
+                        .build();
+            }
+
+            public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                return ImmutableSet.<HiveFileWriterFactory>builder()
+                        .add(new RcFileFileWriterFactory(testHdfsEnvironment, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
+                        .add(new PageFileWriterFactory(testHdfsEnvironment, new OutputStreamDataSinkFactory(), new BlockEncodingManager()))
+                        .add(getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig))
+                        .build();
+            }
+
+            public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig) {
+                HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+                return new OrcFileWriterFactory(
+                        testHdfsEnvironment,
+                        new OutputStreamDataSinkFactory(),
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test_version"),
+                        hiveClientConfig,
+                        new FileFormatDataSourceStats(),
+                        new OrcFileWriterConfig(),
+                        NO_ENCRYPTION);
+            }
+
+            public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles) {
+                ImmutableList.Builder<Type> types = ImmutableList.builder();
+                for (ColumnHandle columnHandle : columnHandles) {
+                    types.add(FUNCTION_AND_TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
                 }
-                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
-                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
-                    System.exit(1);
+                return types.build();
+            }
+
+            public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config, MetastoreClientConfig metastoreClientConfig) {
+                HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
+                        new HdfsConfigurationInitializer(
+                                config,
+                                metastoreClientConfig,
+                                new PrestoS3ConfigurationUpdater(new HiveS3Config()),
+                                new HiveGcsConfigurationInitializer(new HiveGcsConfig())),
+                        ImmutableSet.of(),
+                        config);
+                return new HdfsEnvironment(hdfsConfig, metastoreClientConfig, new NoHdfsAuthentication());
+            }
+
+            public static MapType mapType(Type keyType, Type valueType) {
+                return (MapType) FUNCTION_AND_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                        TypeSignatureParameter.of(keyType.getTypeSignature()),
+                        TypeSignatureParameter.of(valueType.getTypeSignature())));
+            }
+
+            public static ArrayType arrayType(Type elementType) {
+                return (ArrayType) FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
+                        StandardTypes.ARRAY,
+                        ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
+            }
+
+            public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures) {
+                return (RowType) FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
+                        StandardTypes.ROW,
+                        ImmutableList.copyOf(elementTypeSignatures.stream()
+                                .map(TypeSignatureParameter::of)
+                                .collect(toList())));
+            }
+
+            public static Long shortDecimal(String value) {
+                return new BigDecimal(value).unscaledValue().longValueExact();
+            }
+
+            public static Slice longDecimal(String value) {
+                return encodeScaledValue(new BigDecimal(value));
+            }
+
+            public static Optional<String> getProperty(String name) {
+                String systemPropertyValue = System.getProperty(name);
+                String environmentVariableValue = System.getenv(name);
+                if (systemPropertyValue == null) {
+                    if (environmentVariableValue == null) {
+                        return Optional.empty();
+                    } else {
+                        return Optional.of(environmentVariableValue);
+                    }
+                } else {
+                    if (environmentVariableValue != null && !systemPropertyValue.equals(environmentVariableValue)) {
+                        throw new IllegalArgumentException(format("%s is set in both Java system property and environment variable, but their values are different. The Java system property value is %s, while the" +
+                                        " environment variable value is %s. Please use only one value.",
+                                name,
+                                systemPropertyValue,
+                                environmentVariableValue));
+                    }
+                    return Optional.of(systemPropertyValue);
                 }
             }
 
-            dataDirectory = Optional.of(dataDirectoryFile.toPath());
+            public static Optional<Path> getDataDirectoryPath(Optional<String> suppliedDataDirectoryPath) {
+                Optional<Path> dataDirectory = Optional.empty();
+                File dataDirectoryFile;
+
+                if (!suppliedDataDirectoryPath.isPresent()) {
+                    //in case the path is not supplied as program argument, read it from env variable.
+                    suppliedDataDirectoryPath = getProperty("DATA_DIR");
+                }
+
+                if (suppliedDataDirectoryPath.isPresent()) {
+                    dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
+
+                    if (dataDirectoryFile.exists()) {
+                        if (!dataDirectoryFile.isDirectory()) {
+                            log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
+                            System.exit(1);
+                        } else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                            log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                            System.exit(1);
+                        }
+                    } else {
+                        // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
+                        // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
+                        System.out.println("DATA_DIR = " + System.getenv("DATA_DIR"));
+                        String dataDirPath = suppliedDataDirectoryPath
+                                .filter(path -> !path.startsWith("-D"))
+                                .orElse(System.getenv("DATA_DIR"));
+                        if (dataDirPath == null || dataDirPath.isEmpty()) {
+                            dataDirPath = "/Users/kargoat/presto/presto-hive/src/test/resources";  // Use your actual path
+                        }
+
+                        dataDirectoryFile = new File(dataDirPath);
+
+                        System.out.println("Resolved DATA_DIR path: " + dataDirPath);
+                        while (!dataDirectoryFile.exists()) {
+                            dataDirectoryFile = dataDirectoryFile.getParentFile();
+                        }
+                        if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                            log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                            System.exit(1);
+                        }
+                    }
+
+                    dataDirectory = Optional.of(dataDirectoryFile.toPath());
+                }
+
+                return dataDirectory;
+            }
+
+            public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig) {
+                return getAllSessionProperties(hiveClientConfig, new ParquetFileWriterConfig(), hiveCommonClientConfig);
+            }
+
+            public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, ParquetFileWriterConfig parquetFileWriterConfig, HiveCommonClientConfig hiveCommonClientConfig) {
+                HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
+                        hiveClientConfig,
+                        new OrcFileWriterConfig(),
+                        parquetFileWriterConfig,
+                        new CacheConfig());
+
+                List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(hiveSessionProperties.getSessionProperties());
+
+                HiveCommonSessionProperties hiveCommonSessionProperties = new HiveCommonSessionProperties(
+                        hiveCommonClientConfig);
+
+                allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+                return allSessionProperties;
+            }
         }
+<<<<<<< HEAD
         return dataDirectory;
     }
 
@@ -403,3 +615,5 @@ public final class HiveTestUtils
                 });
     }
 }
+=======
+>>>>>>> 1369797d0c (Add semantic warning logic for non-deterministic CTE reuse)

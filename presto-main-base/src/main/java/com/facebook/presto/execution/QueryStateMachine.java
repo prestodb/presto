@@ -29,10 +29,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.*;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -292,6 +289,10 @@ public class QueryStateMachine
     public Session getSession()
     {
         return session;
+    }
+    public List<PrestoWarning> getWarnings()
+    {
+        return warningCollector.getWarnings();
     }
 
     public long getPeakUserMemoryInBytes()
@@ -1357,6 +1358,9 @@ public class QueryStateMachine
                 queryStats.getStageGcStatistics(),
                 ImmutableList.of(), // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
                 queryStats.getRuntimeStats());
+    }
+
+    public void addWarnings(List<PrestoWarning> warnings) {
     }
 
     public static class QueryOutputManager

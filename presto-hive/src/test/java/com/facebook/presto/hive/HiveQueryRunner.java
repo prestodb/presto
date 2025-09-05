@@ -46,11 +46,7 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
@@ -464,6 +460,8 @@ public final class HiveQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        TimeZone.setDefault(TimeZone.getTimeZone("America/Bahia_Banderas"));
+        System.out.println("JVM timezone = " + java.util.TimeZone.getDefault().getID());
         // You need to add "--user user" to your CLI for your queries to work
         setupLogging();
         Optional<Path> dataDirectory;

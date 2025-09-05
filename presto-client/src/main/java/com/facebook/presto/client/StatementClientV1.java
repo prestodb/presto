@@ -17,9 +17,11 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -97,6 +99,7 @@ class StatementClientV1
 
     private final OkHttpClient httpClient;
     private final String query;
+    private List<PrestoWarning> warnings = ImmutableList.of();
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
@@ -133,7 +136,9 @@ class StatementClientV1
 
         Request request = buildQueryRequest(session, query);
 
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+        JsonResponse<com.facebook.presto.client.QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+        System.err.println("RAW RESPONSE BODY:");
+        System.err.println(response.getResponseBody());
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
@@ -491,6 +496,10 @@ class StatementClientV1
         }
 
         currentResults.set(results);
+        results = currentResults.get();
+        if (results != null && results.getWarnings() != null) {
+            this.warnings = results.getWarnings();
+        }
     }
 
     private RuntimeException requestFailedException(String task, Request request, JsonResponse<QueryResults> response)
@@ -524,6 +533,11 @@ class StatementClientV1
         if (uri != null) {
             httpDelete(uri);
         }
+    }
+    @Override
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Override

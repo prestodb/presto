@@ -18,24 +18,22 @@ import java.util.List;
 
 public interface WarningCollector
 {
-    WarningCollector NOOP =
-            new WarningCollector()
-            {
-                @Override
-                public void add(PrestoWarning warning) {}
+    WarningCollector NOOP = new WarningCollector() {
+        @Override
+        public void add(PrestoWarning warning) {}
 
-                @Override
-                public List<PrestoWarning> getWarnings()
-                {
-                    return Collections.emptyList();
-                }
+        @Override
+        public List<PrestoWarning> getWarnings()
+        {
+            return Collections.emptyList();
+        }
 
-                @Override
-                public boolean hasWarnings()
-                {
-                    return false;
-                }
-            };
+        @Override
+        public boolean hasWarnings()
+        {
+            return false;
+        }
+    };
 
     void add(PrestoWarning warning);
 
