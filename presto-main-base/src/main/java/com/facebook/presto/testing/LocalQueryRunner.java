@@ -26,6 +26,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorCodecManager;
@@ -510,7 +511,7 @@ public class LocalQueryRunner
                 new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
                 blockEncodingManager,
                 featuresConfig,
-                new ConnectorCodecManager(ThriftCodecManager::new));
+                new ConnectorCodecManager(ThriftCodecManager::new, new ByteBufferPoolManager()));
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

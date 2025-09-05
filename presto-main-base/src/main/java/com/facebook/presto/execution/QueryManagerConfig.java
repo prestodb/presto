@@ -102,6 +102,35 @@ public class QueryManagerConfig
 
     private int minColumnarEncodingChannelsToPreferRowWiseEncoding = 1000;
 
+    private int byteBufferPoolBufferSize = 4096; // default 4KB
+    private int byteBufferPoolMaxSize = 16;
+
+    @Min(1)
+    public int getByteBufferPoolMaxSize()
+    {
+        return byteBufferPoolMaxSize;
+    }
+
+    @Min(1024)
+    public int getByteBufferPoolBufferSize()
+    {
+        return byteBufferPoolBufferSize;
+    }
+
+    @Config("query.thrift-serde.byte-buffer-size")
+    public QueryManagerConfig setByteBufferPoolBufferSize(int bufferSize)
+    {
+        this.byteBufferPoolBufferSize = bufferSize;
+        return this;
+    }
+
+    @Config("query.thrift-serde.byte-buffer-pool-max-size")
+    public QueryManagerConfig setByteBufferPoolMaxSize(int maxPoolSize)
+    {
+        this.byteBufferPoolMaxSize = maxPoolSize;
+        return this;
+    }
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {

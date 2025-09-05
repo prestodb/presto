@@ -14,6 +14,7 @@
 package com.facebook.presto.thrift;
 
 import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
@@ -28,21 +29,23 @@ public class RemoteCodecProvider
         implements ConnectorCodecProvider
 {
     private final Provider<ThriftCodecManager> thriftCodecManagerProvider;
+    private final ByteBufferPoolManager byteBufferPoolManager;
 
-    public RemoteCodecProvider(Provider<ThriftCodecManager> thriftCodecManagerProvider)
+    public RemoteCodecProvider(Provider<ThriftCodecManager> thriftCodecManagerProvider, ByteBufferPoolManager byteBufferPoolManager)
     {
         this.thriftCodecManagerProvider = requireNonNull(thriftCodecManagerProvider, "thriftCodecManagerProvider is null");
+        this.byteBufferPoolManager = requireNonNull(byteBufferPoolManager, "byteBufferPoolManager is null");
     }
 
     @Override
     public Optional<ConnectorCodec<ConnectorSplit>> getConnectorSplitCodec()
     {
-        return Optional.of(new RemoteSplitCodec(thriftCodecManagerProvider));
+        return Optional.of(new RemoteSplitCodec(thriftCodecManagerProvider, byteBufferPoolManager));
     }
 
     @Override
     public Optional<ConnectorCodec<ConnectorTransactionHandle>> getConnectorTransactionHandleCodec()
     {
-        return Optional.of(new RemoteTransactionHandleCodec(thriftCodecManagerProvider));
+        return Optional.of(new RemoteTransactionHandleCodec(thriftCodecManagerProvider, byteBufferPoolManager));
     }
 }
