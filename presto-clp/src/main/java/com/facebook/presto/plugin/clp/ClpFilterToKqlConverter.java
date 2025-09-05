@@ -886,7 +886,7 @@ public class ClpFilterToKqlConverter
 
     /**
      * See
-     * <a href="https://docs.yscope.com/clp/main/user-guide/reference-json-search-syntax">here
+     * <a href="https://docs.yscope.com/clp/main/user-docs/reference-json-search-syntax">here
      * </a> for all special chars in the string value that need to be escaped.
      *
      * @param literalString
