@@ -16,9 +16,10 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.eventlistener.Column;
+import com.facebook.presto.spi.eventlistener.ColumnDetail;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
@@ -26,6 +27,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -108,9 +110,12 @@ public class TestOutputColumnTypes
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new Column("clerk", "varchar"),
-                        new Column("orderkey", "bigint"),
-                        new Column("totalprice", "double"));
+                        new OutputColumnMetadata("clerk", "varchar", ImmutableSet.of(
+                                new ColumnDetail("iceberg", "tpch", "orders", "clerk"))),
+                        new OutputColumnMetadata("orderkey", "bigint", ImmutableSet.of(
+                                new ColumnDetail("iceberg", "tpch", "orders", "orderkey"))),
+                        new OutputColumnMetadata("totalprice", "double", ImmutableSet.of(
+                                new ColumnDetail("iceberg", "tpch", "orders", "totalprice"))));
     }
 
     @Test
@@ -127,15 +132,15 @@ public class TestOutputColumnTypes
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new Column("orderkey", "bigint"),
-                        new Column("custkey", "bigint"),
-                        new Column("orderstatus", "varchar"),
-                        new Column("totalprice", "double"),
-                        new Column("orderdate", "date"),
-                        new Column("orderpriority", "varchar"),
-                        new Column("clerk", "varchar"),
-                        new Column("shippriority", "integer"),
-                        new Column("comment", "varchar"));
+                        new OutputColumnMetadata("orderkey", "bigint", ImmutableSet.of()),
+                        new OutputColumnMetadata("custkey", "bigint", ImmutableSet.of()),
+                        new OutputColumnMetadata("orderstatus", "varchar", ImmutableSet.of()),
+                        new OutputColumnMetadata("totalprice", "double", ImmutableSet.of()),
+                        new OutputColumnMetadata("orderdate", "date", ImmutableSet.of()),
+                        new OutputColumnMetadata("orderpriority", "varchar", ImmutableSet.of()),
+                        new OutputColumnMetadata("clerk", "varchar", ImmutableSet.of()),
+                        new OutputColumnMetadata("shippriority", "integer", ImmutableSet.of()),
+                        new OutputColumnMetadata("comment", "varchar", ImmutableSet.of()));
     }
 
     static class TestingEventListenerPlugin

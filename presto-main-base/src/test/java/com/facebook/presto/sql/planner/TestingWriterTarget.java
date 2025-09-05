@@ -14,9 +14,18 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.eventlistener.Column;
+import com.facebook.presto.spi.eventlistener.OutputColumn;
+import com.facebook.presto.spi.eventlistener.SourceColumn;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.List;
+import java.util.Optional;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget
@@ -34,6 +43,17 @@ public class TestingWriterTarget
     public SchemaTableName getSchemaTableName()
     {
         return SCHEMA_TABLE_NAME;
+    }
+
+    @Override
+    public Optional<List<OutputColumn>> getOutputColumns()
+    {
+        return Optional.of(
+                ImmutableList.of(
+                        new OutputColumn(
+                                new Column("column", "type"),
+                                ImmutableSet.of(
+                                        new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column")))));
     }
 
     @Override

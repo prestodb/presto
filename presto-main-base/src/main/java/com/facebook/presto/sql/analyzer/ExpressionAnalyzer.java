@@ -251,6 +251,8 @@ public class ExpressionAnalyzer
     // This contains types of variables referenced from outer scopes.
     private final Map<NodeRef<Expression>, Type> outerScopeSymbolTypes;
 
+    private final List<Field> sourceFields = new ArrayList<>();
+
     private ExpressionAnalyzer(
             FunctionAndTypeResolver functionAndTypeResolver,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
@@ -382,6 +384,11 @@ public class ExpressionAnalyzer
         return tableColumnAndSubfieldReferences;
     }
 
+    public List<Field> getSourceFields()
+    {
+        return sourceFields;
+    }
+
     public Multimap<QualifiedObjectName, Subfield> getTableColumnAndSubfieldReferencesForAccessControl()
     {
         return tableColumnAndSubfieldReferencesForAccessControl;
@@ -496,6 +503,8 @@ public class ExpressionAnalyzer
                     }
                 }
             }
+
+            sourceFields.add(field);
 
             // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
             if (isTopMostReference(node, context)) {
@@ -1452,7 +1461,7 @@ public class ExpressionAnalyzer
             else {
                 scalarSubqueries.add(NodeRef.of(node));
             }
-
+            sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
             Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
             return setExpressionType(node, type);
         }
@@ -1991,6 +2000,8 @@ public class ExpressionAnalyzer
                 session.getAccessControlContext(),
                 analyzer.getTableColumnAndSubfieldReferences(),
                 analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
+
+        analysis.addExpressionFields(expression, analyzer.getSourceFields());
 
         return new ExpressionAnalysis(
                 expressionTypes,
