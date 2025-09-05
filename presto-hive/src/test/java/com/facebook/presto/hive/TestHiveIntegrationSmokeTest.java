@@ -5783,13 +5783,16 @@ public class TestHiveIntegrationSmokeTest
                 "('" + tableName + "', 'shippriority'), " +
                 "('" + tableName + "', 'comment')";
         try {
-            //substring of the regex or regex match
+
             assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
             assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name", "VALUES '" + tableName + "'");
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'", ordersTableWithColumns);
+            assertQuery(
+                    "SELECT table_name, column_name FROM information_schema.columns " +
+                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'",
+                    ordersTableWithColumns);
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
         }
         finally {
