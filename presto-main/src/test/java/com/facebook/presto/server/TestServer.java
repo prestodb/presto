@@ -113,6 +113,8 @@ public class TestServer
             throws Exception
     {
         server = new TestingPrestoServer();
+        server.getAccessControl().loadSystemAccessControl();
+
         client = new JettyHttpClient();
     }
 
@@ -631,6 +633,8 @@ public class TestServer
         HttpClient backupClient = null;
         try {
             backupServer = new TestingPrestoServer();
+            backupServer.getAccessControl().loadSystemAccessControl();
+
             backupClient = new JettyHttpClient();
 
             // Step 1: Simulate router POSTing query to backup server with retry header

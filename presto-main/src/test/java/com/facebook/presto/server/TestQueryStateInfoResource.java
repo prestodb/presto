@@ -57,6 +57,7 @@ public class TestQueryStateInfoResource
             throws Exception
     {
         server = new TestingPrestoServer();
+        server.getAccessControl().loadSystemAccessControl();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         client = new JettyHttpClient();
