@@ -281,7 +281,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle subscriptFunction(Type baseType, Type indexType)
     {
-        return functionAndTypeResolver.lookupFunction(SUBSCRIPT.getFunctionName().getObjectName(), fromTypes(baseType, indexType));
+        return functionAndTypeResolver.resolveOperator(SUBSCRIPT, fromTypes(baseType, indexType));
     }
 
     @Override
