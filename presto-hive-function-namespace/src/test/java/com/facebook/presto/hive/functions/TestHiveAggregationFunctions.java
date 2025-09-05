@@ -142,6 +142,7 @@ public class TestHiveAggregationFunctions
             throws Exception
     {
         TestingPrestoServer server = new TestingPrestoServer();
+        server.getAccessControl().loadSystemAccessControl();
         server.installPlugin(new TpchPlugin());
         server.installPlugin(new HiveFunctionNamespacePlugin());
         server.createCatalog("tpch", "tpch");

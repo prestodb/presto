@@ -371,6 +371,7 @@ public class DistributedQueryRunner
         ImmutableList.Builder<TestingPrestoClient> prestoClientsBuilder = ImmutableList.builder();
         for (int i = 0; i < coordinatorCount; i++) {
             prestoClientsBuilder.add(closer.register(new TestingPrestoClient(coordinators.get(i), defaultSession)));
+//            coordinators.get(i).getAccessControl().loadSystemAccessControl();
         }
         prestoClients = prestoClientsBuilder.build();
 

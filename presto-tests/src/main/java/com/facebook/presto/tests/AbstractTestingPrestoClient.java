@@ -74,8 +74,6 @@ public abstract class AbstractTestingPrestoClient<T>
             Session defaultSession)
     {
         this.prestoServer = requireNonNull(prestoServer, "prestoServer is null");
-        prestoServer.getAccessControl().loadSystemAccessControl();
-
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
     }
 
