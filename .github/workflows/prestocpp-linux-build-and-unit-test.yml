@@ -86,7 +86,6 @@ jobs:
             -DTREAT_WARNINGS_AS_ERRORS=1 \
             -DENABLE_ALL_WARNINGS=1 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DPRESTO_ENABLE_PARQUET=ON \
             -DPRESTO_ENABLE_CI_TEST_PLUGIN=ON \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
             -DPRESTO_ENABLE_JWT=ON \

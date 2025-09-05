@@ -56,7 +56,7 @@ include_directories(.)
 include_directories(${CMAKE_BINARY_DIR})
 
 # Adding this down here prevents warnings in dependencies from stopping the
-# build
+# build.
 if("${TREAT_WARNINGS_AS_ERRORS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 endif()
