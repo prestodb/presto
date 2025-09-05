@@ -40,7 +40,7 @@ class SystemTableHandle : public velox::connector::ConnectorTableHandle {
       std::string schemaName,
       std::string tableName);
 
-  std::string toString() const override;
+  const std::string& name() const override;
 
   const std::string& schemaName() const {
     return schemaName_;
@@ -55,6 +55,7 @@ class SystemTableHandle : public velox::connector::ConnectorTableHandle {
  private:
   const std::string schemaName_;
   const std::string tableName_;
+  std::string name_;
 };
 
 class SystemDataSource : public velox::connector::DataSource {
