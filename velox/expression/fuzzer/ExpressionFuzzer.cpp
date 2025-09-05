@@ -451,6 +451,10 @@ bool ExpressionFuzzer::isSupportedSignature(
   if (usesTypeName(signature, "opaque") ||
       usesTypeName(signature, "interval day to second") ||
       usesTypeName(signature, "ipprefix") ||
+      usesTypeName(
+          signature,
+          "sfmsketch") || // See Issue :
+                          // https://github.com/facebookincubator/velox/issues/14643
       (!options_.enableDecimalType && usesTypeName(signature, "decimal")) ||
       (!options_.enableComplexTypes && useComplexType) ||
       (options_.enableComplexTypes && usesTypeName(signature, "unknown"))) {
