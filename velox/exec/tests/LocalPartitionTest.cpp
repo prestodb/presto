@@ -498,9 +498,11 @@ TEST_F(LocalPartitionTest, indicesBufferCapacity) {
   params.maxDrivers = 2;
   auto cursor = TaskCursor::create(params);
   for (auto i = 0; i < filePaths.size(); ++i) {
-    auto id = scanNodeIds[i % 3];
+    auto& id = scanNodeIds[i % 3];
     cursor->task()->addSplit(
         id, Split(makeHiveConnectorSplit(filePaths[i]->getPath())));
+  }
+  for (auto& id : scanNodeIds) {
     cursor->task()->noMoreSplits(id);
   }
   int numRows = 0;

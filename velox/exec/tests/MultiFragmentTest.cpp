@@ -2487,8 +2487,8 @@ DEBUG_ONLY_TEST_P(MultiFragmentTest, mergeWithEarlyTermination) {
   mergeIsBlockedReady.store(true);
   mergeIsBlockedWait.notifyAll();
 
-  ASSERT_TRUE(waitForTaskCompletion(partialSortTask.get(), 1'000'000'000));
-  ASSERT_TRUE(waitForTaskAborted(finalSortTask.get(), 1'000'000'000));
+  ASSERT_TRUE(waitForTaskCompletion(partialSortTask.get(), 30'000'000));
+  ASSERT_TRUE(waitForTaskAborted(finalSortTask.get(), 30'000'000));
 }
 
 class DataFetcher {

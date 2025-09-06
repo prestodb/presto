@@ -14,7 +14,21 @@
  * limitations under the License.
  */
 #pragma once
+
+#include "velox/common/base/SkewedPartitionBalancer.h"
+#include "velox/common/future/VeloxPromise.h"
+#include "velox/connectors/Connector.h"
+#include "velox/exec/LocalPartition.h"
+#include "velox/exec/ScaledScanController.h"
+#include "velox/exec/Split.h"
+#include "velox/exec/TaskStats.h"
+
+#include <folly/CPortability.h>
+
 #include <limits>
+#include <memory>
+#include <ostream>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -25,7 +39,6 @@ class JoinBridge;
 class LocalExchangeMemoryManager;
 class MergeSource;
 class MergeJoinSource;
-struct Split;
 
 /// Corresponds to Presto TaskState, needed for reporting query completion.
 enum class TaskState : int {
@@ -55,14 +68,90 @@ struct BarrierState {
   std::vector<ContinuePromise> allPeersFinishedPromises;
 };
 
-/// Structure to accumulate splits for distribution.
-struct SplitsStore {
-  /// Arrived (added), but not distributed yet, splits.
-  std::deque<exec::Split> splits;
-  /// Signal, that no more splits will arrive.
-  bool noMoreSplits{false};
-  /// Blocking promises given out when out of splits to distribute.
-  std::vector<ContinuePromise> splitPromises;
+using ConnectorSplitPreloadFunc =
+    std::function<void(const std::shared_ptr<connector::ConnectorSplit>&)>;
+
+/// A split store that either can accumulate splits through addSplit() or
+/// generating splits from its own source.
+///
+/// This object is not multi-thread safe.
+class SplitsStore {
+ public:
+  explicit SplitsStore(bool remoteSplit) : remoteSplit_(remoteSplit) {}
+
+  virtual ~SplitsStore() = default;
+
+  /// Add a barrier split to this store.  Some of the waiters previously waiting
+  /// on the ContinueFuture after the nextSplit() call should be notified by the
+  /// caller of this function by setting values on the `promises` output
+  /// parameter.
+  ///
+  /// `promises` should be set by caller (potentially outside a lock), to notify
+  /// any waiters on the splits.
+  virtual void requestBarrier(std::vector<ContinuePromise>& promises) = 0;
+
+  /// Return true when split is set or there is no more splits; false when
+  /// caller should retry when the future is fulfilled.
+  virtual bool nextSplit(
+      Split& split,
+      ContinueFuture& future,
+      int maxPreloadSplits,
+      const ConnectorSplitPreloadFunc& preload) = 0;
+
+  /// Return whether all splits has been consumed and there will be no more
+  /// splits.
+  virtual bool allSplitsConsumed() const = 0;
+
+  /// Add new split into this store.  Some of the waiters previously waiting on
+  /// the ContinueFuture after the nextSplit() call should be notified by the
+  /// caller of this function by setting values on the `promises` output
+  /// parameter.
+  ///
+  /// `promises` should be set by caller (potentially outside a lock), to notify
+  /// any waiters on the splits.
+  void addSplit(Split split, std::vector<ContinuePromise>& promises);
+
+  /// Return the number of waiters waiting for new splits.
+  int numWaiters() const {
+    return promises_.size();
+  }
+
+  /// Signal there will not be any more splits added to this store.
+  std::vector<ContinuePromise> noMoreSplits() {
+    noMoreSplits_ = true;
+    return std::move(promises_);
+  }
+
+  void setTaskStats(TaskStats& taskStats) {
+    taskStats_ = &taskStats;
+  }
+
+  void setPreloadingSplits(
+      folly::F14FastSet<std::shared_ptr<connector::ConnectorSplit>>&
+          preloadingSplits) {
+    preloadingSplits_ = &preloadingSplits;
+  }
+
+ protected:
+  Split getSplit(
+      int maxPreloadSplits,
+      const ConnectorSplitPreloadFunc& preload);
+
+  ContinueFuture makeFuture();
+
+  const bool remoteSplit_;
+  TaskStats* taskStats_{};
+  folly::F14FastSet<std::shared_ptr<connector::ConnectorSplit>>*
+      preloadingSplits_{};
+
+  // Arrived (added), but not distributed yet, splits.
+  std::deque<Split> splits_;
+
+  // Signal, that no more splits will arrive.
+  bool noMoreSplits_{false};
+
+  // Blocking promises given out when out of splits to distribute.
+  std::vector<ContinuePromise> promises_;
 };
 
 /// Structure contains the current info on splits for a particular plan node.
@@ -77,7 +166,7 @@ struct SplitsState {
   long maxSequenceId{std::numeric_limits<long>::min()};
 
   /// Map split group id -> split store.
-  std::unordered_map<uint32_t, SplitsStore> groupSplitsStores;
+  std::unordered_map<uint32_t, std::unique_ptr<SplitsStore>> groupSplitsStores;
 
   /// We need these due to having promises in the structure.
   SplitsState() = default;

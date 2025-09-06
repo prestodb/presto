@@ -1419,7 +1419,7 @@ bool waitForTaskStateChange(
 void waitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
   uint64_t waitUs = 0;
   while (Task::numRunningTasks() != 0) {
-    constexpr uint64_t kWaitInternalUs = 1'000;
+    constexpr uint64_t kWaitInternalUs = 50'000;
     std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
     waitUs += kWaitInternalUs;
     if (waitUs >= maxWaitUs) {

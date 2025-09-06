@@ -1,3 +1,4 @@
+#include "velox/common/Casts.h"
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
@@ -42,6 +43,7 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::exec {
 
 namespace {
+
 // RAII helper class to satisfy given promises and notify listeners of an event
 // connected to the promises outside of the mutex that guards the promises.
 // Inactive on creation. Must be activated explicitly by calling 'activate'.
@@ -174,20 +176,52 @@ bool isHashJoinOperator(const std::string& operatorType) {
   return (operatorType == "HashBuild") || (operatorType == "HashProbe");
 }
 
-// Moves split promises from one vector to another.
-void movePromisesOut(
-    std::vector<ContinuePromise>& from,
-    std::vector<ContinuePromise>& to) {
-  if (to.empty()) {
-    to.swap(from);
-    return;
+class QueueSplitsStore : public SplitsStore {
+ public:
+  using SplitsStore::SplitsStore;
+
+  void requestBarrier(std::vector<ContinuePromise>& promises) override {
+    addSplit(Split::createBarrier(), promises);
   }
 
-  for (auto& promise : from) {
-    to.emplace_back(std::move(promise));
+  bool nextSplit(
+      Split& split,
+      ContinueFuture& future,
+      int maxPreloadSplits,
+      const ConnectorSplitPreloadFunc& preload) override {
+    if (!splits_.empty()) {
+      split = getSplit(maxPreloadSplits, preload);
+      return true;
+    }
+    if (noMoreSplits_) {
+      return true;
+    }
+    future = makeFuture();
+    return false;
   }
-  from.clear();
+
+  bool allSplitsConsumed() const override {
+    return noMoreSplits_ && splits_.empty();
+  }
+};
+
+void noMoreSplitsForStore(
+    SplitsStore* splitsStore,
+    std::vector<ContinuePromise>& promises) {
+  if (!splitsStore) {
+    return;
+  }
+  auto newPromises = splitsStore->noMoreSplits();
+  if (promises.empty()) {
+    promises.swap(newPromises);
+    return;
+  }
+  promises.reserve(promises.size() + newPromises.size());
+  for (auto& promise : newPromises) {
+    promises.push_back(std::move(promise));
+  }
 }
+
 } // namespace
 
 std::string executionModeString(Task::ExecutionMode mode) {
@@ -1438,7 +1472,7 @@ bool Task::addSplitWithSequence(
     exec::Split&& split,
     long sequenceId) {
   RECORD_METRIC_VALUE(kMetricTaskSplitsCount, 1);
-  std::unique_ptr<ContinuePromise> promise;
+  std::vector<ContinuePromise> promises;
   bool added = false;
   bool isTaskRunning;
   bool shouldLogSplit = false;
@@ -1452,14 +1486,14 @@ bool Task::addSplitWithSequence(
       auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
       if (sequenceId > splitsState.maxSequenceId) {
         shouldLogSplit = true;
-        promise = addSplitLocked(splitsState, split);
+        addSplitLocked(splitsState, split, promises);
         added = true;
       }
     }
   }
 
-  if (promise) {
-    promise->setValue();
+  for (auto& promise : promises) {
+    promise.setValue();
   }
 
   if (!isTaskRunning) {
@@ -1479,18 +1513,18 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
   RECORD_METRIC_VALUE(kMetricTaskSplitsCount, 1);
   bool isTaskRunning;
   bool shouldLogSplit = false;
-  std::unique_ptr<ContinuePromise> promise;
+  std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::timed_mutex> l(mutex_);
     isTaskRunning = isRunningLocked();
     if (isTaskRunning) {
       shouldLogSplit = true;
-      promise = addSplitLocked(getPlanNodeSplitsStateLocked(planNodeId), split);
+      addSplitLocked(getPlanNodeSplitsStateLocked(planNodeId), split, promises);
     }
   }
 
-  if (promise) {
-    promise->setValue();
+  for (auto& promise : promises) {
+    promise.setValue();
   }
 
   if (!isTaskRunning) {
@@ -1518,15 +1552,16 @@ void Task::addRemoteSplit(
   }
 }
 
-std::unique_ptr<ContinuePromise> Task::addSplitLocked(
+void Task::addSplitLocked(
     SplitsState& splitsState,
-    const exec::Split& split) {
+    const exec::Split& split,
+    std::vector<ContinuePromise>& promises) {
   if (split.isBarrier()) {
     ensureBarrierSupport();
     VELOX_CHECK(splitsState.sourceIsTableScan);
     VELOX_CHECK(!splitsState.noMoreSplits);
-    return addSplitToStoreLocked(
-        splitsState.groupSplitsStores[kUngroupedGroupId], split);
+    addSplitToStoreLocked(splitsState, kUngroupedGroupId, split, promises);
+    return;
   }
   VELOX_CHECK(
       !barrierRequested_, "Can't add new split under barrier processing");
@@ -1544,8 +1579,8 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
   }
 
   if (!split.hasGroup()) {
-    return addSplitToStoreLocked(
-        splitsState.groupSplitsStores[kUngroupedGroupId], split);
+    addSplitToStoreLocked(splitsState, kUngroupedGroupId, split, promises);
+    return;
   }
 
   const auto splitGroupId = split.groupId;
@@ -1557,21 +1592,27 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
     // We might have some free driver slots to process this split group.
     ensureSplitGroupsAreBeingProcessedLocked();
   }
-  return addSplitToStoreLocked(
-      splitsState.groupSplitsStores[splitGroupId], split);
+  addSplitToStoreLocked(splitsState, splitGroupId, split, promises);
 }
 
-std::unique_ptr<ContinuePromise> Task::addSplitToStoreLocked(
-    SplitsStore& splitsStore,
-    const exec::Split& split) {
-  splitsStore.splits.push_back(split);
-  if (splitsStore.splitPromises.empty()) {
-    return nullptr;
+void Task::addSplitToStoreLocked(
+    SplitsState& splitsState,
+    uint32_t groupId,
+    const exec::Split& split,
+    std::vector<ContinuePromise>& promises) {
+  auto& splitsStore = splitsState.groupSplitsStores[groupId];
+  if (!splitsStore) {
+    setSplitsStore(
+        splitsStore,
+        std::make_unique<QueueSplitsStore>(!splitsState.sourceIsTableScan));
   }
-  auto promise = std::make_unique<ContinuePromise>(
-      std::move(splitsStore.splitPromises.back()));
-  splitsStore.splitPromises.pop_back();
-  return promise;
+  if (split.isBarrier()) {
+    splitsStore->requestBarrier(promises);
+    return;
+  }
+  auto* queueSplitsStore =
+      checked_pointer_cast<QueueSplitsStore>(splitsStore.get());
+  queueSplitsStore->addSplit(split, promises);
 }
 
 void Task::noMoreSplitsForGroup(
@@ -1583,9 +1624,8 @@ void Task::noMoreSplitsForGroup(
     std::lock_guard<std::timed_mutex> l(mutex_);
 
     auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
-    auto& splitsStore = splitsState.groupSplitsStores[splitGroupId];
-    splitsStore.noMoreSplits = true;
-    promises = std::move(splitsStore.splitPromises);
+    noMoreSplitsForStore(
+        splitsState.groupSplitsStores[splitGroupId].get(), promises);
 
     // There were no splits in this group, hence, no active drivers. Mark the
     // group complete.
@@ -1624,21 +1664,23 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
             "Expect 1 split store in a plan node in ungrouped execution mode, has {}",
             splitsState.groupSplitsStores.size());
         auto it = splitsState.groupSplitsStores.begin();
-        it->second.noMoreSplits = true;
-        splitPromises.swap(it->second.splitPromises);
+        noMoreSplitsForStore(it->second.get(), splitPromises);
       } else {
         // For an ungrouped execution plan node, in the unlikely case when there
         // are no split stores created (this means there were no splits at all),
         // we create one.
-        splitsState.groupSplitsStores.emplace(
-            kUngroupedGroupId, SplitsStore{{}, true, {}});
+        auto queueSplitsStore =
+            std::make_unique<QueueSplitsStore>(!splitsState.sourceIsTableScan);
+        queueSplitsStore->noMoreSplits();
+        setSplitsStore(
+            splitsState.groupSplitsStores[kUngroupedGroupId],
+            std::move(queueSplitsStore));
       }
     } else {
       // Grouped execution branch.
       // Mark all split stores as 'no more splits'.
       for (auto& it : splitsState.groupSplitsStores) {
-        it.second.noMoreSplits = true;
-        movePromisesOut(it.second.splitPromises, splitPromises);
+        noMoreSplitsForStore(it.second.get(), splitPromises);
       }
     }
 
@@ -1662,6 +1704,24 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   }
 }
 
+void Task::setSplitsStore(
+    const core::PlanNodeId& planNodeId,
+    std::unique_ptr<SplitsStore> newSplitsStore) {
+  std::lock_guard<std::timed_mutex> lk(mutex_);
+  auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
+  auto& splitsStore = splitsState.groupSplitsStores[kUngroupedGroupId];
+  VELOX_CHECK_NULL(splitsStore);
+  setSplitsStore(splitsStore, std::move(newSplitsStore));
+}
+
+void Task::setSplitsStore(
+    std::unique_ptr<SplitsStore>& splitsStore,
+    std::unique_ptr<SplitsStore> newSplitsStore) {
+  splitsStore = std::move(newSplitsStore);
+  splitsStore->setTaskStats(taskStats_);
+  splitsStore->setPreloadingSplits(preloadingSplits_);
+}
+
 ContinueFuture Task::requestBarrier() {
   ensureBarrierSupport();
   return startBarrier("Task::requestBarrier");
@@ -1669,10 +1729,10 @@ ContinueFuture Task::requestBarrier() {
 
 ContinueFuture Task::startBarrier(std::string_view comment) {
   ensureBarrierSupport();
-  std::vector<std::unique_ptr<ContinuePromise>> promises;
+  std::vector<ContinuePromise> promises;
   SCOPE_EXIT {
     for (auto& promise : promises) {
-      promise->setValue();
+      promise.setValue();
     }
   };
 
@@ -1681,7 +1741,7 @@ ContinueFuture Task::startBarrier(std::string_view comment) {
   auto [promise, future] =
       makeVeloxContinuePromiseContract(std::string{comment});
   if (!isRunningLocked()) {
-    promises.push_back(std::make_unique<ContinuePromise>(std::move(promise)));
+    promises.push_back(std::move(promise));
     return std::move(future);
   }
 
@@ -1706,10 +1766,7 @@ ContinueFuture Task::startBarrier(std::string_view comment) {
   for (const auto& leafPlanNode : leafPlanNodeIds) {
     auto barrierSplit = Split::createBarrier();
     auto& splitState = getPlanNodeSplitsStateLocked(leafPlanNode);
-    auto promise = addSplitLocked(splitState, std::move(barrierSplit));
-    if (promise != nullptr) {
-      promises.push_back(std::move(promise));
-    }
+    addSplitLocked(splitState, barrierSplit, promises);
   }
   startDriverBarriersLocked();
   return std::move(future);
@@ -1876,95 +1933,27 @@ BlockingReason Task::getSplitOrFuture(
     const ConnectorSplitPreloadFunc& preload) {
   std::lock_guard<std::timed_mutex> l(mutex_);
   auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
-  return getSplitOrFutureLocked(
-      splitsState.sourceIsTableScan,
-      splitsState.groupSplitsStores[splitGroupId],
-      split,
-      future,
-      maxPreloadSplits,
-      preload);
-}
-
-BlockingReason Task::getSplitOrFutureLocked(
-    bool forTableScan,
-    SplitsStore& splitsStore,
-    exec::Split& split,
-    ContinueFuture& future,
-    int32_t maxPreloadSplits,
-    const ConnectorSplitPreloadFunc& preload) {
-  if (splitsStore.splits.empty()) {
-    if (splitsStore.noMoreSplits) {
-      return BlockingReason::kNotBlocked;
-    }
-    auto [splitPromise, splitFuture] = makeVeloxContinuePromiseContract(
-        fmt::format("Task::getSplitOrFuture {}", taskId_));
-    future = std::move(splitFuture);
-    splitsStore.splitPromises.push_back(std::move(splitPromise));
-    return BlockingReason::kWaitForSplit;
+  auto& splitsStore = splitsState.groupSplitsStores[splitGroupId];
+  if (!splitsStore) {
+    setSplitsStore(
+        splitsStore,
+        std::make_unique<QueueSplitsStore>(!splitsState.sourceIsTableScan));
   }
-
-  split = getSplitLocked(forTableScan, splitsStore, maxPreloadSplits, preload);
-  return BlockingReason::kNotBlocked;
+  return splitsStore->nextSplit(split, future, maxPreloadSplits, preload)
+      ? BlockingReason::kNotBlocked
+      : BlockingReason::kWaitForSplit;
 }
 
 bool Task::testingHasDriverWaitForSplit() const {
   std::lock_guard<std::timed_mutex> l(mutex_);
   for (const auto& splitState : splitsStates_) {
-    for (const auto& splitStore : splitState.second.groupSplitsStores) {
-      if (!splitStore.second.splitPromises.empty()) {
+    for (const auto& [_, splitStore] : splitState.second.groupSplitsStores) {
+      if (splitStore && splitStore->numWaiters() > 0) {
         return true;
       }
     }
   }
   return false;
-}
-
-exec::Split Task::getSplitLocked(
-    bool forTableScan,
-    SplitsStore& splitsStore,
-    int32_t maxPreloadSplits,
-    const ConnectorSplitPreloadFunc& preload) {
-  int32_t readySplitIndex = -1;
-  if (maxPreloadSplits > 0) {
-    for (auto i = 0; i < splitsStore.splits.size() && i < maxPreloadSplits;
-         ++i) {
-      if (splitsStore.splits[i].isBarrier()) {
-        continue;
-      }
-      auto& connectorSplit = splitsStore.splits[i].connectorSplit;
-      if (!connectorSplit->dataSource) {
-        // Initializes split->dataSource.
-        preload(connectorSplit);
-        preloadingSplits_.emplace(connectorSplit);
-      } else if (
-          (readySplitIndex == -1) && (connectorSplit->dataSource->hasValue())) {
-        readySplitIndex = i;
-        preloadingSplits_.erase(connectorSplit);
-      }
-    }
-  }
-  if (readySplitIndex == -1) {
-    readySplitIndex = 0;
-  }
-  VELOX_CHECK(!splitsStore.splits.empty());
-  auto split = std::move(splitsStore.splits[readySplitIndex]);
-  splitsStore.splits.erase(splitsStore.splits.begin() + readySplitIndex);
-
-  --taskStats_.numQueuedSplits;
-  ++taskStats_.numRunningSplits;
-  if (forTableScan && split.connectorSplit) {
-    --taskStats_.numQueuedTableScanSplits;
-    ++taskStats_.numRunningTableScanSplits;
-    taskStats_.queuedTableScanSplitWeights -= split.connectorSplit->splitWeight;
-    taskStats_.runningTableScanSplitWeights +=
-        split.connectorSplit->splitWeight;
-  }
-  taskStats_.lastSplitStartTimeMs = getCurrentTimeMs();
-  if (taskStats_.firstSplitStartTimeMs == 0) {
-    taskStats_.firstSplitStartTimeMs = taskStats_.lastSplitStartTimeMs;
-  }
-
-  return split;
 }
 
 std::shared_ptr<ScaledScanController> Task::getScaledScanControllerLocked(
@@ -2068,7 +2057,7 @@ bool Task::allSplitsConsumedHelper(const core::PlanNode* planNode) const {
     VELOX_CHECK_NE(splitsStates_.count(planNodeId), 0);
     for (const auto& [_, splitsStore] :
          splitsStates_.at(planNodeId).groupSplitsStores) {
-      if (!splitsStore.splits.empty()) {
+      if (splitsStore && !splitsStore->allSplitsConsumed()) {
         return false;
       }
     }
@@ -2511,25 +2500,27 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     }
 
     // Collect all outstanding split promises from all splits state structures.
-    for (auto& pair : splitsStates_) {
-      auto& splitState = pair.second;
-      for (auto& it : pair.second.groupSplitsStores) {
-        movePromisesOut(it.second.splitPromises, splitPromises);
+    for (auto& [nodeId, state] : splitsStates_) {
+      for (auto& [_, store] : state.groupSplitsStores) {
+        noMoreSplitsForStore(store.get(), splitPromises);
       }
 
       // Process remaining remote splits.
-      if (getExchangeClientLocked(pair.first) != nullptr) {
+      if (getExchangeClientLocked(nodeId) != nullptr) {
         std::vector<exec::Split> splits;
-        for (auto& [groupId, store] : splitState.groupSplitsStores) {
-          while (!store.splits.empty()) {
-            splits.emplace_back(getSplitLocked(
-                splitState.sourceIsTableScan, store, 0, nullptr));
+        for (auto& [groupId, store] : state.groupSplitsStores) {
+          if (!store) {
+            continue;
+          }
+          while (!store->allSplitsConsumed()) {
+            auto future = ContinueFuture::makeEmpty();
+            VELOX_CHECK(
+                store->nextSplit(splits.emplace_back(), future, 0, nullptr));
           }
         }
         if (!splits.empty()) {
           remainingRemoteSplits.emplace(
-              pair.first,
-              std::make_pair(std::move(splits), splitState.noMoreSplits));
+              nodeId, std::make_pair(std::move(splits), state.noMoreSplits));
         }
       }
     }

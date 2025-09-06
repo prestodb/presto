@@ -42,7 +42,7 @@ class VeloxPromise : public folly::Promise<T> {
     }
   }
 
-  explicit VeloxPromise(VeloxPromise<T>&& other) noexcept
+  VeloxPromise(VeloxPromise<T>&& other) noexcept
       : folly::Promise<T>(std::move(other)),
         context_(std::move(other.context_)) {}
 

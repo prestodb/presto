@@ -37,9 +37,6 @@ class NestedLoopJoinBridge;
 class SpatialJoinBridge;
 class SplitListener;
 
-using ConnectorSplitPreloadFunc =
-    std::function<void(const std::shared_ptr<connector::ConnectorSplit>&)>;
-
 class Task : public std::enable_shared_from_this<Task> {
  public:
   /// Threading mode the task is executed.
@@ -270,6 +267,14 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Signals that there are no more splits for the source operator
   /// corresponding to plan node with specified ID.
   void noMoreSplits(const core::PlanNodeId& planNodeId);
+
+  /// Use a customized split store implementation to replace the default queue
+  /// split store for the specified node.  The customized split store should
+  /// have its own source of splits and no longer need addSplit() call from
+  /// the task.
+  void setSplitsStore(
+      const core::PlanNodeId& planNodeId,
+      std::unique_ptr<SplitsStore> splitsStore);
 
   /// Updates the total number of output buffers to broadcast or arbitrarily
   /// distribute the results of the execution to. Used when plan tree ends with
@@ -983,23 +988,6 @@ class Task : public std::enable_shared_from_this<Task> {
       const core::PlanNodeId& planNodeId,
       const exec::Split& split);
 
-  /// Retrieve a split or split future from the given split store structure.
-  BlockingReason getSplitOrFutureLocked(
-      bool forTableScan,
-      SplitsStore& splitsStore,
-      exec::Split& split,
-      ContinueFuture& future,
-      int32_t maxPreloadSplits,
-      const ConnectorSplitPreloadFunc& preload);
-
-  /// Returns next split from the store. The caller must ensure the store is not
-  /// empty.
-  exec::Split getSplitLocked(
-      bool forTableScan,
-      SplitsStore& splitsStore,
-      int32_t maxPreloadSplits,
-      const ConnectorSplitPreloadFunc& preload);
-
   // Creates for the given split group and fills up the 'SplitGroupState'
   // structure, which stores inter-operator state (local exchange, bridges).
   void createSplitGroupStateLocked(uint32_t splitGroupId);
@@ -1035,13 +1023,20 @@ class Task : public std::enable_shared_from_this<Task> {
   // splits coming for the task.
   bool isAllSplitsFinishedLocked();
 
-  std::unique_ptr<ContinuePromise> addSplitLocked(
+  void addSplitLocked(
       SplitsState& splitsState,
-      const exec::Split& split);
+      const exec::Split& split,
+      std::vector<ContinuePromise>& promises);
 
-  std::unique_ptr<ContinuePromise> addSplitToStoreLocked(
-      SplitsStore& splitsStore,
-      const exec::Split& split);
+  void addSplitToStoreLocked(
+      SplitsState& splitsState,
+      uint32_t groupId,
+      const exec::Split& split,
+      std::vector<ContinuePromise>& promises);
+
+  void setSplitsStore(
+      std::unique_ptr<SplitsStore>& splitsStore,
+      std::unique_ptr<SplitsStore> newSplitsStore);
 
   // Invoked when all the driver threads are off thread. The function returns
   // 'threadFinishPromises_' to fulfill.

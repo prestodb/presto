@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <fmt/format.h>
-#include "folly/Demangle.h"
 #include "velox/common/base/Exceptions.h"
+
+#include <folly/Demangle.h>
 
 namespace facebook::velox {
 
-namespace {
+namespace detail {
 
 template <typename From, typename To>
 void ensureCastSucceeded(To* casted, From* original) {
@@ -30,15 +30,15 @@ void ensureCastSucceeded(To* casted, From* original) {
   if (casted == nullptr) {
     VELOX_CHECK_NOT_NULL(
         original, "If casted is nullptr, original must not be.");
-    VELOX_FAIL(fmt::format(
+    VELOX_FAIL(
         "Failed to cast from '{}' to '{}'. Object is of type '{}'.",
         folly::demangle(typeid(From).name()),
         folly::demangle(typeid(To).name()),
-        folly::demangle(typeid(*original).name())));
+        folly::demangle(typeid(*original).name()));
   }
 }
 
-} // namespace
+} // namespace detail
 
 // `checked_pointer_cast` is a dynamic casting tool to throw a Velox exception
 // when the casting failed. Use this instead of `std::dynamic_pointer_cast`
@@ -49,7 +49,7 @@ template <typename To, typename From>
 std::shared_ptr<To> checked_pointer_cast(const std::shared_ptr<From>& input) {
   VELOX_CHECK_NOT_NULL(input.get());
   auto casted = std::dynamic_pointer_cast<To>(input);
-  ensureCastSucceeded(casted.get(), input.get());
+  detail::ensureCastSucceeded(casted.get(), input.get());
   return casted;
 }
 
@@ -60,7 +60,7 @@ std::unique_ptr<To> checked_pointer_cast(std::unique_ptr<From> input) {
   To* casted{nullptr};
   try {
     casted = dynamic_cast<To*>(released);
-    ensureCastSucceeded(casted, released);
+    detail::ensureCastSucceeded(casted, released);
   } catch (...) {
     input.reset(released);
     throw;
@@ -72,7 +72,7 @@ template <typename To, typename From>
 To* checked_pointer_cast(From* input) {
   VELOX_CHECK_NOT_NULL(input);
   auto* casted = dynamic_cast<To*>(input);
-  ensureCastSucceeded(casted, input);
+  detail::ensureCastSucceeded(casted, input);
   return casted;
 }
 
