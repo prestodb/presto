@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { clsx } from 'clsx';
 
 import {
@@ -23,7 +23,7 @@ import {
     isQueryEnded
 } from '../utils';
 
-function QueryHeaderTabs({ tabs, current, clickHandler }) {
+const QueryHeaderTabs = ({ tabs, current, clickHandler }) => {
     return (
         <>
             {tabs.map((tab, index) => (
@@ -34,11 +34,10 @@ function QueryHeaderTabs({ tabs, current, clickHandler }) {
             ))}
         </>
     );
-}
+};
 
-export default function StaticQueryHeader({ query, tabs, switchTab, tabIndex = 0 }) {
-
-    const [state, setState] = React.useState({ tab: tabs?.[tabIndex] });
+const StaticQueryHeader = ({ query, tabs, switchTab, tabIndex = 0 }) => {
+    const [state, setState] = useState({ tab: tabs?.[tabIndex] });
 
     const clickHandler = (tab) => {
         setState({ tab: tab });
@@ -135,4 +134,6 @@ export default function StaticQueryHeader({ query, tabs, switchTab, tabIndex = 0
             </div>
         </div>
     );
-}
+};
+
+export default StaticQueryHeader;
