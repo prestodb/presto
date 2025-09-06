@@ -1186,6 +1186,17 @@ core::JoinType toJoinType(protocol::JoinType type) {
 
   VELOX_UNSUPPORTED("Unknown join type");
 }
+
+core::JoinType toJoinType(protocol::SpatialJoinType type) {
+  switch (type) {
+    case protocol::SpatialJoinType::INNER:
+      return core::JoinType::kInner;
+    case protocol::SpatialJoinType::LEFT:
+      return core::JoinType::kLeft;
+  }
+
+  VELOX_UNSUPPORTED("Unknown spatial join type");
+}
 } // namespace
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1263,6 +1274,20 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       right,
       ROW(std::move(outputNames), std::move(outputTypes)));
 }
+
+core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::SpatialJoinNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  auto joinType = toJoinType(node->type);
+
+  return std::make_shared<core::SpatialJoinNode>(
+      node->id,
+      joinType,
+      exprConverter_.toVeloxExpr(node->filter),
+      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      toRowType(node->outputVariables, typeParser_));}
 
 std::shared_ptr<const core::IndexLookupJoinNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1841,6 +1866,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto join =
           std::dynamic_pointer_cast<const protocol::MergeJoinNode>(node)) {
     return toVeloxQueryPlan(join, tableWriteInfo, taskId);
+  }
+  if (auto spatialJoin =
+          std::dynamic_pointer_cast<const protocol::SpatialJoinNode>(node)) {
+    return toVeloxQueryPlan(spatialJoin, tableWriteInfo, taskId);
   }
   if (auto remoteSource =
           std::dynamic_pointer_cast<const protocol::RemoteSourceNode>(node)) {
