@@ -84,7 +84,7 @@ void IcebergSplitReader::prepareSplit(
                 hiveSplit_->filePath,
                 fileHandleFactory_,
                 connectorQueryCtx_,
-                executor_,
+                ioExecutor_,
                 hiveConfig_,
                 ioStats_,
                 fsStats_,

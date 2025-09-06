@@ -65,8 +65,8 @@ class HiveConnector : public Connector {
       ConnectorQueryCtx* connectorQueryCtx,
       CommitStrategy commitStrategy) override;
 
-  folly::Executor* executor() const override {
-    return executor_;
+  folly::Executor* ioExecutor() const override {
+    return ioExecutor_;
   }
 
   FileHandleCacheStats fileHandleCacheStats() {
@@ -82,7 +82,7 @@ class HiveConnector : public Connector {
  protected:
   const std::shared_ptr<HiveConfig> hiveConfig_;
   FileHandleFactory fileHandleFactory_;
-  folly::Executor* executor_;
+  folly::Executor* ioExecutor_;
   std::shared_ptr<ConnectorMetadata> metadata_;
 };
 

@@ -466,8 +466,8 @@ void TableScan::preload(
 }
 
 void TableScan::checkPreload() {
-  auto* executor = connector_->executor();
-  if (maxSplitPreloadPerDriver_ == 0 || !executor ||
+  auto* ioExecutor = connector_->ioExecutor();
+  if (maxSplitPreloadPerDriver_ == 0 || !ioExecutor ||
       !connector_->supportsSplitPreload()) {
     return;
   }
@@ -476,11 +476,11 @@ void TableScan::checkPreload() {
         maxSplitPreloadPerDriver_;
     if (!splitPreloader_) {
       splitPreloader_ =
-          [executor,
+          [ioExecutor,
            this](const std::shared_ptr<connector::ConnectorSplit>& split) {
             preload(split);
 
-            executor->add([connectorSplit = split]() mutable {
+            ioExecutor->add([connectorSplit = split]() mutable {
               connectorSplit->dataSource->prepare();
               connectorSplit.reset();
             });

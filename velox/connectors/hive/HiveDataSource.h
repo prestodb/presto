@@ -102,7 +102,7 @@ class HiveDataSource : public DataSource {
   virtual std::unique_ptr<SplitReader> createSplitReader();
 
   FileHandleFactory* const fileHandleFactory_;
-  folly::Executor* const executor_;
+  folly::Executor* const ioExecutor_;
   const ConnectorQueryCtx* const connectorQueryCtx_;
   const std::shared_ptr<HiveConfig> hiveConfig_;
   memory::MemoryPool* const pool_;

@@ -668,6 +668,14 @@ class Connector {
       const std::string& scanId,
       int32_t loadQuantum);
 
+  /// Returns the IOExecutor used by the connector. It is used to run async IO
+  /// operations by the connector.
+  virtual folly::Executor* ioExecutor() const {
+    return nullptr;
+  }
+
+  // This is for backward compatibility, todo: remove after verax repo is
+  // updated
   virtual folly::Executor* executor() const {
     return nullptr;
   }
