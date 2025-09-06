@@ -16,6 +16,8 @@ package com.facebook.presto.tpcds;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
+
 public class TestTpcdsWithThrift
         extends AbstractTestTpcds
 {
@@ -26,6 +28,7 @@ public class TestTpcdsWithThrift
         return TpcdsQueryRunner.createQueryRunner(ImmutableMap.<String, String>builder()
                 .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
                 .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
+                .put("http-server.http.port", String.valueOf(getAvailablePort()))
                 .build());
     }
 }

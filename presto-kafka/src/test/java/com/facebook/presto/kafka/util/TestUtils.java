@@ -31,7 +31,6 @@ import com.google.common.io.ByteStreams;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Optional;
@@ -46,14 +45,6 @@ public final class TestUtils
     private static final String TEST = "test";
 
     private TestUtils() {}
-
-    public static int findUnusedPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
-    }
 
     public static Properties toProperties(Map<String, String> map)
     {

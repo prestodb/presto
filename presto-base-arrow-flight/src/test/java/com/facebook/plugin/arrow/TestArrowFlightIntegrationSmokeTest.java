@@ -28,6 +28,8 @@ import org.testng.annotations.BeforeClass;
 import java.io.File;
 import java.io.IOException;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
+
 public class TestArrowFlightIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
@@ -40,7 +42,7 @@ public class TestArrowFlightIntegrationSmokeTest
     public TestArrowFlightIntegrationSmokeTest()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass

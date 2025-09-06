@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin.ARROW_FLIGHT_CONNECTOR;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 
 public class TestArrowFlightMtls
         extends AbstractTestQueryFramework
@@ -48,7 +49,7 @@ public class TestArrowFlightMtls
     public TestArrowFlightMtls()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass

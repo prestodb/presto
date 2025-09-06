@@ -102,6 +102,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGette
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -123,7 +124,7 @@ public class TestArrowFlightEchoQueries
     public TestArrowFlightEchoQueries()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass
@@ -165,7 +166,8 @@ public class TestArrowFlightEchoQueries
     }
 
     @Test
-    public void testVarCharVector() throws Exception
+    public void testVarCharVector()
+            throws Exception
     {
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("echo-test-client", 0, Long.MAX_VALUE);
                 IntVector intVector = new IntVector("id", bufferAllocator);
@@ -197,7 +199,8 @@ public class TestArrowFlightEchoQueries
     }
 
     @Test
-    public void testListVector() throws Exception
+    public void testListVector()
+            throws Exception
     {
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("echo-test-client", 0, Long.MAX_VALUE);
                 IntVector intVector = new IntVector("id", bufferAllocator);
@@ -253,7 +256,8 @@ public class TestArrowFlightEchoQueries
     }
 
     @Test
-    public void testMapVector() throws Exception
+    public void testMapVector()
+            throws Exception
     {
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("echo-test-client", 0, Long.MAX_VALUE);
                 IntVector intVector = new IntVector("id", bufferAllocator);
@@ -299,7 +303,8 @@ public class TestArrowFlightEchoQueries
     }
 
     @Test
-    public void testStructVector() throws Exception
+    public void testStructVector()
+            throws Exception
     {
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("echo-test-client", 0, Long.MAX_VALUE);
                 IntVector intVector = new IntVector("id", bufferAllocator);
@@ -343,7 +348,8 @@ public class TestArrowFlightEchoQueries
     }
 
     @Test
-    public void testDictionaryVector() throws Exception
+    public void testDictionaryVector()
+            throws Exception
     {
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("echo-test-client", 0, Long.MAX_VALUE);
                 IntVector intVector = new IntVector("id", bufferAllocator);
@@ -405,7 +411,8 @@ public class TestArrowFlightEchoQueries
                 keyBlockHashCode);
     }
 
-    private static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
+    private static FlightClient createFlightClient(BufferAllocator allocator, int serverPort)
+            throws IOException
     {
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
         Location location = Location.forGrpcTls("localhost", serverPort);

@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
@@ -42,7 +43,7 @@ public class EmbeddedZookeeper
     public EmbeddedZookeeper()
             throws IOException
     {
-        this(TestUtils.findUnusedPort());
+        this(getAvailablePort());
     }
 
     public EmbeddedZookeeper(int port)
