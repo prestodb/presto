@@ -15,7 +15,6 @@ package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.testingServer.TestingArrowProducer;
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -33,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin.ARROW_FLIGHT_CONNECTOR;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 
 public class TestArrowFlightMtls
         extends AbstractTestQueryFramework
@@ -49,7 +49,7 @@ public class TestArrowFlightMtls
     public TestArrowFlightMtls()
             throws IOException
     {
-        this.serverPort = TestingPrestoServer.getAvailablePort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass

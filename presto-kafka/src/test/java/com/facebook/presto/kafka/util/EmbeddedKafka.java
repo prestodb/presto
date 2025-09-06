@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.io.Files;
 import kafka.testkit.KafkaClusterTestKit;
 import kafka.testkit.TestKitNodes;
@@ -30,6 +29,7 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -59,7 +59,7 @@ public class EmbeddedKafka
     EmbeddedKafka()
             throws IOException
     {
-        this.port = TestingPrestoServer.getAvailablePort();
+        this.port = getAvailablePort();
         this.kafkaDataDir = Files.createTempDir();
         TestKitNodes nodes = new TestKitNodes.Builder()
                 .setNumBrokerNodes(1)

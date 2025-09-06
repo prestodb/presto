@@ -22,7 +22,6 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -103,6 +102,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGette
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -124,7 +124,7 @@ public class TestArrowFlightEchoQueries
     public TestArrowFlightEchoQueries()
             throws IOException
     {
-        this.serverPort = TestingPrestoServer.getAvailablePort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass

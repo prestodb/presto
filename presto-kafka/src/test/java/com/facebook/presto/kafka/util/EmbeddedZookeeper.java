@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.io.Files;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ServerCnxnFactory;
@@ -26,6 +25,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
@@ -43,7 +43,7 @@ public class EmbeddedZookeeper
     public EmbeddedZookeeper()
             throws IOException
     {
-        this(TestingPrestoServer.getAvailablePort());
+        this(getAvailablePort());
     }
 
     public EmbeddedZookeeper(int port)

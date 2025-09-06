@@ -15,7 +15,6 @@ package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.testingServer.TestingArrowProducer;
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -43,6 +42,7 @@ import java.util.function.BiFunction;
 import static com.facebook.plugin.arrow.ArrowFlightQueryRunner.getProperty;
 import static com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin.ARROW_FLIGHT_CATALOG;
 import static com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin.ARROW_FLIGHT_CONNECTOR;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -58,7 +58,7 @@ public class TestArrowFlightNativeQueries
     public TestArrowFlightNativeQueries()
             throws IOException
     {
-        this.serverPort = TestingPrestoServer.getAvailablePort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass
