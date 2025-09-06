@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clp;
 
+import com.facebook.presto.plugin.clp.optimization.ClpFilterToKqlConverter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -289,7 +290,10 @@ public class TestClpFilterToKql
         }
     }
 
-    private ClpExpression tryPushDown(String sqlExpression, SessionHolder sessionHolder, Set<String> metadataFilterColumns)
+    private ClpExpression tryPushDown(
+            String sqlExpression,
+            SessionHolder sessionHolder,
+            Set<String> metadataFilterColumns)
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>(variableToColumnHandleMap);
@@ -297,11 +301,16 @@ public class TestClpFilterToKql
                 new ClpFilterToKqlConverter(
                         standardFunctionResolution,
                         functionAndTypeManager,
+                        assignments,
                         metadataFilterColumns),
-                assignments);
+                null);
     }
 
-    private void testFilter(ClpExpression clpExpression, String expectedKqlExpression, String expectedRemainingExpression, SessionHolder sessionHolder)
+    private void testFilter(
+            ClpExpression clpExpression,
+            String expectedKqlExpression,
+            String expectedRemainingExpression,
+            SessionHolder sessionHolder)
     {
         Optional<String> kqlExpression = clpExpression.getPushDownExpression();
         Optional<RowExpression> remainingExpression = clpExpression.getRemainingExpression();

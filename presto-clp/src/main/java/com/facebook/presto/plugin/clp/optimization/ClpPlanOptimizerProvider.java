@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.clp;
+package com.facebook.presto.plugin.clp.optimization;
 
 import com.facebook.presto.plugin.clp.split.filter.ClpSplitFilterProvider;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -42,12 +42,12 @@ public class ClpPlanOptimizerProvider
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of();
+        return ImmutableSet.of(new ClpUdfRewriter(functionManager));
     }
 
     @Override
     public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
     {
-        return ImmutableSet.of(new ClpPlanOptimizer(functionManager, functionResolution, splitFilterProvider));
+        return ImmutableSet.of(new ClpComputePushDown(functionManager, functionResolution, splitFilterProvider));
     }
 }

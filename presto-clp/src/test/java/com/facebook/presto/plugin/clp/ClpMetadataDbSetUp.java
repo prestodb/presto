@@ -226,6 +226,11 @@ public final class ClpMetadataDbSetUp
         {
             this.dbPath = dbPath;
         }
+
+        public String getDbPath()
+        {
+            return dbPath;
+        }
     }
 
     static final class ArchivesTableRow

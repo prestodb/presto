@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.FunctionExtractor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SchemaPropertyManager;
@@ -64,6 +65,9 @@ import static java.util.stream.Collectors.toMap;
 public class TestClpQueryBase
 {
     protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+    static {
+        functionAndTypeManager.registerBuiltInFunctions(FunctionExtractor.extractFunctions(ClpFunctions.class));
+    }
     protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     protected static final Metadata metadata = new MetadataManager(
             functionAndTypeManager,
@@ -79,10 +83,10 @@ public class TestClpQueryBase
     protected static final ClpColumnHandle city = new ClpColumnHandle(
             "city",
             RowType.from(ImmutableList.of(
+                    RowType.field("Name", VARCHAR),
                     RowType.field("Region", RowType.from(ImmutableList.of(
                             RowType.field("Id", BIGINT),
-                            RowType.field("Name", VARCHAR)))),
-                    RowType.field("Name", VARCHAR))));
+                            RowType.field("Name", VARCHAR)))))));
     protected static final ClpColumnHandle fare = new ClpColumnHandle("fare", DOUBLE);
     protected static final ClpColumnHandle isHoliday = new ClpColumnHandle("isHoliday", BOOLEAN);
     protected static final Map<VariableReferenceExpression, ColumnHandle> variableToColumnHandleMap =
@@ -112,11 +116,6 @@ public class TestClpQueryBase
     }
 
     protected RowExpression getRowExpression(String sqlExpression, SessionHolder sessionHolder)
-    {
-        return toRowExpression(expression(sqlExpression), typeProvider, sessionHolder.getSession());
-    }
-
-    protected RowExpression getRowExpression(String sqlExpression, TypeProvider typeProvider, SessionHolder sessionHolder)
     {
         return toRowExpression(expression(sqlExpression), typeProvider, sessionHolder.getSession());
     }
