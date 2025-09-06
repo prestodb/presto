@@ -27,13 +27,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -49,19 +48,11 @@ public class TestRestRemoteFunctions
             .build();
     private TestingFunctionServer functionServer;
 
-    private static int findRandomPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        int functionServerPort = findRandomPort();
+        int functionServerPort = getAvailablePort();
         functionServer = new TestingFunctionServer(functionServerPort);
         return FunctionServerQueryRunner.createQueryRunner(
                 functionServerPort,
