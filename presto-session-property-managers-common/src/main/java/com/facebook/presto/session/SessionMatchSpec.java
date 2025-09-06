@@ -69,9 +69,12 @@ public class SessionMatchSpec
         this.resourceGroupRegex = requireNonNull(resourceGroupRegex, "resourceGroupRegex is null");
         this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
         this.overrideSessionProperties = requireNonNull(overrideSessionProperties, "overrideSessionProperties is null");
-        requireNonNull(sessionProperties, "sessionProperties is null");
-        this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
-        this.catalogSessionProperties = ImmutableMap.copyOf(catalogSessionProperties);
+
+        checkArgument(sessionProperties != null || catalogSessionProperties != null,
+                "Either sessionProperties or catalogSessionProperties must be provided");
+
+        this.sessionProperties = ImmutableMap.copyOf(Optional.ofNullable(sessionProperties).orElse(ImmutableMap.of()));
+        this.catalogSessionProperties = ImmutableMap.copyOf(Optional.ofNullable(catalogSessionProperties).orElse(ImmutableMap.of()));
     }
 
     public <T> Map<String, T> match(Map<String, T> object, SessionConfigurationContext context)
