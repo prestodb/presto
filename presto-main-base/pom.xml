@@ -425,6 +425,16 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcpkix-jdk18on</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
