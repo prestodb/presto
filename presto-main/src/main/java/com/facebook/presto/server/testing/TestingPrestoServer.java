@@ -423,10 +423,6 @@ public class TestingPrestoServer
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = (TestingAccessControlManager) injector.getInstance(AccessControlManager.class);
-        if (loadDefaultSystemAccessControl) {
-            accessControl.loadSystemAccessControl();
-        }
-
         prestoAuthenticatorManager = injector.getInstance(PrestoAuthenticatorManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
