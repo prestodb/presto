@@ -366,8 +366,6 @@ public class PrestoSparkQueryRunner
         sparkContext = sparkContextHolder.get(additionalSparkProperties, availableCpuCount);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
-        testingAccessControlManager.loadSystemAccessControl();
-
         nodeManager = injector.getInstance(PluginNodeManager.class);
 
         // Install tpch Plugin

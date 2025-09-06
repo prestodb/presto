@@ -133,7 +133,6 @@ public class AbstractAnalyzerTest
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-
         accessControl = new TestingAccessControlManager(transactionManager);
 
         metadata = createTestMetadataManager(transactionManager);
