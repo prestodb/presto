@@ -32,6 +32,13 @@ import static java.util.Objects.requireNonNull;
 public class TestingPrestoServerModule
         implements Module
 {
+    private final boolean loadDefaultSystemAccessControl;
+
+    public TestingPrestoServerModule(boolean loadDefaultSystemAccessControl)
+    {
+        this.loadDefaultSystemAccessControl = loadDefaultSystemAccessControl;
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -51,6 +58,6 @@ public class TestingPrestoServerModule
     public AccessControlManager createAccessControlManager(TransactionManager transactionManager)
     {
         requireNonNull(transactionManager, "transactionManager is null");
-        return new TestingAccessControlManager(transactionManager);
+        return new TestingAccessControlManager(transactionManager, loadDefaultSystemAccessControl);
     }
 }

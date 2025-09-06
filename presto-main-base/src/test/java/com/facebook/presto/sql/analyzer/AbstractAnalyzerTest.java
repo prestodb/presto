@@ -134,10 +134,7 @@ public class AbstractAnalyzerTest
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
 
-        TestingAccessControlManager accessControlManager = new TestingAccessControlManager(transactionManager);
-        accessControlManager.loadSystemAccessControl();
-
-        accessControl = accessControlManager;
+        accessControl = new TestingAccessControlManager(transactionManager);
 
         metadata = createTestMetadataManager(transactionManager);
 

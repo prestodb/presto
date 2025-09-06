@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Inject;
 
 import java.security.Principal;
 import java.util.ArrayList;
@@ -97,9 +99,18 @@ public class TestingAccessControlManager
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
     private final Map<ColumnMaskKey, ViewExpression> columnMasks = new HashMap<>();
 
+    @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
+        this(transactionManager, true);
+    }
+
+    public TestingAccessControlManager(TransactionManager transactionManager, boolean loadDefaultSystemAccessControl)
+    {
         super(transactionManager);
+        if (loadDefaultSystemAccessControl) {
+            setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        }
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)

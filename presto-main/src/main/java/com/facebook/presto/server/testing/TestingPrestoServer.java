@@ -359,7 +359,7 @@ public class TestingPrestoServer
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
                 .add(new ClientRequestFilterModule())
-                .add(new TestingPrestoServerModule())
+                .add(new TestingPrestoServerModule(loadDefaultSystemAccessControl))
                 .add(binder -> {
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
