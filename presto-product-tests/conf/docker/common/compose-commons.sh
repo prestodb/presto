@@ -26,8 +26,8 @@ function export_canonical_path() {
 
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-10}
-export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp2.6-hive"}
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-11}
+export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodb/hdp3.1-hive"}
 # This is the directory for the overriden JDK to use for starting Presto
 export OVERRIDE_JDK_DIR=${OVERRIDE_JDK_DIR:-"/dev/null"}
 

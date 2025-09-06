@@ -31,6 +31,7 @@ import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -334,7 +335,7 @@ public class SliceDictionaryBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
     {
         InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
         stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);

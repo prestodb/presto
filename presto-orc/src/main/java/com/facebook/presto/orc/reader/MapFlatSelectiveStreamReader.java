@@ -48,10 +48,10 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -87,7 +87,6 @@ public class MapFlatSelectiveStreamReader
     // value streams with other sequence IDs
     private final StreamDescriptor baseValueStreamDescriptor;
     private final OrcTypeKind keyOrcTypeKind;
-    private final DateTimeZone hiveStorageTimeZone;
 
     private final boolean nullsAllowed;
     private final boolean nonNullsAllowed;
@@ -139,7 +138,6 @@ public class MapFlatSelectiveStreamReader
             Map<Subfield, TupleDomainFilter> filters,
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
@@ -150,7 +148,6 @@ public class MapFlatSelectiveStreamReader
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.keyOrcTypeKind = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
-        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.localMemoryContext = systemMemoryContext.newOrcLocalMemoryContext(MapFlatSelectiveStreamReader.class.getSimpleName());
@@ -633,7 +630,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -675,11 +672,10 @@ public class MapFlatSelectiveStreamReader
                     ImmutableBiMap.of(),
                     Optional.ofNullable(outputType).map(MapType::getValueType),
                     ImmutableList.of(),
-                    hiveStorageTimeZone,
                     options,
                     systemMemoryContext.newOrcAggregatedMemoryContext(),
                     true);
-            valueStreamReader.startStripe(stripe);
+            valueStreamReader.startStripe(timezone, stripe);
             valueStreamReaders.add(valueStreamReader);
         }
 

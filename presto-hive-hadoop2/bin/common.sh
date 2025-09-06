@@ -33,8 +33,8 @@ function check_hadoop() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
     docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-metastore | grep -iq running && \
-    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000 &&
-    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:9083
+    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq :10000 &&
+    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq :9083
 }
 
 function exec_in_hadoop_master_container() {
@@ -67,8 +67,8 @@ function termination_handler(){
   exit 130
 }
 
-export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-prestodb/hdp2.6-hive}"
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-5}
+export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-prestodb/hdp3.1-hive}"
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-11}
 
 SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."

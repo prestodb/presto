@@ -28,6 +28,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -58,7 +59,7 @@ public class LongSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         StreamDescriptor streamDescriptor = context.getStreamDescriptor();
@@ -92,7 +93,7 @@ public class LongSelectiveStreamReader
                 throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timezone, stripe);
     }
 
     @Override

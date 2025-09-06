@@ -62,6 +62,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -205,7 +206,7 @@ public class OrcWriter
             OrcWriteValidationMode validationMode,
             WriterStats stats)
     {
-        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
+        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types, orcEncoding).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.dataSink = requireNonNull(dataSink, "dataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -241,6 +242,7 @@ public class OrcWriter
         recordValidation(validation -> validation.setCompression(compressionKind));
         recordValidation(validation -> validation.setFlattenedNodes(flattenedNodes));
         recordValidation(validation -> validation.setOrcTypes(orcTypes));
+        recordValidation(validation -> validation.setTimezone(hiveStorageTimeZone.toTimeZone().toZoneId()));
 
         requireNonNull(options, "options is null");
         this.flushPolicy = requireNonNull(options.getFlushPolicy(), "flushPolicy is null");
@@ -630,7 +632,8 @@ public class OrcWriter
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         List<Slice> encryptedGroups = createEncryptedGroups(encryptedStreams, encryptedColumnEncodings);
 
-        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, unencryptedColumnEncodings, encryptedGroups);
+        Optional<ZoneId> timezone = Optional.of(hiveStorageTimeZone.toTimeZone().toZoneId());
+        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, unencryptedColumnEncodings, encryptedGroups, timezone);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         DataOutput footerDataOutput = createDataOutput(footer);
         dwrfStripeCacheWriter.ifPresent(stripeCacheWriter -> stripeCacheWriter.addStripeFooter(createDataOutput(footer)));

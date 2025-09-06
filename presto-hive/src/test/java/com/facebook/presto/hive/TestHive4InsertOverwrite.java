@@ -11,20 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.fs;
+package com.facebook.presto.hive;
 
-public class HadoopExtendedFileSystemCache
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
+
+public class TestHive4InsertOverwrite
+        extends BaseTestHiveInsertOverwrite
 {
-    private static PrestoExtendedFileSystemCache cache;
-
-    private HadoopExtendedFileSystemCache() {}
-
-    public static synchronized void initialize()
+    public TestHive4InsertOverwrite()
     {
-        if (cache == null) {
-            PrestoExtendedFileSystemCache newCache = new PrestoExtendedFileSystemCache();
-            FileSystem.setCache(newCache);
-            cache = newCache;
-        }
+        super(HIVE4_IMAGE);
     }
 }

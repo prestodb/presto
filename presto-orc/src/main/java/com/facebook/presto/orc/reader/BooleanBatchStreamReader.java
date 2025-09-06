@@ -29,6 +29,7 @@ import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -177,7 +178,7 @@ public class BooleanBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
     {
         presentStreamSource = getBooleanMissingStreamSource();
         dataStreamSource = getBooleanMissingStreamSource();

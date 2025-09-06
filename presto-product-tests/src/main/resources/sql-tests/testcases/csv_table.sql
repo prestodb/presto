@@ -11,10 +11,10 @@ c_varchar|varchar|||null|null|2147483647|
 --! name: show create csv table
 SHOW CREATE TABLE csv_table
 --!
-CREATE TABLE hive.default.csv_table (\n   "c_bigint" varchar,\n   "c_varchar" varchar\n)\nWITH (\n   external_location = 'hdfs://hadoop-master:9000/product-test/datasets/csv_table',\n   format = 'CSV'\n)
+CREATE TABLE hive.default.csv_table (\n   "c_bigint" varchar,\n   "c_varchar" varchar\n)\nWITH (\n   external_location = 'hdfs://hadoop-master:9000/tmp/product-test/datasets/csv_table',\n   format = 'CSV'\n)
 --! name: create table like
 DROP TABLE IF EXISTS like_csv_table;
 CREATE TABLE like_csv_table (LIKE csv_table INCLUDING PROPERTIES);
 SHOW CREATE TABLE like_csv_table
 --!
-CREATE TABLE hive.default.like_csv_table (\n   "c_bigint" varchar,\n   "c_varchar" varchar\n)\nWITH (\n   external_location = 'hdfs://hadoop-master:9000/product-test/datasets/csv_table',\n   format = 'CSV'\n)
+CREATE TABLE hive.default.like_csv_table (\n   "c_bigint" varchar,\n   "c_varchar" varchar\n)\nWITH (\n   external_location = 'hdfs://hadoop-master:9000/tmp/product-test/datasets/csv_table',\n   format = 'CSV'\n)
