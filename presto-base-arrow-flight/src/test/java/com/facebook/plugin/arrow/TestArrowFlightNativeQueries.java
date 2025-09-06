@@ -15,6 +15,7 @@ package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.testingServer.TestingArrowProducer;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -57,7 +58,7 @@ public class TestArrowFlightNativeQueries
     public TestArrowFlightNativeQueries()
             throws IOException
     {
-        this.serverPort = DistributedQueryRunner.getAvailablePort();
+        this.serverPort = TestingPrestoServer.getAvailablePort();
     }
 
     @BeforeClass

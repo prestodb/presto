@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.io.Files;
 import kafka.testkit.KafkaClusterTestKit;
 import kafka.testkit.TestKitNodes;
@@ -59,7 +59,7 @@ public class EmbeddedKafka
     EmbeddedKafka()
             throws IOException
     {
-        this.port = DistributedQueryRunner.getAvailablePort();
+        this.port = TestingPrestoServer.getAvailablePort();
         this.kafkaDataDir = Files.createTempDir();
         TestKitNodes nodes = new TestKitNodes.Builder()
                 .setNumBrokerNodes(1)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.io.Files;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ServerCnxnFactory;
@@ -43,7 +43,7 @@ public class EmbeddedZookeeper
     public EmbeddedZookeeper()
             throws IOException
     {
-        this(DistributedQueryRunner.getAvailablePort());
+        this(TestingPrestoServer.getAvailablePort());
     }
 
     public EmbeddedZookeeper(int port)

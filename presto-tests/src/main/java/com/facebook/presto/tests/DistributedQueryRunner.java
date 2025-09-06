@@ -66,7 +66,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.HttpURLConnection;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -373,10 +372,6 @@ public class DistributedQueryRunner
             }
         }
 
-//        if (!accessControlProperties.containsKey("access-control.name") || accessControlProperties.get("access-control.name").equals("allow-all")) {
-//            loadSystemAccessControl();
-//        }
-
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinators.get(0).getMetadata().getSessionPropertyManager());
 
@@ -502,7 +497,7 @@ public class DistributedQueryRunner
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true")
                 .put("exchange.checksum-enabled", "true")
-                .put("http-server.http.port", String.valueOf(getAvailablePort()));
+                .put("http-server.http.port", String.valueOf(TestingPrestoServer.getAvailablePort()));
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", extraProperties.getOrDefault("node-scheduler.include-coordinator", "true"));
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
@@ -1108,14 +1103,6 @@ public class DistributedQueryRunner
     {
         for (TestingPrestoServer server : servers) {
             server.registerWorkerFunctions();
-        }
-    }
-
-    public static int getAvailablePort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
         }
     }
 

@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.server.FunctionServerQueryRunner;
 import com.facebook.presto.server.TestingFunctionServer;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -51,7 +52,7 @@ public class TestRestRemoteFunctions
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        int functionServerPort = DistributedQueryRunner.getAvailablePort();
+        int functionServerPort = TestingPrestoServer.getAvailablePort();
         functionServer = new TestingFunctionServer(functionServerPort);
         return FunctionServerQueryRunner.createQueryRunner(
                 functionServerPort,

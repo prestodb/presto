@@ -28,8 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.security.Principal;
 import java.util.Collections;
 import java.util.List;
@@ -134,7 +132,7 @@ public class TestClientRequestFilterPlugin
     private AuthenticationFilter setupAuthenticationFilter(List<ClientRequestFilterFactory> requestFilterFactory, boolean allowOverwriteHeaders)
             throws Exception
     {
-        try (TestingPrestoServer testingPrestoServer = new TestingPrestoServer(true, ImmutableMap.of("http-server.http.port", String.valueOf(getAvailablePort())), null, null, new SqlParserOptions(), ImmutableList.of())) {
+        try (TestingPrestoServer testingPrestoServer = new TestingPrestoServer(true, ImmutableMap.of("http-server.http.port", String.valueOf(TestingPrestoServer.getAvailablePort())), null, null, new SqlParserOptions(), ImmutableList.of())) {
             ClientRequestFilterManager clientRequestFilterManager = testingPrestoServer.getClientRequestFilterManager(requestFilterFactory);
 
             List<Authenticator> authenticators = createAuthenticators();
@@ -174,14 +172,6 @@ public class TestClientRequestFilterPlugin
                 return allowOverwriteHeaders;
             }
         };
-    }
-
-    public static int getAvailablePort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
     }
 
     static class GenericClientRequestFilterFactory

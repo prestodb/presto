@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.security.pem.PemReader;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -83,7 +82,7 @@ public class TestPrestoDriverAuth
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
                         .put("http-server.https.keystore.key", "changeit")
-                        .put("http-server.http.port", String.valueOf(DistributedQueryRunner.getAvailablePort()))
+                        .put("http-server.http.port", String.valueOf(TestingPrestoServer.getAvailablePort()))
                         .build(),
                 null,
                 null,

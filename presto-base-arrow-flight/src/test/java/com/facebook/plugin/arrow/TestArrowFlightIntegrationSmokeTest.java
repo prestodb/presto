@@ -16,6 +16,7 @@ package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.testingServer.TestingArrowProducer;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -40,7 +41,7 @@ public class TestArrowFlightIntegrationSmokeTest
     public TestArrowFlightIntegrationSmokeTest()
             throws IOException
     {
-        this.serverPort = DistributedQueryRunner.getAvailablePort();
+        this.serverPort = TestingPrestoServer.getAvailablePort();
     }
 
     @BeforeClass

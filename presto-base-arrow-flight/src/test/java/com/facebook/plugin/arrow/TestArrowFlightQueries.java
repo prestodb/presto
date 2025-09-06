@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.testingServer.TestingArrowProducer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
@@ -62,7 +63,7 @@ public class TestArrowFlightQueries
     public TestArrowFlightQueries()
             throws IOException
     {
-        this.serverPort = DistributedQueryRunner.getAvailablePort();
+        this.serverPort = TestingPrestoServer.getAvailablePort();
     }
 
     @BeforeClass
