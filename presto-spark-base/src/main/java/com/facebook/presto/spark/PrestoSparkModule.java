@@ -61,6 +61,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicyModule;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
@@ -329,6 +330,9 @@ public class PrestoSparkModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
+
+        // ClusterOverload policy module
+        binder.install(new ClusterOverloadPolicyModule());
 
         // plugin manager
         configBinder(binder).bindConfig(PluginManagerConfig.class);

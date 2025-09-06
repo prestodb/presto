@@ -27,8 +27,10 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeLoadMetrics;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.NodeStats;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
@@ -93,7 +95,7 @@ public final class DiscoveryNodeManager
     private final FailureDetector failureDetector;
     private final Optional<NodeStatusService> nodeStatusService;
     private final NodeVersion expectedNodeVersion;
-    private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, RemoteNodeStats> nodeStats = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final DriftClient<ThriftServerInfoClient> driftClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
@@ -102,6 +104,7 @@ public final class DiscoveryNodeManager
     private final InternalNode currentNode;
     private final CommunicationProtocol protocol;
     private final boolean isMemoizeDeadNodesEnabled;
+    private final InternalCommunicationConfig internalCommunicationConfig;
 
     @GuardedBy("this")
     private SetMultimap<ConnectorId, InternalNode> activeNodesByConnectorId;
@@ -153,6 +156,7 @@ public final class DiscoveryNodeManager
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
+        this.internalCommunicationConfig = requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
 
         this.currentNode = findCurrentNode(
                 serviceSelector.selectAllServices(),
@@ -211,6 +215,7 @@ public final class DiscoveryNodeManager
     @PostConstruct
     public void startPollingNodeStates()
     {
+        long pollingIntervalMillis = internalCommunicationConfig.getNodeDiscoveryPollingIntervalMillis();
         nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
             try {
                 pollWorkers();
@@ -218,7 +223,7 @@ public final class DiscoveryNodeManager
             catch (Exception e) {
                 log.error(e, "Error polling state of nodes");
             }
-        }, 5, 5, TimeUnit.SECONDS);
+        }, pollingIntervalMillis, pollingIntervalMillis, TimeUnit.MILLISECONDS);
         pollWorkers();
     }
 
@@ -236,20 +241,20 @@ public final class DiscoveryNodeManager
 
         // Remove nodes that don't exist anymore
         // Make a copy to materialize the set difference
-        Set<String> deadNodes = difference(nodeStates.keySet(), aliveNodeIds).immutableCopy();
-        nodeStates.keySet().removeAll(deadNodes);
+        Set<String> deadNodes = difference(nodeStats.keySet(), aliveNodeIds).immutableCopy();
+        nodeStats.keySet().removeAll(deadNodes);
 
         // Add new nodes
         for (InternalNode node : aliveNodes) {
             switch (protocol) {
                 case HTTP:
-                    nodeStates.putIfAbsent(node.getNodeIdentifier(),
-                            new HttpRemoteNodeState(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build()));
+                    nodeStats.putIfAbsent(node.getNodeIdentifier(),
+                            new HttpRemoteNodeStats(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/stats").build(), internalCommunicationConfig.getNodeStatsRefreshIntervalMillis()));
                     break;
                 case THRIFT:
                     if (node.getThriftPort().isPresent()) {
-                        nodeStates.put(node.getNodeIdentifier(),
-                                new ThriftRemoteNodeState(driftClient, uriBuilderFrom(node.getInternalUri()).scheme("thrift").port(node.getThriftPort().getAsInt()).build()));
+                        nodeStats.put(node.getNodeIdentifier(),
+                                new ThriftRemoteNodeStats(driftClient, uriBuilderFrom(node.getInternalUri()).scheme("thrift").port(node.getThriftPort().getAsInt()).build(), internalCommunicationConfig.getNodeStatsRefreshIntervalMillis()));
                     }
                     else {
                         // thrift port has not yet been populated; ignore the node for now
@@ -259,7 +264,7 @@ public final class DiscoveryNodeManager
         }
 
         // Schedule refresh
-        nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
+        nodeStats.values().forEach(RemoteNodeStats::asyncRefresh);
 
         // update indexes
         refreshNodesInternal();
@@ -438,10 +443,19 @@ public final class DiscoveryNodeManager
 
     private boolean isNodeShuttingDown(String nodeId)
     {
-        Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
-                ? nodeStates.get(nodeId).getNodeState()
+        Optional<NodeStats> remoteNodeStats = nodeStats.containsKey(nodeId)
+                ? nodeStats.get(nodeId).getNodeStats()
                 : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
+        return remoteNodeStats.isPresent() && remoteNodeStats.get().getNodeState() == SHUTTING_DOWN;
+    }
+
+    @Override
+    public Optional<NodeLoadMetrics> getNodeLoadMetrics(String nodeId)
+    {
+        Optional<NodeStats> remoteNodeStats = nodeStats.containsKey(nodeId)
+                ? nodeStats.get(nodeId).getNodeStats()
+                : Optional.empty();
+        return remoteNodeStats.flatMap(NodeStats::getLoadMetrics);
     }
 
     @Override

@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeLoadMetrics;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,7 @@ import jakarta.inject.Inject;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -178,5 +180,11 @@ public class InMemoryNodeManager
     public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
     {
         listeners.remove(requireNonNull(listener, "listener is null"));
+    }
+
+    @Override
+    public Optional<NodeLoadMetrics> getNodeLoadMetrics(String nodeIdentifier)
+    {
+        return Optional.empty();
     }
 }
