@@ -40,7 +40,6 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
-import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -66,6 +65,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.ConnectorId;
@@ -75,7 +75,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -86,11 +85,10 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
-import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
-import com.facebook.presto.testing.TestingTempStorageManager;
+import com.facebook.presto.testing.TestingPrestoServerModule;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
@@ -163,6 +161,7 @@ public class TestingPrestoServer
     private final StatsCalculator statsCalculator;
     private final TestingEventListenerManager eventListenerManager;
     private final TestingAccessControlManager accessControl;
+    private final PrestoAuthenticatorManager prestoAuthenticatorManager;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
     private final SplitManager splitManager;
@@ -360,18 +359,9 @@ public class TestingPrestoServer
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
                 .add(new ClientRequestFilterModule())
+                .add(new TestingPrestoServerModule(loadDefaultSystemAccessControl))
                 .add(binder -> {
-                    binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
-                    binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-                    binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
@@ -432,7 +422,8 @@ public class TestingPrestoServer
         transactionManager = injector.getInstance(TransactionManager.class);
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
-        accessControl = injector.getInstance(TestingAccessControlManager.class);
+        accessControl = (TestingAccessControlManager) injector.getInstance(AccessControlManager.class);
+        prestoAuthenticatorManager = injector.getInstance(PrestoAuthenticatorManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
@@ -708,6 +699,11 @@ public class TestingPrestoServer
         return accessControl;
     }
 
+    public PrestoAuthenticatorManager getPrestoAuthenticatorManager()
+    {
+        return prestoAuthenticatorManager;
+    }
+
     public ProcedureTester getProcedureTester()
     {
         return procedureTester;
@@ -952,6 +948,11 @@ public class TestingPrestoServer
     {
         requestFilterFactory.forEach(clientRequestFilterManager::registerClientRequestFilterFactory);
         clientRequestFilterManager.loadClientRequestFilters();
+        return clientRequestFilterManager;
+    }
+
+    public ClientRequestFilterManager getClientRequestFilterManager()
+    {
         return clientRequestFilterManager;
     }
 

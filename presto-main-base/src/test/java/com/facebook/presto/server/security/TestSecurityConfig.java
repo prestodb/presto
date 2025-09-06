@@ -32,7 +32,8 @@ public class TestSecurityConfig
                 .setAuthenticationTypes("")
                 .setAllowForwardedHttps(false)
                 .setAuthorizedIdentitySelectionEnabled(false)
-                .setAllowRequestFilterOverwriteHeaders(false));
+                .setAllowRequestFilterOverwriteHeaders(false)
+                .setTestingClientRequestFilters(false));
     }
 
     @Test
@@ -50,7 +51,8 @@ public class TestSecurityConfig
                 .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD))
                 .setAllowForwardedHttps(true)
                 .setAuthorizedIdentitySelectionEnabled(true)
-                .setAllowRequestFilterOverwriteHeaders(true));
+                .setAllowRequestFilterOverwriteHeaders(true)
+                .setTestingClientRequestFilters(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

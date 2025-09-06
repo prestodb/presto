@@ -34,6 +34,7 @@ public class SecurityConfig
     private boolean allowForwardedHttps;
     private boolean authorizedIdentitySelectionEnabled;
     private boolean allowRequestFilterOverwriteHeaders;
+    private boolean testingClientRequestFilters;
 
     public enum AuthenticationType
     {
@@ -108,5 +109,18 @@ public class SecurityConfig
     public boolean isAllowRequestFilterOverwriteHeaders()
     {
         return allowRequestFilterOverwriteHeaders;
+    }
+
+    @Config("permissions.testing-client-request-filters")
+    @ConfigDescription("Testing mode of client request filters")
+    public SecurityConfig setTestingClientRequestFilters(boolean testingClientRequestFilters)
+    {
+        this.testingClientRequestFilters = testingClientRequestFilters;
+        return this;
+    }
+
+    public boolean getTestingClientRequestFilters()
+    {
+        return testingClientRequestFilters;
     }
 }
