@@ -102,8 +102,15 @@ public class TestingAccessControlManager
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
+        this(transactionManager, true);
+    }
+
+    public TestingAccessControlManager(TransactionManager transactionManager, boolean loadDefaultSystemAccessControl)
+    {
         super(transactionManager);
-        setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        if (loadDefaultSystemAccessControl) {
+            setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        }
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
