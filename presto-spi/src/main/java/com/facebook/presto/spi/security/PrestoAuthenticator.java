@@ -26,4 +26,9 @@ public interface PrestoAuthenticator
      * @throws AccessDeniedException if not allowed
      */
     Principal createAuthenticatedPrincipal(Map<String, List<String>> headers);
+
+    default Principal createAuthenticatedPrincipal(Map<String, List<String>> headers, String body, String requestUri)
+    {
+        return createAuthenticatedPrincipal(headers);
+    }
 }
