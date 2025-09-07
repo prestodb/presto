@@ -40,7 +40,6 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
-import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -75,7 +74,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -86,11 +84,10 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
-import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
-import com.facebook.presto.testing.TestingTempStorageManager;
+import com.facebook.presto.testing.TestingPrestoServerModule;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
@@ -287,6 +284,42 @@ public class TestingPrestoServer
             Optional<Path> dataDirectory)
             throws Exception
     {
+        this(
+                resourceManager,
+                resourceManagerEnabled,
+                catalogServer,
+                catalogServerEnabled,
+                coordinatorSidecar,
+                coordinatorSidecarEnabled,
+                coordinator,
+                skipLoadingResourceGroupConfigurationManager,
+                true,
+                properties,
+                environment,
+                discoveryUri,
+                parserOptions,
+                additionalModules,
+                dataDirectory);
+    }
+
+    public TestingPrestoServer(
+            boolean resourceManager,
+            boolean resourceManagerEnabled,
+            boolean catalogServer,
+            boolean catalogServerEnabled,
+            boolean coordinatorSidecar,
+            boolean coordinatorSidecarEnabled,
+            boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri,
+            SqlParserOptions parserOptions,
+            List<Module> additionalModules,
+            Optional<Path> dataDirectory)
+            throws Exception
+    {
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
         this.coordinatorSidecar = coordinatorSidecar;
@@ -324,18 +357,9 @@ public class TestingPrestoServer
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
                 .add(new ClientRequestFilterModule())
+                .add(new TestingPrestoServerModule(loadDefaultSystemAccessControl))
                 .add(binder -> {
-                    binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
-                    binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-                    binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
@@ -396,7 +420,7 @@ public class TestingPrestoServer
         transactionManager = injector.getInstance(TransactionManager.class);
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
-        accessControl = injector.getInstance(TestingAccessControlManager.class);
+        accessControl = (TestingAccessControlManager) injector.getInstance(AccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
