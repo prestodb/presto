@@ -72,55 +72,30 @@ uint64_t SpillWriteFile::write(std::unique_ptr<folly::IOBuf> iobuf) {
   return writtenBytes;
 }
 
-SpillWriterBase::SpillWriterBase(
-    uint64_t writeBufferSize,
-    uint64_t targetFileSize,
+SpillWriter::SpillWriter(
+    const RowTypePtr& type,
+    const std::vector<SpillSortKey>& sortingKeys,
+    common::CompressionKind compressionKind,
     const std::string& pathPrefix,
+    uint64_t targetFileSize,
+    uint64_t writeBufferSize,
     const std::string& fileCreateConfig,
     common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
     memory::MemoryPool* pool,
     folly::Synchronized<common::SpillStats>* stats)
-    : pool_(pool),
-      stats_(stats),
-      updateAndCheckSpillLimitCb_(updateAndCheckSpillLimitCb),
-      fileCreateConfig_(fileCreateConfig),
+    : type_(type),
+      sortingKeys_(sortingKeys),
+      compressionKind_(compressionKind),
       pathPrefix_(pathPrefix),
+      targetFileSize_(targetFileSize),
       writeBufferSize_(writeBufferSize),
-      targetFileSize_(targetFileSize) {}
+      fileCreateConfig_(fileCreateConfig),
+      updateAndCheckSpillLimitCb_(updateAndCheckSpillLimitCb),
+      pool_(pool),
+      serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),
+      stats_(stats) {}
 
-SpillFiles SpillWriterBase::finish() {
-  checkNotFinished();
-  SCOPE_EXIT {
-    finished_ = true;
-  };
-  finishFile();
-  return std::move(finishedFiles_);
-}
-
-void SpillWriterBase::finishFile() {
-  checkNotFinished();
-  flush();
-  closeFile();
-  VELOX_CHECK_NULL(currentFile_);
-}
-
-uint64_t SpillWriterBase::flush() {
-  if (bufferEmpty()) {
-    return 0;
-  }
-
-  auto* file = ensureFile();
-  VELOX_CHECK_NOT_NULL(file);
-  uint64_t writtenBytes{0};
-  uint64_t flushTimeNs{0};
-  uint64_t writeTimeNs{0};
-  flushBuffer(file, writtenBytes, flushTimeNs, writeTimeNs);
-  updateWriteStats(writtenBytes, flushTimeNs, writeTimeNs);
-  updateAndCheckSpillLimitCb_(writtenBytes);
-  return writtenBytes;
-}
-
-SpillWriteFile* SpillWriterBase::ensureFile() {
+SpillWriteFile* SpillWriter::ensureFile() {
   if ((currentFile_ != nullptr) && (currentFile_->size() > targetFileSize_)) {
     closeFile();
   }
@@ -133,110 +108,63 @@ SpillWriteFile* SpillWriterBase::ensureFile() {
   return currentFile_.get();
 }
 
-void SpillWriterBase::closeFile() {
+void SpillWriter::closeFile() {
   if (currentFile_ == nullptr) {
     return;
   }
   currentFile_->finish();
   updateSpilledFileStats(currentFile_->size());
-  addFinishedFile(currentFile_.get());
+  finishedFiles_.push_back(SpillFileInfo{
+      .id = currentFile_->id(),
+      .type = type_,
+      .path = currentFile_->path(),
+      .size = currentFile_->size(),
+      .sortingKeys = sortingKeys_,
+      .compressionKind = compressionKind_});
   currentFile_.reset();
 }
 
-uint64_t SpillWriterBase::writeWithBufferControl(
-    const std::function<uint64_t()>& writeCb) {
-  checkNotFinished();
+size_t SpillWriter::numFinishedFiles() const {
+  return finishedFiles_.size();
+}
 
-  uint64_t timeNs{0};
-  uint64_t rowsWritten{0};
-  {
-    NanosecondTimer timer(&timeNs);
-    rowsWritten = writeCb();
-  }
-  updateAppendStats(rowsWritten, timeNs);
-
-  if (bufferSize() < writeBufferSize_) {
+uint64_t SpillWriter::flush() {
+  if (batch_ == nullptr) {
     return 0;
   }
-  return flush();
-}
 
-void SpillWriterBase::updateWriteStats(
-    uint64_t spilledBytes,
-    uint64_t flushTimeNs,
-    uint64_t writeTimeNs) {
-  auto statsLocked = stats_->wlock();
-  statsLocked->spilledBytes += spilledBytes;
-  statsLocked->spillFlushTimeNanos += flushTimeNs;
-  statsLocked->spillWriteTimeNanos += writeTimeNs;
-  ++statsLocked->spillWrites;
-  common::updateGlobalSpillWriteStats(spilledBytes, flushTimeNs, writeTimeNs);
-}
+  auto* file = ensureFile();
+  VELOX_CHECK_NOT_NULL(file);
 
-void SpillWriterBase::updateSpilledFileStats(uint64_t fileSize) {
-  ++stats_->wlock()->spilledFiles;
-  addThreadLocalRuntimeStat(
-      "spillFileSize", RuntimeCounter(fileSize, RuntimeCounter::Unit::kBytes));
-  common::incrementGlobalSpilledFiles();
-}
-
-void SpillWriterBase::updateAppendStats(
-    uint64_t numRows,
-    uint64_t serializationTimeNs) {
-  auto statsLocked = stats_->wlock();
-  statsLocked->spilledRows += numRows;
-  statsLocked->spillSerializationTimeNanos += serializationTimeNs;
-  common::updateGlobalSpillAppendStats(numRows, serializationTimeNs);
-}
-
-SpillWriter::SpillWriter(
-    const RowTypePtr& type,
-    const std::vector<SpillSortKey>& sortingKeys,
-    common::CompressionKind compressionKind,
-    const std::string& pathPrefix,
-    uint64_t targetFileSize,
-    uint64_t writeBufferSize,
-    const std::string& fileCreateConfig,
-    common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
-    memory::MemoryPool* pool,
-    folly::Synchronized<common::SpillStats>* stats)
-    : SpillWriterBase(
-          writeBufferSize,
-          targetFileSize,
-          pathPrefix,
-          fileCreateConfig,
-          updateAndCheckSpillLimitCb,
-          pool,
-          stats),
-      type_(type),
-      sortingKeys_(sortingKeys),
-      compressionKind_(compressionKind),
-      serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)) {}
-
-void SpillWriter::flushBuffer(
-    SpillWriteFile* file,
-    uint64_t& writtenBytes,
-    uint64_t& flushTimeNs,
-    uint64_t& writeTimeNs) {
   IOBufOutputStream out(
       *pool_, nullptr, std::max<int64_t>(64 * 1024, batch_->size()));
+  uint64_t flushTimeNs{0};
   {
     NanosecondTimer timer(&flushTimeNs);
     batch_->flush(&out);
   }
   batch_.reset();
 
+  uint64_t writeTimeNs{0};
+  uint64_t writtenBytes{0};
   auto iobuf = out.getIOBuf();
   {
     NanosecondTimer timer(&writeTimeNs);
     writtenBytes = file->write(std::move(iobuf));
   }
+  updateWriteStats(writtenBytes, flushTimeNs, writeTimeNs);
+  updateAndCheckSpillLimitCb_(writtenBytes);
+  return writtenBytes;
 }
 
 uint64_t SpillWriter::write(
     const RowVectorPtr& rows,
     const folly::Range<IndexRange*>& indices) {
-  return writeWithBufferControl([&]() {
+  checkNotFinished();
+
+  uint64_t timeNs{0};
+  {
+    NanosecondTimer timer(&timeNs);
     if (batch_ == nullptr) {
       serializer::presto::PrestoVectorSerde::PrestoOptions options = {
           kDefaultUseLosslessTimestamp,
@@ -250,18 +178,56 @@ uint64_t SpillWriter::write(
           &options);
     }
     batch_->append(rows, indices);
-    return rows->size();
-  });
+  }
+  updateAppendStats(rows->size(), timeNs);
+  if (batch_->size() < writeBufferSize_) {
+    return 0;
+  }
+  return flush();
 }
 
-void SpillWriter::addFinishedFile(SpillWriteFile* file) {
-  finishedFiles_.push_back(SpillFileInfo{
-      .id = file->id(),
-      .type = type_,
-      .path = file->path(),
-      .size = file->size(),
-      .sortingKeys = sortingKeys_,
-      .compressionKind = compressionKind_});
+void SpillWriter::updateAppendStats(
+    uint64_t numRows,
+    uint64_t serializationTimeNs) {
+  auto statsLocked = stats_->wlock();
+  statsLocked->spilledRows += numRows;
+  statsLocked->spillSerializationTimeNanos += serializationTimeNs;
+  common::updateGlobalSpillAppendStats(numRows, serializationTimeNs);
+}
+
+void SpillWriter::updateWriteStats(
+    uint64_t spilledBytes,
+    uint64_t flushTimeNs,
+    uint64_t fileWriteTimeNs) {
+  auto statsLocked = stats_->wlock();
+  statsLocked->spilledBytes += spilledBytes;
+  statsLocked->spillFlushTimeNanos += flushTimeNs;
+  statsLocked->spillWriteTimeNanos += fileWriteTimeNs;
+  ++statsLocked->spillWrites;
+  common::updateGlobalSpillWriteStats(
+      spilledBytes, flushTimeNs, fileWriteTimeNs);
+}
+
+void SpillWriter::updateSpilledFileStats(uint64_t fileSize) {
+  ++stats_->wlock()->spilledFiles;
+  addThreadLocalRuntimeStat(
+      "spillFileSize", RuntimeCounter(fileSize, RuntimeCounter::Unit::kBytes));
+  common::incrementGlobalSpilledFiles();
+}
+
+void SpillWriter::finishFile() {
+  checkNotFinished();
+  flush();
+  closeFile();
+  VELOX_CHECK_NULL(currentFile_);
+}
+
+SpillFiles SpillWriter::finish() {
+  checkNotFinished();
+  auto finishGuard = folly::makeGuard([this]() { finished_ = true; });
+
+  finishFile();
+  return std::move(finishedFiles_);
 }
 
 std::vector<std::string> SpillWriter::testingSpilledFilePaths() const {
