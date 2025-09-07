@@ -28,17 +28,23 @@ import jakarta.inject.Inject;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -85,6 +91,9 @@ public class AuthenticationFilter
     {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
+
+        // Wrap the http servlet request so that its body can be read multiple times
+        request = new ModifiedHttpServletRequest(request, ImmutableMap.of());
 
         // skip authentication if non-secure or not configured
         if (!doesRequestSupportAuthentication(request)) {
@@ -226,10 +235,54 @@ public class AuthenticationFilter
     {
         private final Map<String, String> customHeaders;
 
+        private final byte[] cachedBody;
+        private final ServletInputStream inputStream;
+        private final String requestBodyEncoding;
+
         public ModifiedHttpServletRequest(HttpServletRequest request, Map<String, String> headers)
         {
             super(request);
             this.customHeaders = ImmutableMap.copyOf(requireNonNull(headers, "headers is null"));
+
+            requestBodyEncoding = request.getCharacterEncoding();
+            try {
+                cachedBody = request.getInputStream().readAllBytes();
+            }
+            catch (IOException e) {
+                throw new RuntimeException("Failed to cache the request body", e);
+            }
+            inputStream = new ServletInputStream()
+            {
+                final ByteArrayInputStream bais = new ByteArrayInputStream(cachedBody);
+
+                @Override
+                public int read()
+                {
+                    return bais.read();
+                }
+
+                @Override
+                public boolean isFinished()
+                {
+                    return bais.available() == 0;
+                }
+
+                @Override
+                public boolean isReady()
+                {
+                    return true;
+                }
+
+                @Override
+                public void setReadListener(ReadListener readListener)
+                {}
+
+                @Override
+                public int available()
+                {
+                    return bais.available();
+                }
+            };
         }
 
         @Override
@@ -257,6 +310,31 @@ public class AuthenticationFilter
                 return enumeration(ImmutableList.of(customHeaders.get(name)));
             }
             return super.getHeaders(name);
+        }
+
+        public byte[] getCachedBody()
+        {
+            return Arrays.copyOf(cachedBody, cachedBody.length);
+        }
+
+        public String getCachedBodyAsString()
+        {
+            String encoding = requestBodyEncoding;
+            if (encoding == null) {
+                encoding = "UTF-8";
+            }
+            try {
+                return new String(getCachedBody(), encoding);
+            }
+            catch (UnsupportedEncodingException e) {
+                return new String(cachedBody, StandardCharsets.UTF_8);
+            }
+        }
+
+        @Override
+        public ServletInputStream getInputStream()
+        {
+            return inputStream;
         }
     }
 }
