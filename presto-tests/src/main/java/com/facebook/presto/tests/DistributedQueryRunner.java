@@ -89,6 +89,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -254,6 +255,10 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
+
+            if (!extraCoordinatorProperties.containsKey("http-server.http.port")) {
+                extraCoordinatorProperties.put("http-server.http.port", String.valueOf(getAvailablePort()));
+            }
 
             if (resourceManagerEnabled) {
                 for (int i = 0; i < resourceManagerCount; i++) {
@@ -477,7 +482,8 @@ public class DistributedQueryRunner
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true")
-                .put("exchange.checksum-enabled", "true");
+                .put("exchange.checksum-enabled", "true")
+                .put("http-server.http.port", String.valueOf(getAvailablePort()));
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", extraProperties.getOrDefault("node-scheduler.include-coordinator", "true"));
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
