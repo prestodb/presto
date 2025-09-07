@@ -31,7 +31,14 @@ namespace facebook::presto {
 class ArrowFlightTableHandle : public velox::connector::ConnectorTableHandle {
  public:
   explicit ArrowFlightTableHandle(const std::string& connectorId)
-      : ConnectorTableHandle(connectorId) {}
+      : ConnectorTableHandle(connectorId), name_("arrow_flight") {}
+
+  const std::string& name() const override {
+    return name_;
+  }
+
+ private:
+  const std::string name_;
 };
 
 struct ArrowFlightSplit : public velox::connector::ConnectorSplit {
