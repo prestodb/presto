@@ -5780,7 +5780,7 @@ public class TestHiveIntegrationSmokeTest
                 "('" + tableName + "', 'orderpriority'), " +
                 "('" + tableName + "', 'clerk'), " +
                 "('" + tableName + "', 'shippriority'), " +
-                "('" + tableName + "', 'comment')";s
+                "('" + tableName + "', 'comment')";
         try {
 
             assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
