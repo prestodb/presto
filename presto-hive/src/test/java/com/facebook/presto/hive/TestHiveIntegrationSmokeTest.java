@@ -5786,7 +5786,6 @@ public class TestHiveIntegrationSmokeTest
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll(".$", "_");
-
         int uniqueSuffix = (int) (Math.random() * 9_000_000) + 1_000_000;
         String tableName = "orders_" + uniqueSuffix;
         // Create the unique table
@@ -5800,7 +5799,7 @@ public class TestHiveIntegrationSmokeTest
                 "('" + tableName + "', 'orderpriority'), " +
                 "('" + tableName + "', 'clerk'), " +
                 "('" + tableName + "', 'shippriority'), " +
-                "('" + tableName + "', 'comment')";
+                "('" + tableName + "', 'comment')";s
         try {
 
             assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
