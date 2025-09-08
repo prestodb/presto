@@ -289,14 +289,7 @@ void TraceReplayRunner::init() {
     serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
   }
 
-  connector::hive::HiveTableHandle::registerSerDe();
-  connector::hive::LocationHandle::registerSerDe();
-  connector::hive::HiveColumnHandle::registerSerDe();
-  connector::hive::HiveInsertTableHandle::registerSerDe();
-  connector::hive::HiveInsertFileNameGenerator::registerSerDe();
-  connector::hive::HiveConnectorSplit::registerSerDe();
-  connector::hive::registerHivePartitionFunctionSerDe();
-  connector::hive::HiveBucketProperty::registerSerDe();
+  connector::hive::HiveConnector::registerSerDe();
 
   functions::prestosql::registerAllScalarFunctions(FLAGS_function_prefix);
   aggregate::prestosql::registerAllAggregateFunctions(FLAGS_function_prefix);

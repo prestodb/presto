@@ -74,7 +74,7 @@ std::string TableWriterTestBase::TestParam::toString() const {
       "FileFormat_{}_TestMode_{}_commitStrategy_{}_bucketKind_{}_bucketSort_{}_multiDrivers_{}_compression_{}_scaleWriter_{}",
       dwio::common::toString((fileFormat())),
       testModeString(testMode()),
-      commitStrategyToString(commitStrategy()),
+      CommitStrategyName::toName(commitStrategy()),
       HiveBucketProperty::kindString(bucketKind()),
       bucketSort(),
       multiDrivers(),

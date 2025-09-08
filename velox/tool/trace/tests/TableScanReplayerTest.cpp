@@ -17,14 +17,12 @@
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <memory>
 #include <string>
 
 #include "folly/dynamic.h"
-#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/common/hyperloglog/SparseHll.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/TraceUtil.h"
@@ -35,7 +33,6 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/TableScanReplayer.h"
 #include "velox/tool/trace/TraceReplayRunner.h"
-#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::core;
@@ -49,6 +46,7 @@ using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::common::hll;
 
 namespace facebook::velox::tool::trace::test {
+
 class TableScanReplayerTest : public HiveConnectorTestBase {
  protected:
   static void SetUpTestCase() {
@@ -60,12 +58,7 @@ class TableScanReplayerTest : public HiveConnectorTestBase {
     }
     Type::registerSerDe();
     common::Filter::registerSerDe();
-    connector::hive::HiveTableHandle::registerSerDe();
-    connector::hive::LocationHandle::registerSerDe();
-    connector::hive::HiveColumnHandle::registerSerDe();
-    connector::hive::HiveInsertTableHandle::registerSerDe();
-    connector::hive::HiveInsertFileNameGenerator::registerSerDe();
-    connector::hive::HiveConnectorSplit::registerSerDe();
+    connector::hive::HiveConnector::registerSerDe();
     core::PlanNode::registerSerDe();
     velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();

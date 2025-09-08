@@ -146,7 +146,7 @@ struct TestParam {
         "FileFormat[{}] TestMode[{}] commitStrategy[{}] multiDrivers[{}] compression[{}]",
         dwio::common::toString((fileFormat())),
         testModeString(testMode()),
-        commitStrategyToString(commitStrategy()),
+        CommitStrategyName::toName(commitStrategy()),
         multiDrivers(),
         compressionKindToString(compressionKind()));
   }

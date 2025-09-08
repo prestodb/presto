@@ -16,6 +16,7 @@
 #pragma once
 
 #include "folly/CancellationToken.h"
+#include "velox/common/Enums.h"
 #include "velox/common/base/AsyncSource.h"
 #include "velox/common/base/PrefixSortConfig.h"
 #include "velox/common/base/RuntimeMetrics.h"
@@ -172,21 +173,10 @@ enum class CommitStrategy {
   /// No more commit actions are needed.
   kNoCommit,
   /// Task level commit is needed.
-  kTaskCommit
+  kTaskCommit,
 };
 
-/// Return a string encoding of the given commit strategy.
-std::string commitStrategyToString(CommitStrategy commitStrategy);
-
-FOLLY_ALWAYS_INLINE std::ostream& operator<<(
-    std::ostream& os,
-    CommitStrategy strategy) {
-  os << commitStrategyToString(strategy);
-  return os;
-}
-
-/// Return a commit strategy of the given string encoding.
-CommitStrategy stringToCommitStrategy(const std::string& strategy);
+VELOX_DECLARE_ENUM_NAME(CommitStrategy);
 
 /// Writes data received from table writer operator into different partitions
 /// based on the specific table layout. The actual implementation doesn't need

@@ -22,15 +22,11 @@
 
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
-#include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/FieldReference.h"
 
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::connector::hive {
-
-class HiveTableHandle;
-class HiveColumnHandle;
 
 namespace {
 

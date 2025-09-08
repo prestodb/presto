@@ -100,6 +100,19 @@ std::unique_ptr<DataSink> HiveConnector::createDataSink(
       hiveConfig_);
 }
 
+// static
+void HiveConnector::registerSerDe() {
+  HiveTableHandle::registerSerDe();
+  HiveColumnHandle::registerSerDe();
+  HiveConnectorSplit::registerSerDe();
+  HiveInsertTableHandle::registerSerDe();
+  HiveInsertFileNameGenerator::registerSerDe();
+  LocationHandle::registerSerDe();
+  HiveBucketProperty::registerSerDe();
+  HiveSortingColumn::registerSerDe();
+  HivePartitionFunctionSpec::registerSerDe();
+}
+
 std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
     int numPartitions,
     bool localExchange) const {
@@ -121,7 +134,7 @@ std::unique_ptr<core::PartitionFunction> HivePartitionFunctionSpec::create(
           std::mt19937{0});
     }
   }
-  return std::make_unique<velox::connector::hive::HivePartitionFunction>(
+  return std::make_unique<HivePartitionFunction>(
       numBuckets_,
       bucketToPartition_.empty() ? std::move(bucketToPartitions)
                                  : bucketToPartition_,
@@ -186,7 +199,8 @@ core::PartitionFunctionSpecPtr HivePartitionFunctionSpec::deserialize(
       std::move(constValues));
 }
 
-void registerHivePartitionFunctionSerDe() {
+// static
+void HivePartitionFunctionSpec::registerSerDe() {
   auto& registry = DeserializationWithContextRegistryForSharedPtr();
   registry.Register(
       "HivePartitionFunctionSpec", HivePartitionFunctionSpec::deserialize);

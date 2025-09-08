@@ -15,8 +15,6 @@
  */
 
 #include "velox/exec/TableWriter.h"
-
-#include "velox/exec/HashAggregation.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -275,7 +273,7 @@ std::string TableWriter::createTableCommitContext(bool lastOutput) {
       folly::dynamic::object
           (TableWriteTraits::kLifeSpanContextKey, "TaskWide")
           (TableWriteTraits::kTaskIdContextKey, connectorQueryCtx_->taskId())
-          (TableWriteTraits::kCommitStrategyContextKey, commitStrategyToString(commitStrategy_))
+          (TableWriteTraits::kCommitStrategyContextKey, connector::CommitStrategyName::toName(commitStrategy_))
           (TableWriteTraits::klastPageContextKey, lastOutput));
   // clang-format on
 }

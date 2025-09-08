@@ -24,7 +24,6 @@
 #include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/connectors/hive/TableHandle.h"
-#include "velox/core/ITypedExpr.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SortingWriter.h"
 #include "velox/exec/OperatorUtils.h"
@@ -434,7 +433,7 @@ HiveDataSink::HiveDataSink(
       (commitStrategy_ == CommitStrategy::kNoCommit) ||
           (commitStrategy_ == CommitStrategy::kTaskCommit),
       "Unsupported commit strategy: {}",
-      commitStrategyToString(commitStrategy_));
+      CommitStrategyName::toName(commitStrategy_));
 
   if (insertTableHandle_->ensureFiles()) {
     VELOX_CHECK(

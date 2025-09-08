@@ -130,27 +130,18 @@ std::shared_ptr<cache::ScanTracker> Connector::getTracker(
   });
 }
 
-std::string commitStrategyToString(CommitStrategy commitStrategy) {
-  switch (commitStrategy) {
-    case CommitStrategy::kNoCommit:
-      return "NO_COMMIT";
-    case CommitStrategy::kTaskCommit:
-      return "TASK_COMMIT";
-    default:
-      VELOX_UNREACHABLE(
-          "UNKOWN COMMIT STRATEGY: {}", static_cast<int>(commitStrategy));
-  }
+namespace {
+const folly::F14FastMap<CommitStrategy, std::string_view>&
+commitStrategyNames() {
+  static const folly::F14FastMap<CommitStrategy, std::string_view> kNames = {
+      {CommitStrategy::kNoCommit, "NO_COMMIT"},
+      {CommitStrategy::kTaskCommit, "TASK_COMMIT"},
+  };
+  return kNames;
 }
+} // namespace
 
-CommitStrategy stringToCommitStrategy(const std::string& strategy) {
-  if (strategy == "NO_COMMIT") {
-    return CommitStrategy::kNoCommit;
-  } else if (strategy == "TASK_COMMIT") {
-    return CommitStrategy::kTaskCommit;
-  } else {
-    VELOX_UNREACHABLE("UNKOWN COMMIT STRATEGY: {}", strategy);
-  }
-}
+VELOX_DEFINE_ENUM_NAME(CommitStrategy, commitStrategyNames);
 
 folly::dynamic ColumnHandle::serializeBase(std::string_view name) {
   folly::dynamic obj = folly::dynamic::object;

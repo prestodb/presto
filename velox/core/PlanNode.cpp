@@ -2692,7 +2692,8 @@ folly::dynamic TableWriteNode::serialize() const {
       insertTableHandle_->connectorInsertTableHandle()->serialize();
   obj["hasPartitioningScheme"] = hasPartitioningScheme_;
   obj["outputType"] = outputType_->serialize();
-  obj["commitStrategy"] = connector::commitStrategyToString(commitStrategy_);
+  obj["commitStrategy"] =
+      std::string(connector::CommitStrategyName::toName(commitStrategy_));
   return obj;
 }
 
@@ -2719,8 +2720,8 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
           obj["connectorInsertTableHandle"]);
   const bool hasPartitioningScheme = obj["hasPartitioningScheme"].asBool();
   auto outputType = deserializeRowType(obj["outputType"]);
-  auto commitStrategy =
-      connector::stringToCommitStrategy(obj["commitStrategy"].asString());
+  auto commitStrategy = connector::CommitStrategyName::toCommitStrategy(
+      obj["commitStrategy"].asString());
   std::optional<ColumnStatsSpec> columnStatsSpec;
   if (obj.count("columnStatsSpec") != 0) {
     columnStatsSpec = ColumnStatsSpec::create(obj["columnStatsSpec"], context);

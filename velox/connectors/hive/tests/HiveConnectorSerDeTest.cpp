@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
@@ -31,14 +31,7 @@ class HiveConnectorSerDeTest : public exec::test::HiveConnectorTestBase {
     Type::registerSerDe();
     common::Filter::registerSerDe();
     core::ITypedExpr::registerSerDe();
-    HiveTableHandle::registerSerDe();
-    HiveColumnHandle::registerSerDe();
-    LocationHandle::registerSerDe();
-    HiveInsertTableHandle::registerSerDe();
-    HiveBucketProperty::registerSerDe();
-    HiveSortingColumn::registerSerDe();
-    HiveConnectorSplit::registerSerDe();
-    HiveInsertFileNameGenerator::registerSerDe();
+    HiveConnector::registerSerDe();
   }
 
   template <typename T>
