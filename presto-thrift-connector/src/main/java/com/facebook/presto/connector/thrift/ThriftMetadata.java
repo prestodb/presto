@@ -42,7 +42,6 @@ import com.facebook.presto.thrift.api.connector.PrestoThriftServiceException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
 import java.util.List;
@@ -110,7 +109,7 @@ public class ThriftMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -122,7 +121,7 @@ public class ThriftMetadata
                 tableHandle.getTableName(),
                 desiredColumns,
                 constraint.getSummary());
-        return ImmutableList.of(new ConnectorTableLayoutResult(new ConnectorTableLayout(layoutHandle), constraint.getSummary()));
+        return new ConnectorTableLayoutResult(new ConnectorTableLayout(layoutHandle), constraint.getSummary());
     }
 
     @Override
