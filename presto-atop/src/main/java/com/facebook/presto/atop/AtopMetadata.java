@@ -85,7 +85,8 @@ public class AtopMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
@@ -104,7 +105,7 @@ public class AtopMetadata
         }
         AtopTableLayoutHandle layoutHandle = new AtopTableLayoutHandle(tableHandle, startTimeDomain, endTimeDomain);
         ConnectorTableLayout tableLayout = getTableLayout(session, layoutHandle);
-        return ImmutableList.of(new ConnectorTableLayoutResult(tableLayout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(tableLayout, constraint.getSummary());
     }
 
     @Override

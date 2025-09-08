@@ -50,7 +50,6 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class HiveFileSystemTestUtils
 {
@@ -74,8 +73,8 @@ public class HiveFileSystemTestUtils
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(session, table, Constraint.alwaysTrue(), Optional.empty());
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResult.getTableLayout().getHandle();
             TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
             metadata.beginQuery(session);
@@ -134,8 +133,8 @@ public class HiveFileSystemTestUtils
             session = newSession(config);
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(session, table, Constraint.alwaysTrue(), Optional.empty());
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResult.getTableLayout().getHandle();
             TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
             metadata.beginQuery(session);
@@ -190,8 +189,8 @@ public class HiveFileSystemTestUtils
             session = newSession(config);
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(session, table, Constraint.alwaysTrue(), Optional.empty());
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResult.getTableLayout().getHandle();
             TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
             metadata.beginQuery(session);

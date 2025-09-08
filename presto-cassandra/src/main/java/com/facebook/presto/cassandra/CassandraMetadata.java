@@ -201,7 +201,11 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
     {
         CassandraTableHandle handle = (CassandraTableHandle) table;
         CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
@@ -224,7 +228,7 @@ public class CassandraMetadata
                 handle,
                 partitionResult.getPartitions(),
                 clusteringKeyPredicates));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
+        return new ConnectorTableLayoutResult(layout, unenforcedConstraint);
     }
 
     @Override
