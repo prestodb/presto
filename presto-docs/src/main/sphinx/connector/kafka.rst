@@ -73,6 +73,10 @@ Property Name                       Description
 ``kafka.truststore.password``       Password for the truststore file
 ``kafka.truststore.type``           File format of the truststore file, defaults to ``JKS``
 ``kafka.config.resources``          A comma-separated list of Kafka client configuration files. If a specialized authentication method is required, it can be specified in these additional Kafka client properties files. Example: `/etc/kafka-configuration.properties`
+``case-sensitive-name-matching``    Enable case-sensitive identifier support for schema,
+                                    table, and column names for the connector. When disabled,
+                                    names are matched case-insensitively using lowercase
+                                    normalization. Default is ``false``.
 =================================== ==============================================================
 
 ``kafka.table-names``
