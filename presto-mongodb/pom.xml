@@ -15,7 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <mongo-java.version>3.12.14</mongo-java.version>
-        <mongo-server.version>1.5.0</mongo-server.version>
+        <mongo-server.version>1.47.0</mongo-server.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
