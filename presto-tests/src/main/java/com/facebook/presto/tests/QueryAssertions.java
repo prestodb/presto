@@ -202,6 +202,7 @@ public final class QueryAssertions
                 actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
             }
             catch (RuntimeException ex) {
+                System.err.printf("EXCEPTION CASE 1 %s %n CAUSE %s %n", ex.getMessage(), ex.getCause().getMessage());
                 fail("Execution of 'actual' query failed: " + actual, ex);
             }
         }
@@ -210,6 +211,7 @@ public final class QueryAssertions
                 actualResults = actualQueryRunner.execute(actualSession, actual).toTestTypes();
             }
             catch (RuntimeException ex) {
+                System.err.printf("EXCEPTION CASE 2 %s %n CAUSE %s %n", ex.getMessage(), ex.getCause().getMessage());
                 fail("Execution of 'actual' query failed: " + actual, ex);
             }
         }
