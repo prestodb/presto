@@ -48,6 +48,7 @@ add_executable(
   ReaderTest.cpp
   RetryTests.cpp
   ScanSpecTest.cpp
+  SortingWriterTest.cpp
   TestBufferedInput.cpp
   ThrottlerTest.cpp
   TypeTests.cpp

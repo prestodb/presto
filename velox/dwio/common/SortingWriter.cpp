@@ -142,8 +142,9 @@ vector_size_t SortingWriter::outputBatchRows() {
       std::numeric_limits<vector_size_t>::max();
   if (sortBuffer_->estimateOutputRowSize().has_value() &&
       sortBuffer_->estimateOutputRowSize().value() != 0) {
-    const uint64_t maxOutputRows =
-        maxOutputBytesConfig_ / sortBuffer_->estimateOutputRowSize().value();
+    const auto maxOutputRows = std::max<size_t>(
+        static_cast<size_t>(1),
+        maxOutputBytesConfig_ / sortBuffer_->estimateOutputRowSize().value());
     if (UNLIKELY(maxOutputRows > std::numeric_limits<vector_size_t>::max())) {
       return maxOutputRowsConfig_;
     }
