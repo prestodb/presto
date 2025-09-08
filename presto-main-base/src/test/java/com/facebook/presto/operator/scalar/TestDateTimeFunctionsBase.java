@@ -187,6 +187,17 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testLocalTime()
+    {
+        Session localSession = Session.builder(session)
+                .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "14:30:00.000");
+        }
+    }
+
+    @Test
     public void testCurrentTime()
     {
         Session localSession = Session.builder(session)
