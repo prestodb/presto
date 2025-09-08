@@ -143,7 +143,8 @@ public final class DateTimeFunctions
     public static long localTime(SqlFunctionProperties properties)
     {
         if (properties.isLegacyTimestamp()) {
-            return UTC_CHRONOLOGY.millisOfDay().get(properties.getSessionStartTime());
+            long millis = UTC_CHRONOLOGY.millisOfDay().get(properties.getSessionStartTime());
+            return millis - valueToSessionTimeZoneOffsetDiff(properties.getSessionStartTime(), getDateTimeZone(properties.getTimeZoneKey()));
         }
         ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
         return localChronology.millisOfDay().get(properties.getSessionStartTime());
