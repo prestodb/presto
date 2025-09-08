@@ -222,7 +222,7 @@ Run NativeSidecarPluginQueryRunner:
   * VM options : `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
-  * Use classpath of module: choose `presto-native-execution` module.
+  * Use classpath of module: choose `presto-native-sidecar-plugin` module.
 
 Run CLion:
 * File->Close Project if any is open.
