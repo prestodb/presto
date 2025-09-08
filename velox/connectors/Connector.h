@@ -125,14 +125,8 @@ class ConnectorTableHandle : public ISerializable {
     return connectorId_;
   }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  virtual const std::string& name() const {
-    VELOX_NYI();
-  }
-#else
   /// Returns the table name.
   virtual const std::string& name() const = 0;
-#endif
 
   /// Returns true if the connector table handle supports index lookup.
   virtual bool supportsIndexLookup() const {
