@@ -50,6 +50,7 @@ import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertTableHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,6 +64,7 @@ public class KafkaMetadata
     private final String connectorId;
     private final boolean hideInternalColumns;
     private final TableDescriptionSupplier tableDescriptionSupplier;
+    private final boolean caseSensitiveNameMatching;
 
     @Inject
     public KafkaMetadata(
@@ -75,6 +77,7 @@ public class KafkaMetadata
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
+        this.caseSensitiveNameMatching = kafkaConnectorConfig.isCaseSensitiveNameMatching();
     }
 
     @Override
@@ -88,7 +91,10 @@ public class KafkaMetadata
     @Override
     public KafkaTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getTopicDescription(schemaTableName)
+        SchemaTableName normalizedTableName = new SchemaTableName(
+                schemaTableName.getSchemaName(),
+                normalizeIdentifier(session, schemaTableName.getTableName()));
+        return getTopicDescription(normalizedTableName)
                 .map(kafkaTopicDescription -> new KafkaTableHandle(
                         connectorId,
                         schemaTableName.getSchemaName(),
@@ -98,7 +104,7 @@ public class KafkaMetadata
                         getDataFormat(kafkaTopicDescription.getMessage()),
                         kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        getColumnHandles(schemaTableName).values().stream()
+                        getColumnHandles(normalizedTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList())))
                 .orElse(null);
@@ -120,6 +126,9 @@ public class KafkaMetadata
     {
         return tableDescriptionSupplier.listTables().stream()
                 .filter(tableName -> schemaName.map(tableName.getSchemaName()::equals).orElse(true))
+                .map(tableName -> new SchemaTableName(
+                        tableName.getSchemaName(),
+                        normalizeIdentifier(session, tableName.getTableName())))
                 .collect(toImmutableList());
     }
 
@@ -300,5 +309,11 @@ public class KafkaMetadata
     private Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName)
     {
         return tableDescriptionSupplier.getTopicDescription(schemaTableName);
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatching ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }
