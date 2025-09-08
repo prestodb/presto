@@ -19,14 +19,11 @@
 #include <folly/debugging/symbolizer/SignalHandler.h>
 
 #include "velox/common/memory/Memory.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/TableHandle.h"
-#include "velox/connectors/tpch/TpchConnectorSplit.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/core/PlanNode.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
@@ -49,12 +46,7 @@ void registerAllResourcesOnce() {
   velox::core::PlanNode::registerSerDe();
   velox::Type::registerSerDe();
   velox::common::Filter::registerSerDe();
-  velox::connector::hive::LocationHandle::registerSerDe();
-  velox::connector::hive::HiveSortingColumn::registerSerDe();
-  velox::connector::hive::HiveBucketProperty::registerSerDe();
-  velox::connector::hive::HiveTableHandle::registerSerDe();
-  velox::connector::hive::HiveColumnHandle::registerSerDe();
-  velox::connector::hive::HiveInsertTableHandle::registerSerDe();
+  velox::connector::hive::HiveConnector::registerSerDe();
   velox::core::ITypedExpr::registerSerDe();
 
   // Register functions.

@@ -23,7 +23,7 @@
 #include "folly/dynamic.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/common/hyperloglog/SparseHll.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/TableWriter.h"
@@ -60,11 +60,7 @@ class TableWriterReplayerTest : public HiveConnectorTestBase {
     }
     Type::registerSerDe();
     common::Filter::registerSerDe();
-    connector::hive::HiveTableHandle::registerSerDe();
-    connector::hive::LocationHandle::registerSerDe();
-    connector::hive::HiveColumnHandle::registerSerDe();
-    connector::hive::HiveInsertTableHandle::registerSerDe();
-    connector::hive::HiveInsertFileNameGenerator::registerSerDe();
+    connector::hive::HiveConnector::registerSerDe();
     core::PlanNode::registerSerDe();
     velox::exec::trace::registerDummySourceSerDe();
     core::ITypedExpr::registerSerDe();

@@ -265,10 +265,7 @@ AggregationFuzzer::AggregationFuzzer(
 
 void AggregationFuzzer::go(const std::string& planPath) {
   Type::registerSerDe();
-  connector::hive::HiveTableHandle::registerSerDe();
-  connector::hive::LocationHandle::registerSerDe();
-  connector::hive::HiveColumnHandle::registerSerDe();
-  connector::hive::HiveInsertTableHandle::registerSerDe();
+  connector::hive::HiveConnector::registerSerDe();
   core::ITypedExpr::registerSerDe();
   core::PlanNode::registerSerDe();
   registerPartitionFunctionSerDe();
