@@ -5789,7 +5789,7 @@ public class TestHiveIntegrationSmokeTest
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'", ordersTableWithColumns);
             assertQuery(
                     "SELECT table_name, column_name FROM information_schema.columns " +
-                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema +"' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'",
+                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'",
                     ordersTableWithColumns);
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
         }
@@ -5797,7 +5797,6 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
-
 
     @Test
     public void testCreateMaterializedView()
