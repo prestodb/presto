@@ -19,6 +19,8 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadStateListener;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -81,7 +83,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public final class InternalResourceGroupManager<C>
-        implements ResourceGroupManager<C>
+        implements ResourceGroupManager<C>, ClusterOverloadStateListener
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
@@ -112,6 +114,7 @@ public final class InternalResourceGroupManager<C>
     private final QueryManagerConfig queryManagerConfig;
     private final InternalNodeManager nodeManager;
     private AtomicBoolean isConfigurationManagerLoaded;
+    private final ClusterResourceChecker clusterResourceChecker;
 
     @Inject
     public InternalResourceGroupManager(
@@ -121,7 +124,8 @@ public final class InternalResourceGroupManager<C>
             MBeanExporter exporter,
             ResourceGroupService resourceGroupService,
             ServerConfig serverConfig,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            ClusterResourceChecker clusterResourceChecker)
     {
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -137,6 +141,7 @@ public final class InternalResourceGroupManager<C>
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
         configurationManagerFactories.putIfAbsent(LegacyResourceGroupConfigurationManager.NAME, new LegacyResourceGroupConfigurationManager.Factory());
         this.isConfigurationManagerLoaded = new AtomicBoolean(false);
+        this.clusterResourceChecker = clusterResourceChecker;
     }
 
     @Override
@@ -254,6 +259,8 @@ public final class InternalResourceGroupManager<C>
     @PreDestroy
     public void destroy()
     {
+        // Unregister from cluster overload state changes
+        clusterResourceChecker.removeListener(this);
         refreshExecutor.shutdownNow();
         resourceGroupRuntimeExecutor.stop();
     }
@@ -275,6 +282,9 @@ public final class InternalResourceGroupManager<C>
             if (isResourceManagerEnabled) {
                 resourceGroupRuntimeExecutor.start();
             }
+
+            // Register as listener for cluster overload state changes
+            clusterResourceChecker.addListener(this);
         }
     }
 
@@ -396,7 +406,7 @@ public final class InternalResourceGroupManager<C>
             else {
                 RootInternalResourceGroup root;
                 if (!isResourceManagerEnabled) {
-                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager);
+                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager, clusterResourceChecker);
                 }
                 else {
                     root = new RootInternalResourceGroup(
@@ -409,7 +419,8 @@ public final class InternalResourceGroupManager<C>
                                     resourceGroupRuntimeInfosSnapshot::get,
                                     lastUpdatedResourceGroupRuntimeInfo::get,
                                     concurrencyThreshold),
-                            nodeManager);
+                            nodeManager,
+                            clusterResourceChecker);
                 }
                 group = root;
                 rootGroups.add(root);
@@ -461,6 +472,24 @@ public final class InternalResourceGroupManager<C>
         }
 
         return queriesQueuedInternal;
+    }
+
+    @Override
+    public void onClusterEnteredOverloadedState()
+    {
+        // Resource groups will handle overload state through their existing admission control logic
+        // No additional action needed here as queries will be queued automatically
+    }
+
+    @Override
+    public void onClusterExitedOverloadedState()
+    {
+        log.info("Cluster exited overloaded state, updating eligibility for all resource groups");
+        for (RootInternalResourceGroup rootGroup : rootGroups) {
+            synchronized (rootGroup) {
+                rootGroup.updateEligibilityRecursively(rootGroup);
+            }
+        }
     }
 
     @Managed
