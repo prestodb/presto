@@ -23,9 +23,6 @@ namespace facebook::velox::functions::test {
 
 void FunctionBaseTest::SetUpTestCase() {
   parse::registerTypeResolver();
-  // TODO: remove the registraiton of QDigest here once it is registered through
-  // registerAllScalarFunctions().
-  registerQDigestType();
   functions::prestosql::registerAllScalarFunctions();
   memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
 }
