@@ -1,0 +1,70 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+block()
+  list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+  if("@Arrow_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(Arrow)
+  endif()
+  if("@Boost_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(Boost COMPONENTS "@BOOST_INCLUDE_LIBRARIES@")
+  endif()
+  find_dependency(double-conversion)
+  if("@folly_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(folly)
+  endif()
+  if("@fmt_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(fmt)
+  endif()
+  if("@gflags_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(gflags)
+  endif()
+  if("@glog_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(glog)
+  endif()
+  if("@VELOX_ENABLE_COMPRESSION_LZ4@")
+    find_dependency(lz4)
+  endif()
+  if("@Protobuf_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(Protobuf)
+  endif()
+  if("@re2_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(re2)
+  endif()
+  if("@stemmer_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(stemmer)
+  endif()
+  if("@VELOX_BUILD_MINIMAL_WITH_DWIO@" OR "@VELOX_ENABLE_HIVE_CONNECTOR@")
+    find_dependency(Snappy)
+    find_dependency(ZLIB)
+    find_dependency(zstd)
+  endif()
+  if("@simdjson_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(simdjson)
+  endif()
+  if("@THRIFT_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(Thrift)
+  endif()
+  if("@xsimd_SOURCE@" STREQUAL "SYSTEM")
+    find_dependency(xsimd)
+  endif()
+endblock()
+
+include("${CMAKE_CURRENT_LIST_DIR}/VeloxTargets.cmake")
+
+check_required_components(Velox)

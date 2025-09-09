@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 include_guard(GLOBAL)
+
+include(CMakePackageConfigHelpers)
+
 function(velox_get_rpath_origin VAR)
   if(APPLE)
     set(_origin @loader_path)
@@ -99,7 +102,54 @@ function(velox_add_library TARGET)
       add_library(velox ${_type} ${ARGN})
       set_target_properties(velox PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
       set_target_properties(velox PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-      install(TARGETS velox DESTINATION lib/velox)
+      install(TARGETS velox DESTINATION lib/velox EXPORT velox_targets)
+      if(VELOX_BUILD_CMAKE_PACKAGE)
+        set(package_cmake_dir "lib/cmake/Velox")
+        set(config_cmake_in "${PROJECT_SOURCE_DIR}/CMake/VeloxConfig.cmake.in")
+        set(config_cmake "${PROJECT_BINARY_DIR}/CMake/VeloxConfig.cmake")
+        configure_package_config_file(
+          "${config_cmake_in}"
+          "${config_cmake}"
+          INSTALL_DESTINATION "${package_cmake_dir}"
+        )
+        install(FILES "${config_cmake}" DESTINATION "${package_cmake_dir}")
+        set(system_dependencies)
+        if(Arrow_SOURCE STREQUAL "SYSTEM")
+          list(APPEND system_dependencies Arrow)
+        endif()
+        if(glog_SOURCE STREQUAL "SYSTEM")
+          list(APPEND system_dependencies glog)
+        endif()
+        if(VELOX_ENABLE_COMPRESSION_LZ4)
+          list(APPEND system_dependencies lz4)
+        endif()
+        if(re2_SOURCE STREQUAL "SYSTEM")
+          list(APPEND system_dependencies re2)
+        endif()
+        if(stemmer_SOURCE STREQUAL "SYSTEM")
+          list(APPEND system_dependencies stemmer)
+        endif()
+        if(VELOX_BUILD_MINIMAL_WITH_DWIO OR VELOX_ENABLE_HIVE_CONNECTOR)
+          list(APPEND system_dependencies Snappy zstd)
+        endif()
+        foreach(system_dependency ${system_dependencies})
+          install(
+            FILES "${PROJECT_SOURCE_DIR}/CMake/Find${system_dependency}.cmake"
+            DESTINATION "${package_cmake_dir}"
+          )
+        endforeach()
+        # TODO: We can enable this once we add version to Velox.
+        # set(version_cmake "${PROJECT_BINARY_DIR}/CMake/VeloxConfigVersion.cmake")
+        # write_basic_package_version_file("${version_cmake}"
+        #                                  COMPATIBILITY SameMajorVersion)
+        # install(FILES "${version_cmake}" DESTINATION "${package_cmake_dir}")
+        install(
+          EXPORT velox_targets
+          DESTINATION "${package_cmake_dir}"
+          NAMESPACE "Velox::"
+          FILE "VeloxTargets.cmake"
+        )
+      endif()
     endif()
     # create alias for compatability
     if(NOT TARGET ${TARGET})
