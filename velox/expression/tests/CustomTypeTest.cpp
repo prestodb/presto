@@ -238,6 +238,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
       "SFMSKETCH",
       "BIGINT_ENUM",
       "VARCHAR_ENUM",
+      "P4HYPERLOGLOG",
   };
 #ifdef VELOX_ENABLE_GEO
   expectedTypes.insert("GEOMETRY");

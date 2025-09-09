@@ -31,7 +31,8 @@ class HyperLogLogInputGenerator : public AbstractInputGenerator {
   HyperLogLogInputGenerator(
       const size_t seed,
       const double nullRatio,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      int32_t minNumValues = 1);
 
   variant generate() override;
 
@@ -47,7 +48,7 @@ class HyperLogLogInputGenerator : public AbstractInputGenerator {
         UTF8CharList::EXTENDED_UNICODE,
         UTF8CharList::MATHEMATICAL_SYMBOLS};
 
-    auto numValues = rand<int32_t>(rng_, 1, 100);
+    auto numValues = rand<int32_t>(rng_, minNumValues_, 1000);
     for (auto i = 0; i < numValues; ++i) {
       if constexpr (
           std::is_same_v<T, std::string> || std::is_same_v<T, StringView>) {
@@ -70,6 +71,7 @@ class HyperLogLogInputGenerator : public AbstractInputGenerator {
 
   TypePtr baseType_;
   double error_;
+  int32_t minNumValues_;
 
   memory::MemoryPool* pool_;
 };

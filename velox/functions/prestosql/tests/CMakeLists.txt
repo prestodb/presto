@@ -68,6 +68,7 @@ add_executable(
   GreatestLeastTest.cpp
   HyperLogLogCastTest.cpp
   HyperLogLogFunctionsTest.cpp
+  P4HyperLogLogCastTest.cpp
   InPredicateTest.cpp
   IntegerFunctionsTest.cpp
   IPAddressCastTest.cpp

@@ -25,8 +25,10 @@ namespace facebook::velox::fuzzer {
 HyperLogLogInputGenerator::HyperLogLogInputGenerator(
     const size_t seed,
     const double nullRatio,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* pool,
+    int32_t minNumValues)
     : AbstractInputGenerator{seed, HYPERLOGLOG(), nullptr, nullRatio},
+      minNumValues_{minNumValues},
       pool_{pool} {
   static const std::vector<TypePtr> kBaseTypes{
       BIGINT(), VARCHAR(), DOUBLE(), UNKNOWN()};
