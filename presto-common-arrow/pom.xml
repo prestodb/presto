@@ -19,6 +19,17 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
             <exclusions>
                 <exclusion>
@@ -56,10 +67,62 @@
             <groupId>jakarta.inject</groupId>
             <artifactId>jakarta.inject-api</artifactId>
         </dependency>
+
+        <!-- for testing -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-base</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-netty</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>org.apache.arrow:arrow-memory-core</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -84,4 +147,19 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                    -Xss10M
+                    --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
+    </profiles>
 </project>

@@ -16,6 +16,7 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
     presto_cpp/properties
     presto_cpp/properties-session
     presto_cpp/metrics
+    presto_cpp/federation
 
 Overview
 ========
