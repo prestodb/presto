@@ -90,6 +90,7 @@ highlight_language = 'sql'
 rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``
 .. |presto_router_release| replace:: ``presto-router-{release}``
+.. |presto_flight_shim_release| replace:: ``presto-flight-shim-{release}``
 """.replace('{release}', release)
 
 # 'xelatex' natively supports Unicode
