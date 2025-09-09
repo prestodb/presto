@@ -43,7 +43,7 @@
         <air.java.version>17</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
 
-        <dep.antlr.version>4.7.1</dep.antlr.version>
+        <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.airlift.version>0.221</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
