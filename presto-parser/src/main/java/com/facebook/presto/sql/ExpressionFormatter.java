@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -196,6 +197,12 @@ public final class ExpressionFormatter
         protected String visitBooleanLiteral(BooleanLiteral node, Void context)
         {
             return String.valueOf(node.getValue());
+        }
+
+        @Override
+        protected String visitEnumLiteral(EnumLiteral node, Void context)
+        {
+            return node.getType() + ": " + node.getValue();
         }
 
         @Override
