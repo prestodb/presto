@@ -131,13 +131,13 @@ public abstract class BaseOAuth2AuthenticationFilterTest
                 PRESTO_CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
                 ImmutableList.of(PRESTO_AUDIENCE, ADDITIONAL_AUDIENCE),
-                simpleProxy.getHttpsBaseUrl() + "/oauth2/callback");
+                proxyURI + "/oauth2/callback");
         hydraIdP.createClient(
                 TRUSTED_CLIENT_ID,
                 TRUSTED_CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
                 ImmutableList.of(TRUSTED_CLIENT_ID),
-                simpleProxy.getHttpsBaseUrl() + "/oauth2/callback");
+                proxyURI + "/oauth2/callback");
         hydraIdP.createClient(
                 UNTRUSTED_CLIENT_ID,
                 UNTRUSTED_CLIENT_SECRET,
