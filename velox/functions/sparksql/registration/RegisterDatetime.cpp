@@ -92,6 +92,10 @@ void registerDatetimeFunctions(const std::string& prefix) {
       {prefix + "unix_millis"});
   registerUnaryIntegralWithTReturn<MillisToTimestampFunction, Timestamp>(
       {prefix + "timestamp_millis"});
+  registerUnaryIntegralWithTReturn<SecondsToTimestampFunction, Timestamp>(
+      {prefix + "timestamp_seconds"});
+  registerUnaryFloatingPointWithTReturn<SecondsToTimestampFunction, Timestamp>(
+      {prefix + "timestamp_seconds"});
   registerFunction<DateTruncFunction, Timestamp, Varchar, Timestamp>(
       {prefix + "date_trunc"});
   registerFunction<TruncFunction, Date, Date, Varchar>({prefix + "trunc"});
