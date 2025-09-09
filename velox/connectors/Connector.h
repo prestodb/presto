@@ -725,6 +725,10 @@ std::shared_ptr<ConnectorFactory> getConnectorFactory(
 /// true. The return value makes it easy to use with FB_ANONYMOUS_VARIABLE.
 bool registerConnector(std::shared_ptr<Connector> connector);
 
+/// Returns true if a connector with the specified ID has been registered, false
+/// otherwise.
+bool hasConnector(const std::string& connectorId);
+
 /// Removes the connector with specified ID from the registry. Returns true
 /// if connector was removed and false if connector didn't exist.
 bool unregisterConnector(const std::string& connectorId);

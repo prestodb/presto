@@ -34,13 +34,9 @@ class InsertTest : public velox::test::VectorTestBase {
   void SetUp(
       std::shared_ptr<const config::ConfigBase> hiveConfig,
       folly::Executor* ioExecutor) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                exec::test::kHiveConnectorId, hiveConfig, ioExecutor);
+    connector::hive::HiveConnectorFactory factory;
+    auto hiveConnector = factory.newConnector(
+        exec::test::kHiveConnectorId, hiveConfig, ioExecutor);
     connector::registerConnector(hiveConnector);
 
     parquet::registerParquetReaderFactory();

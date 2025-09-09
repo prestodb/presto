@@ -373,17 +373,11 @@ void registerHiveConnector(
   auto configs = hiveConfigs;
   // Make sure not to run out of open file descriptors.
   configs[connector::hive::HiveConfig::kNumCacheFileHandles] = "1000";
-  if (!connector::hasConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-  }
-  auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(
-              kHiveConnectorId,
-              std::make_shared<config::ConfigBase>(std::move(configs)));
+
+  connector::hive::HiveConnectorFactory factory;
+  auto hiveConnector = factory.newConnector(
+      kHiveConnectorId,
+      std::make_shared<config::ConfigBase>(std::move(configs)));
   connector::registerConnector(hiveConnector);
 }
 

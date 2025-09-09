@@ -215,12 +215,9 @@ void QueryBenchmarkBase::initialize() {
       std::move(configurationValues));
 
   // Create hive connector with config...
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
+  connector::hive::HiveConnectorFactory factory;
   auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, properties, ioExecutor_.get());
+      factory.newConnector(kHiveConnectorId, properties, ioExecutor_.get());
   connector::registerConnector(hiveConnector);
   parquet::registerParquetReaderFactory();
   dwrf::registerDwrfReaderFactory();

@@ -55,26 +55,18 @@ class ParquetTpchTest : public testing::Test {
     parquet::registerParquetReaderFactory();
     parquet::registerParquetWriterFactory();
 
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::hive::HiveConnectorFactory hiveFactory;
+    auto hiveConnector = hiveFactory.newConnector(
+        kHiveConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
-    connector::registerConnectorFactory(
-        std::make_shared<connector::tpch::TpchConnectorFactory>());
-    auto tpchConnector =
-        connector::getConnectorFactory(
-            connector::tpch::TpchConnectorFactory::kTpchConnectorName)
-            ->newConnector(
-                kTpchConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::tpch::TpchConnectorFactory tpchFactory;
+    auto tpchConnector = tpchFactory.newConnector(
+        kTpchConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(tpchConnector);
 
     saveTpchTablesAsParquet();
@@ -82,10 +74,6 @@ class ParquetTpchTest : public testing::Test {
   }
 
   static void TearDownTestSuite() {
-    connector::unregisterConnectorFactory(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName);
-    connector::unregisterConnectorFactory(
-        connector::tpch::TpchConnectorFactory::kTpchConnectorName);
     connector::unregisterConnector(kHiveConnectorId);
     connector::unregisterConnector(kTpchConnectorId);
     parquet::unregisterParquetReaderFactory();

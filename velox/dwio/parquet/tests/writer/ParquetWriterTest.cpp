@@ -46,15 +46,11 @@ class ParquetWriterTest : public ParquetTestBase {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     testutil::TestValue::enable();
     filesystems::registerLocalFileSystem();
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::hive::HiveConnectorFactory factory;
+    auto hiveConnector = factory.newConnector(
+        kHiveConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
     parquet::registerParquetWriterFactory();
   }

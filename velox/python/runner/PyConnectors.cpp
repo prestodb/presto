@@ -30,15 +30,11 @@ template <typename TConnectorFactory>
 void registerConnector(
     const std::string& connectorId,
     std::unordered_map<std::string, std::string> configs) {
-  connector::registerConnectorFactory(
-      std::make_shared<TConnectorFactory>(connectorId.data()));
-
   const auto configBase =
       std::make_shared<velox::config::ConfigBase>(std::move(configs));
-  auto connector =
-      connector::getConnectorFactory(connectorId)
-          ->newConnector(
-              connectorId, configBase, folly::getGlobalCPUExecutor().get());
+  TConnectorFactory factory;
+  auto connector = factory.newConnector(
+      connectorId, configBase, folly::getGlobalCPUExecutor().get());
   connector::registerConnector(connector);
   connectorRegistry().insert(connectorId);
 }
@@ -61,8 +57,7 @@ void registerTpch(
 
 // Is it ok to unregister connectors that were not registered.
 void unregister(const std::string& connectorId) {
-  if (!facebook::velox::connector::unregisterConnector(connectorId) ||
-      !facebook::velox::connector::unregisterConnectorFactory(connectorId)) {
+  if (!facebook::velox::connector::unregisterConnector(connectorId)) {
     throw std::runtime_error(
         fmt::format("Unable to unregister connector '{}'", connectorId));
   }

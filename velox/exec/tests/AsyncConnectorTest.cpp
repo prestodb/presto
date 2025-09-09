@@ -179,15 +179,13 @@ class AsyncConnectorTest : public OperatorTestBase {
  public:
   void SetUp() override {
     OperatorTestBase::SetUp();
-    connector::registerConnectorFactory(
-        std::make_shared<TestConnectorFactory>());
-    auto testConnector =
-        connector::getConnectorFactory(TestConnectorFactory::kTestConnectorName)
-            ->newConnector(
-                kTestConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()),
-                nullptr);
+    TestConnectorFactory factory;
+    auto testConnector = factory.newConnector(
+        kTestConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()),
+        nullptr,
+        nullptr);
     connector::registerConnector(testConnector);
   }
 

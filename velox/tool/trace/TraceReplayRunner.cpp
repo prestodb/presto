@@ -295,11 +295,6 @@ void TraceReplayRunner::init() {
   aggregate::prestosql::registerAllAggregateFunctions(FLAGS_function_prefix);
   parse::registerTypeResolver();
 
-  if (!facebook::velox::connector::hasConnectorFactory("hive")) {
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-  }
-
   fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
   const auto taskTraceDir = exec::trace::getTaskTraceDirectory(
       FLAGS_root_dir, FLAGS_query_id, FLAGS_task_id);
@@ -355,14 +350,13 @@ TraceReplayRunner::createReplayer() const {
         taskTraceMetadataReader_->connectorId(FLAGS_node_id);
     VELOX_CHECK(connectorId.has_value());
 
-    if (const auto& collectors = connector::getAllConnectors();
-        collectors.find(connectorId.value()) == collectors.end()) {
-      const auto hiveConnector =
-          connector::getConnectorFactory("hive")->newConnector(
-              connectorId.value(),
-              std::make_shared<config::ConfigBase>(
-                  std::unordered_map<std::string, std::string>()),
-              ioExecutor_.get());
+    if (!connector::hasConnector(connectorId.value())) {
+      connector::hive::HiveConnectorFactory factory;
+      const auto hiveConnector = factory.newConnector(
+          connectorId.value(),
+          std::make_shared<config::ConfigBase>(
+              std::unordered_map<std::string, std::string>()),
+          ioExecutor_.get());
       connector::registerConnector(hiveConnector);
     }
     replayer = std::make_unique<tool::trace::TableScanReplayer>(

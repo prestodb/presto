@@ -77,15 +77,11 @@ class WriterFuzzerRunner {
       std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
     filesystems::registerLocalFileSystem();
     tests::utils::registerFaultyFileSystem();
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::hive::HiveConnectorFactory factory;
+    auto hiveConnector = factory.newConnector(
+        kHiveConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
     dwrf::registerDwrfReaderFactory();
     dwrf::registerDwrfWriterFactory();

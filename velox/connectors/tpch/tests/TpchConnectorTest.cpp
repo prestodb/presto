@@ -39,22 +39,16 @@ class TpchConnectorTest : public exec::test::OperatorTestBase {
   void SetUp() override {
     FLAGS_velox_tpch_text_pool_size_mb = 10;
     OperatorTestBase::SetUp();
-    connector::registerConnectorFactory(
-        std::make_shared<connector::tpch::TpchConnectorFactory>());
-    auto tpchConnector =
-        connector::getConnectorFactory(
-            connector::tpch::TpchConnectorFactory::kTpchConnectorName)
-            ->newConnector(
-                kTpchConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::tpch::TpchConnectorFactory factory;
+    auto tpchConnector = factory.newConnector(
+        kTpchConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(tpchConnector);
   }
 
   void TearDown() override {
     connector::unregisterConnector(kTpchConnectorId);
-    connector::unregisterConnectorFactory(
-        connector::tpch::TpchConnectorFactory::kTpchConnectorName);
     OperatorTestBase::TearDown();
   }
 
@@ -446,12 +440,10 @@ TEST_F(TpchConnectorTest, orderDateCount) {
 TEST_F(TpchConnectorTest, config) {
   std::unordered_map<std::string, std::string> properties = {
       {"property", "value"}};
-  auto connector =
-      connector::getConnectorFactory(
-          connector::tpch::TpchConnectorFactory::kTpchConnectorName)
-          ->newConnector(
-              kTpchConnectorId,
-              std::make_shared<config::ConfigBase>(std::move(properties)));
+  connector::tpch::TpchConnectorFactory factory;
+  auto connector = factory.newConnector(
+      kTpchConnectorId,
+      std::make_shared<config::ConfigBase>(std::move(properties)));
 
   const auto& config = connector->connectorConfig();
   auto val = config->get<std::string>("property");

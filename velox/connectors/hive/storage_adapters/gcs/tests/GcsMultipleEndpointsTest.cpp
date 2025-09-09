@@ -52,8 +52,6 @@ class GcsMultipleEndpointsTest : public testing::Test,
     gcsEmulatorTwo_ = std::make_unique<GcsEmulator>();
     gcsEmulatorTwo_->bootstrap();
 
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
     parquet::registerParquetReaderFactory();
     parquet::registerParquetWriterFactory();
   }
@@ -63,20 +61,15 @@ class GcsMultipleEndpointsTest : public testing::Test,
       std::string_view connectorId2,
       const std::unordered_map<std::string, std::string> config1Override = {},
       const std::unordered_map<std::string, std::string> config2Override = {}) {
-    auto hiveConnector1 =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                std::string(connectorId1),
-                gcsEmulatorOne_->hiveConfig(config1Override),
-                ioExecutor_.get());
-    auto hiveConnector2 =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                std::string(connectorId2),
-                gcsEmulatorTwo_->hiveConfig(config2Override),
-                ioExecutor_.get());
+    connector::hive::HiveConnectorFactory factory;
+    auto hiveConnector1 = factory.newConnector(
+        std::string(connectorId1),
+        gcsEmulatorOne_->hiveConfig(config1Override),
+        ioExecutor_.get());
+    auto hiveConnector2 = factory.newConnector(
+        std::string(connectorId2),
+        gcsEmulatorTwo_->hiveConfig(config2Override),
+        ioExecutor_.get());
     connector::registerConnector(hiveConnector1);
     connector::registerConnector(hiveConnector2);
   }
@@ -84,8 +77,6 @@ class GcsMultipleEndpointsTest : public testing::Test,
   void TearDown() override {
     parquet::unregisterParquetReaderFactory();
     parquet::unregisterParquetWriterFactory();
-    connector::unregisterConnectorFactory(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName);
   }
 
   folly::dynamic writeData(

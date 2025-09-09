@@ -36,16 +36,12 @@ namespace {
 
 void registerFactories(folly::Executor* ioExecutor) {
   filesystems::registerLocalFileSystem();
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
-  auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(
-              TableEvolutionFuzzer::connectorId(),
-              std::make_shared<config::ConfigBase>(
-                  std::unordered_map<std::string, std::string>()),
-              ioExecutor);
+  connector::hive::HiveConnectorFactory factory;
+  auto hiveConnector = factory.newConnector(
+      TableEvolutionFuzzer::connectorId(),
+      std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>()),
+      ioExecutor);
   connector::registerConnector(hiveConnector);
   dwio::common::registerFileSinks();
   dwrf::registerDwrfReaderFactory();

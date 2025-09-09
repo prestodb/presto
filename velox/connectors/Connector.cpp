@@ -95,6 +95,10 @@ std::shared_ptr<Connector> getConnector(const std::string& connectorId) {
   return it->second;
 }
 
+bool hasConnector(const std::string& connectorId) {
+  return connectors().find(connectorId) != connectors().end();
+}
+
 const std::unordered_map<std::string, std::shared_ptr<Connector>>&
 getAllConnectors() {
   return connectors();

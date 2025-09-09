@@ -367,11 +367,9 @@ class TestIndexConnectorFactory : public connector::ConnectorFactory {
   }
 
   static void registerConnector(folly::CPUThreadPoolExecutor* cpuExecutor) {
-    connector::registerConnectorFactory(
-        std::make_shared<TestIndexConnectorFactory>());
+    TestIndexConnectorFactory factory;
     std::shared_ptr<connector::Connector> connector =
-        connector::getConnectorFactory(kTestIndexConnectorName)
-            ->newConnector(kTestIndexConnectorName, {}, nullptr, cpuExecutor);
+        factory.newConnector(kTestIndexConnectorName, {}, nullptr, cpuExecutor);
     connector::registerConnector(connector);
   }
 };

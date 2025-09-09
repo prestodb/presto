@@ -36,16 +36,12 @@ HiveConnectorTestBase::HiveConnectorTestBase() {
 
 void HiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
-  auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(
-              kHiveConnectorId,
-              std::make_shared<config::ConfigBase>(
-                  std::unordered_map<std::string, std::string>()),
-              ioExecutor_.get());
+  connector::hive::HiveConnectorFactory factory;
+  auto hiveConnector = factory.newConnector(
+      kHiveConnectorId,
+      std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>()),
+      ioExecutor_.get());
   connector::registerConnector(hiveConnector);
   dwio::common::registerFileSinks();
   dwrf::registerDwrfReaderFactory();
@@ -60,8 +56,6 @@ void HiveConnectorTestBase::TearDown() {
   dwrf::unregisterDwrfReaderFactory();
   dwrf::unregisterDwrfWriterFactory();
   connector::unregisterConnector(kHiveConnectorId);
-  connector::unregisterConnectorFactory(
-      connector::hive::HiveConnectorFactory::kHiveConnectorName);
   text::unregisterTextReaderFactory();
   OperatorTestBase::TearDown();
 }
@@ -69,10 +63,10 @@ void HiveConnectorTestBase::TearDown() {
 void HiveConnectorTestBase::resetHiveConnector(
     const std::shared_ptr<const config::ConfigBase>& config) {
   connector::unregisterConnector(kHiveConnectorId);
+
+  connector::hive::HiveConnectorFactory factory;
   auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, config, ioExecutor_.get());
+      factory.newConnector(kHiveConnectorId, config, ioExecutor_.get());
   connector::registerConnector(hiveConnector);
 }
 
