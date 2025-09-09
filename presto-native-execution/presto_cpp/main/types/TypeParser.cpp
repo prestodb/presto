@@ -27,7 +27,11 @@ velox::TypePtr TypeParser::parse(const std::string& text) const {
       return velox::VARCHAR();
     }
   }
-
+  if (!SystemConfig::instance()->enumTypesEnabled()) {
+    if (text.find("BigintEnum") != std::string::npos || text.find("VarcharEnum") != std::string::npos) {
+      VELOX_UNSUPPORTED("Unsupported type: {}", text);
+    }
+  }
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;

@@ -262,6 +262,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
           BOOL_PROP(kTextWriterEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
+          BOOL_PROP(kEnumTypesEnabled, true),
       };
 }
 
@@ -929,6 +930,10 @@ bool SystemConfig::textWriterEnabled() const {
 
 bool SystemConfig::charNToVarcharImplicitCast() const {
   return optionalProperty<bool>(kCharNToVarcharImplicitCast).value();
+}
+
+bool SystemConfig::enumTypesEnabled() const {
+  return optionalProperty<bool>(kEnumTypesEnabled).value();
 }
 
 NodeConfig::NodeConfig() {
