@@ -13,223 +13,347 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.CallSiteBinder;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.LambdaDescriptor;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
-import io.airlift.slice.Slice;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Primitives;
+import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.lang.invoke.MethodHandles;
+import java.util.Optional;
 
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.util.CompilerUtils.defineClass;
+import static com.facebook.presto.util.CompilerUtils.makeClassName;
+import static com.facebook.presto.util.Reflection.methodHandle;
+import static it.unimi.dsi.fastutil.ints.IntArrays.quickSort;
 
-@ScalarFunction("array_sort")
-@Description("Sorts the given array using a lambda function to extract the sorting key")
 public final class ArraySortByKeyFunction
+        extends SqlScalarFunction
 {
-    private ArraySortByKeyFunction() {}
+    public static final ArraySortByKeyFunction ARRAY_SORT_BY_KEY_FUNCTION = new ArraySortByKeyFunction();
 
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = long.class)
-    @SqlType("array(E)")
-    public static Block sortLong(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
+    private final ComplexTypeFunctionDescriptor descriptor;
+
+    private ArraySortByKeyFunction()
     {
-        return sort(elementType, array, function);
+        super(new Signature(
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "array_sort"),
+                FunctionKind.SCALAR,
+                ImmutableList.of(typeVariable("T"), typeVariable("K")),
+                ImmutableList.of(),
+                parseTypeSignature("array(T)"),
+                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("function(T,K)")),
+                false));
+        descriptor = new ComplexTypeFunctionDescriptor(
+                true,
+                ImmutableList.of(new LambdaDescriptor(1, ImmutableMap.of(0, new LambdaArgumentDescriptor(0, ComplexTypeFunctionDescriptor::prependAllSubscripts)))),
+                Optional.of(ImmutableSet.of(0)),
+                Optional.of(ComplexTypeFunctionDescriptor::clearRequiredSubfields),
+                getSignature());
     }
 
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = double.class)
-    @SqlType("array(E)")
-    public static Block sortDouble(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
+    @Override
+    public SqlFunctionVisibility getVisibility()
     {
-        return sort(elementType, array, function);
+        return SqlFunctionVisibility.PUBLIC;
     }
 
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = boolean.class)
-    @SqlType("array(E)")
-    public static Block sortBoolean(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
+    @Override
+    public boolean isDeterministic()
     {
-        return sort(elementType, array, function);
+        return false;
     }
 
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = Slice.class)
-    @SqlType("array(E)")
-    public static Block sortSlice(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
+    @Override
+    public String getDescription()
     {
-        return sort(elementType, array, function);
+        return "Sorts the given array using a lambda function to extract sorting keys. " +
+                "Null array elements and null keys are placed at the end. " +
+                "Example: array_sort(ARRAY['apple', 'banana', 'cherry'], x -> length(x))";
     }
 
-    @TypeParameter("E")
-    @TypeParameter("K")
-    @TypeParameterSpecialization(name = "K", nativeContainerType = Block.class)
-    @SqlType("array(E)")
-    public static Block sortBlock(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"K", "K"}) MethodHandle lessThanFunction,
-            @TypeParameter("E") Type elementType,
-            @TypeParameter("K") Type keyType,
-            @SqlType("array(E)") Block array,
-            @SqlType("function(E, K)") UnaryFunctionInterface function)
+    @Override
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        return sort(elementType, array, function);
+        Type elementType = boundVariables.getTypeVariable("T");
+        Type keyType = boundVariables.getTypeVariable("K");
+
+        // Generate the specialized key extractor instance once
+        KeyExtractor keyExtractor = generateKeyExtractor(elementType, keyType);
+
+        MethodHandle raw = methodHandle(
+                ArraySortByKeyFunction.class,
+                "sortByKey",
+                Type.class,
+                Type.class,
+                KeyExtractor.class,
+                SqlFunctionProperties.class,
+                Block.class,
+                UnaryFunctionInterface.class);
+
+        MethodHandle bound = MethodHandles.insertArguments(raw, 0, elementType, keyType, keyExtractor);
+
+        return new BuiltInScalarFunctionImplementation(
+                false,
+                ImmutableList.of(
+                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),  // array parameter
+                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),  // keyFunction parameter
+                bound);
     }
 
-    private static Block sort(
+    @Override
+    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return descriptor;
+    }
+
+    public static Block sortByKey(
             Type elementType,
+            Type keyType,
+            KeyExtractor keyExtractor,
+            SqlFunctionProperties properties,
             Block array,
-            UnaryFunctionInterface function)
+            UnaryFunctionInterface keyFunction)
     {
         int arrayLength = array.getPositionCount();
-
         if (arrayLength < 2) {
             return array;
         }
 
-        List<ElementWithPosition> elementsWithPositions = new ArrayList<>(arrayLength);
-        for (int position = 0; position < arrayLength; position++) {
-            if (array.isNull(position)) {
-                elementsWithPositions.add(new ElementWithPosition(position, null, true));
-                continue;
-            }
+        // Create array of indices and extracted keys
+        int[] indices = new int[arrayLength];
+        BlockBuilder keyBlockBuilder = keyType.createBlockBuilder(null, arrayLength);
 
-            Object element = getElementAtPosition(elementType, array, position);
-            elementsWithPositions.add(new ElementWithPosition(position, element, false));
-        }
-
-        elementsWithPositions.sort(new Comparator<ElementWithPosition>() {
-            @Override
-            public int compare(ElementWithPosition e1, ElementWithPosition e2)
-            {
-                if (e1.isNull) {
-                    return e2.isNull ? 0 : 1;
-                }
-                else if (e2.isNull) {
-                    return -1;
-                }
-
-                try {
-                    Object key1 = function.apply(e1.element);
-                    Object key2 = function.apply(e2.element);
-
-                    if (key1 == null) {
-                        return key2 == null ? 0 : 1;
-                    }
-                    else if (key2 == null) {
-                        return -1;
-                    }
-
-                    return compareKeys(key1, key2);
-                }
-                catch (Throwable throwable) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key function failed with exception", throwable);
-                }
-            }
-        });
-
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, arrayLength);
-        for (ElementWithPosition elementWithPosition : elementsWithPositions) {
-            if (elementWithPosition.isNull) {
-                blockBuilder.appendNull();
+        // Extract keys for all elements
+        for (int i = 0; i < arrayLength; i++) {
+            indices[i] = i;
+            if (array.isNull(i)) {
+                keyBlockBuilder.appendNull();
             }
             else {
-                elementType.appendTo(array, elementWithPosition.position, blockBuilder);
+                try {
+                    // Use the generated KeyExtractor implementation (direct virtual call)
+                    keyExtractor.extract(properties, array, i, keyFunction, keyBlockBuilder);
+                }
+                catch (Throwable t) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("Error applying key function to element at position %d", i), t);
+                }
             }
         }
 
-        return blockBuilder.build();
+        Block keysBlock = keyBlockBuilder.build();
+
+        // Sort indices based on extracted keys using Type's compareTo
+        try {
+            if (array.mayHaveNull() || keysBlock.mayHaveNull()) {
+                quickSort(indices, new NullableComparator(array, keysBlock, keyType));
+            }
+            else {
+                quickSort(indices, new NonNullableComparator(keysBlock, keyType));
+            }
+        }
+        catch (NotSupportedException | UnsupportedOperationException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key type does not support comparison", e);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key type does not support comparison", e);
+            }
+            throw e;
+        }
+
+        // Build result block with sorted elements
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, arrayLength);
+        for (int i = 0; i < arrayLength; i++) {
+            elementType.appendTo(array, indices[i], resultBuilder);
+        }
+
+        return resultBuilder.build();
     }
 
-    private static int compareKeys(Object key1, Object key2)
+    /**
+     * KeyExtractor is a simple interface implemented by generated classes.
+     * Implementations must write the extracted key into the provided BlockBuilder
+     * (or appendNull) for the given position.
+     */
+    public interface KeyExtractor
     {
-        if (key1 instanceof Long && key2 instanceof Long) {
-            return Long.compare((Long) key1, (Long) key2);
-        }
-        else if (key1 instanceof Number && key2 instanceof Number) {
-            return Double.compare(((Number) key1).doubleValue(), ((Number) key2).doubleValue());
-        }
-        else if (key1 instanceof Boolean && key2 instanceof Boolean) {
-            return Boolean.compare((Boolean) key1, (Boolean) key2);
-        }
-        else if (key1 instanceof Slice && key2 instanceof Slice) {
-            return ((Slice) key1).compareTo((Slice) key2);
-        }
-        else if (key1 instanceof String && key2 instanceof String) {
-            return ((String) key1).compareTo((String) key2);
+        void extract(SqlFunctionProperties properties, Block array, int position, UnaryFunctionInterface keyFunction, BlockBuilder keyBlockBuilder) throws Throwable;
+    }
+
+    // Generate just the key extraction logic
+    public static KeyExtractor generateKeyExtractor(Type elementType, Type keyType)
+    {
+        CallSiteBinder binder = new CallSiteBinder();
+        Class<?> elementJavaType = Primitives.wrap(elementType.getJavaType());
+        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
+
+        String className = "ArraySortKeyExtractorImpl_" + elementType.getTypeSignature() + "_" + keyType.getTypeSignature();
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName(className),
+                type(Object.class),
+                type(KeyExtractor.class));
+        definition.declareDefaultConstructor(a(PUBLIC));
+
+        Parameter properties = arg("properties", SqlFunctionProperties.class);
+        Parameter array = arg("array", Block.class);
+        Parameter position = arg("position", int.class);
+        Parameter keyFunction = arg("keyFunction", UnaryFunctionInterface.class);
+        Parameter keyBlockBuilder = arg("keyBlockBuilder", BlockBuilder.class);
+
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                "extract",
+                type(void.class),
+                ImmutableList.of(properties, array, position, keyFunction, keyBlockBuilder));
+
+        BytecodeBlock body = method.getBody();
+        Scope scope = method.getScope();
+        Variable element = scope.declareVariable(elementJavaType, "element");
+        Variable key = scope.declareVariable(keyJavaType, "key");
+
+        // Load element with correct primitive handling
+        if (!elementType.equals(UNKNOWN)) {
+            // generates the correct getLong/getDouble/getBoolean/getSlice/getObject call
+            body.append(element.set(constantType(binder, elementType).getValue(array, position).cast(elementJavaType)));
         }
         else {
-            return key1.toString().compareTo(key2.toString());
+            body.append(element.set(constantNull(elementJavaType)));
         }
-    }
 
-    private static Object getElementAtPosition(Type elementType, Block array, int position)
-    {
-        if (elementType.getJavaType() == long.class) {
-            return elementType.getLong(array, position);
-        }
-        else if (elementType.getJavaType() == double.class) {
-            return elementType.getDouble(array, position);
-        }
-        else if (elementType.getJavaType() == boolean.class) {
-            return elementType.getBoolean(array, position);
-        }
-        else if (elementType.getJavaType() == Slice.class) {
-            return elementType.getSlice(array, position);
-        }
-        else if (elementType.getJavaType() == Block.class) {
-            return elementType.getObject(array, position);
+        body.append(key.set(keyFunction.invoke("apply", Object.class, element.cast(Object.class)).cast(keyJavaType)));
+
+        // Write the key to the block builder
+        if (!keyType.equals(UNKNOWN)) {
+            body.append(new IfStatement()
+                    .condition(equal(key, constantNull(keyJavaType)))
+                    .ifTrue(keyBlockBuilder.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, keyType).writeValue(keyBlockBuilder, key.cast(keyType.getJavaType()))));
         }
         else {
-            return elementType.getObject(array, position);
+            body.append(keyBlockBuilder.invoke("appendNull", BlockBuilder.class).pop());
+        }
+
+        body.ret();
+
+        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), ArraySortByKeyFunction.class.getClassLoader());
+
+        try {
+            // instantiate generated class and cast to KeyExtractor for direct virtual call
+            return (KeyExtractor) generatedClass.getConstructor().newInstance();
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to instantiate generated key extractor", e);
         }
     }
 
-    private static class ElementWithPosition
+    private static class NullableComparator
+            implements IntComparator
     {
-        private final int position;
-        private final Object element;
-        private final boolean isNull;
+        private final Block array;
+        private final Block keysBlock;
+        private final Type keyType;
 
-        public ElementWithPosition(int position, Object element, boolean isNull)
+        public NullableComparator(Block array, Block keysBlock, Type keyType)
         {
-            this.position = position;
-            this.element = element;
-            this.isNull = isNull;
+            this.array = array;
+            this.keysBlock = keysBlock;
+            this.keyType = keyType;
+        }
+
+        @Override
+        public int compare(int leftIndex, int rightIndex)
+        {
+            boolean leftArrayNull = array.isNull(leftIndex);
+            boolean rightArrayNull = array.isNull(rightIndex);
+
+            if (leftArrayNull && rightArrayNull) {
+                return 0;
+            }
+            if (leftArrayNull) {
+                return 1;
+            }
+            if (rightArrayNull) {
+                return -1;
+            }
+
+            boolean leftKeyNull = keysBlock.isNull(leftIndex);
+            boolean rightKeyNull = keysBlock.isNull(rightIndex);
+
+            if (leftKeyNull && rightKeyNull) {
+                return 0;
+            }
+            if (leftKeyNull) {
+                return 1;
+            }
+            if (rightKeyNull) {
+                return -1;
+            }
+
+            return keyType.compareTo(keysBlock, leftIndex, keysBlock, rightIndex);
+        }
+    }
+
+    private static class NonNullableComparator
+            implements IntComparator
+    {
+        private final Block keysBlock;
+        private final Type keyType;
+
+        public NonNullableComparator(Block keysBlock, Type keyType)
+        {
+            this.keysBlock = keysBlock;
+            this.keyType = keyType;
+        }
+
+        @Override
+        public int compare(int leftIndex, int rightIndex)
+        {
+            return keyType.compareTo(keysBlock, leftIndex, keysBlock, rightIndex);
         }
     }
 }

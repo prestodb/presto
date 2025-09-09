@@ -884,7 +884,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArraySortFunction.class)
-                .scalar(ArraySortByKeyFunction.class)
+                .function(ArraySortByKeyFunction.ARRAY_SORT_BY_KEY_FUNCTION)
                 .scalar(MapSubsetFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)

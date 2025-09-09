@@ -15,6 +15,8 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -24,6 +26,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 
 public class TestArraySortByKeyFunction
@@ -170,5 +173,62 @@ public class TestArraySortByKeyFunction
                 "array_sort(ARRAY['5000000000', '20000000000', '3000000000', '9000000000', '100000000000'], x -> cast(x as bigint))",
                 new ArrayType(createVarcharType(12)),
                 asList("3000000000", "5000000000", "9000000000", "20000000000", "100000000000"));
+    }
+
+    @Test
+    public void testNativeExecutionWithSidecarDisabled()
+    {
+        // Create a test instance with native execution enabled and sidecar explicitly disabled
+        TestArraySortByKeyFunctionNative nativeTest = new TestArraySortByKeyFunctionNative();
+        // Manually initialize the function assertions
+        nativeTest.initTestFunctions();
+        try {
+            // Run the tests
+            nativeTest.testNativeExecution();
+        }
+        finally {
+            // Clean up resources
+            nativeTest.destroyTestFunctions();
+        }
+    }
+
+    private static class TestArraySortByKeyFunctionNative
+            extends AbstractTestFunctions
+    {
+        public TestArraySortByKeyFunctionNative()
+        {
+            // Enable native execution and explicitly disable the sidecar
+            super(testSessionBuilder()
+                    .setSystemProperty("native_execution_enabled", "true")
+                    .build(),
+                    new FeaturesConfig()
+                            .setNativeExecutionEnabled(true),
+                    new FunctionsConfig());
+        }
+
+        @Test
+        public void testNativeExecution()
+        {
+            assertFunction(
+                    "array_sort(ARRAY['apple', NULL, 'banana', NULL, 'cherry'], x -> length(x))",
+                    new ArrayType(createVarcharType(6)),
+                    asList("apple", "banana", "cherry", null, null));
+            assertFunction(
+                    "array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))",
+                    new ArrayType(createVarcharType(6)),
+                    asList("pear", "apple", "banana"));
+            assertFunction(
+                    "array_sort(ARRAY['apple', 'banana', 'cherry', 'date', 'elderberry'], x -> length(x))",
+                    new ArrayType(createVarcharType(10)),
+                    asList("date", "apple", "cherry", "banana", "elderberry"));
+            assertFunction(
+                    "array_sort(ARRAY[ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6, 7, 8, 9]], x -> cardinality(x))",
+                    new ArrayType(new ArrayType(INTEGER)),
+                    asList(asList(4, 5), asList(1, 2, 3), asList(6, 7, 8, 9)));
+            assertFunction(
+                    "array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x)",
+                    new ArrayType(DOUBLE),
+                    asList(Double.NEGATIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY, Double.NaN));
+        }
     }
 }
