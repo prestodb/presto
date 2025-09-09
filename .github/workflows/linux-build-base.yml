@@ -181,7 +181,10 @@ jobs:
           VELOX_DEPENDENCY_SOURCE: BUNDLED
           ICU_SOURCE: SYSTEM
           MAKEFLAGS: NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=3
-          EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_EXAMPLES=ON
+          EXTRA_CMAKE_FLAGS: >-
+            -DCMAKE_LINK_LIBRARIES_STRATEGY=REORDER_FREELY
+            -DVELOX_ENABLE_PARQUET=ON
+            -DVELOX_ENABLE_EXAMPLES=ON
         run: |
           # Faiss (link issue when using Clang) is excluded for Clang compilation and needs to be added back when using GCC.
           if [[ "${USE_CLANG}" = "true" ]]; then

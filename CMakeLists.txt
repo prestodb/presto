@@ -87,7 +87,7 @@ option(
    This will override other build options."
   OFF
 )
-option(VELOX_MONO_LIBRARY "Build single unified library." OFF)
+option(VELOX_MONO_LIBRARY "Build single unified library." ON)
 option(ENABLE_ALL_WARNINGS "Enable -Wall and -Wextra compiler warnings." ON)
 option(VELOX_BUILD_SHARED "Build Velox as shared libraries." OFF)
 option(VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST "Disable Wave branch kernel test." OFF)
