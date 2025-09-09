@@ -38,20 +38,24 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
+import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.iceberg.BaseMetastoreTableOperations;
 import org.apache.iceberg.LocationProviders;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadata.MetadataLogEntry;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
+import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.util.PropertyUtil;
 import org.apache.iceberg.util.Tasks;
 
 import java.io.FileNotFoundException;
@@ -63,13 +67,18 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
+import static com.facebook.presto.iceberg.HiveTableOperations.CommitStatus.FAILED;
+import static com.facebook.presto.iceberg.HiveTableOperations.CommitStatus.SUCCESS;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
@@ -81,8 +90,17 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_STATUS_CHECKS;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_STATUS_CHECKS_DEFAULT;
+import static org.apache.iceberg.TableProperties.COMMIT_STATUS_CHECKS_MAX_WAIT_MS;
+import static org.apache.iceberg.TableProperties.COMMIT_STATUS_CHECKS_MAX_WAIT_MS_DEFAULT;
+import static org.apache.iceberg.TableProperties.COMMIT_STATUS_CHECKS_MIN_WAIT_MS;
+import static org.apache.iceberg.TableProperties.COMMIT_STATUS_CHECKS_MIN_WAIT_MS_DEFAULT;
+import static org.apache.iceberg.TableProperties.COMMIT_STATUS_CHECKS_TOTAL_WAIT_MS;
+import static org.apache.iceberg.TableProperties.COMMIT_STATUS_CHECKS_TOTAL_WAIT_MS_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
@@ -322,12 +340,62 @@ public class HiveTableOperations
                             .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
                             .build(),
                     ImmutableMultimap.of());
-            if (base == null) {
-                metastore.createTable(metastoreContext, table, privileges, emptyList());
+            try {
+                if (base == null) {
+                    metastore.createTable(metastoreContext, table, privileges, emptyList());
+                }
+                else {
+                    PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
+                    metastore.persistTable(metastoreContext, database, tableName, table, privileges, () -> tableStats, useHMSLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));
+                }
             }
-            else {
-                PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
-                metastore.persistTable(metastoreContext, database, tableName, table, privileges, () -> tableStats, useHMSLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));
+            catch (AlreadyExistsException e) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, format("Table already exists: %s.%s", database, tableName), e);
+            }
+            catch (CommitFailedException | CommitStateUnknownException e) {
+                throw e;
+            }
+            catch (Throwable e) {
+                if (e instanceof PrestoException && e.getCause() instanceof InvalidObjectException) {
+                    throw new ValidationException(e, "Invalid Hive object for %s.%s", database, tableName);
+                }
+                if (e.getMessage() != null
+                        && e.getMessage().contains("Table/View 'HIVE_LOCKS' does not exist")) {
+                    throw new PrestoException(ICEBERG_COMMIT_ERROR,
+                            "Failed to acquire locks from metastore because the underlying metastore "
+                                    + "table 'HIVE_LOCKS' does not exist. This can occur when using an embedded metastore which does not "
+                                    + "support transactions. To fix this use an alternative metastore.",
+                            e);
+                }
+                CommitStatus commitStatus;
+                if (e.getMessage() != null
+                        && e.getMessage()
+                        .contains(
+                                "The table has been modified. The parameter value for key '"
+                                        + METADATA_LOCATION_PROP
+                                        + "' is")) {
+                    // It's possible the HMS client incorrectly retries a successful operation, due to network
+                    // issue for example, and triggers this exception. So we need double-check to make sure
+                    // this is really a concurrent modification. Hitting this exception means no pending
+                    // requests, if any, can succeed later, so it's safe to check status in strict mode
+                    commitStatus = checkCommitStatusStrict(newMetadataLocation, metadata);
+                    if (commitStatus == FAILED) {
+                        throw new CommitFailedException(
+                                e, "The table %s.%s has been modified concurrently", database, tableName);
+                    }
+                }
+                else {
+                    // Cannot tell if commit to succeeded, attempting to reconnect and check.
+                    commitStatus = checkCommitStatus(newMetadataLocation, metadata);
+                }
+                switch (commitStatus) {
+                    case SUCCESS:
+                        break;
+                    case FAILED:
+                        throw e;
+                    case UNKNOWN:
+                        throw new CommitStateUnknownException(e);
+                }
             }
             deleteRemovedMetadataFiles(base, metadata);
         }
@@ -511,7 +579,7 @@ public class HiveTableOperations
     {
         return ImmutableMap.of(
                 org.apache.iceberg.hive.HiveTableOperations.NO_LOCK_EXPECTED_KEY,
-                BaseMetastoreTableOperations.METADATA_LOCATION_PROP,
+                METADATA_LOCATION_PROP,
                 org.apache.iceberg.hive.HiveTableOperations.NO_LOCK_EXPECTED_VALUE,
                 metadataLocation);
     }
@@ -520,5 +588,75 @@ public class HiveTableOperations
     public IcebergHiveTableOperationsConfig getConfig()
     {
         return config;
+    }
+
+    /**
+     * Validate if the new metadata location is the current metadata location or present within
+     * previous metadata files.
+     *
+     * @param newMetadataLocation newly written metadata location
+     * @return true if the new metadata location is the current metadata location or present within
+     *     previous metadata files.
+     */
+    private boolean checkCurrentMetadataLocation(String newMetadataLocation)
+    {
+        TableMetadata metadata = refresh();
+        String currentMetadataFileLocation = metadata.metadataFileLocation();
+        return currentMetadataFileLocation.equals(newMetadataLocation)
+                || metadata.previousFiles().stream()
+                .anyMatch(log -> log.file().equals(newMetadataLocation));
+    }
+
+    protected CommitStatus checkCommitStatus(String newMetadataLocation, TableMetadata config)
+    {
+        CommitStatus strictStatus =
+                checkCommitStatusStrict(newMetadataLocation, config);
+        if (strictStatus == FAILED) {
+            return CommitStatus.UNKNOWN;
+        }
+        return strictStatus;
+    }
+
+    protected CommitStatus checkCommitStatusStrict(String newMetadataLocation, TableMetadata config)
+    {
+        Supplier<Boolean> commitStatusSupplier = () -> checkCurrentMetadataLocation(newMetadataLocation);
+
+        int maxAttempts =
+                PropertyUtil.propertyAsInt(
+                        config.properties(), COMMIT_NUM_STATUS_CHECKS, COMMIT_NUM_STATUS_CHECKS_DEFAULT);
+        long minWaitMs =
+                PropertyUtil.propertyAsLong(
+                        config.properties(), COMMIT_STATUS_CHECKS_MIN_WAIT_MS, COMMIT_STATUS_CHECKS_MIN_WAIT_MS_DEFAULT);
+        long maxWaitMs =
+                PropertyUtil.propertyAsLong(
+                        config.properties(), COMMIT_STATUS_CHECKS_MAX_WAIT_MS, COMMIT_STATUS_CHECKS_MAX_WAIT_MS_DEFAULT);
+        long totalRetryMs =
+                PropertyUtil.propertyAsLong(
+                        config.properties(),
+                        COMMIT_STATUS_CHECKS_TOTAL_WAIT_MS,
+                        COMMIT_STATUS_CHECKS_TOTAL_WAIT_MS_DEFAULT);
+
+        AtomicReference<CommitStatus> status = new AtomicReference<CommitStatus>(CommitStatus.UNKNOWN);
+
+        Tasks.foreach(newMetadataLocation)
+                .retry(maxAttempts)
+                .suppressFailureWhenFinished()
+                .exponentialBackoff(minWaitMs, maxWaitMs, totalRetryMs, 2.0)
+                .run(
+                        location -> {
+                            boolean commitSuccess = commitStatusSupplier.get();
+
+                            if (commitSuccess) {
+                                status.set(SUCCESS);
+                            }
+                            else {
+                                status.set(FAILED);
+                            }
+                        });
+        return status.get();
+    }
+
+    public enum CommitStatus {
+        SUCCESS, FAILED, UNKNOWN
     }
 }
