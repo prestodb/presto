@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>7.17.27</dep.elasticsearch.version>
+        <dep.elasticsearch.version>9.0.1</dep.elasticsearch.version>
         <dep.log4j.version>2.24.3</dep.log4j.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <project.build.targetJdk>17</project.build.targetJdk>
@@ -112,7 +112,7 @@
         <dependency>
             <groupId>co.elastic.clients</groupId>
             <artifactId>elasticsearch-java</artifactId>
-            <version>9.0.1</version>
+            <version>${dep.elasticsearch.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
