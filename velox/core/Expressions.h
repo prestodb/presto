@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/Casts.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/vector/BaseVector.h"
@@ -27,8 +28,7 @@ class InputTypedExpr : public ITypedExpr {
       : ITypedExpr{ExprKind::kInput, std::move(type)} {}
 
   bool operator==(const ITypedExpr& other) const final {
-    const auto* casted = dynamic_cast<const InputTypedExpr*>(&other);
-    return casted != nullptr;
+    return is_instance_of<InputTypedExpr>(&other);
   }
 
   std::string toString() const override {
@@ -268,8 +268,7 @@ class FieldAccessTypedExpr : public ITypedExpr {
   FieldAccessTypedExpr(TypePtr type, TypedExprPtr input, std::string name)
       : ITypedExpr{ExprKind::kFieldAccess, std::move(type), {std::move(input)}},
         name_(std::move(name)),
-        isInputColumn_(dynamic_cast<const InputTypedExpr*>(inputs()[0].get())) {
-  }
+        isInputColumn_(is_instance_of<InputTypedExpr>(inputs()[0].get())) {}
 
   const std::string& name() const {
     return name_;
@@ -338,8 +337,9 @@ class DereferenceTypedExpr : public ITypedExpr {
       : ITypedExpr{ExprKind::kDereference, std::move(type), {std::move(input)}},
         index_(index) {
     // Make sure this isn't being used to access a top level column.
-    VELOX_USER_CHECK_NULL(
-        std::dynamic_pointer_cast<const InputTypedExpr>(inputs()[0]));
+    VELOX_USER_CHECK(
+        !is_instance_of<InputTypedExpr>(inputs()[0]),
+        "DereferenceTypedExpr select a subfeild cannot be used to access a top level column");
   }
 
   uint32_t index() const {
@@ -591,7 +591,7 @@ class TypedExprs {
  public:
   /// Returns true if 'expr' is a field access expression.
   static bool isFieldAccess(const TypedExprPtr& expr) {
-    return dynamic_cast<const FieldAccessTypedExpr*>(expr.get()) != nullptr;
+    return is_instance_of<FieldAccessTypedExpr>(expr);
   }
 
   /// Returns 'expr' as FieldAccessTypedExprPtr or null if not field access
@@ -602,7 +602,7 @@ class TypedExprs {
 
   /// Returns true if 'expr' is a constant expression.
   static bool isConstant(const TypedExprPtr& expr) {
-    return dynamic_cast<const ConstantTypedExpr*>(expr.get()) != nullptr;
+    return is_instance_of<ConstantTypedExpr>(expr);
   }
 
   /// Returns 'expr' as ConstantTypedExprPtr or null if not a constant
@@ -613,7 +613,7 @@ class TypedExprs {
 
   /// Returns true if 'expr' is a lambda expression.
   static bool isLambda(const TypedExprPtr& expr) {
-    return dynamic_cast<const LambdaTypedExpr*>(expr.get()) != nullptr;
+    return is_instance_of<LambdaTypedExpr>(expr);
   }
 
   /// Returns 'expr' as LambdaTypedExprPtr or null if not a lambda expression.

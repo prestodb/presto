@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/core/Expressions.h"
+#include "velox/common/Casts.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/SimpleVector.h"
@@ -465,7 +466,7 @@ TypedExprPtr FieldAccessTypedExpr::rewriteInputNames(
   VELOX_CHECK_EQ(1, newInputs.size());
   // Only rewrite name if input in InputTypedExpr. Rewrite in other
   // cases(like dereference) is unsound.
-  if (!std::dynamic_pointer_cast<const InputTypedExpr>(newInputs[0])) {
+  if (!is_instance_of<InputTypedExpr>(newInputs[0])) {
     return std::make_shared<FieldAccessTypedExpr>(type(), newInputs[0], name_);
   }
   auto it = mapping.find(name_);
