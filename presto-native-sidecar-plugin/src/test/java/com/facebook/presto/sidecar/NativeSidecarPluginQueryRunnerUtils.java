@@ -36,7 +36,9 @@ public class NativeSidecarPluginQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
-        queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
+        queryRunner.loadTypeManager(
+                NativeTypeManagerFactory.NAME,
+                ImmutableMap.of());
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }

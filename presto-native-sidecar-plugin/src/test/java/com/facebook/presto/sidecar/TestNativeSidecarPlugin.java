@@ -15,6 +15,7 @@ package com.facebook.presto.sidecar;
 
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
@@ -24,6 +25,7 @@ import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceMana
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProvider;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManager;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -120,7 +122,9 @@ public class TestNativeSidecarPlugin
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
                         "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
-        queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
+        queryRunner.loadTypeManager(
+                NativeTypeManagerFactory.NAME,
+                ImmutableMap.of("sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
@@ -139,6 +143,11 @@ public class TestNativeSidecarPlugin
         checkArgument(functionDefinitionProvider instanceof NativeFunctionDefinitionProvider, "Expected  NativeFunctionDefinitionProvider but got %s", functionDefinitionProvider);
         long functionProviderHttpClientConfigContentSize = ((NativeFunctionDefinitionProvider) functionDefinitionProvider).getHttpClient().getMaxContentLength();
         assertEquals(functionProviderHttpClientConfigContentSize, new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
+
+        TypeManager typeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager().getTypeManagers().get(NativeTypeManagerFactory.NAME);
+        checkArgument(typeManager instanceof NativeTypeManager, "Expected  NativeTypeManager but got  %s", typeManager);
+        long typeManagerHttpClientConfigContentSize = ((NativeTypeManager) typeManager).getHttpClient().getMaxContentLength();
+        assertEquals(typeManagerHttpClientConfigContentSize, new DataSize(SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB, MEGABYTE).toBytes());
     }
 
     @Test

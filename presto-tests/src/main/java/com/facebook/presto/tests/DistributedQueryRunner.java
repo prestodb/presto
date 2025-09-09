@@ -1025,10 +1025,12 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public void loadTypeManager(String typeManagerName)
+    public void loadTypeManager(String typeManagerName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionAndTypeManager().loadTypeManager(typeManagerName);
+            server.getMetadata().getFunctionAndTypeManager().loadTypeManager(
+                    typeManagerName,
+                    properties);
         }
     }
 
