@@ -114,7 +114,7 @@ std::vector<RowVectorPtr> IndexLookupJoinTestBase::generateProbeInput(
   if (equalMatchPct.has_value()) {
     VELOX_CHECK_GE(equalMatchPct.value(), 0);
     VELOX_CHECK_LE(equalMatchPct.value(), 100);
-    for (int i = 0, totalRows = 0; i < numBatches; ++i) {
+    for (int i = 0; i < numBatches; ++i) {
       std::vector<FlatVectorPtr<int64_t>> probeKeyVectors;
       for (int j = 0; j < probeJoinKeys.size(); ++j) {
         probeKeyVectors.push_back(BaseVector::create<FlatVector<int64_t>>(
@@ -123,9 +123,11 @@ std::vector<RowVectorPtr> IndexLookupJoinTestBase::generateProbeInput(
             pool.get()));
       }
       for (int row = 0; row < probeInputs[i]->size();
-           row += numDuplicateProbeRows, totalRows += numDuplicateProbeRows) {
-        if ((totalRows / numDuplicateProbeRows) % 100 < equalMatchPct.value()) {
-          const auto matchKeyRow = folly::Random::rand64(numTableRows);
+           row += numDuplicateProbeRows) {
+        const auto hit =
+            (folly::Random::rand32(rng_) % 100) < equalMatchPct.value();
+        if (hit) {
+          const auto matchKeyRow = folly::Random::rand32(numTableRows, rng_);
           for (int j = 0; j < probeJoinKeys.size(); ++j) {
             for (int k = 0; k < numDuplicateProbeRows; ++k) {
               if (probeKeyVectors[j]->isNullAt(row + k)) {
@@ -137,7 +139,7 @@ std::vector<RowVectorPtr> IndexLookupJoinTestBase::generateProbeInput(
           }
         } else {
           for (int j = 0; j < probeJoinKeys.size(); ++j) {
-            const auto randomValue = folly::Random::rand32() % 4096;
+            const auto randomValue = folly::Random::rand32(rng_) % 4096;
             for (int k = 0; k < numDuplicateProbeRows; ++k) {
               if (probeKeyVectors[j]->isNullAt(row + k)) {
                 continue;
@@ -485,13 +487,16 @@ void IndexLookupJoinTestBase::verifyResultWithMatchColumn(
       rowResultWithMatchMatchColumn
           ->childAt(rowResultWithMatchMatchColumn->childrenSize() - 1)
           ->asFlatVector<bool>();
-
   for (int i = 0; i < resultWithMatchColumn->size(); ++i) {
-    if (matchColumn->valueAtFast(i)) {
-      continue;
-    }
-    for (const auto& lookupColumnVector : lookupColumnVectors) {
-      ASSERT_TRUE(lookupColumnVector->isNullAt(i));
+    const bool match = matchColumn->valueAt(i);
+    if (match) {
+      for (const auto& lookupColumnVector : lookupColumnVectors) {
+        ASSERT_FALSE(lookupColumnVector->isNullAt(i));
+      }
+    } else {
+      for (const auto& lookupColumnVector : lookupColumnVectors) {
+        ASSERT_TRUE(lookupColumnVector->isNullAt(i));
+      }
     }
   }
 }

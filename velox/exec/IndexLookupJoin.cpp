@@ -779,7 +779,7 @@ void IndexLookupJoin::fillOutputMatchRows(
     return;
   }
   VELOX_CHECK_NOT_NULL(rawMatchValues_);
-  bits::fillBits(rawMatchValues_, offset, size, match);
+  bits::fillBits(rawMatchValues_, offset, offset + size, match);
 }
 
 RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(

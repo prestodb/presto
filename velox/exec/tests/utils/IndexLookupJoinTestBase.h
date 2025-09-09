@@ -30,6 +30,11 @@ class IndexLookupJoinTestBase : public HiveConnectorTestBase {
  protected:
   IndexLookupJoinTestBase() = default;
 
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
+    rng_.seed(123);
+  }
+
   struct SequenceTableData {
     RowVectorPtr keyData;
     RowVectorPtr valueData;
@@ -185,5 +190,6 @@ class IndexLookupJoinTestBase : public HiveConnectorTestBase {
   PlanNodeId joinNodeId_;
   PlanNodeId indexScanNodeId_;
   PlanNodeId probeScanNodeId_;
+  folly::Random::DefaultGenerator rng_;
 };
 } // namespace fecebook::velox::exec::test
