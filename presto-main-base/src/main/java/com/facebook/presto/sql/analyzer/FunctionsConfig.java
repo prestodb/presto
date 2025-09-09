@@ -28,6 +28,7 @@ public class FunctionsConfig
 {
     private boolean legacyArrayAgg;
     private boolean useAlternativeFunctionSignatures;
+    private boolean allowMultipleMatchingFunctionSignatures;
     private boolean legacyMapSubscript;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
@@ -85,6 +86,19 @@ public class FunctionsConfig
     public boolean isUseAlternativeFunctionSignatures()
     {
         return useAlternativeFunctionSignatures;
+    }
+
+    @Config("allow-multiple-matching-function-signatures")
+    @ConfigDescription("With velox and native sidecar enabled, allow coordinator to pick one of the multiple matches.")
+    public FunctionsConfig setAllowMultipleMatchingFunctionSignatures(boolean value)
+    {
+        this.allowMultipleMatchingFunctionSignatures = value;
+        return this;
+    }
+
+    public boolean isAllowMultipleMatchingFunctionSignatures()
+    {
+        return allowMultipleMatchingFunctionSignatures;
     }
 
     @Config("deprecated.legacy-map-subscript")

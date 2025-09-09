@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
@@ -49,11 +50,20 @@ import static java.util.Objects.requireNonNull;
 
 public final class FunctionSignatureMatcher
 {
+    private static final Logger log = Logger.get(FunctionSignatureMatcher.class);
+
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final boolean allowMultipleMatchingCandidates;
 
     public FunctionSignatureMatcher(FunctionAndTypeManager functionAndTypeManager)
     {
+        this(functionAndTypeManager, false);
+    }
+
+    public FunctionSignatureMatcher(FunctionAndTypeManager functionAndTypeManager, boolean allowMultipleMatchingCandidates)
+    {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.allowMultipleMatchingCandidates = allowMultipleMatchingCandidates;
     }
 
     public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed)
@@ -112,15 +122,20 @@ public final class FunctionSignatureMatcher
             return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
         }
 
-        StringBuilder errorMessageBuilder = new StringBuilder();
-        errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
-        errorMessageBuilder.append("Candidates are:\n");
+        StringBuilder multipleMatchesMessageBuilder = new StringBuilder();
+        multipleMatchesMessageBuilder.append("Candidates are:\n");
         for (ApplicableFunction function : applicableFunctions) {
-            errorMessageBuilder.append("\t * ");
-            errorMessageBuilder.append(function.getBoundSignature().toString());
-            errorMessageBuilder.append("\n");
+            multipleMatchesMessageBuilder.append("\t * ");
+            multipleMatchesMessageBuilder.append(function.getBoundSignature().toString());
+            multipleMatchesMessageBuilder.append("\n");
         }
-        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
+
+        if (allowMultipleMatchingCandidates) {
+            log.warn("Choosing first matching function candidate.\n" + multipleMatchesMessageBuilder);
+            return Optional.of(applicableFunctions.get(0).getBoundSignature());
+        }
+
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, "Could not choose a best candidate operator. Explicit type casts must be added.\n" + multipleMatchesMessageBuilder);
     }
 
     private List<ApplicableFunction> identifyApplicableFunctions(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)

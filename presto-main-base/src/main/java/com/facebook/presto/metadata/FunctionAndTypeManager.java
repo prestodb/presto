@@ -188,7 +188,7 @@ public class FunctionAndTypeManager
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
-        this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
+        this.functionSignatureMatcher = new FunctionSignatureMatcher(this, functionsConfig.isAllowMultipleMatchingFunctionSignatures());
         this.typeCoercer = new TypeCoercer(functionsConfig, this);
         this.nativeExecution = featuresConfig.isNativeExecutionEnabled();
         this.isBuiltInSidecarFunctionsEnabled = featuresConfig.isBuiltInSidecarFunctionsEnabled();
