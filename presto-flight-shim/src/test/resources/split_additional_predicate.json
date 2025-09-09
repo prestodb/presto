@@ -1,0 +1,91 @@
+{
+"connectorId" : "postgresql",
+"schemaName" : "tpch",
+"tableName" : "orders",
+"tupleDomain" : {
+  "columnDomains" : [ {
+    "column" : {
+      "@type" : "postgresql",
+      "connectorId" : "postgresql",
+      "columnName" : "orderkey",
+      "jdbcTypeHandle" : {
+        "jdbcType" : -5,
+        "jdbcTypeName" : "int8",
+        "columnSize" : 19,
+        "decimalDigits" : 0
+      },
+      "columnType" : "bigint",
+      "nullable" : true
+    },
+    "domain" : {
+      "values" : {
+        "@type" : "sortable",
+        "type" : "bigint",
+        "ranges" : [ {
+          "low" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+            "bound" : "EXACTLY"
+          },
+          "high" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+            "bound" : "EXACTLY"
+          }
+        }, {
+          "low" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAIAAAAAAAAA",
+            "bound" : "EXACTLY"
+          },
+          "high" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAIAAAAAAAAA",
+            "bound" : "EXACTLY"
+          }
+        }, {
+          "low" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA",
+            "bound" : "EXACTLY"
+          },
+          "high" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA",
+            "bound" : "EXACTLY"
+          }
+        } ]
+      },
+      "nullAllowed" : false
+    }
+  } ]
+},
+"additionalProperty" : {
+  "translatedString" : "((orderkey) IN ((?) , (?) , (?)))",
+  "boundConstantValues" : [ {
+    "@type" : "constant",
+    "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+    "type" : "bigint",
+    "sourceLocation" : {
+      "line" : 1,
+      "column" : 22
+    }
+  }, {
+    "@type" : "constant",
+    "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAIAAAAAAAAA",
+    "type" : "bigint",
+    "sourceLocation" : {
+      "line" : 1,
+      "column" : 22
+    }
+  }, {
+    "@type" : "constant",
+    "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA",
+    "type" : "bigint",
+    "sourceLocation" : {
+      "line" : 1,
+      "column" : 22
+    }
+  } ]
+}
+}

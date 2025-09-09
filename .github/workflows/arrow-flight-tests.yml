@@ -66,6 +66,45 @@ jobs:
       - name: Maven Tests
         run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
 
+  arrowflight-shim-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [17.0.15]
+        modules:
+          - :presto-flight-shim # Only run tests for the `presto-flight-shim` module
+
+    timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
+      cancel-in-progress: true
+
+    steps:
+      # Checkout the code only if there are changes in the relevant files
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+          persist-credentials: false
+
+      # Set up Java and dependencies for the build environment
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      - name: Download nodejs to maven cache
+        run: .github/bin/download_nodejs
+
+      # Install dependencies for the target module
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -e -am -pl ${{ matrix.modules }}
+      # Run Maven tests for the target module, excluding native tests
+      - name: Maven Tests
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFederationNativeQueries*"
+
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     container:

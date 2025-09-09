@@ -1,0 +1,40 @@
+{
+  "connectorId" : "postgresql",
+  "schemaName" : "tpch",
+  "tableName" : "lineitem",
+  "tupleDomain" : {
+  "columnDomains" : [ {
+    "column" : {
+      "connectorId" : "postgresql",
+      "columnName" : "orderkey",
+      "jdbcTypeHandle" : {
+        "jdbcType" : -5,
+        "jdbcTypeName" : "bigint",
+        "columnSize" : 8,
+        "decimalDigits" : 0
+      },
+      "columnType" : "bigint",
+      "nullable" : false
+    },
+    "domain" : {
+      "values" : {
+        "@type" : "sortable",
+        "type" : "bigint",
+        "ranges" : [ {
+          "low" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA",
+            "bound" : "EXACTLY"
+          },
+          "high" : {
+            "type" : "bigint",
+            "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA",
+            "bound" : "EXACTLY"
+          }
+        } ]
+      },
+      "nullAllowed" : false
+    }
+  } ]
+  }
+}
