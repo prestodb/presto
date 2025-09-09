@@ -898,6 +898,9 @@ class ShortDecimalType final : public DecimalType<TypeKind::BIGINT> {
 
 class LongDecimalType final : public DecimalType<TypeKind::HUGEINT> {
  public:
+  // Ensure toString from the parent is not hidden.
+  using DecimalType<TypeKind::HUGEINT>::toString;
+
   LongDecimalType(int precision, int scale)
       : DecimalType<TypeKind::HUGEINT>(precision, scale) {}
 

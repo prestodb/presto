@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <array>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/OptionalEmpty.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using facebook::velox::functions::test::FunctionBaseTest;
@@ -2734,7 +2735,9 @@ TEST_F(GeometryFunctionsTest, testStInteriorRings) {
       "POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))",
       {{"LINESTRING (1 1, 2 1, 2 2, 1 2, 1 1)",
         "LINESTRING (3 3, 4 3, 4 4, 3 4, 3 3)"}});
-  testStInteriorRingsFunc("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", {{}});
+  testStInteriorRingsFunc(
+      "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))",
+      facebook::velox::common::testutil::optionalEmpty);
   testStInteriorRingsFunc("POLYGON EMPTY", std::nullopt);
 
   VELOX_ASSERT_USER_THROW(
@@ -2832,7 +2835,9 @@ TEST_F(GeometryFunctionsTest, testFlattenGeometryCollections) {
   testFlattenGeometryCollectionsFunc("POINT (1 5)", {{"POINT (1 5)"}});
   testFlattenGeometryCollectionsFunc(
       "MULTIPOINT ((0 0), (1 1))", {{"MULTIPOINT (0 0, 1 1)"}});
-  testFlattenGeometryCollectionsFunc("GEOMETRYCOLLECTION EMPTY", {{}});
+  testFlattenGeometryCollectionsFunc(
+      "GEOMETRYCOLLECTION EMPTY",
+      facebook::velox::common::testutil::optionalEmpty);
   testFlattenGeometryCollectionsFunc(
       "GEOMETRYCOLLECTION (POINT EMPTY)", {{"POINT EMPTY"}});
   testFlattenGeometryCollectionsFunc(
