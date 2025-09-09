@@ -370,7 +370,8 @@ class QueryConfig {
       "presto.array_agg.ignore_nulls";
 
   /// If true, Spark function's behavior is ANSI-compliant, e.g. throws runtime
-  /// exception instead of returning null on invalid inputs.
+  /// exception instead of returning null on invalid inputs. It affects only
+  /// functions explicitly marked as "ANSI compliant".
   /// Note: This feature is still under development to achieve full ANSI
   /// compliance. Users can refer to the Spark function documentation to verify
   /// the current support status of a specific function.
