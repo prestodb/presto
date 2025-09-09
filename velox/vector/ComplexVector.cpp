@@ -249,7 +249,10 @@ void RowVector::copy(
 void RowVector::setType(const TypePtr& type) {
   BaseVector::setType(type);
   for (auto i = 0; i < childrenSize_; i++) {
-    children_[i]->setType(type_->asRow().childAt(i));
+    auto& child = children_[i];
+    if (child) {
+      child->setType(type_->asRow().childAt(i));
+    }
   }
 }
 

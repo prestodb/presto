@@ -3674,11 +3674,40 @@ TEST_F(VectorTest, hashAll) {
 }
 
 TEST_F(VectorTest, setType) {
+  std::function<void(const VectorPtr&, const TypePtr&)> checkType =
+      [&](const VectorPtr& vector, const TypePtr& type) {
+        EXPECT_EQ(vector->type()->toString(), type->toString());
+        switch (vector->typeKind()) {
+          case TypeKind::ROW: {
+            auto rowVector = vector->as<RowVector>();
+            for (auto i = 0; i < rowVector->childrenSize(); ++i) {
+              auto& child = rowVector->childAt(i);
+              if (child) {
+                checkType(child, type->childAt(i));
+              }
+            }
+            break;
+          }
+          case TypeKind::ARRAY: {
+            checkType(vector->as<ArrayVector>()->elements(), type->childAt(0));
+            break;
+          }
+          case TypeKind::MAP: {
+            auto mapVector = vector->as<MapVector>();
+            checkType(mapVector->mapKeys(), type->childAt(0));
+            checkType(mapVector->mapValues(), type->childAt(1));
+            break;
+          }
+          default:
+            break;
+        }
+      };
+
   auto test = [&](auto& type, auto& newType, auto& invalidNewType) {
     auto vector = BaseVector::create(type, 1'000, pool());
 
     vector->setType(newType);
-    EXPECT_EQ(vector->type()->toString(), newType->toString());
+    checkType(vector, newType);
 
     VELOX_ASSERT_RUNTIME_THROW(
         vector->setType(invalidNewType),
@@ -3728,6 +3757,21 @@ TEST_F(VectorTest, setType) {
                ROW({"ee", "ff"}, {VARCHAR(), BIGINT()})),
            BIGINT()});
   test(type, newType, invalidNewType);
+
+  // Row with missing fields
+  type = ROW({"a", "b"}, {BIGINT(), BIGINT()});
+  newType = ROW({"aa", "bb"}, {BIGINT(), BIGINT()});
+  auto vector = std::make_shared<RowVector>(
+      pool(),
+      type,
+      nullptr,
+      1,
+      std::vector<VectorPtr>{
+          BaseVector::create(BIGINT(), 1, pool()),
+          nullptr,
+      });
+  vector->setType(newType);
+  checkType(vector, newType);
 }
 
 TEST_F(VectorTest, getLargeStringBuffer) {
