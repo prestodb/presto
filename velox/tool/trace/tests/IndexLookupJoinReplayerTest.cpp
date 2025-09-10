@@ -73,7 +73,6 @@ class IndexLookupJoinReplayerTest : public HiveConnectorTestBase {
     probeInput_.clear();
     indexInput_.clear();
     HiveConnectorTestBase::TearDown();
-    connector::unregisterConnectorFactory(kTestIndexConnectorName);
     connector::unregisterConnector(kTestIndexConnectorName);
   }
 

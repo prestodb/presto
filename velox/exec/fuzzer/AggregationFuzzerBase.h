@@ -81,8 +81,6 @@ class AggregationFuzzerBase {
                                       : getFuzzerOptions(timestampPrecision),
             pool_.get()} {
     filesystems::registerLocalFileSystem();
-    connector::registerConnectorFactory(
-        std::make_shared<connector::hive::HiveConnectorFactory>());
     registerHiveConnector(hiveConfigs);
     dwrf::registerDwrfReaderFactory();
     dwrf::registerDwrfWriterFactory();

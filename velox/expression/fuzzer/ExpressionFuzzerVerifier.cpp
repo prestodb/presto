@@ -86,8 +86,6 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
           options_.expressionFuzzerOptions.referenceQueryRunner} {
   parse::registerTypeResolver();
   filesystems::registerLocalFileSystem();
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
   exec::test::registerHiveConnector({});
   dwrf::registerDwrfWriterFactory();
 

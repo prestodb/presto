@@ -30,22 +30,16 @@ class TpcdsConnectorTest : public exec::test::OperatorTestBase {
 
   void SetUp() override {
     OperatorTestBase::SetUp();
-    connector::registerConnectorFactory(
-        std::make_shared<connector::tpcds::TpcdsConnectorFactory>());
-    auto tpcdsConnector =
-        connector::getConnectorFactory(
-            connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName)
-            ->newConnector(
-                kTpcdsConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
-    connector::registerConnector(tpcdsConnector);
+    connector::tpcds::TpcdsConnectorFactory factory;
+    auto connector = factory.newConnector(
+        kTpcdsConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
+    connector::registerConnector(connector);
   }
 
   void TearDown() override {
     connector::unregisterConnector(kTpcdsConnectorId);
-    connector::unregisterConnectorFactory(
-        connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName);
     OperatorTestBase::TearDown();
   }
 

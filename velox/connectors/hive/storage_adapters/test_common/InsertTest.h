@@ -46,8 +46,7 @@ class InsertTest : public velox::test::VectorTestBase {
   void TearDown() {
     parquet::unregisterParquetReaderFactory();
     parquet::unregisterParquetWriterFactory();
-    connector::unregisterConnectorFactory(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName);
+
     connector::unregisterConnector(exec::test::kHiveConnectorId);
   }
 

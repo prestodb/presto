@@ -68,15 +68,11 @@ std::vector<RowVectorPtr> AggregationTestBase::makeVectors(
 void AggregationTestBase::SetUp() {
   OperatorTestBase::SetUp();
   filesystems::registerLocalFileSystem();
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
-  auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(
-              kHiveConnectorId,
-              std::make_shared<config::ConfigBase>(
-                  std::unordered_map<std::string, std::string>()));
+  connector::hive::HiveConnectorFactory factory;
+  auto hiveConnector = factory.newConnector(
+      kHiveConnectorId,
+      std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>()));
   connector::registerConnector(hiveConnector);
   dwrf::registerDwrfReaderFactory();
 }
@@ -84,8 +80,6 @@ void AggregationTestBase::SetUp() {
 void AggregationTestBase::TearDown() {
   dwrf::unregisterDwrfReaderFactory();
   connector::unregisterConnector(kHiveConnectorId);
-  connector::unregisterConnectorFactory(
-      connector::hive::HiveConnectorFactory::kHiveConnectorName);
   OperatorTestBase::TearDown();
 }
 
