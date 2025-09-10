@@ -70,17 +70,15 @@ import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static it.unimi.dsi.fastutil.ints.IntArrays.quickSort;
 
-public final class ArraySortByKeyFunction
+public abstract class AbstractArraySortByKeyFunction
         extends SqlScalarFunction
 {
-    public static final ArraySortByKeyFunction ARRAY_SORT_BY_KEY_FUNCTION = new ArraySortByKeyFunction();
-
     private final ComplexTypeFunctionDescriptor descriptor;
 
-    private ArraySortByKeyFunction()
+    protected AbstractArraySortByKeyFunction(String functionName)
     {
         super(new Signature(
-                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "array_sort"),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, functionName),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("K")),
                 ImmutableList.of(),
@@ -104,15 +102,7 @@ public final class ArraySortByKeyFunction
     @Override
     public boolean isDeterministic()
     {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Sorts the given array using a lambda function to extract sorting keys. " +
-                "Null array elements and null keys are placed at the end. " +
-                "Example: array_sort(ARRAY['apple', 'banana', 'cherry'], x -> length(x))";
+        return true;
     }
 
     @Override
@@ -125,8 +115,9 @@ public final class ArraySortByKeyFunction
         KeyExtractor keyExtractor = generateKeyExtractor(elementType, keyType);
 
         MethodHandle raw = methodHandle(
-                ArraySortByKeyFunction.class,
+                AbstractArraySortByKeyFunction.class,
                 "sortByKey",
+                AbstractArraySortByKeyFunction.class,
                 Type.class,
                 Type.class,
                 KeyExtractor.class,
@@ -134,7 +125,7 @@ public final class ArraySortByKeyFunction
                 Block.class,
                 UnaryFunctionInterface.class);
 
-        MethodHandle bound = MethodHandles.insertArguments(raw, 0, elementType, keyType, keyExtractor);
+        MethodHandle bound = MethodHandles.insertArguments(raw, 0, this, elementType, keyType, keyExtractor);
 
         return new BuiltInScalarFunctionImplementation(
                 false,
@@ -151,6 +142,7 @@ public final class ArraySortByKeyFunction
     }
 
     public static Block sortByKey(
+            AbstractArraySortByKeyFunction function,
             Type elementType,
             Type keyType,
             KeyExtractor keyExtractor,
@@ -189,10 +181,10 @@ public final class ArraySortByKeyFunction
         // Sort indices based on extracted keys using Type's compareTo
         try {
             if (array.mayHaveNull() || keysBlock.mayHaveNull()) {
-                quickSort(indices, new NullableComparator(array, keysBlock, keyType));
+                quickSort(indices, new NullableComparator(array, keysBlock, keyType, function));
             }
             else {
-                quickSort(indices, new NonNullableComparator(keysBlock, keyType));
+                quickSort(indices, new NonNullableComparator(keysBlock, keyType, function));
             }
         }
         catch (NotSupportedException | UnsupportedOperationException e) {
@@ -280,7 +272,7 @@ public final class ArraySortByKeyFunction
 
         body.ret();
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), ArraySortByKeyFunction.class.getClassLoader());
+        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), AbstractArraySortByKeyFunction.class.getClassLoader());
 
         try {
             // instantiate generated class and cast to KeyExtractor for direct virtual call
@@ -291,18 +283,23 @@ public final class ArraySortByKeyFunction
         }
     }
 
+    // Abstract method to be implemented by subclasses to define comparison direction
+    protected abstract int compareKeys(Type keyType, Block keysBlock, int leftIndex, int rightIndex);
+
     private static class NullableComparator
             implements IntComparator
     {
         private final Block array;
         private final Block keysBlock;
         private final Type keyType;
+        private final AbstractArraySortByKeyFunction function;
 
-        public NullableComparator(Block array, Block keysBlock, Type keyType)
+        public NullableComparator(Block array, Block keysBlock, Type keyType, AbstractArraySortByKeyFunction function)
         {
             this.array = array;
             this.keysBlock = keysBlock;
             this.keyType = keyType;
+            this.function = function;
         }
 
         @Override
@@ -334,7 +331,14 @@ public final class ArraySortByKeyFunction
                 return -1;
             }
 
-            return keyType.compareTo(keysBlock, leftIndex, keysBlock, rightIndex);
+            int result = function.compareKeys(keyType, keysBlock, leftIndex, rightIndex);
+
+            // If keys are equal, maintain original order
+            if (result == 0) {
+                return Integer.compare(leftIndex, rightIndex);
+            }
+
+            return result;
         }
     }
 
@@ -343,17 +347,74 @@ public final class ArraySortByKeyFunction
     {
         private final Block keysBlock;
         private final Type keyType;
+        private final AbstractArraySortByKeyFunction function;
 
-        public NonNullableComparator(Block keysBlock, Type keyType)
+        public NonNullableComparator(Block keysBlock, Type keyType, AbstractArraySortByKeyFunction function)
         {
             this.keysBlock = keysBlock;
             this.keyType = keyType;
+            this.function = function;
         }
 
         @Override
         public int compare(int leftIndex, int rightIndex)
         {
+            int result = function.compareKeys(keyType, keysBlock, leftIndex, rightIndex);
+
+            // If keys are equal, maintain original order
+            if (result == 0) {
+                return Integer.compare(leftIndex, rightIndex);
+            }
+
+            return result;
+        }
+    }
+
+    public static class ArraySortByKeyFunction
+            extends AbstractArraySortByKeyFunction
+    {
+        public static final ArraySortByKeyFunction ARRAY_SORT_BY_KEY_FUNCTION = new ArraySortByKeyFunction();
+
+        private ArraySortByKeyFunction()
+        {
+            super("array_sort");
+        }
+
+        @Override
+        public String getDescription()
+        {
+            return "Sorts the given array using a lambda function to extract sorting keys. " +
+                    "Null array elements and null keys are placed at the end. " +
+                    "Example: array_sort(ARRAY['apple', 'banana', 'cherry'], x -> length(x))";
+        }
+
+        @Override
+        protected int compareKeys(Type keyType, Block keysBlock, int leftIndex, int rightIndex)
+        {
             return keyType.compareTo(keysBlock, leftIndex, keysBlock, rightIndex);
+        }
+    }
+
+    public static class ArraySortDescByKeyFunction
+            extends AbstractArraySortByKeyFunction
+    {
+        public static final ArraySortDescByKeyFunction ARRAY_SORT_DESC_BY_KEY_FUNCTION = new ArraySortDescByKeyFunction();
+
+        private ArraySortDescByKeyFunction()
+        {
+            super("array_sort_desc");
+        }
+
+        @Override
+        public String getDescription()
+        {
+            return "Sorts the given array in descending order using a lambda function to extract sorting keys";
+        }
+
+        @Override
+        protected int compareKeys(Type keyType, Block keysBlock, int leftIndex, int rightIndex)
+        {
+            return keyType.compareTo(keysBlock, rightIndex, keysBlock, leftIndex);
         }
     }
 }

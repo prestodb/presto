@@ -108,6 +108,7 @@ import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleF
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchWithKAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction;
+import com.facebook.presto.operator.scalar.AbstractArraySortByKeyFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -144,7 +145,6 @@ import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
 import com.facebook.presto.operator.scalar.ArraySliceFunction;
-import com.facebook.presto.operator.scalar.ArraySortByKeyFunction;
 import com.facebook.presto.operator.scalar.ArraySortComparatorFunction;
 import com.facebook.presto.operator.scalar.ArraySortFunction;
 import com.facebook.presto.operator.scalar.ArraySumBigIntFunction;
@@ -884,7 +884,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArraySortFunction.class)
-                .function(ArraySortByKeyFunction.ARRAY_SORT_BY_KEY_FUNCTION)
+                .function(AbstractArraySortByKeyFunction.ArraySortByKeyFunction.ARRAY_SORT_BY_KEY_FUNCTION)
+                .function(AbstractArraySortByKeyFunction.ArraySortDescByKeyFunction.ARRAY_SORT_DESC_BY_KEY_FUNCTION)
                 .scalar(MapSubsetFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
