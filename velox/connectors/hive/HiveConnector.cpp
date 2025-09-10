@@ -28,14 +28,6 @@ using namespace facebook::velox::exec;
 
 namespace facebook::velox::connector::hive {
 
-namespace {
-std::vector<std::unique_ptr<HiveConnectorMetadataFactory>>&
-hiveConnectorMetadataFactories() {
-  static std::vector<std::unique_ptr<HiveConnectorMetadataFactory>> factories;
-  return factories;
-}
-} // namespace
-
 HiveConnector::HiveConnector(
     const std::string& id,
     std::shared_ptr<const config::ConfigBase> config,
@@ -58,12 +50,6 @@ HiveConnector::HiveConnector(
   } else {
     LOG(INFO) << "Hive connector " << connectorId()
               << " created with file handle cache disabled";
-  }
-  for (auto& factory : hiveConnectorMetadataFactories()) {
-    metadata_ = factory->create(this);
-    if (metadata_ != nullptr) {
-      break;
-    }
   }
 }
 
@@ -204,12 +190,6 @@ void HivePartitionFunctionSpec::registerSerDe() {
   auto& registry = DeserializationWithContextRegistryForSharedPtr();
   registry.Register(
       "HivePartitionFunctionSpec", HivePartitionFunctionSpec::deserialize);
-}
-
-bool registerHiveConnectorMetadataFactory(
-    std::unique_ptr<HiveConnectorMetadataFactory> factory) {
-  hiveConnectorMetadataFactories().push_back(std::move(factory));
-  return true;
 }
 
 } // namespace facebook::velox::connector::hive

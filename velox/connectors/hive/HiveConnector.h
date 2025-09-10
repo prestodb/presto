@@ -38,11 +38,6 @@ class HiveConnector : public Connector {
     return true;
   }
 
-  ConnectorMetadata* metadata() const override {
-    VELOX_CHECK_NOT_NULL(metadata_);
-    return metadata_.get();
-  }
-
   std::unique_ptr<DataSource> createDataSource(
       const RowTypePtr& outputType,
       const ConnectorTableHandlePtr& tableHandle,
@@ -85,7 +80,6 @@ class HiveConnector : public Connector {
   const std::shared_ptr<HiveConfig> hiveConfig_;
   FileHandleFactory fileHandleFactory_;
   folly::Executor* ioExecutor_;
-  std::shared_ptr<ConnectorMetadata> metadata_;
 };
 
 class HiveConnectorFactory : public ConnectorFactory {
@@ -156,22 +150,5 @@ class HivePartitionFunctionSpec : public core::PartitionFunctionSpec {
   const std::vector<column_index_t> channels_;
   const std::vector<VectorPtr> constValues_;
 };
-
-/// Hook for connecting metadata functions to a HiveConnector. Each registered
-/// factory is called after initializing a HiveConnector until one of these
-/// returns a ConnectorMetadata instance.
-class HiveConnectorMetadataFactory {
- public:
-  virtual ~HiveConnectorMetadataFactory() = default;
-
-  /// Returns a ConnectorMetadata to complete'hiveConnector' if 'this'
-  /// recognizes a data source, e.g. local file system or remote metadata
-  /// service associated to configs in 'hiveConnector'.
-  virtual std::shared_ptr<ConnectorMetadata> create(
-      HiveConnector* connector) = 0;
-};
-
-bool registerHiveConnectorMetadataFactory(
-    std::unique_ptr<HiveConnectorMetadataFactory>);
 
 } // namespace facebook::velox::connector::hive

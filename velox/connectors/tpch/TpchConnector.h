@@ -179,14 +179,6 @@ class TpchConnector final : public Connector {
       CommitStrategy /*commitStrategy*/) override final {
     VELOX_NYI("TpchConnector does not support data sink.");
   }
-
-  ConnectorMetadata* metadata() const override {
-    VELOX_CHECK_NOT_NULL(metadata_);
-    return metadata_.get();
-  }
-
- private:
-  std::shared_ptr<ConnectorMetadata> metadata_;
 };
 
 class TpchConnectorFactory : public ConnectorFactory {
@@ -206,16 +198,5 @@ class TpchConnectorFactory : public ConnectorFactory {
     return std::make_shared<TpchConnector>(id, config, ioExecutor);
   }
 };
-
-class TpchConnectorMetadataFactory {
- public:
-  virtual std::shared_ptr<ConnectorMetadata> create(
-      TpchConnector* connector) = 0;
-
-  virtual ~TpchConnectorMetadataFactory() = default;
-};
-
-bool registerTpchConnectorMetadataFactory(
-    std::unique_ptr<TpchConnectorMetadataFactory>);
 
 } // namespace facebook::velox::connector::tpch
