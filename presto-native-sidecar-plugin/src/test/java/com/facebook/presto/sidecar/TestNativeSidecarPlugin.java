@@ -220,6 +220,7 @@ public class TestNativeSidecarPlugin
                 "date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
         assertQuery("SELECT mod(orderkey, linenumber) FROM lineitem");
         assertQueryFails("SELECT IF(true, 0/0, 1)", "[\\s\\S]*/ by zero native.default.fail[\\s\\S]*");
+        assertQuery("select CASE WHEN true THEN 'Yes' ELSE 'No' END");
     }
 
     @Test
@@ -353,6 +354,11 @@ public class TestNativeSidecarPlugin
     {
         assertQuery("select lower(table_name) from information_schema.tables "
                 + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
+        assertQuery("SELECT table_name, CASE WHEN abs(ordinal_position) > 3 THEN 'high' WHEN abs(ordinal_position) > 1 THEN 'medium' ELSE 'low' END as position_category, COUNT(*) \n" +
+                "FROM information_schema.columns " +
+                "WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region', 'lineitem', 'orders') " +
+                "GROUP BY table_name, CASE WHEN abs(ordinal_position) > 3 THEN 'high' WHEN abs(ordinal_position) > 1 THEN 'medium' ELSE 'low' END " +
+                "ORDER BY table_name, position_category");
     }
 
     @Test
