@@ -533,8 +533,6 @@ class ConnectorQueryCtx {
   bool selectiveNimbleReaderEnabled_{false};
 };
 
-class ConnectorMetadata;
-
 class Connector {
  public:
   explicit Connector(
@@ -556,12 +554,6 @@ class Connector {
   /// generated during query execution.
   virtual bool canAddDynamicFilter() const {
     return false;
-  }
-
-  /// Returns a ConnectorMetadata for accessing table
-  /// information.
-  virtual ConnectorMetadata* metadata() const {
-    VELOX_UNSUPPORTED();
   }
 
   virtual std::unique_ptr<DataSource> createDataSource(
