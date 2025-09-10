@@ -513,5 +513,13 @@ for more details.
     given zoom level. Empty inputs return an empty array, and null inputs return
     null.
 
+.. function:: geometry_to_dissolved_bing_tiles(geometry: Geometry, max_zoom_level: tinyint) -> tile: array(BingTile)
+
+    Returns the minimum set of Bing tiles that fully covers a given geometry at a
+    given zoom level, recursively dissolving full sets of children into parents.
+    This results in a smaller array of tiles of different zoom levels.
+    For example, if the non-dissolved covering is [“00”, “01”, “02”, “03”, “10”],
+    the dissolved covering would be [“0”, “10”]. Zoom levels from 0 to 23 are supported.
+
 .. _OpenGIS Specifications: https://www.ogc.org/standards/ogcapi-features/
 .. _SQL/MM Part 3: Spatial: https://www.iso.org/standard/31369.html

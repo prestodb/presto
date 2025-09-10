@@ -3454,3 +3454,241 @@ TEST_F(GeometryFunctionsTest, testGeometryToBingTiles) {
           std::optional<std::string>("POLYGON ((0 0, 0 20, 20 20, 0 0))"),
           std::optional<int32_t>(14)));
 }
+
+TEST_F(GeometryFunctionsTest, testGeometryToDissolvedBingTiles) {
+  const auto testGeometryToDissolvedBingTilesFunc = [&](const std::optional<
+                                                            std::string>& wkt,
+                                                        const std::optional<
+                                                            int32_t> zoom,
+                                                        const std::optional<
+                                                            std::vector<
+                                                                std::optional<
+                                                                    std::
+                                                                        string>>>&
+                                                            expectedQuadKeys) {
+    std::vector<std::optional<std::string>> wktVec = {wkt};
+    auto inputWkt = makeNullableFlatVector<std::string>(wktVec);
+    std::vector<std::optional<int32_t>> zoomVec = {zoom};
+    auto inputZoom = makeNullableFlatVector<int32_t>(zoomVec);
+    auto inputVec = makeRowVector({inputWkt, inputZoom});
+
+    facebook::velox::VectorPtr output = evaluate(
+        "ARRAY_SORT(TRANSFORM(geometry_to_dissolved_bing_tiles(ST_GeometryFromText(c0), c1), x -> bing_tile_quadkey(x)))",
+        inputVec);
+
+    auto arrayVector =
+        std::dynamic_pointer_cast<facebook::velox::ArrayVector>(output);
+
+    if (expectedQuadKeys.has_value()) {
+      ASSERT_TRUE(arrayVector != nullptr);
+      auto expected = makeNullableArrayVector<std::string>({expectedQuadKeys});
+      facebook::velox::test::assertEqualVectors(expected, output);
+    } else {
+      ASSERT_TRUE(output->isNullAt(0));
+    }
+  };
+
+  // Empty geometries
+  testGeometryToDissolvedBingTilesFunc("POINT EMPTY", 0, {{}});
+  testGeometryToDissolvedBingTilesFunc("POINT EMPTY", 10, {{}});
+  testGeometryToDissolvedBingTilesFunc("POINT EMPTY", 23, {{}});
+  testGeometryToDissolvedBingTilesFunc("POLYGON EMPTY", 10, {{}});
+  testGeometryToDissolvedBingTilesFunc("GEOMETRYCOLLECTION EMPTY", 10, {{}});
+
+  // Geometries at tile borders
+  testGeometryToDissolvedBingTilesFunc("POINT (0 0)", 0, {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT ({} 0)", BingTileType::kMinLongitude), 0, {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT ({} 0)", BingTileType::kMaxLongitude), 0, {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT (0 {})", BingTileType::kMinLatitude), 0, {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT (0 {})", BingTileType::kMaxLatitude), 0, {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMinLongitude,
+          BingTileType::kMinLatitude),
+      0,
+      {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMinLongitude,
+          BingTileType::kMaxLatitude),
+      0,
+      {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMaxLongitude,
+          BingTileType::kMaxLatitude),
+      0,
+      {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMaxLongitude,
+          BingTileType::kMinLatitude),
+      0,
+      {{""}});
+  testGeometryToDissolvedBingTilesFunc("POINT (0 0)", 1, {{"3"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT ({} 0)", BingTileType::kMinLongitude), 1, {{"2"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT ({} 0)", BingTileType::kMaxLongitude), 1, {{"3"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT (0 {})", BingTileType::kMinLatitude), 1, {{"3"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format("POINT (0 {})", BingTileType::kMaxLatitude), 1, {{"1"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMinLongitude,
+          BingTileType::kMinLatitude),
+      1,
+      {{"2"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMinLongitude,
+          BingTileType::kMaxLatitude),
+      1,
+      {{"0"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMaxLongitude,
+          BingTileType::kMaxLatitude),
+      1,
+      {{"1"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "POINT ({} {})",
+          BingTileType::kMaxLongitude,
+          BingTileType::kMinLatitude),
+      1,
+      {{"3"}});
+  testGeometryToDissolvedBingTilesFunc("LINESTRING (-1 0, -2 0)", 1, {{"2"}});
+  testGeometryToDissolvedBingTilesFunc("LINESTRING (1 0, 2 0)", 1, {{"3"}});
+  testGeometryToDissolvedBingTilesFunc("LINESTRING (0 -1, 0 -2)", 1, {{"3"}});
+  testGeometryToDissolvedBingTilesFunc("LINESTRING (0 1, 0 2)", 1, {{"1"}});
+
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "LINESTRING ({} 1, {} 2)",
+          BingTileType::kMinLongitude,
+          BingTileType::kMinLongitude),
+      1,
+      {{"0"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "LINESTRING ({} -1, {} -2)",
+          BingTileType::kMinLongitude,
+          BingTileType::kMinLongitude),
+      1,
+      {{"2"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "LINESTRING ({} 1, {} 2)",
+          BingTileType::kMaxLongitude,
+          BingTileType::kMaxLongitude),
+      1,
+      {{"1"}});
+  testGeometryToDissolvedBingTilesFunc(
+      fmt::format(
+          "LINESTRING ({} -1, {} -2)",
+          BingTileType::kMaxLongitude,
+          BingTileType::kMaxLongitude),
+      1,
+      {{"3"}});
+
+  // General Geometries
+  testGeometryToDissolvedBingTilesFunc("POINT (60 30.12)", 0, {{""}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POINT (60 30.12)", 10, {{"1230301230"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POINT (60 30.12)", 15, {{"123030123010121"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POINT (60 30.12)", 16, {{"1230301230101212"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))",
+      6,
+      {{"12222", "300000", "300001"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POLYGON ((0 0, 0 10, 10 10, 0 0))",
+      6,
+      {{"122220", "122221", "122222", "300000"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, {{"033", "122", "211"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+      6,
+      {{"033321",
+        "033323",
+        "03333",
+        "122220",
+        "122221",
+        "122222",
+        "211101",
+        "211102",
+        "211103",
+        "211110",
+        "211111",
+        "211112",
+        "211120",
+        "211121"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "GEOMETRYCOLLECTION (POINT (60 30.12))", 10, {{"1230301230"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "GEOMETRYCOLLECTION (POINT (60 30.12))", 15, {{"123030123010121"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+      3,
+      {{"033", "122", "211"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+      3,
+      {{"033", "122", "123", "211"}});
+  testGeometryToDissolvedBingTilesFunc(
+      "GEOMETRYCOLLECTION (POINT (0.1 0.1), POINT(0.1 -0.1), POINT(-0.1 -0.1), POINT(-0.1 0.1))",
+      3,
+      {{"033", "122", "211", "300"}});
+
+  ASSERT_EQ(
+      2320,
+      evaluateOnce<int64_t>(
+          "cardinality(geometry_to_dissolved_bing_tiles(ST_GeometryFromText(c0), c1))",
+          std::optional<std::string>("POLYGON ((0 0, 0 20, 20 20, 0 0))"),
+          std::optional<int32_t>(14)));
+
+  // Invalid inputs
+  // Longitude out of range
+  VELOX_ASSERT_USER_THROW(
+      testGeometryToDissolvedBingTilesFunc(
+          "POINT (600 30.12)", 10, std::nullopt),
+      "Longitude span for the geometry must be in [-180.00, 180.00] range");
+  VELOX_ASSERT_USER_THROW(
+      testGeometryToDissolvedBingTilesFunc(
+          "POLYGON ((1000 10, -10 10, -20 -15, 1000 10))", 10, std::nullopt),
+      "Longitude span for the geometry must be in [-180.00, 180.00] range");
+  // Latitude out of range
+  VELOX_ASSERT_USER_THROW(
+      testGeometryToDissolvedBingTilesFunc(
+          "POINT (60 300.12)", 10, std::nullopt),
+      "Latitude span for the geometry must be in [-85.05, 85.05] range");
+  VELOX_ASSERT_USER_THROW(
+      testGeometryToDissolvedBingTilesFunc(
+          "POLYGON ((10 1000, -10 10, -20 -15, 10 1000))", 10, std::nullopt),
+      "Latitude span for the geometry must be in [-85.05, 85.05] range");
+  // Invalid zoom
+  VELOX_ASSERT_USER_THROW(
+      testGeometryToDissolvedBingTilesFunc(
+          "POINT (60 30.12)", -1, std::nullopt),
+      "Zoom level must be between 0 and 23");
+  VELOX_ASSERT_USER_THROW(
+      testGeometryToDissolvedBingTilesFunc(
+          "POINT (60 30.12)", 24, std::nullopt),
+      "Zoom level must be between 0 and 23");
+}
