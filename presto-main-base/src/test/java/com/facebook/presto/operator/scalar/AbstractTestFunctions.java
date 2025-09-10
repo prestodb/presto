@@ -30,6 +30,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.tests.operator.scalar.TestFunctions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.intellij.lang.annotations.Language;
@@ -52,6 +53,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
+        implements TestFunctions
 {
     private static final double DELTA = 1e-5;
 
@@ -113,7 +115,8 @@ public abstract class AbstractTestFunctions
         return functionAssertions.getFunctionAndTypeManager();
     }
 
-    protected void assertFunction(String projection, Type expectedType, Object expected)
+    @Override
+    public void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
@@ -215,7 +218,8 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
     }
 
-    protected void assertNotSupported(String projection, String message)
+    @Override
+    public void assertNotSupported(String projection, String message)
     {
         try {
             functionAssertions.executeProjectionWithFullEngine(projection);

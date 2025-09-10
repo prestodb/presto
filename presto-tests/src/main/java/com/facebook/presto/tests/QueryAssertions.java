@@ -408,7 +408,7 @@ public final class QueryAssertions
         }
     }
 
-    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, boolean usePatternMatcher)
+    public static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, boolean usePatternMatcher)
     {
         if (usePatternMatcher) {
             Pattern p = Pattern.compile(regex, Pattern.MULTILINE);
