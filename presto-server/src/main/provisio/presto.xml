@@ -28,7 +28,7 @@
         <artifact id="${project.groupId}:presto-main:${project.version}" />
     </artifactSet>
 
-    <!-- Plugins -->
+    <!-- Java Plugins -->
     <artifactSet to="plugin/resource-group-managers">
         <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
             <unpack />
@@ -281,19 +281,92 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/native-sidecar-plugin">
-        <artifact id="${project.groupId}:presto-native-sidecar-plugin:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/sql-invoked-functions-plugin">
         <artifact id="${project.groupId}:presto-sql-invoked-functions-plugin:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/native-sql-invoked-functions-plugin">
+    <!-- Native Plugins -->
+    <artifactSet to="native-plugin/resource-group-managers">
+        <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/password-authenticators">
+        <artifact id="${project.groupId}:presto-password-authenticators:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/file-session-property-manager">
+        <artifact id="${project.groupId}:presto-file-session-property-manager:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/db-session-property-manager">
+        <artifact id="${project.groupId}:presto-db-session-property-manager:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/function-namespace-managers">
+        <artifact id="${project.groupId}:presto-function-namespace-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/jmx">
+        <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/hive-hadoop2">
+        <artifact id="${project.groupId}:presto-hive-hadoop2:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/ml">
+        <artifact id="${project.groupId}:presto-ml:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/prometheus">
+        <artifact id="${project.groupId}:presto-prometheus:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/tpch">
+        <artifact id="${project.groupId}:presto-tpch:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/tpcds">
+        <artifact id="${project.groupId}:presto-tpcds:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/iceberg">
+        <artifact id="${project.groupId}:presto-iceberg:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/native-sidecar-plugin">
+        <artifact id="${project.groupId}:presto-native-sidecar-plugin:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="native-plugin/native-sql-invoked-functions-plugin">
         <artifact id="${project.groupId}:presto-native-sql-invoked-functions-plugin:zip:${project.version}">
             <unpack />
         </artifact>
