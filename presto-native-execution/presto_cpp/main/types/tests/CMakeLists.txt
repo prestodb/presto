@@ -35,7 +35,7 @@ target_link_libraries(
   velox_hive_partition_function)
 
 add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
-                                       PlanConverterTest.cpp)
+                                       PlanConverterTest.cpp TypeParserTest.cpp)
 
 add_test(
   NAME presto_expressions_test
