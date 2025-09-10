@@ -77,6 +77,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.LongStream;
+import java.util.UUID;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
@@ -405,6 +406,48 @@ public class TestHiveIntegrationSmokeTest
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        String schemaPattern = schema.replaceAll(".$", "_");
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "false")
+                .build();
+
+        String uniqueSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String tableName = "orders_" + uniqueSuffix;        String tempTableName = "orders_" + uniqueSuffix;
+        String createTable = "CREATE TABLE\n" + tempTableName  +
+                " AS SELECT * FROM orders\n";
+        assertUpdate(session, createTable, 15000);
+        @Language("SQL") String ordersTableWithColumns = "VALUES " +
+                "('" + tempTableName + "', 'orderkey'), " +
+                "('" + tempTableName + "', 'custkey'), " +
+                "('" + tempTableName + "', 'orderstatus'), " +
+                "('" + tempTableName + "', 'totalprice'), " +
+                "('" + tempTableName + "', 'orderdate'), " +
+                "('" + tempTableName + "', 'orderpriority'), " +
+                "('" + tempTableName + "', 'clerk'), " +
+                "('" + tempTableName + "', 'shippriority'), " +
+                "('" + tempTableName + "', 'comment')";
+        try {
+            assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+            assertQuery("SELECT table_name FROM dcolumns WHERE table_name = '" + tempTableName + "' GROUP BY table_name", "VALUES '" + tempTableName + "'");
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tempTableName + "'", ordersTableWithColumns);
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + uniqueSuffix.substring(0, 5) + "%' ESCAPE '\\'", ordersTableWithColumns);
+            assertQuery(
+                    "SELECT table_name, column_name FROM information_schema.columns " +
+                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE 'orders\\_" + uniqueSuffix.substring(0, 5) + "%' ESCAPE '\\'",
+                    ordersTableWithColumns);
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE " + tempTableName);
+        }
+    }
+
 
     @Test
     public void testCreatePartitionedTable()
