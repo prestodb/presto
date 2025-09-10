@@ -11,22 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package com.facebook.presto.nativetests;
 
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.tests.operator.scalar.AbstractTestArraySort;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 
 public class TestArraySortFunction
-        extends AbstractTestFunctions implements AbstractTestArraySort
+        extends AbstractTestNativeFunctions implements AbstractTestArraySort
 {
     @Test
     public void testArraySortVarchar()
     {
         assertFunction("array_sort(array['x', 'a', 'a', 'a', 'a', 'm', 'j', 'p'])",
-                new ArrayType(createVarcharType(1)), ImmutableList.of("a", "a", "a", "a", "j", "m", "p", "x"));
+                new ArrayType(createUnboundedVarcharType()), ImmutableList.of("a", "a", "a", "a", "j", "m", "p", "x"));
     }
 }
