@@ -13,30 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.type.ArrayType;
-import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
-
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static java.util.Arrays.asList;
+import com.facebook.presto.tests.operator.scalar.AbstractTestArraySort;
 
 public class TestArraySortFunction
         extends AbstractTestFunctions
+        implements AbstractTestArraySort
 {
-    @Test
-    public void testArraySort()
-    {
-        assertFunction("array_sort(ARRAY [5, 20, null, 5, 3, 50]) ", new ArrayType(INTEGER),
-                asList(3, 5, 5, 20, 50, null));
-        assertFunction("array_sort(array['x', 'a', 'a', 'a', 'a', 'm', 'j', 'p'])",
-                new ArrayType(createVarcharType(1)), ImmutableList.of("a", "a", "a", "a", "j", "m", "p", "x"));
-        assertFunction("array_sort(sequence(-4, 3))", new ArrayType(BIGINT),
-                asList(-4L, -3L, -2L, -1L, 0L, 1L, 2L, 3L));
-        assertFunction("array_sort(reverse(sequence(-4, 3)))", new ArrayType(BIGINT),
-                asList(-4L, -3L, -2L, -1L, 0L, 1L, 2L, 3L));
-        assertFunction("repeat(1,4)", new ArrayType(INTEGER), asList(1, 1, 1, 1));
-        assertFunction("cast(array[] as array<int>)", new ArrayType(INTEGER), asList());
-    }
 }

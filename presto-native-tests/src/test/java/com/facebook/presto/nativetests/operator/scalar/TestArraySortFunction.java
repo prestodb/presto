@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package com.facebook.presto.nativetests.operator.scalar;
 
-import com.facebook.presto.tests.operator.scalar.AbstractTestArrayExcept;
+import com.facebook.presto.tests.operator.scalar.AbstractTestArraySort;
 
-public class TestArrayExceptFunction
-        extends AbstractTestFunctions
-        implements AbstractTestArrayExcept
+public class TestArraySortFunction
+        extends AbstractTestNativeFunctions
+        implements AbstractTestArraySort
 {
 }

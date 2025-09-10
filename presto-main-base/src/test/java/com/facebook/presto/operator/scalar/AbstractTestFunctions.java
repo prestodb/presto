@@ -30,6 +30,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.tests.operator.scalar.TestFunctions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.intellij.lang.annotations.Language;
@@ -52,6 +53,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
+        implements TestFunctions
 {
     private static final double DELTA = 1e-5;
 
@@ -113,7 +115,15 @@ public abstract class AbstractTestFunctions
         return functionAssertions.getFunctionAndTypeManager();
     }
 
-    protected void assertFunction(String projection, Type expectedType, Object expected)
+    /// Projection is rewritten only for native tests.
+    @Override
+    public void assertFunctionNoRewrite(String projection, Type expectedType, Object expected)
+    {
+        assertFunction(projection, expectedType, expected);
+    }
+
+    @Override
+    public void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
